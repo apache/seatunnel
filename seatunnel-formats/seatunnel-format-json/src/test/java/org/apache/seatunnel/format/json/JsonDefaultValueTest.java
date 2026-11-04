@@ -372,6 +372,117 @@ public class JsonDefaultValueTest {
     }
 
     @Test
+    public void testMissingOnlyDefaultsPreserveNullAfterSerialization() throws Exception {
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of("number", BasicType.INT_TYPE, (Long) null, true, 18, null),
+                    PhysicalColumn.of(
+                            "date",
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            (Long) null,
+                            true,
+                            "2024-01-01",
+                            null),
+                    PhysicalColumn.of(
+                            "timestamp",
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            (Long) null,
+                            true,
+                            "2024-01-01 12:30:45",
+                            null),
+                    PhysicalColumn.of(
+                            "tags",
+                            ArrayType.INT_ARRAY_TYPE,
+                            (Long) null,
+                            true,
+                            Arrays.asList(1, 2),
+                            null),
+                    PhysicalColumn.of(
+                            "attrs",
+                            new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
+                            (Long) null,
+                            true,
+                            Collections.singletonMap("k", "v"),
+                            null),
+                    PhysicalColumn.of(
+                            "blob",
+                            PrimitiveByteArrayType.INSTANCE,
+                            (Long) null,
+                            true,
+                            new byte[] {1, 2},
+                            null)
+                };
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.of("test.test_table")),
+                        TableSchema.builder().columns(Arrays.asList(columns)).build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "test table");
+        for (boolean preserveExplicitNull : new boolean[] {false, true}) {
+            JsonDeserializationSchema schema =
+                    new JsonDeserializationSchema(table, true, false, preserveExplicitNull);
+            for (int round = 0; round < 2; round++) {
+                SeaTunnelRow missing = schema.deserialize("{}");
+                assertEquals(18, missing.getField(0));
+                assertEquals(LocalDate.of(2024, 1, 1), missing.getField(1));
+                assertEquals(LocalDateTime.of(2024, 1, 1, 12, 30, 45), missing.getField(2));
+                Assertions.assertArrayEquals(new Integer[] {1, 2}, (Integer[]) missing.getField(3));
+                assertEquals(Collections.singletonMap("k", "v"), missing.getField(4));
+                Assertions.assertArrayEquals(new byte[] {1, 2}, (byte[]) missing.getField(5));
+                SeaTunnelRow explicitNull =
+                        schema.deserialize(
+                                "{\"number\":null,\"date\":null,\"timestamp\":null,\"tags\":null,\"attrs\":null,\"blob\":null}");
+                if (preserveExplicitNull) {
+                    Assertions.assertArrayEquals(
+                            new Object[columns.length], explicitNull.getFields());
+                } else {
+                    Assertions.assertArrayEquals(missing.getFields(), explicitNull.getFields());
+                }
+                SeaTunnelRow provided =
+                        schema.deserialize(
+                                "{\"number\":42,\"date\":null,\"timestamp\":null,\"tags\":[],\"attrs\":{},\"blob\":\"AwQ=\"}");
+                assertEquals(42, provided.getField(0));
+                Assertions.assertArrayEquals(new Integer[0], (Integer[]) provided.getField(3));
+                assertEquals(Collections.emptyMap(), provided.getField(4));
+                Assertions.assertArrayEquals(new byte[] {3, 4}, (byte[]) provided.getField(5));
+                SeaTunnelRow next = schema.deserialize("{}");
+                Assertions.assertNotSame(missing.getField(3), next.getField(3));
+                Assertions.assertNotSame(missing.getField(4), next.getField(4));
+                Assertions.assertNotSame(missing.getField(5), next.getField(5));
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+                    output.writeObject(schema);
+                }
+                try (ObjectInputStream input =
+                        new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+                    schema = (JsonDeserializationSchema) input.readObject();
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testMissingOnlyDynamicDefaultsDoNotEvaluateExplicitNull() throws IOException {
+        Instant now = Instant.parse("2024-01-15T10:20:30.123456789Z");
+        try (MockedStatic<JsonToRowConverters> clock =
+                mockStatic(JsonToRowConverters.class, CALLS_REAL_METHODS)) {
+            clock.when(JsonToRowConverters::currentInstant).thenReturn(now);
+            JsonDeserializationSchema schema = createDynamicTemporalDefaultSchema(true);
+            clock.clearInvocations();
+            SeaTunnelRow row =
+                    schema.deserialize(
+                            "{\"current_date\":null,\"current_time\":null,\"current_timestamp\":null,\"current_timestamp_tz\":null}");
+            for (int i = 0; i < 4; i++) {
+                assertNull(row.getField(i));
+            }
+            clock.verify(JsonToRowConverters::currentInstant, times(0));
+            assertDynamicTemporalDefaults(schema.deserialize("{}"), now);
+            clock.verify(JsonToRowConverters::currentInstant, times(4));
+        }
+    }
+
+    @Test
     public void testInvalidTemporalDefaultsFailAtConstruction() {
         SeaTunnelDataType<?>[] types =
                 new SeaTunnelDataType<?>[] {
@@ -417,6 +528,11 @@ public class JsonDefaultValueTest {
     }
 
     private static JsonDeserializationSchema createDynamicTemporalDefaultSchema() {
+        return createDynamicTemporalDefaultSchema(false);
+    }
+
+    private static JsonDeserializationSchema createDynamicTemporalDefaultSchema(
+            boolean preserveExplicitNull) {
         Column[] columns =
                 new Column[] {
                     PhysicalColumn.of(
@@ -476,7 +592,7 @@ public class JsonDefaultValueTest {
                         new HashMap<>(),
                         new ArrayList<>(),
                         "test table");
-        return new JsonDeserializationSchema(table, false, false);
+        return new JsonDeserializationSchema(table, false, false, preserveExplicitNull);
     }
 
     private static void assertDynamicTemporalDefaults(SeaTunnelRow row, Instant now) {

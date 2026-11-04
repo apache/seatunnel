@@ -85,6 +85,9 @@ public class JsonToRowConverters implements Serializable {
     /** Optional column metadata used to apply defaultValue when a field is missing or null. */
     private final Column[] columns;
 
+    /** Preserve explicit JSON nulls instead of replacing them with column defaults. */
+    private final boolean preserveExplicitNull;
+
     /**
      * Cached date/timestamp formatters per field name. Transient because it may be populated at
      * converter construction time (default value pre-computation) with non-serializable {@link
@@ -103,9 +106,22 @@ public class JsonToRowConverters implements Serializable {
      */
     public JsonToRowConverters(
             boolean failOnMissingField, boolean ignoreParseErrors, Column[] columns) {
+        this(failOnMissingField, ignoreParseErrors, columns, false);
+    }
+
+    /**
+     * Creates converters with optional column defaults and a missing-only default strategy when
+     * {@code preserveExplicitNull} is true. Existing constructors retain default-on-null behavior.
+     */
+    public JsonToRowConverters(
+            boolean failOnMissingField,
+            boolean ignoreParseErrors,
+            Column[] columns,
+            boolean preserveExplicitNull) {
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
         this.columns = columns == null ? null : columns.clone();
+        this.preserveExplicitNull = preserveExplicitNull;
     }
 
     /** Returns the current instant for dynamic temporal defaults; never cached across records. */
@@ -689,7 +705,10 @@ public class JsonToRowConverters implements Serializable {
             JsonNode[] defaultNodes,
             SqlType[] dynamicTemporalTypes) {
         if (field == null || field.isNull()) {
-            // Apply defaultValue if available for both missing fields and explicit nulls.
+            if (preserveExplicitNull && field != null) {
+                return null;
+            }
+            // Legacy converters apply defaults to both missing fields and explicit nulls.
             if (dynamicTemporalTypes != null
                     && fieldIndex < dynamicTemporalTypes.length
                     && dynamicTemporalTypes[fieldIndex] != null) {

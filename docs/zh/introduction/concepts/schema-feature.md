@@ -136,7 +136,9 @@ columns = [
 
 > **反序列化 JSON 格式数据时 `defaultValue` 如何生效**
 >
-> 在受支持且使用 `CatalogTable` 构造 `JsonDeserializationSchema` 的 JSON 反序列化路径中，当 JSON 消息字段缺失或显式为 `null` 时，会应用配置的 `defaultValue`；反序列化器会将其归一化为列类型。字段存在且非空时会保留原值。配置的默认值会在缺失字段检查前应用，因此该字段不会触发 `failOnMissingField`。未配置 `defaultValue` 时，显式 `null` 仍为 `null`，缺失字段仍遵循 `failOnMissingField` 的设置。
+> 在受支持且使用 `CatalogTable` 构造 `JsonDeserializationSchema` 的普通 JSON 反序列化路径中，当 JSON 消息字段缺失或显式为 `null` 时，会应用配置的 `defaultValue`；反序列化器会将其归一化为列类型。字段存在且非空时会保留原值。配置的默认值会在缺失字段检查前应用，因此该字段不会触发 `failOnMissingField`。未配置 `defaultValue` 时，显式 `null` 仍为 `null`，缺失字段仍遵循 `failOnMissingField` 的设置。
+>
+> Canal、Maxwell 和 OGG CDC 的主行 image 仅为缺失字段应用 catalog 默认值；显式 `null` 会保留为真实的数据库 NULL。Canal 和 Maxwell 在重建稀疏 `old`/`before` image 时不应用默认值：显式空值保留为 `null`，省略的未变更字段从完整的 `data` image 复制。
 >
 > ```hocon
 > schema {
@@ -149,9 +151,9 @@ columns = [
 >
 > 使用上述 schema 时，JSON 消息 `{"GROUPID": 5}` 会得到 `GROUPID = 5, status = "PENDING"`，而 `{}` 会得到 `GROUPID = 0, status = "PENDING"`。
 >
-> 时间类型的默认值支持与列类型匹配的特殊 token：`DATE` 使用 `CURRENT_DATE`，`TIME` 使用 `CURRENT_TIME`，`TIMESTAMP` 或 `TIMESTAMP_TZ` 使用 `CURRENT_TIMESTAMP`。Token 匹配不区分大小写。仅当字段在记录中缺失或为 `null` 时，才会使用 worker 的本地时钟和系统时区逐条求值；schema 或反序列化器构造时不会求值。对于 `STRING` 列，相同文本会作为字面字符串，而不是时间 token。其他字面默认值仍会转换为声明的列类型，无效的字面值仍会快速失败。
+> 时间类型的默认值支持与列类型匹配的特殊 token：`DATE` 使用 `CURRENT_DATE`，`TIME` 使用 `CURRENT_TIME`，`TIMESTAMP` 或 `TIMESTAMP_TZ` 使用 `CURRENT_TIMESTAMP`。Token 匹配不区分大小写。仅当字段在记录中缺失时（仅普通 JSON 还包括字段显式为 `null` 的情况），才会使用 worker 的本地时钟和系统时区逐条求值；schema 或反序列化器构造时不会求值。对于 `STRING` 列，相同文本会作为字面字符串，而不是时间 token。其他字面默认值仍会转换为声明的列类型，无效的字面值仍会快速失败。
 >
-> 对于 LocalFile JSON，只有在 `parse_partition_from_path = false` 时才支持 schema 默认值。默认值 `true` 会选择 merge-partition 路径，此路径不会应用 schema 默认值，即使文件路径中没有分区字段也一样。详见 [LocalFile `parse_partition_from_path`](../../connectors/source/LocalFile.md#parse_partition_from_path-boolean)。
+> 对于所有使用共享 `JsonReadStrategy` 读取 JSON 的文件 source（包括 LocalFile），只有在 `parse_partition_from_path = false` 时才支持 schema 默认值。默认值 `true` 会选择 merge-partition 路径，此路径不会应用 schema 默认值，即使文件路径中没有分区字段也一样。详见 [LocalFile `parse_partition_from_path`](../../connectors/source/LocalFile.md#parse_partition_from_path-boolean)。
 
 #### 目前支持哪些类型
 

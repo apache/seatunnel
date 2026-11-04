@@ -91,6 +91,18 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
 
     public JsonDeserializationSchema(
             CatalogTable catalogTable, boolean failOnMissingField, boolean ignoreParseErrors) {
+        this(catalogTable, failOnMissingField, ignoreParseErrors, false);
+    }
+
+    /**
+     * Creates a catalog deserializer, optionally applying defaults only to missing fields while
+     * preserving explicit JSON nulls, as required for CDC row images.
+     */
+    public JsonDeserializationSchema(
+            CatalogTable catalogTable,
+            boolean failOnMissingField,
+            boolean ignoreParseErrors,
+            boolean preserveExplicitNull) {
         if (ignoreParseErrors && failOnMissingField) {
             throw new SeaTunnelJsonFormatException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
@@ -112,7 +124,11 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
                             .toArray(Column[]::new);
         }
         this.runtimeConverter =
-                new JsonToRowConverters(failOnMissingField, ignoreParseErrors, columns)
+                new JsonToRowConverters(
+                                failOnMissingField,
+                                ignoreParseErrors,
+                                columns,
+                                preserveExplicitNull)
                         .createRowConverter(checkNotNull(rowType));
 
         if (hasDecimalType(rowType)) {

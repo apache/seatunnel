@@ -42,6 +42,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -103,7 +104,7 @@ public class CanalJsonSerDeSchemaTest {
                                                         "default-description",
                                                         null)))
                                 .build(),
-                        new java.util.HashMap<>(),
+                        new HashMap<>(),
                         new ArrayList<>(),
                         "test");
         CanalJsonDeserializationSchema schema =
@@ -143,6 +144,71 @@ public class CanalJsonSerDeSchemaTest {
         assertEquals(2, secondAfter.getField(0));
         assertEquals("after-2", secondAfter.getField(1));
         assertEquals("after-description-2", secondAfter.getField(2));
+    }
+
+    @Test
+    public void testMainImagesPreserveExplicitNullAndDefaultMissingFields() throws IOException {
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.of("test.test")),
+                        TableSchema.builder()
+                                .columns(
+                                        Arrays.asList(
+                                                PhysicalColumn.of(
+                                                        "id",
+                                                        INT_TYPE,
+                                                        (Long) null,
+                                                        true,
+                                                        null,
+                                                        null),
+                                                PhysicalColumn.of(
+                                                        "name",
+                                                        STRING_TYPE,
+                                                        (Long) null,
+                                                        true,
+                                                        "default-name",
+                                                        null),
+                                                PhysicalColumn.of(
+                                                        "description",
+                                                        STRING_TYPE,
+                                                        (Long) null,
+                                                        true,
+                                                        "default-description",
+                                                        null)))
+                                .build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "test");
+        CanalJsonDeserializationSchema schema =
+                CanalJsonDeserializationSchema.builder(table).build();
+        SimpleCollector collector = new SimpleCollector();
+        schema.deserialize(
+                "{\"type\":\"INSERT\",\"data\":[{\"id\":1,\"name\":null}]}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+        schema.deserialize(
+                "{\"type\":\"UPDATE\",\"data\":[{\"id\":1,\"name\":null}],\"old\":[{\"name\":\"before\"}]}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+        schema.deserialize(
+                "{\"type\":\"DELETE\",\"data\":[{\"id\":1,\"name\":null}]}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+        assertEquals(4, collector.list.size());
+        assertEquals(RowKind.INSERT, collector.list.get(0).getRowKind());
+        assertEquals(RowKind.UPDATE_BEFORE, collector.list.get(1).getRowKind());
+        assertEquals(RowKind.UPDATE_AFTER, collector.list.get(2).getRowKind());
+        assertEquals(RowKind.DELETE, collector.list.get(3).getRowKind());
+        for (int i = 0; i < collector.list.size(); i++) {
+            SeaTunnelRow row = collector.list.get(i);
+            assertEquals(1, row.getField(0));
+            if (i == 1) {
+                assertEquals("before", row.getField(1));
+            } else {
+                assertNull(row.getField(1));
+            }
+            assertEquals("default-description", row.getField(2));
+        }
     }
 
     @Test

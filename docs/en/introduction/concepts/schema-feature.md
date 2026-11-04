@@ -136,7 +136,9 @@ columns = [
 
 > **How `defaultValue` is applied when deserializing JSON-formatted data**
 >
-> In supported JSON deserialization paths that build a `JsonDeserializationSchema` from a `CatalogTable`, a configured `defaultValue` is applied when a field is missing from the JSON message or is explicitly `null`; the deserializer normalizes the value to the column type. A field present with a non-null value keeps that value. A configured default is applied before the missing-field check and therefore satisfies `failOnMissingField` for that field. Without a configured `defaultValue`, explicit `null` remains `null`, and a missing field still follows `failOnMissingField`.
+> In supported ordinary JSON deserialization paths that build a `JsonDeserializationSchema` from a `CatalogTable`, a configured `defaultValue` is applied when a field is missing from the JSON message or is explicitly `null`; the deserializer normalizes the value to the column type. A field present with a non-null value keeps that value. A configured default is applied before the missing-field check and therefore satisfies `failOnMissingField` for that field. Without a configured `defaultValue`, explicit `null` remains `null`, and a missing field still follows `failOnMissingField`.
+>
+> Canal, Maxwell and OGG CDC main row images apply catalog defaults only to missing fields; explicit `null` values remain real database NULLs. Canal and Maxwell reconstruct sparse `old`/`before` images without defaults: explicit nulls remain null, and omitted unchanged fields are copied from the full `data` image.
 >
 > ```hocon
 > schema {
@@ -149,9 +151,9 @@ columns = [
 >
 > With the schema above, the JSON message `{"GROUPID": 5}` produces `GROUPID = 5, status = "PENDING"`, and `{}` produces `GROUPID = 0, status = "PENDING"`.
 >
-> Temporal default tokens are supported for their matching column types: `CURRENT_DATE` for `DATE`, `CURRENT_TIME` for `TIME`, and `CURRENT_TIMESTAMP` for `TIMESTAMP` or `TIMESTAMP_TZ`. Token matching is case-insensitive. The token is evaluated for each record where the field is missing or `null`, using the worker's local clock and system time zone; it is not evaluated when the schema or deserializer is constructed. For a `STRING` column, the same text is a literal string, not a temporal token. Other literal defaults continue to be converted to the declared column type, and invalid literals continue to fail fast.
+> Temporal default tokens are supported for their matching column types: `CURRENT_DATE` for `DATE`, `CURRENT_TIME` for `TIME`, and `CURRENT_TIMESTAMP` for `TIMESTAMP` or `TIMESTAMP_TZ`. Token matching is case-insensitive. The token is evaluated for each record where the field is missing (or explicitly `null` in ordinary JSON only), using the worker's local clock and system time zone; it is not evaluated when the schema or deserializer is constructed. For a `STRING` column, the same text is a literal string, not a temporal token. Other literal defaults continue to be converted to the declared column type, and invalid literals continue to fail fast.
 >
-> For LocalFile JSON, schema defaults are supported only when `parse_partition_from_path = false`. The default `true` selects the merge-partition path, which does not apply schema defaults even when the file path has no partition fields. See [LocalFile `parse_partition_from_path`](../../connectors/source/LocalFile.md#parse_partition_from_path-boolean).
+> For all file sources using the shared `JsonReadStrategy` to read JSON (including LocalFile), schema defaults are supported only when `parse_partition_from_path = false`. The default `true` selects the merge-partition path, which does not apply schema defaults even when the file path has no partition fields. See [LocalFile `parse_partition_from_path`](../../connectors/source/LocalFile.md#parse_partition_from_path-boolean).
 
 #### What type supported at now
 
