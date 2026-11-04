@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.common.config.server;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.hazelcast.internal.util.Preconditions.checkPositive;
 
@@ -69,6 +71,16 @@ public class HttpConfig implements Serializable {
     /** Whether to enable basic authentication. */
     private boolean enableBasicAuth =
             ServerConfigOptions.MasterServerConfigOptions.ENABLE_BASIC_AUTH.defaultValue();
+
+    /**
+     * Environment variables that HOCON job configurations submitted through the REST API may
+     * resolve.
+     */
+    private List<String> hoconEnvironmentVariableAllowlist =
+            new ArrayList<>(
+                    ServerConfigOptions.MasterServerConfigOptions
+                            .HOCON_ENVIRONMENT_VARIABLE_ALLOWLIST
+                            .defaultValue());
 
     /** The username for basic authentication. */
     private String basicAuthUsername =

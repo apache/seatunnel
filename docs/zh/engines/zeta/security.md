@@ -26,6 +26,10 @@ seatunnel:
       basic-auth-password: "your_password"
 ```
 
+## REST HOCON 环境变量
+
+通过 REST 提交的 HOCON 作业只能解析 `seatunnel.engine.http.hocon-environment-variable-allowlist` 中列出的 Engine 进程环境变量。该列表默认为空，并且不会暴露 JVM system property。只应加入所有 REST 作业提交者都有权读取其值的变量；所有接收 REST 提交的节点都应配置相同的允许列表和变量值。SeaTunnel connector runtime placeholder，例如 `${table_name}`，仍是保留占位符，不会从 Engine 环境变量解析。配置示例见 [RESTful API V2](./rest-api-v2.md)。
+
 ## HTTPS 配置
 
 您可以通过开启 HTTPS 来保护您的 API 服务。HTTP 和 HTTPS 可同时开启，也可以只开启其中一个。
