@@ -44,6 +44,41 @@ import static org.mockito.Mockito.when;
 public class JdbcOracleLobColumnReselectorTest {
 
     @Test
+    public void redactsEmbeddedOracleCredentialsFromLoggedUrl() {
+        String redacted =
+                JdbcOracleLobColumnReselector.redactJdbcUrl(
+                        "jdbc:oracle:thin:scott/tiger@//localhost:1521/ORCL");
+        Assertions.assertEquals("jdbc:oracle:thin:***/***@//localhost:1521/ORCL", redacted);
+        Assertions.assertFalse(redacted.contains("scott"));
+        Assertions.assertFalse(redacted.contains("tiger"));
+    }
+
+    @Test
+    public void redactsAuthorityAndQueryCredentialsFromLoggedUrl() {
+        String authorityRedacted =
+                JdbcOracleLobColumnReselector.redactJdbcUrl(
+                        "jdbc:oracle:thin://scott:tiger@localhost:1521/ORCL");
+        Assertions.assertEquals(
+                "jdbc:oracle:thin://***:***@localhost:1521/ORCL", authorityRedacted);
+
+        String queryRedacted =
+                JdbcOracleLobColumnReselector.redactJdbcUrl(
+                        "jdbc:oracle:thin:@//localhost:1521/ORCL"
+                                + "?user=scott&password=tiger&ssl=true");
+        Assertions.assertEquals(
+                "jdbc:oracle:thin:@//localhost:1521/ORCL?user=***&password=***&ssl=true",
+                queryRedacted);
+        Assertions.assertFalse(queryRedacted.contains("scott"));
+        Assertions.assertFalse(queryRedacted.contains("tiger"));
+    }
+
+    @Test
+    public void leavesCredentialFreeOracleUrlUnchanged() {
+        String url = "jdbc:oracle:thin:@//localhost:1521/ORCL";
+        Assertions.assertEquals(url, JdbcOracleLobColumnReselector.redactJdbcUrl(url));
+    }
+
+    @Test
     public void readsSqlXmlAsString() throws Exception {
         SQLXML xml = Mockito.mock(SQLXML.class);
         when(xml.getString()).thenReturn("<a>1</a>");

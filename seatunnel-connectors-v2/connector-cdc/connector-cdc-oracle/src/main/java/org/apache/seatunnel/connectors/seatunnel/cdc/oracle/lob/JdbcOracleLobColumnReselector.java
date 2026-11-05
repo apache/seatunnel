@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 /**
  * Re-selects Oracle LOB columns over JDBC.
@@ -49,6 +50,19 @@ public class JdbcOracleLobColumnReselector implements OracleLobColumnReselector 
     private static final long serialVersionUID = 1L;
     private static final Logger LOG = LoggerFactory.getLogger(JdbcOracleLobColumnReselector.class);
     private static final String ORACLE_DRIVER = "oracle.jdbc.OracleDriver";
+    private static final String REDACTED = "***";
+    /**
+     * Oracle thin URLs that embed credentials before {@code @}, e.g. {@code thin:user/pass@host}.
+     */
+    private static final Pattern ORACLE_EMBEDDED_CREDENTIALS =
+            Pattern.compile("(?i)(jdbc:oracle:[^:]+:)([^/@\\s]+)/([^@\\s]+)@");
+    /** Authority-style credentials, e.g. {@code //user:pass@host}. */
+    private static final Pattern AUTHORITY_CREDENTIALS =
+            Pattern.compile("(?i)(://)([^:/@\\s]+):([^@/\\s]+)@");
+    /** Query-string secrets that must never appear in logs. */
+    private static final Pattern QUERY_CREDENTIALS =
+            Pattern.compile(
+                    "(?i)([?&](?:user|username|password|passwd|pwd|proxyUser|proxyPassword)=)[^&]*");
 
     private final String url;
     private final String username;
@@ -217,9 +231,29 @@ public class JdbcOracleLobColumnReselector implements OracleLobColumnReselector 
         selectPdb(connection);
         LOG.info(
                 "Opened Oracle LOB re-select connection for {}{}",
-                url,
+                redactJdbcUrl(url),
                 pdbName == null || pdbName.trim().isEmpty() ? "" : ", pdb " + pdbName);
         return connection;
+    }
+
+    /**
+     * Returns a log-safe JDBC URL with embedded user/password and sensitive query parameters
+     * replaced by {@code ***}. Host/port/service information is kept for diagnostics.
+     */
+    static String redactJdbcUrl(String jdbcUrl) {
+        if (jdbcUrl == null || jdbcUrl.isEmpty()) {
+            return jdbcUrl;
+        }
+        String redacted =
+                ORACLE_EMBEDDED_CREDENTIALS
+                        .matcher(jdbcUrl)
+                        .replaceAll("$1" + REDACTED + "/" + REDACTED + "@");
+        redacted =
+                AUTHORITY_CREDENTIALS
+                        .matcher(redacted)
+                        .replaceAll("$1" + REDACTED + ":" + REDACTED + "@");
+        redacted = QUERY_CREDENTIALS.matcher(redacted).replaceAll("$1" + REDACTED);
+        return redacted;
     }
 
     private void selectPdb(Connection jdbc) throws SQLException {
