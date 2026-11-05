@@ -444,6 +444,17 @@ ACOS(D)
 
 MAX 函数返回表达式的最大值。
 
+`Sql` 转换使用 `engine = ZETA`（默认值）或 `INTERNAL` 时，整数数组（包括 BIGINT）、
+DECIMAL 数组及这两类值混合的数组在比较时不会转换为浮点数。这适用于 Zeta、Flink 和
+Spark 执行引擎；SQL 引擎选项与执行引擎是不同的概念。
+结果保留所选元素的类型，以及 DECIMAL 元素的小数位数。忽略 null 元素；数组为 null、
+空数组或所有元素均为 null 时返回 null。值相等时保留第一个元素。
+FLOAT 和 DOUBLE 数组保持现有排序规则：NaN 大于其他所有值，正零大于负零。
+仅包含 Byte、Short、Integer 和 Long 值的数组使用精确整数比较。
+同时包含 BigDecimal 时，这些整数值按精确十进制数进行比较。
+只要包含 Float、Double 或其他 Number 子类型（包括 BigInteger），整个数组仍使用原有的
+double 比较，较大或相近的值可能损失精度。此行为不改变数组构造、声明的元素类型或输入类型转换。
+
 示例:
 
 ARRAY_MAX(I)
@@ -453,6 +464,9 @@ ARRAY_MAX(I)
 ```ARRAY_MIN(ARRAY) -> type(array element)```
 
 MIN 函数返回表达式的最小值。
+
+`Sql` 转换使用 `engine = ZETA` 或 `INTERNAL` 时，采用与 `ARRAY_MAX` 相同的精度、null
+处理和排序规则，但选择最小元素。
 
 示例:
 
@@ -1229,6 +1243,22 @@ CAST(FLAG AS BOOLEAN)
 2.  如果值可以被解释为数值（1 或 0），则对于 1 返回 true，对于 0 返回 false。
 3.  如果值无法根据以上规则进行解释，则抛出 TransformException 异常。
 
+注意：转换为 INT | INTEGER 时，如果来源值超出目标类型的取值范围，将抛出 TransformException，
+例如 `CAST(3000000000 AS INT)`。对于字符串来源，TINYINT 与 SMALLINT 的行为相同，例如
+`CAST('300' AS TINYINT)`。若希望得到 NULL 而不是异常，请使用 TRY_CAST。
+
+收窄来源与浮点来源会在更早的阶段被拒绝：发生在语句准备期间，而不是读取数据行时。
+`CAST(double_col AS INT)` 与 `CAST(bigint_col AS TINYINT)` 都会以
+`Unsupported CAST FROM ... AS type: ...` 失败，并且 TRY_CAST 不会把这类失败转成 NULL。
+小数值只能通过 COALESCE 或 IFNULL 到达整型目标（这两者的目标类型是推断出来的，而不是显式写出的），
+此时会向零截断：当 `int_col` 为 NULL 时，`COALESCE(int_col, double_col)` 对 `5.7` 得到 `5`。
+
+BIGINT | LONG 也会以同样方式做范围检查，但只有超出范围的字符串来源会以 cast 的形式到达，例如
+`CAST('9223372036854775808' AS BIGINT)`，此时 TRY_CAST 返回 NULL。DECIMAL 与 DOUBLE 来源在语句准备
+阶段就会被拒绝，因此它们只能通过 COALESCE 或 IFNULL 到达 BIGINT：当 `bigint_col` 为 NULL 时，
+`COALESCE(bigint_col, decimal_col)` 对 `18446744073709551616` 现在会失败，而不再返回 `0`。
+由于其中不涉及 cast，TRY_CAST 无法把这种情况转成 NULL。
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```
@@ -1247,6 +1277,8 @@ TRY_CAST(NAME AS INT)
 
 返回第一个非空值。如果后续参数与第一个参数的数据类型不同，则会自动转换为第一个参数的类型。
 
+由于目标类型取自第一个参数而不是最宽的类型，后续参数会被收窄到该类型，因此超出范围的值现在会直接失败，而不再回绕。如果希望结果使用最宽的类型，请自己写出转换：`COALESCE(CAST(int_col AS BIGINT), bigint_col)`。`DECIMAL` 或 `DOUBLE` 参数根本无法转换为 `BIGINT`，因此这类情况请改为把更宽的参数放在前面，例如 `COALESCE(decimal_col, bigint_col)`。但重排并非等价替换：当两个参数都非空时，返回哪一个也会随之改变。
+
 示例:
 
 COALESCE(A, B, C)
@@ -1261,9 +1293,11 @@ SELECT COALESCE(A, B) as result FROM my_table
 
 ### IFNULL
 
-```IFNULL(aValue, bValue) -> type(common of args)```
+```IFNULL(aValue, bValue) -> type(of first non-null arg)```
 
 返回第一个非空值。如果后续参数与第一个参数的数据类型不同，则会自动转换为第一个参数的类型。
+
+由于目标类型取自第一个参数而不是最宽的类型，后续参数会被收窄到该类型，因此超出范围的值现在会直接失败，而不再回绕。如果希望结果使用最宽的类型，请自己写出转换：`IFNULL(CAST(int_col AS BIGINT), bigint_col)`。`DECIMAL` 或 `DOUBLE` 参数根本无法转换为 `BIGINT`，因此这类情况请改为把更宽的参数放在前面，例如 `IFNULL(decimal_col, bigint_col)`。但重排并非等价替换：当两个参数都非空时，返回哪一个也会随之改变。
 
 示例:
 
@@ -1402,6 +1436,12 @@ SELECT * FROM dual
 ```
 
 ## 向量函数
+
+`VECTOR_NORM`、`INNER_PRODUCT`、`COSINE_DISTANCE`、`L1_DISTANCE`、`L2_DISTANCE` 和
+`VECTOR_NORMALIZE` 对 float 向量元素使用 double 精度计算中间乘积和差值，
+避免有限的大数或小数在 float 中间运算中溢出或下溢。`VECTOR_NORMALIZE` 仍返回 float
+元素，输出表示仍可能发生舍入或下溢。空输入和实际零向量的处理方式保持不变。
+未增加非有限输入的校验或清理策略；修正有限中间结果也可能影响与非有限元素混合时的结果。
 
 向量函数不会消耗或修改输入向量缓冲区。同一个向量字段可以用于多个表达式，也可以同时作为距离函数的两个参数，并且仍可供下游转换和接收器读取。
 

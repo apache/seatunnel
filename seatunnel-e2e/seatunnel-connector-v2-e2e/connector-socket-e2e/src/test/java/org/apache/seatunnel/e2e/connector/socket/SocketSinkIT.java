@@ -110,6 +110,8 @@ public class SocketSinkIT extends TestSuiteBase implements TestResource {
     public void testFakeSourceWritesJsonLinesToSocket(TestContainer container) throws Exception {
         truncateSocketOutput();
 
+        // The config sets a non-default connect_timeout_ms, so this also covers the option
+        // surviving job parsing, factory validation and sink instantiation.
         Container.ExecResult execResult = container.executeJob("/fake_to_socket.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 

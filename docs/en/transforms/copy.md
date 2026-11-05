@@ -10,7 +10,7 @@ Copy a field to a new field.
 
 |  name  |  type  | required | default value |
 |--------|--------|----------|---------------|
-| fields | Object | yes      |               |
+| fields | Object | yes (or the deprecated `src_field`+`dest_field` pair) |               |
 | src_field | String | no | |
 | dest_field | String | no | |
 

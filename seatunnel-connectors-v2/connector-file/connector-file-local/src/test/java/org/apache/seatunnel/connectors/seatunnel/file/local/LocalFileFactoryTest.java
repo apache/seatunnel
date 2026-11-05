@@ -30,7 +30,9 @@ import org.apache.seatunnel.connectors.seatunnel.file.local.source.LocalFileSour
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 class LocalFileFactoryTest {
@@ -64,6 +66,10 @@ class LocalFileFactoryTest {
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.START_MODE));
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.POST_SYNC_ACTION));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.EXCEL_USE_HEADER_LINE));
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.BACKUP_PATH));
         Assertions.assertTrue(
@@ -116,6 +122,40 @@ class LocalFileFactoryTest {
 
         backupConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), "/backup");
         Assertions.assertDoesNotThrow(() -> validate(backupConfig, optionRule));
+    }
+
+    @Test
+    void consumedOptionsAcceptedByValidateUnknownKeys() {
+        // These 7 options are consumed by AbstractReadStrategy / CsvReadStrategy /
+        // BinaryReadStrategy at runtime. They MUST be declared in the factory's
+        // optionRule() so that ConfigValidator.validateUnknownKeys (called by
+        // --check / --dry-run at SeaTunnelConfValidateCommand:325) does not
+        // reject them as "unknown option keys".
+        Map<String, Object> consumedOptions = new LinkedHashMap<>();
+        consumedOptions.put(
+                FileBaseSourceOptions.READ_PARTITIONS.key(),
+                Collections.singletonList("year=2024"));
+        consumedOptions.put(FileBaseSourceOptions.CSV_USE_HEADER_LINE.key(), true);
+        consumedOptions.put(FileBaseSourceOptions.BINARY_CHUNK_SIZE.key(), 2048);
+        consumedOptions.put(FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE.key(), true);
+        consumedOptions.put(
+                FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key(), "2024-01-01 00:00:00");
+        consumedOptions.put(
+                FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key(), "2024-12-31 23:59:59");
+        consumedOptions.put(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.key(), true);
+
+        OptionRule optionRule = (new LocalFileSourceFactory()).optionRule();
+
+        for (Map.Entry<String, Object> entry : consumedOptions.entrySet()) {
+            Map<String, Object> config = sourceConfig();
+            config.put(entry.getKey(), entry.getValue());
+
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            ConfigValidator.validateUnknownKeys(
+                                    ReadonlyConfig.fromMap(config), optionRule, "LocalFile"),
+                    "validateUnknownKeys should accept declared option: " + entry.getKey());
+        }
     }
 
     private static Map<String, Object> sourceConfig() {

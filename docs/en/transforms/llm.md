@@ -10,20 +10,21 @@ more.
 
 ## Options
 
-| name                   | type   | required | default value |
-|------------------------|--------|----------|---------------|
-| model_provider         | enum   | yes      |               |
-| output_data_type       | enum   | no       | String        |
-| output_column_name     | string | no       | llm_output    |
-| prompt                 | string | yes      |               |
-| inference_columns      | list   | no       |               |
-| model                  | string | yes      |               |
-| api_key                | string | yes      |               |
-| api_path               | string | no       |               |
-| custom_config          | map    | no       |               |
-| custom_response_parse  | string | no       |               |
-| custom_request_headers | map    | no       |               |
-| custom_request_body    | map    | no       |               |
+| name                       | type   | required                              | default value |
+|----------------------------|--------|---------------------------------------|---------------|
+| model_provider             | enum   | yes                                   |               |
+| output_data_type           | enum   | no                                    | String        |
+| strict_boolean_output  | boolean | no      | false         |
+| output_column_name         | string | no                                    | llm_output    |
+| prompt                     | string | yes                                   |               |
+| inference_columns          | list   | no                                    |               |
+| model                      | string | yes                                   |               |
+| api_key                    | string | yes      |             |
+| api_path                   | string | no                                    |               |
+| custom_config              | map    | no                                    |               |
+| custom_response_parse      | string | no                                    |               |
+| custom_request_headers     | map    | no                                    |               |
+| custom_request_body        | map    | no                                    |               |
 
 ### model_provider
 
@@ -31,12 +32,29 @@ The model provider to use. The available options are:
 OPENAI, DOUBAO, DEEPSEEK, KIMIAI, MICROSOFT, ZHIPU, CUSTOM
 
 > tips: If you use Microsoft, please make sure api_path cannot be empty
-
 ### output_data_type
 
 The data type of the output data. The available options are:
 STRING,INT,BIGINT,DOUBLE,BOOLEAN.
 Default value is STRING.
+
+### strict_boolean_output
+
+Optional validation for `output_data_type = BOOLEAN`. The default is `false` and preserves
+the existing conversion: only `true` (case-insensitive) becomes `true`; other values,
+including an empty string or a null element, become `false`.
+
+Set `strict_boolean_output = true` to require exactly one non-null `true` or `false`
+value from the model for each input row. Matching is case-insensitive and does not trim
+whitespace. Values such as `"unknown"`, `""`, `" true "`, `1`, null, an empty result, or
+multiple results fail the transform instead of producing a boolean value. The validation
+error does not include the input row or model response. This option does not add row
+skipping or error-table routing, and has no effect on other output data types.
+
+```hocon
+output_data_type = BOOLEAN
+strict_boolean_output = true
+```
 
 ### output_column_name
 
@@ -96,6 +114,8 @@ If you use an OpenAI model, please refer to https://developers.openai.com/api/do
 
 The API key to use for the model provider.
 If you use OpenAI model, please refer https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key for how to get the API key.
+
+This option is required when `model_provider` is `OPENAI`, `DOUBAO` or `MICROSOFT`.
 
 This option is not used when `model_provider` is `CUSTOM`; in that case the request is fully described by `custom_config`.
 

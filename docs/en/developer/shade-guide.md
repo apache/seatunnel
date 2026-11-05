@@ -226,7 +226,7 @@ After publishing new shade artifacts, update the SeaTunnel project:
 | Declare dependency (if new) | Root `pom.xml` → `<dependencyManagement>` |
 | Update code imports | All `.java` files using the library |
 
-If only `seatunnel.shade.version` changes (e.g., `3.0.0` → `3.0.1`), it affects **all** shade dependencies and every module must be republished.
+If only `seatunnel.shade.version` changes (e.g., `3.0.0` → `3.0.2`), it affects **all** shade dependencies and every module must be republished.
 
 ### Propagation Delay Between Shade Release and SeaTunnel CI
 

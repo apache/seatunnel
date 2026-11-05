@@ -21,7 +21,7 @@ SeaTunnel 的 Multi-Table Transform 支持在上游插件输出多个表时，�
 | table_match_regex          | String | No       | .*      | 表名的正则表达式，通过正则表达式来匹配需要进行转换的表，默认匹配所有的表。注意这个表名是上游的真正表名，不是`plugin_output`。                           |
 | table_transform            | List   | No       | -       | 可以通过table_transform列表来指定部分表的规则，当在table_transform中配置某个表的转换规则后，外层针对当前表的规则不会生效，以table_transform中的为准 |
 | table_transform.table_path | String | Yes      | -       | 当在table_transform中配置某个表的转换规则后，需要使用table_path字段指定表名，表名需要包含`databaseName[.schemaName].tableName`，并且按完整表路径精确匹配，不能为空。 |
-| rule_match_mode            | String | No       | -       | 控制多个 `table_transform` 配置使用相同精确 `table_path` 时的执行方式，支持 `FIRST_MATCH` 和 `ALL_MATCH`。 |
+| rule_match_mode            | String | No       | `FIRST_MATCH` | 控制多个 `table_transform` 配置使用相同精确 `table_path` 时的执行方式，支持 `FIRST_MATCH` 和 `ALL_MATCH`。 |
 
 ## 匹配逻辑
 

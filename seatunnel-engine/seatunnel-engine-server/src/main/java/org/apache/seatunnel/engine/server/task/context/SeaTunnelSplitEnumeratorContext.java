@@ -22,9 +22,12 @@ import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceEnumeratorEventOperation;
 
+import com.hazelcast.cluster.Address;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -102,7 +105,26 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
     }
 
     @Override
-    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {
+        TaskLocation targetLocation = task.getTaskMemberLocationByIndex(subtaskId);
+        Address targetAddress = task.getTaskMemberAddressByIndex(subtaskId);
+        if (targetLocation == null || targetAddress == null) {
+            log.warn(
+                    "No registered reader for subtask {}, skip sending source event {}",
+                    subtaskId,
+                    event);
+            return;
+        }
+        // Fire-and-forget: this can be invoked on a Hazelcast operation thread while dispatching a
+        // reader event (e.g. a split report), so blocking on the send future may deadlock the
+        // operation system. A lost event is safe to drop: sources that rely on acknowledgements
+        // re-send their reports.
+        task.getExecutionContext()
+                .sendToMember(
+                        new SourceEnumeratorEventOperation(
+                                targetLocation, task.getTaskLocation(), event),
+                        targetAddress);
+    }
 
     @Override
     public MetricsContext getMetricsContext() {

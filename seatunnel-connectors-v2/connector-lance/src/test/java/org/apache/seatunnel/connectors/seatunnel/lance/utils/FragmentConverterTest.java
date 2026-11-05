@@ -19,15 +19,21 @@ package org.apache.seatunnel.connectors.seatunnel.lance.utils;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.lance.exception.LanceConnectorException;
 
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.TimeStampMicroTZVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -49,6 +55,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -177,6 +188,111 @@ class FragmentConverterTest {
         } finally {
             deleteRecursively(tempDir);
         }
+    }
+
+    @Test
+    void shouldRejectMapColumnsWhenBuildingSchema() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "attributes"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.INT_TYPE,
+                            new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
+                        });
+
+        LanceConnectorException exception =
+                Assertions.assertThrows(
+                        LanceConnectorException.class,
+                        () ->
+                                SchemaUtils.convertSchema(
+                                        new SeaTunnelRow(new Object[] {1, null}), rowType));
+
+        Assertions.assertEquals(
+                "ErrorCode:[LANCE-05], ErrorDescription:[Lance does not support Map columns] - "
+                        + "Field 'attributes' has type MAP. Serialize the Map to a string or "
+                        + "flatten it into columns before writing to Lance.",
+                exception.getMessage());
+    }
+
+    @Test
+    void shouldKeepTheMicrosecondsOfATimestamp() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_timestamp"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        LocalDateTime recent = LocalDateTime.of(2025, 2, 15, 10, 21, 23, 123_456_000);
+        LocalDateTime beforeEpoch = LocalDateTime.of(1960, 6, 1, 12, 0, 0, 250_000);
+        List<SeaTunnelRow> rows =
+                Arrays.asList(
+                        new SeaTunnelRow(new Object[] {recent}),
+                        new SeaTunnelRow(new Object[] {beforeEpoch}),
+                        new SeaTunnelRow(new Object[] {Timestamp.valueOf(recent)}));
+        // The schema the sink declares when it creates the dataset itself.
+        Schema schema = SchemaUtils.convertSchema(rows.get(0), rowType);
+        Assertions.assertEquals(
+                new ArrowType.Timestamp(TimeUnit.MICROSECOND, "Asia/Shanghai"),
+                schema.getFields().get(0).getType());
+
+        try (RootAllocator allocator = new RootAllocator();
+                VectorSchemaRoot root =
+                        FragmentConverter.convertToVectorSchemaRoot(
+                                rows, rowType, schema, allocator)) {
+            TimeStampMicroTZVector vector = (TimeStampMicroTZVector) root.getVector("c_timestamp");
+            Assertions.assertEquals(epochMicros(recent), vector.get(0));
+            Assertions.assertEquals(epochMicros(beforeEpoch), vector.get(1));
+            Assertions.assertEquals(epochMicros(recent), vector.get(2));
+            // The fraction of a second does not depend on the zone the value is encoded in.
+            Assertions.assertEquals(123_456L, Math.floorMod(vector.get(0), 1_000_000L));
+            Assertions.assertEquals(250L, Math.floorMod(vector.get(1), 1_000_000L));
+        }
+    }
+
+    @Test
+    void shouldRoundAMillisecondTimestampBeforeTheEpochDown() {
+        // An existing dataset keeps its own schema, so the sink can meet a millisecond timestamp
+        // column it did not create, on its own or inside a list.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_millis", "c_millis_list"},
+                        new SeaTunnelDataType<?>[] {
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE, ArrayType.LOCAL_DATE_TIME_ARRAY_TYPE
+                        });
+        ArrowType millis = new ArrowType.Timestamp(TimeUnit.MILLISECOND, null);
+        Schema schema =
+                new Schema(
+                        Arrays.asList(
+                                Field.nullable("c_millis", millis),
+                                new Field(
+                                        "c_millis_list",
+                                        FieldType.nullable(new ArrowType.List()),
+                                        Collections.singletonList(
+                                                Field.nullable("item", millis)))));
+        // 250 microseconds past a millisecond, before 1970 in every zone.
+        LocalDateTime beforeEpoch = LocalDateTime.of(1960, 6, 1, 12, 0, 0, 250_000);
+        long expected = beforeEpoch.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+        try (RootAllocator allocator = new RootAllocator();
+                VectorSchemaRoot root =
+                        FragmentConverter.convertToVectorSchemaRoot(
+                                Collections.singletonList(
+                                        new SeaTunnelRow(
+                                                new Object[] {
+                                                    beforeEpoch,
+                                                    Collections.singletonList(beforeEpoch)
+                                                })),
+                                rowType,
+                                schema,
+                                allocator)) {
+            Assertions.assertEquals(
+                    expected, ((TimeStampMilliVector) root.getVector("c_millis")).get(0));
+            ListVector list = (ListVector) root.getVector("c_millis_list");
+            Assertions.assertEquals(expected, ((TimeStampMilliVector) list.getDataVector()).get(0));
+        }
+    }
+
+    private static long epochMicros(LocalDateTime value) {
+        Instant instant = value.atZone(ZoneId.systemDefault()).toInstant();
+        return ChronoUnit.MICROS.between(Instant.EPOCH, instant);
     }
 
     private static void createEmptyDataset(

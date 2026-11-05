@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 
 ## Support Iceberg Version
 
-- 1.6.1
+- 1.10.2, writing tables of format version 1, 2 and 3
 
 ## Support Those Engines
 
@@ -53,12 +53,17 @@ libfb303-xxx.jar
 | DATE                | DATE              |
 | TIME                | TIME              |
 | TIMESTAMP           | TIMESTAMP         |
+| TIMESTAMP_TZ        | TIMESTAMPTZ       |
 | STRING              | STRING            |
 | BYTES               | FIXED<br/>BINARY  |
 | DECIMAL             | DECIMAL           |
 | ROW                 | STRUCT            |
 | ARRAY               | LIST              |
 | MAP                 | MAP               |
+
+When the sink creates a table with `format-version = 3`, `TIMESTAMP` and `TIMESTAMP_TZ` columns with nanosecond precision (column scale 9, for example an Iceberg `timestamp_ns` column read by the Iceberg source) are created as `TIMESTAMP_NS` and `TIMESTAMPTZ_NS`. These types only hold values from the year 1677 to 2262; a value outside that range fails the write. Other scales, nested fields, columns added by schema evolution and tables of format version 1 and 2 keep microsecond timestamps. On the Spark engine, rows carry `TIMESTAMP` values in microseconds and `TIMESTAMP_TZ` values in milliseconds, so the extra precision is already cut before it reaches the sink.
+
+Writing into an existing format version 3 table also accepts `TIMESTAMP_NS` and `TIMESTAMPTZ_NS` columns. `UNKNOWN` columns only accept null values. `VARIANT` columns are not supported yet: leave them out of the written rows, which works for Parquet data files only. Tables with `GEOMETRY` or `GEOGRAPHY` columns cannot be written yet.
 
 ## Sink Options
 
@@ -87,6 +92,18 @@ libfb303-xxx.jar
 | kerberos_keytab_path                   | string  | no       | -                            | The keytab file path for Kerberos authentication.                                                                                                                                                                                                                                                                         |
 
 ## Sink Option descriptions
+
+### iceberg.table.auto-create-props [map]
+
+Table properties used when the sink creates the table. Set `format-version` to choose the Iceberg table format version; supported values are `1`, `2` and `3`, and Iceberg creates format version 2 tables when it is not set. Any other value fails the job before the table is created. The property only applies to tables the sink creates: an existing table keeps its format version, upgrade it with your Iceberg engine, for example `ALTER TABLE ... SET TBLPROPERTIES ('format-version' = '3')` in Spark.
+
+```hocon
+iceberg.table.auto-create-props = {
+  "format-version" = "3"
+}
+```
+
+Format version 3 tables support append writes. Upsert and CDC writes are rejected with error `ICEBERG-04` before any data is written, because the sink writes position delete files, which format version 3 replaces with deletion vectors. This covers `iceberg.table.primary-keys`, `iceberg.table.upsert-mode-enabled` and existing tables with identifier fields, and also creating a format version 3 table for a source table with a primary key, which would otherwise become the identifier fields. Use a format version 2 table for upsert and CDC pipelines.
 
 ### iceberg.table.upsert-mode-enabled [boolean]
 

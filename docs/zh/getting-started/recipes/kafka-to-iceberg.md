@@ -23,7 +23,7 @@ connector-iceberg
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(kafka|iceberg)'
+ls connectors | grep -E 'connector-(kafka|iceberg)'
 ```
 
 3. 如果你使用 Flink 或 Spark，请补齐 Iceberg 在对应环境里需要的依赖，例如 `hive-exec` 和 `libfb303`。

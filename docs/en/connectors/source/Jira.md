@@ -13,7 +13,7 @@ Reads data from Jira REST APIs. The connector adds the Jira Basic authentication
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
@@ -31,7 +31,7 @@ The Jira source is a batch-only connector. It throws an error when the job runs 
 | email                       | String | Yes      | -             | Jira account email used for Basic authentication. |
 | api_token                   | String | Yes      | -             | Jira API token used for Basic authentication. |
 | method                      | String | No       | GET           | HTTP method. Supported values are `GET` and `POST`. |
-| headers                     | Map    | No       | -             | Extra HTTP request headers. Do not put the Jira `Authorization` header here unless you intentionally want to override the generated header. |
+| headers                     | Map    | No       | -             | Extra HTTP request headers. Note: any `Authorization` entry configured here is overwritten by the Basic authentication header generated from `email` and `api_token`. |
 | params                      | Map    | No       | -             | HTTP query parameters. |
 | body                        | String | No       | -             | HTTP request body, usually used with `POST`. |
 | format                      | String | No       | TEXT          | Response format. Use `json` when the response should be parsed by `schema`, `json_field`, or `content_field`. |

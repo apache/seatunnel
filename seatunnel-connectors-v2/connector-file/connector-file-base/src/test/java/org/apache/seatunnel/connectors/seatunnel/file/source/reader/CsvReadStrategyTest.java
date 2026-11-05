@@ -27,24 +27,179 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 @Slf4j
 public class CsvReadStrategyTest {
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\n", "\r\n", "\r"})
+    public void testSkipPreambleBeforeCsvHeader(String lineSeparator) throws Exception {
+        String content =
+                String.join(
+                        lineSeparator,
+                        "export generated today",
+                        "name,id,age",
+                        "Alice,1,10",
+                        "Bob,2,20");
+        List<SeaTunnelRow> rows = readCsvContent(content, true, 1);
+        assertSimpleRows(rows);
+    }
+
+    @Test
+    public void testSkipNonCsvPreambleBeforeHeader() throws Exception {
+        List<SeaTunnelRow> rows =
+                readCsvContent(
+                        "\uFEFF\"unclosed quote in preamble\nreport\nid,name,age\n1,Alice,10\n2,Bob,20\n",
+                        true,
+                        2);
+        assertSimpleRows(rows);
+    }
+
+    @Test
+    public void testSkipPreamblePreservesMultilineCsvRecords() throws Exception {
+        List<SeaTunnelRow> rows =
+                readCsvContent("report\nid,name,age\n1,\"Alice\nSmith\",10\n2,Bob,20\n", true, 1);
+        Assertions.assertEquals(2, rows.size());
+        Assertions.assertArrayEquals(new Object[] {1, "Alice\nSmith", 10}, rows.get(0).getFields());
+        Assertions.assertArrayEquals(new Object[] {2, "Bob", 20}, rows.get(1).getFields());
+    }
+
+    @Test
+    public void testSkipPreambleWithoutCsvHeader() throws Exception {
+        assertSimpleRows(readCsvContent("report\n1,Alice,10\n2,Bob,20\n", false, 1));
+    }
+
+    @Test
+    public void testReadCsvHeaderWithoutSkipping() throws Exception {
+        assertSimpleRows(readCsvContent("id,name,age\n1,Alice,10\n2,Bob,20\n", true, 0));
+    }
+
+    @Test
+    public void testReadCsvWithoutHeaderOrSkipping() throws Exception {
+        assertSimpleRows(readCsvContent("1,Alice,10\n2,Bob,20\n", false, 0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testSkipAllCsvLines(boolean useHeader) throws Exception {
+        Assertions.assertTrue(readCsvContent("report\n", useHeader, 1).isEmpty());
+        Assertions.assertTrue(readCsvContent("", useHeader, 0).isEmpty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testSkipMoreCsvLinesThanAvailable(boolean useHeader) {
+        FileConnectorException error =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () -> readCsvContent("report\n", useHeader, 2));
+        Assertions.assertInstanceOf(IOException.class, error.getCause());
+        Assertions.assertTrue(error.getCause().getMessage().contains("fewer lines than expected"));
+    }
+
+    @Test
+    public void testInputClosedWhenCsvPreambleCannotBeSkipped() throws Exception {
+        AtomicBoolean closed = new AtomicBoolean();
+        try (CsvReadStrategy strategy = createCsvReadStrategy(true, 1)) {
+            ByteArrayInputStream input =
+                    new ByteArrayInputStream(new byte[0]) {
+                        @Override
+                        public void close() throws IOException {
+                            closed.set(true);
+                            super.close();
+                        }
+                    };
+            Assertions.assertThrows(
+                    FileConnectorException.class,
+                    () ->
+                            strategy.readProcess(
+                                    new FileSourceSplit("test", "preamble.csv"),
+                                    new TestCollector(),
+                                    input,
+                                    Collections.emptyMap(),
+                                    "preamble.csv"));
+        }
+        Assertions.assertTrue(closed.get());
+    }
+
+    @Test
+    public void testCsvByteRangeDoesNotSkipPreambleAgain() throws Exception {
+        String content = "1,Alice,10\n2,Bob,20\n";
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+        try (CsvReadStrategy strategy = createCsvReadStrategy(false, 100)) {
+            strategy.enableSplitFile = true;
+            TestCollector collector = new TestCollector();
+            strategy.readProcess(
+                    new FileSourceSplit("test", "split.csv", 0, bytes.length),
+                    collector,
+                    new ByteArrayInputStream(bytes),
+                    Collections.emptyMap(),
+                    "split.csv");
+            assertSimpleRows(collector.getRows());
+        }
+    }
+
+    private List<SeaTunnelRow> readCsvContent(String content, boolean useHeader, long skip)
+            throws Exception {
+        try (CsvReadStrategy strategy = createCsvReadStrategy(useHeader, skip)) {
+            TestCollector collector = new TestCollector();
+            strategy.readProcess(
+                    new FileSourceSplit("test", "preamble.csv"),
+                    collector,
+                    new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)),
+                    Collections.emptyMap(),
+                    "preamble.csv");
+            return collector.getRows();
+        }
+    }
+
+    private CsvReadStrategy createCsvReadStrategy(boolean useHeader, long skip) {
+        CsvReadStrategy strategy = new CsvReadStrategy();
+        Map<String, Object> options = new HashMap<>();
+        options.put(FileBaseSourceOptions.CSV_USE_HEADER_LINE.key(), useHeader);
+        options.put(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER.key(), skip);
+        options.put(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH.key(), false);
+        strategy.setPluginConfig(ConfigFactory.parseMap(options));
+        strategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"id", "name", "age"},
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
+                                })));
+        return strategy;
+    }
+
+    private void assertSimpleRows(List<SeaTunnelRow> rows) {
+        Assertions.assertEquals(2, rows.size());
+        Assertions.assertArrayEquals(new Object[] {1, "Alice", 10}, rows.get(0).getFields());
+        Assertions.assertArrayEquals(new Object[] {2, "Bob", 20}, rows.get(1).getFields());
+    }
 
     @Test
     public void testReadCsv() throws Exception {

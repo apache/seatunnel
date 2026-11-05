@@ -65,6 +65,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     protected static final String MYSQL_USER_PASSWORD = "mysqlpw";
     protected static final String MYSQL_DATABASE = "mysql_cdc";
     private static final String MYSQL_DATABASE2 = "mysql_cdc2";
+    private static final String APPEND_SINK_DATABASE = "mysql_cdc_append";
 
     private final String QUERY_SQL = "select * from %s.%s";
 
@@ -526,15 +527,165 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                     return null;
                 });
 
-        // Compare every column except code: NULL codes are emitted as 0 by the MySQL schema
-        // parsing, a separate issue (#12599) from the skipped rows.
-        String rowQuery = "select id, name from " + MYSQL_DATABASE + ".%s order by id";
+        // Compare complete rows: the NULL codes must also reach the sink as NULL, not as 0
+        String rowQuery = "select id, code, name from " + MYSQL_DATABASE + ".%s order by id";
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
                                         query(String.format(rowQuery, "nullable_uk_src")),
                                         query(String.format(rowQuery, "nullable_uk_sink"))));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "Currently SPARK do not support cdc; the DDL parser fix is engine-independent, "
+                            + "so FLINK is skipped to keep the job within its time budget")
+    public void testMysqlCdcNullInNullableUniqueKeyWithoutPrimaryKey(TestContainer container) {
+        // Tables without a primary key whose unique key (single, and composite with one nullable
+        // column) holds NULLs: the NULLs must reach the sink as NULL, not as the type default 0.
+        // Controls: a table with a real primary key, and a table whose unique key is NOT NULL.
+        // uk_added_null gets its unique key in the binlog phase, parsed from the binlog DDL.
+        inventoryDatabase.setTemplateName("nullable_unique_key_null_value").createAndInitialize();
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/mysqlcdc_to_mysql_with_nullable_unique_key_null_value.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // snapshot phase
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(2));
+
+        // binlog phase
+        executeSql(
+                "ALTER TABLE " + MYSQL_DATABASE + ".uk_added_null ADD UNIQUE KEY uk_code (code)");
+        insertNullableUniqueKeyRows(4, 5);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(3));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support restore")
+    public void testMysqlCdcNullInNullableUniqueKeyAfterRestore(TestContainer container)
+            throws Exception {
+        // The schema of uk_added_null changes in the binlog phase, so the restored job rebuilds it
+        // from the table history saved in the savepoint: NULL must still reach the sink as NULL.
+        inventoryDatabase.setTemplateName("nullable_unique_key_null_value").createAndInitialize();
+        String conf = "/mysqlcdc_to_mysql_with_nullable_unique_key_null_value.conf";
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(conf, jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(2));
+        executeSql(
+                "ALTER TABLE " + MYSQL_DATABASE + ".uk_added_null ADD UNIQUE KEY uk_code (code)");
+        insertNullableUniqueKeyRows(4, 5);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(3));
+
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "SAVEPOINT_DONE", container.getJobStatus(jobId)));
+        Assertions.assertEquals(0, jobFuture.get().getExitCode());
+
+        CompletableFuture<Container.ExecResult> restoreFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(conf, jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
+        insertNullableUniqueKeyRows(6, 7);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertNullableUniqueKeyTablesSynced(4));
+
+        container.stopJob(jobId);
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("CANCELED", container.getJobStatus(jobId)));
+        Assertions.assertEquals(0, restoreFuture.get().getExitCode());
+    }
+
+    /** Inserts one row with NULL in the key column and one row with a value into each table. */
+    private void insertNullableUniqueKeyRows(int nullId, int codedId) {
+        for (String table : new String[] {"uk_added_null", "uk_null_single", "pk_null_control"}) {
+            executeSql(
+                    String.format(
+                            "INSERT INTO %s.%s VALUES (%d, NULL, 'binlog-null'), (%d, %d, 'binlog-coded')",
+                            MYSQL_DATABASE, table, nullId, codedId, codedId));
+        }
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.uk_null_composite VALUES (%d, 3, NULL, 'binlog-null'), (%d, 3, %d, 'binlog-coded')",
+                        MYSQL_DATABASE, nullId, codedId, codedId));
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.uk_notnull_control VALUES (%d, %d, 'binlog-coded'), (%d, %d, 'binlog-coded')",
+                        MYSQL_DATABASE, nullId, nullId, codedId, codedId));
+    }
+
+    private void assertNullableUniqueKeyTablesSynced(int expectedNullRows) {
+        String sinkDatabase = "mysql_cdc_null_sink";
+        String[][] tables = {
+            {"uk_null_single", "id, code, name", "code"},
+            {"uk_null_composite", "id, a, b, name", "b"},
+            {"pk_null_control", "id, code, name", "code"},
+            {"uk_notnull_control", "id, code, name", null},
+            {"uk_added_null", "id, code, name", "code"}
+        };
+        for (String[] table : tables) {
+            String rowQuery = "select " + table[1] + " from %s." + table[0] + " order by id";
+            Assertions.assertIterableEquals(
+                    query(String.format(rowQuery, MYSQL_DATABASE)),
+                    query(String.format(rowQuery, sinkDatabase)),
+                    table[0]);
+            if (table[2] != null) {
+                // NULL must stay SQL NULL in the sink, not become the type default 0
+                String nullCount =
+                        "select count(*) from %s." + table[0] + " where " + table[2] + " is null";
+                String zeroCount =
+                        "select count(*) from %s." + table[0] + " where " + table[2] + " = 0";
+                Assertions.assertEquals(
+                        expectedNullRows,
+                        ((Number) query(String.format(nullCount, sinkDatabase)).get(0).get(0))
+                                .intValue(),
+                        table[0] + " NULL rows in sink");
+                Assertions.assertEquals(
+                        0,
+                        ((Number) query(String.format(zeroCount, sinkDatabase)).get(0).get(0))
+                                .intValue(),
+                        table[0] + " rows with 0 in sink");
+            }
+        }
     }
 
     @TestTemplate
@@ -901,6 +1052,111 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         log.info(containerLogs);
         Assertions.assertFalse(containerLogs.contains("ERROR"));
         log.info("****************** container logs end ******************");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support restore")
+    public void testExactlyOnceRestoreWithAddedTableKeepsChangesOfExistingTables(
+            TestContainer container) throws IOException, InterruptedException {
+        String[] tables = {SOURCE_TABLE_1, SOURCE_TABLE_2, SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY};
+        for (String table : tables) {
+            clearTable(MYSQL_DATABASE, table);
+            clearTable(MYSQL_DATABASE2, table);
+            createAppendOnlySinkTable(table);
+        }
+
+        initSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        initSourceTable(MYSQL_DATABASE, SOURCE_TABLE_2);
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/mysqlcdc_to_mysql_with_exactly_once_restore_two_tables.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+        awaitSinksMatchSource(SOURCE_TABLE_1, SOURCE_TABLE_2);
+
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_1, 100, 110);
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_2, 100, 110);
+        awaitSinksMatchSource(SOURCE_TABLE_1, SOURCE_TABLE_2);
+
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+
+        // Changes made while the job is stopped are after the saved offset and before the
+        // snapshot of the added table.
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_1, 200, 210);
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_2, 200, 210);
+        initSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/mysqlcdc_to_mysql_with_exactly_once_restore_add_table.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_1, 300, 310);
+
+        awaitSinksMatchSource(tables);
+
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_2, 400, 410);
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY, 400, 410);
+        awaitSinksMatchSource(tables);
+
+        Assertions.assertEquals(0, container.cancelJob(String.valueOf(jobId)).getExitCode());
+    }
+
+    /**
+     * Creates a copy of the sink table without a primary key, so that every emitted row is appended
+     * and a change emitted twice shows up as an extra row.
+     */
+    private void createAppendOnlySinkTable(String tableName) {
+        String appendSinkTable = APPEND_SINK_DATABASE + "." + tableName;
+        executeSql("CREATE DATABASE IF NOT EXISTS " + APPEND_SINK_DATABASE);
+        executeSql("DROP TABLE IF EXISTS " + appendSinkTable);
+        executeSql(
+                "CREATE TABLE " + appendSinkTable + " LIKE " + MYSQL_DATABASE2 + "." + tableName);
+        executeSql("ALTER TABLE " + appendSinkTable + " MODIFY id INT NOT NULL, DROP PRIMARY KEY");
+    }
+
+    private void awaitSinksMatchSource(String... tableNames) {
+        await().atMost(300000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            for (String tableName : tableNames) {
+                                List<List<Object>> sourceRows =
+                                        query(
+                                                getSourceQuerySQL(MYSQL_DATABASE, tableName)
+                                                        + " order by id");
+                                Assertions.assertIterableEquals(
+                                        sourceRows,
+                                        query(
+                                                getSourceQuerySQL(MYSQL_DATABASE2, tableName)
+                                                        + " order by id"),
+                                        tableName);
+                                Assertions.assertIterableEquals(
+                                        sourceRows,
+                                        query(
+                                                getSourceQuerySQL(APPEND_SINK_DATABASE, tableName)
+                                                        + " order by id"),
+                                        APPEND_SINK_DATABASE + "." + tableName);
+                            }
+                        });
     }
 
     @TestTemplate
@@ -1668,7 +1924,12 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     }
 
     private void initSourceTable(String database, String tableName) {
-        for (int i = 1; i < 100; i++) {
+        insertSourceTableRows(database, tableName, 1, 100);
+    }
+
+    private void insertSourceTableRows(
+            String database, String tableName, int fromId, int toIdExclusive) {
+        for (int i = fromId; i < toIdExclusive; i++) {
             executeSql(
                     "INSERT INTO "
                             + database

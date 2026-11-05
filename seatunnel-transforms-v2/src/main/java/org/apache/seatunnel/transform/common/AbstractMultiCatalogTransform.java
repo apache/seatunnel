@@ -40,13 +40,17 @@ import java.util.stream.Collectors;
  */
 public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransform<SeaTunnelRow> {
 
+    private static final long serialVersionUID = 7090258061839605137L;
+
     protected List<CatalogTable> inputCatalogTables;
 
     protected List<CatalogTable> outputCatalogTables;
 
     protected Map<String, SeaTunnelTransform<SeaTunnelRow>> transformMap;
 
-    protected final ReadonlyConfig transformLevelConfig;
+    // Used only while constructing the per-table transforms; the constructed transforms are
+    // serialized.
+    protected final transient ReadonlyConfig transformLevelConfig;
 
     public AbstractMultiCatalogTransform(
             List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {

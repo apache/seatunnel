@@ -76,6 +76,30 @@ const sidebars = {
                         "getting-started/kubernetes/operations",
                         "getting-started/kubernetes/helm"
                     ]
+                },
+                {
+                    "type": "category",
+                    "label": "Application Mode (Experimental)",
+                    "items": [
+                        "getting-started/application/overview",
+                        "getting-started/application/cli",
+                        {
+                            "type": "category",
+                            "label": "Kubernetes",
+                            "link": {
+                                "type": "doc",
+                                "id": "getting-started/application/kubernetes/overview"
+                            },
+                            "items": [
+                                "getting-started/application/kubernetes/architecture",
+                                "getting-started/application/kubernetes/quick-start",
+                                "getting-started/application/kubernetes/commands",
+                                "getting-started/application/kubernetes/configuration",
+                                "getting-started/application/kubernetes/checkpoint-recovery",
+                                "getting-started/application/kubernetes/faq"
+                            ]
+                        }
+                    ]
                 }
             ]
         },

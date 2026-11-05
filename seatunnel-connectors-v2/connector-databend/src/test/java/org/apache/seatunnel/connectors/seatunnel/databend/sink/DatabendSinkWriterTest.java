@@ -30,11 +30,20 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.startsWith;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class DatabendSinkWriterTest {
@@ -275,6 +284,63 @@ public class DatabendSinkWriterTest {
         org.junit.jupiter.api.Assertions.assertTrue(mergeSql.contains("raw_data:id as id"));
         org.junit.jupiter.api.Assertions.assertTrue(mergeSql.contains("raw_data:name as name"));
         org.junit.jupiter.api.Assertions.assertFalse(mergeSql.contains("raw_data:score as score"));
+    }
+
+    @Test
+    public void testCloseMergesCdcRowsAlreadyFlushedToRawTable() throws Exception {
+        Statement statement = mock(Statement.class);
+        DatabendSinkWriter sinkWriter = mockCdcWriter(statement);
+
+        // write() flushes a batch once batch_size is reached, which resets the batch count.
+        setPrivateField(sinkWriter, "batchCount", 1);
+        Method executeBatch = DatabendSinkWriter.class.getDeclaredMethod("executeBatch");
+        executeBatch.setAccessible(true);
+        executeBatch.invoke(sinkWriter);
+
+        sinkWriter.close();
+
+        verify(statement).execute(startsWith("MERGE INTO test_db.target_table"));
+    }
+
+    @Test
+    public void testCloseSkipsMergeWhenNoCdcRowsWereFlushed() throws Exception {
+        Statement statement = mock(Statement.class);
+        DatabendSinkWriter sinkWriter = mockCdcWriter(statement);
+
+        sinkWriter.close();
+
+        verify(statement, never()).execute(startsWith("MERGE INTO"));
+    }
+
+    private DatabendSinkWriter mockCdcWriter(Statement statement) throws Exception {
+        Connection connection = mock(Connection.class);
+        when(connection.createStatement()).thenReturn(statement);
+        when(connection.getAutoCommit()).thenReturn(true);
+        ResultSet resultSet = mock(ResultSet.class);
+        when(statement.executeQuery(anyString())).thenReturn(resultSet);
+        PreparedStatement cdcStatement = mock(PreparedStatement.class);
+        when(cdcStatement.executeBatch()).thenReturn(new int[] {1});
+
+        DatabendSinkWriter sinkWriter = mock(DatabendSinkWriter.class);
+        setPrivateField(sinkWriter, "connection", connection);
+        setPrivateField(sinkWriter, "cdcPreparedStatement", cdcStatement);
+        setPrivateField(sinkWriter, "isCdcMode", true);
+        setPrivateField(sinkWriter, "sinkTablePath", TablePath.of("test_db", "target_table"));
+        setPrivateField(sinkWriter, "rawTableName", "raw_table");
+        setPrivateField(sinkWriter, "streamName", "cdc_stream");
+        setPrivateField(sinkWriter, "targetTableName", "target_table");
+        setPrivateField(sinkWriter, "conflictKey", "id");
+        setPrivateField(
+                sinkWriter,
+                "runtimeRowType",
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        }));
+        doCallRealMethod().when(sinkWriter).close();
+        doCallRealMethod().when(sinkWriter).generateMergeSql();
+        return sinkWriter;
     }
 
     // Helper method to set private fields using reflection

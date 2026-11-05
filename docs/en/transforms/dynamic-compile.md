@@ -42,7 +42,7 @@ If it is a SOURCE-CODE enumeration; the SOURCE-CODE attribute is required, and t
 
 ### absolute_path [string]
 
-The absolute path of Java or Groovy files on the server
+The absolute path of the Java, Groovy, or Scala source file on the server
 
 ### source_code [string]
 
@@ -81,7 +81,7 @@ Use this DynamicCompile to add a new column `compile_language`, and update the `
 
 
 - use groovy
-```hacon
+```hocon
 transform {
  DynamicCompile {
     plugin_input = "fake"
@@ -139,7 +139,7 @@ transform {
 ```
 
 - use java 
-```hacon
+```hocon
 transform {
  DynamicCompile {
     plugin_input = "fake"
@@ -194,7 +194,7 @@ transform {
  } 
  ```
 - use absolute path to read code
-```hacon
+```hocon
  transform {
  DynamicCompile {
     plugin_input = "fake"
@@ -226,7 +226,7 @@ Then the data in result table `java_out` will like this
 | Joy Dom  | 30  | 123  | JAVA             |
 
 - use scala
-```hacon
+```hocon
 transform {
  DynamicCompile {
     plugin_input = "fake"
