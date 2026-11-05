@@ -28,7 +28,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.awaitility.Awaitility;
@@ -143,6 +145,12 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason =
+                    "Spark does not close the sink writer when a task aborts, so the CQL session"
+                            + " keeps spark-submit running in local mode after the job failed.")
     public void testNullPrimaryKeyFailsTheJob(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(NULL_PRIMARY_KEY_JOB_CONFIG);
         Assertions.assertNotEquals(0, execResult.getExitCode());
