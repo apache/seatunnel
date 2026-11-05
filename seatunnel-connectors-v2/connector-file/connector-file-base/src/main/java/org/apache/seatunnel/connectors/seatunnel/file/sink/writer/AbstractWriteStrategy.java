@@ -516,27 +516,29 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         }
         List<String> vals = new ArrayList<>(partitionFieldsIndexInRow.size());
         String partitionDir;
+        // A nullable partition column is a legal schema, so a null value must not fail the job:
+        // the directory name already renders null as the text "null", so the committed partition
+        // values use the same text instead of dereferencing the null field.
         if (StringUtils.isBlank(partitionDirExpression)) {
             StringBuilder stringBuilder = new StringBuilder();
             for (int i = 0; i < partitionFieldsIndexInRow.size(); i++) {
-                stringBuilder
-                        .append(partitionFieldList.get(i))
-                        .append("=")
-                        .append(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)]);
+                String partitionValue =
+                        String.valueOf(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)]);
+                stringBuilder.append(partitionFieldList.get(i)).append("=").append(partitionValue);
                 if (i < partitionFieldsIndexInRow.size() - 1) {
                     stringBuilder.append("/");
                 }
-                vals.add(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
+                vals.add(partitionValue);
             }
             partitionDir = stringBuilder.toString();
         } else {
             Map<String, String> valueMap = new HashMap<>(partitionFieldList.size() * 2);
             for (int i = 0; i < partitionFieldsIndexInRow.size(); i++) {
+                String partitionValue =
+                        String.valueOf(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)]);
                 valueMap.put(keys[i], partitionFieldList.get(i));
-                valueMap.put(
-                        values[i],
-                        seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
-                vals.add(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
+                valueMap.put(values[i], partitionValue);
+                vals.add(partitionValue);
             }
             partitionDir = VariablesSubstitute.substitute(partitionDirExpression, valueMap);
         }
