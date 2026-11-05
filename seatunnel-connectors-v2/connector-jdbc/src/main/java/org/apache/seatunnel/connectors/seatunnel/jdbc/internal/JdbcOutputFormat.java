@@ -340,6 +340,12 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         }
     }
 
+    /**
+     * Returns the outermost SQLException when the chain contains a lost connection or a closed
+     * statement. The whole chain is scanned so a connection failure buried under a conversion
+     * wrapper still retries, but the returned exception keeps its next-exception chain. A chain
+     * that only contains a data error returns null and flush stays fail-fast.
+     */
     private SQLException closedConnectionFailure(Throwable failure) {
         List<SQLException> sqlExceptions = findSqlExceptions(failure);
         if (sqlExceptions.isEmpty() || !isConnectionLost(sqlExceptions)) {

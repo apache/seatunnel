@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcTransactionStateManager;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferedBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 
 import org.junit.jupiter.api.Assertions;
@@ -34,7 +35,12 @@ import org.mockito.Mockito;
 import java.sql.BatchUpdateException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 /** Tests JDBC output retry decisions for nested SQLExceptions thrown by batch execution. */
 public class JdbcOutputFormatReconnectTest {
@@ -148,6 +154,68 @@ public class JdbcOutputFormatReconnectTest {
         Assertions.assertEquals(2, prepareStatementsCalls[0]);
         Assertions.assertEquals(2, executeBatchCalls[0]);
         Assertions.assertEquals(1, closeStatementsCalls[0]);
+        Mockito.verify(provider).reestablishConnection();
+    }
+
+    @Test
+    public void testBufferedRowsAreReplayedOnceWhenSecondRowBindHitsClosedStatement()
+            throws Exception {
+        JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        Mockito.when(provider.reestablishConnection()).thenReturn(connection);
+
+        List<String> events = new ArrayList<>();
+        List<List<Integer>> executedBatches = new ArrayList<>();
+        List<Integer> currentBatch = new ArrayList<>();
+        int[] executeAttempts = new int[1];
+        JdbcBatchStatementExecutor<SeaTunnelRow> delegate =
+                new JdbcBatchStatementExecutor<SeaTunnelRow>() {
+                    @Override
+                    public void prepareStatements(Connection ignored) {
+                        currentBatch.clear();
+                    }
+
+                    @Override
+                    public void addToBatch(SeaTunnelRow record) {
+                        int id = (Integer) record.getField(0);
+                        events.add("bind:" + id);
+                        if (executeAttempts[0] == 0 && id == 2) {
+                            throw new JdbcConnectorException(
+                                    JdbcConnectorErrorCode.DATA_TYPE_CAST_FAILED,
+                                    "error field:id",
+                                    new SQLException("This statement has been closed."));
+                        }
+                        currentBatch.add(id);
+                    }
+
+                    @Override
+                    public void executeBatch() {
+                        executeAttempts[0]++;
+                        executedBatches.add(new ArrayList<>(currentBatch));
+                        currentBatch.clear();
+                    }
+
+                    @Override
+                    public void closeStatements() {
+                        events.add("close");
+                    }
+                };
+        BufferedBatchStatementExecutor buffered =
+                new BufferedBatchStatementExecutor(delegate, Function.identity());
+
+        JdbcOutputFormat<SeaTunnelRow, BufferedBatchStatementExecutor> outputFormat =
+                new JdbcOutputFormat<>(provider, buildConnectionConfig(), () -> buffered);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {1}));
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {2}));
+
+        outputFormat.flush();
+
+        Assertions.assertEquals(Collections.singletonList(Arrays.asList(1, 2)), executedBatches);
+        Assertions.assertEquals(
+                Arrays.asList("bind:1", "bind:2", "close", "bind:1", "bind:2"), events);
         Mockito.verify(provider).reestablishConnection();
     }
 
