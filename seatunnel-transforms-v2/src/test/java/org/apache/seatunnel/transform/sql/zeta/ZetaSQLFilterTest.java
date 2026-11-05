@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 
+import java.time.Duration;
 import java.util.Collections;
 
 public class ZetaSQLFilterTest {
@@ -171,6 +172,41 @@ public class ZetaSQLFilterTest {
     }
 
     @Test
+    public void testRlikeAndRegexpKeepRegexSemantics() throws Exception {
+        ZetaSQLFilter filter = createFilter();
+        Object[] alice = new Object[] {1, "Alice", 20};
+        Object[] bob = new Object[] {2, "Bob", 20};
+
+        // RLIKE / REGEXP are parsed into LikeExpression too, but they are regular expressions
+        Expression rlike = CCJSqlParserUtil.parseExpression("name RLIKE 'A.*'");
+        Assertions.assertTrue(filter.executeFilter(rlike, alice));
+        Assertions.assertFalse(filter.executeFilter(rlike, bob));
+
+        Expression regexp = CCJSqlParserUtil.parseExpression("name REGEXP '^A.*e$'");
+        Assertions.assertTrue(filter.executeFilter(regexp, alice));
+
+        Expression notRlike = CCJSqlParserUtil.parseExpression("name NOT RLIKE 'A.*'");
+        Assertions.assertFalse(filter.executeFilter(notRlike, alice));
+        Assertions.assertTrue(filter.executeFilter(notRlike, bob));
+
+        // a regex metacharacter must stay a metacharacter here, unlike in LIKE
+        Expression metachar = CCJSqlParserUtil.parseExpression("name RLIKE 'A.ice'");
+        Assertions.assertTrue(filter.executeFilter(metachar, alice));
+    }
+
+    @Test
+    public void testLikeWildcardsMatchAcrossNewlines() throws Exception {
+        ZetaSQLFilter filter = createFilter();
+        Object[] row = new Object[] {1, "a\nb", 20};
+
+        // SQL standard: % and _ match any character, including a line break
+        Assertions.assertTrue(
+                filter.executeFilter(CCJSqlParserUtil.parseExpression("name LIKE 'a%b'"), row));
+        Assertions.assertTrue(
+                filter.executeFilter(CCJSqlParserUtil.parseExpression("name LIKE 'a_b'"), row));
+    }
+
+    @Test
     public void testLikeWithManyWildcardsDoesNotBacktrackExponentially() throws Exception {
         ZetaSQLFilter filter = createFilter();
         // a regex built from repeated %a would blow up on this value
@@ -179,7 +215,7 @@ public class ZetaSQLFilterTest {
         Expression expr = CCJSqlParserUtil.parseExpression("name LIKE '" + pattern + "'");
 
         Assertions.assertTimeoutPreemptively(
-                java.time.Duration.ofSeconds(5),
+                Duration.ofSeconds(5),
                 () -> Assertions.assertFalse(filter.executeFilter(expr, noMatch)));
     }
 

@@ -47,6 +47,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.util.regex.Pattern;
 
 public class ZetaSQLFilter {
     private final ZetaSQLFunction zetaSQLFunction;
@@ -85,6 +86,7 @@ public class ZetaSQLFilter {
                 return likeExpr((LikeExpression) whereExpr, inputFields);
             }
         }
+        // ILIKE, RLIKE and REGEXP are all parsed into LikeExpression as well
         if (whereExpr instanceof ComparisonOperator) {
             Pair<Object, Object> pair =
                     executeComparisonOperator((ComparisonOperator) whereExpr, inputFields);
@@ -198,7 +200,22 @@ public class ZetaSQLFilter {
         if (rightVal == null) {
             return false;
         }
-        return likeMatches(rightVal.toString(), leftVal.toString());
+        return matchLikeExpression(likeExpression, rightVal.toString(), leftVal.toString());
+    }
+
+    /**
+     * Applies the operator that was actually written. JSqlParser parses {@code LIKE}, {@code
+     * ILIKE}, {@code RLIKE} and {@code REGEXP} all into a {@link LikeExpression}, so the keyword
+     * decides the semantics: {@code RLIKE} / {@code REGEXP} keep the regular-expression behaviour
+     * they had before, everything else is matched as a SQL LIKE pattern.
+     */
+    private static boolean matchLikeExpression(
+            LikeExpression likeExpression, String pattern, String value) {
+        LikeExpression.KeyWord keyWord = likeExpression.getLikeKeyWord();
+        if (keyWord == LikeExpression.KeyWord.RLIKE || keyWord == LikeExpression.KeyWord.REGEXP) {
+            return Pattern.compile(pattern).matcher(value).matches();
+        }
+        return likeMatches(pattern, value);
     }
 
     /**
@@ -260,7 +277,7 @@ public class ZetaSQLFilter {
         if (rightVal == null) {
             return false;
         }
-        return !likeMatches(rightVal.toString(), leftVal.toString());
+        return !matchLikeExpression(likeExpression, rightVal.toString(), leftVal.toString());
     }
 
     private Pair<Object, Object> executeComparisonOperator(
