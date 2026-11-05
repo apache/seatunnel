@@ -169,7 +169,7 @@ public class JdbcOutputFormatReconnectTest {
         List<String> events = new ArrayList<>();
         List<List<Integer>> executedBatches = new ArrayList<>();
         List<Integer> currentBatch = new ArrayList<>();
-        int[] executeAttempts = new int[1];
+        boolean[] failedOnce = new boolean[1];
         JdbcBatchStatementExecutor<SeaTunnelRow> delegate =
                 new JdbcBatchStatementExecutor<SeaTunnelRow>() {
                     @Override
@@ -181,7 +181,8 @@ public class JdbcOutputFormatReconnectTest {
                     public void addToBatch(SeaTunnelRow record) {
                         int id = (Integer) record.getField(0);
                         events.add("bind:" + id);
-                        if (executeAttempts[0] == 0 && id == 2) {
+                        if (!failedOnce[0] && id == 2) {
+                            failedOnce[0] = true;
                             throw new JdbcConnectorException(
                                     JdbcConnectorErrorCode.DATA_TYPE_CAST_FAILED,
                                     "error field:id",
@@ -192,7 +193,6 @@ public class JdbcOutputFormatReconnectTest {
 
                     @Override
                     public void executeBatch() {
-                        executeAttempts[0]++;
                         executedBatches.add(new ArrayList<>(currentBatch));
                         currentBatch.clear();
                     }
