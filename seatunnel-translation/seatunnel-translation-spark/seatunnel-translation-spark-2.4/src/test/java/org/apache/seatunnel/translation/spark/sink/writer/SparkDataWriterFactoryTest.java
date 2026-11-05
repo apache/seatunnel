@@ -129,7 +129,7 @@ public class SparkDataWriterFactoryTest {
             throws Exception {
         SeaTunnelSink<SeaTunnelRow, Object, Object, Object> sink = mock(SeaTunnelSink.class);
         SinkWriter<SeaTunnelRow, Object, Object> writer = mock(SinkWriter.class);
-        when(sink.createWriter(org.mockito.ArgumentMatchers.any())).thenReturn(writer);
+        when(sink.createWriter(any())).thenReturn(writer);
         when(sink.createCommitter()).thenReturn(Optional.empty());
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
