@@ -476,6 +476,14 @@ compare_mode = "len_mtime"
 
 更多信息请参考 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
 
+### quote_char [string]
+
+用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。
+
+### escape_char [string]
+
+用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
+
 ### recursive_file_scan [boolean]
 
 是否递归扫描子目录。
@@ -553,6 +561,94 @@ sink {
   }
 }
 ```
+### 递归扫描文本文件
+
+设置 `recursive_file_scan = true` 以枚举 `path` 子目录中的文件。下面的示例读取嵌套目录下的文本文件，并使用显式 schema，使每一行映射为具有类型的 SeaTunnel 列。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  SftpFile {
+    host = "sftp"
+    port = 22
+    user = seatunnel
+    password = pass
+    path = "tmp/seatunnel/read/recursive"
+    file_format_type = "text"
+    recursive_file_scan = true
+    plugin_output = "sftp"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_bytes = bytes
+        c_date = date
+        c_decimal = "decimal(38, 18)"
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "sftp"
+    rules {
+      row_rules = [
+        { rule_type = MAX_ROW, rule_value = 20 },
+        { rule_type = MIN_ROW, rule_value = 20 }
+      ]
+    }
+  }
+}
+```
+
+### 公钥认证
+
+当 SFTP 服务器配置了 SSH 密钥认证时，请通过 `keyfile` 提供私钥路径并省略 `password`。连接器内部使用 JSCH 库，因此 `keyfile` 需遵循 OpenSSH 私钥格式，并且必须保证引擎进程有权限读取该文件。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  SftpFile {
+    host = "sftp.example.com"
+    port = 22
+    user = "seatunnel"
+    keyfile = "/opt/seatunnel/keys/sftp_id_rsa"
+    path = "data/incoming/"
+    file_format_type = "csv"
+    plugin_output = "sftp"
+    schema = {
+      fields {
+        id = bigint
+        name = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+配置后，`password` 和 `keyfile` 都会被加载到 SSH 会话中。连接器内部使用 JSCH 库，其默认认证顺序会先尝试 `publickey`（通过 `keyfile`），再尝试 `password`。为避免认证失败时出现意外情况，建议只配置其中之一。引擎进程必须有权限读取 `keyfile`；如果私钥文件设有口令保护，请在作业启动前配置 SSH agent 或先解密私钥。
 ### 多表
 
 ```hocon

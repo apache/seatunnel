@@ -67,7 +67,7 @@ header 字段和事件时间元数据。
 | poll.timeout                        | Long                                | 否    | 10000                        | kafka主动拉取时间间隔(毫秒)。                                                                                                                                                                                                                                                                                                             |
 | kafka.config                        | Map                                 | 否    | -                            | 除了上述必要参数外，用户还可以指定多个非强制的消费者客户端参数，覆盖 [Kafka 官方文档](https://kafka.apache.org/documentation.html#consumerconfigs) 中指定的所有消费者参数。                                                                                                                                                                                                      |
 | schema                              | Config                              | 否    | -                            | 数据结构，包括字段名称和字段类型。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                                                                                                                                    |
-| format                              | String                              | 否    | json                         | 数据格式。默认格式为 json。可选格式包括 text, canal_json, debezium_json, compatible_kafka_connect_json, ogg_json, maxwell_json, avro , protobuf和native。默认字段分隔符为 ", "。如果自定义分隔符，添加 "field_delimiter" 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md) 了解详细信息。如果使用 debezium 格式，请参考 [debezium-json](../formats/debezium-json.md)。一些Format的详细信息请参考 [formats](../formats) |
+| format                              | String                              | 否    | json                         | 数据格式。默认格式为 json。可选格式包括 text, canal_json, debezium_json, compatible_kafka_connect_json, ogg_json, maxwell_json, avro , protobuf和native。默认字段分隔符为 ", "。如果自定义分隔符，添加 "field_delimiter" 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md) 了解详细信息。如果使用 debezium 格式，请参考 [debezium-json](../formats/debezium-json.md)。一些Format的详细信息请参考 [formats](../formats/overview.md) |
 | avro_schema                         | String                              | 否    | -                            | 当 `format` 为 `avro` 时生效。用于提供二进制 Avro 消息的 writer schema，适用于消息的 record 名称、namespace 或 union 结构与 SeaTunnel schema 不完全一致的场景。                                                                                                                                                                                                                                             |
 | value_converter_schema_enabled      | Boolean                             | 否    | true                         | 仅在 `format = compatible_kafka_connect_json` 时生效。Kafka Connect value 转换后的 JSON 载荷是否携带 schema。                                                                                                                                                                                                                                                                                |
 | avro_row_nullable                   | Boolean                             | 否    | false                        | 当 `format` 为 `avro` 时生效。当生产端按可空 Avro union 写入 ROW 字段（写入端配置了 `avro_row_nullable = true`）时设为 `true`，否则无法解码值为 `null` 的 ROW；读取端必须与写入端保持一致。显式配置的 `avro_schema` 始终是线上布局的权威描述。详见 [Avro 格式](../formats/avro.md#avro_row_nullable)。 使用 `tables_configs` 或 `table_list` 时，请在每个表配置中设置此选项。 |
@@ -455,7 +455,7 @@ sink {
 
 ### Protobuf配置
 
-`format` 设置为 `protobuf`，配置`protobuf`数据结构，`protobuf_message_name`和`protobuf_schema`参数
+`format` 设置为 `protobuf`，配置 `protobuf_message_name` 和 `protobuf_schema` 参数，并通过 `schema` 块定义行结构。注意：只有配置了 `schema` 时 `format = protobuf` 才会生效，否则源端会回退到 text 反序列化器，protobuf 相关选项不会生效。
 
 使用样例：
 
@@ -495,6 +495,24 @@ source {
                 repeated string phone_numbers = 10;
               }
               """
+    schema = {
+        fields {
+            c_int32 = int
+            c_int64 = long
+            c_float = float
+            c_double = double
+            c_bool = boolean
+            c_string = string
+            c_bytes = bytes
+            Address {
+                city = string
+                state = string
+                street = string
+            }
+            attributes = "map<string,float>"
+            phone_numbers = "array<string>"
+        }
+    }
     bootstrap.servers = "kafkaCluster:9092"
     start_mode = "earliest"
     plugin_output = "kafka_table"
@@ -545,6 +563,24 @@ source {
                 repeated string phone_numbers = 10;
               }
               """
+    schema = {
+        fields {
+            c_int32 = int
+            c_int64 = long
+            c_float = float
+            c_double = double
+            c_bool = boolean
+            c_string = string
+            c_bytes = bytes
+            Address {
+                city = string
+                state = string
+                street = string
+            }
+            attributes = "map<string,float>"
+            phone_numbers = "array<string>"
+        }
+    }
     bootstrap.servers = "kafkaCluster:9092"
     start_mode = "earliest"
     plugin_output = "kafka_table"

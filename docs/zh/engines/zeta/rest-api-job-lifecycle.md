@@ -193,7 +193,8 @@ curl http://<master>:8080/job-info/<jobId>
 ## 4. 查询作业日志
 
 ```bash
-# 获取运行中作业的最后 N 行日志
+# 列出所有节点上文件名匹配该 jobId 的日志文件（返回 node/logName/logLink 列表），
+# 可通过返回的 logLink 获取日志文件内容
 curl "http://<master>:8080/logs/<jobId>"
 ```
 
@@ -378,9 +379,9 @@ curl http://<master>:8080/overview | \
 | `Connection refused` | Master 未启动或防火墙拦截 | 确认 Master 进程在运行；检查防火墙 |
 | `job-info` 中找不到 `jobId` | 作业已完成或未启动 | 按预期终态改用 `/finished-jobs/:state` 查询 |
 | 提交返回 `400 Bad Request` | JSON 格式错误或缺少必填字段 | 验证 JSON；检查 `plugin_name` 拼写 |
-| `Job already exists with same job.id` | 相同 `job.id` 重复提交但未先停止 | 先取消或停止现有作业，再重新提交 |
+| `The job id ... has already been submitted and is not starting with a savepoint` | 使用固定 `job.id` 重复提交仍在注册中的作业 | 先取消或停止现有作业，再重新提交 |
 | `Unauthorized 401` | 已启用 Basic Auth 但未提供凭据 | 添加 `-u user:pass` |
-| `Savepoint path not found` | Savepoint 已删除或路径有误 | 检查 Checkpoint 存储，提供正确路径 |
+| 恢复失败，Checkpoint 数据缺失或不兼容 | `restoreSourceJobId` 对应的 Checkpoint 数据已被清理或不兼容 | 检查 Checkpoint 存储内容及 `history-job-expire-minutes` 保留时间；REST API 无法指定自定义 Savepoint 路径 |
 
 ---
 
