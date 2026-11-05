@@ -12,7 +12,7 @@ The DataValidator transform validates field values according to configured rules
 |-----------------|--------|----------|---------------|
 | row_error_handle_way| enum   | no       | FAIL          |
 | row_error_handle_way.error_table     | string | no       |               |
-| field_rules     | array  | no       |               |
+| field_rules     | array  | yes (single-table mode) |               |
 
 ### row_error_handle_way [enum]
 

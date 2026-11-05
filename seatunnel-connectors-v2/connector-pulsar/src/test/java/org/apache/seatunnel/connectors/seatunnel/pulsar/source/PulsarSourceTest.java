@@ -30,10 +30,15 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
+import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
+import org.apache.seatunnel.format.avro.AvroFormatOptions;
+import org.apache.seatunnel.format.avro.AvroSerializationSchema;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import org.junit.jupiter.api.Assertions;
@@ -44,6 +49,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -221,6 +227,177 @@ class PulsarSourceTest {
                         ReadonlyConfig.fromMap(config), CatalogTableUtil.buildSimpleTextTable());
 
         Assertions.assertDoesNotThrow(() -> SerializationUtils.serialize(source));
+    }
+
+    // avro_row_nullable is a source-level option: the Pulsar reader has no writer-schema option, so
+    // the reader schema is always derived from the row type and must follow the layout the upstream
+    // writer used. The reader is driven through the real deserialization schema built for the
+    // consumer metadata, so these tests fail if the option is dropped between config and format.
+    @Test
+    void shouldEnableAvroRowNullableInSingleTableSource() throws Exception {
+        Map<String, Object> config = createAvroSourceConfig("LATEST");
+        config.put("topic", "persistent://public/default/avro-events");
+        config.put("avro_row_nullable", true);
+
+        PulsarSource source =
+                new PulsarSource(ReadonlyConfig.fromMap(config), createAvroCatalogTable());
+        DeserializationSchema<SeaTunnelRow> deserializationSchema =
+                getDeserializationSchema(source);
+
+        Assertions.assertTrue(deserializationSchema instanceof AvroDeserializationSchema);
+        SeaTunnelRowType rowType = getProducedRowType(source);
+        byte[] message = new AvroSerializationSchema(rowType, true).serialize(rowWithoutPayload());
+
+        SeaTunnelRow row = deserializationSchema.deserialize(message);
+
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertNull(row.getField(1));
+    }
+
+    @Test
+    void shouldKeepLegacyAvroRowLayoutByDefaultInSingleTableSource() throws Exception {
+        Map<String, Object> config = createAvroSourceConfig("LATEST");
+        config.put("topic", "persistent://public/default/avro-events");
+
+        PulsarSource source =
+                new PulsarSource(ReadonlyConfig.fromMap(config), createAvroCatalogTable());
+        DeserializationSchema<SeaTunnelRow> deserializationSchema =
+                getDeserializationSchema(source);
+
+        SeaTunnelRowType rowType = getProducedRowType(source);
+        byte[] message = new AvroSerializationSchema(rowType).serialize(rowWithPayload(42));
+
+        SeaTunnelRow row = deserializationSchema.deserialize(message);
+
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertEquals(42, ((SeaTunnelRow) row.getField(1)).getField(0));
+    }
+
+    @Test
+    void shouldKeepLegacyAvroRowLayoutWhenOptionDisabledInSingleTableSource() throws Exception {
+        Map<String, Object> config = createAvroSourceConfig("LATEST");
+        config.put("topic", "persistent://public/default/avro-events");
+        config.put("avro_row_nullable", false);
+
+        PulsarSource source =
+                new PulsarSource(ReadonlyConfig.fromMap(config), createAvroCatalogTable());
+        DeserializationSchema<SeaTunnelRow> deserializationSchema =
+                getDeserializationSchema(source);
+
+        SeaTunnelRowType rowType = getProducedRowType(source);
+        byte[] message = new AvroSerializationSchema(rowType).serialize(rowWithPayload(42));
+
+        SeaTunnelRow row = deserializationSchema.deserialize(message);
+
+        Assertions.assertEquals(42, ((SeaTunnelRow) row.getField(1)).getField(0));
+    }
+
+    // The per-table merged config is the value the reader actually sees, so a per-table flag must
+    // be able to enable the nullable layout even when the global config does not set it.
+    @Test
+    void shouldEnableAvroRowNullablePerTableInTablesConfigs() throws Exception {
+        Map<String, Object> config = createAvroSourceConfig("LATEST");
+        Map<String, Object> tableConfig =
+                createTableConfig("db.orders", "persistent://public/default/orders");
+        tableConfig.put("avro_row_nullable", true);
+        config.put("tables_configs", Arrays.asList(tableConfig));
+
+        PulsarSource source =
+                new PulsarSource(
+                        ReadonlyConfig.fromMap(config), CatalogTableUtil.buildSimpleTextTable());
+        DeserializationSchema<SeaTunnelRow> deserializationSchema =
+                getDeserializationSchema(source);
+
+        SeaTunnelRowType rowType = getProducedRowType(source);
+        byte[] message = new AvroSerializationSchema(rowType, true).serialize(rowWithoutPayload());
+
+        SeaTunnelRow row = deserializationSchema.deserialize(message);
+
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertNull(row.getField(1));
+    }
+
+    // Precedence: the per-table value overrides the global one, so a per-table false must keep the
+    // legacy layout even when the global option is enabled.
+    @Test
+    void shouldGivePerTableAvroRowNullablePrecedenceOverGlobalValue() throws Exception {
+        Map<String, Object> config = createAvroSourceConfig("LATEST");
+        config.put("avro_row_nullable", true);
+        Map<String, Object> tableConfig =
+                createTableConfig("db.orders", "persistent://public/default/orders");
+        tableConfig.put("avro_row_nullable", false);
+        config.put("tables_configs", Arrays.asList(tableConfig));
+
+        PulsarSource source =
+                new PulsarSource(
+                        ReadonlyConfig.fromMap(config), CatalogTableUtil.buildSimpleTextTable());
+        DeserializationSchema<SeaTunnelRow> deserializationSchema =
+                getDeserializationSchema(source);
+
+        SeaTunnelRowType rowType = getProducedRowType(source);
+        byte[] message = new AvroSerializationSchema(rowType).serialize(rowWithPayload(42));
+
+        SeaTunnelRow row = deserializationSchema.deserialize(message);
+
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertEquals(42, ((SeaTunnelRow) row.getField(1)).getField(0));
+    }
+
+    @Test
+    void shouldDeclareAvroRowNullableOptionInSourceFactory() {
+        Assertions.assertTrue(
+                new PulsarSourceFactory()
+                        .optionRule()
+                        .getOptionalOptions()
+                        .contains(AvroFormatOptions.AVRO_ROW_NULLABLE));
+    }
+
+    private Map<String, Object> createAvroSourceConfig(String stopMode) {
+        Map<String, Object> config = createBaseConfig(stopMode);
+        config.put("format", "AVRO");
+        config.put("schema", createNestedRowSchema());
+        return config;
+    }
+
+    /**
+     * Builds the schema block for a row type of {@code {id INT, payload ROW<InnerID INT>}}. The
+     * nested ROW is expressed as a nested map, which is the idiomatic {@code schema.fields} form
+     * for a complex type.
+     */
+    private Map<String, Object> createNestedRowSchema() {
+        Map<String, Object> payloadFields = new LinkedHashMap<>();
+        payloadFields.put("InnerID", "INT");
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("id", "INT");
+        fields.put("payload", payloadFields);
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("fields", fields);
+        return schema;
+    }
+
+    private CatalogTable createAvroCatalogTable() {
+        SeaTunnelRowType innerRowType =
+                new SeaTunnelRowType(
+                        new String[] {"InnerID"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "payload"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, innerRowType});
+        return CatalogTableUtil.getCatalogTable("", "", "", "pulsar_avro_source", rowType);
+    }
+
+    private SeaTunnelRowType getProducedRowType(PulsarSource source) {
+        return source.getProducedCatalogTables().get(0).getSeaTunnelRowType();
+    }
+
+    private SeaTunnelRow rowWithoutPayload() {
+        return new SeaTunnelRow(new Object[] {1, null});
+    }
+
+    private SeaTunnelRow rowWithPayload(int innerId) {
+        SeaTunnelRow payload = new SeaTunnelRow(1);
+        payload.setField(0, innerId);
+        return new SeaTunnelRow(new Object[] {1, payload});
     }
 
     private Map<String, Object> createBaseConfig(String stopMode) {

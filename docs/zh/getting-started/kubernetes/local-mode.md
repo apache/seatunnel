@@ -58,7 +58,7 @@ spec:
   restartPolicy: Never
   containers:
     - name: seatunnel
-      image: seatunnel:3.0.1
+      image: seatunnel:3.1.0
       imagePullPolicy: IfNotPresent
       command:
         - /bin/sh

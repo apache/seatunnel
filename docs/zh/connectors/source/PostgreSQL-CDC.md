@@ -99,6 +99,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | username                                  | String   | 是   | -        | 连接到数据库服务器时使用的数据库名称。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | password                                  | String   | 是   | -        | 连接到数据库服务器时使用的密码。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | 否   | -        | 需要监控的数据库名称。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| schema-name                               | List     | 否   | -        | 需要监控的数据库 Schema 名称，例如：`["inventory"]`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | table-names                               | List     | 二选一 | -        | 需要监控的表。请使用完整的 `database.schema.table` 格式，例如：`postgres_cdc.inventory.orders`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | table-pattern                             | String   | 二选一 | -        | 需要监控的表名正则表达式。正则需要匹配完整表名，例如：`postgres_cdc\\.inventory\\..*`。`table-names` 和 `table-pattern` 互斥。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | table-names-config                        | List     | 否   | -        | 表级配置列表。例如：`[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`。无物理主键表可通过 `primaryKeys` 指定唯一键。`snapshotSplitColumn` 必须是唯一键，否则 SeaTunnel 会忽略该配置并自动选择拆分列。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -111,8 +112,8 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | publication.name                          | String   | 否   | -        | 使用 `pgoutput` 插件时的 PostgreSQL 发布（Publication）名称，未配置时默认为 `dbz_publication`。Publication 用于在数据库服务端定义允许逻辑复制输出的表名单（仅作表范围过滤，不记录消费进度）。仅当 `decoding.plugin.name = "pgoutput"`（默认）时生效。                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | publication.autocreate.mode               | String   | 否   | -        | 控制连接器如何创建或使用 `publication.name` 指定的发布（仅 `pgoutput` 插件生效，默认 `all_tables`）：<br/> `all_tables`：若发布不存在，自动执行 `CREATE PUBLICATION ... FOR ALL TABLES`（需要数据库 Superuser 权限），数据库会输出全库所有表的变更。<br/> `filtered`：若发布不存在，仅针对当前任务监控的表自动执行 `CREATE PUBLICATION ... FOR TABLE ...`（需要当前库 `CREATE` 权限及监控表的 Owner 权限），数据库仅输出监控表的变更。多个任务使用 `filtered` 时请配置不同的 `publication.name`，避免互相覆盖表清单。<br/> `disabled`：不自动创建或修改发布，直接使用数据库中已存在的 `publication.name`（不存在则报错）。适合生产环境由管理员预先建好 `FOR TABLE` 发布的最小权限场景；多个任务可安全共用同一个已包含所需表的发布。 |
 | decoding.plugin.name                      | String   | 否   | pgoutput | 安装在服务器上的 Postgres 逻辑解码插件的名称，支持的值有 decoderbufs、wal2json、wal2json_rds、wal2json_streaming、wal2json_rds_streaming 和 pgoutput。                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| server-time-zone                          | String   | 否   | UTC      | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| connect.timeout.ms                        | Duration | 否   | 30000    | 连接器在尝试连接到数据库服务器后应等待的最大时间，以防超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| server-time-zone                          | String   | 否   | -        | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| connect.timeout.ms                        | Long     | 否   | 30000    | 连接器在尝试连接到数据库服务器后应等待的最大时间，以防超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | 否   | 3        | 连接器应重试建立数据库服务器连接的最大重试次数。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | 否   | 20       | JDBC 连接池大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | chunk-key.even-distribution.factor.upper-bound | Double   | 否   | 100      | 块键分布因子的上限。此因子用于确定表数据是否均匀分布。如果计算出的分布因子小于或等于此上限（即 (MAX(id) - MIN(id) + 1) / 行数），则将优化表块以实现均匀分布。否则，如果分布因子更大，则将认为该表分布不均匀，并且如果估计的分片数量超过 `sample-sharding.threshold` 指定的值，则将使用基于采样的分片策略。默认值为 100.0。 |
@@ -141,7 +142,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 5000
   read_limit.bytes_per_second=7000000
@@ -265,7 +266,7 @@ source {
     username = "postgres"
     password = "postgres"
     database-names = ["postgres_cdc"]
-    schema-names = ["inventory"]
+    schema-name = ["inventory"]
     table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     decoding.plugin.name = "decoderbufs"
@@ -294,7 +295,7 @@ source {
     username = "postgres"
     password = "postgres"
     database-names = ["postgres_cdc"]
-    schema-names = ["inventory"]
+    schema-name = ["inventory"]
     table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     decoding.plugin.name = "decoderbufs"
@@ -332,7 +333,7 @@ source {
     username = "postgres"
     password = "postgres"
     database-names = ["postgres_cdc"]
-    schema-names = ["inventory"]
+    schema-name = ["inventory"]
     table-names = ["postgres_cdc.inventory.full_types_no_primary_key"]
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     decoding.plugin.name = "decoderbufs"
@@ -407,6 +408,16 @@ SeaTunnel PostgreSQL CDC 支持 `pgoutput`（PostgreSQL 10 起内置）、`wal2j
 ### PostgreSQL CDC 是否支持无主键表？
 
 默认需要主键。如果表有可作为唯一标识的列，可以通过 `table-names-config` 中的 `primaryKeys` 字段自定义主键。
+
+### 如何处理生成列？
+
+发布列过滤使用实际生效的解码插件：`debezium { "plugin.name" = "..." }` 的优先级高于 `decoding.plugin.name`。其他插件和仅快照作业会跳过此过滤。
+
+使用 `pgoutput` 时，只会捕获发布（publication）中发布的列。PostgreSQL 18 之前不发布生成列，虚拟生成列始终不会发布。显式发布列列表可以省略部分列，但发布 UPDATE 或 DELETE 操作时必须包含副本标识（replica identity）列。未发布的非主键列会从表结构中排除，因此既不会在快照阶段读取，也不会在自动创建的目标表中创建。没有显式列列表的发布（包括 `FOR ALL TABLES` 和 `FOR TABLES IN SCHEMA`）仍遵循生成列规则。在 PostgreSQL 18 中，如果发布使用 `publish_generated_columns = stored` 创建，则会捕获存储生成列。
+
+SeaTunnel 要求发布 CDC 表结构中的所有主键列，包括通过 `table-names-config.primaryKeys` 配置的主键。如果必需的主键未发布，作业会在启动时失败，并提示发布名、表名和缺少的主键列，而不是在流式同步中输出 NULL 主键。此要求也适用于仅发布 INSERT 的发布，即使 PostgreSQL 允许其省略副本标识列。启动或恢复作业前，请将所有必需主键列加入发布列列表。
+
+如果 SeaTunnel 在作业启动时无法读取发布元数据，会记录错误及失败类型，并保留表结构中的所有列。此时未发布的列可能在流式同步时被写为 NULL，或触发表结构变更错误导致作业停止。依赖捕获数据前，请检查发布元数据的访问权限和 JDBC 连通性。
 
 ### 复制槽如何管理？
 

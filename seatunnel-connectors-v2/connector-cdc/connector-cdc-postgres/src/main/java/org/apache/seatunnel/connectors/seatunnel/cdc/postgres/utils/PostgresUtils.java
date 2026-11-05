@@ -179,13 +179,17 @@ public class PostgresUtils {
 
         Statement stmt = null;
         ResultSet rs = null;
+        Connection connection = jdbc.connection();
 
         List<Object> results = new ArrayList<>();
+        // pgjdbc honors fetchSize only in cursor mode, which requires auto-commit off; otherwise
+        // the driver silently materializes the whole column in this JVM before the first next().
+        boolean previousAutoCommit = connection.getAutoCommit();
+        connection.setAutoCommit(false);
         try {
             stmt =
-                    jdbc.connection()
-                            .createStatement(
-                                    ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+                    connection.createStatement(
+                            ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 
             stmt.setFetchSize(DEFAULT_FETCH_SIZE);
             rs = stmt.executeQuery(sampleQuery);
@@ -217,6 +221,12 @@ public class PostgresUtils {
                 } catch (SQLException e) {
                     log.error("Failed to close Statement", e);
                 }
+            }
+            try {
+                connection.setAutoCommit(previousAutoCommit);
+            } catch (SQLException e) {
+                // Preserve the original sampling exception if restoring the connection state fails.
+                log.warn("Failed to restore auto-commit state", e);
             }
         }
         Object[] resultsArray = results.toArray();

@@ -41,6 +41,23 @@ seatunnel:
 
 注意: namespace必须以"/"结尾。
 
+#### 使用环境变量提供凭据
+
+对象存储凭据可以由云 SDK 从环境变量读取。配置对应的凭据 Provider，并且不要在
+`seatunnel.yaml` 中写入 Access Key 或 Secret Key：
+
+| `storage.type` | 凭据 Provider 配置项 | Provider 类 | 环境变量 |
+| --- | --- | --- | --- |
+| `s3` | `fs.s3a.aws.credentials.provider` | `com.amazonaws.auth.EnvironmentVariableCredentialsProvider` | `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`，临时凭据可选 `AWS_SESSION_TOKEN` |
+| `oss` | `fs.oss.credentials.provider` | `com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider` | `OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET`，临时凭据可选 `OSS_SESSION_TOKEN` |
+| `cos` | `fs.cosn.credentials.provider` | `org.apache.hadoop.fs.cosn.auth.EnvironmentVariableCredentialsProvider` | `COSN_SECRET_ID`、`COSN_SECRET_KEY` |
+
+环境变量名和 Provider 实现由底层 Hadoop 文件系统和云 SDK 固定。请将环境变量注入所有访问
+检查点存储的 SeaTunnel 进程。原有的静态凭据和云平台原生身份认证方式仍然兼容。
+
+GCS 不使用上述凭据 Provider 配置项，而是使用 Application Default Credentials。需要密钥文件时
+可设置 `GOOGLE_APPLICATION_CREDENTIALS`，也可以使用 Workload Identity 等 ADC 机制。
+
 #### OSS
 
 阿里云OSS是基于hdfs-file，所以你可以参考[Hadoop OSS文档](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html)来配置oss.
@@ -66,6 +83,24 @@ seatunnel:
           fs.oss.accessKeyId: your-access-key
           fs.oss.accessKeySecret: your-secret-key
           fs.oss.endpoint: endpoint address
+```
+
+如果要使用环境变量提供凭据，请删除 `fs.oss.accessKeyId` 和 `fs.oss.accessKeySecret`，并选择
+环境变量 Provider。`OSS_ACCESS_KEY_ID` 和 `OSS_ACCESS_KEY_SECRET` 必须对所有 master 和
+worker 可见：
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      storage:
+        type: hdfs
+        plugin-config:
+          namespace: /seatunnel/checkpoint/
+          storage.type: oss
+          oss.bucket: oss://your-bucket
+          fs.oss.endpoint: oss-cn-hangzhou.aliyuncs.com
+          fs.oss.credentials.provider: com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider
 ```
 
 有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
@@ -99,6 +134,17 @@ seatunnel:
           fs.cosn.userinfo.secretKey: your-secretKey
           fs.cosn.bucket.region: your-region
 ```
+
+如果要使用环境变量提供凭据，请删除静态的 `secretId` 和 `secretKey`，并配置：
+
+```yaml
+          storage.type: cos
+          cos.bucket: cosn://your-bucket
+          fs.cosn.bucket.region: your-region
+          fs.cosn.credentials.provider: org.apache.hadoop.fs.cosn.auth.EnvironmentVariableCredentialsProvider
+```
+
+`COSN_SECRET_ID` 和 `COSN_SECRET_KEY` 必须对所有 master 和 worker 可见。
 
 有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
@@ -185,6 +231,17 @@ seatunnel:
                     
 
 ```
+
+如果要从环境变量读取凭据，请删除 `fs.s3a.access.key` 和 `fs.s3a.secret.key`，并配置：
+
+```yaml
+                  storage.type: s3
+                  s3.bucket: s3a://your-bucket
+                  fs.s3a.aws.credentials.provider: com.amazonaws.auth.EnvironmentVariableCredentialsProvider
+```
+
+`AWS_ACCESS_KEY_ID` 和 `AWS_SECRET_ACCESS_KEY` 必须对所有 master 和 worker 可见；使用临时
+凭据时还需要配置 `AWS_SESSION_TOKEN`。
 
 如果您使用`InstanceProfileCredentialsProvider`，它支持在EC2 VM中运行时使用实例配置文件凭据，您可以检查[iam-roles-for-amazon-ec2](https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html).
 您可以这样配置:

@@ -32,7 +32,7 @@ seatunnel:
 
 | 参数名称 | 是否必填 | 参数描述 |
 |--------|---------|--------|
-| `enable-http` | 否 | 是否开启 HTTP 服务，默认为 `true` |
+| `enable-http` | 否 | 是否开启 HTTP 服务，默认为 `false`（发行包中的 `config/seatunnel.yaml` 将其设置为 `true`） |
 | `port` | 否 | HTTP 服务端口，默认为 `8080` |
 | `enable-https` | 否 | 是否开启 HTTPS 服务，默认为 `false` |
 | `https-port` | 否 | HTTPS 服务端口，默认为 `8443` |
