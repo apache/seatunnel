@@ -206,8 +206,12 @@ public class ZetaSQLFilter {
     /**
      * Applies the operator that was actually written. JSqlParser parses {@code LIKE}, {@code
      * ILIKE}, {@code RLIKE} and {@code REGEXP} all into a {@link LikeExpression}, so the keyword
-     * decides the semantics: {@code RLIKE} / {@code REGEXP} keep the regular-expression behaviour
-     * they had before, everything else is matched as a SQL LIKE pattern.
+     * decides the semantics: {@code RLIKE} / {@code REGEXP} are compiled as regular expressions,
+     * and everything else is matched as a SQL LIKE pattern.
+     *
+     * <p>Note that {@code RLIKE} / {@code REGEXP} used to run through the LIKE rewriting as well,
+     * so a pattern with {@code %} or {@code _} at its edge was altered before being compiled; such
+     * a pattern is now used verbatim, which is what a regular expression is expected to mean.
      */
     private static boolean matchLikeExpression(
             LikeExpression likeExpression, String pattern, String value) {
