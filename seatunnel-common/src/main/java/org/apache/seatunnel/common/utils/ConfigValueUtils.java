@@ -77,23 +77,27 @@ public class ConfigValueUtils {
         }
 
         if (isStructured(value)) {
-            try {
-                Config parsed = ConfigFactory.parseString("v = " + value);
-                return parsed.root().get("v");
-            } catch (ConfigException e) {
-                throw new ConfigException.BadValue(
-                        ConfigOriginFactory.newSimple(),
-                        "",
-                        String.format(
-                                "Value '%s' looks like JSON or Array but failed to parse. "
-                                        + "If you intended to pass a Map/List, please check the syntax. "
-                                        + "If you intended to pass a plain string with comma, wrap the entire value in double quotes (e.g., \"your_value\"). ",
-                                value),
-                        e);
-            }
+            return parseStructured(value);
         }
 
         return ConfigValueFactory.fromAnyRef(value);
+    }
+
+    public static ConfigValue parseStructured(String value) {
+        try {
+            Config parsed = ConfigFactory.parseString("v = " + value);
+            return parsed.root().get("v");
+        } catch (ConfigException e) {
+            throw new ConfigException.BadValue(
+                    ConfigOriginFactory.newSimple(),
+                    "",
+                    String.format(
+                            "Value '%s' looks like JSON or Array but failed to parse. "
+                                    + "If you intended to pass a Map/List, please check the syntax. "
+                                    + "If you intended to pass a plain string with comma, wrap the entire value in double quotes (e.g., \"your_value\"). ",
+                            value),
+                    e);
+        }
     }
 
     /**
@@ -185,49 +189,59 @@ public class ConfigValueUtils {
     }
 
     /**
-     * Checks if the value is a balanced structured string (e.g., JSON/HOCON). Returns false if
-     * brackets are unbalanced, empty, or unpaired '{' or '['. Characters inside quotes are ignored
-     * for bracket counting.
+     * Checks whether the value should be parsed as a structured value (Map or List).
+     *
+     * <p>Returns {@code true} only if the value is wrapped in matching {@code {...}} or {@code
+     * [...]}, all brackets are balanced (ignoring quotes), and—for objects—at least one top-level
+     * {@code ':'} or {@code '='} is present. Arrays are not element-validated; {@code [1]}, {@code
+     * [0-9]}, and {@code []} are structured. Empty objects/arrays are structured.
+     *
+     * <p>{@code {"a":1}} and {@code [1,2]} return {@code true}; {@code {x}}, {@code {{x}}}, and
+     * {@code {"a"}} return {@code false}.
      *
      * @param value user input string value
-     * @return {@code true} if the value is a structured string
+     * @return {@code true} if the value should be parsed as a structured value
      */
-    private static boolean isStructured(String value) {
+    public static boolean isStructured(String value) {
         if (value.length() < 2) return false;
 
         char first = value.charAt(0);
         char last = value.charAt(value.length() - 1);
-        if (!((first == '{' && last == '}') || (first == '[' && last == ']'))) {
-            return false;
-        }
+        boolean isObject = first == '{' && last == '}';
+        boolean isArray = first == '[' && last == ']';
+        if (!isObject && !isArray) return false;
 
         Deque<Character> stack = new ArrayDeque<>();
-        boolean inQuote = false;
+        boolean insideQuotes = false;
+        boolean hasKeyValue = false;
 
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
 
             if (c == '"' && !isEscapedQuote(value, i)) {
-                inQuote = !inQuote;
+                insideQuotes = !insideQuotes;
                 continue;
             }
-            if (inQuote) {
-                continue;
-            }
+            if (insideQuotes) continue;
 
             if (c == '{' || c == '[') {
                 stack.push(c);
             } else if (c == '}' || c == ']') {
-                if (stack.isEmpty()) {
-                    return false;
-                }
+                if (stack.isEmpty()) return false;
                 char open = stack.pop();
                 if ((c == '}' && open != '{') || (c == ']' && open != '[')) {
                     return false;
                 }
+            } else if ((c == ':' || c == '=') && stack.size() == 1) {
+                hasKeyValue = true;
             }
         }
 
-        return !inQuote && stack.isEmpty();
+        if (insideQuotes || !stack.isEmpty()) return false;
+
+        String inner = value.substring(1, value.length() - 1).trim();
+        if (inner.isEmpty()) return true;
+
+        return !isObject || hasKeyValue;
     }
 }

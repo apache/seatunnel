@@ -18,6 +18,7 @@
 package org.apache.seatunnel.common.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -124,9 +125,33 @@ public class ConfigValueUtilsTest {
     }
 
     @Test
-    void testParseValueThrowsForBalancedNonJson() {
+    void testParseValueAsStringForBalancedNonStructure() {
+        /* the value is neither ambiguous JSON nor structured value,
+         * parsed as string for backward compatibility
+         */
         String value = "{k1,k2,[k3,k4]}";
+        boolean isStructured = ConfigValueUtils.isStructured(value);
+        Object result = ConfigValueUtils.parseValue(value).unwrapped();
+        Assertions.assertFalse(isStructured);
+        Assertions.assertEquals(value, result);
+    }
+
+    @Test
+    void testParseValueThrowsForStructuredNonJson() {
+        String value = "{\"k1\":}";
+        boolean isStructured = ConfigValueUtils.isStructured(value);
+        Assertions.assertTrue(isStructured);
         Assertions.assertThrows(ConfigException.class, () -> ConfigValueUtils.parseValue(value));
+    }
+
+    @Test
+    void testParseValueThrowsForStructuredNonJson2() {
+        // value of table_path option must be inside quotes
+        String tableList = "[{\"table_path\":db.t_*,\"use_regex\":\"true\"}]";
+        boolean isStructured = ConfigValueUtils.isStructured(tableList);
+        Assertions.assertTrue(isStructured);
+        Assertions.assertThrows(
+                ConfigException.class, () -> ConfigValueUtils.parseValue(tableList));
     }
 
     @Test
@@ -134,6 +159,40 @@ public class ConfigValueUtilsTest {
         String value = "\"{k1,k2,[k3,k4]}\"";
         Object result = ConfigValueUtils.parseValue(value).unwrapped();
         Assertions.assertEquals(result, "{k1,k2,[k3,k4]}");
+    }
+
+    @Test
+    void testListValueWithPlaceholder() {
+        String value = "[v1,v2,${v3}_aaa]";
+
+        Assertions.assertThrows(
+                ConfigException.NotResolved.class,
+                () -> ConfigValueUtils.parseValue(value).unwrapped());
+    }
+
+    @Test
+    void testSingleValueInBrackets() {
+        String value = "\"[a-z]\"";
+        Object result = ConfigValueUtils.parseValue(value).unwrapped();
+        Assertions.assertInstanceOf(String.class, result);
+        Assertions.assertEquals(StringUtils.unwrap(value, "\""), result);
+    }
+
+    @Test
+    void testQuotedSingleValueInBrackets() {
+        String value = "[\"a-z\"]";
+        Object result = ConfigValueUtils.parseValue(value).unwrapped();
+
+        Assertions.assertInstanceOf(List.class, result);
+        Assertions.assertEquals(List.of("a-z"), result);
+    }
+
+    @Test
+    void testListValueWithQuotedPlaceholder() {
+        String value = "[\"v1\",\"v2\",\"${v3}\",\"${v4}_aaa\"]";
+        Object result = ConfigValueUtils.parseValue(value).unwrapped();
+        assertTrue(result instanceof List);
+        Assertions.assertEquals(result, List.of("v1", "v2", "${v3}", "${v4}_aaa"));
     }
 
     @Test
