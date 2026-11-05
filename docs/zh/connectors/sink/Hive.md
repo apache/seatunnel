@@ -31,27 +31,27 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## 选项
 
-| 名称                                    | 类型      | 必需 | 默认值            |
-|---------------------------------------|---------|----|----------------|
-| table_name                            | string  | 是  | -              |
-| metastore_uri                         | string  | 否  | -              |
-| compress_codec                        | string  | 否  | none           |
-| use_table_compression                 | boolean | 否  | false          |
-| hdfs_site_path                        | string  | 否  | -              |
-| hive_site_path                        | string  | 否  | -              |
-| hive.hadoop.conf                      | Map     | 否  | -              |
-| hive.hadoop.conf-path                 | string  | 否  | -              |
-| remote_user                           | string  | 否  | -              |
-| krb5_path                             | string  | 否  | /etc/krb5.conf |
-| kerberos_principal                    | string  | 否  | -              |
-| kerberos_keytab_path                  | string  | 否  | -              |
-| abort_drop_partition_metadata         | boolean | 否  | false          |
-| parquet_avro_write_timestamp_as_int96 | boolean | 否  | false          |
-| overwrite                             | boolean | 否  | false          |
-| data_save_mode                        | enum    | 否  | APPEND_DATA    |
-| schema_save_mode                      | enum    | 否  | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| save_mode_create_template             | string  | 否  | -              |
-| common-options                        |         | 否  | -              |
+| 名称                                    | 类型      | 必需 | 默认值            | 描述                                                                            |
+|---------------------------------------|---------|----|----------------|---------------------------------------------------------------------------------|
+| table_name                            | string  | 是    | -              | 目标 Hive 表名，例如 `db1.table1`。多表模式下可使用 `${database_name}.${table_name}`，SeaTunnel 会用上游值进行替换。 |
+| metastore_uri                         | string  | 否    | -              | Hive Metastore URI。当未通过 `hive_site_path`、`hive.hadoop.conf-path` 或 `hive.hadoop.conf` 配置 `hive.metastore.client.factory.class` 时必填。多个值用逗号分隔可启用 HA 故障转移。 |
+| compress_codec                        | string  | 否    | none           | 显式指定输出压缩格式，优先于表属性。ORC 支持 `NONE`、`SNAPPY`、`ZLIB`、`LZ4` 和 `LZO`；继承表属性需开启 `use_table_compression`。 |
+| use_table_compression                 | boolean | 否    | false          | 开启后继承已有 ORC 表的 `orc.compress` 属性；显式 `compress_codec` 优先。非 ORC 表及自动建表流程跳过继承。 |
+| hdfs_site_path                        | string  | 否    | -              | `hdfs-site.xml` 的本地路径。新作业不建议使用——优先使用 `hive.hadoop.conf` 或 `hive.hadoop.conf-path`。 |
+| hive_site_path                        | string  | 否    | -              | `hive-site.xml` 的本地路径。 |
+| hive.hadoop.conf                      | Map     | 否    | -              | 内联的 Hadoop 配置属性。 |
+| hive.hadoop.conf-path                 | string  | 否    | -              | 包含 `core-site.xml`、`hdfs-site.xml` 和 `hive-site.xml` 的目录。 |
+| remote_user                           | string  | 否    | -              | 非 Kerberos 连接时使用的 Hadoop 远程用户名。 |
+| krb5_path                             | string  | 否    | /etc/krb5.conf | Kerberos 认证使用的 `krb5.conf` 路径。 |
+| kerberos_principal                    | string  | 否    | -              | Kerberos 认证的 principal。 |
+| kerberos_keytab_path                  | string  | 否    | -              | 与 `kerberos_principal` 配套的 keytab 文件路径。 |
+| abort_drop_partition_metadata         | boolean | 否    | false          | 为 true 时，任务中止会从 Hive Metastore 中删除分区元数据，但分区下的数据文件仍会被删除。 |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否    | false          | 从 timestamp 写入 Parquet `INT96`。仅对 parquet 输出有效。 |
+| overwrite                             | boolean | 否    | false          | 提交前替换已有数据。等价于 `data_save_mode = "DROP_DATA"`。 |
+| data_save_mode                        | enum    | 否    | APPEND_DATA    | 写入前如何处理已有数据。可选 `APPEND_DATA`（默认）、`DROP_DATA`、`CUSTOM_PROCESSING`、`ERROR_WHEN_DATA_EXISTS`。 |
+| schema_save_mode                      | enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 写入前如何处理目标表 schema。可选 `RECREATE_SCHEMA`、`CREATE_SCHEMA_WHEN_NOT_EXIST`、`ERROR_WHEN_SCHEMA_NOT_EXIST`、`IGNORE`。 |
+| save_mode_create_template             | string  | 否    | -              | 自动创建目标 Hive 表时使用的自定义 DDL 模板。变量：`${database}`、`${table}`、`${rowtype_fields}`、`${rowtype_partition_fields}`、`${table_location}`、`${current_timestamp}`。 |
+| common-options                        |         | 否    | -              | Sink 插件通用参数，详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 
 ### compress_codec [string]
 
