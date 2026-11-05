@@ -508,10 +508,10 @@ Apache-2.0 components use the Apache License text at the beginning of this file.
      (Apache-2.0) com.squareup.okio:okio:3.6.0 - https://github.com/square/okio
      (Apache-2.0) com.squareup.okio:okio-jvm:3.6.0 - https://github.com/square/okio
      (Apache-2.0) org.jetbrains.kotlin:kotlin-stdlib-common:1.9.10 - https://github.com/JetBrains/kotlin
-     (Apache-2.0) org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.21 - https://github.com/JetBrains/kotlin
-     (Apache-2.0) org.jetbrains.kotlin:kotlin-stdlib:1.8.21 - https://github.com/JetBrains/kotlin
+     (Apache-2.0) org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.10 - https://github.com/JetBrains/kotlin
+     (Apache-2.0) org.jetbrains.kotlin:kotlin-stdlib:1.9.10 - https://github.com/JetBrains/kotlin
      (Apache-2.0) org.jetbrains:annotations:13.0 - https://github.com/JetBrains/java-annotations
-     (Apache-2.0) org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.21 - https://github.com/JetBrains/kotlin
+     (Apache-2.0) org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10 - https://github.com/JetBrains/kotlin
      (Apache-2.0) com.squareup.okhttp3:logging-interceptor:4.12.0 - https://github.com/square/okhttp
      (Apache-2.0) io.prometheus:simpleclient:0.16.0 - https://github.com/prometheus/client_java
      (Apache-2.0) io.prometheus:simpleclient_tracer_otel:0.16.0 - https://github.com/prometheus/client_java
