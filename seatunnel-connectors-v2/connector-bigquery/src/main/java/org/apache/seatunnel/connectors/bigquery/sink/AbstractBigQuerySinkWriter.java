@@ -68,6 +68,8 @@ public abstract class AbstractBigQuerySinkWriter
     protected BigQueryWriteClient client;
     protected BigQueryWriter streamWriter;
     protected TableSchema tableSchema;
+    // True only for a client created by ensureStreamWriter(), which close() must release. A client
+    // injected by the multi-table runtime is shared with sibling writers and must stay open.
     private boolean ownsClient;
 
     protected final int batchSize;
