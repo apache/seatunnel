@@ -106,7 +106,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         (configuration, userGroupInformation) -> {
                             OrcFile.ReaderOptions readerOptions =
-                                    OrcFile.readerOptions(configuration);
+                                    OrcFile.readerOptions(configuration)
+                                            .filesystem(hadoopFileSystemProxy.getFileSystem());
                             return OrcFile.createReader(new Path(path), readerOptions);
                         })) {
             TypeDescription schema = TypeDescription.createStruct();
@@ -167,7 +168,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         ((configuration, userGroupInformation) -> {
                             OrcFile.ReaderOptions readerOptions =
-                                    OrcFile.readerOptions(configuration);
+                                    OrcFile.readerOptions(configuration)
+                                            .filesystem(hadoopFileSystemProxy.getFileSystem());
                             return OrcFile.createReader(new Path(path), readerOptions);
                         }))) {
             TypeDescription schema = reader.getSchema();

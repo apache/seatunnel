@@ -146,6 +146,42 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
         testLogRestApiResponse("JSON");
     }
 
+    /**
+     * The Web UI fragment redirect has to stay behind authentication: an unauthenticated request
+     * for a percent-encoded hash route answers 401, and only an authenticated one is redirected to
+     * the route the client meant to open.
+     */
+    @Test
+    void testFragmentRedirectRequiresAuthentication() throws IOException {
+        HttpURLConnection unauthenticated = null;
+        HttpURLConnection authenticated = null;
+        try {
+            unauthenticated = openEncodedFragmentRoute();
+            Assertions.assertEquals(401, unauthenticated.getResponseCode());
+
+            authenticated = openEncodedFragmentRoute();
+            setBasicAuth(authenticated);
+            Assertions.assertEquals(302, authenticated.getResponseCode());
+            Assertions.assertEquals("/#/overview", authenticated.getHeaderField("Location"));
+        } finally {
+            if (unauthenticated != null) {
+                unauthenticated.disconnect();
+            }
+            if (authenticated != null) {
+                authenticated.disconnect();
+            }
+        }
+    }
+
+    private HttpURLConnection openEncodedFragmentRoute() throws IOException {
+        // A client that escaped the whole URL sends the fragment as part of the path, so the
+        // redirect itself has to stay observable here instead of being followed.
+        HttpURLConnection connection =
+                (HttpURLConnection) new URL(DOMAIN + "/%23/overview").openConnection();
+        connection.setInstanceFollowRedirects(false);
+        return connection;
+    }
+
     public void setBasicAuth(HttpURLConnection connection) {
         // Basic Auth
         Encoder encoder = Base64.getEncoder();

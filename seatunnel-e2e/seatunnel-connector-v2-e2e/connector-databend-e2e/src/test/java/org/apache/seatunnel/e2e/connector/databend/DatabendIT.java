@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.e2e.connector.databend;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.connectors.seatunnel.databend.util.DatabendTypeConverter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -26,6 +30,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -152,6 +157,38 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /**
+     * Adds a column with the type DatabendTypeConverter gives a SeaTunnel TIME column, which is the
+     * type the sink puts in the ALTER TABLE ADD COLUMN statement for a schema change event that
+     * adds a TIME column. Databend has no TIME type, so the statement only runs when the converter
+     * maps TIME to a type Databend has.
+     */
+    @Test
+    public void testTimeColumnTypeIsAcceptedByDatabend() throws SQLException {
+        Column timeColumn =
+                PhysicalColumn.builder()
+                        .name("start_time")
+                        .dataType(LocalTimeType.LOCAL_TIME_TYPE)
+                        .nullable(true)
+                        .build();
+        String columnType = DatabendTypeConverter.convertToDatabendType(timeColumn).getColumnType();
+
+        try (Connection connection = getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS time_column_table");
+            statement.execute("CREATE TABLE time_column_table (id INT)");
+            statement.execute("ALTER TABLE time_column_table ADD COLUMN start_time " + columnType);
+
+            List<String> columnNames = new ArrayList<>();
+            try (ResultSet resultSet = statement.executeQuery("DESC time_column_table")) {
+                while (resultSet.next()) {
+                    columnNames.add(resultSet.getString("field"));
+                }
+            }
+            Assertions.assertEquals(Arrays.asList("id", "start_time"), columnNames);
+        }
+    }
+
     @TestTemplate
     public void testDatabend(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(DATABEND_JOB_CONFIG);
@@ -236,11 +273,12 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
     public void startUp() throws Exception {
         this.minioContainer =
                 // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated
-                // pulls; quay.io is MinIO's own registry and mirrors the same tags publicly.
+                // pulls; use a public mirror of MinIO RELEASE.2025-04-22T22-12-26Z instead.
                 // Pinned to the same release used by the other MinIO containers in this test
                 // suite instead of :latest, so an upstream MinIO release can't silently change
                 // this test's behavior underneath it.
-                new GenericContainer<>("quay.io/minio/minio:RELEASE.2024-06-13T22-53-53Z")
+                new GenericContainer<>(
+                                "ghcr.io/teableio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e")
                         .withNetwork(NETWORK)
                         .withNetworkAliases("minio")
                         .withEnv("MINIO_ROOT_USER", "minioadmin")
@@ -253,13 +291,14 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
 
         this.minioContainer.start();
 
-        LOG.info("MinIO container starting，wait 5 secs ...");
-        Thread.sleep(5000);
-
-        boolean bucketCreated = createMinIOBucketWithAWSSDK("databend");
-        if (!bucketCreated) {
-            LOG.warn("can't make sure MinIO bucket create success，continue to start Databend");
-        }
+        // The bucket must exist before Databend boots against it; retry the
+        // creation until it succeeds instead of a fixed sleep followed by a
+        // single attempt that can silently miss a slow MinIO startup.
+        Awaitility.given()
+                .ignoreExceptions()
+                .atMost(60, java.util.concurrent.TimeUnit.SECONDS)
+                .pollInterval(2, java.util.concurrent.TimeUnit.SECONDS)
+                .until(() -> createMinIOBucketWithAWSSDK("databend"));
         this.container =
                 new DatabendContainer(DATABEND_DOCKER_IMAGE)
                         .withNetwork(NETWORK)

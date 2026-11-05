@@ -19,7 +19,10 @@ hazelcast:
   cluster-name: {{ include "seatunnel.fullname" . }}
   network:
     rest-api:
-      enabled: true
+      # Disabled by default to mirror the standalone config (config/hazelcast.yaml).
+      # The deprecated Zeta REST API v1 is served without authentication on the
+      # Hazelcast member port (5801); use REST API v2 on the Jetty port (8080) instead.
+      enabled: false
       endpoint-groups:
         CLUSTER_WRITE:
           enabled: true

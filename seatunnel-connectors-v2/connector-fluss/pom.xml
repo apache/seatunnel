@@ -46,6 +46,43 @@
             <artifactId>fluss-client</artifactId>
             <version>${fluss.client.version}</version>
         </dependency>
+        <!--
+            fluss-client calls org.apache.commons.lang3.SystemUtils.isJavaVersionAtLeast, which
+            returns null from JavaVersion.get(...) and then throws NPE on runtimes the bundled
+            commons-lang3 predates. Spark 2.4 puts commons-lang3 3.5 on the classpath, so on
+            Java 11 the Fluss source and sink fail to initialise. Pin a version that knows modern
+            Java and relocate it below so the engine's own copy cannot win.
+        -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.apache.commons.lang3</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.fluss.org.apache.commons.lang3</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

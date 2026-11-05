@@ -42,7 +42,21 @@ public class CheckpointMonitorRestService extends BaseService {
 
     public JsonObject getOverview(long jobId) {
         CheckpointMonitorService monitorService = getMonitorService();
-        JsonObject result = new JsonObject().add("jobId", String.valueOf(jobId));
+        // `generatedAt` is stamped while the response is being built, so a
+        // client can work out how old an in-progress checkpoint is from this
+        // response alone. It is deliberately not the same thing as
+        // `updatedAt` below: that one is the time of the last recorded
+        // checkpoint event, so while a checkpoint hangs waiting for its last
+        // subtask it stops advancing, and subtracting a trigger timestamp
+        // from it would make a stalled checkpoint look seconds old forever.
+        //
+        // Added outside the block below so it is present even when there is
+        // no overview to report, which is also the case where a client most
+        // needs to know the answer came from a live server.
+        JsonObject result =
+                new JsonObject()
+                        .add("jobId", String.valueOf(jobId))
+                        .add("generatedAt", System.currentTimeMillis());
         if (monitorService == null) {
             return result;
         }

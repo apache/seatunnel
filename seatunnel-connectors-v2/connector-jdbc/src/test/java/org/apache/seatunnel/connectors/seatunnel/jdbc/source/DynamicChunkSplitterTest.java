@@ -463,6 +463,30 @@ public class DynamicChunkSplitterTest {
         assertSame(table.getTablePath(), wrapped.getTablePath());
     }
 
+    @Test
+    public void testOceanBaseOracleSkipsSamplingSharding() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", "jdbc:oceanbase://localhost:2881/test");
+        options.put("driver", "com.oceanbase.jdbc.Driver");
+        options.put(JdbcSourceOptions.COMPATIBLE_MODE.key(), "oracle");
+        DynamicChunkSplitter splitter =
+                new DynamicChunkSplitter(JdbcSourceConfig.of(ReadonlyConfig.fromMap(options)));
+
+        Assertions.assertFalse(splitter.shouldUseSamplingSharding(true));
+    }
+
+    @Test
+    public void testSamplingShardingFollowsUserOption() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", "jdbc:postgresql://localhost:5432/test");
+        options.put("driver", "org.postgresql.Driver");
+        DynamicChunkSplitter splitter =
+                new DynamicChunkSplitter(JdbcSourceConfig.of(ReadonlyConfig.fromMap(options)));
+
+        Assertions.assertTrue(splitter.shouldUseSamplingSharding(true));
+        Assertions.assertFalse(splitter.shouldUseSamplingSharding(false));
+    }
+
     private static JdbcSourceConfig buildWhereConditionConfig(String whereCondition) {
         Map<String, Object> options = new HashMap<>();
         options.put("url", "jdbc:postgresql://localhost:5432/test");

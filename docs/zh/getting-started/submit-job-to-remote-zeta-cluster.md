@@ -56,9 +56,14 @@ curl -X POST http://192.168.1.100:8080/submit-job \
 ```bash
 docker run -d --name seatunnel \
   -p 8080:8080 \
-  -e ST_DOCKER_MEMBER_COUNT=1 \
-  apache/seatunnel:<version>
+  apache/seatunnel:<version> \
+  ./bin/seatunnel-cluster.sh
 ```
+
+官方镜像没有定义 `ENTRYPOINT` 或 `CMD`，因此必须把集群启动脚本作为容器命令显式传入
+（与 [Docker 快速开始](docker/docker.md) 中的写法一致）。不带 `-r` 参数时，
+`seatunnel-cluster.sh` 默认以 `master_and_worker` 角色启动节点，因此这个单容器就是
+一个可用的单节点集群，无需额外环境变量。
 
 ### 3.2 从容器外部提交作业
 
@@ -81,7 +86,8 @@ curl -X POST http://localhost:8080/submit-job \
 docker run -d --name seatunnel \
   -p 8080:8080 \
   -v /path/to/your/jobs:/jobs \
-  apache/seatunnel:<version>
+  apache/seatunnel:<version> \
+  ./bin/seatunnel-cluster.sh
 
 # 在容器内执行
 docker exec seatunnel \
@@ -97,6 +103,10 @@ docker exec seatunnel \
 
 ### 4.1 Docker Compose 示例
 
+集群成员列表通过 `ST_DOCKER_MEMBER_LIST` 环境变量传给每个容器（这是引擎唯一读取的集群发现环境变量）。
+由于镜像没有定义 `ENTRYPOINT`，每个服务还需要显式以各自角色启动 `seatunnel-cluster.sh`，
+与 [Docker 快速开始](docker/docker.md) 中的 compose 文件一致：
+
 ```yaml
 version: "3.8"
 services:
@@ -107,7 +117,11 @@ services:
       - "8080:8080"
       - "5801:5801"
     environment:
-      ST_DOCKER_MEMBER_COUNT: 2
+      ST_DOCKER_MEMBER_LIST: seatunnel-master:5801,seatunnel-worker:5801
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
+      "
     networks:
       - st-net
 
@@ -115,7 +129,11 @@ services:
     image: apache/seatunnel:<version>
     container_name: seatunnel-worker
     environment:
-      ST_DOCKER_MEMBER_COUNT: 2
+      ST_DOCKER_MEMBER_LIST: seatunnel-master:5801,seatunnel-worker:5801
+    entrypoint: >
+      /bin/sh -c "
+      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
+      "
     networks:
       - st-net
     depends_on:
@@ -159,12 +177,14 @@ curl -X POST http://localhost:8080/submit-job \
 Pod 的 REST 端口转发到本地：
 
 ```bash
-# 查找 master pod
-kubectl get pods -n seatunnel
+# 查找 master pod（Helm chart 以 Deployment 方式部署 master）
+MASTER_POD=$(kubectl get pods -n seatunnel \
+  -l app.kubernetes.io/name=seatunnel-master \
+  -o jsonpath='{.items[0].metadata.name}')
 
 # 转发 REST 端口
 kubectl port-forward -n seatunnel \
-  pod/seatunnel-master-0 8080:8080
+  pod/${MASTER_POD} 8080:8080
 ```
 
 在另一个终端提交作业：
@@ -175,30 +195,36 @@ curl -X POST http://localhost:8080/submit-job \
   -d @job.json
 ```
 
-### 5.2 使用 NodePort 服务（测试 / 生产）
+### 5.2 通过 master Service 提交（默认 chart 部署）
 
-若集群通过 `NodePort` 服务暴露 Master：
+Helm chart 默认只为 master 创建 headless Service，不会额外创建 REST Service 或 NodePort。
+将 master Service 的 REST 端口转发到本地：
 
 ```bash
-# 获取 NodePort
-kubectl get svc -n seatunnel seatunnel-master-rest
+kubectl port-forward -n seatunnel svc/seatunnel-master 8080:8080
+```
 
-# 使用节点 IP 和节点端口提交
-curl -X POST http://<node-ip>:<node-port>/submit-job \
+在另一个终端提交作业：
+
+```bash
+curl -X POST http://localhost:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
 
-### 5.3 使用 LoadBalancer 服务
+### 5.3 通过 Ingress 提交（测试 / 生产）
+
+如果启用了 chart 的 Ingress（`ingress.enabled: true`，参见 [Helm Chart 参考](kubernetes/helm.md)），
+可以直接通过 Ingress 主机提交作业：
 
 ```bash
-LB_IP=$(kubectl get svc -n seatunnel seatunnel-master-rest \
-  -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-
-curl -X POST http://${LB_IP}:8080/submit-job \
+curl -X POST http://<your-ingress-host>/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
+
+如果你自行创建了 `NodePort` 或 `LoadBalancer` 类型的 Service 来暴露 REST API，按同样的方式向该
+Service 地址提交即可。
 
 ---
 
@@ -241,10 +267,14 @@ volumes:
       name: seatunnel-job-config
 ```
 
-通过 `kubectl exec` 提交：
+通过 `kubectl exec` 提交（`${MASTER_POD}` 只在 5.1 节定义过，如果直接从本节开始，请先重复一次查找）：
 
 ```bash
-kubectl exec -n seatunnel seatunnel-master-0 -- \
+MASTER_POD=$(kubectl get pods -n seatunnel \
+  -l app.kubernetes.io/name=seatunnel-master \
+  -o jsonpath='{.items[0].metadata.name}')
+
+kubectl exec -n seatunnel ${MASTER_POD} -- \
   /opt/seatunnel/bin/seatunnel.sh \
   --config /opt/seatunnel/jobs/cdc-job.conf
 ```
@@ -255,42 +285,53 @@ kubectl exec -n seatunnel seatunnel-master-0 -- \
 
 ### 7.1 Helm 安装
 
-```bash
-helm repo add seatunnel https://apache.github.io/seatunnel-helm-charts
-helm repo update
+SeaTunnel 的 Helm chart 以 OCI 构件形式发布在 Docker Hub 上（不存在
+`https://apache.github.io/seatunnel-helm-charts` 这个 chart 仓库）：
 
-helm install seatunnel seatunnel/seatunnel \
+```bash
+# 版本号请与 kubernetes/helm.md 保持一致
+export VERSION=3.1.0
+helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
+tar -xvf seatunnel-helm-${VERSION}.tgz
+cd seatunnel-helm
+
+helm install seatunnel . \
   --namespace seatunnel \
-  --create-namespace \
-  --set master.replicaCount=2 \
-  --set worker.replicaCount=4 \
-  --set master.service.type=LoadBalancer
+  --create-namespace
 ```
 
-### 7.2 EKS 获取 Load Balancer 主机名
+使用 `master.replicas` 和 `worker.replicas` 调整 master / worker 副本数：
 
 ```bash
-kubectl get svc -n seatunnel seatunnel-master \
-  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+helm upgrade seatunnel . --namespace seatunnel \
+  --set master.replicas=2 \
+  --set worker.replicas=4
 ```
 
-以该主机名作为 API 端点：
+### 7.2 EKS 访问 REST API
+
+默认 chart 只创建 headless Service，不会自动创建负载均衡器。可以启用 chart 的 Ingress 后读取其地址：
 
 ```bash
-export ST_HOST=$(kubectl get svc -n seatunnel seatunnel-master \
-  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+kubectl get ingress -n seatunnel
+```
 
-curl -X POST http://${ST_HOST}:8080/submit-job \
+以该主机作为 API 端点：
+
+```bash
+curl -X POST http://<your-ingress-host>/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
+
+或者按照 5.2 节的方式使用 `kubectl port-forward svc/seatunnel-master 8080:8080`。
 
 ### 7.3 通过 Helm values 自定义资源配置
 
 ```yaml
 # values-prod.yaml
 master:
-  replicaCount: 2
+  replicas: "2"
   resources:
     requests:
       memory: "4Gi"
@@ -300,7 +341,7 @@ master:
       cpu: "4"
 
 worker:
-  replicaCount: 8
+  replicas: "8"
   resources:
     requests:
       memory: "8Gi"
@@ -308,22 +349,17 @@ worker:
     limits:
       memory: "16Gi"
       cpu: "8"
-
-seatunnel:
-  config:
-    engine:
-      backup-count: 2
-      queue-type: blockingqueue
-      print-execution-info-interval: 60
-      http:
-        enable-http: true
-        port: 8080
 ```
+
+chart 不存在 `seatunnel.config` 这个 values 配置树。若要自定义 `seatunnel.yaml`、`hazelcast*.yaml`
+等引擎配置文件，可以使用 chart 自带 `conf/` 文件生成的 ConfigMap（默认行为），或自行创建 ConfigMap
+并设置 `configMap.create: false` 与 `configMap.existingConfigMapName` —— 参见 chart 的
+`values.yaml` 和 [Helm Chart 参考](kubernetes/helm.md)。
 
 应用配置：
 
 ```bash
-helm upgrade seatunnel seatunnel/seatunnel \
+helm upgrade seatunnel . \
   --namespace seatunnel \
   -f values-prod.yaml
 ```
@@ -354,7 +390,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              name: seatunnel
+              kubernetes.io/metadata.name: seatunnel
       ports:
         - port: 5801
 ```
@@ -369,7 +405,7 @@ spec:
 | Worker 无法加入集群 | 防火墙阻断 5801 端口 | 开放所有集群节点间 TCP 5801 |
 | `kubectl port-forward` 断开 | 空闲超时或 Pod 重启 | 重新执行 port-forward；考虑改用 NodePort |
 | 作业已提交但状态始终为 `WAITING` | 无可用 Worker 槽位 | 扩容 Worker 副本数或检查资源配额 |
-| EKS LoadBalancer 主机名无法解析 | DNS 传播延迟 | 等待 1–2 分钟；用 `nslookup` 验证 |
+| EKS Ingress 主机名无法解析 | DNS 传播延迟 | 等待 1–2 分钟；用 `nslookup` 验证 |
 | Helm 安装卡在 `pending-install` | 上次安装失败残留 | 执行 `helm rollback` 或 `helm uninstall` 后重试 |
 
 ---

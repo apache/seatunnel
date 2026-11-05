@@ -363,7 +363,7 @@ public class PreviewActionTest {
         assertPreviewResult(
                 catalog,
                 Catalog.ActionType.DROP_TABLE,
-                "DROP TABLE testddatabase.testtable",
+                "DROP TABLE [testddatabase].[testtable]",
                 Optional.empty());
         assertPreviewResult(
                 catalog,

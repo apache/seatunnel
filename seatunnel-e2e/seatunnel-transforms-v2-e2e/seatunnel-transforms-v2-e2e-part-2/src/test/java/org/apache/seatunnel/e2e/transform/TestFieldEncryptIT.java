@@ -54,4 +54,13 @@ public class TestFieldEncryptIT extends TestSuiteBase {
                 container.executeJob("/field_decrypt_transform_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testEncryptionTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/field_encrypt_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

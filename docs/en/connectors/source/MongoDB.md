@@ -13,7 +13,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## Description
 
 The MongoDB source connector reads documents from a MongoDB collection and converts each BSON
-document into a SeaTunnel row. It supports both **batch** and **streaming** jobs, and reads in
+document into a SeaTunnel row. It runs as a **batch** (bounded) source and reads in
 parallel by splitting the source collection across `partition.split-key` ranges.
 
 You can narrow what is read and what columns are returned without scanning the whole collection:
@@ -32,8 +32,8 @@ You can narrow what is read and what columns are returned without scanning the w
 - Use `flat.sync-string` to capture the whole document as one JSON `STRING` column when no
   fixed schema is needed.
 
-In streaming mode the connector reads the assigned splits and tracks progress through checkpoints
-so a restarted job resumes from the last committed cursor.
+The connector tracks split progress through checkpoints, so a restarted job resumes from the
+last committed split instead of rescanning the whole collection.
 
 ## Supported DataSource Info
 
@@ -43,6 +43,9 @@ It can be downloaded via `install-plugin.sh` or from the Maven central repositor
 | Datasource | Supported Versions | Dependency                                                                            |
 |------------|--------------------|---------------------------------------------------------------------------------------|
 | MongoDB    | Universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-mongodb) |
+
+The optional [connectivity dry-run](#connectivity-dry-run) requires MongoDB 4.0 or later.
+This requirement does not change the versions supported by normal source execution.
 
 ## Data Type Mapping
 
@@ -77,6 +80,26 @@ SeaTunnel `STRING` type.
 
 > 1. When using the `DECIMAL` type in SeaTunnel, the maximum range cannot exceed 34 digits. Use
 >    `decimal(34, 18)` to stay within the supported precision and scale.
+
+## Connectivity dry-run
+
+With the Zeta engine, `--dry-run connect` checks the configured MongoDB source without
+creating readers, enumerating splits, sampling documents or writing data. It uses the same
+configured schema as a normal source and checks that the configured collection is visible
+using a name-filtered `listCollections` command with `nameOnly` and `authorizedCollections`.
+This supports collection-scoped users without requiring cluster-wide `listDatabases` access.
+The metadata check requires MongoDB 4.0 or later; it does not change normal job execution.
+
+A successful check confirms connectivity, authentication and visibility of the collection,
+not permission to read documents, the validity of query/projection expressions or the types
+of stored documents. Missing and unauthorized collections both fail validation. An existing
+empty collection is valid. No collection is created by the check.
+
+URI authentication, TLS and read preference settings are retained. Only the dry-run client
+uses a single-connection pool and caps server selection, connection, socket-read and pool-wait
+timeouts at 30 seconds, retaining shorter positive URI timeouts. The metadata command also
+has a 30-second server-side limit. These are per-operation limits, not a total wall-clock
+deadline (for example, DNS resolution is controlled by the JVM). Runtime settings are unchanged.
 
 ## Source Options
 
@@ -361,6 +384,55 @@ A sample document that flows through this configuration looks like the following
   "c_date": { "$date": { "$numberLong": "1686614400000" } },
   "c_decimal": { "$numberDecimal": "683265300" },
   "c_timestamp": { "$date": { "$numberLong": "1684283772000" } }
+}
+```
+
+### Read With Partition Split Key
+
+To accelerate reads on large collections, MongoDB source lets you split the scan by a key (`partition.split-key`)
+and a target split size (`partition.split-size`). The connector reads documents ordered by the split key and
+hands each chunk to a parallel reader. `fetch.size` controls how many documents the server returns per round-trip
+and should be tuned together with the split size.
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017"
+    database = "test_db"
+    collection = "orders"
+    partition.split-key = "_id"
+    partition.split-size = 1024
+    fetch.size = 2048
+    max.time-min = 30
+    schema = {
+      fields {
+        _id = string
+        status = string
+        amount = double
+      }
+    }
+  }
+}
+```
+
+### Read From Replica Set Or Sharded Cluster
+
+The connector accepts any standard MongoDB connection URI. Use `replicaSet=xxx` for replica sets and
+`authSource=admin` when credentials live in a non-default auth database.
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@mongo1:27017,mongo2:27017,mongo3:27017/test_db?replicaSet=rs0&authSource=admin&readPreference=secondary"
+    database = "test_db"
+    collection = "orders"
+    schema = {
+      fields {
+        _id = string
+        status = string
+      }
+    }
+  }
 }
 ```
 

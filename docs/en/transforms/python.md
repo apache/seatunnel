@@ -35,7 +35,7 @@ Absolute or runtime-visible path of the Python script on the SeaTunnel worker ho
 
 Python executable used to start the worker process. The default value is `python3`. When the default value is used, SeaTunnel will also try `python` as a fallback after resolving both commands from `PATH`.
 
-When the transform is enabled, the executable actually launched must be present in the server-side system property `seatunnel.transform.python.allowed-executables`. In production, prefer setting `python_executable` to an absolute path such as `/usr/bin/python3`.
+When the transform is enabled, the executable actually launched must be present in the server-side system property `seatunnel.transform.python.allowed-executables`. Unless left at its default value `python3`, `python_executable` must be an absolute path (such as `/usr/bin/python3`); relative values are rejected at runtime.
 
 ### script_config [map]
 

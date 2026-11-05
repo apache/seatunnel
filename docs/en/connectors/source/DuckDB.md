@@ -9,7 +9,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 Read data from a DuckDB database file through JDBC. DuckDB is an in-process SQL OLAP database, so the connector
 talks to a local database file (`jdbc:duckdb:/path/to/database.db`) or an in-memory database; there is no
 remote server. The connector supports both batch and streaming modes, parallel reads via `partition_column`,
-and reading multiple tables in one job through `table_list`.
+and reading multiple tables in one job through `table_list`. The generated hash partition SQL is independent of the JVM default locale.
 
 ## Support DuckDB Version
 
@@ -50,24 +50,34 @@ and reading multiple tables in one job through `table_list`.
 
 ## Data Type Mapping
 
+DuckDB scalar `BIT` and `ENUM` values map to `STRING`. When the catalog reports no length, SeaTunnel leaves the length unspecified; it no longer assumes a one-character BIT or a 255-character ENUM. This also applies to named ENUM types created with `CREATE TYPE`. For example, MySQL automatic DDL uses `LONGTEXT` for these columns. Existing destination tables are not resized automatically. List declarations such as `ENUM(...)[]` retain their existing fallback mapping.
+
+MySQL automatic DDL cannot create a full-column primary key on `LONGTEXT`. If a `BIT` or `ENUM` column is part of the primary key, pre-create a compatible target table with an explicitly bounded key type that fits the source data and MySQL index limits, and use `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"`. See [incompatible changes](../../introduction/concepts/incompatible-changes.md#duckdb-bit-and-enum-automatic-ddl).
+
 | DuckDB Data Type                                                    | SeaTunnel Data Type |
 |---------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                             | BOOLEAN             |
-| TINYINT                                                             | TINYINT             |
-| UTINYINT<br/>SMALLINT                                               | SMALLINT            |
-| USMALLINT<br/>INTEGER                                               | INT                 |
-| UINTEGER<br/>BIGINT                                                 | BIGINT              |
-| UBIGINT                                                             | DECIMAL(20,0)       |
-| HUGEINT                                                             | DECIMAL(38,0)       |
+| TINYINT<br/>UTINYINT                                                | TINYINT             |
+| SMALLINT<br/>USMALLINT                                              | SMALLINT            |
+| INTEGER<br/>UINTEGER                                                | INT                 |
+| BIGINT<br/>UBIGINT                                                  | BIGINT              |
+| HUGEINT<br/>UHUGEINT<br/>BIGNUM                                     | DECIMAL(38,0)       |
 | FLOAT                                                               | FLOAT               |
 | DOUBLE                                                              | DOUBLE              |
 | DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)        |
-| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,18)      |
+| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,y)       |
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL            | STRING              |
+| BIT<br/>ENUM                                                        | STRING              |
 | DATE                                                                | DATE                |
 | TIME                                                                | TIME                |
-| TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                              | TIMESTAMP           |
-| BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                   | BYTES               |
+| TIMESTAMP                                                           | TIMESTAMP           |
+| TIMESTAMP WITH TIME ZONE                                            | TIMESTAMP_TZ        |
+| BLOB                                                                | BYTES               |
+| ARRAY<br/>STRUCT<br/>MAP                                            | STRING              |
+
+DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
+
+> Type names are matched without regard to case or the JVM default locale. For example, `integer` and `INTEGER` both map to `INT`, including under `tr-TR`.
 
 ## Source Options
 
@@ -77,7 +87,7 @@ and reading multiple tables in one job through `table_list`.
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use DuckDB the value is `org.duckdb.DuckDBDriver`.                                                                                                                                       |
 | username                     | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                       |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                        |
-| query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                     |
+| query                        | String     | No       | -               | Query statement. Either `query`, `table_path` or `table_list` must be configured.                                                                                                                                                                                   |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                  |
 | partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type primary key, and only can config one column.                                                                                                                                                 |
 | partition_lower_bound        | String     | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                    |

@@ -20,7 +20,7 @@ Prometheus 数据源连接器通过 Prometheus 兼容 HTTP API 读取指标查�
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行处理](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息

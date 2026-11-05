@@ -24,7 +24,9 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.AllowedDuringPassiveState;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-/** Returns the REST HTTP port configured on the node that executes this operation. */
+/**
+ * Returns the REST HTTP port bound by this member, with a configured-port fallback before startup.
+ */
 public class GetNodeHttpPortOperation extends Operation
         implements IdentifiedDataSerializable, AllowedDuringPassiveState {
 
@@ -33,7 +35,7 @@ public class GetNodeHttpPortOperation extends Operation
     @Override
     public void run() {
         SeaTunnelServer service = getService();
-        response = service.getSeaTunnelConfig().getEngineConfig().getHttpConfig().getPort();
+        response = service.getHttpPort();
     }
 
     @Override

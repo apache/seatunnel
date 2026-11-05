@@ -14,6 +14,10 @@ SeaTunnel 能够解析 Canal 的 JSON 消息，并将其转化为 INSERT/UPDATE/
 
 SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息编码为 Canal JSON 消息，并将其发送到类似 Kafka 这样的存储中。然而，目前 SeaTunnel 无法将 UPDATE_BEFORE 和 UPDATE_AFTER 合并为一个单一的UPDATE消息。因此，SeaTunnel将 UPDATE_BEFORE 和 UPDATE_AFTER 编码为 Canal的 DELETE 和 INSERT 消息来进行
 
+## 限制
+
+更新消息必须包含完整行数据；仅包含变更字段的部分更新暂不支持。
+
 # 格式选项
 
 |               选项               |  默认值   | 是否需要 |                                         描述                                         |

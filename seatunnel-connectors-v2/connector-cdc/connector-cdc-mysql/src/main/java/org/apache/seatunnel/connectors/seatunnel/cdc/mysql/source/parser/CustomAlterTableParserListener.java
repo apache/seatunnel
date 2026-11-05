@@ -243,4 +243,22 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener
     public org.apache.seatunnel.api.table.catalog.Column toSeatunnelColumn(Column column) {
         return MySqlTypeUtils.convertToSeaTunnelColumn(column, dbzConnectorConfig);
     }
+
+    /**
+     * {@code SET} and {@code ENUM} do not take a length: Debezium keeps their option list in {@link
+     * Column#enumValues()} and the value of {@link Column#length()} is only a bookkeeping count
+     * ({@code 2 * options - 1}). Appending it would produce a type such as {@code SET(5)}, which is
+     * not valid DDL, and that value reaches generated auto-create statements through {@code
+     * org.apache.seatunnel.api.table.catalog.Column#getSourceType()} (see <a
+     * href="https://github.com/apache/seatunnel/issues/12354">issue #12354</a>). Render the option
+     * list instead, the way the base implementation renders length and scale for other types.
+     */
+    @Override
+    public String getSourceColumnTypeWithLengthScale(Column column) {
+        List<String> enumValues = column.enumValues();
+        if (enumValues != null && !enumValues.isEmpty()) {
+            return String.format("%s(%s)", column.typeName(), String.join(",", enumValues));
+        }
+        return SeatunnelDDLParser.super.getSourceColumnTypeWithLengthScale(column);
+    }
 }

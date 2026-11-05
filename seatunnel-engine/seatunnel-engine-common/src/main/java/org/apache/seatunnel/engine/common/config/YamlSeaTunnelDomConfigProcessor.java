@@ -383,6 +383,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                 ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MIN_PAUSE
                                         .key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MONITOR_HISTORY_SIZE
+                    .key()
+                    .equals(name)) {
+                checkpointConfig.setMonitorHistorySize(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .CHECKPOINT_MONITOR_HISTORY_SIZE
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions
                     .SCHEMA_CHANGE_CHECKPOINT_TIMEOUT
                     .key()
@@ -683,6 +692,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue(
                                 ServerConfigOptions.MasterServerConfigOptions
                                         .UPLOAD_MAX_REQUEST_SIZE_MB
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.LOG_RESPONSE_MAX_SIZE_MB
+                    .key()
+                    .equals(name)) {
+                httpConfig.setLogResponseMaxSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .LOG_RESPONSE_MAX_SIZE_MB
                                         .key(),
                                 getTextContent(node)));
             } else {

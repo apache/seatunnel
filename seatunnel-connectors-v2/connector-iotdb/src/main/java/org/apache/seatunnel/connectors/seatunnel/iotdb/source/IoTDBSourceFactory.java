@@ -62,6 +62,7 @@ public class IoTDBSourceFactory implements TableSourceFactory {
                 .exclusive(IoTDBSourceOptions.SQL, ConnectorCommonOptions.TABLE_CONFIGS)
                 .optional(
                         IoTDBSourceOptions.SQL,
+                        Conditions.notBlank(IoTDBSourceOptions.SQL),
                         Conditions.extension(IoTDBSourceOptions.SQL, new SingleTableValidator()))
                 .optional(
                         ConnectorCommonOptions.TABLE_CONFIGS,

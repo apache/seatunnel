@@ -1,0 +1,38 @@
+{
+  "_license": [
+    "Licensed to the Apache Software Foundation (ASF) under one or more",
+    "contributor license agreements.  See the NOTICE file distributed with",
+    "this work for additional information regarding copyright ownership.",
+    "The ASF licenses this file to You under the Apache License, Version 2.0",
+    "(the \"License\"); you may not use this file except in compliance with",
+    "the License.  You may obtain a copy of the License at",
+    "",
+    "   http://www.apache.org/licenses/LICENSE-2.0",
+    "",
+    "Unless required by applicable law or agreed to in writing, software",
+    "distributed under the License is distributed on an \"AS IS\" BASIS,",
+    "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.",
+    "See the License for the specific language governing permissions and",
+    "limitations under the License."
+  ],
+  "description": "Named task subsets for fast iteration. A preset expands into the same --tasks selection every time, so results from different runs stay comparable.",
+  "presets": {
+    "smoke": {
+      "description": "Fast regression lane: four tasks per tier covering eight distinct categories, three Chinese prompts, and the four task shapes that most models get wrong (Doris option rules, PostgreSQL CDC prerequisites, conditional routing, wide DAG wiring).",
+      "tasks": [
+        "t1_fake_console",
+        "t1_mysql_localfile_csv",
+        "t1_pg_doris",
+        "t1_kafka_console_stream",
+        "t2_tm_decimal_precision_zh",
+        "t2_cdc_pg_kafka",
+        "t2_tc_chain_two_transforms_zh",
+        "t2_mt_table_list",
+        "t3_mp_three_pipelines_zh",
+        "t3_ms_kafka_jdbc_es",
+        "t3_cr_amount_split",
+        "t3_cx_wide_dag"
+      ]
+    }
+  }
+}

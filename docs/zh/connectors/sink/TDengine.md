@@ -38,6 +38,7 @@ import ChangeLog from '../changelog/connector-tdengine.md';
 | stable         | String | 是       | -      | TDengine 超级表名称。多表写入时可以使用占位符，例如 `${table_name}`。 |
 | timezone       | String | 否       | UTC    | TDengine 服务端时区，用于时间戳转换。 |
 | write_columns  | List   | 否       | -      | 要写入 TDengine 的普通列名列表。不配置时按目标超级表的列顺序写入；不要包含子表名列或 TAGS 字段。 |
+| multi_table_sink_replica | Int | 否    | 1      | 多表写入作业中每张表使用的写入器副本数，最小为 1。 |
 | common-options |        | 否       | -      | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
 ### url [String]
@@ -78,6 +79,8 @@ TDengine 服务端时区，用于时间戳转换，默认值为 `UTC`。如果�
 
 Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)。
 多表写入时，可以配合通用参数中的 `multi_table_sink_replica` 使用。
+
+上述必填字符串选项均不能为空字符串或仅包含空白字符。此项校验不检查服务器连接或时间戳格式。
 
 ## 输入数据格式
 

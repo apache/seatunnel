@@ -21,6 +21,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.ToString;
 
+import java.util.Locale;
+
 /** Enumeration for data formats supported by multimodal embedding models */
 @AllArgsConstructor
 @Getter
@@ -37,7 +39,7 @@ public enum PayloadFormat {
             return URL;
         }
         for (PayloadFormat format : PayloadFormat.values()) {
-            if (format.name.equalsIgnoreCase(name.trim().toLowerCase())) {
+            if (format.name.equalsIgnoreCase(name.trim().toLowerCase(Locale.ROOT))) {
                 return format;
             }
         }

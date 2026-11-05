@@ -100,7 +100,19 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                                         DockerLoggerFactory.getLogger(HADOOP_IMAGE + ":datanode")));
 
         Startables.deepStart(Stream.of(nameNode, dataNode)).join();
-        Thread.sleep(5000);
+        // The DataNode has no wait strategy of its own; poll until it has registered
+        // with the NameNode instead of a fixed sleep, so a slow registration does
+        // not fail the first HDFS operation.
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        nameNode.execInContainer("hdfs", "dfsadmin", "-report")
+                                                .getStdout()
+                                                .contains("Live datanodes (1)")));
     }
 
     @AfterAll

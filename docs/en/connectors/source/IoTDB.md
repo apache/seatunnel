@@ -61,7 +61,7 @@ Use either a root-level `sql` and `schema` for one table, or `tables_configs` fo
 | node_urls                  | string  | yes      | -             | IoTDB cluster address, the format is `"host1:port"` or `"host1:port,host2:port"`                                  |
 | username                   | string  | yes      | -             | IoTDB user username                                                                                               |
 | password                   | string  | yes      | -             | IoTDB user password                                                                                               |
-| sql                        | string  | conditional | -          | SQL query. Required with `schema` when `tables_configs` is not configured.                                          |
+| sql                        | string  | conditional | -          | SQL query. Required with `schema` when `tables_configs` is not configured. A supplied root-level value must not be blank. |
 | tables_configs             | array   | no       | -             | Non-empty list of table configurations, each containing `sql` and `schema` with a unique, non-blank `schema.table`. |
 | schema                     | config  | conditional | -          | Required with root-level `sql`; configure inside each entry when using `tables_configs`. See [Schema Feature](../../introduction/concepts/schema-feature.md). |
 | fetch_size                 | int     | no       | -             | Number of rows fetched from IoTDB in one request.                                                                 |
@@ -276,7 +276,7 @@ The data format loaded to SeaTunnelRow is as follows:
 
 The split rule is:
 
-- If `num_partitions = 1`, the entire range `[lower_bound, upper_bound)` is used as a single partition.
+- If `num_partitions = 1`, the entire range `[lower_bound, upper_bound]` is used as a single partition.
 - Otherwise the range is divided into `num_partitions` equal slices. If `upper_bound - lower_bound < num_partitions`, the connector falls back to `upper_bound - lower_bound` partitions.
 
 For example, with `lower_bound = 1`, `upper_bound = 10`, and `num_partitions = 2` against the SQL `select * from test where age > 0 and age < 10`, the connector generates:

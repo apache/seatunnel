@@ -189,6 +189,49 @@ class JdbcSinkFactoryTest {
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
 
+    /**
+     * The strict unknown-key check used by {@code --check} and {@code --dry-run} only accepts keys
+     * declared in the option rule, so every option the sink reads must be declared there.
+     */
+    @Test
+    void testDocumentedSinkOptionsAreNotUnknownKeys() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("table", "TEST_TABLE");
+        cfg.put("schema", "ST");
+        cfg.put("properties", Collections.singletonMap("oracle.jdbc.timezoneAsRegion", "false"));
+        cfg.put("connect_timeout_ms", 30000);
+        cfg.put("socket_timeout_ms", 60000);
+        cfg.put("decimal_type_narrowing", true);
+        cfg.put("int_type_narrowing", true);
+        cfg.put("handle_blob_as_string", false);
+        cfg.put("use_kerberos", true);
+        cfg.put("kerberos_principal", "seatunnel@EXAMPLE.COM");
+        cfg.put("kerberos_keytab_path", "/etc/seatunnel.keytab");
+        cfg.put("krb5_path", "/etc/krb5.conf");
+        cfg.put("access_key_id", "ak");
+        cfg.put("secret_access_key", "sk");
+        cfg.put("region", "us-east-1");
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(cfg), rule, "Jdbc"));
+    }
+
+    @Test
+    void testUndeclaredSinkOptionIsUnknownKey() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("tabel", "TEST_TABLE");
+
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.validateUnknownKeys(
+                                        ReadonlyConfig.fromMap(cfg), rule, "Jdbc"));
+        Assertions.assertTrue(exception.getMessage().contains("[tabel]"));
+    }
+
     // ---- Entry-level regression tests through factory-context path ----
 
     @Test

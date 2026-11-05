@@ -37,7 +37,7 @@ import ChangeLog from '../changelog/connector-http.md';
 
 |             名称              |   类型   | 是否必须 |  默认值  |                             描述                             |
 |-----------------------------|--------|------|-------|------------------------------------------------------------|
-| url                         | String | 是    | -     | Http 请求链接                                                  |
+| url                         | String | 是    | -     | HTTP 请求链接，不能为空或仅包含空白字符。                                      |
 | headers                     | Map    | 否    | -     | Http 请求头                                                    |
 | params                      | Map    | 否    | -     | 该参数会通过参数校验。当前 Sink 写入器会把数据作为请求体 POST 到最终 URL，如需查询参数，建议直接写在 `url` 中。 |
 | retry                       | Int    | 否    | -     | 如果请求http返回`IOException`的最大重试次数                             |
@@ -46,7 +46,7 @@ import ChangeLog from '../changelog/connector-http.md';
 | array_mode                  | Boolean| 否    | false | 为true时将数据作为JSON数组发送，为false时作为单个JSON对象发送（默认）                |
 | batch_size                  | Int    | 否    | 1     | 在一个HTTP请求中发送的记录批量大小。仅在array_mode为true时有效                   |
 | request_interval_ms         | Int    | 否    | 0     | 两次HTTP请求之间的间隔毫秒数，以避免请求过于频繁                                 |
-| multi_table_sink_replica    | Int    | 否    | -     | 多表写入时使用的 Sink 副本数，详情请参考 [Sink 常用选项](../common-options/sink-common-options.md)。 |
+| multi_table_sink_replica    | Int    | 否    | 1     | 多表写入时使用的 Sink 副本数，详情请参考 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options              |        | 否    | -     | Sink插件常用参数，请参考 [Sink常用选项 ](../common-options/sink-common-options.md) 了解详情 |
 
 ## 示例

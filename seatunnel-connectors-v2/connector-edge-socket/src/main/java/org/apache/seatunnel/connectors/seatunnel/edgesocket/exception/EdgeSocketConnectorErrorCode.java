@@ -30,7 +30,8 @@ public enum EdgeSocketConnectorErrorCode implements SeaTunnelErrorCode {
     PACKET_AES_KEY_MISSING("EDGE_SOCKET-08", "Missing secret_key for AES_GCM packet"),
     COLLECTOR_REJECTED(
             "EDGE_SOCKET-09",
-            "Rejected collector connection because another collector is already connected");
+            "Rejected collector connection because another collector is already connected"),
+    PACKET_DECRYPT_ERROR("EDGE_SOCKET-10", "Failed to decrypt ingress packet");
 
     private final String code;
     private final String description;

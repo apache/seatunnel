@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -84,5 +85,31 @@ public class FileSinkConfigTest {
         List<Integer> sinkColumnsIndexInRow = fileSinkConfig.getSinkColumnsIndexInRow();
         Assertions.assertEquals(
                 sinkColumnsIndexInRow.size(), seaTunnelRowTypeInfo.getFieldNames().length);
+    }
+
+    @Test
+    public void testDataSaveModeExplicitlyConfigured() {
+        SeaTunnelRowType rowType = newRowType();
+        FileSinkConfig defaultConfig =
+                new FileSinkConfig(
+                        ReadonlyConfig.fromConfig(
+                                ConfigFactory.parseString("path = \"/data/test\"")),
+                        rowType);
+        FileSinkConfig explicitConfig =
+                new FileSinkConfig(
+                        ReadonlyConfig.fromConfig(
+                                ConfigFactory.parseString(
+                                        "path = \"/data/test\"\ndata_save_mode = \"APPEND_DATA\"")),
+                        rowType);
+
+        Assertions.assertEquals(DataSaveMode.APPEND_DATA, defaultConfig.getDataSaveMode());
+        Assertions.assertFalse(defaultConfig.isDataSaveModeExplicitlyConfigured());
+        Assertions.assertTrue(explicitConfig.isDataSaveModeExplicitlyConfigured());
+    }
+
+    private static SeaTunnelRowType newRowType() {
+        return new SeaTunnelRowType(
+                new String[] {"data", "ts"},
+                new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
     }
 }

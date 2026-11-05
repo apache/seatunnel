@@ -283,7 +283,20 @@ properties:
 
 Alibaba Cloud OSS uses Hadoop OSS configuration and selects the target bucket with `oss.bucket`. Set `fs.oss.endpoint` to the actual endpoint of the bucket region, private cloud, or OSS-compatible service.
 
-The default Hadoop Aliyun OSS credential provider reads `fs.oss.accessKeyId` and `fs.oss.accessKeySecret`. Temporary credentials can additionally set `fs.oss.securityToken`. It does not provide a default environment-variable credential chain like Hadoop S3A, so credentials injected from Kubernetes Secret as environment variables are not used automatically.
+The default Hadoop Aliyun OSS credential provider reads `fs.oss.accessKeyId` and `fs.oss.accessKeySecret`. Temporary credentials can additionally set `fs.oss.securityToken`. To read credentials from environment variables and avoid rendering them into the ConfigMap, select the OSS SDK environment variable provider:
+
+```yaml
+properties:
+  type: hdfs
+  namespace: /seatunnel/imap
+  clusterName: seatunnel-cluster
+  storage.type: oss
+  oss.bucket: oss://seatunnel-bucket
+  fs.oss.endpoint: https://oss-<region>.aliyuncs.com
+  fs.oss.credentials.provider: com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider
+```
+
+The provider reads the fixed environment variables `OSS_ACCESS_KEY_ID` and `OSS_ACCESS_KEY_SECRET`, plus `OSS_SESSION_TOKEN` for temporary credentials. Inject them into every Master and Worker Pod.
 
 ```yaml
 hazelcast:
@@ -304,12 +317,59 @@ hazelcast:
           fs.oss.accessKeySecret: YOUR_ACCESS_KEY_SECRET
 ```
 
-If you do not want to render OSS credentials into the final ConfigMap, use Hadoop credential provider for `fs.oss.accessKeyId` and `fs.oss.accessKeySecret`, or set `fs.oss.credentials.provider` to a custom provider. The custom provider must implement the Aliyun OSS SDK `com.aliyun.oss.common.auth.CredentialsProvider` interface and must be available in the SeaTunnel image.
+If you do not want to render OSS credentials into the final ConfigMap, use the environment variable provider shown above, a Hadoop credential provider, or a custom `fs.oss.credentials.provider` implementation. A custom provider must implement the Aliyun OSS SDK `com.aliyun.oss.common.auth.CredentialsProvider` interface and must be available in the SeaTunnel image.
+
+#### Inject credentials from Kubernetes Secrets
+
+Kubernetes injects Secret values into the container process environment when the Pod starts. The values are not written to the Docker image, and SeaTunnel does not need a Dockerfile `ENV` entry. Inject the credentials into every Master and Worker container that can access checkpoint or IMap storage.
+
+If the Secret keys already use the fixed provider variable names, use `envFrom`:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: seatunnel-oss-credentials
+type: Opaque
+stringData:
+  OSS_ACCESS_KEY_ID: your-access-key
+  OSS_ACCESS_KEY_SECRET: your-secret-key
+  OSS_SESSION_TOKEN: your-session-token # omit for permanent credentials
+---
+spec:
+  template:
+    spec:
+      containers:
+        - name: seatunnel
+          envFrom:
+            - secretRef:
+                name: seatunnel-oss-credentials
+```
+
+If the Secret uses different key names, map them explicitly so the provider receives the fixed names:
+
+```yaml
+containers:
+  - name: seatunnel
+    env:
+      - name: OSS_ACCESS_KEY_ID
+        valueFrom:
+          secretKeyRef:
+            name: seatunnel-oss-credentials
+            key: access-key
+      - name: OSS_ACCESS_KEY_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: seatunnel-oss-credentials
+            key: secret-key
+```
+
+Do not set a prefix on `envFrom`, because the provider expects the exact variable names shown above. Environment variables in a running container do not update when the Secret changes; restart or roll out the StatefulSet after rotating credentials.
 
 When `backup-count: 1` is used, at least 2 Master replicas are required to store IMap backup replicas.
 
 :::caution Warning
-Do not commit real access keys or secret keys to ConfigMaps or Git repositories. Kubernetes does not resolve `secretKeyRef` inside ConfigMap file content. SeaTunnel and Hazelcast must read a final, usable YAML configuration. In production, generate the final ConfigMap through Helm, Kustomize, External Secrets, CI/CD, or the image build process, or use credential mechanisms actually supported by the underlying filesystem, such as Hadoop credential provider, AWS SDK environment variable provider, cloud-provider credential chains, or mounted credential files. Make sure every Master Pod has the same read/write permission to the object store.
+Do not commit real access keys or secret keys to ConfigMaps or Git repositories. Kubernetes does not resolve `secretKeyRef` inside ConfigMap file content. SeaTunnel and Hazelcast must read a final, usable YAML configuration. In production, generate the final ConfigMap through Helm, Kustomize, External Secrets, CI/CD, or the image build process, or use credential mechanisms actually supported by the underlying filesystem, such as Hadoop credential provider, AWS SDK environment variable provider, cloud-provider credential chains, or mounted credential files. Make sure every Master and Worker Pod has the same read/write permission to the object store.
 :::
 
 When S3 or OSS is used, the SeaTunnel image must also contain the corresponding Hadoop filesystem implementation and dependencies, such as Hadoop AWS/AWS SDK or Hadoop Aliyun/OSS SDK. Checkpoint storage and IMap MapStore can use the same object storage service, but use different `namespace` prefixes, for example `/seatunnel/checkpoint/` and `/seatunnel/imap`.
@@ -346,7 +406,7 @@ Common loading approaches:
 For stable production environments, build custom connector plugin jars, Transform plugin jars, and required runtime extension jars into the SeaTunnel image:
 
 ```Dockerfile
-FROM seatunnel:3.0.0
+FROM seatunnel:3.1.0
 
 # Optional: custom connector plugin jars or plugin packages.
 COPY plugins/ /opt/seatunnel/plugins/

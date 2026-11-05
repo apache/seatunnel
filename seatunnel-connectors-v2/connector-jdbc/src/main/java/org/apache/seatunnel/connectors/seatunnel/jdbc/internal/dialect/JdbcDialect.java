@@ -330,6 +330,14 @@ public interface JdbcDialect extends Serializable {
                 });
     }
 
+    /**
+     * Applies dialect-specific connection parameters for JDBC source connections without changing
+     * sink connection behavior.
+     */
+    default void configureSourceConnection(String url, Map<String, String> info) {
+        connectionUrlParse(url, info, defaultParameter());
+    }
+
     default TablePath parse(String tablePath) {
         return TablePath.of(tablePath);
     }
@@ -367,6 +375,17 @@ public interface JdbcDialect extends Serializable {
     }
 
     default boolean supportHashSplitter() {
+        return true;
+    }
+
+    /**
+     * Whether this dialect can safely create split boundaries by sampling a table column.
+     *
+     * <p>Sampling remains enabled by default to preserve existing connector behavior. Dialects
+     * whose drivers may eagerly buffer the complete sampling result set in memory should disable it
+     * and let the splitter fall back to bounded chunk-boundary queries.
+     */
+    default boolean supportsSamplingSharding() {
         return true;
     }
 

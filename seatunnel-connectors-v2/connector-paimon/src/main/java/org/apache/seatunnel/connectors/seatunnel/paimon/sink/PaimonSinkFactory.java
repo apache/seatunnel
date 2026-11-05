@@ -48,8 +48,10 @@ public class PaimonSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(
                         PaimonSinkOptions.WAREHOUSE,
-                        PaimonSinkOptions.DATABASE,
-                        PaimonSinkOptions.TABLE)
+                        Conditions.notBlank(PaimonSinkOptions.WAREHOUSE))
+                .required(
+                        PaimonSinkOptions.DATABASE, Conditions.notBlank(PaimonSinkOptions.DATABASE))
+                .required(PaimonSinkOptions.TABLE, Conditions.notBlank(PaimonSinkOptions.TABLE))
                 .optional(
                         PaimonSinkOptions.CATALOG_NAME,
                         PaimonSinkOptions.HDFS_SITE_PATH,

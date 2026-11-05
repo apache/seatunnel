@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBCatalog;
@@ -44,10 +45,12 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class DuckDBSourceAndSinkTest {
@@ -78,6 +81,98 @@ public class DuckDBSourceAndSinkTest {
             for (String insertSql : getInsertRowSql(SCHEMA_NAME, SOURCE_TABLE_NAME)) {
                 statement.execute(insertSql);
             }
+        }
+    }
+
+    @Test
+    public void testSourceTimePrecision() throws Exception {
+        verifyTimePrecision(true);
+    }
+
+    @Test
+    public void testSinkTimePrecision() throws Exception {
+        verifyTimePrecision(false);
+    }
+
+    private void verifyTimePrecision(boolean verifySource) throws Exception {
+        TimeZone original = TimeZone.getDefault();
+        LocalTime[] times = {
+            LocalTime.parse("00:00:00"),
+            LocalTime.parse("00:00:00.000001"),
+            LocalTime.parse("12:34:56.123456"),
+            LocalTime.parse("23:59:59.999999"),
+            null
+        };
+        try {
+            for (String zone : new String[] {"UTC", "Asia/Shanghai", "America/New_York"}) {
+                TimeZone.setDefault(TimeZone.getTimeZone(zone));
+                try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                        Statement statement = connection.createStatement()) {
+                    statement.execute(
+                            "CREATE OR REPLACE TABLE main.time_precision_source (id INTEGER, value TIME)");
+                    statement.execute(
+                            "CREATE OR REPLACE TABLE main.time_precision_sink (id INTEGER, value TIME)");
+                    statement.execute(
+                            "INSERT INTO main.time_precision_source VALUES (0, TIME '00:00:00'), (1, TIME '00:00:00.000001'), (2, TIME '12:34:56.123456'), (3, TIME '23:59:59.999999'), (4, NULL)");
+                }
+                Map<String, Object> sourceOptions = new HashMap<>();
+                sourceOptions.put("url", jdbcUrl);
+                sourceOptions.put("driver", "org.duckdb.DuckDBDriver");
+                sourceOptions.put("table_path", "main.time_precision_source");
+                ReadonlyConfig config = ReadonlyConfig.fromMap(sourceOptions);
+                CatalogTable table =
+                        new JdbcSourceFactory()
+                                .inferSchemaForDryRun(
+                                        new TableSourceFactoryContext(
+                                                config, getClass().getClassLoader()))
+                                .get(0);
+                List<SeaTunnelRow> rows =
+                        SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                                config, new JdbcSourceFactory());
+                Assertions.assertEquals(times.length, rows.size());
+                if (verifySource) {
+                    for (SeaTunnelRow row : rows) {
+                        Assertions.assertEquals(
+                                times[(Integer) row.getField(0)],
+                                row.getField(1),
+                                "Source precision in " + zone);
+                    }
+                }
+                // Use the original values independently of Source so a matching truncation on
+                // both sides cannot make the Sink regression pass.
+                List<SeaTunnelRow> sinkRows = new ArrayList<>();
+                for (int id = 0; id < times.length; id++) {
+                    sinkRows.add(new SeaTunnelRow(new Object[] {id, times[id]}));
+                }
+                Map<String, Object> sinkOptions = new HashMap<>();
+                sinkOptions.put("url", jdbcUrl);
+                sinkOptions.put("driver", "org.duckdb.DuckDBDriver");
+                sinkOptions.put("query", "INSERT INTO main.time_precision_sink VALUES (?, ?)");
+                sinkOptions.put("schema_save_mode", SchemaSaveMode.IGNORE);
+                sinkOptions.put("data_save_mode", DataSaveMode.APPEND_DATA);
+                SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                        table,
+                        ReadonlyConfig.fromMap(sinkOptions),
+                        new JdbcSinkFactory(),
+                        sinkRows);
+                try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                        Statement statement = connection.createStatement();
+                        ResultSet result =
+                                statement.executeQuery(
+                                        "SELECT value::VARCHAR FROM main.time_precision_sink ORDER BY id")) {
+                    for (LocalTime time : times) {
+                        Assertions.assertTrue(result.next());
+                        String value = result.getString(1);
+                        Assertions.assertEquals(
+                                time,
+                                value == null ? null : LocalTime.parse(value),
+                                "Sink precision in " + zone);
+                    }
+                    Assertions.assertFalse(result.next());
+                }
+            }
+        } finally {
+            TimeZone.setDefault(original);
         }
     }
 

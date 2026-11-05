@@ -29,11 +29,16 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsAckEvent;
+import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
+import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitStateBase;
@@ -54,6 +59,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
+import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.TableId;
 
 import java.io.IOException;
@@ -76,6 +82,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -576,6 +583,76 @@ class IncrementalSourceReaderTest {
         }
     }
 
+    @Test
+    void testAckRemovesFinishedSplitsFromUnackedState() {
+        SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
+        DataSourceDialect<SourceConfig> dialect =
+                Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
+        SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
+        IncrementalSourceReader<Object, SourceConfig> reader =
+                createReader(dialect, sourceConfig, context);
+
+        try {
+            reader.addSplits(Collections.singletonList(finishedSnapshotSplit("snapshot-split-0")));
+
+            Assertions.assertEquals(
+                    Collections.singletonList("snapshot-split-0"),
+                    splitIds(reader.snapshotState(1L)));
+
+            reader.handleSourceEvent(
+                    new CompletedSnapshotSplitsAckEvent(
+                            Collections.singletonList("snapshot-split-0")));
+
+            Assertions.assertTrue(reader.snapshotState(2L).isEmpty());
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    void testFinishedSplitsAreResentUntilAcknowledged() {
+        SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
+        DataSourceDialect<SourceConfig> dialect =
+                Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
+        SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
+        List<CompletedSnapshotSplitsReportEvent> reports = new ArrayList<>();
+        Mockito.doAnswer(
+                        invocation -> {
+                            reports.add(invocation.getArgument(0));
+                            return null;
+                        })
+                .when(context)
+                .sendSourceEventToEnumerator(Mockito.any());
+        IncrementalSourceReader<Object, SourceConfig> reader =
+                createReader(dialect, sourceConfig, context);
+
+        try {
+            reader.addSplits(
+                    Arrays.asList(
+                            finishedSnapshotSplit("snapshot-split-0"),
+                            finishedSnapshotSplit("snapshot-split-1")));
+            reader.addSplits(Collections.singletonList(finishedSnapshotSplit("snapshot-split-2")));
+
+            // no ack received yet, so the latest report still carries the full unacked set
+            Assertions.assertEquals(
+                    Arrays.asList("snapshot-split-0", "snapshot-split-1", "snapshot-split-2"),
+                    reportSplitIds(reports.get(reports.size() - 1)));
+
+            reader.handleSourceEvent(
+                    new CompletedSnapshotSplitsAckEvent(
+                            Arrays.asList(
+                                    "snapshot-split-0", "snapshot-split-1", "snapshot-split-2")));
+            reader.addSplits(Collections.singletonList(finishedSnapshotSplit("snapshot-split-3")));
+
+            // previously acked splits are pruned from the report
+            Assertions.assertEquals(
+                    Collections.singletonList("snapshot-split-3"),
+                    reportSplitIds(reports.get(reports.size() - 1)));
+        } finally {
+            reader.close();
+        }
+    }
+
     private static IncrementalSourceReader<Object, SourceConfig> createReader(
             DataSourceDialect<SourceConfig> dialect,
             SourceConfig sourceConfig,
@@ -638,6 +715,28 @@ class IncrementalSourceReaderTest {
                 historyTableChanges);
     }
 
+    private static SnapshotSplit finishedSnapshotSplit(String splitId) {
+        return new SnapshotSplit(
+                splitId,
+                KEPT_TABLE,
+                null,
+                new Object[] {1},
+                new Object[] {2},
+                Mockito.mock(Offset.class),
+                Mockito.mock(Offset.class));
+    }
+
+    private static List<String> splitIds(List<SourceSplitBase> splits) {
+        return splits.stream().map(SourceSplitBase::splitId).collect(Collectors.toList());
+    }
+
+    private static List<String> reportSplitIds(CompletedSnapshotSplitsReportEvent event) {
+        return event.getCompletedSnapshotSplitWatermarks().stream()
+                .map(SnapshotSplitWatermark::getSplitId)
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
     private static CatalogTable catalogTable(TableId tableId) {
         TablePath tablePath = TablePath.of(tableId.catalog(), tableId.table());
         return CatalogTable.of(
@@ -672,7 +771,7 @@ class IncrementalSourceReaderTest {
                         checkpointTables,
                         historyTableChanges);
 
-        IncrementalSourceReader.restoreCheckpointState(incrementalSplit, schema);
+        IncrementalSourceReader.restoreCheckpointState(incrementalSplit, schema, true);
 
         Mockito.verify(schema).restoreCheckpointProducedType(checkpointTables);
         Mockito.verify(schema).restoreCheckpointHistoryTableChanges(historyTableChanges);
@@ -691,7 +790,7 @@ class IncrementalSourceReaderTest {
                         Mockito.mock(Offset.class),
                         Collections.emptyList());
 
-        IncrementalSourceReader.restoreCheckpointState(incrementalSplit, schema);
+        IncrementalSourceReader.restoreCheckpointState(incrementalSplit, schema, true);
 
         Mockito.verifyNoInteractions(schema);
     }
@@ -716,7 +815,7 @@ class IncrementalSourceReaderTest {
                         Collections.emptyList(),
                         checkpointRowType);
 
-        IncrementalSourceReader.restoreCheckpointState(split, schema);
+        IncrementalSourceReader.restoreCheckpointState(split, schema, true);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<CatalogTable>> captor = ArgumentCaptor.forClass(List.class);
@@ -754,7 +853,7 @@ class IncrementalSourceReaderTest {
                         Collections.emptyList(),
                         checkpointRowType);
 
-        IncrementalSourceReader.restoreCheckpointState(split, schema);
+        IncrementalSourceReader.restoreCheckpointState(split, schema, true);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<CatalogTable>> captor = ArgumentCaptor.forClass(List.class);
@@ -786,8 +885,94 @@ class IncrementalSourceReaderTest {
                         Collections.emptyList(),
                         checkpointRowType);
 
-        IncrementalSourceReader.restoreCheckpointState(split, schema);
+        IncrementalSourceReader.restoreCheckpointState(split, schema, true);
 
         Mockito.verifyNoInteractions(schema);
+    }
+
+    /**
+     * Regression guard for the savepoint-restore column drop: a job that does not propagate schema
+     * changes (the default) must keep the schema discovered from the live database, because nothing
+     * in its change stream could ever widen a checkpoint schema that predates an ADD COLUMN
+     * executed while the job was stopped. Debezium history is still restored, since it only drives
+     * decoding of the stream itself.
+     */
+    @Test
+    void restoreCheckpointStateKeepsLiveSchemaWhenSchemaChangesAreDisabled() {
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        CatalogTable checkpointTable = Mockito.mock(CatalogTable.class);
+        Mockito.when(checkpointTable.getTablePath())
+                .thenReturn(TablePath.of("catalog", "database", "customers"));
+        Map<TableId, byte[]> historyTableChanges =
+                Collections.singletonMap(
+                        new TableId("catalog", "database", "customers"), new byte[] {1});
+        IncrementalSplit incrementalSplit =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.emptyList(),
+                        Mockito.mock(Offset.class),
+                        Mockito.mock(Offset.class),
+                        Collections.emptyList(),
+                        Collections.singletonList(checkpointTable),
+                        historyTableChanges);
+
+        IncrementalSourceReader.restoreCheckpointState(incrementalSplit, schema, false);
+
+        Mockito.verify(schema, Mockito.never()).restoreCheckpointProducedType(Mockito.anyList());
+        Mockito.verify(schema).restoreCheckpointHistoryTableChanges(historyTableChanges);
+    }
+
+    /**
+     * The legacy checkpoint data type path is subject to the same rule: without schema change
+     * propagation the checkpointed row type must not replace the live schema.
+     */
+    @Test
+    void restoreCheckpointStateKeepsLiveSchemaForLegacyCheckpointWhenSchemaChangesAreDisabled() {
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        SeaTunnelRowType checkpointRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.singletonList(new TableId("catalog", "database", "customers")),
+                        Mockito.mock(Offset.class),
+                        Mockito.mock(Offset.class),
+                        Collections.emptyList(),
+                        checkpointRowType);
+
+        IncrementalSourceReader.restoreCheckpointState(split, schema, false);
+
+        Mockito.verifyNoInteractions(schema);
+    }
+
+    /**
+     * The switch must mirror what the connectors hand to Debezium as {@code
+     * include.schema.changes}, because that is the flag gating DDL emission (MySQL) and the
+     * RELATION listener (PostgreSQL); a non-JDBC source never emits schema change events.
+     */
+    @Test
+    void isSchemaChangeEnabledMirrorsDebeziumIncludeSchemaChanges() {
+        RelationalDatabaseConnectorConfig enabledConfig =
+                Mockito.mock(RelationalDatabaseConnectorConfig.class);
+        Mockito.when(enabledConfig.isSchemaChangesHistoryEnabled()).thenReturn(true);
+        JdbcSourceConfig enabledSource = Mockito.mock(JdbcSourceConfig.class);
+        Mockito.when(enabledSource.getDbzConnectorConfig()).thenReturn(enabledConfig);
+        Assertions.assertTrue(IncrementalSourceReader.isSchemaChangeEnabled(enabledSource));
+
+        RelationalDatabaseConnectorConfig disabledConfig =
+                Mockito.mock(RelationalDatabaseConnectorConfig.class);
+        Mockito.when(disabledConfig.isSchemaChangesHistoryEnabled()).thenReturn(false);
+        JdbcSourceConfig disabledSource = Mockito.mock(JdbcSourceConfig.class);
+        Mockito.when(disabledSource.getDbzConnectorConfig()).thenReturn(disabledConfig);
+        Assertions.assertFalse(IncrementalSourceReader.isSchemaChangeEnabled(disabledSource));
+
+        Assertions.assertFalse(
+                IncrementalSourceReader.isSchemaChangeEnabled(Mockito.mock(SourceConfig.class)));
     }
 }

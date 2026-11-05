@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
@@ -32,6 +33,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jAuthenticationConditions;
@@ -41,15 +43,45 @@ import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorE
 
 import com.google.auto.service.AutoService;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 @AutoService(Factory.class)
-public class Neo4jSourceFactory implements TableSourceFactory {
+public class Neo4jSourceFactory implements TableSourceFactory, SupportSourceDryRunValidation {
+
+    /** Reuses runtime catalog construction without opening a reader or a network connection. */
+    @Override
+    public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context)
+            throws IOException {
+        return parseDryRunSourceConfig(context).catalogTables;
+    }
+
+    private SourceConfiguration parseDryRunSourceConfig(TableSourceFactoryContext context)
+            throws IOException {
+        try {
+            ConfigValidator.of(context.getOptions()).validate(optionRule());
+            return parseSourceConfig(context.getOptions());
+        } catch (RuntimeException e) {
+            throw new IOException(
+                    "Neo4j connect dry-run source configuration or schema is invalid");
+        }
+    }
+
+    /** Checks connectivity only, without starting the source's data-reading lifecycle. */
+    @Override
+    public void validateConnectionForDryRun(
+            TableSourceFactoryContext context, List<CatalogTable> catalogTables) throws Exception {
+        // The connection hook can be called directly, without the preceding schema hook.
+        Neo4jSourceDryRunValidator.validate(
+                parseDryRunSourceConfig(context).connectionInfo.getDriverBuilder());
+    }
+
     @Override
     public String factoryIdentifier() {
         return Neo4jSourceOptions.PLUGIN_NAME;
@@ -102,10 +134,20 @@ public class Neo4jSourceFactory implements TableSourceFactory {
     }
 
     private Neo4jSource createNeo4jSource(ReadonlyConfig config) {
+        SourceConfiguration parsed = parseSourceConfig(config);
+        return parsed.tableConfigs == null
+                ? new Neo4jSource(parsed.catalogTables.get(0), parsed.connectionInfo)
+                : new Neo4jSource(parsed.catalogTables, parsed.connectionInfo, parsed.tableConfigs);
+    }
+
+    // Shared pure configuration parsing keeps preflight schemas identical to the runtime without
+    // creating a source, reader or driver.
+    private SourceConfiguration parseSourceConfig(ReadonlyConfig config) {
         if (!config.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()) {
-            return new Neo4jSource(
-                    CatalogTableUtil.buildWithConfig(config),
-                    new Neo4jSourceQueryInfo(config.toConfig()));
+            return new SourceConfiguration(
+                    Collections.singletonList(CatalogTableUtil.buildWithConfig(config)),
+                    new Neo4jSourceQueryInfo(config.toConfig()),
+                    null);
         }
 
         List<Map<String, Object>> entries = config.get(ConnectorCommonOptions.TABLE_CONFIGS);
@@ -155,7 +197,22 @@ public class Neo4jSourceFactory implements TableSourceFactory {
                                         Neo4jSourceOptions.KEY_QUERY.key(),
                                         ConfigValueFactory.fromAnyRef(
                                                 tableConfigs.get(0).getQuery())));
-        return new Neo4jSource(catalogTables, connectionInfo, tableConfigs);
+        return new SourceConfiguration(catalogTables, connectionInfo, tableConfigs);
+    }
+
+    private static final class SourceConfiguration {
+        private final List<CatalogTable> catalogTables;
+        private final Neo4jSourceQueryInfo connectionInfo;
+        private final List<Neo4jSourceTableConfig> tableConfigs;
+
+        private SourceConfiguration(
+                List<CatalogTable> catalogTables,
+                Neo4jSourceQueryInfo connectionInfo,
+                List<Neo4jSourceTableConfig> tableConfigs) {
+            this.catalogTables = catalogTables;
+            this.connectionInfo = connectionInfo;
+            this.tableConfigs = tableConfigs;
+        }
     }
 
     private static Neo4jConnectorException configError(String message) {

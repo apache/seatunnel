@@ -58,6 +58,11 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     }
 
     @Override
+    public void cancel() {
+        inputFormat.cancel();
+    }
+
+    @Override
     public void close() throws IOException {
         inputFormat.closeInputFormat();
     }

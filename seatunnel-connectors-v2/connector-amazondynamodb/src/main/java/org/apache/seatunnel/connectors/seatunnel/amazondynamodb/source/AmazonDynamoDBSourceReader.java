@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.exception.AmazonDynamoDBConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.SeaTunnelRowDeserializer;
 
@@ -35,7 +37,10 @@ import software.amazon.awssdk.services.dynamodb.paginators.ScanIterable;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -47,7 +52,8 @@ public class AmazonDynamoDBSourceReader
     protected DynamoDbClient dynamoDbClient;
     protected SourceReader.Context context;
     protected AmazonDynamoDBConfig amazondynamodbConfig;
-    protected SeaTunnelRowDeserializer seaTunnelRowDeserializer;
+    private final Map<String, AmazonDynamoDBSourceTable> tables = new HashMap<>();
+    private final Map<String, SeaTunnelRowDeserializer> deserializers = new HashMap<>();
     Queue<AmazonDynamoDBSourceSplit> pendingSplits = new ConcurrentLinkedDeque<>();
 
     private volatile boolean noMoreSplit;
@@ -56,9 +62,26 @@ public class AmazonDynamoDBSourceReader
             SourceReader.Context context,
             AmazonDynamoDBConfig amazondynamodbConfig,
             SeaTunnelRowType typeInfo) {
+        this(
+                context,
+                amazondynamodbConfig,
+                Collections.singletonList(
+                        new AmazonDynamoDBSourceTable(null, amazondynamodbConfig, typeInfo)));
+    }
+
+    AmazonDynamoDBSourceReader(
+            SourceReader.Context context,
+            AmazonDynamoDBConfig amazondynamodbConfig,
+            List<AmazonDynamoDBSourceTable> tables) {
         this.context = context;
         this.amazondynamodbConfig = amazondynamodbConfig;
-        this.seaTunnelRowDeserializer = new DefaultSeaTunnelRowDeserializer(typeInfo);
+        // A single-table source is keyed by null, which also matches splits restored from
+        // checkpoints taken before splits carried a table identity.
+        for (AmazonDynamoDBSourceTable table : tables) {
+            this.tables.put(table.getTableId(), table);
+            this.deserializers.put(
+                    table.getTableId(), new DefaultSeaTunnelRowDeserializer(table.getRowType()));
+        }
     }
 
     @Override
@@ -121,24 +144,34 @@ public class AmazonDynamoDBSourceReader
     }
 
     private void read(AmazonDynamoDBSourceSplit split, Collector<SeaTunnelRow> output) {
-        ScanIterable scan;
+        String tableId = split.getTableId();
+        AmazonDynamoDBSourceTable table = tables.get(tableId);
+        if (table == null) {
+            throw new AmazonDynamoDBConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    tableId == null
+                            ? "Cannot restore a single-table AmazonDynamoDB split with a tables_configs configuration"
+                            : "Unknown table identity in AmazonDynamoDB split: " + tableId);
+        }
+        SeaTunnelRowDeserializer deserializer = deserializers.get(tableId);
         ScanRequest scanRequest =
                 ScanRequest.builder()
-                        .tableName(amazondynamodbConfig.getTable())
+                        .tableName(table.getConfig().getTable())
                         .limit(split.getItemCount())
                         .segment(split.getSplitId())
                         .totalSegments(split.getTotalSegments())
                         .build();
-        scan = dynamoDbClient.scanPaginator(scanRequest);
-        do {
-
-            scan.items()
-                    .forEach(
-                            item -> {
-                                output.collect(seaTunnelRowDeserializer.deserialize(item));
-                            });
-
-        } while (scan.iterator().hasNext() && !noMoreSplit);
+        // The paginator already follows every page of the segment, so iterate it only once.
+        ScanIterable scan = dynamoDbClient.scanPaginator(scanRequest);
+        scan.items()
+                .forEach(
+                        item -> {
+                            SeaTunnelRow row = deserializer.deserialize(item);
+                            if (tableId != null) {
+                                row.setTableId(tableId);
+                            }
+                            output.collect(row);
+                        });
     }
 
     @Override
