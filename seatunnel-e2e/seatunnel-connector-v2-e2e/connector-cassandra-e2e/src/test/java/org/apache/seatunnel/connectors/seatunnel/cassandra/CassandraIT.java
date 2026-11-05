@@ -146,6 +146,9 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     public void testNullPrimaryKeyFailsTheJob(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(NULL_PRIMARY_KEY_JOB_CONFIG);
         Assertions.assertNotEquals(0, execResult.getExitCode());
+        Assertions.assertTrue(
+                (execResult.getStdout() + execResult.getStderr())
+                        .contains("Primary key column id of table sink_table is NULL"));
         Assertions.assertNull(getRow());
     }
 

@@ -106,6 +106,13 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                                                 .map(ColumnMetadata::getName)
                                                 .collect(Collectors.toSet()))
                         .orElse(Collections.emptySet());
+        if (primaryKeyColumns.isEmpty()) {
+            log.warn(
+                    "Cannot read the primary key of table {}.{} from the driver metadata, so a"
+                            + " NULL key is not rejected before it reaches the server.",
+                    insertedColumn.getKeyspace(),
+                    insertedColumn.getTable());
+        }
     }
 
     @Override

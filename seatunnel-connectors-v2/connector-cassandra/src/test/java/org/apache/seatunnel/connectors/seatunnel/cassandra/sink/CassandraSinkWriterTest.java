@@ -59,6 +59,7 @@ class CassandraSinkWriterTest {
 
     private final CqlSession session = mock(CqlSession.class);
     private final BoundStatement statement = mock(BoundStatement.class, RETURNS_SELF);
+    private boolean tableMetadataAvailable = true;
 
     @Test
     void nullPrimaryKeyFailsTheWriteWithAsyncWrite() {
@@ -81,6 +82,16 @@ class CassandraSinkWriterTest {
 
         verify(statement).setLong(0, 1L);
         verify(statement).setToNull(1);
+        verify(session).executeAsync(statement);
+    }
+
+    @Test
+    void nullPrimaryKeyReachesTheServerWithoutTableMetadata() throws IOException {
+        tableMetadataAvailable = false;
+
+        writer(true, "t").write(new SeaTunnelRow(new Object[] {null, "a"}));
+
+        verify(statement).setToNull(0);
         verify(session).executeAsync(statement);
     }
 
@@ -124,7 +135,8 @@ class CassandraSinkWriterTest {
         TableMetadata table = mock(TableMetadata.class);
         when(table.getPrimaryKey()).thenReturn(Collections.singletonList(key));
         KeyspaceMetadata keyspace = mock(KeyspaceMetadata.class);
-        when(keyspace.getTable(CqlIdentifier.fromCql("t"))).thenReturn(Optional.of(table));
+        when(keyspace.getTable(CqlIdentifier.fromCql("t")))
+                .thenReturn(tableMetadataAvailable ? Optional.of(table) : Optional.empty());
         Metadata metadata = mock(Metadata.class);
         when(metadata.getKeyspace(CqlIdentifier.fromCql("ks"))).thenReturn(Optional.of(keyspace));
         when(session.getMetadata()).thenReturn(metadata);
