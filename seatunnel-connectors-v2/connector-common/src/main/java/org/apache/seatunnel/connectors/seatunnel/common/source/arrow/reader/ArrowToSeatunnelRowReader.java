@@ -192,6 +192,11 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
     private Object convertSeatunnelRowValue(
             SqlType currentType, Types.MinorType minorType, Object fieldValue) {
         switch (currentType) {
+            case TINYINT:
+                if (fieldValue instanceof Boolean) {
+                    return (byte) ((Boolean) fieldValue ? 1 : 0);
+                }
+                return fieldValue;
             case STRING:
                 if (fieldValue instanceof byte[]) {
                     return new String((byte[]) fieldValue);
