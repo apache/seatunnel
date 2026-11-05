@@ -12,7 +12,7 @@ DataValidator 转换插件会根据配置规则校验字段值，并按照指定
 |-----------------|--------|----------|--------|
 | row_error_handle_way| enum   | 否       | FAIL   |
 | row_error_handle_way.error_table     | string | 否       |        |
-| field_rules     | array  | 否       |        |
+| field_rules     | array  | 是（单表模式）       |        |
 
 ### row_error_handle_way [enum]
 

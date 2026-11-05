@@ -118,24 +118,32 @@ public class ApplicationCommandArgs extends CommandArgs {
         if (applicationConfig != null) {
             requireFile(applicationConfig, "--application-config");
         }
-        if (waitTimeoutMillis != null && waitTimeoutMillis < 0) {
-            throw new ParameterException("--wait-timeout must not be negative");
-        }
-        if (waitIntervalMillis != null && waitIntervalMillis < 1) {
-            throw new ParameterException("--wait-interval must be positive");
-        }
-        if (!wait && (waitTimeoutMillis != null || waitIntervalMillis != null)) {
-            throw new ParameterException("--wait-timeout and --wait-interval require --wait");
-        }
+        validateWaitOptions();
         if (operation == ApplicationOperation.SUBMIT) {
-            if (config != null) {
-                requireFile(config, "--config");
-            }
-            if (id != null) {
-                throw new ParameterException("submit does not accept --id");
-            }
-            return;
+            validateSubmitOptions();
+        } else {
+            validateStatusOrCancelOptions();
         }
+    }
+
+    /**
+     * Checks an explicitly supplied job file and rejects an application ID for submission.
+     * Deployment configuration remains optional here so complete {@code -D} options can supply it.
+     */
+    private void validateSubmitOptions() {
+        if (config != null) {
+            requireFile(config, "--config");
+        }
+        if (id != null) {
+            throw new ParameterException("submit does not accept --id");
+        }
+    }
+
+    /**
+     * Requires a nonblank application ID and rejects submit-only options for status and cancel.
+     * Only status may wait for completion; cancel does not accept {@code --wait}.
+     */
+    private void validateStatusOrCancelOptions() {
         if (id == null || id.trim().isEmpty()) {
             throw new ParameterException("status/cancel require --id");
         }
@@ -148,6 +156,22 @@ public class ApplicationCommandArgs extends CommandArgs {
         }
         if (wait && operation == ApplicationOperation.CANCEL) {
             throw new ParameterException("--wait is supported only with submit or status");
+        }
+    }
+
+    /**
+     * Requires a nonnegative timeout and a positive poll interval when explicitly supplied. Both
+     * timing options require {@code --wait}; a zero timeout allows indefinite waiting.
+     */
+    private void validateWaitOptions() {
+        if (waitTimeoutMillis != null && waitTimeoutMillis < 0) {
+            throw new ParameterException("--wait-timeout must not be negative");
+        }
+        if (waitIntervalMillis != null && waitIntervalMillis < 1) {
+            throw new ParameterException("--wait-interval must be positive");
+        }
+        if (!wait && (waitTimeoutMillis != null || waitIntervalMillis != null)) {
+            throw new ParameterException("--wait-timeout and --wait-interval require --wait");
         }
     }
 

@@ -15,21 +15,67 @@
 # limitations under the License.
 #
 
+# Runs from the default branch after `PR signal` (pr-signal.yml) completes for a
+# pull request. The pull request is resolved from the workflow_run payload and
+# labelled through the API; no pull request code is checked out or run.
 name: Pull Request Labeler
 on:
-  pull_request_target:
-    types: [opened, reopened, synchronize]
+  workflow_run:
+    workflows: ["PR signal"]
+    types: [completed]
 
+permissions: {}
+
+# `action_required` is a signal run of a first-time contributor that waits for workflow
+# approval. Nothing of theirs has run, and this job only reads API metadata, so it does not
+# wait for the approval. After approval the signal completes again and this job runs again,
+# which is harmless.
 jobs:
   labeler:
+    if: >-
+      github.event.workflow_run.event == 'pull_request'
+      && (github.event.workflow_run.conclusion == 'success'
+          || github.event.workflow_run.conclusion == 'action_required')
+      && github.event.workflow_run.head_repository != null
     permissions:
       contents: read
       pull-requests: write
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/labeler@v5
+        with:
+          persist-credentials: false
+      - name: Resolve the pull requests of the signalled run
+        id: pr
+        uses: actions/github-script@v7
+        env:
+          HEAD_OWNER: ${{ github.event.workflow_run.head_repository.owner.login }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { HEAD_OWNER, HEAD_BRANCH, HEAD_SHA } = process.env
+            const pulls = await github.paginate('GET /repos/{owner}/{repo}/pulls', {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${HEAD_OWNER}:${HEAD_BRANCH}`,
+              state: 'open',
+              per_page: 100,
+            })
+            // The same fork branch can be open against more than one base branch; label every
+            // PR whose head is the signalled commit. A branch that moved on after the signal
+            // is labelled by the run for its newer head.
+            const numbers = pulls.filter((p) => p.head.sha === HEAD_SHA).map((p) => String(p.number))
+            if (numbers.length === 0) {
+              core.notice(`No open pull request with head ${HEAD_OWNER}:${HEAD_BRANCH}@${HEAD_SHA}`)
+            }
+            core.setOutput('numbers', numbers.join('\n'))
+      - if: steps.pr.outputs.numbers != ''
+        uses: actions/labeler@v5
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: '.github/workflows/labeler/label-scope-conf.yml'
           sync-labels: true
+          pr-number: ${{ steps.pr.outputs.numbers }}

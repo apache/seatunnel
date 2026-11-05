@@ -49,6 +49,7 @@ Source connector for Apache Pulsar.
 | schema                   | Config  | No       | -             | Data structure including field names and types                                                                   |
 | format                   | String  | No       | json          | Data format. Default is json. Supported formats: json, canal_json, avro and text. **Text is supported only in single-table mode; multi-table mode supports JSON, CANAL_JSON and AVRO** |
 | field_delimiter          | String  | No       | ,             | Field delimiter for `text` format.                                                                               |
+| avro_row_nullable        | Boolean | No       | false         | Effective when `format` is `avro`. Set `true` when the producer wrote ROW fields as nullable Avro unions; Pulsar has no writer-schema option, so the reader schema is derived from `schema` and must follow the writer layout. See [Avro format](../formats/avro.md#avro_row_nullable). |
 | common-options           |         | No       | -             | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md) for details           |
 
 ### topic [String]
@@ -169,7 +170,7 @@ reference to [Schema-Feature](../../introduction/concepts/schema-feature.md)
 
 ### format [String]
 
-Data format. The default format is json. Supported formats are json, canal_json, avro and text. The `schema` option is required when using avro format. Text format is supported only in single-table mode. See [formats](../formats) for more details.
+Data format. The default format is json. Supported formats are json, canal_json, avro and text. The `schema` option is required when using avro format. Text format is supported only in single-table mode. See [formats](../formats) for more details. When the producer writes ROW fields as nullable Avro unions, set `avro_row_nullable = true` so a `null` ROW value can be decoded; see [Avro format](../formats/avro.md#avro_row_nullable).
 
 ### field_delimiter [String]
 
@@ -398,9 +399,9 @@ source {
 
 When subscribing to partitioned topics or topic patterns (`topic-pattern`), SeaTunnel automatically discovers partitions and dynamically assigns topic splits across reader subtasks. You can tune `topic-discovery.interval` to control how frequently new partitions are detected.
 
-### Which cursor reset strategies and subscription modes are supported?
+### Which cursor startup modes and reset strategies are supported?
 
-The source supports `EARLIEST` and `LATEST` startup modes through `cursor.startup.mode`. Consumers join the subscription with configurable subscription types (e.g. `Failover` or `Exclusive`), and SeaTunnel checkpoints message IDs to ensure reliable playback on failure.
+The source supports `EARLIEST`, `LATEST`, `SUBSCRIPTION` and `TIMESTAMP` startup modes through `cursor.startup.mode`. `TIMESTAMP` requires `cursor.startup.timestamp`, and `SUBSCRIPTION` requires `cursor.reset.mode` (`EARLIEST` or `LATEST`): if the subscription already exists the consumer resumes from its committed position, otherwise the subscription is created at the earliest or latest message according to `cursor.reset.mode`. The subscription type is not configurable; the connector only sets the subscription name and uses the Pulsar client default. SeaTunnel checkpoints message IDs to ensure reliable playback on failure.
 
 ### How do I configure authentication for secure Pulsar clusters?
 

@@ -43,6 +43,27 @@ seatunnel:
 
 Notice: namespace must end with "/".
 
+#### Credentials from environment variables
+
+Object storage credentials can be supplied by the cloud SDK from environment variables. Set
+the corresponding credential provider key and do not put static access keys or secret keys in
+`seatunnel.yaml`:
+
+| `storage.type` | Credential provider key | Provider class | Environment variables |
+| --- | --- | --- | --- |
+| `s3` | `fs.s3a.aws.credentials.provider` | `com.amazonaws.auth.EnvironmentVariableCredentialsProvider` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, optional `AWS_SESSION_TOKEN` |
+| `oss` | `fs.oss.credentials.provider` | `com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider` | `OSS_ACCESS_KEY_ID`, `OSS_ACCESS_KEY_SECRET`, optional `OSS_SESSION_TOKEN` |
+| `cos` | `fs.cosn.credentials.provider` | `org.apache.hadoop.fs.cosn.auth.EnvironmentVariableCredentialsProvider` | `COSN_SECRET_ID`, `COSN_SECRET_KEY` |
+
+The environment variables and provider implementations are fixed by the underlying Hadoop
+filesystem and cloud SDK. Inject the variables into every SeaTunnel process that accesses
+checkpoint storage. Existing static credential and cloud-native identity configurations remain
+supported.
+
+GCS uses Application Default Credentials instead of a credential provider key. Configure
+`GOOGLE_APPLICATION_CREDENTIALS` with a mounted key file when needed, or rely on Workload Identity
+and other ADC mechanisms.
+
 #### OSS
 
 Aliyun OSS based hdfs-file you can refer [Hadoop OSS Docs](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html) to config oss.
@@ -68,6 +89,24 @@ seatunnel:
           fs.oss.accessKeyId: your-access-key
           fs.oss.accessKeySecret: your-secret-key
           fs.oss.endpoint: endpoint address
+```
+
+To use credentials from environment variables, remove `fs.oss.accessKeyId` and
+`fs.oss.accessKeySecret` and select the environment variable provider. `OSS_ACCESS_KEY_ID` and
+`OSS_ACCESS_KEY_SECRET` must be available to every master and worker:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      storage:
+        type: hdfs
+        plugin-config:
+          namespace: /seatunnel/checkpoint/
+          storage.type: oss
+          oss.bucket: oss://your-bucket
+          fs.oss.endpoint: oss-cn-hangzhou.aliyuncs.com
+          fs.oss.credentials.provider: com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider
 ```
 
 For additional reading on the Hadoop Credential Provider API, you can see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
@@ -101,6 +140,18 @@ seatunnel:
           fs.cosn.userinfo.secretKey: your-secretKey
           fs.cosn.bucket.region: your-region
 ```
+
+To use credentials from environment variables, remove the static `secretId` and `secretKey`
+entries and configure:
+
+```yaml
+          storage.type: cos
+          cos.bucket: cosn://your-bucket
+          fs.cosn.bucket.region: your-region
+          fs.cosn.credentials.provider: org.apache.hadoop.fs.cosn.auth.EnvironmentVariableCredentialsProvider
+```
+
+`COSN_SECRET_ID` and `COSN_SECRET_KEY` must be available to every master and worker.
 
 For additional reading on the Hadoop Credential Provider API, you can see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
@@ -187,6 +238,18 @@ seatunnel:
                     
 
 ```
+
+To read credentials from environment variables instead, remove `fs.s3a.access.key` and
+`fs.s3a.secret.key` and configure:
+
+```yaml
+                  storage.type: s3
+                  s3.bucket: s3a://your-bucket
+                  fs.s3a.aws.credentials.provider: com.amazonaws.auth.EnvironmentVariableCredentialsProvider
+```
+
+`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` must be available to every master and worker.
+Temporary credentials additionally use `AWS_SESSION_TOKEN`.
 
 If you used `InstanceProfileCredentialsProvider`, which supports use of instance profile credentials if running in an EC2 VM, you can check [iam-roles-for-amazon-ec2](https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html).
 You can config like this:

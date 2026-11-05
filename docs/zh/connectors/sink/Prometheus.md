@@ -47,7 +47,7 @@ Prometheus 数据接收器把上游数据写入 Prometheus remote write API。�
 | key_value                   | String | 是       | -      | 上游数据中保存 Prometheus 指标值的字段名。推荐使用 `double` 类型字段。 |
 | key_timestamp               | String | 否       | -      | 上游数据中保存 Prometheus 指标时间戳的字段名。不配置时使用当前系统时间。 |
 | headers                     | Map    | 否       | -      | HTTP 请求头。 |
-| retry                       | Int    | 否       | 3      | remote-write 请求失败时的最大重试次数。会重试传输层 `IOException` 以及可重试的 HTTP 状态码（`5xx` 和 `429`）；其他 `4xx` 响应会快速失败。设为 `0` 可禁用重试。 |
+| retry                       | Int    | 否       | 3      | remote-write 请求失败时的最大重试次数。未配置该选项时，Sink 生效的默认值为 `3`；配置为 `0` 可禁用重试。会重试传输层 `IOException` 以及可重试的 HTTP 状态码（`5xx` 和 `429`）；其他 `4xx` 响应会快速失败。 |
 | retry_backoff_multiplier_ms | Int    | 否       | 100    | 重试退避时间倍数，单位毫秒。 |
 | retry_backoff_max_ms        | Int    | 否       | 10000  | 最大重试退避时间，单位毫秒。 |
 | batch_size                  | Int    | 否       | 1024   | 写入 Prometheus 前缓存的行数，必须大于 0。 |
@@ -153,6 +153,104 @@ sink {
     key_value = "c_double"
     key_timestamp = "c_timestamp"
     batch_size = 5
+  }
+}
+```
+
+## 流式 Remote Write 与批量刷新
+
+下面的示例以流式模式从 Kafka 读取数据并写入 Prometheus remote write 端点。Sink 会先缓冲最多
+`batch_size` 行数据再发起 HTTP 写入，同时引擎级的 `sink.flush.interval`（仅 Zeta 支持）每 10 秒
+强制刷新一次缓冲区，即使上游数据流处于空闲状态，指标样本也会持续发送。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+  sink.flush.interval = 10000
+}
+
+source {
+  Kafka {
+    plugin_output = "metrics_topic"
+    bootstrap.servers = "kafka:9092"
+    topic = "metrics"
+    format = "json"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_double = double
+        c_timestamp = bigint
+      }
+    }
+  }
+}
+
+sink {
+  Prometheus {
+    plugin_input = "metrics_topic"
+    url = "http://prometheus:9090/api/v1/write"
+    key_label = "c_map"
+    key_value = "c_double"
+    key_timestamp = "c_timestamp"
+    batch_size = 2048
+    retry = 5
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 10000
+  }
+}
+```
+
+## 多表 Remote Write
+
+当同一个作业从多张上游表读取数据并写入同一个 Prometheus remote write 端点时，可以通过
+`multi_table_sink_replica` 控制每张表分配多少个写入任务。表都比较小时使用默认值 `1` 即可；
+只有当某张表需要比其他表更高的并行度时才需要调大该值。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake_app_a"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_double = double
+        c_timestamp = timestamp
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [{"__name__" : "app_a_metric"}, 1.0, CURRENT_TIMESTAMP] }
+    ]
+  }
+  FakeSource {
+    plugin_output = "fake_app_b"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_double = double
+        c_timestamp = timestamp
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [{"__name__" : "app_b_metric"}, 2.0, CURRENT_TIMESTAMP] }
+    ]
+  }
+}
+
+sink {
+  Prometheus {
+    plugin_input = ["fake_app_a", "fake_app_b"]
+    url = "http://prometheus:9090/api/v1/write"
+    key_label = "c_map"
+    key_value = "c_double"
+    key_timestamp = "c_timestamp"
+    multi_table_sink_replica = 2
   }
 }
 ```

@@ -136,7 +136,7 @@ INSERT INTO sink_table SELECT source_table;
 ```
 
 * `SELECT` 部分直接使用源端映射表的表名，表示将源端表的所有数据插入到目标端表中
-* 使用该语法不会生成`trasform`的相关配置，这种语法一般用在多表同步的场景，示例：
+* 使用该语法不会生成`transform`的相关配置，这种语法一般用在多表同步的场景，示例：
 
 ```sql
 CREATE TABLE source_table WITH (

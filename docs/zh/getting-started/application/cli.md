@@ -6,13 +6,13 @@ title: 命令行
 # Application 命令行
 
 `bin/seatunnel-application.sh` 是 Application Mode 的唯一入口，只提供三个操作。三者都面向同一个
-外部资源平台并读取同一份部署文件，因此 `status`、`cancel` 看到的正是 `submit` 创建的
+外部资源平台并使用一致的部署选项，因此 `status`、`cancel` 看到的正是 `submit` 创建的
 application。
 
 ## 命令格式
 
 ```bash
-bin/seatunnel-application.sh submit -t <target> -a application.config [-c job.conf]
+bin/seatunnel-application.sh submit -t <target> [-a application.config] [-Dkey=value ...] [-c job.conf]
 bin/seatunnel-application.sh status -t <target> --id APPLICATION_ID -a application.config [--wait] \
   [--wait-timeout <ms>] [--wait-interval <ms>]
 bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a application.config
@@ -57,7 +57,7 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | `submit` / `status` / `cancel` | 全部 | 操作类型，位于第一个位置参数 |
 | `-t`、`--target` | 全部 | 运行 application 的资源平台 |
 | `-c`、`--config` | submit | SeaTunnel 作业配置文件；作业由平台提供（如挂载的 `job.conf`）时可省略 |
-| `-a`、`--application-config` | 全部 | 可选部署文件，包含公共选项和平台选项 |
+| `-a`、`--application-config` | 全部 | 包含公共选项和平台选项的可选部署文件；也可通过 `-D` 提供选项 |
 | `-Dkey=value` | 全部 | 覆盖单个非敏感的 `application.*` / `kubernetes.*` 部署选项（例如 `-Dapplication.worker-count=4`），可重复；作业 `${...}` 变量在 Pod 内解析，不在提交机替换 |
 | `--id` | status、cancel | `submit` 打印的平台 application ID |
 | `--wait` | submit、status | 轮询直到终态 |
@@ -71,7 +71,7 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | 操作 | 做什么 | 结果 |
 | --- | --- | --- |
 | `submit` | 完成作业本地化，在平台上创建 application 并启动 | 打印 application ID 与原生作业 ID |
-| `status` | 读取平台状态并映射为 `ApplicationStatus` | 打印 application ID 与状态；application 失败时以非零码退出 |
+| `status` | 读取平台状态并映射为 `ApplicationStatus` | 打印 application ID 与状态；普通查询成功时返回 `0`；带 `--wait` 时遵循[等待退出码规则](#状态与等待) |
 | `cancel` | 删除 application 及其自有资源 | 打印 application ID 与取消结果 |
 
 ## submit 立即返回
@@ -87,6 +87,9 @@ bin/seatunnel-application.sh submit -t <target> -a application.config --wait
 `kubernetes.job-config-file`）；两者都没有的提交会在创建第一个资源之前被拒绝。写成 `${VAR}`
 的值在运行中的 application 内解析，不在提交机解析，因此可以通过环境变量注入平台管理的
 凭据。
+
+通过 `-D` 提供所需部署选项时，可以省略部署文件（`-a`）。两者同时提供时，`-D` 覆盖文件值。
+平台配置校验仍然生效：省略 `-a` 不代表不完整的部署配置可以提交成功。
 
 ## 状态与等待
 
@@ -104,13 +107,23 @@ bin/seatunnel-application.sh submit -t <target> -a application.config --wait
 | `CANCELED` | 平台报告已取消 |
 | `UNKNOWN` | 已知 application 的平台状态暂时无法映射 |
 
-`SUCCEEDED`、`FAILED`、`CANCELED` 为终态，`--wait` 在终态停止。`FAILED`、`CANCELED` 和
-`UNKNOWN` 会让 `status` 以非零码退出，因此可以直接作为调度器或 CI 的完成判定：
+`SUCCEEDED`、`FAILED`、`CANCELED` 为终态，`--wait` 在终态停止；平台无法确定 application
+结果时（`UNKNOWN`）也会停止。`status --wait` 和 `submit --wait` 在 `FAILED` 时退出码为 `1`，
+在 `UNKNOWN` 时退出码为 `2`，表示无法确定成功或失败，而不是认定应用失败。
+`SUCCEEDED` 和 `CANCELED` 仍返回 `0`。不带 `--wait` 的 `status` 打印快照后返回 `0`，
+包括 `FAILED` 和 `UNKNOWN`；查询异常仍以非零码退出。不要把所有非零退出码都当成应用失败：
 
 ```bash
-if ! bin/seatunnel-application.sh status -t <target> --id "$APP_ID" -a application.config --wait; then
-  echo "application $APP_ID did not succeed"
+if bin/seatunnel-application.sh status -t <target> --id "$APP_ID" -a application.config --wait; then
+  result=0
+else
+  result=$?
 fi
+case "$result" in
+  0) echo "application status reported; inspect the printed status" ;;
+  2) echo "application $APP_ID outcome is unknown" ;;
+  *) echo "application failed or the command could not complete (exit $result)" ;;
+esac
 ```
 
 ## cancel

@@ -24,6 +24,10 @@ The fields you want to replace
 
 For backward compatibility, legacy key `replace_field = "name"` is still supported, but new configurations should use `replace_fields`.
 
+Field names are resolved again when the input schema is refreshed, including checkpoint schema restoration. Adding, removing, or reordering other columns therefore does not change which fields receive replacements. If a configured field is absent from the refreshed schema (for example, it was dropped or renamed), the refresh fails with a missing-field error before subsequent rows are processed. Update `replace_fields` to match the source schema before restarting the job.
+
+This field-binding behavior does not change the engine's schema-evolution support or the existing value-conversion and output-schema behavior of Replace.
+
 ### pattern [string]
 
 The old string that will be replaced
@@ -122,4 +126,3 @@ sink {
 ### new version
 
 - Add Replace Transform Connector
-

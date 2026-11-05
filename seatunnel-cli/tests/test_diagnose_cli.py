@@ -195,6 +195,78 @@ def test_a_bracketed_job_name_is_not_read_as_markup(engine):
     assert "[prod] nightly" in out
 
 
+def test_a_job_id_with_a_trailing_newline_is_rejected(engine):
+    # `$` in the validation pattern also matches before a trailing newline, so
+    # an id pasted with the newline attached used to pass and go straight into
+    # the URL path.
+    engine.script = lambda h: (200, "{}")
+
+    code, out = _run("852\n")
+
+    assert code == 1
+    assert "is not a job id" in out
+    assert engine.paths == []
+
+
+def test_the_engine_clock_is_passed_to_the_checkpoint_rules(engine):
+    # The plumbing, not just the rule: `diagnostics.generatedAt` from the
+    # /job-info response has to reach diagnose_checkpoints, or the checkpoint
+    # ages are computed against the local clock and a stalled checkpoint is
+    # missed on any host whose clock differs from the cluster's.
+    #
+    # `generatedAt` here is far in the past relative to the real clock, and the
+    # checkpoint was triggered just before it. If the local clock were used the
+    # age would be enormous and the stalled rule would fire; with the engine
+    # clock it is 10s and must not.
+    engine.script = _routed(
+        {
+            "jobId": "852",
+            "jobStatus": "RUNNING",
+            "diagnostics": {"generatedAt": _NOW, "stateTimestamps": {"RUNNING": _NOW - 5_000}},
+        },
+        checkpoints={
+            "jobId": "852",
+            "pipelines": [
+                {
+                    "pipelineId": 1,
+                    "inProgress": [{"checkpointId": 9, "triggerTimestamp": _NOW - 10_000}],
+                }
+            ],
+        },
+    )
+
+    code, out = _run()
+
+    assert code == 0
+    assert "has been in progress" not in out
+
+
+def test_a_checkpoint_stalled_against_the_engine_clock_is_still_reported(engine):
+    # The other direction, so the test above cannot pass by the rule simply
+    # never firing: same plumbing, a trigger well past the threshold.
+    engine.script = _routed(
+        {
+            "jobId": "852",
+            "jobStatus": "RUNNING",
+            "diagnostics": {"generatedAt": _NOW, "stateTimestamps": {"RUNNING": _NOW - 5_000}},
+        },
+        checkpoints={
+            "jobId": "852",
+            "pipelines": [
+                {
+                    "pipelineId": 1,
+                    "inProgress": [{"checkpointId": 9, "triggerTimestamp": _NOW - 300_000}],
+                }
+            ],
+        },
+    )
+
+    code, out = _run()
+
+    assert code == 0
+    assert "has been in progress for 5m00s" in out
+
+
 def test_a_non_numeric_job_id_is_rejected_before_any_request(engine):
     # The engine parses a job id as a decimal long, so "1/2" would be sent as
     # the path /job-info/1/2 and come back as a 404 about a missing job.

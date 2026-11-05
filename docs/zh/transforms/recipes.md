@@ -137,7 +137,7 @@ Transform V2 的 SPI 设计上同时支持：
 - map（1 行输入 -> 1 行输出）
 - flatMap（1 行输入 -> N 行输出）
 
-但目前文档层面并没有一个“内置的 explode（把数组字段拆成多行）” transform。如果你的 JSON 里有 `items: [...]` 这类数组字段，并希望把每个 item 展开成独立行，通常有以下选择：
+如果要把 `items: [...]` 这类数组字段展开成“每个元素一行”，可以使用 `Sql` Transform 的 `LATERAL VIEW EXPLODE`（或保留空数组的 `OUTER EXPLODE`）；参见 [SQL 函数](sql-functions.md)。其他选择：
 
 - 在上游预处理（例如 Flink/Spark SQL，或由上游生产端直接输出“一行一条目标记录”的 JSON）。
 - 写一个自定义 Transform V2（flatMap）插件来实现 1:N 拆分。
