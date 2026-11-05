@@ -160,6 +160,24 @@ Related docs:
 - [CDC Pipeline Architecture](../architecture/cdc-pipeline-architecture.md)
 - [Sink Architecture](../architecture/api-design/sink-architecture.md)
 
+### Coordinated Schema Evolution
+
+A sink that can separate external DDL from writer-local schema state may opt in to coordinated
+schema evolution:
+
+- `SupportCoordinatedSchemaEvolutionSink` declares the capability and creates a
+  `SchemaChangeApplier` for the resolved physical sink table.
+- `SchemaChangeApplier` applies only the external schema change. It must be idempotent because the
+  same event can be replayed after recovery. It must also validate and quote every identifier from
+  the event through the target system's dialect or identifier API.
+- Every writer created by the sink must implement `SupportSchemaRefreshSinkWriter` and rebuild its
+  local serializer, statement, descriptor, or column mapping from the complete evolved
+  `CatalogTable`. Repeating the same refresh must be safe.
+
+Flink applies the external change once and refreshes every parallel writer before post-change rows
+continue. A connector that does not implement the coordinated capability keeps the existing schema
+evolution path.
+
 ## Common Pitfalls
 
 ### Doing Real External Commit in `prepareCommit`

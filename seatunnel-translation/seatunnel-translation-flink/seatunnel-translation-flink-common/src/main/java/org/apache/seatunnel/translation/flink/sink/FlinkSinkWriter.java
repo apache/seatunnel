@@ -24,12 +24,13 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaRefreshSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.schema.coordinator.LocalSchemaCoordinator;
 
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
@@ -132,6 +133,11 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
             return true;
         }
 
+        if (options.containsKey("schema_change_refresh")) {
+            handleSchemaRefresh((SchemaChangeEvent) options.get("schema_change_refresh"), options);
+            return true;
+        }
+
         return false;
     }
 
@@ -149,67 +155,46 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
             return;
         }
 
-        Long subtaskIdObj = (Long) options.get("schema_subtask_id");
-        int subtaskId = subtaskIdObj != null ? subtaskIdObj.intValue() : -1;
-        long epoch = schemaChangeEvent.getCreatedTime();
-        boolean success = false;
-
         try {
             ((SupportSchemaEvolutionSinkWriter) sinkWriter).applySchemaChange(schemaChangeEvent);
             log.info(
                     "FlinkSinkWriter successfully applied SchemaChangeEvent for table: {}",
                     schemaChangeEvent.tableIdentifier());
-            success = true;
         } catch (Exception e) {
             log.error(
                     "Failed to apply schema change for table: {}",
                     schemaChangeEvent.tableIdentifier(),
                     e);
-        } finally {
-            sendSchemaChangeAck(schemaChangeEvent, epoch, subtaskId, success);
-        }
-
-        if (!success) {
             throw new SinkWriterSchemaException(
                     SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
                     "Failed to apply schema change in Flink sink writer",
                     schemaChangeEvent.tableIdentifier(),
                     schemaChangeEvent.getJobId(),
-                    null);
+                    e);
         }
     }
 
-    private void sendSchemaChangeAck(
-            SchemaChangeEvent schemaChangeEvent, long epoch, int subtaskId, boolean success) {
-        if (subtaskId < 0) {
-            log.warn(
-                    "FlinkSinkWriter cannot send ack: subtask ID not found in schema change event options");
-            return;
+    private void handleSchemaRefresh(
+            SchemaChangeEvent schemaChangeEvent, Map<String, Object> options) throws IOException {
+        if (!(sinkWriter instanceof SupportSchemaRefreshSinkWriter)) {
+            throw new SinkWriterSchemaException(
+                    SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
+                    "Coordinated schema evolution requires a schema-refresh-capable sink writer",
+                    schemaChangeEvent.tableIdentifier(),
+                    schemaChangeEvent.getJobId(),
+                    null);
+        }
+        CatalogTable evolvedSchema = schemaChangeEvent.getChangeAfter();
+        if (evolvedSchema == null) {
+            throw new SinkWriterSchemaException(
+                    SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
+                    "Coordinated schema evolution requires the complete evolved schema",
+                    schemaChangeEvent.tableIdentifier(),
+                    schemaChangeEvent.getJobId(),
+                    null);
         }
 
-        try {
-            String jobId = schemaChangeEvent.getJobId();
-            if (jobId == null || jobId.trim().isEmpty()) {
-                jobId = "unknown-job";
-                log.warn("SchemaChangeEvent has no jobId, using default: {}", jobId);
-            }
-
-            LocalSchemaCoordinator coordinator = LocalSchemaCoordinator.getInstance(jobId);
-            coordinator.notifySchemaChangeApplied(
-                    schemaChangeEvent.tableIdentifier(), epoch, subtaskId, success);
-            log.info(
-                    "FlinkSinkWriter sent schema change ack to coordinator for table {} (epoch {}), subtask {}, success: {}",
-                    schemaChangeEvent.tableIdentifier(),
-                    epoch,
-                    subtaskId,
-                    success);
-        } catch (Exception e) {
-            log.error(
-                    "Failed to send schema change ack to coordinator for table {} (epoch {})",
-                    schemaChangeEvent.tableIdentifier(),
-                    epoch,
-                    e);
-        }
+        ((SupportSchemaRefreshSinkWriter) sinkWriter).refreshSchema(evolvedSchema);
     }
 
     @Override
