@@ -12,10 +12,10 @@ TableMerge transform plugin for merge sharding-tables.
 |:------------------:|--------|----------|----------------------|------------------------------------------------------------------------------------------------|
 |      database      | string | no       |                      | Specify new database name                                                                      |
 |       schema       | string | no       |                      | Specify new schema name                                                                        |
-|       table        | string | yes      |                      | Specify new table name                                                                         |
+|       table        | string | conditional |                      | Required only when `table_transform` is unset or empty; each `table_transform` entry still requires its own `table`. |
 | table_match_regex  | string | no       | `.*`                 | Regex of the table paths that the transform level rule applies to.                              |
-|  table_transform   | array  | no       | -                    | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                          |
-|  rule_match_mode   | string | no       | `FIRST_MATCH`        | How multiple `table_transform` entries with the same `table_path` are evaluated.                 |
+|  table_transform   | array  | no       | `[]`                 | Per-table rules, see [Multi-Table Transform](transform-multi-table.md). Exact table-path entries take precedence over the regex; an entry with only `table_match_regex` does not instantiate the global rule. |
+|  rule_match_mode   | string | no       | `FIRST_MATCH`        | How multiple `table_transform` entries with the same `table_path` are evaluated. Omitting it rejects duplicate entries; `FIRST_MATCH` selects the first one. |
 
 Tables that match neither `table_match_regex` nor a `table_transform` entry are passed through unchanged. In the example below, `source.shop` does not match `source.user_.*`, so it keeps its original name while `source.user_1` and `source.user_2` are merged into `user_db.user_all`.
 
