@@ -20,9 +20,12 @@ completion of asynchronous processing.
 | app_id_field   | String | No       | -                     | Input row field mapped to Mem0 `app_id`.                                                                                                                           |
 | run_id_field   | String | No       | -                     | Input row field mapped to Mem0 `run_id`.                                                                                                                           |
 | metadata_field | String | No       | -                     | Input row field mapped to Mem0 `metadata`. It must resolve to a JSON object.                                                                                       |
+| retry                        | Integer | No       | -                     | Maximum number of retries when an HTTP request fails with an `IOException`.                                                                                       |
+| retry_backoff_multiplier_ms  | Integer | No       | `100`                 | Retry-backoff interval in milliseconds used as the multiplier when a request fails.                                                                               |
+| retry_backoff_max_ms         | Integer | No       | `10000`               | Maximum retry-backoff interval in milliseconds when a request fails.                                                                                              |
 | common-options |        | No       | -                     | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                        |
 
-At least one of `user_id_field`, `agent_id_field`, `app_id_field` and `run_id_field` must be configured and non-empty for every row.
+At least one of `user_id_field`, `agent_id_field`, `app_id_field` and `run_id_field` must be configured and non-empty for every row. The three `retry*` options are inherited from the shared HTTP sink options and apply to request failures.
 
 ## Configuration
 
