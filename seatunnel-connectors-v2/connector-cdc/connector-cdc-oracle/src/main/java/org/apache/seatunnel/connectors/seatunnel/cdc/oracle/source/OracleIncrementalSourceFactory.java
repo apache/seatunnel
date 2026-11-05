@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -85,6 +88,21 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                 .optional(
                         OracleIncrementalSourceOptions.STARTUP_MODE,
                         OracleIncrementalSourceOptions.STOP_MODE)
+                .optional(
+                        OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN,
+                        Conditions.extension(
+                                OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN,
+                                new ScnOnlyUnderSpecificModeGuard()))
+                .optional(
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
+                        Conditions.extension(
+                                SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
+                                new FilePosRejectedGuard()))
+                .optional(
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS,
+                        Conditions.extension(
+                                SourceOptions.STARTUP_SPECIFIC_OFFSET_POS,
+                                new FilePosRejectedGuard()))
                 .conditional(
                         OracleIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.SPECIFIC,
@@ -158,5 +176,47 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
             }
             return new OracleIncrementalSource(context.getOptions(), catalogTables);
         };
+    }
+
+    /**
+     * Rejects {@code startup.specific-offset.scn} unless {@code startup.mode} is 'specific',
+     * mirroring the runtime check in {@link OracleIncrementalSource#getOracleStartupConfig}.
+     */
+    static class ScnOnlyUnderSpecificModeGuard implements ConditionExtension<Long> {
+
+        @Override
+        public String description() {
+            return "can only be used when '"
+                    + OracleIncrementalSourceOptions.STARTUP_MODE.key()
+                    + "' is 'specific'";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, Long value) {
+            if (value == null) {
+                return true;
+            }
+            return config.get(OracleIncrementalSourceOptions.STARTUP_MODE) == StartupMode.SPECIFIC;
+        }
+    }
+
+    /**
+     * Rejects the generic file/position specific offsets — Oracle-CDC uses {@code
+     * startup.specific-offset.scn} instead, mirroring the runtime check in {@link
+     * OracleIncrementalSource#getOracleStartupConfig}.
+     */
+    static class FilePosRejectedGuard<T> implements ConditionExtension<Object> {
+
+        @Override
+        public String description() {
+            return "is not supported by Oracle-CDC; use '"
+                    + OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN.key()
+                    + "' instead";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, Object value) {
+            return value == null;
+        }
     }
 }
