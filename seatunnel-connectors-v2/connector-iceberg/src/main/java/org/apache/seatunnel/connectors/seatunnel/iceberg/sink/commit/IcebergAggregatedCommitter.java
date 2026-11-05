@@ -64,6 +64,15 @@ public class IcebergAggregatedCommitter
         return Collections.emptyList();
     }
 
+    /**
+     * Commits restored checkpoints, skipping the snapshots that already reached the table. For a
+     * checkpoint that was split into several snapshots, only the missing groups are committed.
+     *
+     * <p>Resuming a partially committed split checkpoint requires the engine to call this method
+     * with the recovered committables. Zeta does. The Flink 1.13 and 1.15 adapters discard
+     * recovered global committables, and the Flink 1.20 adapter passes recovered pending
+     * committables to {@link #commit(List)} instead. See the {@code flush_row_size} documentation.
+     */
     @Override
     public List<IcebergAggregatedCommitInfo> restoreCommit(
             List<IcebergAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
