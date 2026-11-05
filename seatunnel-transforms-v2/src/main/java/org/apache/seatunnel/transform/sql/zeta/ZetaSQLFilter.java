@@ -47,8 +47,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class ZetaSQLFilter {
     private final ZetaSQLFunction zetaSQLFunction;
@@ -189,40 +187,58 @@ public class ZetaSQLFilter {
      * @return filter result
      */
     private boolean likeExpr(LikeExpression likeExpression, Object[] inputFields) {
-        Expression leftExpr = likeExpression.getLeftExpression();
-        Object leftVal = zetaSQLFunction.computeForValue(leftExpr, inputFields);
+        Object leftVal =
+                zetaSQLFunction.computeForValue(likeExpression.getLeftExpression(), inputFields);
         if (leftVal == null) {
             return false;
         }
-        Expression rightExpr = likeExpression.getRightExpression();
-        Object rightVal = zetaSQLFunction.computeForValue(rightExpr, inputFields);
-        String regex = rightVal.toString();
-        if (rightVal == null && regex.length() > 0) {
+        Object rightVal =
+                zetaSQLFunction.computeForValue(likeExpression.getRightExpression(), inputFields);
+        // SQL: a comparison with NULL is UNKNOWN, so the row is not kept
+        if (rightVal == null) {
             return false;
         }
-        String likeIdent = "%";
-        if (regex.startsWith(likeIdent)) {
-            regex = regex.replaceFirst(likeIdent, ".*");
-        }
-        if (regex.endsWith(likeIdent)) {
-            regex = regex.substring(0, regex.length() - 1) + ".*";
-        }
-        if (regex.startsWith("_")) {
-            regex = regex.replaceFirst("_", ".");
-        }
-        if (regex.endsWith("_")) {
-            regex = regex.substring(0, regex.length() - 1) + ".";
-        }
-        if (regex.length() >= 3 && regex.substring(regex.length() - 3).endsWith("_.*")) {
-            regex = regex.substring(0, regex.length() - 3) + "..*";
-        }
-        if (regex.startsWith("'") && regex.endsWith("'")) {
-            regex = regex.substring(0, regex.length() - 1).substring(1);
-        }
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(leftVal.toString());
+        return likeMatches(rightVal.toString(), leftVal.toString());
+    }
 
-        return matcher.matches();
+    /**
+     * Matches a value against a SQL LIKE pattern, where {@code %} matches any sequence of
+     * characters, {@code _} matches exactly one, and every other character matches itself.
+     *
+     * <p>Iterative with a single backtrack point per {@code %}, so it is O(pattern * value) and
+     * cannot hit the catastrophic backtracking a regex built from the pattern would. Matching
+     * characters directly also keeps regex metacharacters literal without any escaping.
+     */
+    private static boolean likeMatches(String pattern, String value) {
+        int p = 0;
+        int v = 0;
+        int resumePattern = -1;
+        int resumeValue = 0;
+        while (v < value.length()) {
+            if (p < pattern.length() && pattern.charAt(p) == '%') {
+                resumePattern = ++p;
+                resumeValue = v;
+            } else if (p < pattern.length() && isSingleCharacterMatch(pattern, p, value, v)) {
+                p += Character.charCount(pattern.codePointAt(p));
+                v += Character.charCount(value.codePointAt(v));
+            } else if (resumePattern >= 0) {
+                // let the last % swallow one more character and retry from there
+                resumeValue += Character.charCount(value.codePointAt(resumeValue));
+                p = resumePattern;
+                v = resumeValue;
+            } else {
+                return false;
+            }
+        }
+        while (p < pattern.length() && pattern.charAt(p) == '%') {
+            p++;
+        }
+        // shortcut: LIKE ... ESCAPE is unsupported, add it when a literal % or _ is needed
+        return p == pattern.length();
+    }
+
+    private static boolean isSingleCharacterMatch(String pattern, int p, String value, int v) {
+        return pattern.charAt(p) == '_' || pattern.codePointAt(p) == value.codePointAt(v);
     }
 
     /**
@@ -233,40 +249,18 @@ public class ZetaSQLFilter {
      * @return filter result
      */
     private boolean notLikeExpr(LikeExpression likeExpression, Object[] inputFields) {
-        Expression leftExpr = likeExpression.getLeftExpression();
-        Object leftVal = zetaSQLFunction.computeForValue(leftExpr, inputFields);
+        Object leftVal =
+                zetaSQLFunction.computeForValue(likeExpression.getLeftExpression(), inputFields);
         if (leftVal == null) {
             return false;
         }
-        Expression rightExpr = likeExpression.getRightExpression();
-        Object rightVal = zetaSQLFunction.computeForValue(rightExpr, inputFields);
-        String regex = rightVal.toString();
-        if (rightVal == null && regex.length() > 0) {
+        Object rightVal =
+                zetaSQLFunction.computeForValue(likeExpression.getRightExpression(), inputFields);
+        // SQL: a comparison with NULL is UNKNOWN, so the row is not kept
+        if (rightVal == null) {
             return false;
         }
-        String likeIdent = "%";
-        if (regex.startsWith(likeIdent)) {
-            regex = regex.replaceFirst(likeIdent, ".*");
-        }
-        if (regex.endsWith(likeIdent)) {
-            regex = regex.substring(0, regex.length() - 1) + ".*";
-        }
-        if (regex.startsWith("_")) {
-            regex = regex.replaceFirst("_", ".");
-        }
-        if (regex.endsWith("_")) {
-            regex = regex.substring(0, regex.length() - 1) + ".";
-        }
-        if (regex.length() >= 3 && regex.substring(regex.length() - 3).endsWith("_.*")) {
-            regex = regex.substring(0, regex.length() - 3) + "..*";
-        }
-        if (regex.startsWith("'") && regex.endsWith("'")) {
-            regex = regex.substring(0, regex.length() - 1).substring(1);
-        }
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(leftVal.toString());
-
-        return !matcher.matches();
+        return !likeMatches(rightVal.toString(), leftVal.toString());
     }
 
     private Pair<Object, Object> executeComparisonOperator(
