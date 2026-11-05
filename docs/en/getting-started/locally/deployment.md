@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 5
 ---
 
 import Tabs from '@theme/Tabs';
@@ -27,14 +27,14 @@ wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${ve
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
 
-On Windows, download the `.zip` archive from the [SeaTunnel Download Page](https://seatunnel.apache.org/download), then extract it with File Explorer or PowerShell:
+On Windows, download the `.tar.gz` archive from the [SeaTunnel Download Page](https://seatunnel.apache.org/download), then extract it with `tar` (bundled with Windows 10 1803+). Only the `.tar.gz` archive is published on archive.apache.org, there is no `.zip` release:
 
 ```powershell
 $version = "3.1.0"
 Invoke-WebRequest `
-  "https://archive.apache.org/dist/seatunnel/$version/apache-seatunnel-$version-bin.zip" `
-  -OutFile "apache-seatunnel-$version-bin.zip"
-Expand-Archive "apache-seatunnel-$version-bin.zip" -DestinationPath .
+  "https://archive.apache.org/dist/seatunnel/$version/apache-seatunnel-$version-bin.tar.gz" `
+  -OutFile "apache-seatunnel-$version-bin.tar.gz"
+tar -xzf "apache-seatunnel-$version-bin.tar.gz"
 Set-Location "apache-seatunnel-$version"
 ```
 

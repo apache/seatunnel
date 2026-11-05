@@ -254,3 +254,16 @@ SeaTunnel 侧使用统一抽象类型；转换层根据引擎能力与用户配�
 - [数据 Source 架构](../api-design/source-architecture.md)
 - [目标端 Sink 架构](../api-design/sink-architecture.md)
 - [设计理念](../design-philosophy.md)
+
+## 10. 参考资料
+
+### 关键源码文件
+
+- Flink 转换层：`seatunnel-translation/seatunnel-translation-flink/`
+- Spark 转换层：`seatunnel-translation/seatunnel-translation-spark/`
+- 基础接口：`seatunnel-api/src/main/java/org/apache/seatunnel/api/`
+
+### 延伸阅读
+
+- [Apache Flink Source API](https://nightlies.apache.org/flink/flink-docs-stable/docs/dev/datastream/sources/)
+- [Apache Spark Data Source V2](https://spark.apache.org/docs/latest/sql-data-sources.html)

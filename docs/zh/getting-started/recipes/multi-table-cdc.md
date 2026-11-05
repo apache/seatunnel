@@ -23,13 +23,13 @@ connector-jdbc
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(cdc-mysql|jdbc)'
+ls connectors | grep -E 'connector-(cdc-mysql|jdbc)'
 ```
 
 3. 如果你用的是 SeaTunnel Zeta，再把 MySQL JDBC 驱动和 PostgreSQL JDBC 驱动都放进 `${SEATUNNEL_HOME}/lib`，并确认 jar 已经能看到：
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector|postgresql'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'mysql-connector|postgresql'
 ```
 
 4. 先准备 MySQL 源表。因为这条链路会自动把 CDC 事件路由到下游 upsert 表，所以每张上游表都要有稳定主键。
