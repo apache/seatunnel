@@ -24,6 +24,7 @@ import {
   type DataTableColumns,
   NDrawer,
   NDrawerContent,
+  NAlert,
   NButton,
   NSpace,
   useMessage
@@ -39,6 +40,7 @@ import DAG, { type DagEdgeInfo } from '@/components/directed-acyclic-graph'
 import LiveMetricsBoard from '@/components/live-metrics-chart/board'
 import { getColorFromStatus } from '@/utils/getTypeFromStatus'
 import './detail.scss'
+import { formatPercentFromRatio } from '@/utils/format'
 import Configuration from '@/components/configuration'
 import JobLog from '@/components/job-log'
 import {
@@ -52,6 +54,7 @@ import {
   type RealtimeVerticesResponse,
   type RealtimeVertexPoint
 } from '@/service/realtime-metrics'
+import { getJobCheckpointOverview, type CheckpointOverviewResponse } from '@/service/checkpoint'
 import {
   readVertexMetricValue,
   collectVertexMetrics,
@@ -74,6 +77,17 @@ import {
   vertexSeriesId
 } from './detail-live-metrics'
 
+import {
+  isLargeGraph,
+  getTopBusyVertices,
+  getTopBlockedInputs,
+  sumCheckpointCounts,
+  getLatestCheckpoint,
+  formatCheckpoint,
+  type RuntimeVertexRow,
+  type RuntimeEdgeRow
+} from './detail-runtime-summary'
+
 export default defineComponent({
   setup() {
     const { t } = useI18n()
@@ -85,11 +99,39 @@ export default defineComponent({
     pinStore.ensureJob(jobId)
     const job = reactive({} as Job)
     const duration = ref('')
+    const select = ref('Overview')
     let timer: NodeJS.Timeout
     let fetchTimer: NodeJS.Timeout
+    let checkpointWarningLogged = false
+    let checkpointRequestSequence = 0
+    const checkpointOverview = ref<CheckpointOverviewResponse>()
+    const checkpointError = ref<string | null>(null)
+    const fetchCheckpointOverview = async () => {
+      if (select.value !== 'Overview') return
+      // Polls and tab changes can overlap. Only the latest request may publish its result.
+      const requestSequence = ++checkpointRequestSequence
+      try {
+        const overview = await getJobCheckpointOverview(jobId)
+        if (requestSequence !== checkpointRequestSequence) return
+        // A jobId-only response means the monitor has no snapshot, not zero checkpoints.
+        const hasSnapshot = Array.isArray(overview.pipelines)
+        checkpointOverview.value = hasSnapshot ? overview : undefined
+        checkpointError.value = hasSnapshot ? null : t('detail.runtime.checkpointUnavailable')
+        checkpointWarningLogged = false
+      } catch (e) {
+        if (requestSequence !== checkpointRequestSequence) return
+        checkpointOverview.value = undefined
+        checkpointError.value = t('detail.runtime.checkpointUnavailable')
+        if (!checkpointWarningLogged) {
+          console.warn('Fetch checkpoint overview failed:', e)
+          checkpointWarningLogged = true
+        }
+      }
+    }
     const fetch = async () => {
       const res = await getJobInfo(jobId)
       Object.assign(job, res)
+      void fetchCheckpointOverview()
       clearInterval(timer)
       const d = parse(res.createTime, 'yyyy-MM-dd HH:mm:ss', new Date())
       duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
@@ -108,14 +150,14 @@ export default defineComponent({
 
     fetch()
 
-    const select = ref('Overview')
     const change = () => {
-      console.log(select.value)
+      void fetchCheckpointOverview()
     }
     watch(() => select.value, change)
 
     // Clear the timer when the component is uninstalled
     onUnmounted(() => {
+      checkpointRequestSequence++
       clearInterval(timer)
       clearTimeout(fetchTimer)
       clearInterval(realtimeTimer)
@@ -332,6 +374,35 @@ export default defineComponent({
       })
       return stats
     })
+
+    const graphVertexCount = computed(() => job.jobDag?.vertexInfoMap?.length || 0)
+    const graphEdgeCount = computed(() =>
+      Object.values(job.jobDag?.pipelineEdges || {}).reduce((sum, edges) => sum + edges.length, 0)
+    )
+    const isLargeRuntimeGraph = computed(() =>
+      isLargeGraph(graphVertexCount.value, graphEdgeCount.value)
+    )
+    const topBusyVertices = computed(() =>
+      getTopBusyVertices(job.jobDag?.vertexInfoMap || [], realtimeVertexStats.value)
+    )
+    const topBlockedEdges = computed(() =>
+      getTopBlockedInputs(
+        job.jobDag?.pipelineEdges || {},
+        job.jobDag?.vertexInfoMap || [],
+        realtimeEdgeStats.value
+      )
+    )
+    const checkpointPipelines = computed(() => checkpointOverview.value?.pipelines || [])
+    const checkpointCounts = computed(() => sumCheckpointCounts(checkpointPipelines.value))
+    const latestCompletedCheckpoint = computed(() =>
+      getLatestCheckpoint(checkpointPipelines.value, 'latestCompleted')
+    )
+    const latestFailedCheckpoint = computed(() =>
+      getLatestCheckpoint(checkpointPipelines.value, 'latestFailed')
+    )
+    const latestSavepoint = computed(() =>
+      getLatestCheckpoint(checkpointPipelines.value, 'latestSavepoint')
+    )
 
     const realtimeSeriesLimit = computed(() => {
       const bucketMs = realtimeEdges.value?.bucketMs || realtimeVertices.value?.bucketMs || 5000
@@ -558,6 +629,154 @@ export default defineComponent({
       return { onClick: () => onFocus(row) }
     }
 
+    const runtimeVertexColumns: DataTableColumns<RuntimeVertexRow> = [
+      {
+        title: t('detail.runtime.vertex'),
+        key: 'vertexName'
+      },
+      {
+        title: t('detail.runtime.type'),
+        key: 'vertexType'
+      },
+      {
+        title: t('detail.runtime.busyRatio'),
+        key: 'busyRatio',
+        render: (row) => formatPercentFromRatio(row.busyRatio)
+      }
+    ]
+
+    const runtimeEdgeColumns: DataTableColumns<RuntimeEdgeRow> = [
+      {
+        title: t('detail.runtime.from'),
+        key: 'from'
+      },
+      {
+        title: t('detail.runtime.to'),
+        key: 'to'
+      },
+      {
+        title: t('detail.runtime.downstreamWait'),
+        key: 'bpRatio',
+        render: (row) => formatPercentFromRatio(row.bpRatio)
+      },
+      {
+        title: t('detail.runtime.queueFill'),
+        key: 'queueFillRatio',
+        render: (row) => formatPercentFromRatio(row.queueFillRatio)
+      },
+      {
+        title: t('detail.runtime.queueSize'),
+        key: 'queueSize',
+        render: (row) => `${row.queueSize}/${row.queueCapacity}`
+      }
+    ]
+
+    const formatTimestamp = (value?: number) => {
+      if (!value) return t('detail.runtime.unavailable')
+      return new Date(value).toLocaleString()
+    }
+    const shortRuntimeError = computed(() => {
+      const error = job.errorMsg?.trim()
+      if (!error) return ''
+      return error.length > 240 ? `${error.slice(0, 240)}...` : error
+    })
+
+    const renderRuntimeContext = () => (
+      <div class="runtime-context">
+        <div class="runtime-context-item">
+          <div class="runtime-context-title">{t('detail.runtime.graphSize')}</div>
+          <div class="runtime-context-value">
+            {graphVertexCount.value} {t('detail.runtime.vertices')} / {graphEdgeCount.value}{' '}
+            {t('detail.runtime.edges')}
+          </div>
+          {isLargeRuntimeGraph.value ? (
+            <NTag type="warning" bordered={false}>
+              {t('detail.runtime.largeGraphActive')}
+            </NTag>
+          ) : (
+            <NTag type="success" bordered={false}>
+              {t('detail.runtime.normalGraph')}
+            </NTag>
+          )}
+        </div>
+        <div class="runtime-context-item">
+          <div class="runtime-context-title">{t('detail.runtime.checkpoint')}</div>
+          <div class="runtime-context-value">
+            {checkpointOverview.value
+              ? `${checkpointCounts.value.completed}/${checkpointCounts.value.triggered} ${t('detail.runtime.completed')}`
+              : t('detail.runtime.unavailable')}
+          </div>
+          <div class="runtime-context-line">
+            {t('detail.runtime.inProgress')}:{' '}
+            {checkpointOverview.value
+              ? checkpointCounts.value.inProgress
+              : t('detail.runtime.unavailable')}
+          </div>
+          <div class="runtime-context-line">
+            {t('detail.runtime.latestCompleted')}:{' '}
+            {formatCheckpoint(latestCompletedCheckpoint.value, t('detail.runtime.unavailable'))}
+          </div>
+          <div class="runtime-context-line">
+            {t('detail.runtime.latestFailed')}:{' '}
+            {formatCheckpoint(latestFailedCheckpoint.value, t('detail.runtime.unavailable'))}
+          </div>
+          <div class="runtime-context-line">
+            {t('detail.runtime.latestSavepoint')}:{' '}
+            {formatCheckpoint(latestSavepoint.value, t('detail.runtime.unavailable'))}
+          </div>
+          <div class="runtime-context-line">
+            {t('detail.runtime.updatedAt')}: {formatTimestamp(checkpointOverview.value?.updatedAt)}
+          </div>
+          {checkpointError.value ? (
+            <NTag type="warning" bordered={false}>
+              {checkpointError.value}
+            </NTag>
+          ) : null}
+        </div>
+        <div class="runtime-context-item">
+          <div class="runtime-context-title">{t('detail.runtime.runtimeError')}</div>
+          {shortRuntimeError.value ? (
+            <div class="runtime-error-snippet" title={job.errorMsg}>
+              {shortRuntimeError.value}
+            </div>
+          ) : (
+            <NTag type="success" bordered={false}>
+              {t('detail.runtime.noRuntimeError')}
+            </NTag>
+          )}
+        </div>
+      </div>
+    )
+
+    const renderLargeGraphSummary = () =>
+      isLargeRuntimeGraph.value ? (
+        <div class="runtime-large-summary">
+          <NAlert type="warning" showIcon={false}>
+            {t('detail.runtime.largeGraphSummary')}
+          </NAlert>
+          <div class="runtime-summary-grid">
+            <div>
+              <div class="runtime-summary-title">{t('detail.runtime.topBusyVertices')}</div>
+              <NDataTable
+                columns={runtimeVertexColumns}
+                data={topBusyVertices.value}
+                pagination={false}
+                bordered
+              />
+            </div>
+            <div>
+              <div class="runtime-summary-title">{t('detail.runtime.topBlockedEdges')}</div>
+              <NDataTable
+                columns={runtimeEdgeColumns}
+                data={topBlockedEdges.value}
+                pagination={false}
+                bordered
+              />
+            </div>
+          </div>
+        </div>
+      ) : null
+
     return () => (
       <div class="job-detail-page w-full bg-white border border-gray-100 rounded-xl">
         <div class="job-detail-title font-bold text-xl">
@@ -592,6 +811,8 @@ export default defineComponent({
         <div class="tab-wrap relative">
           <NTabs v-model:value={select.value} type="line" animated>
             <NTabPane name="Overview" tab={t('detail.tabs.overview')}>
+              {renderRuntimeContext()}
+              {renderLargeGraphSummary()}
               <div
                 class={`job-detail-overview ${
                   hasPinnedMetrics.value ? 'has-pinned-metrics' : 'has-no-pinned-metrics'
