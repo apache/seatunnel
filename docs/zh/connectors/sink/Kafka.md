@@ -454,7 +454,7 @@ sink {
 }
 ```
 
-注意：`kafka_headers_fields` 不能与 `format = "NATIVE"` 同时配置。若两者同时设置，sink 在初始化构建序列化器时会抛出 `OPERATION_NOT_SUPPORTED` 异常，作业将无法启动。上游记录使用 `format = "NATIVE"` 时，`key` 和 `value` 是 `byte[]`，headers 已编码在 value 字节数组中，无需配置 `kafka_headers_fields`。
+注意：上游记录使用 `format = "NATIVE"` 时，`key` 和 `value` 列为 `byte[]`。`kafka_headers_fields` 不能与 `format = "NATIVE"` 同时使用：若两者同时配置，sink 在构建序列化器时会抛出 `KafkaConnectorException(OPERATION_NOT_SUPPORTED)`，作业将无法启动。NATIVE 输入的记录 headers 并未写入 `value` 字节数组——它们保存在 Kafka 记录的独立 headers 中，因此 `kafka_headers_fields` 无法与该格式组合使用。
 
 ## 常见问题
 
