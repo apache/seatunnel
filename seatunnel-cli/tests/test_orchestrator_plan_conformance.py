@@ -64,7 +64,34 @@ sink {
 """
 
 
-class ConformanceCheckTest(unittest.TestCase):
+# The conformance check intersects planned names with what the engine
+# registers, so a test that does not pin the registry depends on whichever
+# metadata happens to be exported on the machine running it. On a host whose
+# metadata omits MySQL-CDC the planned name would be filtered out, the expected
+# drift would become an empty list, and the test would fail for a reason that
+# has nothing to do with the code. Pinning it here keeps the registry a fixture
+# rather than an input; the unavailable-registry case patches it separately.
+FIXED_CATALOG = {
+    "sources": ["MySQL-CDC", "Postgres-CDC", "Jdbc", "Kafka", "S3File", "FakeSource"],
+    "sinks": ["Console", "Jdbc", "Clickhouse", "Assert", "LocalFile", "S3File"],
+    "transforms": ["Sql", "Filter"],
+}
+
+
+class PinnedRegistryMixin:
+    """Pin the connector registry for every test in the class."""
+
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch(
+            "seatunnel_cli.connectors.list_connector_names",
+            return_value=FIXED_CATALOG,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+
+class ConformanceCheckTest(PinnedRegistryMixin, unittest.TestCase):
     def test_wrong_source_connector_is_reported(self):
         errors = _plan_conformance_errors(CDC_TO_CONSOLE, WRONG_SOURCE)
         self.assertEqual(len(errors), 1)
@@ -129,7 +156,7 @@ class ConformanceCheckTest(unittest.TestCase):
         self.assertEqual(_plan_conformance_errors(CDC_TO_CONSOLE, "not hocon"), [])
 
 
-class DriftReachesTheRepairLoopTest(unittest.TestCase):
+class DriftReachesTheRepairLoopTest(PinnedRegistryMixin, unittest.TestCase):
     def _run(self, generated_configs):
         orchestrator = Orchestrator(client=mock.MagicMock())
         skill = mock.MagicMock()
@@ -189,7 +216,7 @@ class DriftReachesTheRepairLoopTest(unittest.TestCase):
         self.assertEqual(result["type"], "config")
 
 
-class DriftMergedWithValidatorOutputTest(unittest.TestCase):
+class DriftMergedWithValidatorOutputTest(PinnedRegistryMixin, unittest.TestCase):
     """Drift must not displace the validator's own findings.
 
     The validator's contract is "FAIL: <issue list>", so its first line carries
