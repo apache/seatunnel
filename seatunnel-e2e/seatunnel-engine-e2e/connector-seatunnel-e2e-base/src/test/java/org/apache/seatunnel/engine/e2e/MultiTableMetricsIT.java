@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.engine.e2e;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -24,8 +28,14 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
+import org.apache.seatunnel.lineage.LineageConfig;
+import org.apache.seatunnel.lineage.LineageDataset;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
@@ -35,10 +45,18 @@ import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.sun.net.httpserver.HttpServer;
 import io.restassured.response.Response;
 
+import java.net.InetSocketAddress;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
@@ -53,11 +71,37 @@ public class MultiTableMetricsIT {
 
     private static SeaTunnelClient engineClient;
 
+    private final List<JsonNode> lineageEvents = new CopyOnWriteArrayList<>();
+    private final List<String> lineageAuthorization = new CopyOnWriteArrayList<>();
+    private HttpServer lineageReceiver;
+
     @BeforeEach
     void beforeClass() throws Exception {
-        String testClusterName = TestUtils.getClusterName("RestApiIT");
+        lineageReceiver = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        lineageReceiver.createContext(
+                "/events",
+                exchange -> {
+                    try {
+                        lineageEvents.add(new ObjectMapper().readTree(exchange.getRequestBody()));
+                        lineageAuthorization.add(
+                                exchange.getRequestHeaders().getFirst("Authorization"));
+                        exchange.sendResponseHeaders(200, -1);
+                    } finally {
+                        exchange.close();
+                    }
+                });
+        lineageReceiver.start();
+        String testClusterName = TestUtils.getClusterName("MultiTableMetricsIT");
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
+        Map<String, Object> lineageOptions = new HashMap<>();
+        lineageOptions.put(LineageConfig.ENABLED, true);
+        lineageOptions.put(LineageConfig.AUTH_TOKEN, "fixture-token");
+        lineageOptions.put(LineageConfig.JOB_NAME_PER_OUTPUT, true);
+        lineageOptions.put(
+                LineageConfig.URL,
+                "http://127.0.0.1:" + lineageReceiver.getAddress().getPort() + "/events");
+        seaTunnelConfig.getEngineConfig().setLineageOptions(lineageOptions);
         node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
@@ -69,7 +113,43 @@ public class MultiTableMetricsIT {
         batchConf.setName("batch_fake_multi_table_to_console");
         ClientJobExecutionEnvironment batchJobExecutionEnv =
                 engineClient.createExecutionContext(batchFilePath, batchConf, seaTunnelConfig);
-        batchJobProxy = batchJobExecutionEnv.execute();
+        LogicalDag dag = batchJobExecutionEnv.getLogicalDag();
+        // Console/FakeSource have no production lineage identity. Assign test identities before
+        // serialization so the real reporter and HTTP backend exercise their metrics end to end.
+        dag.getLogicalVertexMap()
+                .values()
+                .forEach(
+                        vertex -> {
+                            if (vertex.getAction() instanceof SinkAction) {
+                                SinkAction<?, ?, ?, ?> sink =
+                                        (SinkAction<?, ?, ?, ?>) vertex.getAction();
+                                String table =
+                                        ((MultiTableSink) sink.getSink())
+                                                .getSinkTables()
+                                                .get(0)
+                                                .getFullName();
+                                sink.setLineageDatasets(
+                                        Collections.singletonList(
+                                                LineageDataset.of("test://console", table)));
+                            } else if (vertex.getAction() instanceof SourceAction) {
+                                SourceAction<?, ?, ?> source =
+                                        (SourceAction<?, ?, ?>) vertex.getAction();
+                                source.setLineageDatasets(
+                                        Collections.singletonList(
+                                                LineageDataset.of(
+                                                        "test://fake", "input-" + source.getId())));
+                            }
+                        });
+        JobImmutableInformation information =
+                new JobImmutableInformation(
+                        Long.parseLong(batchConf.getJobContext().getJobId()),
+                        batchConf.getName(),
+                        false,
+                        node1.node.getNodeEngine().getSerializationService(),
+                        dag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        batchJobProxy = engineClient.getJobClient().createJobProxy(information);
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(
@@ -182,6 +262,78 @@ public class MultiTableMetricsIT {
                         });
     }
 
+    @Test
+    public void shouldEmitCompleteStatisticsForEachSink() {
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertEquals(2, completeEvents().size()));
+        Map<String, JsonNode> outputs = new HashMap<>();
+        for (JsonNode event : completeEvents()) {
+            Assertions.assertEquals(1, event.path("inputs").size());
+            Assertions.assertEquals(1, event.path("outputs").size());
+            JsonNode output = event.path("outputs").get(0);
+            Assertions.assertNull(outputs.put(output.path("name").asText(), event));
+        }
+        Assertions.assertEquals(2, outputs.size());
+        Assertions.assertTrue(outputs.containsKey("fake.table1"));
+        Assertions.assertTrue(outputs.containsKey("fake.public.table2"));
+        for (Map.Entry<String, JsonNode> entry : outputs.entrySet()) {
+            Assertions.assertEquals(
+                    "batch_fake_multi_table_to_console::test://console/" + entry.getKey(),
+                    entry.getValue().path("job").path("name").asText());
+            long rows = entry.getKey().equals("fake.table1") ? 10 : 5;
+            JsonNode statistics =
+                    entry.getValue()
+                            .path("outputs")
+                            .get(0)
+                            .path("outputFacets")
+                            .path("outputStatistics");
+            Assertions.assertEquals(rows, statistics.path("rowCount").asLong());
+            Assertions.assertEquals(13 * rows, statistics.path("size").asLong());
+            Assertions.assertEquals(
+                    "committed",
+                    entry.getValue()
+                            .path("run")
+                            .path("facets")
+                            .path(LineageConfig.DEFAULT_RUN_FACET)
+                            .path("output_statistics_semantics")
+                            .asText());
+            String runId = entry.getValue().path("run").path("runId").asText();
+            List<String> runStates =
+                    lineageEvents.stream()
+                            .filter(event -> event.path("run").path("runId").asText().equals(runId))
+                            .map(event -> event.path("eventType").asText())
+                            .collect(Collectors.toList());
+            Assertions.assertEquals(Arrays.asList("START", "COMPLETE"), runStates);
+            Assertions.assertFalse(lineageAuthorization.isEmpty());
+            Assertions.assertTrue(
+                    lineageAuthorization.stream().allMatch("Bearer fixture-token"::equals));
+            Assertions.assertEquals(
+                    1,
+                    lineageEvents.stream()
+                            .filter(
+                                    event ->
+                                            event.path("eventType").asText().equals("START")
+                                                    && event.path("run")
+                                                            .path("runId")
+                                                            .asText()
+                                                            .equals(runId))
+                            .count());
+        }
+        Assertions.assertEquals(
+                2,
+                completeEvents().stream()
+                        .map(event -> event.path("run").path("runId").asText())
+                        .distinct()
+                        .count());
+    }
+
+    private List<JsonNode> completeEvents() {
+        return lineageEvents.stream()
+                .filter(event -> event.path("eventType").asText().equals("COMPLETE"))
+                .collect(Collectors.toList());
+    }
+
     @AfterEach
     void afterClass() {
         if (engineClient != null) {
@@ -190,6 +342,9 @@ public class MultiTableMetricsIT {
 
         if (node1 != null) {
             node1.shutdown();
+        }
+        if (lineageReceiver != null) {
+            lineageReceiver.stop(0);
         }
     }
 }

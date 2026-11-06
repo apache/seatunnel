@@ -182,6 +182,30 @@ The checkpoint configuration is only read by the Master service, and the Worker 
 
 For information about checkpoint storage, you can view [checkpoint storage](checkpoint-storage.md).
 
+### OpenLineage Lineage Reporting
+
+Table-level OpenLineage reporting is configured at cluster level under `openlineage` in
+`seatunnel.yaml`. It is disabled by default:
+
+```yaml
+seatunnel:
+  engine:
+    openlineage:
+      enabled: true
+      transport: http
+      url: http://lineage.example/api/lineage
+      namespace: seatunnel
+      heartbeat_min_interval_ms: 3600000
+```
+
+The option table, environment-variable mapping, dataset naming, Zeta events, and delivery limits
+are documented in [OpenLineage Lineage Reporting](../../introduction/concepts/lineage.md).
+The receiver token must come from `OPENLINEAGE_AUTH_TOKEN` or cluster configuration; a token in a
+job `env {}` block is rejected during configuration resolution. Lineage delivery failures never fail the data-processing
+job.
+
+Only the Master reads this block; Workers do not resolve lineage credentials.
+
 ### 4.4 History Job Expiry Configuration
 
 The information of each completed job, such as status, counters, and error logs, is stored in an IMap object. As the number of running jobs increases, the memory will increase, and eventually the memory will overflow. Therefore, you can adjust the `history-job-expire-minutes` parameter to solve this problem. The time unit of this parameter is minutes. The default value is 1440 minutes, that is, one day.
