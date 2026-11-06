@@ -275,6 +275,85 @@ def _check_conditional_mismatches(
             )
 
 
+def _registered_connector_names() -> dict[str, set[str]] | None:
+    """Lower-cased source and sink plugin names the engine registers.
+
+    Returns None when the registry is unavailable -- no metadata exported, or
+    the lookup failed -- in which case the caller compares plan names as given.
+    That is the pre-existing behaviour and the conservative choice: without a
+    registry we cannot tell an alias from a real mismatch.
+    """
+    try:
+        from .connectors import list_connector_names
+
+        names = list_connector_names()
+    except Exception:
+        return None
+    sources = {n.lower() for n in names.get("sources", []) if n}
+    sinks = {n.lower() for n in names.get("sinks", []) if n}
+    if not sources and not sinks:
+        return None
+    return {"source": sources, "sink": sinks}
+
+
+def _plan_conformance_errors(structured_plan, config_str: str) -> list[str]:
+    """Report connectors the config uses that the plan did not ask for.
+
+    The planner resolves the user's words into connector names; the generator
+    then has to use those names. When it does not, every later gate still
+    passes -- the config is valid, it just moves the wrong data or moves it the
+    wrong way -- so nothing downstream catches it.
+
+    Only a connector named by the plan and absent from the config is reported.
+    Extra connectors are not: a plan for one pipeline can legitimately be
+    realised with an added Assert sink or a second branch, and flagging those
+    would make the check fight normal practice.
+
+    The plan is model output, not ground truth, so a planned name that is not a
+    registered plugin is ignored rather than enforced. Otherwise an alias the
+    planner invented -- ``S3`` where the plugin is ``S3File`` -- would condemn a
+    correct config and spend every repair round moving it away from the right
+    connector. Comparison is case-insensitive.
+    """
+    pipelines = getattr(structured_plan, "pipelines", None) or []
+    if not pipelines:
+        return []
+
+    used: dict[str, set[str]] = {"source": set(), "sink": set()}
+    for section, name, _block in _extract_connector_blocks_raw(config_str):
+        if section in used and name:
+            used[section].add(name.strip().lower())
+    if not used["source"] and not used["sink"]:
+        # Nothing recognisable to compare against; the HOCON checks own that.
+        return []
+
+    known = _registered_connector_names()
+
+    errors: list[str] = []
+    for section, attribute in (("source", "source_connector"),
+                               ("sink", "sink_connector")):
+        planned = {
+            str(getattr(p, attribute, "") or "").strip().lower()
+            for p in pipelines
+        }
+        planned.discard("")
+        if known is not None:
+            # Keep only names the engine actually registers for this section,
+            # so an invented alias cannot condemn a correct config.
+            planned &= known.get(section, set())
+        if not planned or not used[section]:
+            continue
+        unmet = planned - used[section]
+        if unmet:
+            errors.append(
+                f"{section}: the plan resolved this request to "
+                f"{', '.join(sorted(unmet))} but the config uses "
+                f"{', '.join(sorted(used[section]))}. Use the connector the "
+                f"request calls for."
+            )
+    return errors
+
+
 def _extract_connector_blocks_raw(
     config_str: str,
 ) -> list[tuple[str, str, str]]:
@@ -1518,6 +1597,26 @@ class Orchestrator:
             self.on_status("validating", f"Validating config (round {round_num + 1})...")
             validation = self._run_validator(config)
 
+            # A config can be entirely valid and still answer the wrong
+            # question. Picking Jdbc where the plan said MySQL-CDC produces
+            # HOCON that parses, loads and runs, so the validator passes it and
+            # the loop delivers it -- the generator's choice is never revisited.
+            # The plan already names the connectors, so this is a comparison
+            # rather than a judgement, and it is fed through the same repair
+            # loop as any other validation failure.
+            drift = _plan_conformance_errors(structured_plan, config)
+            if drift:
+                # The validator's contract is "PASS", "PASS_WITH_NOTES: ..." or
+                # "FAIL: <issue list>", so its first line carries a real issue.
+                # Keep its text whole and prepend the drift: dropping a line
+                # here would remove a genuine defect from the repair prompt in
+                # exactly the case where two things are wrong at once.
+                drift_text = "FAIL: plan drift\n" + "\n".join(drift)
+                validation = (
+                    drift_text if validation.startswith("PASS")
+                    else drift_text + "\n" + validation
+                )
+
             if validation.startswith("PASS"):
                 # Phase 4: Dry-run validation (engine-level)
                 self.on_status("validating", "Running dry-run check...")
@@ -1548,7 +1647,11 @@ class Orchestrator:
 
             # Validation failed — try to fix
             self.on_status("fixing", f"Fixing issues (round {round_num + 1})...")
-            fix_result = self._run_fix(config, validation)
+            fix_result = self._run_fix(
+                config, validation,
+                request=self._original_request,
+                plan_text=getattr(structured_plan, "raw_plan_text", "") or "",
+            )
             if fix_result.get("config"):
                 config = fix_result["config"]
                 if fix_result.get("explanation"):
@@ -1766,8 +1869,15 @@ Check for semantic correctness, required parameters, and best practices."""
         result = self.client.quick_chat(prompt, system=VALIDATOR_SYSTEM)
         return result.strip()
 
-    def _run_fix(self, config: str, validation_errors: str) -> dict:
-        """Attempt to fix config based on validation errors."""
+    def _run_fix(self, config: str, validation_errors: str,
+                 request: str | None = None, plan_text: str = "") -> dict:
+        """Attempt to fix config based on validation errors.
+
+        The request and the plan are included because without them a repair
+        cannot correct a wrong connector: the prompt held only the config and
+        the errors, so the model had nothing to compare the config against and
+        was told to keep everything not explicitly flagged.
+        """
         from .cli import _replace_creds_with_placeholders, _restore_creds_from_placeholders
         system = self._build_config_system()
 
@@ -1775,8 +1885,23 @@ Check for semantic correctness, required parameters, and best practices."""
         # After LLM returns the fixed config, restore the original values.
         safe_config, cred_map = _replace_creds_with_placeholders(config)
 
-        prompt = f"""The following SeaTunnel config has validation issues. Fix them.
+        # The config is credential-swapped above for a reason, and the request
+        # is free text the user typed -- it can hold a password just as easily.
+        # `redact_credentials` is the same scrubber the planner path and the
+        # session writer use, so this keeps one rule for what leaves the host.
+        from .memory import redact_credentials
 
+        context = ""
+        if request:
+            context += (
+                "\n## The request this config must satisfy:\n"
+                f"{redact_credentials(request)}\n"
+            )
+        if plan_text:
+            context += f"\n## The resolved plan:\n{redact_credentials(plan_text)}\n"
+
+        prompt = f"""The following SeaTunnel config has validation issues. Fix them.
+{context}
 ## Current Config:
 ```hocon
 {safe_config}
@@ -1785,7 +1910,9 @@ Check for semantic correctness, required parameters, and best practices."""
 ## Validation Errors:
 {validation_errors}
 
-Fix ALL the issues and return the corrected config. Keep all existing correct parts unchanged."""
+Fix ALL the issues and return the corrected config. Keep the parts that are
+both correct and consistent with the request unchanged. If the config uses a
+connector the request does not call for, replace it rather than preserving it."""
 
         messages = [{"role": "user", "content": [{"text": prompt}]}]
 
