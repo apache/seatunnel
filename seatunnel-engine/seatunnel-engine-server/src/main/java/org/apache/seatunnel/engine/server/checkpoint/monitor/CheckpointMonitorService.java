@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.monitor;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointHistoryEntry;
@@ -54,6 +55,17 @@ public class CheckpointMonitorService {
     public CheckpointMonitorService(SeaTunnelEngineContext engineContext, int maxHistorySize) {
         this.engineContext = engineContext;
         this.maxHistorySize = maxHistorySize;
+    }
+
+    /**
+     * Uses a store that is already open. Production code keeps the engine-context constructor;
+     * tests use this one to fail a real checkpoint-overview map without standing up a job.
+     */
+    @VisibleForTesting
+    public CheckpointMonitorService(CheckpointOverviewStateStore overviewMap, int maxHistorySize) {
+        this.engineContext = null;
+        this.maxHistorySize = maxHistorySize;
+        this.overviewMap = overviewMap;
     }
 
     private CheckpointOverviewStateStore getOverviewMap() {

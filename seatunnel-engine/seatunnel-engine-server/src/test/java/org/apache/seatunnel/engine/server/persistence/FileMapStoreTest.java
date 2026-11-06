@@ -3,8 +3,8 @@
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * (the "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,8 @@
 package org.apache.seatunnel.engine.server.persistence;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
@@ -26,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.config.JoinConfig;
@@ -34,16 +37,33 @@ import com.hazelcast.config.MapStoreConfig;
 import com.hazelcast.core.EntryView;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.map.EntryLoader.MetadataAwareValue;
 import com.hazelcast.map.IMap;
+import com.hazelcast.map.impl.MapContainer;
+import com.hazelcast.map.impl.MapService;
+import com.hazelcast.map.impl.MapServiceContext;
+import com.hazelcast.map.impl.MapStoreWrapper;
+import com.hazelcast.spi.impl.NodeEngine;
 
+import java.lang.reflect.Field;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for FileMapStore.
@@ -55,6 +75,10 @@ import static org.mockito.Mockito.mock;
  *   <li>init() with a valid local-fs config succeeds end-to-end (SPI discovery + storage init).
  *   <li>init() with an unknown storage type throws immediately instead of silently failing.
  * </ol>
+ *
+ * <p>Also covers durability-failure propagation for write-through MapStore calls:
+ * store/storeAll/delete/deleteAll must throw when the underlying {@link IMapStorage} reports a
+ * failed write, especially after WAL APPEND has been permanently fail-closed.
  *
  * <p>Note: HDFS/S3/OSS backends are NOT tested here because they require Hadoop uber jars and
  * remote infrastructure. Those are covered by IMapFileStorageTest. What we verify here is that the
@@ -133,6 +157,135 @@ public class FileMapStoreTest {
         store.destroy();
     }
 
+    @Test
+    public void testStoreThrowsWhenUnderlyingPersistenceFails() throws Exception {
+        FileMapStore store = new FileMapStore();
+        IMapStorage failingStorage = mock(IMapStorage.class);
+        when(failingStorage.store(any(), any(), anyLong())).thenReturn(false);
+        when(failingStorage.isAppendPermanentlyBlocked()).thenReturn(false);
+        setMapStorage(store, failingStorage);
+
+        IMapStorageException ex =
+                Assertions.assertThrows(
+                        IMapStorageException.class,
+                        () -> store.store("checkpoint-id", new MetadataAwareValue<>(1L)));
+        Assertions.assertTrue(
+                ex.getMessage().contains("failed to persist durably"),
+                "Expected durability failure message, got: " + ex.getMessage());
+    }
+
+    @Test
+    public void testStoreThrowsExplicitlyWhenWalAppendIsPermanentlyFailClosed() throws Exception {
+        FileMapStore store = new FileMapStore();
+        IMapStorage blockedStorage = mock(IMapStorage.class);
+        when(blockedStorage.store(any(), any(), anyLong())).thenReturn(false);
+        when(blockedStorage.isAppendPermanentlyBlocked()).thenReturn(true);
+        setMapStorage(store, blockedStorage);
+
+        IMapStorageException ex =
+                Assertions.assertThrows(
+                        IMapStorageException.class,
+                        () -> store.store("checkpoint-id", new MetadataAwareValue<>(2L)));
+        Assertions.assertTrue(
+                ex.getMessage().contains("permanently fail-closed"),
+                "Expected fail-closed message, got: " + ex.getMessage());
+        Assertions.assertTrue(
+                ex.getMessage().contains("restart"),
+                "Expected restart guidance, got: " + ex.getMessage());
+    }
+
+    @Test
+    public void testStoreAllThrowsWhenAnyKeyFailsToPersist() throws Exception {
+        FileMapStore store = new FileMapStore();
+        IMapStorage failingStorage = mock(IMapStorage.class);
+        Set<Object> failures = new HashSet<>();
+        failures.add("k1");
+        when(failingStorage.storeAllWithExpirationTime(anyMap())).thenReturn(failures);
+        when(failingStorage.isAppendPermanentlyBlocked()).thenReturn(true);
+        setMapStorage(store, failingStorage);
+
+        Map<Object, MetadataAwareValue<Object>> batch = new HashMap<>();
+        batch.put("k1", new MetadataAwareValue<>("v1"));
+        batch.put("k2", new MetadataAwareValue<>("v2"));
+        IMapStorageException ex =
+                Assertions.assertThrows(IMapStorageException.class, () -> store.storeAll(batch));
+        Assertions.assertTrue(
+                ex.getMessage().contains("storeAll"),
+                "Expected storeAll in message, got: " + ex.getMessage());
+        Assertions.assertTrue(
+                ex.getMessage().contains("permanently fail-closed"),
+                "Expected fail-closed message, got: " + ex.getMessage());
+    }
+
+    @Test
+    public void testDeleteThrowsWhenUnderlyingPersistenceFails() throws Exception {
+        FileMapStore store = new FileMapStore();
+        IMapStorage failingStorage = mock(IMapStorage.class);
+        when(failingStorage.delete(any())).thenReturn(false);
+        when(failingStorage.isAppendPermanentlyBlocked()).thenReturn(false);
+        setMapStorage(store, failingStorage);
+
+        IMapStorageException ex =
+                Assertions.assertThrows(
+                        IMapStorageException.class, () -> store.delete("old-checkpoint"));
+        Assertions.assertTrue(
+                ex.getMessage().contains("failed to persist durably"),
+                "Expected durability failure message, got: " + ex.getMessage());
+        Assertions.assertTrue(
+                ex.getMessage().contains("delete"),
+                "Expected delete in message, got: " + ex.getMessage());
+    }
+
+    @Test
+    public void testDeleteThrowsExplicitlyWhenWalAppendIsPermanentlyFailClosed() throws Exception {
+        FileMapStore store = new FileMapStore();
+        IMapStorage blockedStorage = mock(IMapStorage.class);
+        when(blockedStorage.delete(any())).thenReturn(false);
+        when(blockedStorage.isAppendPermanentlyBlocked()).thenReturn(true);
+        setMapStorage(store, blockedStorage);
+
+        IMapStorageException ex =
+                Assertions.assertThrows(
+                        IMapStorageException.class, () -> store.delete("old-checkpoint"));
+        Assertions.assertTrue(
+                ex.getMessage().contains("permanently fail-closed"),
+                "Expected fail-closed message, got: " + ex.getMessage());
+        Assertions.assertTrue(
+                ex.getMessage().contains("restart"),
+                "Expected restart guidance, got: " + ex.getMessage());
+        Assertions.assertTrue(
+                ex.getMessage().contains("delete"),
+                "Expected delete in message, got: " + ex.getMessage());
+    }
+
+    @Test
+    public void testDeleteAllThrowsWhenAnyKeyFailsToPersist() throws Exception {
+        FileMapStore store = new FileMapStore();
+        IMapStorage failingStorage = mock(IMapStorage.class);
+        Set<Object> failures = new HashSet<>();
+        failures.add("k1");
+        when(failingStorage.deleteAll(any())).thenReturn(failures);
+        when(failingStorage.isAppendPermanentlyBlocked()).thenReturn(true);
+        setMapStorage(store, failingStorage);
+
+        IMapStorageException ex =
+                Assertions.assertThrows(
+                        IMapStorageException.class,
+                        () -> store.deleteAll(Arrays.asList("k1", "k2")));
+        Assertions.assertTrue(
+                ex.getMessage().contains("deleteAll"),
+                "Expected deleteAll in message, got: " + ex.getMessage());
+        Assertions.assertTrue(
+                ex.getMessage().contains("permanently fail-closed"),
+                "Expected fail-closed message, got: " + ex.getMessage());
+    }
+
+    private static void setMapStorage(FileMapStore store, IMapStorage mapStorage) throws Exception {
+        Field field = FileMapStore.class.getDeclaredField("mapStorage");
+        field.setAccessible(true);
+        field.set(store, mapStorage);
+    }
+
     /**
      * Hazelcast does not delete an entry from the map store when its TTL expires. Verifies that
      * after a restart an expired entry is not loaded again, and an entry put with a TTL keeps its
@@ -177,6 +330,66 @@ public class FileMapStoreTest {
         } finally {
             restarted.shutdown();
         }
+    }
+
+    /**
+     * A real Hazelcast write-through put must surface a WAL durability failure to the caller. The
+     * store/delete tests above inject a fake {@link IMapStorage}; this one uses the file MapStore
+     * Hazelcast actually calls with {@code write-delay-seconds=0}.
+     */
+    @Test
+    public void testWriteThroughPutThrowsWhenWalAppendFails() throws Exception {
+        String clusterName = "file-map-store-write-through-failure-" + System.nanoTime();
+        String mapName = Constant.IMAP_FINISHED_JOB_STATE;
+        HazelcastInstance node = Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName));
+        try {
+            IMap<Long, String> map = node.getMap(mapName);
+            map.put(1L, "durable");
+            FileMapStore store = mapStore(node, mapName);
+            spyStorage(store);
+
+            IMapStorageException ex =
+                    Assertions.assertThrows(
+                            IMapStorageException.class, () -> map.put(2L, "not-durable"));
+            Assertions.assertTrue(
+                    ex.getMessage().contains("permanently fail-closed"),
+                    "Expected fail-closed message, got: " + ex.getMessage());
+            Assertions.assertFalse(
+                    map.containsKey(2L),
+                    "a failed write-through put must not leave the in-memory entry behind");
+        } finally {
+            node.shutdown();
+        }
+    }
+
+    private static FileMapStore mapStore(HazelcastInstance node, String mapName) {
+        HazelcastInstanceImpl impl =
+                node instanceof HazelcastInstanceProxy
+                        ? ((HazelcastInstanceProxy) node).getOriginal()
+                        : (HazelcastInstanceImpl) node;
+        NodeEngine nodeEngine = impl.node.getNodeEngine();
+        MapService mapService = nodeEngine.getService(MapService.SERVICE_NAME);
+        MapServiceContext context = mapService.getMapServiceContext();
+        MapContainer container = context.getMapContainer(mapName);
+        MapStoreWrapper wrapper = container.getMapStoreContext().getMapStoreWrapper();
+        Assertions.assertInstanceOf(FileMapStore.class, wrapper.getMapStore());
+        return (FileMapStore) wrapper.getMapStore();
+    }
+
+    /**
+     * Wraps the live storage so every {@code store} returns {@code false} and the storage reports
+     * fail-close. The {@link FileMapStore} itself stays real; a Mockito spy answers the storage
+     * calls. This is not a one-shot failure of the next append, and it does not corrupt the WAL
+     * writer.
+     */
+    private static IMapStorage spyStorage(FileMapStore store) throws Exception {
+        Field field = FileMapStore.class.getDeclaredField("mapStorage");
+        field.setAccessible(true);
+        IMapStorage storage = Mockito.spy((IMapStorage) field.get(store));
+        field.set(store, storage);
+        Mockito.doReturn(true).when(storage).isAppendPermanentlyBlocked();
+        Mockito.doReturn(false).when(storage).store(any(), any(), anyLong());
+        return storage;
     }
 
     private Config hazelcastConfig(String clusterName) {
