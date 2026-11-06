@@ -297,7 +297,7 @@ sink {
 
 ```hocon
 env {
-  execution.parallelism = 4
+  parallelism = 4
   job.mode = "STREAMING"
   checkpoint.interval = 60000
 }

@@ -53,6 +53,7 @@
         <module>connector-http-asana</module>
         <module>connector-http-intercom</module>
         <module>connector-http-typeform</module>
+        <module>connector-http-mailchimp</module>
         <module>connector-mem0</module>
     </modules>
 

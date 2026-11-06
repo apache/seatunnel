@@ -139,7 +139,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 5000
   read_limit.bytes_per_second=7000000
