@@ -154,6 +154,18 @@ driver = "org.mariadb.jdbc.Driver"
 
 :::
 
+## PostgreSQL pgvector
+
+在 SeaTunnel Zeta 上，PostgreSQL 的 `vector` / `vector(N)` 与 `FLOAT_VECTOR`
+对应，支持 JDBC 读取和写入。服务器需要安装 pgvector，并在目标数据库中执行
+`CREATE EXTENSION IF NOT EXISTS vector`，然后才能写入或自动建表。
+PostgreSQL JDBC 驱动的安装方式见上文。pgvector 集成测试覆盖 SeaTunnel Zeta；Flink 和 Spark 需要单独验证。
+
+如果源端 Catalog 或 JDBC 物理列元数据提供了维度，自动创建的目标列使用 `vector(N)`；
+否则使用无固定维度的 `vector`。已有 `vector(N)` 目标列要求每个非空值均包含 `N`
+个元素。没有物理列元数据的查询表达式不会通过解析 SQL 文本推断维度。
+参见 [PostgreSQL Source](../source/PostgreSQL.md#pgvector)。
+
 ## 主要特性
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)

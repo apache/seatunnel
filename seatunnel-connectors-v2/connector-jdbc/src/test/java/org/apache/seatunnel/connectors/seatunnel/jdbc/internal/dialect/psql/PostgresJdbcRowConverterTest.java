@@ -25,6 +25,14 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.VectorType;
+import org.apache.seatunnel.common.utils.VectorUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferedBatchStatementExecutor;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.SimpleBatchStatementExecutor;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +43,10 @@ import org.postgresql.util.PSQLException;
 import org.postgresql.util.PSQLState;
 
 import java.math.BigDecimal;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -44,9 +56,11 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -106,6 +120,115 @@ public class PostgresJdbcRowConverterTest {
         Assertions.assertEquals(hour, offsetDateTime.getHour());
         Assertions.assertEquals(minute, offsetDateTime.getMinute());
         Assertions.assertEquals(offset, offsetDateTime.getOffset());
+    }
+
+    @Test
+    public void testVectorRebindingPreservesReadableBoundsOrderAndMark() throws SQLException {
+        TableSchema schema =
+                createTableSchema("embedding", VectorType.VECTOR_FLOAT_TYPE, "vector(3)");
+        for (ByteOrder order : new ByteOrder[] {ByteOrder.BIG_ENDIAN, ByteOrder.LITTLE_ENDIAN}) {
+            for (boolean readOnly : new boolean[] {false, true}) {
+                ByteBuffer storage =
+                        (readOnly ? ByteBuffer.allocateDirect(20) : ByteBuffer.allocate(20))
+                                .order(order);
+                storage.putFloat(99).putFloat(1.25f).putFloat(-2.5f).putFloat(3.75f).putFloat(99);
+                ((Buffer) storage).position(Float.BYTES);
+                ((Buffer) storage).limit(4 * Float.BYTES);
+                ByteBuffer vector = readOnly ? storage.asReadOnlyBuffer().order(order) : storage;
+                ((Buffer) vector).mark();
+                SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, vector});
+                PreparedStatement statement = mock(PreparedStatement.class);
+                converter.toExternal(schema, null, row, statement);
+                converter.toExternal(schema, null, row, statement);
+                ArgumentCaptor<Object> values = ArgumentCaptor.forClass(Object.class);
+                verify(statement, times(2)).setObject(eq(2), values.capture());
+                for (Object value : values.getAllValues()) {
+                    PGobject pg = Assertions.assertInstanceOf(PGobject.class, value);
+                    Assertions.assertEquals("vector", pg.getType());
+                    Assertions.assertEquals("[1.25,-2.5,3.75]", pg.getValue());
+                }
+                Assertions.assertEquals(Float.BYTES, vector.position());
+                Assertions.assertEquals(4 * Float.BYTES, vector.limit());
+                Assertions.assertEquals(order, vector.order());
+                ((Buffer) vector).reset();
+                Assertions.assertEquals(Float.BYTES, vector.position());
+            }
+        }
+    }
+
+    @Test
+    public void testVectorSurvivesActualBufferedBatchReconnectRetry() throws Exception {
+        TableSchema schema =
+                createTableSchema("embedding", VectorType.VECTOR_FLOAT_TYPE, "vector(3)");
+        ByteBuffer vector = VectorUtils.toByteBuffer(new Float[] {1.25f, -2.5f, 3.75f});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, vector});
+        Connection first = mock(Connection.class);
+        Connection replacement = mock(Connection.class);
+        PreparedStatement failed = mock(PreparedStatement.class);
+        PreparedStatement retried = mock(PreparedStatement.class);
+        String insert = "INSERT INTO vectors (id, embedding) VALUES (?, ?)";
+        when(first.prepareStatement(insert)).thenReturn(failed);
+        when(replacement.prepareStatement(insert)).thenReturn(retried);
+        when(failed.executeBatch())
+                .thenThrow(new SQLException("transient connection loss", "08006"));
+        when(retried.executeBatch()).thenReturn(new int[] {1});
+        JdbcConnectionProvider provider = mock(JdbcConnectionProvider.class);
+        when(provider.getOrEstablishConnection()).thenReturn(first);
+        when(provider.getConnection()).thenReturn(first);
+        when(provider.reestablishConnection()).thenReturn(replacement);
+        BufferedBatchStatementExecutor executor =
+                new BufferedBatchStatementExecutor(
+                        new SimpleBatchStatementExecutor(
+                                connection -> connection.prepareStatement(insert),
+                                schema,
+                                null,
+                                converter),
+                        Function.identity());
+        JdbcOutputFormat<SeaTunnelRow, BufferedBatchStatementExecutor> format =
+                new JdbcOutputFormat<>(
+                        provider,
+                        JdbcConnectionConfig.builder()
+                                .maxRetries(1)
+                                .batchSize(100)
+                                .batchIntervalMs(0)
+                                .build(),
+                        () -> executor);
+        try {
+            format.open();
+            format.writeRecord(row);
+            format.flush();
+            ArgumentCaptor<Object> initialValue = ArgumentCaptor.forClass(Object.class);
+            ArgumentCaptor<Object> retriedValue = ArgumentCaptor.forClass(Object.class);
+            verify(failed).setObject(eq(2), initialValue.capture());
+            verify(retried).setObject(eq(2), retriedValue.capture());
+            Assertions.assertEquals(
+                    "[1.25,-2.5,3.75]", ((PGobject) initialValue.getValue()).getValue());
+            Assertions.assertEquals(
+                    ((PGobject) initialValue.getValue()).getValue(),
+                    ((PGobject) retriedValue.getValue()).getValue());
+            Assertions.assertEquals(0, vector.position());
+            Assertions.assertEquals(3 * Float.BYTES, vector.limit());
+            verify(provider).reestablishConnection();
+            verify(failed).executeBatch();
+            verify(failed).close();
+            verify(retried).executeBatch();
+        } finally {
+            format.close();
+        }
+    }
+
+    @Test
+    public void testIncompleteVectorBytesFailInsteadOfTruncating() {
+        TableSchema schema = createTableSchema("embedding", VectorType.VECTOR_FLOAT_TYPE, "vector");
+        SeaTunnelRow row =
+                new SeaTunnelRow(new Object[] {1, ByteBuffer.wrap(new byte[] {1, 2, 3})});
+        JdbcConnectorException error =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                converter.toExternal(
+                                        schema, null, row, mock(PreparedStatement.class)));
+        Assertions.assertTrue(error.getMessage().contains("embedding"));
     }
 
     @Test

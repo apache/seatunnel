@@ -154,6 +154,20 @@ Do not use MySQL Connector/J with a `jdbc:mysql:` URL for MariaDB. That configur
 
 :::
 
+## PostgreSQL pgvector
+
+On SeaTunnel Zeta, PostgreSQL `vector` / `vector(N)` maps to `FLOAT_VECTOR` for
+JDBC reads and writes. Install pgvector on the server and run
+`CREATE EXTENSION IF NOT EXISTS vector` in the target database before writing or
+automatically creating tables. The PostgreSQL JDBC driver must also be installed
+as described above. The pgvector integration tests cover SeaTunnel Zeta; Flink and Spark require separate validation.
+
+When the source catalog or JDBC physical-column metadata provides a dimension,
+automatically created sink columns use `vector(N)`; otherwise they use `vector`.
+An existing target `vector(N)` column requires every non-null value to have `N`
+elements. Query expressions without physical-column metadata do not infer a
+dimension from the query text. See the [PostgreSQL source](../source/PostgreSQL.md#pgvector).
+
 ## Key Features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)

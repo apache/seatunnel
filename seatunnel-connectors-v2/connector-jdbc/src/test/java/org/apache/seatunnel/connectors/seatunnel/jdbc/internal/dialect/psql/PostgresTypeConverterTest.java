@@ -26,17 +26,26 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.postgresql.PGResultSetMetaData;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 public class PostgresTypeConverterTest {
     @Test
@@ -1042,5 +1051,188 @@ public class PostgresTypeConverterTest {
         Assertions.assertEquals(BasicType.STRING_TYPE, column2.getDataType());
         Assertions.assertNull(column2.getColumnLength());
         Assertions.assertEquals(typeDefine2.getColumnType(), column2.getSourceType());
+    }
+
+    @Test
+    public void testConvertVector() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("embedding")
+                        .columnType("vector(1536)")
+                        .dataType("vector")
+                        .build();
+        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
+        Assertions.assertEquals("vector(1536)", column.getSourceType());
+        Assertions.assertEquals(1536, column.getScale());
+    }
+
+    @Test
+    public void testConvertVectorWithoutDimension() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("embedding")
+                        .columnType("vector")
+                        .dataType("vector")
+                        .build();
+        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
+        Assertions.assertEquals("vector", column.getSourceType());
+    }
+
+    @Test
+    public void testReconvertFloatVector() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("embedding")
+                        .dataType(VectorType.VECTOR_FLOAT_TYPE)
+                        .scale(768)
+                        .build();
+
+        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals("vector(768)", typeDefine.getColumnType());
+        Assertions.assertEquals("vector", typeDefine.getDataType());
+    }
+
+    @Test
+    public void testReconvertFloatVectorWithoutDimension() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("embedding")
+                        .dataType(VectorType.VECTOR_FLOAT_TYPE)
+                        .build();
+
+        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals("vector", typeDefine.getColumnType());
+        Assertions.assertEquals("vector", typeDefine.getDataType());
+    }
+
+    @Test
+    public void testConvertInvalidVectorDimension() {
+        for (String columnType :
+                new String[] {
+                    "vector(abc)", "vector(0)", "vector(-1)", "vector(2147483648)", "vector(3"
+                }) {
+            BasicTypeDefine<Object> typeDefine =
+                    BasicTypeDefine.builder()
+                            .name("embedding")
+                            .columnType(columnType)
+                            .dataType("vector")
+                            .build();
+            SeaTunnelRuntimeException error =
+                    Assertions.assertThrows(
+                            SeaTunnelRuntimeException.class,
+                            () -> PostgresTypeConverter.INSTANCE.convert(typeDefine));
+            Assertions.assertTrue(error.getMessage().contains("embedding"));
+            Assertions.assertTrue(error.getMessage().contains(columnType));
+        }
+    }
+
+    @Test
+    public void testConvertVectorDimensionWithWhitespace() {
+        Column column =
+                PostgresTypeConverter.INSTANCE.convert(
+                        BasicTypeDefine.builder()
+                                .name("embedding")
+                                .columnType("vector( 3 )")
+                                .dataType("vector")
+                                .build());
+        Assertions.assertEquals(Integer.valueOf(3), column.getScale());
+        Assertions.assertEquals("vector(3)", column.getSourceType());
+    }
+
+    @Test
+    public void testQualifiedVectorMetadataRetainsUnconstrainedFallback() throws SQLException {
+        for (String type :
+                new String[] {"extensions.vector", "\"extensions\".\"vector\"", "\"vector\""}) {
+            ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+            Connection connection = mock(Connection.class);
+            when(metadata.getColumnTypeName(1)).thenReturn(type);
+            when(metadata.getColumnLabel(1)).thenReturn("projected_vector");
+            when(metadata.getTableName(1)).thenReturn("");
+            Column column =
+                    new PostgresTypeMapper()
+                            .mappingColumn(
+                                    metadata,
+                                    1,
+                                    connection,
+                                    "SELECT embedding FROM (SELECT embedding FROM items) t");
+            Assertions.assertEquals("projected_vector", column.getName());
+            Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
+            Assertions.assertNull(column.getScale());
+            verifyNoInteractions(connection);
+        }
+    }
+
+    @Test
+    public void testQuotedNonVectorMetadataRemainsString() throws SQLException {
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(metadata.getColumnTypeName(1)).thenReturn("\"extensions\".\"not.vector\"");
+        when(metadata.getColumnLabel(1)).thenReturn("custom");
+        when(metadata.getColumnType(1)).thenReturn(Types.OTHER);
+        Column column = new PostgresTypeMapper().mappingColumn(metadata, 1);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(PostgresTypeConverter.PG_TEXT, column.getSourceType());
+    }
+
+    @Test
+    public void testVectorDimensionDoesNotGuessTableFromSql() throws SQLException {
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        Connection connection = mock(Connection.class);
+        when(metadata.getColumnTypeName(1)).thenReturn("vector");
+        when(metadata.getColumnLabel(1)).thenReturn("embedding");
+        when(metadata.getTableName(1)).thenReturn("");
+        for (String query :
+                new String[] {
+                    "SELECT embedding FROM a JOIN b USING (id)",
+                    "SELECT embedding FROM (SELECT embedding FROM a) t",
+                    "SELECT embedding FROM a"
+                }) {
+            Column column = new PostgresTypeMapper().mappingColumn(metadata, 1, connection, query);
+            Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
+            Assertions.assertNull(column.getScale());
+        }
+        verifyNoInteractions(connection);
+    }
+
+    @Test
+    public void testVectorDimensionUsesPhysicalColumnMetadata() throws SQLException {
+        ResultSetMetaData metadata =
+                mock(
+                        ResultSetMetaData.class,
+                        withSettings().extraInterfaces(PGResultSetMetaData.class));
+        PGResultSetMetaData postgres = (PGResultSetMetaData) metadata;
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet result = mock(ResultSet.class);
+        when(metadata.getColumnTypeName(1)).thenReturn("\"extensions\".\"vector\"");
+        when(metadata.getColumnLabel(1)).thenReturn("aliased_embedding");
+        when(metadata.getColumnName(1)).thenReturn("aliased_embedding");
+        when(postgres.getBaseColumnName(1)).thenReturn("embedding");
+        when(postgres.getBaseTableName(1)).thenReturn("items");
+        when(postgres.getBaseSchemaName(1)).thenReturn("vector_data");
+        when(metadata.getTableName(1)).thenReturn("items");
+        when(metadata.getSchemaName(1)).thenReturn("");
+        when(connection.prepareStatement(anyString())).thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(result);
+        when(result.next()).thenReturn(true);
+        when(result.getInt(1)).thenReturn(3);
+        Column column =
+                new PostgresTypeMapper()
+                        .mappingColumn(
+                                metadata,
+                                1,
+                                connection,
+                                "SELECT b.embedding AS aliased_embedding FROM a JOIN b USING (id)");
+        verify(statement).setString(1, "items");
+        verify(statement).setString(2, "vector_data");
+        verify(statement).setString(3, "embedding");
+        Assertions.assertEquals("aliased_embedding", column.getName());
+        Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
+        Assertions.assertEquals(Integer.valueOf(3), column.getScale());
     }
 }
