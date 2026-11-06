@@ -53,6 +53,9 @@ ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES = (
     "connector-iceberg-e2e",
     "connector-hbase-e2e",
     "connector-sensorsdata-e2e",
+    "connector-http-e2e",
+    "connector-mongodb-e2e",
+    "connector-clickhouse-e2e",
 )
 
 # These suites have dedicated jobs in backend.yml, but they are not listed by
