@@ -1,0 +1,542 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.engine.server.task.operation;
+
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressAccuracy;
+import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
+import org.apache.seatunnel.api.cdc.CdcProgressPosition;
+import org.apache.seatunnel.api.cdc.CdcProgressValue;
+import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
+import org.apache.seatunnel.api.cdc.CdcSnapshotSplitProgress;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import com.hazelcast.internal.nio.BufferObjectDataInput;
+import com.hazelcast.internal.nio.BufferObjectDataOutput;
+import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.internal.serialization.InternalSerializationService;
+import com.hazelcast.internal.serialization.impl.DefaultSerializationServiceBuilder;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+class ReportCdcProgressOperationSerializationTest {
+
+    private final InternalSerializationService serializationService =
+            (InternalSerializationService) new DefaultSerializationServiceBuilder().build();
+
+    @AfterEach
+    void tearDown() {
+        serializationService.dispose();
+    }
+
+    @Test
+    void testReportsArePreservedAfterSerialization() {
+        TaskLocation location = new TaskLocation(new TaskGroupLocation(1L, 2, 3L), 4L, 0);
+        CdcProgressPosition position =
+                new CdcProgressPosition(
+                        "MYSQL_BINLOG", 1, Collections.singletonMap("file", "mysql-bin.000001"));
+        CdcProgressEnvelope<CdcReaderProgressReport> reader =
+                new CdcProgressEnvelope<>(
+                        CdcProgressOwner.READER,
+                        location,
+                        5L,
+                        6L,
+                        7L,
+                        8L,
+                        new CdcReaderProgressReport(
+                                "MySQL-CDC",
+                                CdcProgressLifecycle.INCREMENTAL,
+                                "incremental-split",
+                                CdcProgressValue.exact(position),
+                                CdcProgressValue.bestEffort(position),
+                                CdcProgressValue.unsupported(),
+                                9L,
+                                10L));
+        CdcProgressEnvelope<CdcEnumeratorProgressReport> enumerator =
+                new CdcProgressEnvelope<>(
+                        CdcProgressOwner.ENUMERATOR,
+                        location,
+                        5L,
+                        6L,
+                        7L,
+                        8L,
+                        new CdcEnumeratorProgressReport(
+                                "MySQL-CDC",
+                                CdcSnapshotAssignmentStatus.ASSIGNING,
+                                CdcProgressValue.exact(1),
+                                CdcProgressValue.exact(0),
+                                CdcProgressValue.exact(1),
+                                CdcProgressValue.exact(0),
+                                CdcProgressValue.exact(0),
+                                Collections.singletonList(
+                                        new CdcSnapshotSplitProgress(
+                                                "snapshot-split-1",
+                                                "inventory.orders",
+                                                CdcProgressValue.exact(position),
+                                                CdcProgressValue.unavailable())),
+                                true));
+        ReportCdcProgressOperation original =
+                new ReportCdcProgressOperation(Arrays.asList(reader, enumerator));
+
+        Data data = serializationService.toData(original);
+        ReportCdcProgressOperation restored = serializationService.toObject(data);
+
+        List<?> reports = reports(restored);
+        Assertions.assertEquals(2, reports.size());
+        CdcProgressEnvelope<?> restoredReader = (CdcProgressEnvelope<?>) reports.get(0);
+        Assertions.assertEquals(CdcProgressOwner.READER, restoredReader.getOwner());
+        Assertions.assertEquals(7L, restoredReader.getReportSequence());
+        CdcReaderProgressReport restoredReaderReport =
+                (CdcReaderProgressReport) restoredReader.getReport();
+        Assertions.assertEquals(
+                "mysql-bin.000001",
+                restoredReaderReport
+                        .getCurrentConsumedPosition()
+                        .getValue()
+                        .getValues()
+                        .get("file"));
+        Assertions.assertEquals(
+                CdcProgressAccuracy.BEST_EFFORT,
+                restoredReaderReport.getLastCompletedCheckpointPosition().getAccuracy());
+        Assertions.assertEquals(10L, restoredReaderReport.getLastSourceEventAt());
+        CdcProgressEnvelope<?> restoredEnumerator = (CdcProgressEnvelope<?>) reports.get(1);
+        Assertions.assertEquals(CdcProgressOwner.ENUMERATOR, restoredEnumerator.getOwner());
+        Assertions.assertEquals(5L, restoredEnumerator.getSourceVertexId());
+        Assertions.assertEquals(7L, restoredEnumerator.getReportSequence());
+        Assertions.assertEquals(
+                "snapshot-split-1",
+                ((CdcEnumeratorProgressReport) restoredEnumerator.getReport())
+                        .getActiveSplits()
+                        .get(0)
+                        .getSplitId());
+        Assertions.assertEquals(
+                "MYSQL_BINLOG",
+                ((CdcEnumeratorProgressReport) restoredEnumerator.getReport())
+                        .getActiveSplits()
+                        .get(0)
+                        .getLowWatermark()
+                        .getValue()
+                        .getType());
+        Assertions.assertTrue(
+                ((CdcEnumeratorProgressReport) restoredEnumerator.getReport())
+                        .isActiveSplitsTruncated());
+
+        CdcProgressReportBatch batch =
+                new CdcProgressReportBatch(Arrays.asList(reader, enumerator));
+        CdcProgressReportBatch restoredBatch =
+                serializationService.toObject(serializationService.toData(batch));
+        Assertions.assertEquals(2, restoredBatch.getReports().size());
+        Assertions.assertEquals(
+                CdcProgressOwner.ENUMERATOR, restoredBatch.getReports().get(1).getOwner());
+    }
+
+    @Test
+    void testReaderNamedWireFixtureAndWriterOutput() throws IOException {
+        BufferObjectDataOutput fixture = serializationService.createObjectDataOutput();
+        writeNamedFixtureHeader(fixture, "READER");
+        fixture.writeString("MySQL-CDC");
+        fixture.writeString("INCREMENTAL");
+        fixture.writeString("incremental-split");
+        fixture.writeString("BEST_EFFORT");
+        fixture.writeString("MYSQL_BINLOG");
+        fixture.writeInt(1);
+        fixture.writeInt(1);
+        fixture.writeString("file");
+        fixture.writeString("mysql-bin.000001");
+        fixture.writeString("UNAVAILABLE");
+        fixture.writeString("UNAVAILABLE");
+        fixture.writeLong(9L);
+        fixture.writeBoolean(false);
+
+        BufferObjectDataInput input =
+                serializationService.createObjectDataInput(fixture.toByteArray());
+        CdcProgressEnvelope<?> envelope = CdcProgressReportSerializer.readEnvelope(input);
+        Assertions.assertEquals(CdcProgressOwner.READER, envelope.getOwner());
+        CdcReaderProgressReport report = (CdcReaderProgressReport) envelope.getReport();
+        Assertions.assertEquals(CdcProgressLifecycle.INCREMENTAL, report.getLifecycle());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.BEST_EFFORT, report.getCurrentConsumedPosition().getAccuracy());
+        Assertions.assertEquals(
+                "mysql-bin.000001",
+                report.getCurrentConsumedPosition().getValue().getValues().get("file"));
+        Assertions.assertEquals(
+                CdcProgressAccuracy.UNAVAILABLE, report.getRestoredPosition().getAccuracy());
+        Assertions.assertEquals(fixture.toByteArray().length, input.position());
+
+        BufferObjectDataOutput actual = serializationService.createObjectDataOutput();
+        CdcProgressReportSerializer.writeEnvelope(
+                actual,
+                readerEnvelope(
+                        CdcProgressLifecycle.INCREMENTAL, value(CdcProgressAccuracy.BEST_EFFORT)));
+        Assertions.assertArrayEquals(fixture.toByteArray(), actual.toByteArray());
+    }
+
+    @Test
+    void testEnumeratorNamedWireFixtureAndWriterOutput() throws IOException {
+        BufferObjectDataOutput fixture = serializationService.createObjectDataOutput();
+        writeNamedFixtureHeader(fixture, "ENUMERATOR");
+        fixture.writeString("MySQL-CDC");
+        fixture.writeString("ASSIGNING");
+        for (int i = 0; i < 5; i++) {
+            fixture.writeString("EXACT");
+            fixture.writeInt(0);
+        }
+        fixture.writeBoolean(false);
+        fixture.writeInt(0);
+
+        BufferObjectDataInput input =
+                serializationService.createObjectDataInput(fixture.toByteArray());
+        CdcProgressEnvelope<?> envelope = CdcProgressReportSerializer.readEnvelope(input);
+        Assertions.assertEquals(CdcProgressOwner.ENUMERATOR, envelope.getOwner());
+        CdcEnumeratorProgressReport report = (CdcEnumeratorProgressReport) envelope.getReport();
+        Assertions.assertEquals(
+                CdcSnapshotAssignmentStatus.ASSIGNING, report.getSnapshotAssignmentStatus());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.EXACT, report.getAssignedSplitCount().getAccuracy());
+        Assertions.assertEquals(0, report.getAssignedSplitCount().getValue());
+        Assertions.assertTrue(report.getActiveSplits().isEmpty());
+        Assertions.assertEquals(fixture.toByteArray().length, input.position());
+
+        BufferObjectDataOutput actual = serializationService.createObjectDataOutput();
+        CdcProgressReportSerializer.writeEnvelope(
+                actual, enumeratorEnvelope(CdcSnapshotAssignmentStatus.ASSIGNING));
+        Assertions.assertArrayEquals(fixture.toByteArray(), actual.toByteArray());
+    }
+
+    private void writeNamedFixtureHeader(BufferObjectDataOutput output, String owner)
+            throws IOException {
+        // Literal names above pin the wire contract independently of both production codec halves.
+        output.writeString(owner);
+        output.writeObject(taskLocation());
+        output.writeLong(5L);
+        output.writeLong(6L);
+        output.writeLong(7L);
+        output.writeLong(8L);
+    }
+
+    @Test
+    void testEveryProgressOwnerRoundTripsByName() {
+        for (CdcProgressOwner owner : CdcProgressOwner.values()) {
+            CdcProgressEnvelope<?> restored =
+                    roundTrip(
+                            owner == CdcProgressOwner.READER
+                                    ? readerEnvelope(
+                                            CdcProgressLifecycle.INCREMENTAL,
+                                            CdcProgressValue.unavailable())
+                                    : enumeratorEnvelope(CdcSnapshotAssignmentStatus.ASSIGNING));
+
+            Assertions.assertEquals(owner, restored.getOwner());
+        }
+    }
+
+    @Test
+    void testEveryProgressLifecycleRoundTripsByName() {
+        for (CdcProgressLifecycle lifecycle : CdcProgressLifecycle.values()) {
+            CdcReaderProgressReport restored =
+                    (CdcReaderProgressReport)
+                            roundTrip(readerEnvelope(lifecycle, CdcProgressValue.unavailable()))
+                                    .getReport();
+
+            Assertions.assertEquals(lifecycle, restored.getLifecycle());
+        }
+    }
+
+    @Test
+    void testEveryProgressAccuracyRoundTripsByName() {
+        for (CdcProgressAccuracy accuracy : CdcProgressAccuracy.values()) {
+            CdcReaderProgressReport restored =
+                    (CdcReaderProgressReport)
+                            roundTrip(
+                                            readerEnvelope(
+                                                    CdcProgressLifecycle.INCREMENTAL,
+                                                    value(accuracy)))
+                                    .getReport();
+
+            Assertions.assertEquals(accuracy, restored.getCurrentConsumedPosition().getAccuracy());
+        }
+    }
+
+    @Test
+    void testEverySnapshotAssignmentStatusRoundTripsByName() {
+        for (CdcSnapshotAssignmentStatus status : CdcSnapshotAssignmentStatus.values()) {
+            CdcEnumeratorProgressReport restored =
+                    (CdcEnumeratorProgressReport) roundTrip(enumeratorEnvelope(status)).getReport();
+
+            Assertions.assertEquals(status, restored.getSnapshotAssignmentStatus());
+        }
+    }
+
+    @Test
+    void testEmptyReportListsArePreservedAfterSerialization() {
+        ReportCdcProgressOperation original =
+                new ReportCdcProgressOperation(Collections.emptyList());
+
+        Data data = serializationService.toData(original);
+        ReportCdcProgressOperation restored = serializationService.toObject(data);
+
+        Assertions.assertTrue(reports(restored).isEmpty());
+    }
+
+    @Test
+    void testEmptyReportBatchIsPreservedAfterSerialization() {
+        CdcProgressReportBatch original = new CdcProgressReportBatch(Collections.emptyList());
+
+        Data data = serializationService.toData(original);
+        CdcProgressReportBatch restored = serializationService.toObject(data);
+
+        Assertions.assertTrue(restored.getReports().isEmpty());
+    }
+
+    @Test
+    void testEnumeratorCollectionRequestIsPreservedAfterSerialization() {
+        List<TaskGroupLocation> locations =
+                Arrays.asList(new TaskGroupLocation(1L, 2, 3L), new TaskGroupLocation(4L, 5, 6L));
+        CollectCdcEnumeratorProgressOperation original =
+                new CollectCdcEnumeratorProgressOperation(locations);
+
+        Data data = serializationService.toData(original);
+        CollectCdcEnumeratorProgressOperation restored = serializationService.toObject(data);
+
+        List<?> taskGroupLocations =
+                ReflectionUtils.getField(restored, "taskGroupLocations")
+                        .map(field -> (List<?>) field)
+                        .orElseThrow(() -> new AssertionError("Missing taskGroupLocations field"));
+        Assertions.assertEquals(locations, taskGroupLocations);
+    }
+
+    @Test
+    void testEmptyEnumeratorCollectionRequestIsPreservedAfterSerialization() {
+        CollectCdcEnumeratorProgressOperation original =
+                new CollectCdcEnumeratorProgressOperation(Collections.emptyList());
+        CollectCdcEnumeratorProgressOperation restored =
+                serializationService.toObject(serializationService.toData(original));
+
+        Assertions.assertEquals(
+                Collections.emptyList(),
+                ReflectionUtils.getField(restored, "taskGroupLocations")
+                        .orElseThrow(() -> new AssertionError("Missing taskGroupLocations field")));
+    }
+
+    @Test
+    void testEnumeratorCollectionRequestRejectsWrongLocationType() throws IOException {
+        BufferObjectDataOutput output = serializationService.createObjectDataOutput();
+        output.writeInt(1);
+        output.writeObject("not a task group location");
+        BufferObjectDataInput input =
+                serializationService.createObjectDataInput(output.toByteArray());
+
+        Assertions.assertThrows(
+                ClassCastException.class,
+                () -> new CollectCdcEnumeratorProgressOperation().readInternal(input));
+    }
+
+    @Test
+    void testRejectsNegativeCollectionSize() throws IOException {
+        BufferObjectDataOutput output = serializationService.createObjectDataOutput();
+        output.writeInt(-1);
+        BufferObjectDataInput input =
+                serializationService.createObjectDataInput(output.toByteArray());
+
+        IOException exception =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () -> CdcProgressReportSerializer.readSize(input, "report"));
+
+        Assertions.assertEquals("Invalid CDC progress report count: -1", exception.getMessage());
+    }
+
+    @Test
+    void testRejectsUnknownReportOwner() throws IOException {
+        BufferObjectDataOutput output = serializationService.createObjectDataOutput();
+        output.writeString("UNKNOWN");
+        BufferObjectDataInput input =
+                serializationService.createObjectDataInput(output.toByteArray());
+
+        IOException exception =
+                Assertions.assertThrows(
+                        IOException.class, () -> CdcProgressReportSerializer.readEnvelope(input));
+
+        Assertions.assertEquals("Invalid CDC progress CdcProgressOwner", exception.getMessage());
+    }
+
+    @Test
+    void testRejectsUnknownAndNullPayloadEnums() throws IOException {
+        for (String invalid : new String[] {"untrusted-value", null}) {
+            for (int field = 0; field < 3; field++) {
+                BufferObjectDataOutput output = serializationService.createObjectDataOutput();
+                writeEnvelopeHeader(
+                        output, field == 2 ? CdcProgressOwner.ENUMERATOR : CdcProgressOwner.READER);
+                output.writeString("test");
+                if (field == 1) {
+                    output.writeString("INCREMENTAL");
+                    output.writeString("split");
+                }
+                output.writeString(invalid);
+                BufferObjectDataInput input =
+                        serializationService.createObjectDataInput(output.toByteArray());
+                IOException error =
+                        Assertions.assertThrows(
+                                IOException.class,
+                                () -> CdcProgressReportSerializer.readEnvelope(input));
+                Assertions.assertTrue(error.getMessage().startsWith("Invalid CDC progress Cdc"));
+                Assertions.assertFalse(error.getMessage().contains("untrusted-value"));
+            }
+        }
+    }
+
+    @Test
+    void testRejectsOversizedCountsBeforeAllocatingPayloads() throws IOException {
+        BufferObjectDataOutput output = serializationService.createObjectDataOutput();
+        output.writeInt(Integer.MAX_VALUE);
+        BufferObjectDataInput batch =
+                serializationService.createObjectDataInput(output.toByteArray());
+        Assertions.assertThrows(
+                IOException.class, () -> new CdcProgressReportBatch().readData(batch));
+
+        output = serializationService.createObjectDataOutput();
+        writeEnvelopeHeader(output, CdcProgressOwner.ENUMERATOR);
+        output.writeString("test");
+        output.writeString("ASSIGNING");
+        for (int i = 0; i < 5; i++) {
+            output.writeString("UNSUPPORTED");
+        }
+        output.writeBoolean(false);
+        output.writeInt(CdcEnumeratorProgressReport.MAX_ACTIVE_SPLITS + 1);
+        BufferObjectDataInput splits =
+                serializationService.createObjectDataInput(output.toByteArray());
+        IOException splitError =
+                Assertions.assertThrows(
+                        IOException.class, () -> CdcProgressReportSerializer.readEnvelope(splits));
+        Assertions.assertTrue(splitError.getMessage().contains("active split count"));
+
+        output = serializationService.createObjectDataOutput();
+        writeEnvelopeHeader(output, CdcProgressOwner.READER);
+        output.writeString("test");
+        output.writeString("INCREMENTAL");
+        output.writeString("split");
+        output.writeString("EXACT");
+        output.writeString("offset");
+        output.writeInt(1);
+        output.writeInt(CdcProgressReportSerializer.MAX_POSITION_FIELDS + 1);
+        BufferObjectDataInput position =
+                serializationService.createObjectDataInput(output.toByteArray());
+        IOException positionError =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () -> CdcProgressReportSerializer.readEnvelope(position));
+        Assertions.assertTrue(positionError.getMessage().contains("position field count"));
+    }
+
+    private void writeEnvelopeHeader(BufferObjectDataOutput output, CdcProgressOwner owner)
+            throws IOException {
+        output.writeString(owner.name());
+        output.writeObject(taskLocation());
+        for (int i = 0; i < 4; i++) {
+            output.writeLong(1L);
+        }
+    }
+
+    private CdcProgressEnvelope<CdcReaderProgressReport> readerEnvelope(
+            CdcProgressLifecycle lifecycle, CdcProgressValue<CdcProgressPosition> currentPosition) {
+        return new CdcProgressEnvelope<>(
+                CdcProgressOwner.READER,
+                taskLocation(),
+                5L,
+                6L,
+                7L,
+                8L,
+                new CdcReaderProgressReport(
+                        "MySQL-CDC",
+                        lifecycle,
+                        "incremental-split",
+                        currentPosition,
+                        CdcProgressValue.unavailable(),
+                        CdcProgressValue.unavailable(),
+                        9L,
+                        null));
+    }
+
+    private CdcProgressEnvelope<CdcEnumeratorProgressReport> enumeratorEnvelope(
+            CdcSnapshotAssignmentStatus status) {
+        return new CdcProgressEnvelope<>(
+                CdcProgressOwner.ENUMERATOR,
+                taskLocation(),
+                5L,
+                6L,
+                7L,
+                8L,
+                new CdcEnumeratorProgressReport(
+                        "MySQL-CDC",
+                        status,
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        Collections.emptyList()));
+    }
+
+    private CdcProgressValue<CdcProgressPosition> value(CdcProgressAccuracy accuracy) {
+        CdcProgressPosition position =
+                new CdcProgressPosition(
+                        "MYSQL_BINLOG", 1, Collections.singletonMap("file", "mysql-bin.000001"));
+        switch (accuracy) {
+            case EXACT:
+                return CdcProgressValue.exact(position);
+            case BEST_EFFORT:
+                return CdcProgressValue.bestEffort(position);
+            case UNSUPPORTED:
+                return CdcProgressValue.unsupported();
+            case UNAVAILABLE:
+                return CdcProgressValue.unavailable();
+            default:
+                throw new AssertionError("Unhandled accuracy: " + accuracy);
+        }
+    }
+
+    private CdcProgressEnvelope<?> roundTrip(CdcProgressEnvelope<?> envelope) {
+        ReportCdcProgressOperation operation =
+                new ReportCdcProgressOperation(Collections.singletonList(envelope));
+        ReportCdcProgressOperation restored =
+                serializationService.toObject(serializationService.toData(operation));
+        return (CdcProgressEnvelope<?>) reports(restored).get(0);
+    }
+
+    private TaskLocation taskLocation() {
+        return new TaskLocation(new TaskGroupLocation(1L, 2, 3L), 4L, 0);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<?> reports(ReportCdcProgressOperation operation) {
+        return ReflectionUtils.getField(operation, "reports")
+                .map(field -> (List<Object>) field)
+                .orElseThrow(() -> new AssertionError("Missing reports field"));
+    }
+}

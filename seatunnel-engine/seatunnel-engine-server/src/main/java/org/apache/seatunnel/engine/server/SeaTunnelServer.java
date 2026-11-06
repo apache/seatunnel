@@ -38,6 +38,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.observability.RealtimeMetricsService;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressService;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.rest.service.BaseService;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
@@ -69,6 +70,7 @@ import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 @Slf4j
 public class SeaTunnelServer
@@ -105,6 +107,7 @@ public class SeaTunnelServer
     @Getter private CheckpointMonitorService checkpointMonitorService;
     @Getter private ScheduledExecutorService monitorService;
     @Getter private volatile RealtimeMetricsService realtimeMetricsService;
+    @Getter private final CdcProgressService cdcProgressService;
     private volatile JettyService jettyService;
     @Getter private TaskLogManagerService taskLogManagerService;
 
@@ -130,6 +133,7 @@ public class SeaTunnelServer
             @NonNull SeaTunnelConfig seaTunnelConfig,
             @NonNull ResourceManagerFactory resourceManagerFactory) {
         this.liveOperationRegistry = new LiveOperationRegistry();
+        this.cdcProgressService = new CdcProgressService();
         this.seaTunnelConfig = seaTunnelConfig;
         this.resourceManagerFactory = resourceManagerFactory;
     }
@@ -438,7 +442,21 @@ public class SeaTunnelServer
     private void printExecutionInfo() {
         coordinatorService.printExecutionInfo();
         if (coordinatorService.isCoordinatorActive() && this.isMasterNode()) {
+            collectCdcProgressSafely(
+                    coordinatorService::collectCdcEnumeratorProgress,
+                    error ->
+                            LOGGER.warning(
+                                    "CDC progress collection failed: "
+                                            + error.getClass().getName()));
             coordinatorService.printJobDetailInfo();
+        }
+    }
+
+    static void collectCdcProgressSafely(Runnable collect, Consumer<Exception> onFailure) {
+        try {
+            collect.run();
+        } catch (Exception error) {
+            onFailure.accept(error);
         }
     }
 
