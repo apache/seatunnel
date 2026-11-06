@@ -50,6 +50,7 @@ public class AirtableSourceParameter extends HttpParameter {
 
         String token = pluginConfig.get(AirtableSourceOptions.TOKEN);
         this.setHeaders(AirtableConfig.buildAuthHeaders(token, getHeaders()));
+        validateCredentialScheme();
 
         this.setBody(buildRequestBody(pluginConfig, this.getBody()));
     }

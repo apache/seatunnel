@@ -44,30 +44,46 @@ import com._4paradigm.openmldb.sdk.impl.SqlClusterExecutor;
 
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow>
         implements SupportColumnProjection {
-    private final OpenMldbParameters openMldbParameters;
-    private final CatalogTable catalogTable;
+    private final List<OpenMldbParameters> tableParameters;
+    private final List<CatalogTable> catalogTables;
+    private final boolean multiTable;
     private JobContext jobContext;
 
     public OpenMldbSource(OpenMldbParameters openMldbParameters) {
-        this.openMldbParameters = openMldbParameters;
-        OpenMldbSqlExecutor.initSdkOption(openMldbParameters);
+        this.tableParameters = Collections.singletonList(openMldbParameters);
+        this.multiTable = false;
+        SqlClusterExecutor sqlExecutor = null;
         try {
-            SqlClusterExecutor sqlExecutor = OpenMldbSqlExecutor.getSqlExecutor();
+            sqlExecutor = OpenMldbSqlExecutor.create(openMldbParameters);
             Schema inputSchema =
                     sqlExecutor.getInputSchema(
                             openMldbParameters.getDatabase(), openMldbParameters.getSql());
             List<Column> columnList = inputSchema.getColumnList();
-            this.catalogTable = convert(columnList);
+            this.catalogTables =
+                    Collections.singletonList(
+                            convert(columnList, openMldbParameters.getDatabase()));
         } catch (SQLException | SqlException e) {
             throw new OpenMldbConnectorException(
                     CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
-                    "Failed to initialize data schema");
+                    "Failed to initialize data schema",
+                    e);
+        } finally {
+            if (sqlExecutor != null) {
+                sqlExecutor.close();
+            }
         }
+    }
+
+    OpenMldbSource(List<OpenMldbParameters> tableParameters, List<CatalogTable> catalogTables) {
+        this.tableParameters = Collections.unmodifiableList(new ArrayList<>(tableParameters));
+        this.catalogTables = Collections.unmodifiableList(new ArrayList<>(catalogTables));
+        this.multiTable = true;
     }
 
     @Override
@@ -84,14 +100,13 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow>
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+        return catalogTables;
     }
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
             SingleSplitReaderContext readerContext) throws Exception {
-        return new OpenMldbSourceReader(
-                openMldbParameters, catalogTable.getSeaTunnelRowType(), readerContext);
+        return new OpenMldbSourceReader(tableParameters, catalogTables, multiTable, readerContext);
     }
 
     @Override
@@ -126,7 +141,7 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow>
         }
     }
 
-    private CatalogTable convert(List<Column> columnList) {
+    private CatalogTable convert(List<Column> columnList, String database) {
         TableSchema.Builder builder = TableSchema.builder();
         for (int i = 0; i < columnList.size(); i++) {
             Column column = columnList.get(i);
@@ -135,15 +150,15 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow>
                             column.getColumnName(),
                             convertSeaTunnelDataType(column.getSqlType()),
                             (Long) null,
-                            column.isNotNull(),
+                            !column.isNotNull(),
                             null,
                             null));
         }
         return CatalogTable.of(
-                TableIdentifier.of("OpenMldb", openMldbParameters.getDatabase(), "default"),
+                TableIdentifier.of("OpenMldb", database, "default"),
                 builder.build(),
-                null,
-                null,
+                Collections.emptyMap(),
+                Collections.emptyList(),
                 null);
     }
 }

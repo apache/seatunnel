@@ -45,6 +45,7 @@ sub table name.
 | stable        | String | Yes      | -       | TDengine super table name. For multi-table writes, this value can contain placeholders such as `${table_name}`. |
 | timezone      | String | No       | UTC     | TDengine server timezone used for timestamp conversion. |
 | write_columns | List   | No       | -       | Normal TDengine column names to insert. When unset, the target super table column order is used. Do not include TAGS columns or the sub-table-name field. |
+| multi_table_sink_replica | Int | No   | 1       | The number of sink writer replicas per table in a multi-table job. Must be at least 1. |
 | common-options |        | No       | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### url [String]
@@ -97,6 +98,8 @@ Sink plugin common parameters, please refer to
 [Sink Common Options](../common-options/sink-common-options.md) for details.
 For multi-table writes, `multi_table_sink_replica` can be used with the common
 sink options.
+
+All required string options listed above must contain a nonblank value (not empty or whitespace-only). This validation does not check server connectivity or timestamp format.
 
 ## Input Row Shape
 

@@ -36,6 +36,12 @@ connector-console
 sh bin/install-plugin.sh
 ```
 
+在 Windows 上，请改用批处理脚本：
+
+```bat
+bin\install-plugin.cmd
+```
+
 ### 步骤 1: 部署SeaTunnel及连接器
 
 在开始前，请确保您已经按照[部署](deployment.md)中的描述下载并部署了SeaTunnel。
@@ -101,6 +107,13 @@ sink {
 cd "apache-seatunnel-${version}"
 ./bin/seatunnel.sh --config ./config/v2.batch.config.template -m local
 
+```
+
+在 Windows 上，请在 SeaTunnel 目录下运行对应的批处理入口：
+
+```bat
+cd apache-seatunnel-3.0.0
+bin\seatunnel.cmd --config config\v2.batch.config.template -m local
 ```
 
 **查看输出**: 当您运行该命令时，您可以在控制台中看到它的输出。您可以认为这是命令运行成功或失败的标志。
@@ -220,7 +233,7 @@ Total Failed Count        :                   0
 
 :::tip
 
-如果您想优化自己的作业，请参照连接器使用文档
+如果您想优化自己的作业，请参照 [Source-MySQL](../../connectors/source/Mysql.md) 和 [Sink-Doris](../../connectors/sink/Doris.md) 的连接器使用文档。
 
 :::
 

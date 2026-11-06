@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
@@ -48,11 +49,16 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -382,6 +388,103 @@ public class ClickhouseValueReaderTest {
                 .thenReturn("id, name, age, non_existent_field");
         result = (boolean) isAllSortKeyInRowTypeMethod.invoke(reader);
         Assertions.assertFalse(result);
+    }
+
+    @Test
+    public void testStreamReaderSurfacesAsyncQueryFailure() throws ClickHouseException {
+        // Force the streaming (asynchronous) read strategy.
+        ReflectionUtils.setField(
+                reader, ClickhouseValueReader.class, "shouldUseStreamReader", true);
+
+        // The asynchronous thread fails while executing the streaming query.
+        ClickHouseRequest mockRequest = Mockito.mock(ClickHouseRequest.class);
+        ClickHouseRequest mockQueryRequest = Mockito.mock(ClickHouseRequest.class);
+        Mockito.when(mockProxy.getClickhouseConnection()).thenReturn(mockRequest);
+        Mockito.when(mockRequest.query(any(String.class))).thenReturn(mockQueryRequest);
+        Mockito.when(mockQueryRequest.executeAndWait())
+                .thenThrow(ClickHouseException.of("simulated query failure", node));
+
+        // The failure must be reported instead of being silently turned into an end of stream.
+        ClickhouseConnectorException exception =
+                Assertions.assertThrows(
+                        ClickhouseConnectorException.class,
+                        () ->
+                                Assertions.assertTimeoutPreemptively(
+                                        Duration.ofSeconds(30), () -> reader.hasNext()));
+        Assertions.assertTrue(
+                String.valueOf(exception).contains("simulated query failure")
+                        || (exception.getCause() != null
+                                && String.valueOf(exception.getCause())
+                                        .contains("simulated query failure")),
+                "the query failure should be preserved: " + exception);
+    }
+
+    /**
+     * A reader that is waiting for its next batch must fail on interrupt instead of swallowing it:
+     * the wait loop has to end, the interrupt has to be reported as a read failure, and the
+     * interrupt flag has to stay set so the engine can still observe the cancellation.
+     */
+    @Test
+    public void testStreamReaderHasNextFailsOnInterruptWhileWaitingForBatch() throws Exception {
+        // Force the streaming (asynchronous) read strategy.
+        ReflectionUtils.setField(
+                reader, ClickhouseValueReader.class, "shouldUseStreamReader", true);
+
+        // Keep the streaming query in flight, so the reader waits for its first batch (eos stays
+        // false) and enters the polling branch of StreamValueReader#hasNext().
+        CountDownLatch queryStarted = new CountDownLatch(1);
+        CountDownLatch releaseQuery = new CountDownLatch(1);
+        ClickHouseRequest mockRequest = Mockito.mock(ClickHouseRequest.class);
+        ClickHouseRequest mockQueryRequest = Mockito.mock(ClickHouseRequest.class);
+        Mockito.when(mockProxy.getClickhouseConnection()).thenReturn(mockRequest);
+        Mockito.when(mockRequest.query(any(String.class))).thenReturn(mockQueryRequest);
+        Mockito.when(mockQueryRequest.executeAndWait())
+                .thenAnswer(
+                        invocation -> {
+                            queryStarted.countDown();
+                            releaseQuery.await(30, TimeUnit.SECONDS);
+                            return Mockito.mock(ClickHouseResponse.class);
+                        });
+
+        AtomicReference<Throwable> thrown = new AtomicReference<>();
+        AtomicBoolean interruptFlagRestored = new AtomicBoolean();
+        Thread consumer =
+                new Thread(
+                        () -> {
+                            try {
+                                reader.hasNext();
+                            } catch (Throwable t) {
+                                interruptFlagRestored.set(Thread.currentThread().isInterrupted());
+                                thrown.set(t);
+                            }
+                        },
+                        "clickhouse-reader-interrupt-test");
+        consumer.setDaemon(true);
+        try {
+            consumer.start();
+            Assertions.assertTrue(
+                    queryStarted.await(30, TimeUnit.SECONDS),
+                    "the streaming query should have been started");
+
+            consumer.interrupt();
+            consumer.join(30_000);
+            Assertions.assertFalse(
+                    consumer.isAlive(), "hasNext() swallowed the interrupt and kept polling");
+        } finally {
+            releaseQuery.countDown();
+            consumer.interrupt();
+        }
+
+        Throwable failure = thrown.get();
+        Assertions.assertTrue(
+                failure instanceof ClickhouseConnectorException,
+                "the interrupt should fail the read: " + failure);
+        Assertions.assertTrue(
+                failure.getCause() instanceof InterruptedException,
+                "the interrupt should be preserved as the cause: " + failure);
+        Assertions.assertTrue(
+                interruptFlagRestored.get(),
+                "the interrupt flag should be restored so the cancellation stays visible");
     }
 
     private void initStreamValueReaderMock() throws ClickHouseException {

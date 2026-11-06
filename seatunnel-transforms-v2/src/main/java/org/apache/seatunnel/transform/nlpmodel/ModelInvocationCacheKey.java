@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -141,7 +142,7 @@ public final class ModelInvocationCacheKey {
         if (normalized.isEmpty()) {
             return null;
         }
-        return normalized.toLowerCase();
+        return normalized.toLowerCase(Locale.ROOT);
     }
 
     private static String normalizeValue(Object value) {

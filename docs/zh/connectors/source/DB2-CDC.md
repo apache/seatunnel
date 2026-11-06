@@ -68,7 +68,7 @@ Debezium DB2，在初始快照完成后会继续读取已提交的 INSERT、UPDA
 |------|------|----------|--------|------|
 | username | String | 是 | - | 连接 DB2 时使用的用户名。 |
 | password | String | 是 | - | 连接 DB2 时使用的密码。 |
-| url | String | 是 | - | DB2 JDBC URL。URL 必须包含数据库名，例如 `jdbc:db2://127.0.0.1:50000/testdb`。 |
+| url | String | 是 | - | DB2 JDBC URL。该值不能为空或仅包含空白字符。URL 必须包含数据库名，例如 `jdbc:db2://127.0.0.1:50000/testdb`。 |
 | database-names | List | 否 | 从 `url` 中解析出的数据库 | 要监控的数据库名。DB2 CDC 一个 source 监控一个数据库。 |
 | table-names | List | 未设置 `table-pattern` 时必填 | - | 要监控的表名，格式为 `databaseName.schemaName.tableName`，例如 `testdb.DB2INST1.CUSTOMERS`。 |
 | table-pattern | String | 未设置 `table-names` 时必填 | - | 用于发现已开启 capture mode 的表的正则表达式。 |
@@ -78,8 +78,9 @@ Debezium DB2，在初始快照完成后会继续读取已提交的 INSERT、UPDA
 | incremental.parallelism | Integer | 否 | 1 | 增量阶段中并行读取器的数量。 |
 | snapshot.split.size | Integer | 否 | 8096 | 表快照的分割大小。 |
 | snapshot.fetch.size | Integer | 否 | 1024 | 读取表快照时每次轮询的最大获取大小。 |
-| server-time-zone | String | 否 | UTC | 数据库服务器中的会话时区。 |
-| connect.timeout.ms | Duration | 否 | 30s | 连接器尝试连接到数据库服务器后，在超时之前等待的最长时间。 |
+| enable_concurrent_read | Boolean | 否 | true | 快照阶段是否启用分片并发读取。设置为 false 时，源会以单个分片读取表，不做分片分析，适用于没有索引的表。 |
+| server-time-zone | String | 否 | - | 数据库服务器中的会话时区。 |
+| connect.timeout.ms | Long | 否 | 30000 | 连接器尝试连接到数据库服务器后，在超时之前等待的最长时间。 |
 | connect.max-retries | Integer | 否 | 3 | 连接器重试建立数据库连接的最大次数。 |
 | connection.pool.size | Integer | 否 | 20 | 连接池大小。 |
 | chunk-key.even-distribution.factor.upper-bound | Double | 否 | 100 | 用于判断分块键是否均匀分布的上界。 |

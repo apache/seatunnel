@@ -1021,6 +1021,73 @@ public class MultiTableSinkWriterTest {
         Assertions.assertEquals(0, writersByIndex[2].getWriteCount());
     }
 
+    @Test
+    public void testReplicaNumBelowOneIsRejectedWithTheOptionNamed() {
+        // multi_table_sink_replica has no lower bound at the option layer, so 0 and negative
+        // values reach MultiTableSink. replicaNum becomes the queue count and the thread-pool
+        // size in MultiTableSinkWriter, where Executors.newFixedThreadPool(queueSize * 2)
+        // rejects them with an IllegalArgumentException carrying no message at all. The
+        // exception type is unchanged; what is asserted here is that it now names the option
+        // and the offending value, and that it is raised before any writer is created.
+        for (int replicaNum : new int[] {0, -1}) {
+            IllegalArgumentException exception =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class, () -> buildMultiTableSink(replicaNum));
+            Assertions.assertNotNull(exception.getMessage());
+            Assertions.assertTrue(
+                    exception
+                            .getMessage()
+                            .contains(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key()),
+                    "message must name the option, but was: " + exception.getMessage());
+            Assertions.assertTrue(
+                    exception.getMessage().contains(String.valueOf(replicaNum)),
+                    "message must name the rejected value, but was: " + exception.getMessage());
+        }
+    }
+
+    @Test
+    public void testReplicaNumOfOneAndAboveStillBuilds() {
+        // Guards the lower bound against being set too high: the smallest legal value and a
+        // larger one must both still construct, so the check above cannot regress into
+        // rejecting valid configuration.
+        Assertions.assertDoesNotThrow(() -> buildMultiTableSink(1));
+        Assertions.assertDoesNotThrow(() -> buildMultiTableSink(4));
+    }
+
+    @Test
+    public void testReplicaNumDefaultsToOneWhenUnset() {
+        // The default must remain a legal value, otherwise the new check would reject every
+        // job that does not set the option explicitly.
+        Map<String, Object> options = new HashMap<>();
+        options.put(EnvCommonOptions.JOB_RETRY_TIMES.key(), 0);
+        options.put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
+        Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+        sinks.put(
+                TablePath.of("test.table"), new TestSeaTunnelSink(new RecordingSinkWriter(false)));
+        Assertions.assertDoesNotThrow(
+                () ->
+                        new MultiTableSink(
+                                new MultiTableFactoryContext(
+                                        ReadonlyConfig.fromMap(options),
+                                        Thread.currentThread().getContextClassLoader(),
+                                        sinks)));
+    }
+
+    private MultiTableSink buildMultiTableSink(int replicaNum) {
+        Map<String, Object> options = new HashMap<>();
+        options.put(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), replicaNum);
+        options.put(EnvCommonOptions.JOB_RETRY_TIMES.key(), 0);
+        options.put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
+        Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+        sinks.put(
+                TablePath.of("test.table"), new TestSeaTunnelSink(new RecordingSinkWriter(false)));
+        return new MultiTableSink(
+                new MultiTableFactoryContext(
+                        ReadonlyConfig.fromMap(options),
+                        Thread.currentThread().getContextClassLoader(),
+                        sinks));
+    }
+
     private SeaTunnelRow buildRow(String tableId, int value) {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {value});
         row.setTableId(tableId);

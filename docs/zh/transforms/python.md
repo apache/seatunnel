@@ -35,7 +35,7 @@ SeaTunnel Worker 运行节点上可见的 Python 脚本路径。`source_code` �
 
 启动 Worker 进程时使用的 Python 可执行文件，默认值为 `python3`。当使用默认值时，SeaTunnel 会先从 `PATH` 解析 `python3`，失败后再解析 `python` 作为回退。
 
-当该 Transform 被启用后，最终实际启动的解释器必须出现在服务端系统属性 `seatunnel.transform.python.allowed-executables` 中。生产环境建议把 `python_executable` 显式设置为绝对路径，例如 `/usr/bin/python3`。
+当该 Transform 被启用后，最终实际启动的解释器必须出现在服务端系统属性 `seatunnel.transform.python.allowed-executables` 中。除保持默认值 `python3` 外，`python_executable` 必须是绝对路径（例如 `/usr/bin/python3`），相对路径在运行时会被拒绝。
 
 ### script_config [map]
 

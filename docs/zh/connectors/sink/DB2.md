@@ -47,17 +47,17 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |------------------------------------------------------------------------------------------------------|--------------------|
 | BOOLEAN                                                                                              | BOOLEAN            |
 | SMALLINT                                                                                             | SHORT              |
-| INT<br/>INTEGER                                                                                      | INTEGER            |
-| BIGINT                                                                                               | LONG               |
-| DECIMAL<br/>DEC<br/>NUMERIC<br/>NUM                                                                  | DECIMAL(38,18)     |
+| INT<br/>INTEGER                                                                                      | INT            |
+| BIGINT                                                                                               | BIGINT               |
+| DECIMAL<br/>DEC<br/>NUMERIC<br/>NUM                                                                  | DECIMAL((获取指定列的指定列大小),<br/>(获取指定列小数点右边的位数。)))     |
 | REAL                                                                                                 | FLOAT              |
 | FLOAT<br/>DOUBLE<br/>DOUBLE PRECISION<br/>DECFLOAT                                                   | DOUBLE             |
-| CHAR<br/>VARCHAR<br/>LONG VARCHAR<br/>CLOB<br/>GRAPHIC<br/>VARGRAPHIC<br/>LONG VARGRAPHIC<br/>DBCLOB | STRING             |
-| BLOB                                                                                                 | BYTES              |
+| CHAR<br/>VARCHAR<br/>LONG VARCHAR<br/>CLOB<br/>GRAPHIC<br/>VARGRAPHIC<br/>LONG VARGRAPHIC<br/>DBCLOB<br/>XML | STRING             |
+| BLOB<br/>BINARY<br/>VARBINARY                                                                        | BYTES              |
 | DATE                                                                                                 | DATE               |
 | TIME                                                                                                 | TIME               |
 | TIMESTAMP                                                                                            | TIMESTAMP          |
-| ROWID<br/>XML                                                                                        | 暂不支持           |
+| ROWID                                                                                                | 暂不支持           |
 
 ## 选项
 

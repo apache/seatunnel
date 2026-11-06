@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Add checkpoint-aware ActiveMQ queue source|-|Next|
 |[Improve][connector][activemq] Remove duplicate dependencies (#8753)|https://github.com/apache/seatunnel/commit/da6241aa1c|2.3.10|
 |[improve] update activemq connector config option (#8580)|https://github.com/apache/seatunnel/commit/629f85b23a|2.3.10|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|

@@ -55,8 +55,6 @@ public class LanceSinkWriter
                 SupportMultiTableSinkWriter<Void>,
                 SupportSchemaEvolutionSinkWriter {
 
-    private static final int DEFAULT_BATCH_SIZE = 1000;
-
     private SeaTunnelRowType seaTunnelRowType;
     private TableSchema sourceTableSchema;
     private final LanceSinkConfig config;
@@ -79,8 +77,8 @@ public class LanceSinkWriter
         this.sourceTableSchema = sourceTableSchema;
         this.config = config;
         this.catalog = catalog;
-        this.batchSize = DEFAULT_BATCH_SIZE;
-        this.batchBuffer = new ArrayList<>(batchSize);
+        this.batchSize = config.getBatchSize();
+        this.batchBuffer = new ArrayList<>();
         this.allocator = new RootAllocator(Long.MAX_VALUE);
     }
 
@@ -139,14 +137,13 @@ public class LanceSinkWriter
         }
 
         try {
-            List<FragmentMetadata> allFragments = new ArrayList<>();
-
-            for (SeaTunnelRow row : batchBuffer) {
-                List<FragmentMetadata> fragmentMetadata =
-                        FragmentConverter.reconvert(
-                                row, seaTunnelRowType, schema, allocator, config.getDatasetPath());
-                allFragments.addAll(fragmentMetadata);
-            }
+            List<FragmentMetadata> allFragments =
+                    FragmentConverter.reconvert(
+                            batchBuffer,
+                            seaTunnelRowType,
+                            schema,
+                            allocator,
+                            config.getDatasetPath());
 
             if (!allFragments.isEmpty()) {
                 Transaction transaction =

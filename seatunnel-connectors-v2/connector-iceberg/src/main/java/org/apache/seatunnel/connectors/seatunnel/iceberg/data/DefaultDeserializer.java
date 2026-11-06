@@ -95,6 +95,13 @@ public class DefaultDeserializer implements Deserializer {
                 }
                 // withoutZone() → NTZ → return LocalDateTime as-is
                 return LocalDateTime.class.cast(icebergValue);
+            case TIMESTAMP_NANO:
+                if (((Types.TimestampNanoType) icebergType).shouldAdjustToUTC()) {
+                    return OffsetDateTime.class.cast(icebergValue);
+                }
+                return LocalDateTime.class.cast(icebergValue);
+            case UNKNOWN:
+                return null;
             case STRING:
                 return String.class.cast(icebergValue);
             case FIXED:

@@ -49,7 +49,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -241,7 +240,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
 
         MysqlType mysqlType = MysqlType.getByName(columnType);
-        boolean unsigned = columnType.toLowerCase(Locale.ROOT).contains("unsigned");
+        boolean unsigned = MySqlTypeConverter.isNumericUnsignedColumnType(dataType, columnType);
 
         BasicTypeDefine<MysqlType> typeDefine =
                 BasicTypeDefine.<MysqlType>builder()

@@ -48,6 +48,12 @@
                 <version>${project.version}</version>
                 <scope>compile</scope>
             </dependency>
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>connector-cdc-pg-base</artifactId>
+                <version>${project.version}</version>
+                <scope>compile</scope>
+            </dependency>
 
             <dependency>
                 <groupId>io.debezium</groupId>
@@ -64,6 +70,10 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-base</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-cdc-pg-base</artifactId>
         </dependency>
 
         <dependency>

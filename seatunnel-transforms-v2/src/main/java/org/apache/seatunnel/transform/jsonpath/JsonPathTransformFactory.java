@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TableTransformRuleValidator;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -42,18 +43,33 @@ public class JsonPathTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
+        // The rule of a single table: the JSON path extraction columns, optionally combined with an
+        // error handling policy.
+        OptionRule tableRule =
+                OptionRule.builder()
+                        .required(
+                                JsonPathTransformConfig.COLUMNS,
+                                Conditions.notEmpty(JsonPathTransformConfig.COLUMNS)
+                                        .and(
+                                                Conditions.extension(
+                                                        JsonPathTransformConfig.COLUMNS,
+                                                        new ColumnsValidator())))
+                        .build();
         return OptionRule.builder()
-                .required(
+                .optional(
                         JsonPathTransformConfig.COLUMNS,
-                        Conditions.notEmpty(JsonPathTransformConfig.COLUMNS)
-                                .and(
-                                        Conditions.extension(
-                                                JsonPathTransformConfig.COLUMNS,
-                                                new ColumnsValidator())))
-                .optional(TransformCommonOptions.MULTI_TABLES)
+                        TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
+                .optional(
+                        TransformCommonOptions.MULTI_TABLES,
+                        Conditions.extension(
+                                TransformCommonOptions.MULTI_TABLES,
+                                new TableTransformRuleValidator(tableRule)))
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .optional(TransformCommonOptions.RULE_MATCH_MODE)
-                .optional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
+                .conditionalRule(
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.MULTI_TABLES.defaultValue(),
+                        tableRule)
                 .build();
     }
 

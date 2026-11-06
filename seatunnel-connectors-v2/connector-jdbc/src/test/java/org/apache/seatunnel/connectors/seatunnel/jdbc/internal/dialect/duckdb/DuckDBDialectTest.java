@@ -20,11 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
+import org.duckdb.DuckDBDriver;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.io.File;
 import java.sql.Connection;
@@ -34,7 +36,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -170,6 +174,37 @@ public class DuckDBDialectTest {
         Assertions.assertEquals(3, ((Number) firstChunkMax).intValue());
         Object secondChunkMax = dialect.queryNextChunkMax(connection, sourceTable, "id", 3, 3);
         Assertions.assertEquals(5, ((Number) secondChunkMax).intValue());
+    }
+
+    @Test
+    @ResourceLock("java.util.Locale")
+    void testHashModForFieldAsciiUnderLocales() throws Exception {
+        Locale original = Locale.getDefault();
+        try (Connection memory = new DuckDBDriver().connect("jdbc:duckdb:", new Properties());
+                Statement statement = memory.createStatement()) {
+            statement.execute("CREATE TABLE t (id INTEGER)");
+            statement.execute("INSERT INTO t VALUES (1), (2), (3), (4)");
+            Locale[] locales = {
+                Locale.ROOT, Locale.forLanguageTag("zh-CN"), Locale.forLanguageTag("ar-EG")
+            };
+            for (Locale locale : locales) {
+                Locale.setDefault(locale);
+                String hashExpression = dialect.hashModForField("id", 16);
+                Assertions.assertEquals("MOD(ABS(HASH(\"id\")), 16)", hashExpression);
+                String sql = "SELECT " + hashExpression + " AS bucket FROM t";
+                try (ResultSet rs = statement.executeQuery(sql)) {
+                    int rowCount = 0;
+                    while (rs.next()) {
+                        rowCount++;
+                        int bucket = rs.getInt("bucket");
+                        Assertions.assertTrue(bucket >= 0 && bucket < 16);
+                    }
+                    Assertions.assertEquals(4, rowCount);
+                }
+            }
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 
     private void insertRows(Object... ids) throws Exception {

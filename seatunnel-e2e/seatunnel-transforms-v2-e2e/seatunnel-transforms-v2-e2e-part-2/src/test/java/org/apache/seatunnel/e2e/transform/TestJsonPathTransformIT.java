@@ -73,4 +73,12 @@ public class TestJsonPathTransformIT extends TestSuiteBase {
                 container.executeJob("/json_path_transform/json_path_batch_fields_test.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testTableTransformOnly(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/json_path_transform/json_path_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

@@ -49,6 +49,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType.ZETA;
@@ -81,7 +82,7 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
         super(catalogTable);
         this.query = config.get(KEY_QUERY);
         if (config.getOptional(KEY_ENGINE).isPresent()) {
-            this.engineType = EngineType.valueOf(config.get(KEY_ENGINE).toUpperCase());
+            this.engineType = EngineType.valueOf(config.get(KEY_ENGINE).toUpperCase(Locale.ROOT));
         } else {
             this.engineType = ZETA;
         }

@@ -43,7 +43,7 @@ Supports standard SQL queries and column projection.
 |----------------|--------|----------|---------------|----------------------------------------------------------------------------------------------------------|
 | driver         | String | Yes      | -             | JDBC driver class. Use `org.apache.phoenix.jdbc.PhoenixDriver` for the thick driver, or `org.apache.phoenix.queryserver.client.Driver` for the thin driver. |
 | url            | String | Yes      | -             | JDBC connection URL. Use `jdbc:phoenix:localhost:2182/hbase` for the thick driver, or `jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF` for the thin driver. |
-| query          | String | Yes      | -             | SELECT query executed to read rows, for example `select age, name from test.source`. The column order in the SELECT list must match `schema.fields`. |
+| query          | String | Conditional | -             | SELECT query executed to read rows, for example `select age, name from test.source`. The column order in the SELECT list must match `schema.fields`. Required unless `table_path` or `table_list` is configured. |
 | common-options |        | No       | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details. |
 
 ### driver [string]

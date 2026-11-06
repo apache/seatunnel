@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.mqtt.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -151,6 +152,51 @@ class MqttSourceConfigTest {
         MqttSourceConfig sourceConfig = new MqttSourceConfig(ReadonlyConfig.fromMap(baseConfig()));
 
         Assertions.assertTrue(sourceConfig.getClientId().startsWith("seatunnel_mqtt_source_"));
+    }
+
+    @Test
+    void testConfigSurvivesJavaSerialization() {
+        Map<String, Object> config = baseConfig();
+        // Deserialization does not run the constructor, so the failure this guards against is
+        // a field that stops being written at all, which leaves the type's zero value behind.
+        // Every value below is therefore chosen to differ from that zero value: null for the
+        // references, 0 for the ints, false for the boolean. qos and clean_session are the two
+        // that constrain the choice, since qos is limited to 0 or 1 and 0 is the zero value,
+        // so each has to take the value that is not zero even though it matches the default.
+        config.put("username", "admin");
+        config.put("password", "s3cret");
+        config.put("qos", 1);
+        config.put("format", "text");
+        config.put("field_delimiter", "|");
+        config.put("clean_session", true);
+        config.put("client_id", "mqtt-source-round-trip");
+        config.put("connection_timeout", 45);
+        config.put("keep_alive_interval", 90);
+        config.put("reconnect_timeout", 150);
+        config.put("max_queue_size", 2048);
+        MqttSourceConfig sourceConfig = new MqttSourceConfig(ReadonlyConfig.fromMap(config));
+
+        MqttSourceConfig restored =
+                SerializationUtils.deserialize(SerializationUtils.serialize(sourceConfig));
+
+        // Assert every field, not a sample. MqttSourceReader reads password, format,
+        // fieldDelimiter, the timeouts and maxQueueSize on the worker, so marking any one of
+        // them transient has to fail here rather than against a live broker.
+        Assertions.assertEquals(sourceConfig.getUrl(), restored.getUrl());
+        Assertions.assertEquals(sourceConfig.getTopic(), restored.getTopic());
+        Assertions.assertEquals(sourceConfig.getUsername(), restored.getUsername());
+        Assertions.assertEquals(sourceConfig.getPassword(), restored.getPassword());
+        Assertions.assertEquals(sourceConfig.getQos(), restored.getQos());
+        Assertions.assertEquals(sourceConfig.getFormat(), restored.getFormat());
+        Assertions.assertEquals(sourceConfig.getFieldDelimiter(), restored.getFieldDelimiter());
+        Assertions.assertEquals(sourceConfig.getClientId(), restored.getClientId());
+        Assertions.assertEquals(sourceConfig.isCleanSession(), restored.isCleanSession());
+        Assertions.assertEquals(
+                sourceConfig.getConnectionTimeout(), restored.getConnectionTimeout());
+        Assertions.assertEquals(
+                sourceConfig.getKeepAliveInterval(), restored.getKeepAliveInterval());
+        Assertions.assertEquals(sourceConfig.getReconnectTimeout(), restored.getReconnectTimeout());
+        Assertions.assertEquals(sourceConfig.getMaxQueueSize(), restored.getMaxQueueSize());
     }
 
     private static Map<String, Object> baseConfig() {

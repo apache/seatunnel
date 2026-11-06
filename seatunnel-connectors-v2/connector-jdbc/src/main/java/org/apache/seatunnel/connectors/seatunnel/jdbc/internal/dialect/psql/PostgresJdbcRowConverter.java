@@ -55,6 +55,8 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_CIDR;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_GEOGRAPHY;
@@ -66,6 +68,22 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.ps
 
 @Slf4j
 public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
+
+    private final boolean numericSpecialValueAsNull;
+
+    /**
+     * Columns for which a numeric special value has already been logged. The warning is logged once
+     * per column, so that a large table with many special values cannot flood the log.
+     */
+    private final Set<Integer> loggedNumericSpecialValueColumns = ConcurrentHashMap.newKeySet();
+
+    public PostgresJdbcRowConverter() {
+        this(false);
+    }
+
+    public PostgresJdbcRowConverter(boolean numericSpecialValueAsNull) {
+        this.numericSpecialValueAsNull = numericSpecialValueAsNull;
+    }
 
     @Override
     public String converterName() {
@@ -108,10 +126,10 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         for (int fieldIndex = 0; fieldIndex < typeInfo.getTotalFields(); fieldIndex++) {
             SeaTunnelDataType<?> seaTunnelDataType = typeInfo.getFieldType(fieldIndex);
             int resultSetIndex = fieldIndex + 1;
-            String metaDataColumnType =
-                    rs.getMetaData().getColumnTypeName(resultSetIndex).toUpperCase(Locale.ROOT);
             switch (seaTunnelDataType.getSqlType()) {
                 case STRING:
+                    String metaDataColumnType =
+                            getStringColumnType(rs, tableSchema, typeInfo, fieldIndex);
                     if (PG_GEOMETRY.equalsIgnoreCase(metaDataColumnType)
                             || PG_GEOGRAPHY.equalsIgnoreCase(metaDataColumnType)) {
                         Object geoObj = rs.getObject(resultSetIndex);
@@ -142,7 +160,7 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                     fields[fieldIndex] = JdbcFieldTypeUtils.getDouble(rs, resultSetIndex);
                     break;
                 case DECIMAL:
-                    fields[fieldIndex] = JdbcFieldTypeUtils.getBigDecimal(rs, resultSetIndex);
+                    fields[fieldIndex] = getDecimalValue(rs, resultSetIndex);
                     break;
                 case DATE:
                     Date sqlDate = JdbcFieldTypeUtils.getDate(rs, resultSetIndex);
@@ -194,6 +212,57 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             }
         }
         return new SeaTunnelRow(fields);
+    }
+
+    /**
+     * Reads a DECIMAL/NUMERIC column value as {@link BigDecimal}.
+     *
+     * <p>PostgreSQL allows the special numeric values {@code NaN}, {@code Infinity} and {@code
+     * -Infinity} (supported since PostgreSQL 14), which have no {@code BigDecimal} representation.
+     * The pgjdbc driver fails to convert them with {@code PSQLException: Bad value for type
+     * BigDecimal : NaN} (text protocol) or with a {@code ClassCastException} (binary protocol,
+     * where the driver returns a {@code Double}). When {@code numeric_special_value_as_null} is
+     * enabled, such values are read as {@code null} and a warning is logged for the first
+     * occurrence per column, so that a single special value does not abort the whole job. Otherwise
+     * the original error is rethrown, which keeps the default behavior unchanged.
+     */
+    private BigDecimal getDecimalValue(ResultSet rs, int columnIndex) throws SQLException {
+        BigDecimal value =
+                JdbcFieldTypeUtils.getBigDecimal(rs, columnIndex, numericSpecialValueAsNull);
+        if (value == null
+                && numericSpecialValueAsNull
+                && JdbcFieldTypeUtils.isNumericSpecialValue(rs, columnIndex)
+                && shouldLogNumericSpecialValue(columnIndex)) {
+            log.warn(
+                    "The numeric special value at column '{}' cannot be represented as BigDecimal, reading it as null. Further special values in this column will not be logged",
+                    getColumnLabel(rs, columnIndex));
+        }
+        return value;
+    }
+
+    /**
+     * Decides whether the numeric special value at the given column should be logged: the first
+     * occurrence per column is logged, the following ones are skipped silently, so that the log
+     * cannot be flooded when many rows contain special values.
+     */
+    boolean shouldLogNumericSpecialValue(int columnIndex) {
+        return loggedNumericSpecialValueColumns.add(columnIndex);
+    }
+
+    private static String getColumnLabel(ResultSet rs, int columnIndex) {
+        try {
+            return rs.getMetaData().getColumnLabel(columnIndex);
+        } catch (SQLException | RuntimeException e) {
+            // The column label is only used to make the warning actionable, the index is enough
+            return String.valueOf(columnIndex);
+        }
+    }
+
+    /** Resolves native string types that need PostgreSQL-specific value conversion. */
+    protected String getStringColumnType(
+            ResultSet rs, TableSchema tableSchema, SeaTunnelRowType typeInfo, int fieldIndex)
+            throws SQLException {
+        return rs.getMetaData().getColumnTypeName(fieldIndex + 1);
     }
 
     @Override

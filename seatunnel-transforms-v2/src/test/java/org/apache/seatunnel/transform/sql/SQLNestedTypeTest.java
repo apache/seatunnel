@@ -34,6 +34,7 @@ import net.sf.jsqlparser.expression.LongValue;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -120,6 +121,63 @@ public class SQLNestedTypeTest {
                         BasicType.STRING_TYPE,
                         new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)),
                 type);
+    }
+
+    @Test
+    void testSignedAndParenthesizedCollectionExpressions() {
+        SQLEngine sql = zetaEngine();
+        SeaTunnelRowType inType = dummyInputType();
+        sql.init(
+                "test",
+                null,
+                inType,
+                "select ARRAY(-1, +2, (3)) as a, MAP('negative', (-1)) as m, "
+                        + "ARRAY((MAP('k', -2))) as nested from test");
+        SeaTunnelRowType outType = sql.typeMapping(new ArrayList<>());
+        Assertions.assertEquals(ArrayType.INT_ARRAY_TYPE, outType.getFieldType(0));
+        Assertions.assertEquals(
+                new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE), outType.getFieldType(1));
+        List<SeaTunnelRow> out = sql.transformBySQL(dummyRow(), outType);
+        Assertions.assertArrayEquals(new Integer[] {-1, 2, 3}, (Object[]) out.get(0).getField(0));
+        Assertions.assertEquals(Collections.singletonMap("negative", -1), out.get(0).getField(1));
+        Assertions.assertEquals(
+                Collections.singletonMap("k", -2), ((Object[]) out.get(0).getField(2))[0]);
+    }
+
+    @Test
+    void testSignedCollectionColumnsKeepTypesAndNullValues() {
+        SeaTunnelRowType inType =
+                new SeaTunnelRowType(
+                        new String[] {"f", "s", "b", "i"},
+                        new SeaTunnelDataType[] {
+                            BasicType.FLOAT_TYPE,
+                            BasicType.SHORT_TYPE,
+                            BasicType.BYTE_TYPE,
+                            BasicType.INT_TYPE
+                        });
+        SQLEngine sql = zetaEngine();
+        sql.init(
+                "test",
+                null,
+                inType,
+                "select ARRAY(-f) as a, MAP('k', -s) as m, ARRAY(-b) as b, MAP('null', -i) as nm, ARRAY((-s)) as sa, ARRAY(-b, +1) as mixed from test");
+        SeaTunnelRowType outType = sql.typeMapping(new ArrayList<>());
+        SeaTunnelRow out =
+                sql.transformBySQL(
+                                new SeaTunnelRow(new Object[] {1.25f, (short) 2, (byte) 3, null}),
+                                outType)
+                        .get(0);
+        Assertions.assertEquals(ArrayType.FLOAT_ARRAY_TYPE, outType.getFieldType(0));
+        Assertions.assertArrayEquals(new Float[] {-1.25f}, (Object[]) out.getField(0));
+        Assertions.assertEquals(Collections.singletonMap("k", (short) -2), out.getField(1));
+        Assertions.assertEquals(ArrayType.BYTE_ARRAY_TYPE, outType.getFieldType(2));
+        Assertions.assertArrayEquals(new Byte[] {(byte) -3}, (Object[]) out.getField(2));
+        Assertions.assertEquals(Collections.singletonMap("null", null), out.getField(3));
+        Assertions.assertEquals(ArrayType.SHORT_ARRAY_TYPE, outType.getFieldType(4));
+        Assertions.assertArrayEquals(new Short[] {(short) -2}, (Object[]) out.getField(4));
+        Assertions.assertEquals(ArrayType.INT_ARRAY_TYPE, outType.getFieldType(5));
+        Assertions.assertArrayEquals(new Integer[] {-3, 1}, (Object[]) out.getField(5));
+        Assertions.assertDoesNotThrow(() -> out.getBytesSize(outType));
     }
 
     // ==================== SQL Evaluation Tests ====================

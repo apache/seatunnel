@@ -60,7 +60,11 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在 custom_filename 为 true 时使用                                   |
 | file_format_type                      | string  | 否    | "csv"                                      | 文件格式类型                                                          |
 | filename_extension                    | string  | 否    | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。 例如：`.xml`, `.json`, `dat`, `.customtype` |
-| field_delimiter                       | string  | 否    | '\001'                                     | 仅在 file_format_type 为 text 时使用                                  |
+| date_format                           | string  | 否    | yyyy-MM-dd                                 | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。日期类型格式，用于告知 connector 如何写出 date 值。支持格式（示例）：`yyyy-MM-dd`、`yyyy.MM.dd`、`yyyy/MM/dd`。 |
+| datetime_format                       | string  | 否    | yyyy-MM-dd HH:mm:ss                        | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间戳类型格式，用于告知 connector 如何写出 datetime 值。支持格式：`yyyy-MM-dd HH:mm:ss`、`yyyy.MM.dd HH:mm:ss`、`yyyy/MM/dd HH:mm:ss`、`yyyyMMddHHmmss`。 |
+| time_format                           | string  | 否    | HH:mm:ss                                   | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间类型格式，用于告知 connector 如何写出 time 值。支持格式（示例）：`HH:mm:ss`、`HH:mm:ss.SSS`。 |
+| multi_table_sink_replica              | int     | 否    | 1                                          | 多表 sink writer 的副本数，必须至少为 1。                                    |
+| field_delimiter                       | string  | 否    | '\001' for text and ',' for csv            | 仅在 file_format_type 为 text 和 csv 时使用                            |
 | row_delimiter                         | string  | 否    | "\n"                                       | 仅在 file_format_type 为 `text`、`csv`、`json` 时使用                   |
 | have_partition                        | boolean | 否    | false                                      | 是否需要处理分区                                                        |
 | partition_by                          | array   | 否    | -                                          | 仅在 have_partition 为 true 时使用                                    |
@@ -75,7 +79,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | common-options                        | object  | 否    | -                                          | 常见选项                                                            |
 | max_rows_in_memory                    | int     | 否    | -                                          | 仅在 file_format_type 为 excel 时使用                                 |
 | sheet_max_rows                         | int     | 否    | 1048576                                    | 仅在 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。 |
-| sheet_name                            | string  | 否    | Sheet${随机数}                                | 仅在 file_format_type 为 excel 时使用                                 |
+| sheet_name                            | string  | 否    | Sheet0                                | 仅在 file_format_type 为 excel 时使用                                 |
 | csv_string_quote_mode                 | enum    | 否    | MINIMAL                                    | 仅在文件格式为 CSV 时使用。                                                |
 | xml_root_tag                          | string  | 否    | RECORDS                                    | 仅在 file_format 为 xml 时使用                                        |
 | xml_row_tag                           | string  | 否    | RECORD                                     | 仅在 file_format 为 xml 时使用                                        |
@@ -216,9 +220,7 @@ Sink 插件的常见参数，请参阅 [Sink 常见选项](../common-options/sin
 - MINIMAL：仅为包含特殊字符（如字段分隔符、引号字符或行分隔符字符串中的任何字符）的字段加引号。
 - NONE：从不为字段加引号。当数据中包含分隔符时，输出会在前面加上转义字符。如果未设置转义字符，则格式验证会抛出异常。
 
-### xml
-
-_root_tag [string]
+### xml_root_tag [string]
 
 指定 XML 文件中根元素的标签名。
 

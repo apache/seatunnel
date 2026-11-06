@@ -153,7 +153,7 @@ Upper bound of the `split_column` column when parallel scan is enabled.
 Lower bound of the `split_column` column when parallel scan is enabled.
 
 The split column range is divided into `partition_num` parts. If `partition_num = 1`, the connector
-uses the whole range. If `partition_num` is less than `upper_bound - lower_bound`, the connector
+uses the whole range. If `partition_num` is greater than `upper_bound - lower_bound`, the connector
 uses `(upper_bound - lower_bound)` partitions.
 
 For example, with `lower_bound = 1`, `upper_bound = 10`, `partition_num = 2`, and

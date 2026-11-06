@@ -14,13 +14,21 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 [Qdrant](https://qdrant.tech/) is a high-performance vector search engine and vector database.
 
-The Qdrant sink writes SeaTunnel rows into one existing Qdrant collection. Normal columns are written to the point payload, vector columns are written as named vectors, and the primary key column is used as the Qdrant point ID when one is present.
+The Qdrant sink writes SeaTunnel rows into one existing Qdrant collection. Normal columns
+are written to the point payload, vector columns are written as named vectors, and the
+primary key column is used as the Qdrant point ID when one is present. It is a good fit for
+loading vector data from upstream CDC or batch sources, and for mirroring one Qdrant
+collection into another.
+
+The target collection must already exist with the matching vector names and dimensions;
+the sink does not create collections, vector indexes, or interpret `UPDATE`/`DELETE` row
+kinds. It buffers up to 64 points per writer before issuing an upsert batch.
 
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [multimodal](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
@@ -32,6 +40,7 @@ The Qdrant sink writes SeaTunnel rows into one existing Qdrant collection. Norma
 | port            | int    | no       | 6334          | Qdrant gRPC port. |
 | api_key         | string | no       | ""            | Qdrant API key for authenticated deployments. |
 | use_tls         | bool   | no       | false         | Whether to use TLS for the gRPC connection. |
+| multi_table_sink_replica | int    | no       | 1             | Replica number for every table writer in multi-table sink mode. |
 | common-options  |        | no       | -             | Sink common options. |
 
 ### collection_name [string]
@@ -49,6 +58,7 @@ The gRPC port of the Qdrant instance.
 ### api_key [string]
 
 The API key used to connect to authenticated Qdrant deployments. Leave it empty when the Qdrant service does not require authentication.
+Set `use_tls = true` when sending an API key over an untrusted network; otherwise the key is sent over an unencrypted gRPC connection.
 
 ### use_tls [bool]
 

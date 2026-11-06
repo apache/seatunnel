@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.dto;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.KeyEncoding;
 import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseSinkOptions;
 
 import lombok.Data;
@@ -29,6 +30,7 @@ public class CollectionInfo {
     private String type;
     private String[] primaryKeys;
     private String keyDelimiter;
+    private KeyEncoding keyEncoding;
 
     public CollectionInfo(String collection, ReadonlyConfig config) {
         this.collection = collection;
@@ -36,5 +38,6 @@ public class CollectionInfo {
             primaryKeys = config.get(TypesenseSinkOptions.PRIMARY_KEYS).toArray(new String[0]);
         }
         keyDelimiter = config.get(TypesenseSinkOptions.KEY_DELIMITER);
+        keyEncoding = config.get(TypesenseSinkOptions.KEY_ENCODING);
     }
 }

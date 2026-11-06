@@ -52,9 +52,11 @@ public class CosineDistanceFunction implements CalciteUdf {
                             vector1.length, vector2.length));
         }
         double dotProduct =
-                IntStream.range(0, vector1.length).mapToDouble(i -> vector1[i] * vector2[i]).sum();
-        double norm1 = Arrays.stream(vector1).mapToDouble(v -> v * v).sum();
-        double norm2 = Arrays.stream(vector2).mapToDouble(v -> v * v).sum();
+                IntStream.range(0, vector1.length)
+                        .mapToDouble(i -> (double) vector1[i] * vector2[i])
+                        .sum();
+        double norm1 = Arrays.stream(vector1).mapToDouble(v -> (double) v * v).sum();
+        double norm2 = Arrays.stream(vector2).mapToDouble(v -> (double) v * v).sum();
         if (norm1 == 0.0 || norm2 == 0.0) {
             return 1.0;
         }

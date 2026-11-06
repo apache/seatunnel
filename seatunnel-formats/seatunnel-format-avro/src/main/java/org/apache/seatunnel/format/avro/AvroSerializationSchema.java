@@ -42,9 +42,20 @@ public class AvroSerializationSchema implements SerializationSchema {
     private final DatumWriter<GenericRecord> writer;
 
     public AvroSerializationSchema(SeaTunnelRowType rowType) {
+        this(rowType, false);
+    }
+
+    /**
+     * Creates a serialization schema with the opt-in nullable ROW layout.
+     *
+     * @param rowType row type to serialize
+     * @param rowNullable whether a ROW value is written as a nullable Avro union, see {@link
+     *     AvroFormatOptions#AVRO_ROW_NULLABLE}
+     */
+    public AvroSerializationSchema(SeaTunnelRowType rowType, boolean rowNullable) {
         this.out = new ByteArrayOutputStream();
         this.encoder = EncoderFactory.get().binaryEncoder(out, null);
-        this.converter = new RowToAvroConverter(rowType);
+        this.converter = new RowToAvroConverter(rowType, rowNullable);
         this.writer = this.converter.getWriter();
     }
 
