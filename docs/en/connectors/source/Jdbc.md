@@ -299,13 +299,14 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 |-----------|--------------|----------|
 | Greenplum | DB2          | Dameng   |
 | Gbase8a   | HIVE         | KingBase |
-| MySQL     | StarRocks    | Oracle   |
+| MySQL     | OpenGauss    | Oracle   |
 | Phoenix   | Postgres     | Redshift |
 | SapHana   | Snowflake    | Sqlite   |
 | SqlServer | Tablestore   | Teradata |
 | Vertica   | OceanBase    | XUGU     |
-| IRIS      | Inceptor     | Highgo   |
+| IRIS      | Presto       | Highgo   |
 | YashanDB  | DSQL         | CockroachDB |
+| DuckDB    |              |          |
 
 Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
 Dameng `TIMESTAMP WITH LOCAL TIME ZONE` source columns are mapped to `TIMESTAMP_TZ`, and `INTERVAL` source columns are mapped to `STRING`.

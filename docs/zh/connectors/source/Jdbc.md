@@ -298,13 +298,14 @@ numeric_special_value_as_null = true
 |-----------|---------|----------|
 | Greenplum | DB2     | Dameng   |
 | Gbase8a   | HIVE    | KingBase |
-| MySQL     | StarRocks | Oracle |
+| MySQL     | OpenGauss | Oracle |
 | Phoenix   | Postgres | Redshift |
 | SapHana   | Snowflake | Sqlite |
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase | XUGU |
-| IRIS      | Inceptor | Highgo |
+| IRIS      | Presto | Highgo |
 | YashanDB  | DSQL     | CockroachDB |
+| DuckDB    |              |          |
 
 达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
 达梦 `TIMESTAMP WITH LOCAL TIME ZONE` 源字段会映射为 `TIMESTAMP_TZ`，`INTERVAL` 源字段会映射为 `STRING`。

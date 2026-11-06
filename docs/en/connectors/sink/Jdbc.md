@@ -292,14 +292,15 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 |-----------|--------------|----------|
 | Greenplum | DB2          | Dameng   |
 | Gbase8a   | HIVE         | KingBase |
-| MySQL     | StarRocks    | Oracle   |
+| MySQL     | OpenGauss    | Oracle   |
 | Phoenix   | Postgres     | Redshift |
 | SapHana   | Snowflake    | Sqlite   |
 | SqlServer | Tablestore   | Teradata |
 | Vertica   | OceanBase    | XUGU     |
-| IRIS      | Inceptor     | Highgo   |
+| IRIS      | Presto       | Highgo   |
 | DSQL      |              |          |
 | YashanDB  | CockroachDB  |          |
+| DuckDB    |              |          |
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.

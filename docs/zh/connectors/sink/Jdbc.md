@@ -291,14 +291,15 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 |-----------|------------|----------|
 | Greenplum | DB2        | Dameng   |
 | Gbase8a   | HIVE       | KingBase |
-| MySQL     | StarRocks  | Oracle   |
+| MySQL     | OpenGauss  | Oracle   |
 | Phoenix   | Postgres   | Redshift |
 | SapHana   | Snowflake  | Sqlite   |
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase  | XUGU     |
-| IRIS      | Inceptor   | Highgo   |
+| IRIS      | Presto   | Highgo   |
 | DSQL      |            |          |
 | YashanDB  | CockroachDB |          |
+| DuckDB    |              |          |
 
 ### database [string]
 
