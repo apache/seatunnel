@@ -303,6 +303,7 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | Vertica   | OceanBase    | XUGU     |
 | IRIS      | Inceptor     | Highgo   |
 | YashanDB  | DSQL         |          |
+| Ingres    |              |          |
 
 Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
 Dameng `TIMESTAMP WITH LOCAL TIME ZONE` source columns are mapped to `TIMESTAMP_TZ`, and `INTERVAL` source columns are mapped to `STRING`.
@@ -572,6 +573,67 @@ sink {
   }
 }
 ```
+
+### Ingres
+
+Ingres support targets source reads; real-server validation is pending. Sink jobs also select this shared dialect for `jdbc:ingres:`, but sink execution and `${schema_name}` target routing have not been validated. This does not establish Ingres sink support.
+
+Use `owner.table` with the exact stored case; `field_ide` changes columns only. For generated sink SQL, `database` is not included in the table identifier: the JDBC URL selects the database and `table = "owner.table"` supplies the owner. `database` remains required when `generate_sink_sql = true`.
+
+Existing jobs can set `dialect = "Generic"` to retain the previous dialect behavior while migrating. See [incompatible changes](../../introduction/concepts/incompatible-changes.md#dev).
+
+The JDBC source selects the Ingres dialect for URLs starting with `jdbc:ingres:`. Use
+`com.ingres.jdbc.IngresDriver` and obtain `iijdbc.jar` from Actian under its applicable license;
+SeaTunnel does not bundle this driver. Install it using the engine-specific instructions above.
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:ingres://ingres.example.com:II7/sales"
+    driver = "com.ingres.jdbc.IngresDriver"
+    username = "seatunnel_reader"
+    password = "change_me"
+    table_path = "sales_owner.orders"
+  }
+}
+```
+
+Use `owner.table` for `table_path` so JDBC metadata discovery is restricted to the intended owner.
+An unqualified table name can produce ambiguous metadata when multiple owners have the same table name.
+The database is selected by the JDBC URL. Write the actual identifier names without SQL quotation marks in
+`table_path`; generated SQL quotes the owner and table separately with double quotes, preserving
+their case. For names containing a dot, use a custom `query` with explicit SQL quoting instead
+of `table_path`.
+
+
+#### Type mapping
+
+The Ingres source reuses GenericTypeMapper and GenericTypeConverter. Mapping is based on the JDBC type code reported by the driver, not on the native Ingres type name. The following table describes the implemented conversion, not a verified server/driver compatibility matrix.
+
+| JDBC type reported by the driver | SeaTunnel type |
+| --- | --- |
+| BOOLEAN; BIT with length <= 1 or unspecified | BOOLEAN |
+| BIT with length > 1 | BYTES |
+| TINYINT / SMALLINT / INTEGER / BIGINT | TINYINT / SMALLINT / INT / BIGINT |
+| REAL / FLOAT | FLOAT |
+| DOUBLE | DOUBLE |
+| NUMERIC | DECIMAL(p,s); DECIMAL(38,18) if precision is missing or non-positive |
+| DECIMAL | DECIMAL(p,s), with missing scale treated as 0; DECIMAL(38,18) if p > 38 |
+| CHAR, VARCHAR, LONGVARCHAR, NCHAR, NVARCHAR, LONGNVARCHAR, CLOB, NCLOB, DATALINK, SQLXML | STRING |
+| BINARY, VARBINARY, LONGVARBINARY, BLOB | BYTES |
+| DATE / TIME / TIMESTAMP | DATE / TIME / TIMESTAMP |
+| NULL | NULL |
+
+Native INGRESDATE, MONEY and interval types have no Ingres-specific mapping. Their driver metadata and runtime behavior remain unverified. JDBC types not listed above, including timezone-aware temporal types, have no mapping in this converter. DECIMAL requires positive precision. This table describes source conversion only; sink execution and automatic schema creation are not validated.
+
+This dialect reuses the generic JDBC type mapping and row conversion for standard JDBC types.
+Ingres-specific types such as `INGRESDATE`, `MONEY`, and intervals are not covered. String keys
+use a single split because an Ingres hash/range splitting implementation is not provided.
+The dialect does not add a catalog, schema creation, CDC, or native upsert SQL.
+
+The opt-in `JdbcIngresIT` test in `connector-jdbc-e2e-part-7` requires a licensed Ingres instance
+and a user-supplied driver. See that module's `JdbcIngresIT` for the validation procedure;
+offline dialect tests alone do not establish compatibility with a particular server/driver version.
 
 ## Troubleshooting
 
