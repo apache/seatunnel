@@ -1452,6 +1452,31 @@ class Orchestrator:
 
         structured_plan = parse_structured_plan(plan_result["content"])
 
+        # A plan with no pipeline has no connectors to fetch option rules for,
+        # so `fetch_all_metadata` returns an empty string and the generator is
+        # left to recall option keys from memory -- the one thing the retrieved
+        # rules exist to prevent. `_parse_legacy_plan` returns an empty plan
+        # whenever it cannot find both a source and a sink, so this is a state
+        # the planner reaches on ordinary input, not a corner case.
+        #
+        # Asking is better than generating something unverifiable: the tool
+        # exists so the user need not know connector names, and the two facts
+        # missing here are ones only they have.
+        if not structured_plan.pipelines:
+            question = (
+                "I could not work out the data flow from that. To generate a "
+                "config I need to know:\n"
+                "- where the data comes from (which system, and how to reach it)\n"
+                "- where it should end up"
+            )
+            self.pending_question = question
+            return {
+                "type": "question",
+                "content": question,
+                "config": None,
+                "explanation": None,
+            }
+
         # Trigger-based skill matching: uses plan + user input keywords
         matched_skills = SkillRouter.match(structured_plan, effective_request)
         skill = SkillExecutor(structured_plan, matched_skills)
