@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.rest.service;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
@@ -494,31 +495,85 @@ public class JobInfoService extends BaseService {
         return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
     }
 
+    /**
+     * Submits every job of a {@code /submit-jobs} request. The {@code params} of all entries are
+     * validated by {@link #validatedSubmitJobsParams} before the first job is submitted, so an
+     * invalid {@code params} value rejects the whole request instead of leaving the jobs before it
+     * running.
+     */
     public JsonArray submitJobs(byte[] requestBody) {
         List<Tuple2<Map<String, String>, Config>> configTuples =
                 RestUtil.buildConfigList(requestHandle(requestBody));
 
-        return configTuples.stream()
-                .map(
-                        tuple -> {
-                            String urlParams = mapToUrlParams(tuple._1);
-                            Map<String, String> requestParams = new HashMap<>();
-                            RestUtil.buildRequestParams(requestParams, urlParams);
-                            if (requestParams.containsKey(RestConstant.DRY_RUN)
-                                    && requestParams.get(RestConstant.DRY_RUN) != null) {
-                                throw new IllegalArgumentException(
-                                        "Dry-run is only supported via CLI");
-                            }
-                            validateCheckpointRestoreRequest(requestParams);
-                            SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
-                            Config decryptConfig = ConfigShadeUtils.decryptConfig(tuple._2);
-                            return submitJobInternal(
-                                    decryptConfig,
-                                    requestParams,
-                                    seaTunnelServer,
-                                    nodeEngine.getNode());
-                        })
-                .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+        List<Map<String, String>> requestParamsList =
+                configTuples.stream()
+                        .map(tuple -> validatedSubmitJobsParams(tuple._1))
+                        .collect(Collectors.toList());
+
+        JsonArray result = new JsonArray();
+        for (int i = 0; i < configTuples.size(); i++) {
+            SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
+            Config decryptConfig = ConfigShadeUtils.decryptConfig(configTuples.get(i)._2);
+            result.add(
+                    submitJobInternal(
+                            decryptConfig,
+                            requestParamsList.get(i),
+                            seaTunnelServer,
+                            nodeEngine.getNode()));
+        }
+        return result;
+    }
+
+    /**
+     * Builds and validates the request parameters of one {@code /submit-jobs} entry, without
+     * submitting anything. It rejects, with an {@link IllegalArgumentException}: a savepoint start
+     * without {@code jobId}, a dry-run request, a {@code restoreMode} that is unknown or has no
+     * {@code restoreSourceJobId} to restore from, and a non-blank {@code jobId} or {@code
+     * restoreSourceJobId} that is not a {@code long}. {@link #submitJobs} runs it for every entry
+     * before submitting the first job. Failures that depend on the cluster or on the job config,
+     * such as an invalid job config or a missing savepoint, can still occur while a job is
+     * submitted.
+     */
+    private Map<String, String> validatedSubmitJobsParams(Map<String, String> params) {
+        Map<String, String> requestParams = new HashMap<>();
+        RestUtil.buildRequestParamsFromJson(requestParams, params);
+        if (requestParams.containsKey(RestConstant.DRY_RUN)
+                && requestParams.get(RestConstant.DRY_RUN) != null) {
+            throw new IllegalArgumentException("Dry-run is only supported via CLI");
+        }
+        validateCheckpointRestoreRequest(requestParams);
+        checkRestoreSourceJobIdNotBlank(requestParams);
+        checkLongParam(requestParams, RestConstant.JOB_ID);
+        checkLongParam(requestParams, RestConstant.RESTORE_SOURCE_JOB_ID);
+        return requestParams;
+    }
+
+    /**
+     * Rejects a restore whose {@code restoreSourceJobId} is blank, like {@link
+     * #validateCheckpointRestoreRequest} rejects a missing one. {@code submitJobInternal} would
+     * treat the blank value as absent and fail only after the jobs before it were submitted.
+     */
+    private static void checkRestoreSourceJobIdNotBlank(Map<String, String> requestParams) {
+        String restoreModeValue = requestParams.get(RestConstant.RESTORE_MODE);
+        if (restoreModeValue != null
+                && RestoreMode.valueOf(restoreModeValue).isRestore()
+                && StringUtils.isBlank(requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID))) {
+            throw new IllegalArgumentException(
+                    "restoreSourceJobId is required when restoreMode=" + restoreModeValue);
+        }
+    }
+
+    /** Rejects a non-blank value that {@code submitJobInternal} could not parse as a job id. */
+    private static void checkLongParam(Map<String, String> requestParams, String key) {
+        String value = requestParams.get(key);
+        if (StringUtils.isBlank(value)) {
+            return;
+        }
+        try {
+            Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("'" + key + "' must be a long integer");
+        }
     }
 
     private void validateCheckpointRestoreRequest(Map<String, String> requestParams) {
