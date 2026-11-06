@@ -269,7 +269,7 @@ public class SeaTunnelFTPFileSystemTest {
         // The probe directory could be created, so the client stayed in active mode.
         assertNotEquals(
                 FtpConnectionMode.PASSIVE_LOCAL.getMode(),
-                ftpFileSystem.getConf().get("fs.ftp.connection.mode"));
+                ftpFileSystem.getConf().get(SeaTunnelFTPFileSystem.FS_FTP_CONNECTION_MODE));
         List<String> probeDirectories = new ArrayList<>();
         for (Object name : fakeFtpServer.getFileSystem().listNames("/")) {
             if (name.toString().startsWith(".ftptest")) {
