@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -34,11 +36,17 @@ class ChainedMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
     private final List<SeaTunnelTransform<SeaTunnelRow>> transforms;
 
     /** Extra table paths of every rule, rebuilt only by {@link #refreshExtraTablePaths()}. */
-    private final List<Set<String>> extraTablePaths = new ArrayList<>();
+    private transient List<Set<String>> extraTablePaths = new ArrayList<>();
 
     ChainedMapTransform(List<SeaTunnelTransform<SeaTunnelRow>> transforms) {
         this.transforms = transforms;
         // Initial resolution; refreshed whenever the input table of a rule changes.
+        refreshExtraTablePaths();
+    }
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        extraTablePaths = new ArrayList<>();
         refreshExtraTablePaths();
     }
 
