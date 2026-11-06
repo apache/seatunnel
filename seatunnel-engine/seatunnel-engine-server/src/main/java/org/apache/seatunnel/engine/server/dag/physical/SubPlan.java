@@ -105,11 +105,10 @@ public class SubPlan {
      * are gone. The restore counter then says a crash loop is happening without saying what is
      * causing it, which is the first thing an operator needs.
      *
-     * <p>The size is bounded twice over: a restore only happens while {@code
-     * pipelineRestoreNum < pipelineMaxRestoreNum}, which {@code job.retry.times} sets and defaults
-     * to 3, and {@link #MAX_RETAINED_RESTORE_CAUSES} caps it regardless in case that is configured
-     * high. Each entry is truncated, so the whole list stays small enough to live beside the
-     * pipeline.
+     * <p>The size is bounded twice over: a restore only happens while {@code pipelineRestoreNum <
+     * pipelineMaxRestoreNum}, which {@code job.retry.times} sets and defaults to 3, and {@link
+     * #MAX_RETAINED_RESTORE_CAUSES} caps it regardless in case that is configured high. Each entry
+     * is truncated, so the whole list stays small enough to live beside the pipeline.
      */
     private final Queue<String> restoreCauses = new ConcurrentLinkedQueue<>();
 
@@ -584,8 +583,8 @@ public class SubPlan {
      * Keep why a run ended, dropping the oldest when full.
      *
      * <p>A restore with no recorded error is still worth a placeholder: "restarted and we do not
-     * know why" is a different and more alarming state than "restarted because the sink refused
-     * the connection", and silently omitting it would make the two look alike.
+     * know why" is a different and more alarming state than "restarted because the sink refused the
+     * connection", and silently omitting it would make the two look alike.
      */
     private void retainRestoreCause(int restoreAttempt, String cause) {
         String text =
