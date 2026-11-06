@@ -360,6 +360,8 @@ The default Excel reading engine is POI. POI keeps the historical read behavior,
 
 You can set `excel_engine = EasyExcel` to use streaming reads for large Excel files.
 
+With both engines, a number cell or a numeric formula result read into a numeric column (TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE or DECIMAL) is read as its stored number, not its displayed text: a cell shown as `50%` is read as `0.5`. DOUBLE and FLOAT columns get the exact `double`, and DECIMAL columns parse the same stored `double` text without guessing whether low-order digits came from computation or actual data: the result of `=0.1+0.2` reads as `0.30000000000000004`, which can have more fractional digits than the declared scale; use `ROUND(col, 2)` in the [SQL transform](../../transforms/sql.md) to get the value the formula shows. An integer column reads a whole number with all its digits and a fractional number whose magnitude is below `1e15` as Excel's 15-significant-digit value, before the fraction is dropped: `7.999999999999999` reads as `8`. A STRING column keeps the displayed text of a number cell. A DECIMAL column also reads text cells, without going through `double`, and a DECIMAL gets the declared scale when no digit is lost (`5000.0` reads as `5000.0000` in `decimal(20, 4)`).
+
 ### excel_use_header_line [boolean]
 
 Only used when `file_format_type` is `excel`. The default is `false`, so Excel columns are read by position even when `skip_header_row_number` is set.
