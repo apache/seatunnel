@@ -151,6 +151,50 @@ iteration。
 保留原始 JMH 文件，让其他人能够查看底层样本。`tools/benchmarks/save_jmh_result.py`
 和 `tools/benchmarks/regression_report.py` 可生成标准化 JSON 与 Markdown 报告。
 
+## MultiTableSink 交接吞吐回归
+
+`MultiTableSinkBenchmark.recordHandoff` 覆盖生产 `MultiTableSink` / `MultiTableSinkWriter`
+路径随副本数增加时的吞吐变化。夹具使用实现多表 Sink 契约的内存接收端，不启动引擎、
+Hazelcast 成员、连接器发现或数据库，用于隔离逐条路由、有界队列交接和消费者协调成本。
+
+| 参数 | 默认值 | 用途 |
+|---|---|---|
+| `replicaNum` | `1,5,15` | 队列和消费者数量；每张表在每个副本上创建一个 writer。 |
+| `tableCount` | `1` | 逻辑表数量；可用 `4` 测试多表。 |
+| `recordPoolSize` | `65536` | 只读复用行数量，必须覆盖所有队列容量及处理中记录。 |
+| `routing` | `HASH` | 正数主键分散路由；`SINGLE_QUEUE` 为全部进入队列 0 的对照。 |
+| `consumerBatchSize` | `1000` | 模拟消费端每批刷写行数，与跨线程交接粒度无关。 |
+| `batchDelayMicros` | `0` | 每个非空消费批次的可选阻塞延迟，不是真实数据库 I/O。 |
+
+按下文构建 runner 后，运行默认单表回归场景：
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar \
+  'MultiTableSinkBenchmark.recordHandoff$' \
+  -p replicaNum=1,5,15 -prof gc \
+  -rf json -rff seatunnel-benchmarks/target/multisink-handoff.json
+```
+
+可使用 `-p tableCount=1,4 -p routing=HASH,SINGLE_QUEUE` 区分表数量和队列分布的影响；
+用 `-p batchDelayMicros=1000` 模拟消费背压。比较版本时保持参数相同。默认一个生产线程；
+增加 `-t` 会为每个 JMH 线程创建独立夹具，属于另一种负载。
+
+每行包含路由键和序号。行对象及延迟初始化的 options map 均在 trial setup 创建，测量时只读复用；
+消费端计数器由各 writer 独占，不使用共享原子计数器。每次预热或测量迭代结束后，
+`prepareCommit` 排空队列及处理中记录、刷出尾批次，再校验每个 writer 的消费数、刷写数和
+对 writer 内顺序敏感的滚动校验和，并覆盖记录池循环复用。
+
+计时操作是发布一行，因此 Score 表示稳态的**有界入队与交接吞吐**；迭代结束的排空和校验不计时。
+计时停止时，最多仍有每副本 1024 行队列数据和处理中记录；测量迭代应足够长，使这个有界尾部
+相对测量数据量足够小。模拟消费端还可能在每个 table/replica writer 内保留少于
+`consumerBatchSize` 行的尾批次，最终刷出也不计时。
+本基准不测量数据库持久化、定时 Flush、Checkpoint 延迟或完整任务吞吐，
+也不在单元测试中断言与机器无关的性能门槛。
+
+默认 `benchmarks_core` 套件已纳入该场景及副本数量扫描，也可在工作流中单独选择。
+对比的两个版本都需要具备该夹具。可结合 CPU、wall、lock、GC 和 JFR 诊断副本扩展问题；
+合成交接成本下降本身不能证明端到端 JDBC 的提升。
+
 ## 本地运行
 
 ### 构建与准备

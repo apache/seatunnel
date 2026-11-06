@@ -72,6 +72,7 @@ class RunBenchmarksTest(unittest.TestCase):
         self.assertEqual("benchmarks_core", selection["benchmark_suite"])
         self.assertEqual("benchmarks_core", selection["benchmark_selector"])
         self.assertEqual(self.core_regex(), selection["benchmark_regex"])
+        self.assertIn("MultiTableSinkBenchmark.recordHandoff$", selection["benchmark_regex"])
 
     def test_scheduled_suite_overrides_the_unused_choice_selector(self):
         result, selection = self.resolve(
