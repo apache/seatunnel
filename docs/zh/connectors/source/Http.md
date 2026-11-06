@@ -721,6 +721,73 @@ source {
 
 ```
 
+## 流处理模式
+
+在 `STREAMING` 任务中，连接器会以固定间隔轮询配置的 URL，使 Source 表现为持续运行的拉取任务。
+`poll_interval_millis` 控制两次请求之间的间隔；`retry`、`retry_backoff_multiplier_ms`、`retry_backoff_max_ms`
+共同决定遇到 `IOException` 时的重试行为。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Http {
+    url = "https://api.example.com/events"
+    method = "GET"
+    format = "json"
+    poll_interval_millis = 5000
+    retry = 3
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 5000
+    schema = {
+      fields {
+        id = string
+        type = string
+        timestamp = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+## 常见问题
+
+### 如何通过 HTTP 下载二进制文件（PDF、图片、ZIP）？
+
+将 `format` 设置为 `binary`。响应体会按 `binary_chunk_size` 字节（默认 10 MiB）切分，并以
+`(data: bytes, relativePath: string, partIndex: long)` 三列的形式输出。在 BATCH 模式下配合 `LocalFile`
+接收端即可写入磁盘。
+
+### 如何让分页字段作为 URL 参数传递？
+
+将 `keep_page_param_as_http_param` 设置为 `true`，连接器会把分页字段写入 `params`，作为查询串参数出现在每次
+请求中。设置为 `false` 时，连接器只会更新 `headers`、`params`、`body` 中已存在的键或 `${page}` 占位符。
+
+### `use_placeholder_replacement` 的实际作用是什么？
+
+为 `true` 时，连接器会在 headers、params 和 body 中识别 `${page}` 和 `${cursor}` 占位符并替换为真实值，
+也支持带前缀/后缀的形式（如 `"10${page}"` 在 `page=5` 时变为 `"105"`）。为 `false` 时，仅按键名替换：
+分页字段必须已经作为键存在于目标 map 中。
+
+### 为什么 `method = POST` 且没有设置 `body` 时请求体看起来是空的？
+
+`keep_params_as_form = false` 时默认走非表单分支，会将 `body` 序列化为 JSON。当未配置 `body` 时，连接器仍
+会发送 JSON 对象 `{}` 作为请求体，因此 HTTP 服务端能收到合法的 JSON 负载。如需切换到表单分支，可将
+`keep_params_as_form` 设为 `true`（并按需设置 `Content-Type: application/x-www-form-urlencoded`）。
+
+### 如何限制重试并放慢重连节奏？
+
+`retry` 用于设置 `IOException` 时的最大重试次数；`retry_backoff_multiplier_ms`（默认 `100`）是退避基准
+（毫秒）；`retry_backoff_max_ms`（默认 `10000`）用于限制最大退避，避免误配置导致任务长时间等待。
+
 ## 变更日志
 
 <ChangeLog />

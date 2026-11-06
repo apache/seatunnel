@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -45,6 +46,12 @@ public class SocketSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(SocketSourceOptions.HOST, notBlank(SocketSourceOptions.HOST))
                 .required(SocketSourceOptions.PORT, greaterThan(SocketSourceOptions.PORT, 0))
+                .optional(
+                        SocketSourceOptions.CONNECT_TIMEOUT_MS,
+                        Conditions.greaterOrEqual(SocketSourceOptions.CONNECT_TIMEOUT_MS, 0))
+                .optional(
+                        SocketSourceOptions.READ_TIMEOUT_MS,
+                        Conditions.greaterOrEqual(SocketSourceOptions.READ_TIMEOUT_MS, 0))
                 .build();
     }
 
