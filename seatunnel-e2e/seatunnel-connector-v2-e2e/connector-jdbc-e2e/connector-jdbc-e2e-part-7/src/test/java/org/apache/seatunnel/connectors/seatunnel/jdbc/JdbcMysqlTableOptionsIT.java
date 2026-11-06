@@ -67,10 +67,10 @@ public class JdbcMysqlTableOptionsIT extends TestSuiteBase implements TestResour
             "CREATE TABLE IF NOT EXISTS `"
                     + MYSQL_SOURCE
                     + "` (\n"
-                    + "    `id`   BIGINT       NOT NULL,\n"
-                    + "    `name` VARCHAR(255) DEFAULT NULL,\n"
+                    + "    `id`   BIGINT       NOT NULL COMMENT 'id comment',\n"
+                    + "    `name` VARCHAR(255) DEFAULT NULL COMMENT 'name comment',\n"
                     + "    PRIMARY KEY (`id`)\n"
-                    + ");";
+                    + ") COMMENT = 'source table comment';";
 
     private static final String INSERT_SOURCE_SQL =
             "INSERT INTO `"
@@ -156,6 +156,14 @@ public class JdbcMysqlTableOptionsIT extends TestSuiteBase implements TestResour
                             MySqlCatalog.TABLE_OPTION_COLLATE.toLowerCase()
                                     + "=utf8mb4_unicode_ci"),
                     createTableSql);
+
+            // The source table is read with a query-only configuration, the comments are
+            // merged from the underlying table metadata
+            Assertions.assertTrue(createTableSql.contains("comment 'id comment'"), createTableSql);
+            Assertions.assertTrue(
+                    createTableSql.contains("comment 'name comment'"), createTableSql);
+            Assertions.assertTrue(
+                    createTableSql.contains("comment='source table comment'"), createTableSql);
 
             ResultSet countResult =
                     statement.executeQuery(
