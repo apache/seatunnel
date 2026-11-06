@@ -201,6 +201,123 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
         Assertions.assertFalse(SubPlan.isRecoverableRunningState(mockPhysicalVertex(null)));
     }
 
+    @Test
+    void shouldRetainWhyEachEarlierRunEnded() throws Exception {
+        // errorByPhysicalVertex holds only the current attempt and is replaced on every restore,
+        // so a pipeline that has restarted repeatedly otherwise reports a restore count with no
+        // reason attached. These exercise the retention directly: driving a real restore needs a
+        // live JobMaster and checkpoint manager, which would test those rather than this.
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(mockPhysicalVertex(ExecutionState.FAILED)),
+                            Collections.emptyList());
+
+            Assertions.assertTrue(subPlan.getRestoreCauses().isEmpty());
+
+            retainCause(subPlan, 1, "java.net.ConnectException: Connection refused");
+            retainCause(subPlan, 2, "java.net.ConnectException: Connection refused");
+
+            List<String> causes = subPlan.getRestoreCauses();
+            Assertions.assertEquals(2, causes.size());
+            Assertions.assertTrue(causes.get(0).startsWith("restore 1: "));
+            Assertions.assertTrue(causes.get(0).contains("Connection refused"));
+            Assertions.assertTrue(causes.get(1).startsWith("restore 2: "));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldRecordARestoreWithNoErrorRatherThanOmitIt() throws Exception {
+        // "restarted and we do not know why" is a different and more alarming state than
+        // "restarted because the sink refused the connection"; dropping it hides the difference.
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(mockPhysicalVertex(ExecutionState.FAILED)),
+                            Collections.emptyList());
+
+            retainCause(subPlan, 1, null);
+            retainCause(subPlan, 2, "   ");
+
+            List<String> causes = subPlan.getRestoreCauses();
+            Assertions.assertEquals(2, causes.size());
+            causes.forEach(
+                    cause ->
+                            Assertions.assertTrue(
+                                    cause.contains("no error was recorded"),
+                                    "unexpected placeholder: " + cause));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldBoundTheRetainedCausesAndTruncateLongOnes() throws Exception {
+        // job.retry.times already bounds how many restores happen, but it is user-configurable,
+        // so the list is capped independently and each entry is truncated.
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(mockPhysicalVertex(ExecutionState.FAILED)),
+                            Collections.emptyList());
+
+            StringBuilder huge = new StringBuilder();
+            for (int i = 0; i < 5000; i++) {
+                huge.append('x');
+            }
+            for (int attempt = 1; attempt <= 40; attempt++) {
+                retainCause(subPlan, attempt, huge.toString());
+            }
+
+            List<String> causes = subPlan.getRestoreCauses();
+            Assertions.assertEquals(16, causes.size(), "retained causes should be capped");
+            // The oldest were dropped, so the newest attempt must still be present.
+            Assertions.assertTrue(causes.get(causes.size() - 1).startsWith("restore 40: "));
+            causes.forEach(
+                    cause ->
+                            Assertions.assertTrue(
+                                    cause.length() < 2200,
+                                    "cause was not truncated: " + cause.length()));
+            Assertions.assertTrue(causes.get(0).contains("(truncated)"));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldReturnACopyOfTheRetainedCauses() throws Exception {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(mockPhysicalVertex(ExecutionState.FAILED)),
+                            Collections.emptyList());
+            retainCause(subPlan, 1, "boom");
+
+            subPlan.getRestoreCauses().clear();
+
+            Assertions.assertEquals(1, subPlan.getRestoreCauses().size());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    private static void retainCause(SubPlan subPlan, int attempt, String cause) throws Exception {
+        java.lang.reflect.Method method =
+                SubPlan.class.getDeclaredMethod("retainRestoreCause", int.class, String.class);
+        method.setAccessible(true);
+        method.invoke(subPlan, attempt, cause);
+    }
+
     private SubPlan newSubPlan(
             ExecutorService executorService,
             List<PhysicalVertex> physicalVertexList,

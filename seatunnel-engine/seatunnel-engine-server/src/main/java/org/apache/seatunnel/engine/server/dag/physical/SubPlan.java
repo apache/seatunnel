@@ -43,8 +43,11 @@ import lombok.Data;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -93,6 +96,28 @@ public class SubPlan {
 
     /** The error throw by physicalVertex, should be set when physicalVertex throw error. */
     private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
+
+    /**
+     * Why each earlier run of this pipeline ended, oldest first.
+     *
+     * <p>{@link #errorByPhysicalVertex} only holds the current attempt and is replaced on every
+     * restore, so by the time anyone looks at a pipeline that has restarted repeatedly the reasons
+     * are gone. The restore counter then says a crash loop is happening without saying what is
+     * causing it, which is the first thing an operator needs.
+     *
+     * <p>The size is bounded twice over: a restore only happens while {@code
+     * pipelineRestoreNum < pipelineMaxRestoreNum}, which {@code job.retry.times} sets and defaults
+     * to 3, and {@link #MAX_RETAINED_RESTORE_CAUSES} caps it regardless in case that is configured
+     * high. Each entry is truncated, so the whole list stays small enough to live beside the
+     * pipeline.
+     */
+    private final Queue<String> restoreCauses = new ConcurrentLinkedQueue<>();
+
+    /** Upper bound on {@link #restoreCauses}, independent of {@code job.retry.times}. */
+    private static final int MAX_RETAINED_RESTORE_CAUSES = 16;
+
+    /** Longest retained cause. Enough for a message and the first frames that matter. */
+    private static final int MAX_RESTORE_CAUSE_LENGTH = 2048;
 
     private final ExecutorService executorService;
 
@@ -555,10 +580,39 @@ public class SubPlan {
      *
      * @return
      */
+    /**
+     * Keep why a run ended, dropping the oldest when full.
+     *
+     * <p>A restore with no recorded error is still worth a placeholder: "restarted and we do not
+     * know why" is a different and more alarming state than "restarted because the sink refused
+     * the connection", and silently omitting it would make the two look alike.
+     */
+    private void retainRestoreCause(int restoreAttempt, String cause) {
+        String text =
+                cause == null || cause.trim().isEmpty()
+                        ? "no error was recorded for this run"
+                        : cause.trim();
+        if (text.length() > MAX_RESTORE_CAUSE_LENGTH) {
+            text = text.substring(0, MAX_RESTORE_CAUSE_LENGTH) + "... (truncated)";
+        }
+        restoreCauses.add(String.format("restore %s: %s", restoreAttempt, text));
+        while (restoreCauses.size() > MAX_RETAINED_RESTORE_CAUSES) {
+            restoreCauses.poll();
+        }
+    }
+
+    /** Why earlier runs of this pipeline ended, oldest first. Never null. */
+    public List<String> getRestoreCauses() {
+        return new ArrayList<>(restoreCauses);
+    }
+
     private boolean prepareRestorePipeline() {
         synchronized (restoreLock) {
             try {
                 pipelineRestoreNum.getAndIncrement();
+                // Record why this run ended before anything clears it: reset() runs just below
+                // and initStateFuture() replaces errorByPhysicalVertex outright.
+                retainRestoreCause(pipelineRestoreNum.get(), errorByPhysicalVertex.get());
                 log.info(
                         String.format(
                                 "Restore time %s, pipeline %s",
