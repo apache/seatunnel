@@ -96,4 +96,11 @@ public class IcebergSinkOptions extends IcebergCommonOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Default branch for commits");
+
+    public static final Option<Long> FLUSH_ROW_SIZE =
+            Options.key("flush_row_size")
+                    .longType()
+                    .defaultValue(Long.MAX_VALUE)
+                    .withDescription(
+                            "Iceberg refreshes the row number threshold when writing data");
 }

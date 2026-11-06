@@ -61,6 +61,7 @@ public class IcebergSinkConfig extends IcebergCommonConfig {
     private SchemaSaveMode schemaSaveMode;
     private DataSaveMode dataSaveMode;
     private String dataSaveModeSQL;
+    private long flushRowSize;
 
     public IcebergSinkConfig(ReadonlyConfig readonlyConfig) {
         super(readonlyConfig);
@@ -81,6 +82,7 @@ public class IcebergSinkConfig extends IcebergCommonConfig {
         this.dataSaveMode = readonlyConfig.get(IcebergSinkOptions.DATA_SAVE_MODE);
         this.dataSaveModeSQL = readonlyConfig.get(IcebergSinkOptions.DATA_SAVE_MODE_CUSTOM_SQL);
         this.commitBranch = readonlyConfig.get(IcebergSinkOptions.TABLES_DEFAULT_COMMIT_BRANCH);
+        this.flushRowSize = readonlyConfig.get(IcebergSinkOptions.FLUSH_ROW_SIZE);
     }
 
     @VisibleForTesting
