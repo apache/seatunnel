@@ -216,6 +216,9 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
 
         Assertions.assertEquals(Arrays.asList("U:1", "U:1", "U:flush"), recorder);
         Assertions.assertEquals(1, upsert.clearBatchCalls);
+    }
+
+    @Test
     void testCompositeKeyWithNullComponentIsNotReduced() throws SQLException {
         List<SeaTunnelRow> upserts = new ArrayList<>();
         // Composite key (code, name): only rows whose whole key is non-null are reduced
