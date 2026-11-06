@@ -280,9 +280,9 @@ Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
 ### dialect [string]
 
-The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example, when using mysql, you need to set its value to `mysql`.
+The appointed dialect. When set, its value must match one of the dialect names in the dialect list below (case-insensitive) and takes priority over the dialect inferred from the url; when it is not set, the dialect is inferred from the url. For example, when using MySQL, you need to set its value to `mysql`. Note: StarRocks is not a dialect name. When using StarRocks, leave `dialect` unset and set `compatible_mode` to `starrocks`. Inceptor is not a dialect name either. When using Inceptor, leave `dialect` unset or set `dialect` to `HIVE`, and set `compatible_mode` to `inceptor`.
 
-Note: `StarRocks` and `Inceptor` are not valid `dialect` values. StarRocks is handled by the MySQL dialect when `compatible_mode = "starrocks"` is set, and Inceptor is handled by the Hive dialect when `compatible_mode = "inceptor"` is set.
+If the `dialect` option is not set and no dialect matches the url, SeaTunnel uses the default dialect `GenericDialect`. If `dialect` is set to a value that does not match any supported dialect name, job initialization fails instead of falling back. Just make sure the driver you provided supports the database you want to connect.
 
 If one dialect not supported by SeaTunnel, it will use the default dialect `GenericDialect`. Just make sure the driver you provided support the database you want to connect.
 
