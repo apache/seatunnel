@@ -84,7 +84,7 @@ OceanBase Binlog Service 提供增量订阅能力。
 
 ```
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 5000
 }

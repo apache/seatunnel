@@ -49,6 +49,13 @@ Remove any manual offset used to compensate for this defect. Existing stored val
   - **Impact**: Before this change, the Doris sink followed the v3.0.0 downgrade contract and dropped the timezone offset while keeping the wall-clock digits unchanged. Stored `DATETIME` values for the same `TIMESTAMP_TZ` input can differ when the JVM default zone differs from the Doris session zone, or when `sink.datetime-timezone` is set explicitly. When the option is unset and the table has `TIMESTAMP_TZ` columns, the writer logs a warning.
   - **Migration Guide**: Set `sink.datetime-timezone` to the Doris session zone. Verify existing stored data if the JVM default zone and Doris session zone differed. (#11524)
 
+### Socket connector: connections now have a 10-second connect timeout by default
+
+- **Behavior change: `connect_timeout_ms` defaults to 10000 instead of leaving the wait to the operating system**
+  - **Description**: The Socket source and sink used to establish a TCP connection with no application-level timeout (`connect(address, 0)` for the source, `new Socket(host, port)` for the sink). A peer that was unreachable, stopped responding, or silently dropped the SYN blocked the connector thread until the OS TCP timeout expired. Both now default to a 10-second connect bound.
+  - **Impact**: Jobs whose target took longer than 10 seconds to accept a connection now fail at startup or on reconnect where they previously succeeded after a longer OS-managed wait. This applies to existing configurations that do not set the option. The source's blocking read behaviour is unchanged: `read_timeout_ms` defaults to `0`, so an idle stream is not treated as a failure.
+  - **Migration Guide**: Set `connect_timeout_ms = 0` on the source or sink to restore the previous OS-governed behaviour, or raise the value above 10000 for a legitimately slow peer. `read_timeout_ms` is source-only; it has no effect on the sink, which never reads from its socket.
+
 ### Zeta: runtime metric counters restart from zero after a pipeline failover restore
 
 - **Behavior change: runtime counters no longer accumulate values from a failed pipeline attempt**
@@ -100,6 +107,13 @@ protocol still uses `234`; its wrapper scripts continue to translate help to exi
 ### Markdown file source `child_ids` array
 
 The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a `String[]` for every row. Previously, it declared `STRING`, emitted comma-separated IDs for parents, and used `null` for leaves. Update downstream schemas and consumers to read an array; leaves now contain an empty array. The element IDs, types, page numbers, and position indexes retain their existing formats.
+
+### FTP connector: control connection replies are now bounded by a 60 second timeout
+
+- **Behavior change: the FTP source and sink stop waiting for a control-connection reply after 60 seconds**
+  - **Description**: The FTP file system created its client and called `connect(host, port)` without setting a read timeout. The underlying client's read timeout defaults to `0`, which means wait indefinitely, so a server that accepted the TCP connection but never sent a reply — a stalled server, or a connection accepted by a firewall or load balancer that is silently dropping traffic — left the calling thread blocked forever. The new `control_timeout` option bounds every reply read on the control connection, including the greeting, the login exchange and the per-command replies that precede a transfer, and defaults to 60000 ms. It applies to both the source and the sink.
+  - **Impact**: Jobs against a server that is reachable but does not answer the control channel now fail with a timeout instead of hanging. A job that previously stayed in `RUNNING` with no progress and no error now fails with the `SocketTimeoutException` raised by the underlying client, which reports the read that timed out but not the FTP host and port. Connections that answer within 60 seconds are unaffected. This option bounds control-channel replies only: the TCP connect is not covered, and neither is the data connection, so a host that silently drops the initial SYN, or a transfer that stalls after it has started, is not bounded by this option.
+  - **Migration Guide**: No action is required. If a server legitimately needs more than 60 seconds to answer a control command, for example on a slow link, raise `control_timeout` on the connector. Set it to `0` to restore the previous wait-indefinitely behavior. Note that the upper bound applies per reply, so a sink that uploads a large file and whose server post-processes it can wait longer than 60 seconds for the final `226 Transfer complete`; raise `control_timeout` for such servers.
 
 ### Runtime Requirements
 
@@ -458,6 +472,17 @@ or state format migration is required.
   - **File JSON**: For all file sources using the shared `JsonReadStrategy` (including LocalFile), schema defaults are supported only with `parse_partition_from_path = false`. The default `true` selects the merge-partition path, which intentionally does not apply schema defaults, even when the file path has no partition fields.
   - **Impact**: Source schemas that already configure defaults will now emit those defaults instead of `null` for missing fields, and for explicitly-`null` fields in ordinary JSON only. CDC explicit nulls remain null. This also affects jobs that set a source default only to generate a sink save-mode DDL default.
   - **Migration Guide**: If a job must preserve `null` for missing source fields (or explicitly-`null` fields in ordinary JSON), remove `defaultValue` from the source schema or move it to the sink-side schema. For any file source using the shared `JsonReadStrategy` to read JSON, set `parse_partition_from_path = false` to use schema defaults; path partition fields will then not be parsed by this option. (#11632)
+
+- **CSV source defaults for missing and configured null fields**: When a CSV source declares
+  `schema.columns[].defaultValue`, a column absent from the file header or a field matching
+  `null_format` now receives that default instead of null. Jobs without configured defaults are
+  unchanged, and an empty field remains null unless it matches `null_format`. If downstream logic
+  intentionally relied on null despite a configured default, remove that default from the source
+  schema before upgrading.
+  Configured defaults are now converted to the column type when the CSV reader is created.
+  A default that cannot be converted, such as `CURRENT_TIMESTAMP` for a TIMESTAMP column, now
+  fails the job at reader creation instead of being ignored, even if no field needs the default.
+  Defaults must be literal values, not SQL expressions. Fix or remove invalid defaults before upgrading.
 
 - **Breaking Change: JSON serialization of numeric fields now follows the runtime value type**
   - **Affected component**: `seatunnel-formats/seatunnel-format-json` (`RowToJsonConverters`) - affects every connector that serializes rows with the JSON format (for example Kafka, RabbitMQ, Pulsar, and file JSON sinks)

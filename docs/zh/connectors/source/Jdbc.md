@@ -298,10 +298,36 @@ numeric_special_value_as_null = true
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase | XUGU |
 | IRIS      | Inceptor | Highgo |
-| YashanDB  | DSQL     |          |
+| YashanDB  | DSQL     | CockroachDB |
 
 达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
 达梦 `TIMESTAMP WITH LOCAL TIME ZONE` 源字段会映射为 `TIMESTAMP_TZ`，`INTERVAL` 源字段会映射为 `STRING`。
+
+### CockroachDB
+
+使用现有 PostgreSQL JDBC 驱动，并显式配置 `dialect = "CockroachDB"`。未配置该选项时，`jdbc:postgresql:` URL 仍然选择 PostgreSQL 方言，不影响现有作业。
+
+```hocon
+Jdbc {
+  url = "jdbc:postgresql://cockroachdb:26257/app?sslmode=verify-full"
+  driver = "org.postgresql.Driver"
+  dialect = "CockroachDB"
+  username = "seatunnel"
+  password = ${DB_PASSWORD}
+  query = "SELECT id, customer, amount FROM public.orders"
+  partition_column = "customer"
+  partition_num = 4
+  split.string-strategy = "hash"
+}
+```
+
+请为驱动配置集群的受信任根证书。`sslmode=disable` 仅适用于临时的、不启用安全认证的本地测试集群。
+
+CockroachDB 不支持 PostgreSQL 的 `HASHTEXT` 函数。本方言使用 `FNV32` 对 STRING 和 UUID 等分区键进行哈希分片，并将空键值分配到一个分区，避免漏读。由于 CockroachDB 的 `pg_class.reltuples` 为 null，分片器需要行数时使用 `COUNT(*)`，这可能扫描输入表或查询。如果单 Reader 足够，可设置 `enable_concurrent_read = false` 跳过分片分析。
+
+字符串转换使用已发现的 schema 中的原生类型信息，而不是在游标打开期间查询结果集类型元数据。支持的读取场景无需启用预览参数 `multiple_active_portals_enabled`。显式 schema 未提供原生类型信息时，STRING 字段按普通字符串处理。
+
+首期支持通过 `query` 或明确的 `table_path` 有界读取现有表，复用 PostgreSQL 驱动兼容的类型映射。CockroachDB 24.3 测试覆盖 INT8、STRING、DECIMAL、BOOL、BYTES、UUID 和空值。不包含正则目录发现、CDC 和 range/auto 字符串分片。数值分片和字符串哈希分片复用现有 JDBC 分片生命周期，无需新增驱动或连接器插件。
 
 ## 并行读取器
 
