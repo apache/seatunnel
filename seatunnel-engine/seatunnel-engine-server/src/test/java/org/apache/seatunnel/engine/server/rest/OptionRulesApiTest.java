@@ -48,7 +48,7 @@ import static org.hamcrest.Matchers.hasItem;
 class OptionRulesApiTest {
 
     private static final Logger LOG = LogManager.getLogger(OptionRulesApiTest.class);
-    private static final int HTTP_PORT = 18082;
+    private static final int HTTP_PORT = TestUtils.getAvailablePort();
     private static final int HAZELCAST_PORT = TestUtils.getAvailablePort(100);
 
     private static HazelcastInstanceImpl instance;
