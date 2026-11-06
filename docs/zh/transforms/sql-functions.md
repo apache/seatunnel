@@ -1259,6 +1259,11 @@ BIGINT | LONG 也会以同样方式做范围检查，但只有超出范围的字
 `COALESCE(bigint_col, decimal_col)` 对 `18446744073709551616` 现在会失败，而不再返回 `0`。
 由于其中不涉及 cast，TRY_CAST 无法把这种情况转成 NULL。
 
+注意：转换为 `DECIMAL(p,s)` 时，无论来源类型是什么，都按四舍五入（远离零方向）保留 `s` 位小数：
+`CAST(1.21 AS DECIMAL(10,1))` 得到 `1.2`，`CAST(1.25 AS DECIMAL(10,1))` 得到 `1.3`，
+`CAST(-1.25 AS DECIMAL(10,1))` 得到 `-1.3`。FLOAT 或 DOUBLE 来源会先按其精确的二进制值转换，再进行舍入。
+当 `COALESCE` 和 `IFNULL` 推断出的结果类型是小数位数少于该值的 `DECIMAL` 时，也按同样的方式舍入。
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```

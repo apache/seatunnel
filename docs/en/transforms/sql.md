@@ -55,13 +55,11 @@ For an exact decimal constant, use a quoted string with sufficient scale, for
 example `amount = CAST('123456789012345678.99' AS DECIMAL(38, 2))`.
 For a negative constant, either `CAST('-123456789012345678.99' AS DECIMAL(38, 2))`
 or `-CAST('123456789012345678.99' AS DECIMAL(38, 2))` preserves decimal precision.
-Existing CAST rounding is unchanged: converting a string or `DECIMAL` to
-`DECIMAL(p, s)` uses `CEILING` (toward positive infinity) if scale is reduced,
-so `CAST('1.231' AS DECIMAL(10, 2))` is `1.24` and
-`CAST('-1.239' AS DECIMAL(10, 2))` is `-1.23`. Negating after CAST instead gives
-`-1.24` for `-CAST('1.239' AS DECIMAL(10, 2))`: reducing scale rounds before
-negation, so the two forms are not interchangeable in that case. Converting
-`FLOAT` or `DOUBLE` uses `HALF_UP`; casting a fractional numeric literal cannot recover precision
+When CAST reduces the scale, every source type rounds half away from zero
+(`HALF_UP`), so `CAST('1.231' AS DECIMAL(10, 2))` is `1.23` and
+`CAST('-1.239' AS DECIMAL(10, 2))` is `-1.24`, the same as
+`-CAST('1.239' AS DECIMAL(10, 2))`. `FLOAT` and `DOUBLE` are rounded from their
+exact binary value, so casting a fractional numeric literal cannot recover precision
 already lost during its evaluation as `DOUBLE`.
 
 The exact-or-floating choice is made for each operand pair, including each
