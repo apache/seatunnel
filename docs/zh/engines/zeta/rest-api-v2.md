@@ -87,6 +87,28 @@ seatunnel:
 
 [REST v2 只读接口的 OpenAPI 3.1 规范](@site/docs/engines/zeta/openapi-v2.yaml)目前仅覆盖 `GET /overview` 和 `GET /resource/workers`。下文的其他接口仍有文档，但尚未纳入机器可读规范。该规范与 Servlet 路由注册及响应测试一起维护。使用生成的客户端时，请按实际地址、端口及可选的上下文路径设置基础 URL。是否使用 Basic 认证取决于服务端配置；向非本机发送凭据时请使用 HTTPS。
 
+### 请求体编码
+
+读取文本或 JSON 请求体的接口在未声明请求字符集时默认使用 UTF-8。
+此前，未声明字符集的文本请求体按 ISO-8859-1 解码。
+发送 Latin-1 字节的客户端必须声明 `charset=ISO-8859-1`，或将请求体改为 UTF-8 编码。
+这包括 `/submit-job` 接收的 HOCON、SQL 和 JSON，以及 `/submit-jobs`、
+`/stop-job`、`/stop-jobs`、`/encrypt-config`、`/update-tags` 和 `/loggers/{name}`
+接收的 JSON 请求体。如果 `Content-Type` 显式声明了受支持的 `charset`，则使用该字符集；
+不支持的字符集会返回 HTTP `400`，并在错误信息中包含 `Unsupported request charset`。
+例如，`Content-Type: text/plain` 使用 UTF-8，
+而 `Content-Type: text/plain; charset=ISO-8859-1` 使用 ISO-8859-1。
+
+可以使用以下命令提交 UTF-8 编码的 HOCON 文件，而不声明字符集：
+
+```shell
+curl -X POST 'http://localhost:8080/submit-job?format=hocon' \
+  -H 'Content-Type: text/plain' --data-binary @job.conf
+```
+
+此规则适用于原始请求体，不改变 URL、查询参数或表单参数的解析方式。
+`/submit-job/upload` 的 multipart 配置文件上传仍按 UTF-8 读取文件内容。
+
 ### 获取 Connector 的 OptionRule
 
 <details>

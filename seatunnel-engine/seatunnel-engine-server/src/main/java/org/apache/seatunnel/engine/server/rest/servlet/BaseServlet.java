@@ -35,6 +35,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -138,8 +139,22 @@ public class BaseServlet extends HttpServlet {
         return seaTunnelServer;
     }
 
+    /**
+     * Reads the body using its declared charset, or UTF-8 when absent, and returns UTF-8 bytes for
+     * the config parsers. Unsupported declarations are client errors rather than server failures.
+     */
     protected byte[] requestBody(HttpServletRequest req, ConfigFormat configFormat)
             throws IOException {
+        String charset = req.getCharacterEncoding();
+        if (charset == null) {
+            req.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        } else {
+            try {
+                Charset.forName(charset);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Unsupported request charset: " + charset, e);
+            }
+        }
         StringBuilder stringBuilder = new StringBuilder();
         String line;
 
