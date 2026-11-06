@@ -57,7 +57,7 @@ Because the pattern is written inside a HOCON string, backslashes must be escape
 
 The names of the fields produced by the transform, in capture group order: the first output field receives capture group 1, the second receives capture group 2, and so on. The list must not be empty.
 
-Every output column is a nullable `STRING` column with length 200. The columns are appended after the existing input columns; the input field is not removed. If an output field name already exists in the input table, that column is reused and overwritten instead of appended.
+New output columns are appended after the existing input columns; the input field is not removed. Every column appended this way is a nullable `STRING` column with length 200. If an output field name already exists in the input table, that column is reused and overwritten instead of appended: the extracted value replaces its value, but the column keeps its original schema metadata — in particular, a reused column does not automatically become nullable or change its length. The only metadata that can change is the data type: if it differs from `STRING`, the column is copied with the `STRING` data type while its other metadata is retained.
 
 ### default_values [Array<String>]
 
