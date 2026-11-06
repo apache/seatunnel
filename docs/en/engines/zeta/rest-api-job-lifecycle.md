@@ -392,7 +392,7 @@ curl http://<master>:8080/overview | \
 | `Connection refused` | Master not started or firewall blocking port | Verify master process is running; check firewall |
 | `jobId not found` in `job-info` | Job has already finished or was never started | Query `/finished-jobs/:state` with the expected final state |
 | Submit returns `400 Bad Request` | Malformed JSON or missing required fields | Validate JSON; check `plugin_name` spelling |
-| `The job id ... has already been submitted and is not starting with a savepoint` | Resubmitting a job with a fixed `job.id` while it is still registered | Cancel or stop the existing job first, then resubmit |
+| `The job id ... has already been submitted and is not starting with a savepoint` | Resubmitting a job with a fixed `job.id` while history for that ID is still retained (cancelling does not clear it) | Submit a fresh job with a new `job.id`, or restore intentionally via the documented savepoint/restore flow |
 | `Unauthorized 401` | Basic authentication is enabled but no credentials were provided | Include `-u user:pass` |
 | Restoration fails with missing or incompatible checkpoint data | Checkpoint data for `restoreSourceJobId` was cleaned up or is incompatible | Verify checkpoint storage contents and `history-job-expire-minutes` retention; the REST API cannot point to a custom savepoint path |
 

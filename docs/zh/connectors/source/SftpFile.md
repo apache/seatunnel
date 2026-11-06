@@ -648,7 +648,7 @@ sink {
 }
 ```
 
-配置后，`password` 和 `keyfile` 都会被加载到 SSH 会话中。连接器内部使用 JSCH 库，其默认认证顺序会先尝试 `publickey`（通过 `keyfile`），再尝试 `password`。为避免认证失败时出现意外情况，建议只配置其中之一。引擎进程必须有权限读取 `keyfile`；如果私钥文件设有口令保护，请在作业启动前配置 SSH agent 或先解密私钥。
+配置后，`password` 和 `keyfile` 都会被加载到 SSH 会话中。连接器内部使用 JSCH 库，其默认认证顺序会先尝试 `publickey`（通过 `keyfile`），再尝试 `password`。为避免认证失败时出现意外情况，建议只配置其中之一。引擎进程必须有权限读取 `keyfile`；不支持设有口令保护的私钥文件，请在作业启动前先解密私钥。
 ### 多表
 
 ```hocon

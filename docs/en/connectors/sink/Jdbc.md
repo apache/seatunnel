@@ -279,7 +279,7 @@ Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
 ### dialect [string]
 
-The appointed dialect. When set, its value must match one of the dialect names in the dialect list below (case-insensitive) and takes priority over the dialect inferred from the url; when it is not set, the dialect is inferred from the url. For example, when using MySQL, you need to set its value to `mysql`. Note: StarRocks is not a dialect name. When using StarRocks, leave `dialect` unset and set `compatible_mode` to `starrocks`.
+The appointed dialect. When set, its value must match one of the dialect names in the dialect list below (case-insensitive) and takes priority over the dialect inferred from the url; when it is not set, the dialect is inferred from the url. For example, when using MySQL, you need to set its value to `mysql`. Note: StarRocks is not a dialect name. When using StarRocks, leave `dialect` unset and set `compatible_mode` to `starrocks`. Inceptor is not a dialect name either. When using Inceptor, leave `dialect` unset or set `dialect` to `HIVE`, and set `compatible_mode` to `inceptor`.
 
 If the `dialect` option is not set and no dialect matches the url, SeaTunnel uses the default dialect `GenericDialect`. If `dialect` is set to a value that does not match any supported dialect name, job initialization fails instead of falling back. Just make sure the driver you provided supports the database you want to connect.
 
@@ -294,9 +294,10 @@ If the `dialect` option is not set and no dialect matches the url, SeaTunnel use
 | SapHana   | Snowflake    | Sqlite   |
 | SqlServer | Tablestore   | Teradata |
 | Vertica   | OceanBase    | XUGU     |
-| IRIS      | Inceptor     | Highgo   |
+| IRIS      | Presto       | Highgo   |
 | DSQL      |              |          |
 | YashanDB  | CockroachDB  |          |
+| DuckDB    |              |          |
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.

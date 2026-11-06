@@ -74,7 +74,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | datetime_format           | string  | 否  | yyyy-MM-dd HH:mm:ss         | 日期时间类型格式                                                                      |
 | time_format               | string  | 否  | HH:mm:ss                    | 时间类型格式                                                                        |
 | skip_header_row_number    | long    | 否  | 0                           | 跳过前几行                                                                         |
-| schema                    | config  | 否  | -                           | 上游数据的模式信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
+| schema                    | config  | 条件必填 | -                        | 上游数据的模式信息。当 `file_format_type` 为 `text`、`json`、`excel`、`csv` 或 `xml` 时必填；其他格式（如 `parquet`、`orc`）连接器可自动推断 schema。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 | sheet_name                | string  | 否  | -                           | Excel 工作表名称                                                                   |
 | excel_engine              | string  | 否  | POI                         | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                            |
 | poi_excel_max_file_size   | long    | 否  | 52428800                    | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                            |
@@ -150,7 +150,7 @@ schema {
 
 如果您将文件类型指定为 `parquet` `orc`，则不需要 schema 选项，连接器可以自动找到上游数据的 schema。
 
-如果您将文件类型指定为 `text` `csv`，您可以选择是否指定 schema 信息。
+如果您将文件类型指定为 `text` `csv`，则必须指定 schema 信息：本连接器对 `text`、`json`、`excel`、`csv`、`xml` 格式均要求配置 `schema`，缺失时作业初始化会失败。
 
 例如，上游数据如下：
 
@@ -160,15 +160,25 @@ tyrantlucifer#26#male
 
 ```
 
-如果您未指定数据 schema，连接器会将上游数据处理为如下形式：
+如果希望将整行保留为单列，请显式配置如下 `schema`：
+
+```hocon
+
+schema {
+    fields {
+        content = string
+    }
+}
+
+```
+
+连接器将生成如下数据：
 
 |        content        |
 |-----------------------|
 | tyrantlucifer#26#male |
 
-如果您指定了数据 schema，除 CSV 文件类型外，您还应该指定选项 `field_delimiter`。
-
-您应该按如下方式指定 schema 和分隔符：
+您也可以将每行拆分为多列，此时需要配置与字段匹配的 `schema`，并（除 CSV 文件类型外）同时指定 `field_delimiter` 选项，配置方式如下：
 
 ```hocon
 
