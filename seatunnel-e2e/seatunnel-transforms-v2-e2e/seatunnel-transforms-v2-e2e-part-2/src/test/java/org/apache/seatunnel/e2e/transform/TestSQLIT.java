@@ -54,6 +54,9 @@ public class TestSQLIT extends TestSuiteBase {
         Container.ExecResult sqlCriteriaFilter =
                 container.executeJob("/sql_transform/criteria_filter.conf");
         Assertions.assertEquals(0, sqlCriteriaFilter.getExitCode());
+        Container.ExecResult sqlLikePattern =
+                container.executeJob("/sql_transform/like_pattern.conf");
+        Assertions.assertEquals(0, sqlLikePattern.getExitCode());
         Container.ExecResult sqlAllColumns =
                 container.executeJob("/sql_transform/sql_all_columns.conf");
         Assertions.assertEquals(0, sqlAllColumns.getExitCode());

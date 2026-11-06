@@ -72,6 +72,55 @@ comparison uses `DOUBLE`. Equality is therefore not necessarily transitive
 across mixed exact and floating types; use exact operands consistently when
 precision matters. These rules apply to both `ZETA` and `INTERNAL`.
 
+## Pattern matching
+
+`LIKE`, `NOT LIKE`, `RLIKE`, `REGEXP` and `ILIKE` are supported in `WHERE` clauses and in
+`CASE WHEN` conditions.
+
+### LIKE and NOT LIKE
+
+In a LIKE pattern `%` matches any sequence of characters, `_` matches exactly one character, and
+every other character matches itself. The wildcards work in every position of the pattern, not
+only at the start or the end:
+
+| predicate | value | result |
+|---|---|---|
+| `name LIKE 'Al%'` | `Alice` | `true` |
+| `name LIKE 'A%ce'` | `Alice` | `true` |
+| `name LIKE '_li%'` | `Alice` | `true` |
+| `name LIKE 'A_i_e'` | `Alice` | `true` |
+| `name LIKE '%%%%'` | `Alice` | `true` |
+| `name LIKE '1.5'` | `125` | `false` |
+
+Every character other than `%` and `_` is compared literally, so a character that happens to be
+special in a regular expression has no special meaning here: `'125' LIKE '1.5'` is `false`
+because the `.` must match a literal dot, and `name LIKE 'a(b%'` is a valid pattern rather than an
+error.
+
+`%` and `_` also match a line break, so `"a\nb" LIKE 'a%b'` is `true`.
+
+If either operand is `NULL` the row is not kept, for both `LIKE` and `NOT LIKE`, because a
+comparison with `NULL` is unknown.
+
+### RLIKE and REGEXP
+
+`RLIKE` and `REGEXP` are synonyms. Their right-hand side is a regular expression, evaluated with
+the same semantics as `Pattern.matches`: the pattern must match the whole value, so use `.*` when
+you want a substring search.
+
+```sql
+select id, name from dual where name RLIKE 'A.*e'      -- matches Alice
+select id, name from dual where name REGEXP '^A.*e$'   -- same, anchored explicitly
+```
+
+The pattern is used verbatim. `%` and `_` are ordinary characters here, not wildcards.
+
+### Limitations
+
+- `LIKE ... ESCAPE` is not supported. There is currently no way to match a literal `%` or `_`
+  inside a LIKE pattern, and an `ESCAPE` clause is ignored rather than rejected.
+- `ILIKE` is parsed but currently behaves the same as `LIKE`: it is case-sensitive.
+
 ## Example
 
 The data read from source is a table like this:
