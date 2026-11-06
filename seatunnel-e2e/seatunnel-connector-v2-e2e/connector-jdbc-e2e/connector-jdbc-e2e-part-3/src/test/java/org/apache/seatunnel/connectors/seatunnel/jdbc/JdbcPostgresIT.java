@@ -24,14 +24,19 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -466,6 +471,52 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             boolean createIndex) {
         postgresCatalog.createTable(targetTablePath, catalogTable, false, createIndex);
         Assertions.assertTrue(postgresCatalog.tableExists(targetTablePath));
+    }
+
+    /**
+     * Verifies native PostgreSQL parameter types through the runtime dialect and real driver.
+     *
+     * <p>This preserves the driver boundary when dialects are selected for runtime execution.
+     */
+    @Test
+    public void testJsonAndUuidPreparedParameterTypes() throws Exception {
+        String[] types = {"json", "jsonb", "uuid"};
+        TableSchema.Builder schemaBuilder = TableSchema.builder();
+        for (String type : types) {
+            schemaBuilder.column(
+                    PhysicalColumn.builder()
+                            .name(type)
+                            .dataType(BasicType.STRING_TYPE)
+                            .sourceType(type)
+                            .build());
+        }
+        TableSchema schema = schemaBuilder.build();
+        JdbcDialect dialect =
+                JdbcDialectLoader.load(
+                        POSTGRESQL_CONTAINER.getJdbcUrl(), "postgres", null, "", null);
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement statement =
+                        connection.prepareStatement(
+                                "SELECT pg_typeof(?)::text, pg_typeof(?)::text, pg_typeof(?)::text")) {
+            dialect.getRowConverter()
+                    .toExternal(
+                            schema,
+                            schema,
+                            new SeaTunnelRow(
+                                    new Object[] {
+                                        "{\"key\":\"value\"}",
+                                        "{\"key\":\"value\"}",
+                                        "123e4567-e89b-12d3-a456-426614174000"
+                                    }),
+                            statement);
+            try (ResultSet result = statement.executeQuery()) {
+                Assertions.assertTrue(result.next());
+                for (int i = 0; i < types.length; i++) {
+                    Assertions.assertEquals(types[i], result.getString(i + 1));
+                }
+                Assertions.assertFalse(result.next());
+            }
+        }
     }
 
     @TestTemplate
