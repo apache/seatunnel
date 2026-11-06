@@ -71,7 +71,12 @@ public class IoTDBv2SinkOptions extends IoTDBv2CommonOptions {
                     .noDefaultValue()
                     .withDescription("max thrift frame size");
     public static final Option<String> ZONE_ID =
-            Options.key("zone_id").stringType().noDefaultValue().withDescription("zone id");
+            Options.key("zone_id")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Zone ID for TIMESTAMP conversion and the IoTDB client. If omitted, "
+                                    + "TIMESTAMP conversion uses UTC and the client keeps its default time zone.");
     public static final Option<Boolean> ENABLE_RPC_COMPRESSION =
             Options.key("enable_rpc_compression")
                     .booleanType()

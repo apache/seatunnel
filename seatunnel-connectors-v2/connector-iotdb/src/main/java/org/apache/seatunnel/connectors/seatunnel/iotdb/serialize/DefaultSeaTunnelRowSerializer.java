@@ -30,15 +30,19 @@ import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 import lombok.NonNull;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
 
+    private final ZoneId zoneId;
+    private final LongSupplier currentTimeMillis;
     private final Function<SeaTunnelRow, Long> timestampExtractor;
     private final Function<SeaTunnelRow, String> deviceExtractor;
     private final Function<SeaTunnelRow, List<Object>> valuesExtractor;
@@ -51,6 +55,43 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             String timestampKey,
             @NonNull String deviceKey,
             List<String> measurementKeys) {
+        this(
+                seaTunnelRowType,
+                storageGroup,
+                timestampKey,
+                deviceKey,
+                measurementKeys,
+                ZoneOffset.UTC);
+    }
+
+    /** Creates a serializer using the supplied zone for local timestamps, or UTC when absent. */
+    public DefaultSeaTunnelRowSerializer(
+            @NonNull SeaTunnelRowType seaTunnelRowType,
+            String storageGroup,
+            String timestampKey,
+            @NonNull String deviceKey,
+            List<String> measurementKeys,
+            ZoneId zoneId) {
+        this(
+                seaTunnelRowType,
+                storageGroup,
+                timestampKey,
+                deviceKey,
+                measurementKeys,
+                zoneId,
+                System::currentTimeMillis);
+    }
+
+    DefaultSeaTunnelRowSerializer(
+            @NonNull SeaTunnelRowType seaTunnelRowType,
+            String storageGroup,
+            String timestampKey,
+            @NonNull String deviceKey,
+            List<String> measurementKeys,
+            ZoneId zoneId,
+            @NonNull LongSupplier currentTimeMillis) {
+        this.zoneId = zoneId == null ? ZoneOffset.UTC : zoneId;
+        this.currentTimeMillis = currentTimeMillis;
         this.timestampExtractor = createTimestampExtractor(seaTunnelRowType, timestampKey);
         this.deviceExtractor = createDeviceExtractor(seaTunnelRowType, deviceKey, storageGroup);
         this.measurements =
@@ -71,14 +112,14 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     private Function<SeaTunnelRow, Long> createTimestampExtractor(
             SeaTunnelRowType seaTunnelRowType, String timestampKey) {
         if (Strings.isNullOrEmpty(timestampKey)) {
-            return row -> System.currentTimeMillis();
+            return row -> currentTimeMillis.getAsLong();
         }
 
         int timestampFieldIndex = seaTunnelRowType.indexOf(timestampKey);
         return row -> {
             Object timestamp = row.getField(timestampFieldIndex);
             if (timestamp == null) {
-                return System.currentTimeMillis();
+                return currentTimeMillis.getAsLong();
             }
             SeaTunnelDataType<?> timestampFieldType =
                     seaTunnelRowType.getFieldType(timestampFieldIndex);
@@ -86,10 +127,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 case STRING:
                     return Long.parseLong((String) timestamp);
                 case TIMESTAMP:
-                    return ((LocalDateTime) timestamp)
-                            .atZone(ZoneOffset.UTC)
-                            .toInstant()
-                            .toEpochMilli();
+                    return convertTimestamp((LocalDateTime) timestamp, timestampKey);
                 case BIGINT:
                     return (Long) timestamp;
                 default:
@@ -98,6 +136,25 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                             "Unsupported data type: " + timestampFieldType);
             }
         };
+    }
+
+    /** Rejects local times that cannot identify exactly one instant in the configured zone. */
+    private long convertTimestamp(LocalDateTime timestamp, String fieldName) {
+        List<ZoneOffset> offsets = zoneId.getRules().getValidOffsets(timestamp);
+        if (offsets.size() != 1) {
+            throw new IotdbConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    "Cannot convert TIMESTAMP field '"
+                            + fieldName
+                            + "' with value '"
+                            + timestamp
+                            + "' and zone_id '"
+                            + zoneId
+                            + "': local time has "
+                            + offsets.size()
+                            + " valid offsets. Use UTC or BIGINT epoch milliseconds.");
+        }
+        return timestamp.toInstant(offsets.get(0)).toEpochMilli();
     }
 
     private Function<SeaTunnelRow, String> createDeviceExtractor(

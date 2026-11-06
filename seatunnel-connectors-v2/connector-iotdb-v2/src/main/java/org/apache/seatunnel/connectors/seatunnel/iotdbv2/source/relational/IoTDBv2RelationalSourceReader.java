@@ -36,6 +36,7 @@ import shaded.org.apache.iotdb.session.TableSessionBuilder;
 import shaded.org.apache.tsfile.read.common.RowRecord;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.DATABASE;
@@ -45,6 +46,7 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2So
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.NODE_URLS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.ZONE_ID;
 
 public class IoTDBv2RelationalSourceReader extends IoTDBv2AbstractSourceReader {
 
@@ -53,7 +55,11 @@ public class IoTDBv2RelationalSourceReader extends IoTDBv2AbstractSourceReader {
     public IoTDBv2RelationalSourceReader(
             ReadonlyConfig conf, SourceReader.Context readerContext, SeaTunnelRowType rowType) {
         super(conf, readerContext);
-        this.deserializer = new DefaultSeaTunnelRowDeserializer(rowType, SourceConstants.TABLE);
+        this.deserializer =
+                new DefaultSeaTunnelRowDeserializer(
+                        rowType,
+                        SourceConstants.TABLE,
+                        conf.getOptional(ZONE_ID).map(ZoneId::of).orElse(null));
     }
 
     @Override
@@ -98,6 +104,7 @@ public class IoTDBv2RelationalSourceReader extends IoTDBv2AbstractSourceReader {
                     Integer.parseInt(conf.get(MAX_THRIFT_FRAME_SIZE).toString()));
         }
 
+        conf.getOptional(ZONE_ID).map(ZoneId::of).ifPresent(sessionBuilder::zoneId);
         return sessionBuilder.build();
     }
 

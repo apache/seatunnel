@@ -26,16 +26,26 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorE
 import org.apache.iotdb.tsfile.read.common.Field;
 import org.apache.iotdb.tsfile.read.common.RowRecord;
 
-import lombok.AllArgsConstructor;
-
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.Date;
 import java.util.List;
 
-@AllArgsConstructor
 public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer {
 
     private final SeaTunnelRowType rowType;
+    private final ZoneId zoneId;
+
+    public DefaultSeaTunnelRowDeserializer(SeaTunnelRowType rowType) {
+        this(rowType, ZoneOffset.UTC);
+    }
+
+    /** Creates a deserializer using the supplied zone for local timestamps, or UTC when absent. */
+    public DefaultSeaTunnelRowDeserializer(SeaTunnelRowType rowType, ZoneId zoneId) {
+        this.rowType = rowType;
+        this.zoneId = zoneId == null ? ZoneOffset.UTC : zoneId;
+    }
 
     @Override
     public SeaTunnelRow deserialize(RowRecord rowRecord) {
@@ -101,7 +111,23 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
     private Object convertTimestamp(long timestamp, SeaTunnelDataType<?> seaTunnelFieldType) {
         switch (seaTunnelFieldType.getSqlType()) {
             case TIMESTAMP:
-                return new Date(timestamp).toInstant().atZone(ZoneOffset.UTC).toLocalDateTime();
+                LocalDateTime localTimestamp =
+                        Instant.ofEpochMilli(timestamp).atZone(zoneId).toLocalDateTime();
+                // Dropping the offset during an overlap would lose the original instant.
+                if (zoneId.getRules().getValidOffsets(localTimestamp).size() != 1) {
+                    throw new IotdbConnectorException(
+                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                            "Cannot convert epoch milliseconds "
+                                    + timestamp
+                                    + " to TIMESTAMP field '"
+                                    + rowType.getFieldNames()[0]
+                                    + "' with local value '"
+                                    + localTimestamp
+                                    + "' and zone_id '"
+                                    + zoneId
+                                    + "': local time has multiple valid offsets. Use UTC or BIGINT epoch milliseconds.");
+                }
+                return localTimestamp;
             case BIGINT:
                 return timestamp;
             default:

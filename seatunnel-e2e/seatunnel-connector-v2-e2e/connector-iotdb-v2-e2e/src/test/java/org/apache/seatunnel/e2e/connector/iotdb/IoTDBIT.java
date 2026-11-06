@@ -46,10 +46,12 @@ import shaded.org.apache.tsfile.read.common.RowRecord;
 import shaded.org.apache.tsfile.utils.Binary;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -105,8 +107,137 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/iotdb/iotdb_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        List<RowRecord> sinkDataset = readSinkDataset();
-        assertDatasetEquals(testDataset, sinkDataset);
+        List<RowRecord> sinkDataset = readSinkDataset(SINK_GROUP);
+        assertDatasetEquals(testDataset, sinkDataset, 0);
+    }
+
+    @TestTemplate
+    public void testIoTDBWithZoneId(TestContainer container) throws Exception {
+        // Different source and sink zones expose conversion errors in either direction.
+        assertZoneIdConversion(
+                container,
+                "Asia/Shanghai",
+                "UTC",
+                SINK_GROUP + "_source_zone",
+                "timestamp",
+                TimeUnit.HOURS.toMillis(8));
+        assertZoneIdConversion(
+                container,
+                "UTC",
+                "Asia/Shanghai",
+                SINK_GROUP + "_sink_zone",
+                "timestamp",
+                -TimeUnit.HOURS.toMillis(8));
+        // Raw epochs preserve both instants that share a local time during the DST overlap.
+        assertZoneIdConversion(
+                container,
+                "America/New_York",
+                "America/New_York",
+                SINK_GROUP + "_epoch",
+                "bigint",
+                0);
+    }
+
+    private void assertZoneIdConversion(
+            TestContainer container,
+            String sourceZone,
+            String sinkZone,
+            String sinkGroupPrefix,
+            String timestampType,
+            long timestampOffset)
+            throws Exception {
+        // Each engine invocation must prove it wrote its own rows.
+        String sinkGroup = sinkGroupPrefix + "_" + UUID.randomUUID().toString().replace("-", "");
+        Throwable failure = null;
+        try {
+            session.setStorageGroup(sinkGroup);
+            Container.ExecResult result =
+                    container.executeJob(
+                            "/iotdb/iotdb_source_to_sink_zone.conf",
+                            Arrays.asList(
+                                    "source_zone=" + sourceZone,
+                                    "sink_zone=" + sinkZone,
+                                    "sink_group=" + sinkGroup,
+                                    "timestamp_type=" + timestampType));
+            Assertions.assertEquals(
+                    0,
+                    result.getExitCode(),
+                    () ->
+                            String.format(
+                                    "IoTDB timezone job failed (source_zone=%s, sink_zone=%s, "
+                                            + "timestamp_type=%s, sink_group=%s). stdout: %s; stderr: %s",
+                                    sourceZone,
+                                    sinkZone,
+                                    timestampType,
+                                    sinkGroup,
+                                    result.getStdout(),
+                                    result.getStderr()));
+            assertDatasetEquals(testDataset, readSinkDataset(sinkGroup), timestampOffset);
+        } catch (Exception | AssertionError e) {
+            failure = e;
+            logIoTDBDiagnostics(failure, sinkGroup);
+            throw e;
+        } finally {
+            // Do not accumulate databases across engines or hide the original test failure.
+            try {
+                session.deleteStorageGroup(sinkGroup);
+            } catch (Exception cleanupFailure) {
+                if (failure != null) {
+                    failure.addSuppressed(cleanupFailure);
+                } else {
+                    throw cleanupFailure;
+                }
+            }
+        }
+    }
+
+    private void logIoTDBDiagnostics(Throwable failure, String sinkGroup) {
+        log.error(
+                "Collecting IoTDB diagnostics after timezone test failure for {}",
+                sinkGroup,
+                failure);
+        System.err.printf("IoTDB timezone test failed for %s%n", sinkGroup);
+        failure.printStackTrace(System.err);
+        for (String statement : Arrays.asList("SHOW CLUSTER", "SHOW REGIONS")) {
+            try (SessionDataSet dataSet =
+                    session.executeQueryStatement(statement, TimeUnit.SECONDS.toMillis(10))) {
+                while (dataSet.hasNext()) {
+                    RowRecord record = dataSet.next();
+                    log.error("IoTDB {}: {}", statement, record);
+                    System.err.printf("IoTDB %s: %s%n", statement, record);
+                }
+            } catch (Exception diagnosticFailure) {
+                failure.addSuppressed(diagnosticFailure);
+                log.warn(
+                        "Unable to execute IoTDB diagnostic query {}",
+                        statement,
+                        diagnosticFailure);
+                System.err.printf(
+                        "Unable to execute IoTDB diagnostic query %s: %s%n",
+                        statement, diagnosticFailure);
+            }
+        }
+        try {
+            Container.ExecResult logs =
+                    iotdbServer.execInContainer(
+                            "sh",
+                            "-c",
+                            "tail -n 200 /iotdb/logs/log_confignode_all.log "
+                                    + "/iotdb/logs/log_datanode_all.log");
+            log.error("IoTDB server log tail:\n{}", logs.getStdout());
+            System.err.printf("IoTDB server log tail:%n%s%n", logs.getStdout());
+            if (logs.getExitCode() != 0) {
+                log.warn("Unable to read IoTDB server logs: {}", logs.getStderr());
+                System.err.printf("Unable to read IoTDB server logs: %s%n", logs.getStderr());
+            }
+        } catch (Exception diagnosticFailure) {
+            if (diagnosticFailure instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            failure.addSuppressed(diagnosticFailure);
+            log.warn("Unable to read IoTDB server logs", diagnosticFailure);
+            System.err.printf("Unable to read IoTDB server logs: %s%n", diagnosticFailure);
+        }
     }
 
     private Session createSession() {
@@ -152,7 +283,8 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
             }
 
             for (int rowCount = 0; rowCount < 100; rowCount++) {
-                long timestamp = System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(rowCount);
+                // Includes 2024-11-03T05:30Z and 06:30Z, both 01:30 in America/New_York.
+                long timestamp = 1730611800000L + TimeUnit.MINUTES.toMillis(rowCount);
                 RowRecord record = new RowRecord(timestamp);
                 record.addField(new Binary(deviceId.getBytes()), TSDataType.TEXT);
                 record.addField(Boolean.FALSE, TSDataType.BOOLEAN);
@@ -180,36 +312,42 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
         return rowRecords;
     }
 
-    private List<RowRecord> readSinkDataset()
+    private List<RowRecord> readSinkDataset(String sinkGroup)
             throws IoTDBConnectionException, StatementExecutionException {
-        SessionDataSet dataSet =
+        try (SessionDataSet dataSet =
                 session.executeQueryStatement(
                         "SELECT c_string, c_boolean, c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double FROM "
-                                + SINK_GROUP
-                                + ".* align by device");
-        List<RowRecord> results = new ArrayList<>();
-        while (dataSet.hasNext()) {
-            RowRecord record = dataSet.next();
-            List<Field> notContainDeviceField =
-                    record.getFields().stream()
-                            .filter(field -> !field.getStringValue().startsWith(SINK_GROUP))
-                            .collect(Collectors.toList());
-            record = new RowRecord(record.getTimestamp(), notContainDeviceField);
-            results.add(record);
-            log.info("SinkDataset row: {}", record);
+                                + sinkGroup
+                                + ".* align by device")) {
+            List<RowRecord> results = new ArrayList<>();
+            while (dataSet.hasNext()) {
+                RowRecord record = dataSet.next();
+                List<Field> notContainDeviceField =
+                        record.getFields().stream()
+                                .filter(field -> !field.getStringValue().startsWith(sinkGroup))
+                                .collect(Collectors.toList());
+                record = new RowRecord(record.getTimestamp(), notContainDeviceField);
+                results.add(record);
+                log.info("SinkDataset row: {}", record);
+            }
+            return results;
         }
-        return results;
     }
 
-    private void assertDatasetEquals(List<RowRecord> testDataset, List<RowRecord> sinkDataset) {
+    private void assertDatasetEquals(
+            List<RowRecord> testDataset, List<RowRecord> sinkDataset, long timestampOffset) {
         Assertions.assertEquals(testDataset.size(), sinkDataset.size());
 
-        Collections.sort(testDataset, Comparator.comparingLong(RowRecord::getTimestamp));
-        Collections.sort(sinkDataset, Comparator.comparingLong(RowRecord::getTimestamp));
+        Comparator<RowRecord> rowOrder =
+                Comparator.comparingLong(RowRecord::getTimestamp)
+                        .thenComparing(record -> record.getField(0).getStringValue());
+        Collections.sort(testDataset, rowOrder);
+        Collections.sort(sinkDataset, rowOrder);
         for (int rowIndex = 0; rowIndex < testDataset.size(); rowIndex++) {
             RowRecord testDatasetRow = testDataset.get(rowIndex);
             RowRecord sinkDatasetRow = sinkDataset.get(rowIndex);
-            Assertions.assertEquals(testDatasetRow.getTimestamp(), sinkDatasetRow.getTimestamp());
+            Assertions.assertEquals(
+                    testDatasetRow.getTimestamp() + timestampOffset, sinkDatasetRow.getTimestamp());
 
             List<Field> testDatasetRowFields = testDatasetRow.getFields();
             List<Field> sinkDatasetRowFields = sinkDatasetRow.getFields();

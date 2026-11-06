@@ -160,6 +160,23 @@ class IoTDBFactoryTest {
     @ParameterizedTest
     @ValueSource(
             strings = {
+                "sql = x\nschema {fields {ts = timestamp}}",
+                "tables_configs = [{sql = x, schema {table = a, fields {ts = timestamp}}}]"
+            })
+    void acceptsSourceLevelZoneForSingleAndMultipleTables(String options) {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromConfig(
+                        ConfigFactory.parseString(
+                                "node_urls = \"localhost:6667\"\nusername = root\npassword = root\n"
+                                        + "zone_id = \"Asia/Shanghai\"\n"
+                                        + options));
+        ConfigValidator.of(config).validate(new IoTDBSourceFactory().optionRule());
+        Assertions.assertEquals("Asia/Shanghai", config.get(IoTDBSourceOptions.ZONE_ID));
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
                 "SELECT value FROM root.test LIMIT 1",
                 "SELECT value FROM root.test -- comment",
                 "SELECT value FROM root.test /* comment */",

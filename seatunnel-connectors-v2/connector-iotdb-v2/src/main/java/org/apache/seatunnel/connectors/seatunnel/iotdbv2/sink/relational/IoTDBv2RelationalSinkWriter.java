@@ -84,7 +84,8 @@ public class IoTDBv2RelationalSinkWriter extends AbstractSinkWriter<SeaTunnelRow
                         tagKeys,
                         attributeKeys,
                         fieldNames,
-                        fieldTypes);
+                        fieldTypes,
+                        sinkConfig.getZoneId());
         this.sinkClient =
                 new IoTDBv2RelationalSinkClient(
                         sinkConfig, tagKeys, attributeKeys, fieldNames, fieldTypes);

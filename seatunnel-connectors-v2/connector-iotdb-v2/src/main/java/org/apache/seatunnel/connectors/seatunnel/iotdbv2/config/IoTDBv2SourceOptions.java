@@ -28,6 +28,14 @@ import org.apache.seatunnel.api.configuration.Options;
  */
 public class IoTDBv2SourceOptions extends IoTDBv2CommonOptions {
 
+    public static final Option<String> ZONE_ID =
+            Options.key("zone_id")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Zone ID for TIMESTAMP conversion and the IoTDB client. If omitted, "
+                                    + "TIMESTAMP conversion uses UTC and the client keeps its default time zone.");
+
     /** Sql query */
     public static final Option<String> SQL =
             Options.key("sql").stringType().noDefaultValue().withDescription("sql");

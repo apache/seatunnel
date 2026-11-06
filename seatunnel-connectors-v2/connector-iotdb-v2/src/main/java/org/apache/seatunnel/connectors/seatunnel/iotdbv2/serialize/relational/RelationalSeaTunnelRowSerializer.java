@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.serialize.SeaTunnelRowSerializer;
 
@@ -31,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 import shaded.org.apache.tsfile.enums.TSDataType;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +47,7 @@ public class RelationalSeaTunnelRowSerializer
     private final Function<SeaTunnelRow, List<String>> tagsExtractor;
     private final Function<SeaTunnelRow, List<String>> attributesExtractor;
     private final Function<SeaTunnelRow, List<Object>> fieldsExtractor;
+    private final ZoneId zoneId;
 
     public RelationalSeaTunnelRowSerializer(
             @NonNull SeaTunnelRowType seaTunnelRowType,
@@ -55,6 +58,30 @@ public class RelationalSeaTunnelRowSerializer
             List<String> attributeKeys,
             List<String> fieldNames,
             List<TSDataType> fieldTypes) {
+        this(
+                seaTunnelRowType,
+                database,
+                tableNameKey,
+                timestampKey,
+                tagKeys,
+                attributeKeys,
+                fieldNames,
+                fieldTypes,
+                ZoneOffset.UTC);
+    }
+
+    /** Converts TIME and TIMESTAMP fields using the configured zone, or UTC when it is absent. */
+    public RelationalSeaTunnelRowSerializer(
+            @NonNull SeaTunnelRowType seaTunnelRowType,
+            @NonNull String database,
+            @NonNull String tableNameKey,
+            String timestampKey,
+            List<String> tagKeys,
+            List<String> attributeKeys,
+            List<String> fieldNames,
+            List<TSDataType> fieldTypes,
+            ZoneId zoneId) {
+        this.zoneId = zoneId == null ? ZoneOffset.UTC : zoneId;
         this.tableNameExtractor = createTableNameExtractor(seaTunnelRowType, tableNameKey);
         this.timestampExtractor = createTimestampExtractor(seaTunnelRowType, timestampKey);
         this.tagsExtractor = createTagAttributeExtractor(seaTunnelRowType, tagKeys);
@@ -98,10 +125,7 @@ public class RelationalSeaTunnelRowSerializer
                 case STRING:
                     return Long.parseLong((String) timestamp);
                 case TIMESTAMP:
-                    return ((LocalDateTime) timestamp)
-                            .atZone(ZoneOffset.UTC)
-                            .toInstant()
-                            .toEpochMilli();
+                    return convertTimestamp((LocalDateTime) timestamp, timestampKey);
                 case BIGINT:
                     return (Long) timestamp;
                 default:
@@ -143,15 +167,19 @@ public class RelationalSeaTunnelRowSerializer
                         seaTunnelRowType.getFieldType(indexOfSeaTunnelRow);
                 Object seaTunnelFieldValue = row.getField(indexOfSeaTunnelRow);
 
-                Object value = convert(seaTunnelDataType, curFieldType, seaTunnelFieldValue);
+                Object value =
+                        convert(seaTunnelDataType, curFieldType, seaTunnelFieldValue, curField);
                 values.add(value);
             }
             return values;
         };
     }
 
-    private static Object convert(
-            SeaTunnelDataType seaTunnelType, TSDataType tsDataType, Object value) {
+    private Object convert(
+            SeaTunnelDataType seaTunnelType,
+            TSDataType tsDataType,
+            Object value,
+            String fieldName) {
         if (value == null) {
             return null;
         }
@@ -167,7 +195,7 @@ public class RelationalSeaTunnelRowSerializer
             case DOUBLE:
                 return ((Number) value).doubleValue();
             case TIMESTAMP:
-                return ((LocalDateTime) value).atZone(ZoneOffset.UTC).toInstant().toEpochMilli();
+                return convertTimestamp((LocalDateTime) value, fieldName);
             case DATE:
             case TEXT:
             case STRING:
@@ -177,5 +205,21 @@ public class RelationalSeaTunnelRowSerializer
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                         "Unsupported data type: " + tsDataType);
         }
+    }
+
+    /** Rejects local times that cannot identify a unique instant instead of adjusting them. */
+    private long convertTimestamp(LocalDateTime timestamp, String fieldName) {
+        List<ZoneOffset> offsets = zoneId.getRules().getValidOffsets(timestamp);
+        if (offsets.size() != 1) {
+            throw new IotdbConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "Cannot convert TIMESTAMP field '%s' value %s with zone_id '%s': "
+                                    + "the local time is ambiguous or does not exist. "
+                                    + "Use UTC to preserve TIMESTAMP field instants, or BIGINT epoch "
+                                    + "milliseconds for timestamp keys.",
+                            fieldName, timestamp, zoneId));
+        }
+        return timestamp.toInstant(offsets.get(0)).toEpochMilli();
     }
 }

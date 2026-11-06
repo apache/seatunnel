@@ -4,6 +4,13 @@
 
 ## dev
 
+### IoTDB 与 IoTDBv2：`zone_id` 应用于时间戳转换
+
+- **行为变更**：显式配置的 Sink `zone_id` 现在既设置 IoTDB 客户端会话时区，也决定如何将 SeaTunnel `TIMESTAMP`（`LocalDateTime`）转换为纪元毫秒值。此前，即使客户端配置了其他时区，转换也始终使用 UTC。影响范围包括两个连接器的时间戳键，以及 IoTDBv2 表模型的 TIME 和 TIMESTAMP FIELD 列。两个 Source 现在都支持可选的 `zone_id`，按该时区将纪元毫秒值转换为 `TIMESTAMP`，并设置客户端会话时区。
+- **影响**：已有 Sink 如果配置了非 UTC 的 `zone_id`，同一个 `LocalDateTime` 可能写为不同的纪元毫秒值。例如，配置 `zone_id = "Asia/Shanghai"` 时，`1970-01-01T08:00:00` 现在写为 `0`，此前为 `28800000`。未配置 `zone_id` 时，转换仍使用 UTC，客户端保留原有默认时区。Source 的 `BIGINT` 值、`BIGINT` 和数字 `STRING` 类型的时间戳键，以及 IoTDB 中已有的数据均保持不变。
+- **夏令时安全处理**：Source 转换为 `TIMESTAMP` 时，如果得到的本地时间存在多个有效偏移量，会报错。Sink 转换时，如果本地时间存在多个有效偏移量（重叠）或没有有效偏移量（空缺），也会报错，不会静默选择偏移量或调整时间。此规则影响两个连接器以及 IoTDBv2 表模型的 TIME 和 TIMESTAMP FIELD 列。例如，`America/New_York` 会将 `2024-11-03T05:30:00Z` 和 `2024-11-03T06:30:00Z` 都映射为本地时间 `2024-11-03T01:30:00`，经过 `LocalDateTime` 后无法区分原始时间点。已有作业遇到这些值时，现在会明确失败，避免写入错误的时间点。
+- **迁移指南**：对于无歧义本地时间，请在 Source 和 Sink 两端配置相同的 `zone_id`。需要在夏令时切换期间保留每一个时间点时，请在整个作业中将树模型时间键或表模型 TIME 键保持为 `BIGINT` 纪元毫秒值，或在两端都配置 `zone_id = "UTC"`。如需保留表模型 TIMESTAMP FIELD 列的时间点和目标类型，请在两端使用 UTC；数字时间戳键的支持不适用于这类 FIELD 列。如需保留原有 Sink 时间戳转换结果，请将 Sink 的 `zone_id` 设置为 `"UTC"`；这也会改变原先非 UTC 的客户端会话时区，需要检查会话和查询行为。改用预期的本地时区时，请移除此前为补偿 UTC 转换而添加的时间偏移，例如为 `Asia/Shanghai` 减去八小时。本次变更不会重写已有数据；如需修正此前发生偏移的数据，请另行处理。
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，
