@@ -67,11 +67,12 @@ public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements 
                                     StartupMode.EARLIEST,
                                     StartupMode.LATEST,
                                     StartupMode.SPECIFIC,
-                                    StartupMode.TIMESTAMP))
+                                    StartupMode.TIMESTAMP,
+                                    StartupMode.SNAPSHOT_ONLY))
                     .defaultValue(StartupMode.INITIAL)
                     .withDescription(
                             "Optional startup mode for CDC source, valid enumerations are "
-                                    + "\"initial\", \"earliest\", \"latest\" , \"specific\" or \"timestamp\"");
+                                    + "\"initial\", \"earliest\", \"latest\", \"specific\", \"timestamp\" or \"snapshot-only\"");
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
             Options.key(SourceOptions.STOP_MODE_KEY)
