@@ -55,6 +55,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String HANA_VARCHAR = "VARCHAR";
     public static final String HANA_NCHAR = "NCHAR";
     public static final String HANA_NVARCHAR = "NVARCHAR";
+    public static final String HANA_CHAR = "CHAR";
     public static final String HANA_ALPHANUM = "ALPHANUM";
     public static final String HANA_SHORTTEXT = "SHORTTEXT";
 
@@ -106,6 +107,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                     HANA_VARCHAR,
                     HANA_NCHAR,
                     HANA_NVARCHAR,
+                    HANA_CHAR,
                     HANA_ALPHANUM,
                     HANA_SHORTTEXT);
 
@@ -197,6 +199,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(BasicType.BOOLEAN_TYPE);
                 break;
             case HANA_VARCHAR:
+            case HANA_CHAR:
             case HANA_ALPHANUM:
             case HANA_CLOB:
             case HANA_NCLOB:
@@ -413,6 +416,9 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(HANA_BLOB);
                 break;
             case STRING:
+                // Source type names do not identify the source dialect. Preserve the existing
+                // STRING
+                // mapping instead of treating every upstream CHAR as HANA's ASCII type.
                 if (column.getColumnLength() == null
                         || column.getColumnLength() <= MAX_NVARCHAR_LENGTH) {
                     builder.columnType(HANA_NVARCHAR);

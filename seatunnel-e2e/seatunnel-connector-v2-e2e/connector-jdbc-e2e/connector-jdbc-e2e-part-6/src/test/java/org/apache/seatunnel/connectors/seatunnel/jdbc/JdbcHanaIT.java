@@ -22,7 +22,9 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -74,6 +76,8 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     + "VARCHAR_VALUE_255 VARCHAR(255), \n"
                     + "NVARCHAR_VALUE NVARCHAR, \n"
                     + "NVARCHAR_VALUE_255 NVARCHAR(255), \n"
+                    + "CHAR_VALUE CHAR, \n"
+                    + "CHAR_VALUE_15 CHAR(15), \n"
                     + "TEXT_VALUE TEXT, \n"
                     + "BINTEXT_VALUE BINTEXT, \n"
                     //                + "DECIMAL_VALUE DECIMAL, \n"
@@ -147,6 +151,8 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     "VARCHAR_VALUE_255",
                     "NVARCHAR_VALUE",
                     "NVARCHAR_VALUE_255",
+                    "CHAR_VALUE",
+                    "CHAR_VALUE_15",
                     "TEXT_VALUE",
                     "BINTEXT_VALUE",
                     "DECIMAL_VALUE_10_2",
@@ -178,6 +184,8 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                                 "varchar_value_255",
                                 "n",
                                 "nvarchar_value_255",
+                                "c",
+                                "char_10",
                                 "text_value",
                                 "bintext_value",
                                 1.0,
@@ -284,7 +292,9 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                         connection, TablePath.of(SOURCE_TABLE), new SapHanaTypeMapper());
         List<String> columnNames = catalogTable.getTableSchema().getPrimaryKey().getColumnNames();
         Assertions.assertEquals(1, columnNames.size());
-        Assertions.assertEquals(25, catalogTable.getTableSchema().getColumns().size());
+        Assertions.assertEquals(27, catalogTable.getTableSchema().getColumns().size());
+        assertCharColumn(catalogTable, "CHAR_VALUE", 1L);
+        assertCharColumn(catalogTable, "CHAR_VALUE_15", 15L);
     }
 
     @SneakyThrows
@@ -299,6 +309,24 @@ public class JdbcHanaIT extends AbstractJdbcIT {
         Assertions.assertNotNull(catalogTable.getTableSchema().getPrimaryKey());
         Assertions.assertEquals(
                 1, catalogTable.getTableSchema().getPrimaryKey().getColumnNames().size());
-        Assertions.assertEquals(25, catalogTable.getTableSchema().getColumns().size());
+        Assertions.assertEquals(27, catalogTable.getTableSchema().getColumns().size());
+        assertCharColumn(catalogTable, "CHAR_VALUE", 1L);
+        assertCharColumn(catalogTable, "CHAR_VALUE_15", 15L);
+    }
+
+    /**
+     * Verifies real HANA CHAR metadata from both table and query discovery.
+     *
+     * <p>Checking the STRING type and declared byte width detects missing CHAR support or
+     * accidental Unicode length expansion that a column-count assertion alone would miss.
+     */
+    private void assertCharColumn(CatalogTable catalogTable, String name, long expectedLength) {
+        Column column =
+                catalogTable.getTableSchema().getColumns().stream()
+                        .filter(candidate -> name.equals(candidate.getName()))
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("Missing HANA CHAR column " + name));
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(expectedLength, column.getColumnLength());
     }
 }
