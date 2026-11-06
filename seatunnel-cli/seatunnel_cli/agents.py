@@ -1276,6 +1276,11 @@ class Orchestrator:
         # enriched prompt are all built from the latest message alone. Without
         # this the reply replaces the requirement instead of adding to it.
         self._original_request: str | None = None
+        # Consecutive clarifying questions for the current requirement. Without
+        # a bound, a planner that keeps failing to resolve a pipeline and a
+        # caller that keeps answering loop forever, and the accumulated
+        # requirement grows with every round.
+        self._clarification_rounds: int = 0
         self._connector_metadata_block: str = ""
 
     # ─── Context window management ───
@@ -1296,8 +1301,7 @@ class Orchestrator:
         into whatever requirement happened to be open before.
         """
         self.conversation_history = list(history)
-        self.pending_question = None
-        self._original_request = None
+        self._reset_exchange()
 
     def _trimmed_history(self) -> list[dict]:
         """Return a context-window-friendly view of conversation_history.
@@ -1379,6 +1383,49 @@ class Orchestrator:
                 system = system + "\n\n" + block
         return system
 
+    # Matches the three rounds the validate/fix loop already allows, so the two
+    # retry budgets in this class are the same number rather than two numbers a
+    # reader has to remember.
+    MAX_CLARIFICATION_ROUNDS = 3
+
+    def _ask(self, question: str) -> dict:
+        """Record an outstanding question, or give up if we have asked enough.
+
+        Both question exits route through here so the round count cannot be
+        forgotten by one of them, and so a future third exit inherits the
+        bound rather than reintroducing the loop.
+
+        Giving up is a plain error rather than generating anyway: the two facts
+        still missing after three attempts are ones only the user has, and a
+        config invented without them would pass every later gate while moving
+        the wrong data.
+        """
+        if self._clarification_rounds >= self.MAX_CLARIFICATION_ROUNDS:
+            content = (
+                f"I asked {self._clarification_rounds} times and still cannot "
+                "work out the data flow, so I am stopping rather than guessing.\n"
+                "\nTo generate a config I need at least:\n"
+                "- the source: which system, and how to reach it "
+                "(host, port, database, table)\n"
+                "- the destination: the same again, or where the output should go\n"
+            )
+            if question:
+                content += f"\nThe last thing I asked was:\n{question}\n"
+            self._reset_exchange()
+            return {"type": "error", "content": content,
+                    "config": None, "explanation": None}
+
+        self._clarification_rounds += 1
+        self.pending_question = question
+        return {"type": "question", "content": question,
+                "config": None, "explanation": None}
+
+    def _reset_exchange(self) -> None:
+        """Forget the current requirement and everything tracking it."""
+        self.pending_question = None
+        self._original_request = None
+        self._clarification_rounds = 0
+
     def _effective_request(self, user_input: str) -> str:
         """The requirement as it now stands, across a clarifying question.
 
@@ -1435,12 +1482,12 @@ class Orchestrator:
         plan_result = self._run_planner()
 
         if plan_result["type"] == "question":
-            self.pending_question = plan_result.get("content")
-            return plan_result
+            asked = self._ask(plan_result.get("content") or "")
+            # Preserve the planner's own fields when it is still worth asking.
+            return plan_result if asked["type"] == "question" else asked
 
         if plan_result["type"] == "chat":
-            self.pending_question = None
-            self._original_request = None
+            self._reset_exchange()
             self.conversation_history.append({
                 "role": "assistant",
                 "content": [{"text": plan_result["content"]}],
@@ -1460,17 +1507,10 @@ class Orchestrator:
         missing = skill.fill_and_check(
             effective_request, self.memory_store, self.client)
         if missing:
-            question = (
+            return self._ask(
                 "I need a few more details to generate the config:\n"
                 + "\n".join(f"- {m}" for m in missing)
             )
-            self.pending_question = question
-            return {
-                "type": "question",
-                "content": question,
-                "config": None,
-                "explanation": None,
-            }
 
         # Fetch metadata and build enriched prompt
         self._connector_metadata_block = skill.fetch_all_metadata(self.on_status)
@@ -1505,8 +1545,7 @@ class Orchestrator:
 
                 # The requirement has been served, so the next message starts a
                 # new one rather than adding to this.
-                self.pending_question = None
-                self._original_request = None
+                self._reset_exchange()
 
                 # Add assistant message to history
                 self.conversation_history.append({
@@ -1532,8 +1571,7 @@ class Orchestrator:
                 break
 
         # Return best effort after max rounds
-        self.pending_question = None
-        self._original_request = None
+        self._reset_exchange()
         self.conversation_history.append({
             "role": "assistant",
             "content": [{"text": f"Here is the generated config:\n```hocon\n{config}\n```\n\n{explanation}"}],
