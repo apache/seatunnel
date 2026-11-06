@@ -44,6 +44,13 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：在此变更之前，Doris Sink 遵循 v3.0.0 的写入约定，仅丢弃时区偏移并保留原 wall-clock 数字。升级后，当 JVM 默认时区与 Doris 会话时区不同，或显式配置了 `sink.datetime-timezone` 时，同一 `TIMESTAMP_TZ` 输入写入的 `DATETIME` 可能不同。未配置该选项且表中有 `TIMESTAMP_TZ` 列时，writer 会输出警告日志。
   - **迁移指南**：将 `sink.datetime-timezone` 设置为 Doris 会话时区。若 JVM 默认时区与 Doris 会话时区曾不一致，请核对已存储数据。(#11524)
 
+### Socket 连接器：连接默认使用 10 秒连接超时
+
+- **行为变更：`connect_timeout_ms` 默认为 10000，不再把等待交给操作系统**
+  - **描述**：Socket source 与 sink 此前建立 TCP 连接时没有应用层超时（source 使用 `connect(address, 0)`，sink 使用 `new Socket(host, port)`）。当对端不可达、停止响应或静默丢弃 SYN 时，连接器线程会阻塞到操作系统 TCP 超时为止。现在两端的连接等待默认限制为 10 秒。
+  - **影响**：若目标主机建立连接所需时间超过 10 秒，此前能够成功建立连接、现在会在启动或重连时失败。这会影响未设置该选项的既有配置。source 的阻塞读取行为不变：`read_timeout_ms` 默认为 `0`，空闲的数据流不会被判定为失败。
+  - **迁移指南**：在 source 或 sink 上设置 `connect_timeout_ms = 0` 可恢复此前由操作系统决定的行为；若对端确实较慢，可将该值调大至 10000 以上。`read_timeout_ms` 仅适用于 source，对 sink 无效（sink 不从 socket 读取数据）。
+
 ### Zeta：管道故障转移恢复后运行时计数器从零重新计数
 
 - **行为变更：运行时计数器不再累计失败管道执行的数值**
@@ -95,6 +102,13 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
 ### Markdown File Source 的 `child_ids` 数组
 
 Markdown File Source 现在将 `child_ids` 声明为 `ARRAY<STRING>`，每行输出 `String[]`。此前该字段声明为 `STRING`，父元素输出逗号分隔的 ID，叶子元素输出 `null`。请将下游 schema 和消费逻辑改为读取数组；叶子元素现在输出空数组。元素 ID、类型、页码和位置索引保持原有格式。
+
+### FTP 连接器：控制连接应答现在受 60 秒超时约束
+
+- **行为变更：FTP source 和 sink 在等待控制连接应答超过 60 秒后不再继续等待**
+  - **描述**：FTP 文件系统创建客户端后直接调用 `connect(host, port)`，没有设置读超时。底层客户端的读超时默认值是 `0`，即无限等待。因此当服务端接受了 TCP 连接却永不回复时——例如服务端卡死，或连接被防火墙、负载均衡接受后静默丢包——调用线程会永久阻塞。新增的 `control_timeout` 选项约束控制连接上的每一次应答读取，包括 greeting、登录交互以及传输前各条命令的应答，默认 60000 毫秒，source 和 sink 均生效。
+  - **影响**：对于可以连通但不回复控制通道的服务端，作业现在会以超时失败，而不是挂死。此前会一直停留在 `RUNNING`、既无进展也无错误的作业，现在会抛出底层客户端给出的 `SocketTimeoutException`，该异常指明超时的那次读取，但**不包含** FTP 主机与端口。60 秒内能应答的连接不受影响。该选项只约束控制通道的应答：TCP 连接建立本身不受它约束，数据连接也不受它约束，因此初始 SYN 被静默丢弃的主机、以及传输开始后停滞的数据连接，都不会因本选项而有界。
+  - **升级指南**：无需操作。若某个服务端确实需要超过 60 秒才能应答某条控制命令（例如在慢速链路上），调大连接器上的 `control_timeout`。将其设为 `0` 可恢复此前无限等待的行为。注意该上限是按单次应答计算的，因此 sink 上传大文件时，如果服务端会在接收后做后处理，最后那条 `226 Transfer complete` 可能超过 60 秒，这类服务端需要调大 `control_timeout`。
 
 ### 运行环境要求
 
@@ -378,6 +392,14 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
 - **[BREAKING]** Assert Sink：`column_rule` 里的 `sink_type` 现在会和实际列类型比较。此前会被忽略，所以声明不一致的作业会失败，不声明则仍不校验；升级时删掉该字段或改成实际类型。
 
 ### 格式变更
+
+- **CSV Source 对缺失字段和已配置的 null 值应用默认值**：配置了 `schema.columns[].defaultValue` 时，
+  如果文件表头缺少该列，或字段值与 `null_format` 匹配，读取结果现在使用默认值而不是 null。
+  未配置默认值的作业保持不变；空字段仍为 null，除非它与 `null_format` 匹配。
+  如果下游逻辑原本依赖“配置了默认值但仍输出 null”的行为，升级前请移除 Source Schema 中的该默认值。
+  配置的默认值现在会在创建 CSV 读取器时转换为列类型。无法转换的默认值（例如 TIMESTAMP 列的
+  `CURRENT_TIMESTAMP`）现在会在创建读取器时导致作业失败，而不是被忽略，即使没有字段需要使用该默认值。
+  默认值必须是字面量，不能是 SQL 表达式。升级前请修正或移除无效的默认值。
 
 - **破坏性变更：JSON 数值字段的序列化改为按运行时实际类型处理**
   - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`RowToJsonConverters`）--影响所有以 JSON 格式序列化行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Sink）。

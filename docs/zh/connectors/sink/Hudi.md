@@ -31,37 +31,37 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 
 基础配置:
 
-| 名称                       | 类型   | 是否必填 | 默认值                       |
-|----------------------------|--------|----------|------------------------------|
-| table_dfs_path             | string | 是      | -                            |
-| conf_files_path            | string | 否      | -                            |
-| table_list                 | array  | 否      | -                            |
-| schema_save_mode           | enum   | 否      | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode             | enum   | 否      | APPEND_DATA                  |
-| multi_table_sink_replica   | int    | 否      | 1                            |
-| common-options             | config | 否      | -                            |
+| 名称                       | 类型   | 是否必填 | 默认值                       | 描述                                                                            |
+|----------------------------|--------|----------|------------------------------|---------------------------------------------------------------------------------|
+| table_dfs_path             | string | 是        | -                            | Hudi 表数据和元数据的根路径。 |
+| conf_files_path            | string | 否        | -                            | HDFS 客户端配置文件的本地路径，多个路径用分号分隔。 |
+| table_list                 | array  | 否        | -                            | 多表作业中每张表的配置。 |
+| schema_save_mode           | enum   | 否        | CREATE_SCHEMA_WHEN_NOT_EXIST | 作业启动前如何处理目标 schema。 |
+| data_save_mode             | enum   | 否        | APPEND_DATA                  | 作业启动前如何处理已存在的表数据。 |
+| multi_table_sink_replica   | int    | 否        | 1                            | 多表写入模式下每张表写入器的副本数。 |
+| common-options             | config | 否        | -                            | [Sink 插件通用参数](../common-options/sink-common-options.md)。 |
 
 表清单配置:
 
-| 名称                       | 类型    | 是否必填 | 默认值         |
-|----------------------------|--------|----------|---------------|
-| table_name                 | string | 是       | -             |
-| database                   | string | 否       | default       |
-| table_type                 | enum   | 否       | COPY_ON_WRITE |
-| op_type                    | enum   | 否       | INSERT        |
-| record_key_fields          | string | 否       | -             |
-| partition_fields           | string | 否       | -             |
-| precombine_field           | string | 否       | -             |
-| batch_interval_ms          | int    | 否       | 1000          |
-| batch_size                 | int    | 否       | 1000          |
-| insert_shuffle_parallelism | int    | 否       | 2             |
-| upsert_shuffle_parallelism | int    | 否       | 2             |
-| min_commits_to_keep        | int    | 否       | 20            |
-| max_commits_to_keep        | int    | 否       | 30            |
-| index_type                 | enum   | 否       | BLOOM         |
-| index_class_name           | string | 否       | -             |
-| record_byte_size           | int    | 否       | 1024          |
-| cdc_enabled                | boolean| 否       | false         |
+| 名称                       | 类型    | 是否必填 | 默认值         | 描述                                                                            |
+|----------------------------|---------|----------|----------------|----------------------------------------------------------------------------------|
+| table_name                 | string  | 是        | -              | 目标 Hudi 表名。 |
+| database                   | string  | 否        | default        | 目标 Hudi 数据库名。 |
+| table_type                 | enum    | 否        | COPY_ON_WRITE  | Hudi 表类型：`COPY_ON_WRITE` 或 `MERGE_ON_READ`。 |
+| op_type                    | enum    | 否        | INSERT         | 写入操作类型：`INSERT`、`UPSERT` 或 `BULK_INSERT`。 |
+| record_key_fields          | string  | 否        | -              | 用于构建 Hudi record key 的字段；`UPSERT` 时必填。 |
+| partition_fields           | string  | 否        | -              | 用于构建分区路径的字段。 |
+| precombine_field           | string  | 否        | -              | 用于合并同一记录多次更新的字段。 |
+| batch_interval_ms          | int     | 否        | 1000           | 当前未使用；刷写仅由 `batch_size` 或 checkpoint 触发。 |
+| batch_size                 | int     | 否        | 1000           | 刷写前最多缓存的行数。 |
+| insert_shuffle_parallelism | int     | 否        | 2              | insert 操作的 shuffle 并行度。 |
+| upsert_shuffle_parallelism | int     | 否        | 2              | upsert 操作的 shuffle 并行度。 |
+| min_commits_to_keep        | int     | 否        | 20             | 清理期间保留的最小提交数。 |
+| max_commits_to_keep        | int     | 否        | 30             | 清理期间保留的最大提交数。 |
+| index_type                 | enum    | 否        | BLOOM          | Hudi 索引类型：`BLOOM`、`SIMPLE` 或 `GLOBAL_BLOOM`。 |
+| index_class_name           | string  | 否        | -              | 自定义 Hudi 索引类的全限定名。 |
+| record_byte_size           | int     | 否        | 1024           | 以字节为单位的平均记录大小估计值。 |
+| cdc_enabled                | boolean | 否        | false          | 启用后持久化 Hudi CDC 变更日志数据。 |
 
 注意：写入单表时，可以把 `table_list` 中的表配置项平铺到外层。多表作业中，表级配置需放在各自的 `table_list` 条目内；`table_dfs_path`、`conf_files_path`、`schema_save_mode` 和 `data_save_mode` 保持在 sink 层级。
 
