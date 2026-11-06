@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.Timeout;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -94,6 +95,8 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     private static final String CASSANDRA_JOB_CONFIG = "/cassandra_to_cassandra.conf";
     private static final String CASSANDRA_MULTI_TABLE_JOB_CONFIG =
             "/cassandra_multitable_source.conf";
+    private static final String FAILING_TRANSFORM_JOB_CONFIG =
+            "/fake_failing_transform_to_cassandra.conf";
     private static final String CASSANDRA_DRIVER_CONFIG = "/application.conf";
     private static final String DATACENTER = "datacenter1";
     private static final String KEYSPACE = "test";
@@ -154,6 +157,25 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                     sinkIds.contains(i), "Expected id " + i + " from mt_source_b in sink");
         }
         clearMTSinkTable();
+    }
+
+    /**
+     * When the transform fails, the sink writer already holds a CQL session with non-daemon
+     * threads. The job must still end and report the failure instead of waiting on them.
+     */
+    @TestTemplate
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    public void testFailedJobEndsWhileTheSinkWriterIsOpen(TestContainer container)
+            throws Exception {
+        try {
+            Container.ExecResult execResult = container.executeJob(FAILING_TRANSFORM_JOB_CONFIG);
+            Assertions.assertNotEquals(0, execResult.getExitCode());
+            Assertions.assertTrue(
+                    (execResult.getStdout() + execResult.getStderr())
+                            .contains("TRANSFORM_COMMON-06"));
+        } finally {
+            clearSinkTable();
+        }
     }
 
     @BeforeAll
