@@ -257,7 +257,7 @@ hadoop_s3_properties {
 - txt: `lzo` `none`
 - json: `lzo` `none`
 - csv: `lzo` `none`
-- orc: `lzo` `snappy` `lz4` `zlib` `none`
+- orc: `lzo` `snappy` `lz4` `zlib` `zstd` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
 提示：excel 类型不支持任何压缩格式
