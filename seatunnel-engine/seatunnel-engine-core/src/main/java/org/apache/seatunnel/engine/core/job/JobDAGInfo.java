@@ -44,40 +44,73 @@ public class JobDAGInfo implements Serializable {
     ExecutionAddress master;
     Set<ExecutionAddress> historyExecutionPlan;
 
+    /**
+     * Serializes this DAG description for the REST / Web UI job detail endpoints.
+     *
+     * <p>Every field may be {@code null}: the no-arg constructor leaves all of them unset, and the
+     * info is read back from IMap storage where partially written entries are possible. A missing
+     * part is rendered as an empty structure (or JSON null for scalars) instead of failing the
+     * whole response with a {@link NullPointerException}.
+     */
     public JsonObject toJsonObject() {
         JsonObject pipelineEdgesJsonObject = new JsonObject();
 
-        for (Map.Entry<Integer, List<Edge>> entry : pipelineEdges.entrySet()) {
-            JsonArray jsonArray = new JsonArray();
-            for (Edge edge : entry.getValue()) {
-                JsonObject edgeJsonObject = new JsonObject();
-                edgeJsonObject.add("inputVertexId", edge.getInputVertexId().toString());
-                edgeJsonObject.add("targetVertexId", edge.getTargetVertexId().toString());
-                jsonArray.add(edgeJsonObject);
+        if (pipelineEdges != null) {
+            for (Map.Entry<Integer, List<Edge>> entry : pipelineEdges.entrySet()) {
+                JsonArray jsonArray = new JsonArray();
+                if (entry.getValue() != null) {
+                    for (Edge edge : entry.getValue()) {
+                        if (edge != null) {
+                            JsonObject edgeJsonObject = new JsonObject();
+                            edgeJsonObject.add(
+                                    "inputVertexId", toStringOrNull(edge.getInputVertexId()));
+                            edgeJsonObject.add(
+                                    "targetVertexId", toStringOrNull(edge.getTargetVertexId()));
+                            jsonArray.add(edgeJsonObject);
+                        }
+                    }
+                }
+                pipelineEdgesJsonObject.add(
+                        entry.getKey() != null ? entry.getKey().toString() : "", jsonArray);
             }
-            pipelineEdgesJsonObject.add(entry.getKey().toString(), jsonArray);
         }
 
         JsonObject jsonObject = new JsonObject();
-        jsonObject.add("jobId", jobId.toString());
+        jsonObject.add("jobId", toStringOrNull(jobId));
         jsonObject.add("pipelineEdges", pipelineEdgesJsonObject);
-        jsonObject.add("envOptions", JsonUtil.toJsonObject(envOptions));
+        jsonObject.add(
+                "envOptions",
+                envOptions != null ? JsonUtil.toJsonObject(envOptions) : new JsonObject());
 
         JsonArray vertexInfoMapString = new JsonArray();
-        for (Map.Entry<Long, VertexInfo> entry : vertexInfoMap.entrySet()) {
-            JsonObject vertexInfoJsonObj = new JsonObject();
-            VertexInfo vertexInfo = entry.getValue();
-            vertexInfoJsonObj.add("vertexId", vertexInfo.getVertexId());
-            vertexInfoJsonObj.add("type", vertexInfo.getType().getType());
-            vertexInfoJsonObj.add("vertexName", vertexInfo.getConnectorType());
-            JsonArray tablePaths = new JsonArray();
-            for (TablePath tablePath : vertexInfo.getTablePaths()) {
-                tablePaths.add(tablePath.toString());
+        if (vertexInfoMap != null) {
+            for (Map.Entry<Long, VertexInfo> entry : vertexInfoMap.entrySet()) {
+                VertexInfo vertexInfo = entry.getValue();
+                if (vertexInfo == null) {
+                    continue;
+                }
+                JsonObject vertexInfoJsonObj = new JsonObject();
+                vertexInfoJsonObj.add("vertexId", vertexInfo.getVertexId());
+                vertexInfoJsonObj.add(
+                        "type",
+                        vertexInfo.getType() != null ? vertexInfo.getType().getType() : null);
+                vertexInfoJsonObj.add("vertexName", vertexInfo.getConnectorType());
+                JsonArray tablePaths = new JsonArray();
+                if (vertexInfo.getTablePaths() != null) {
+                    for (TablePath tablePath : vertexInfo.getTablePaths()) {
+                        tablePaths.add(toStringOrNull(tablePath));
+                    }
+                }
+                vertexInfoJsonObj.add("tablePaths", tablePaths);
+                vertexInfoMapString.add(vertexInfoJsonObj);
             }
-            vertexInfoJsonObj.add("tablePaths", tablePaths);
-            vertexInfoMapString.add(vertexInfoJsonObj);
         }
         jsonObject.add("vertexInfoMap", vertexInfoMapString);
         return jsonObject;
+    }
+
+    /** Renders a possibly-null value as its string form, or JSON null when absent. */
+    private static String toStringOrNull(Object value) {
+        return value == null ? null : value.toString();
     }
 }
