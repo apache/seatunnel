@@ -53,8 +53,8 @@ Run the `MultiTableSink` record handoff benchmark without starting an engine or 
 java -jar seatunnel-benchmarks/target/benchmarks.jar MultiTableSinkBenchmark -p replicaNum=1,5,15
 ```
 
-The score measures bounded record handoff throughput; final draining and verification run outside
-the timed iteration.
+The score measures bounded record handoff throughput with per-writer sequence checks; final
+draining and count verification run outside the timed iteration.
 
 Write JSON results:
 

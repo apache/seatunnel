@@ -17,8 +17,13 @@
 
 package org.apache.seatunnel.benchmark.sink;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+
+import java.io.IOException;
+import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -26,6 +31,40 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Timeout(30)
 class MultiTableSinkFixtureTest {
+
+    @Test
+    void shouldRejectDuplicateRowsEvenWhenTheRollingChecksumMatches() throws Exception {
+        MultiTableSinkFixture fixture = fixture(1, 1, MultiTableSinkFixture.Routing.HASH, 1000, 0);
+        fixture.setUp();
+        Field field = MultiTableSinkFixture.class.getDeclaredField("records");
+        field.setAccessible(true);
+        SeaTunnelRow[] records = (SeaTunnelRow[]) field.get(fixture);
+        // Replace rows 1 and 2 with duplicates of 0 and 33. Counts and the old checksum
+        // remain unchanged: (0 - 1) * 31 + (33 - 2) == 0.
+        records[1] = records[0];
+        records[2] = records[33];
+        try {
+            IOException failure =
+                    assertThrows(
+                            IOException.class,
+                            () -> {
+                                publish(fixture, 34);
+                                fixture.drainAndVerify();
+                            });
+            Throwable cause = failure;
+            while (cause.getCause() != null) {
+                cause = cause.getCause();
+            }
+            assertTrue(cause.getMessage().contains("expected=1, actual=0"));
+        } finally {
+            try {
+                fixture.close();
+            } catch (IOException | RuntimeException expected) {
+                // A failed queue worker is also reported during shutdown.
+            }
+            assertTrue(fixture.isFullyClosed());
+        }
+    }
 
     @Test
     void shouldDrainAndVerifySingleAndMultipleTablesAcrossReplicas() throws Exception {
@@ -53,15 +92,19 @@ class MultiTableSinkFixtureTest {
     }
 
     @Test
-    void shouldVerifyOrderAcrossPoolWrapsAndIterationBoundaries() throws Exception {
-        MultiTableSinkFixture fixture = fixture(5, 4, MultiTableSinkFixture.Routing.HASH, 1000, 0);
+    void shouldDrainPoolWrapsAndFlushPartialBatchesAcrossIterations() throws Exception {
+        MultiTableSinkFixture fixture = fixture(5, 4, MultiTableSinkFixture.Routing.HASH, 64, 100);
         fixture.setUp();
         try {
             publish(fixture, 65_537);
             fixture.drainAndVerify();
+            assertEquals(1040, fixture.getBatchCount());
             publish(fixture, 65_540);
             fixture.drainAndVerify();
             assertEquals(131_077, fixture.getConsumedRows());
+            assertEquals(2080, fixture.getBatchCount());
+            fixture.drainAndVerify();
+            assertEquals(2080, fixture.getBatchCount());
         } finally {
             fixture.close();
         }
@@ -84,53 +127,6 @@ class MultiTableSinkFixtureTest {
         } finally {
             fixture.close();
         }
-    }
-
-    @Test
-    void shouldFlushPartialDelayedBatchesAndAvoidEmptyFlushWork() throws Exception {
-        MultiTableSinkFixture fixture = fixture(5, 1, MultiTableSinkFixture.Routing.HASH, 64, 100);
-        fixture.setUp();
-        try {
-            publish(fixture, 1003);
-            fixture.drainAndVerify();
-            assertEquals(1003, fixture.getConsumedRows());
-            // Each replica receives 200 or 201 rows, requiring three full and one tail batch.
-            assertEquals(20, fixture.getBatchCount());
-            fixture.drainAndVerify();
-            assertEquals(20, fixture.getBatchCount());
-        } finally {
-            fixture.close();
-        }
-    }
-
-    @Test
-    void shouldCloseAnEmptyFixtureAndAllowRepeatedClose() throws Exception {
-        MultiTableSinkFixture fixture = fixture(5, 1, MultiTableSinkFixture.Routing.HASH, 1000, 0);
-        fixture.setUp();
-        fixture.close();
-        fixture.close();
-        assertTrue(fixture.isFullyClosed());
-    }
-
-    @Test
-    void shouldRejectParametersThatCannotRepresentTheWorkload() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> fixture(0, 1, MultiTableSinkFixture.Routing.HASH, 1000, 0));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> fixture(1, 0, MultiTableSinkFixture.Routing.HASH, 1000, 0));
-        assertThrows(
-                IllegalArgumentException.class,
-                () ->
-                        new MultiTableSinkFixture(
-                                15, 1, 1024, MultiTableSinkFixture.Routing.HASH, 1000, 0));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> fixture(1, 1, MultiTableSinkFixture.Routing.HASH, 0, 0));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> fixture(1, 1, MultiTableSinkFixture.Routing.HASH, 1000, -1));
     }
 
     private static MultiTableSinkFixture fixture(

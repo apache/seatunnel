@@ -56,7 +56,6 @@ public final class MultiTableSinkFixture implements AutoCloseable {
     }
 
     private static final int PRODUCTION_QUEUE_CAPACITY = 1024;
-    private static final long CHECKSUM_MULTIPLIER = 31L;
 
     private final int replicaNum;
     private final int tableCount;
@@ -74,10 +73,6 @@ public final class MultiTableSinkFixture implements AutoCloseable {
             };
 
     private SeaTunnelRow[] records;
-    private int[] recordOwners;
-    private long[] cycleCounts;
-    private long[] cycleChecksums;
-    private long[] cycleMultipliers;
     private MultiTableSinkWriter coordinator;
     private long publishedRows;
     private long checkpointId;
@@ -149,37 +144,22 @@ public final class MultiTableSinkFixture implements AutoCloseable {
         coordinator.prepareCommit(++checkpointId);
         long cycles = publishedRows / recordPoolSize;
         int remainder = (int) (publishedRows & (recordPoolSize - 1));
-        long[] counts = new long[writers.length];
-        long[] checksums = new long[writers.length];
-        for (int writer = 0; writer < writers.length; writer++) {
-            counts[writer] = cycles * cycleCounts[writer];
-            // Java long overflow intentionally defines a deterministic rolling checksum.
-            for (long cycle = 0; cycle < cycles; cycle++) {
-                checksums[writer] =
-                        checksums[writer] * cycleMultipliers[writer] + cycleChecksums[writer];
-            }
-        }
-        for (int record = 0; record < remainder; record++) {
-            int owner = recordOwners[record];
-            counts[owner]++;
-            checksums[owner] = checksums[owner] * CHECKSUM_MULTIPLIER + record;
-        }
         for (int writer = 0; writer < writers.length; writer++) {
             FixtureWriter actual = writers[writer];
-            if (actual.rowCount != counts[writer]
-                    || actual.flushedRows != counts[writer]
-                    || actual.checksum != checksums[writer]) {
+            long expected = cycles * actual.rowsPerCycle;
+            if (remainder > actual.firstSequence) {
+                expected += 1 + (remainder - 1 - actual.firstSequence) / actual.sequenceStride;
+            }
+            if (actual.rowCount != expected || actual.flushedRows != expected) {
                 throw new IllegalStateException(
                         String.format(
                                 "MultiTableSink writer %d mismatch: published=%d, expected=%d, "
-                                        + "consumed=%d, flushed=%d, expectedChecksum=%d, checksum=%d",
+                                        + "consumed=%d, flushed=%d",
                                 writer,
                                 publishedRows,
-                                counts[writer],
+                                expected,
                                 actual.rowCount,
-                                actual.flushedRows,
-                                checksums[writer],
-                                actual.checksum));
+                                actual.flushedRows));
             }
         }
     }
@@ -237,11 +217,6 @@ public final class MultiTableSinkFixture implements AutoCloseable {
 
     private void createRecords(String[] tableIds) {
         records = new SeaTunnelRow[recordPoolSize];
-        recordOwners = new int[recordPoolSize];
-        cycleCounts = new long[writers.length];
-        cycleChecksums = new long[writers.length];
-        cycleMultipliers = new long[writers.length];
-        java.util.Arrays.fill(cycleMultipliers, 1L);
         for (int i = 0; i < recordPoolSize; i++) {
             int table = i % tableCount;
             long key = routing == Routing.SINGLE_QUEUE ? 0L : i / tableCount;
@@ -250,11 +225,6 @@ public final class MultiTableSinkFixture implements AutoCloseable {
             // getOptions lazily allocates. Complete it before the row is shared across threads.
             row.getOptions();
             records[i] = row;
-            int owner = table * replicaNum + (int) (key % replicaNum);
-            recordOwners[i] = owner;
-            cycleCounts[owner]++;
-            cycleChecksums[owner] = cycleChecksums[owner] * CHECKSUM_MULTIPLIER + i;
-            cycleMultipliers[owner] *= CHECKSUM_MULTIPLIER;
         }
     }
 
@@ -270,8 +240,21 @@ public final class MultiTableSinkFixture implements AutoCloseable {
         @Override
         public SinkWriter<SeaTunnelRow, Void, Void> createWriter(SinkWriter.Context context) {
             int replica = context.getIndexOfSubtask();
+            int firstSequence = table + replica * tableCount;
+            int sequenceStride = tableCount * replicaNum;
+            if (routing == Routing.SINGLE_QUEUE) {
+                firstSequence = replica == 0 ? table : recordPoolSize;
+                sequenceStride = tableCount;
+            }
             FixtureWriter writer =
-                    new FixtureWriter(replica, consumerBatchSize, batchDelayNanos, resourceManager);
+                    new FixtureWriter(
+                            replica,
+                            firstSequence,
+                            sequenceStride,
+                            recordPoolSize,
+                            consumerBatchSize,
+                            batchDelayNanos,
+                            resourceManager);
             writers[table * replicaNum + replica] = writer;
             return writer;
         }
@@ -286,11 +269,15 @@ public final class MultiTableSinkFixture implements AutoCloseable {
             implements SinkWriter<SeaTunnelRow, Void, Void>, SupportMultiTableSinkWriter<Object> {
 
         private final int replica;
+        private final int firstSequence;
+        private final int sequenceStride;
+        private final int recordPoolSize;
+        private final int rowsPerCycle;
         private final int consumerBatchSize;
         private final long batchDelayNanos;
         private final MultiTableResourceManager<Object> resourceManager;
         private long rowCount;
-        private long checksum;
+        private int nextSequence;
         private long flushedRows;
         private long batches;
         private int pendingRows;
@@ -298,10 +285,21 @@ public final class MultiTableSinkFixture implements AutoCloseable {
 
         private FixtureWriter(
                 int replica,
+                int firstSequence,
+                int sequenceStride,
+                int recordPoolSize,
                 int consumerBatchSize,
                 long batchDelayNanos,
                 MultiTableResourceManager<Object> resourceManager) {
             this.replica = replica;
+            this.firstSequence = firstSequence;
+            this.sequenceStride = sequenceStride;
+            this.recordPoolSize = recordPoolSize;
+            this.rowsPerCycle =
+                    firstSequence < recordPoolSize
+                            ? 1 + (recordPoolSize - 1 - firstSequence) / sequenceStride
+                            : 0;
+            this.nextSequence = firstSequence;
             this.consumerBatchSize = consumerBatchSize;
             this.batchDelayNanos = batchDelayNanos;
             this.resourceManager = resourceManager;
@@ -328,7 +326,15 @@ public final class MultiTableSinkFixture implements AutoCloseable {
 
         @Override
         public void write(SeaTunnelRow row) throws IOException {
-            checksum = checksum * CHECKSUM_MULTIPLIER + (Long) row.getField(1);
+            long sequence = (Long) row.getField(1);
+            if (sequence != nextSequence) {
+                throw new IOException(
+                        String.format(
+                                "MultiTableSink sequence mismatch: expected=%d, actual=%d",
+                                nextSequence, sequence));
+            }
+            long next = (long) nextSequence + sequenceStride;
+            nextSequence = next < recordPoolSize ? (int) next : firstSequence;
             rowCount++;
             if (++pendingRows == consumerBatchSize) {
                 flush();
