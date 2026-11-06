@@ -381,6 +381,8 @@ public class RealtimeMetricsRestIT {
     }
 
     private static String restoreObservabilityConfig(boolean enabled, long bucketMs) {
+        // Keep the same job ID across restore while changing observability settings; the long-lived
+        // source and delayed sink keep the job running until the savepoint and restore complete.
         return "env {\n"
                 + "  job.mode = \"STREAMING\"\n"
                 + "  checkpoint.interval = 15000\n"
@@ -433,6 +435,7 @@ public class RealtimeMetricsRestIT {
     }
 
     private void awaitAllTasksReady(long jobId) {
+        // Ensure all tasks are running before taking the savepoint.
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(

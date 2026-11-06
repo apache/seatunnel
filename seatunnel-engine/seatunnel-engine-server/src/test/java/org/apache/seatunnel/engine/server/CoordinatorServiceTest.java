@@ -1517,26 +1517,72 @@ public class CoordinatorServiceTest {
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
         try {
             Long jobId = jobInformation.jobId;
-            coordinatorService.getPendingJobQueue().removeById(jobId);
-            getRunningJobMasterMap(coordinatorService).remove(jobId);
+            HazelcastInstanceImpl instance = jobInformation.coordinatorServiceTest;
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED, coordinatorService.getJobStatus(jobId));
+                                Assertions.assertNull(coordinatorService.getJobMaster(jobId));
+                                Assertions.assertFalse(
+                                        coordinatorService.getPendingJobQueue().contains(jobId));
+                                Assertions.assertFalse(
+                                        instance.getMap(Constant.IMAP_RUNNING_JOB_INFO)
+                                                .containsKey(jobId));
+                            });
 
-            JobDAGInfo distributedJobDAGInfo = coordinatorService.getJobInfo(jobId);
-            Map<String, Object> envOptions = new HashMap<>(distributedJobDAGInfo.getEnvOptions());
-            envOptions.put("engine.observability.enabled", true);
-            distributedJobDAGInfo.setEnvOptions(envOptions);
+            LogicalDag logicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "batch_fake_to_console.conf",
+                            "test_get_job_info_distributed_precedence",
+                            jobId);
+            Map<String, Object> distributedEnvOptions = logicalDag.getJobConfig().getEnvOptions();
+            distributedEnvOptions.put("engine.observability.enabled", true);
+            distributedEnvOptions.put("engine.observability.bucket_ms", 2000L);
+            distributedEnvOptions.put("engine.observability.retention_minutes", 3);
+            JobImmutableInformation jobImmutableInformation =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance.getSerializationService(),
+                            logicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            IMap<Long, JobInfo> runningJobInfoIMap =
+                    instance.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            ReflectionUtils.setField(coordinatorService, "runningJobInfoIMap", runningJobInfoIMap);
+            runningJobInfoIMap.put(
+                    jobId,
+                    new JobInfo(
+                            System.currentTimeMillis(),
+                            instance.getSerializationService().toData(jobImmutableInformation)));
+            JobInfo storedJobInfo = runningJobInfoIMap.get(jobId);
+            Assertions.assertNotNull(storedJobInfo);
+            JobImmutableInformation storedImmutableInformation =
+                    instance.getSerializationService()
+                            .toObject(storedJobInfo.getJobImmutableInformation());
+            Assertions.assertEquals(
+                    true,
+                    storedImmutableInformation
+                            .getJobConfig()
+                            .getEnvOptions()
+                            .get("engine.observability.enabled"));
 
             JobHistoryService jobHistoryService = Mockito.mock(JobHistoryService.class);
             ReflectionUtils.setField(coordinatorService, "jobHistoryService", jobHistoryService);
             JobDAGInfo finishedJobDAGInfo = new JobDAGInfo();
             finishedJobDAGInfo.setJobId(jobId);
-            finishedJobDAGInfo.setEnvOptions(
-                    Collections.singletonMap("engine.observability.enabled", false));
+            Map<String, Object> finishedEnvOptions = new HashMap<>();
+            finishedEnvOptions.put("engine.observability.enabled", false);
+            finishedEnvOptions.put("engine.observability.bucket_ms", 1000L);
+            finishedJobDAGInfo.setEnvOptions(finishedEnvOptions);
             Mockito.when(jobHistoryService.getJobDAGInfo(jobId)).thenReturn(finishedJobDAGInfo);
 
-            Assertions.assertFalse(
+            ObservabilityConfig observabilityConfig =
                     ObservabilityConfig.fromEnvOptions(
-                                    coordinatorService.getJobInfo(jobId).getEnvOptions())
-                            .isEnabled());
+                            coordinatorService.getJobInfo(jobId).getEnvOptions());
+            Assertions.assertTrue(observabilityConfig.isEnabled());
+            Assertions.assertEquals(2000L, observabilityConfig.getBucketMs());
         } finally {
             jobInformation.coordinatorServiceTest.shutdown();
         }
