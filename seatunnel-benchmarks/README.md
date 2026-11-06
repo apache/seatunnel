@@ -47,34 +47,14 @@ Run only the `ProtoStuffSerializer` benchmarks:
 java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark
 ```
 
-Run the production MultiTableSink handoff path without starting Zeta, Hazelcast members, or a
-database:
+Run the `MultiTableSink` record handoff benchmark without starting an engine or database:
 
 ```bash
-java -jar seatunnel-benchmarks/target/benchmarks.jar \
-  'MultiTableSinkBenchmark.recordHandoff$' \
-  -p replicaNum=1,5,15 -prof gc \
-  -rf json -rff seatunnel-benchmarks/target/multisink-handoff.json
+java -jar seatunnel-benchmarks/target/benchmarks.jar MultiTableSinkBenchmark -p replicaNum=1,5,15
 ```
 
-The fixture creates `MultiTableSink` and its real asynchronous writers around in-memory sinks.
-The default is one logical table, hash routing, no simulated delay, and one JMH producer. Override
-`tableCount=4` for multiple tables or `routing=SINGLE_QUEUE` as a control that keeps all keys on
-replica zero. `consumerBatchSize` (default 1000) and `batchDelayMicros` (default 0) model consumer
-backpressure without external I/O. They do not batch the production queue handoff.
-
-Rows are preallocated and read-only. At each iteration boundary the fixture drains queued and
-in-flight writes, flushes tail batches, and verifies each writer's count and order-sensitive
-checksum. Draining and verification are outside the timed operation. The score is steady-state
-**bounded admission/handoff throughput**, not a JDBC durability or checkpoint-latency measurement;
-up to the production queue capacity plus in-flight work can remain at the measurement boundary.
-Simulated consumer tail batches are also flushed outside timing and may contain fewer than
-`consumerBatchSize` rows per table/replica writer.
-Use sufficiently long iterations to make that bounded tail small relative to measured work.
-
-The default `benchmarks_core` suite includes this regression, and the workflow also exposes
-`MultiTableSinkBenchmark` as a standalone choice. Baseline/candidate comparisons of this method
-require the fixture on both revisions.
+The score measures bounded record handoff throughput; final draining and verification run outside
+the timed iteration.
 
 Write JSON results:
 

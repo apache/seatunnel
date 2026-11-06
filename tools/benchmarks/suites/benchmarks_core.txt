@@ -18,8 +18,5 @@ SeaTunnelPipelineBenchmark.sourceSink$
 SeaTunnelPipelineBenchmark.sourceTransformSink$
 SeaTunnelPipelineBenchmark.sourceTransformSinkWithObservabilityAndTrace$
 
-# Multi-table sink record handoff, including replica-count scaling without an engine.
-MultiTableSinkBenchmark.recordHandoff$
-
 # Checkpoint coordination.
 CheckpointingTimeBenchmark.checkpointSingleInput$

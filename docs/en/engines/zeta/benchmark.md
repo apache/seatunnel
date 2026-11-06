@@ -163,57 +163,6 @@ identify each experiment. Keep the raw JMH files when sharing charts so others c
 underlying samples. The scripts `tools/benchmarks/save_jmh_result.py` and
 `tools/benchmarks/regression_report.py` generate normalized JSON and Markdown reports.
 
-## MultiTableSink Handoff Regression
-
-`MultiTableSinkBenchmark.recordHandoff` covers replica-count scaling in the production
-`MultiTableSink` / `MultiTableSinkWriter` path. It uses an in-memory sink implementing the
-multi-table sink contracts; it does not start an engine, Hazelcast member, connector discovery,
-or database. This isolates per-record routing, bounded queue handoff and consumer coordination
-from external I/O.
-
-| Parameter | Default | Purpose |
-|---|---|---|
-| `replicaNum` | `1,5,15` | Queue/consumer count; one writer per table and replica. |
-| `tableCount` | `1` | Number of logical tables; use `4` for a multi-table workload. |
-| `recordPoolSize` | `65536` | Read-only reusable rows; must cover all queues plus in-flight rows. |
-| `routing` | `HASH` | Spread positive keys across queues, or use `SINGLE_QUEUE` as a control. |
-| `consumerBatchSize` | `1000` | Rows per simulated consumer flush, independent of queue handoff. |
-| `batchDelayMicros` | `0` | Optional blocking delay per non-empty consumer batch; not real I/O. |
-
-After building the runner as described below, run the default single-table regression:
-
-```bash
-java -jar seatunnel-benchmarks/target/benchmarks.jar \
-  'MultiTableSinkBenchmark.recordHandoff$' \
-  -p replicaNum=1,5,15 -prof gc \
-  -rf json -rff seatunnel-benchmarks/target/multisink-handoff.json
-```
-
-Use `-p tableCount=1,4 -p routing=HASH,SINGLE_QUEUE` to separate table fan-out and queue-distribution
-effects. Add `-p batchDelayMicros=1000` for a simulated backpressured consumer. Keep these parameters
-identical when comparing revisions. The default is one producer; increasing `-t` creates an
-independent fixture per JMH thread and is a different workload.
-
-Each row has a routing key and sequence field. All row allocation, including lazy options-map
-initialization, occurs in trial setup. Consumer counters are writer-local rather than shared
-atomics. After every warmup/measurement iteration, `prepareCommit` drains both queued and
-in-flight writes and flushes tail batches; the fixture then checks per-writer counts, flushed
-counts and rolling checksums sensitive to writer-local order, including pool wraparound.
-
-The timed operation publishes one row. The score therefore measures steady-state **bounded
-admission/handoff throughput**; iteration-end drain and validation are outside timing. A bounded
-tail of up to 1024 queued rows per replica plus in-flight rows may remain when timing stops.
-Simulated consumer tail batches may additionally hold fewer than `consumerBatchSize` rows per
-table/replica writer; their final flush is also outside timing.
-Use long enough measurement iterations that this tail is small relative to measured work.
-This benchmark does not measure database durability, timer flush, checkpoint latency, or full-job
-throughput, and it does not assert a machine-independent performance threshold in unit tests.
-
-The `benchmarks_core` suite includes this case with its default replica sweep. It is also a
-standalone workflow choice. Comparisons require this fixture on both revisions. Use CPU, wall,
-lock, GC and JFR profiles to diagnose replica scaling; a smaller synthetic handoff cost alone
-does not establish an end-to-end JDBC improvement.
-
 ## Local Execution
 
 ### Build and Prepare
