@@ -97,7 +97,7 @@ are automatically flushed at each checkpoint and when the writer closes.
 ### retry_timeout [int]
 
 Maximum time in milliseconds to retry publishing on transient network failures before failing the
-task. The writer polls the connection state with exponential backoff during this window.
+task. The writer retries with a fixed 200 ms interval until this timeout expires.
 
 ### connection_timeout [int]
 
