@@ -55,10 +55,6 @@ class JdbcOptionRuleCompletenessTest {
             Collections.unmodifiableSet(
                     new HashSet<>(Arrays.asList(JdbcCommonOptions.SCHEMA.key())));
 
-    /** Source-only options that the sink does not read. */
-    private static final Set<String> NOT_SINK_OPTIONS =
-            Collections.singleton(JdbcCommonOptions.NUMERIC_SPECIAL_VALUE_AS_NULL.key());
-
     @Test
     void testSourceRuleDeclaresAllSourceOptions() {
         assertAllDeclared(
@@ -70,12 +66,12 @@ class JdbcOptionRuleCompletenessTest {
     void testSinkRuleDeclaresAllSinkOptions() {
         assertAllDeclared(
                 new JdbcSinkFactory().optionRule(),
-                collectOptionKeys(JdbcSinkOptions.class, NOT_SINK_OPTIONS));
+                collectOptionKeys(JdbcSinkOptions.class, Collections.emptySet()));
     }
 
     @Test
     void testNumericSpecialValueAsNullIsSourceOnly() {
-        String key = JdbcCommonOptions.NUMERIC_SPECIAL_VALUE_AS_NULL.key();
+        String key = JdbcSourceOptions.NUMERIC_SPECIAL_VALUE_AS_NULL.key();
         ReadonlyConfig config = ReadonlyConfig.fromMap(Collections.singletonMap(key, true));
 
         Assertions.assertDoesNotThrow(

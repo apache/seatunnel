@@ -24,7 +24,7 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列映射](../../introduction/concepts/connector-v2-features.md)
-- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义拆分](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持多表读](../../introduction/concepts/connector-v2-features.md)
 
