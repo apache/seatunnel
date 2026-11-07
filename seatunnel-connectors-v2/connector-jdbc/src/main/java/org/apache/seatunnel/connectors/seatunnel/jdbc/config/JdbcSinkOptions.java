@@ -121,6 +121,14 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .defaultValue(false)
                     .withDescription("support upsert by insert only");
 
+    public static final Option<Boolean> UPSERT_BATCH_KEY_ORDERED =
+            Options.key("upsert_batch_key_ordered")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "sort standard upsert batches by primary key before flushing to reduce"
+                                    + " lock-order deadlocks; disabled by default and does not change custom query ordering");
+
     public static final Option<Boolean> USE_COPY_STATEMENT =
             Options.key("use_copy_statement")
                     .booleanType()
