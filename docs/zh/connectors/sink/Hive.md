@@ -35,7 +35,8 @@ import ChangeLog from '../changelog/connector-hive.md';
 |---------------------------------------|---------|----|----------------|---------------------------------------------------------------------------------|
 | table_name                            | string  | 是    | -              | 目标 Hive 表名，例如 `db1.table1`。多表模式下可使用 `${database_name}.${table_name}`，SeaTunnel 会用上游值进行替换。 |
 | metastore_uri                         | string  | 否    | -              | Hive Metastore URI。当未通过 `hive_site_path`、`hive.hadoop.conf-path` 或 `hive.hadoop.conf` 配置 `hive.metastore.client.factory.class` 时必填。多个值用逗号分隔可启用 HA 故障转移。 |
-| compress_codec                        | string  | 否    | none           | 输出压缩编解码器。支持 `lzo` 和 `none`。Parquet / ORC 会自动检测压缩。 |
+| compress_codec                        | string  | 否    | none           | 显式指定输出压缩格式，优先于表属性。ORC 支持 `NONE`、`SNAPPY`、`ZLIB`、`LZ4` 和 `LZO`；继承表属性需开启 `use_table_compression`。 |
+| use_table_compression                 | boolean | 否    | false          | 开启后继承已有 ORC 表的 `orc.compress` 属性；显式 `compress_codec` 优先。非 ORC 表及自动建表流程跳过继承。 |
 | hdfs_site_path                        | string  | 否    | -              | `hdfs-site.xml` 的本地路径。新作业不建议使用——优先使用 `hive.hadoop.conf` 或 `hive.hadoop.conf-path`。 |
 | hive_site_path                        | string  | 否    | -              | `hive-site.xml` 的本地路径。 |
 | hive.hadoop.conf                      | Map     | 否    | -              | 内联的 Hadoop 配置属性。 |
@@ -51,6 +52,31 @@ import ChangeLog from '../changelog/connector-hive.md';
 | schema_save_mode                      | enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 写入前如何处理目标表 schema。可选 `RECREATE_SCHEMA`、`CREATE_SCHEMA_WHEN_NOT_EXIST`、`ERROR_WHEN_SCHEMA_NOT_EXIST`、`IGNORE`。 |
 | save_mode_create_template             | string  | 否    | -              | 自动创建目标 Hive 表时使用的自定义 DDL 模板。变量：`${database}`、`${table}`、`${rowtype_fields}`、`${rowtype_partition_fields}`、`${table_location}`、`${current_timestamp}`。 |
 | common-options                        |         | 否    | -              | Sink 插件通用参数，详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
+
+### compress_codec [string]
+
+显式指定输出压缩格式，默认 `none`。ORC 支持 `NONE`、`SNAPPY`、`ZLIB`、`LZ4` 和 `LZO`。配置后优先于表属性；继承表属性请参阅 `use_table_compression`。
+
+### use_table_compression [boolean]
+
+默认值：`false`。开启后，初始化**已有 ORC 表**时从 metastore 继承 `orc.compress`。此选项不改变自动建表流程、非 ORC 表或表元数据。
+
+对于非 ORC 表，`use_table_compression` 会被忽略，不会继承或校验表的压缩属性。如果 sink 初始化时表尚不存在并走自动建表流程，也会跳过压缩继承，包括 `save_mode_create_template` 中声明的 `orc.compress`。这两种情况均不会仅因开启此选项而导致任务失败；显式 `compress_codec` 的处理方式、原有默认值以及正常的配置校验和建表错误仍然适用。
+
+优先级：显式 `compress_codec`（包括 `NONE`）> 开启继承后的表属性 `orc.compress` > 原默认值 `NONE`。表属性去除首尾空白后按大小写不敏感匹配；属性缺失、为 null 或为空白时保留默认值。未知值或没有有效 ORC 映射的压缩格式在 sink 初始化时明确报错，避免静默写为不压缩。在 ORC ZSTD 仍映射为 NONE 的版本中，继承 ZSTD 会报错；使用该表属性前请确认 SeaTunnel 版本支持 ORC ZSTD。下游读取器也必须支持所选压缩格式。
+
+对于通过 `TBLPROPERTIES ('orc.compress'='SNAPPY')` 创建的已有表：
+
+```hocon
+sink {
+  Hive {
+    table_name = "default.existing_orc_table"
+    metastore_uri = "thrift://metastore:9083"
+    use_table_compression = true
+    # 可选：compress_codec = "NONE" 覆盖表属性。
+  }
+}
+```
 
 ### table_name [string]
 
