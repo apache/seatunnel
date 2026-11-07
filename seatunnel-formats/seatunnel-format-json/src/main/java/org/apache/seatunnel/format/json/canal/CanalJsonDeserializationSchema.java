@@ -92,6 +92,9 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
     private final JsonDeserializationSchema jsonDeserializer;
 
+    /** Sparse old images must not apply defaults before unchanged fields are reconstructed. */
+    private transient JsonDeserializationSchema oldDeserializer;
+
     private final SeaTunnelRowType seaTunnelRowType;
     private final CatalogTable catalogTable;
 
@@ -103,7 +106,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.jsonDeserializer =
-                new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors);
+                new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors, true);
         this.database = database;
         this.table = table;
         this.fieldNames = seaTunnelRowType.getFieldNames();
@@ -166,11 +169,17 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                     break;
                 case OP_UPDATE:
                     final ArrayNode oldNode = (ArrayNode) jsonNode.get(FIELD_OLD);
+                    if (oldDeserializer == null) {
+                        oldDeserializer =
+                                new JsonDeserializationSchema(
+                                        false, ignoreParseErrors, seaTunnelRowType);
+                    }
                     for (int i = 0; i < dataNode.size(); i++) {
                         SeaTunnelRow after = convertJsonNode(dataNode.get(i));
-                        SeaTunnelRow before = convertJsonNode(oldNode.get(i));
+                        JsonNode oldRow = oldNode.get(i);
+                        SeaTunnelRow before = oldDeserializer.convertToRowData(oldRow);
                         for (int f = 0; f < fieldCount; f++) {
-                            if (before.isNullAt(f) && oldNode.findValue(fieldNames[f]) == null) {
+                            if (oldRow.get(fieldNames[f]) == null) {
                                 // fields in "old" (before) means the fields are changed
                                 // fields not in "old" (before) means the fields are not changed
                                 // so we just copy the not changed fields into before

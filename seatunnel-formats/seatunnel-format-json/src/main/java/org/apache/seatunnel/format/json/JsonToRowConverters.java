@@ -21,6 +21,7 @@ package org.apache.seatunnel.format.json;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -39,10 +40,12 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
@@ -79,11 +82,85 @@ public class JsonToRowConverters implements Serializable {
     /** Flag indicating whether to ignore invalid fields/rows (default: throw an exception). */
     private final boolean ignoreParseErrors;
 
-    public Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
+    /** Optional column metadata used to apply defaultValue when a field is missing or null. */
+    private final Column[] columns;
+
+    /** Preserve explicit JSON nulls instead of replacing them with column defaults. */
+    private final boolean preserveExplicitNull;
+
+    /**
+     * Cached date/timestamp formatters per field name. Transient because it may be populated at
+     * converter construction time (default value pre-computation) with non-serializable {@link
+     * DateTimeFormatter} instances, before the object graph is serialized to workers;
+     * re-initialized lazily on the worker side.
+     */
+    public transient Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
 
     public JsonToRowConverters(boolean failOnMissingField, boolean ignoreParseErrors) {
+        this(failOnMissingField, ignoreParseErrors, null);
+    }
+
+    /**
+     * Creates converters with optional physical-column metadata positionally aligned with the row
+     * type. A {@code null} metadata array disables column defaults.
+     */
+    public JsonToRowConverters(
+            boolean failOnMissingField, boolean ignoreParseErrors, Column[] columns) {
+        this(failOnMissingField, ignoreParseErrors, columns, false);
+    }
+
+    /**
+     * Creates converters with optional column defaults and a missing-only default strategy when
+     * {@code preserveExplicitNull} is true. Existing constructors retain default-on-null behavior.
+     */
+    public JsonToRowConverters(
+            boolean failOnMissingField,
+            boolean ignoreParseErrors,
+            Column[] columns,
+            boolean preserveExplicitNull) {
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
+        this.columns = columns == null ? null : columns.clone();
+        this.preserveExplicitNull = preserveExplicitNull;
+    }
+
+    /** Returns the current instant for dynamic temporal defaults; never cached across records. */
+    static Instant currentInstant() {
+        return Instant.now();
+    }
+
+    private static boolean isDynamicTemporalDefault(Object defaultValue, SqlType sqlType) {
+        if (!(defaultValue instanceof String)) {
+            return false;
+        }
+        String token = ((String) defaultValue).trim();
+        switch (sqlType) {
+            case DATE:
+                return "CURRENT_DATE".equalsIgnoreCase(token);
+            case TIME:
+                return "CURRENT_TIME".equalsIgnoreCase(token);
+            case TIMESTAMP:
+            case TIMESTAMP_TZ:
+                return "CURRENT_TIMESTAMP".equalsIgnoreCase(token);
+            default:
+                return false;
+        }
+    }
+
+    private static Object currentTemporalDefault(SqlType sqlType) {
+        Instant now = currentInstant();
+        switch (sqlType) {
+            case DATE:
+                return now.atZone(ZoneId.systemDefault()).toLocalDate();
+            case TIME:
+                return now.atZone(ZoneId.systemDefault()).toLocalTime();
+            case TIMESTAMP:
+                return LocalDateTime.ofInstant(now, ZoneId.systemDefault());
+            case TIMESTAMP_TZ:
+                return OffsetDateTime.ofInstant(now, ZoneId.systemDefault());
+            default:
+                throw new IllegalArgumentException("Not a temporal default type: " + sqlType);
+        }
     }
 
     /** Creates a runtime converter which is null safe. */
@@ -190,7 +267,10 @@ public class JsonToRowConverters implements Serializable {
                 return new JsonToObjectConverter() {
                     @Override
                     public Object convert(JsonNode jsonNode, String fieldName) {
-                        return convertToBytes(jsonNode);
+                        // BinaryNode exposes its internal array, so cached binary defaults
+                        // need a copy per row. TextNode already decodes a fresh array.
+                        byte[] bytes = convertToBytes(jsonNode);
+                        return jsonNode.isBinary() && bytes != null ? bytes.clone() : bytes;
                     }
                 };
             case DECIMAL:
@@ -212,7 +292,7 @@ public class JsonToRowConverters implements Serializable {
             case MAP:
                 return createMapConverter((MapType<?, ?>) type);
             case ROW:
-                return createRowConverter((SeaTunnelRowType) type);
+                return createRowConverter((SeaTunnelRowType) type, null);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
@@ -271,21 +351,47 @@ public class JsonToRowConverters implements Serializable {
         DateTimeFormatter dateFormatter = null;
 
         if (fieldName != null) {
+            // Lazily re-initialize: fieldFormatterMap is transient, so it is null
+            // after the object is deserialized on a worker
+            if (fieldFormatterMap == null) {
+                fieldFormatterMap = new HashMap<>();
+            }
             dateFormatter = fieldFormatterMap.get(fieldName);
         }
 
         if (dateFormatter == null) {
             dateFormatter = DateUtils.matchDateFormatter(dateStr);
+            if (dateFormatter == null) {
+                throw CommonError.formatDateError(dateStr, fieldName);
+            }
             if (fieldName != null) {
                 fieldFormatterMap.put(fieldName, dateFormatter);
             }
         }
 
-        if (dateFormatter == null) {
-            throw CommonError.formatDateError(dateStr, fieldName);
-        }
+        return parseDateWithFormatterRefresh(dateStr, fieldName, dateFormatter)
+                .query(TemporalQueries.localDate());
+    }
 
-        return dateFormatter.parse(dateStr).query(TemporalQueries.localDate());
+    /**
+     * Re-resolves the cached formatter when the current date text uses another supported format.
+     */
+    private TemporalAccessor parseDateWithFormatterRefresh(
+            String dateStr, String fieldName, DateTimeFormatter dateFormatter) {
+        try {
+            return dateFormatter.parse(dateStr);
+        } catch (DateTimeParseException parseException) {
+            if (StringUtils.isBlank(fieldName)) {
+                throw parseException;
+            }
+
+            DateTimeFormatter refreshedFormatter = DateUtils.matchDateFormatter(dateStr);
+            if (refreshedFormatter == null) {
+                throw CommonError.formatDateError(dateStr, fieldName);
+            }
+            fieldFormatterMap.put(fieldName, refreshedFormatter);
+            return refreshedFormatter.parse(dateStr);
+        }
     }
 
     private LocalTime convertToLocalTime(JsonNode jsonNode) {
@@ -299,6 +405,11 @@ public class JsonToRowConverters implements Serializable {
         DateTimeFormatter dateTimeFormatter = null;
 
         if (fieldName != null) {
+            // Lazily re-initialize: fieldFormatterMap is transient, so it is null
+            // after the object is deserialized on a worker
+            if (fieldFormatterMap == null) {
+                fieldFormatterMap = new HashMap<>();
+            }
             dateTimeFormatter = fieldFormatterMap.get(fieldName);
         }
 
@@ -398,6 +509,10 @@ public class JsonToRowConverters implements Serializable {
     }
 
     public JsonToObjectConverter createRowConverter(SeaTunnelRowType rowType) {
+        return createRowConverter(rowType, this.columns);
+    }
+
+    private JsonToObjectConverter createRowConverter(SeaTunnelRowType rowType, Column[] columns) {
         final JsonToObjectConverter[] fieldConverters =
                 Arrays.stream(rowType.getFieldTypes())
                         .map(
@@ -415,6 +530,45 @@ public class JsonToRowConverters implements Serializable {
                                     }
                                 });
         final String[] fieldNames = rowType.getFieldNames();
+        final Object[] defaultValues = new Object[fieldNames.length];
+        final JsonNode[] defaultNodes = new JsonNode[fieldNames.length];
+        final SqlType[] dynamicTemporalTypes = new SqlType[fieldNames.length];
+
+        if (columns != null) {
+            for (int i = 0; i < fieldNames.length && i < columns.length; i++) {
+                Object defaultValue = columns[i].getDefaultValue();
+                if (defaultValue != null) {
+                    SqlType sqlType = rowType.getFieldType(i).getSqlType();
+                    if (isDynamicTemporalDefault(defaultValue, sqlType)) {
+                        dynamicTemporalTypes[i] = sqlType;
+                        continue;
+                    }
+                    JsonNode defaultNode = JsonUtils.toJsonNode(defaultValue);
+                    try {
+                        if (isImmutableType(sqlType)) {
+                            defaultValues[i] =
+                                    createNotNullConverter(rowType.getFieldType(i))
+                                            .convert(defaultNode, fieldNames[i]);
+                        } else {
+                            // Validate at construction but convert per record to avoid
+                            // sharing one mutable instance across rows (e.g. a cached
+                            // FLOAT_VECTOR ByteBuffer or ROW object would be corrupted by
+                            // downstream in-place mutation of any other row's default)
+                            createNotNullConverter(rowType.getFieldType(i))
+                                    .convert(defaultNode, fieldNames[i]);
+                            defaultNodes[i] = defaultNode;
+                        }
+                    } catch (RuntimeException e) {
+                        throw CommonError.jsonOperationError(
+                                FORMAT,
+                                String.format(
+                                        "Invalid defaultValue for column '%s' of type %s: %s",
+                                        fieldNames[i], sqlType, defaultValue),
+                                e);
+                    }
+                }
+            }
+        }
 
         return new JsonToObjectConverter() {
             @Override
@@ -436,7 +590,15 @@ public class JsonToRowConverters implements Serializable {
                         if (StringUtils.isNotBlank(rowFieldName)) {
                             fieldName = rowFieldName + "." + fieldName;
                         }
-                        Object convertedField = convertField(fieldConverters[i], fieldName, field);
+                        Object convertedField =
+                                convertField(
+                                        fieldConverters[i],
+                                        fieldName,
+                                        field,
+                                        i,
+                                        defaultValues,
+                                        defaultNodes,
+                                        dynamicTemporalTypes);
                         row.setField(i, convertedField);
                     } catch (Throwable t) {
                         throw CommonError.jsonOperationError(
@@ -448,6 +610,35 @@ public class JsonToRowConverters implements Serializable {
                 return row;
             }
         };
+    }
+
+    /**
+     * Whether a default value of the given SQL type is safe to pre-convert once and cache.
+     *
+     * <p>Only types whose converted Java representation is genuinely immutable belong here.
+     * Anything not explicitly listed (ARRAY/MAP/BYTES/FLOAT_VECTOR/ROW, or a future type) is
+     * treated as mutable and re-converted per record, so no single instance is ever shared across
+     * rows. The default branch safely opts unlisted types out of caching.
+     */
+    private boolean isImmutableType(SqlType sqlType) {
+        switch (sqlType) {
+            case STRING:
+            case BOOLEAN:
+            case TINYINT:
+            case SMALLINT:
+            case INT:
+            case BIGINT:
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+            case DATE:
+            case TIME:
+            case TIMESTAMP:
+            case NULL:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private JsonToObjectConverter createArrayConverter(ArrayType<?, ?> type) {
@@ -506,9 +697,36 @@ public class JsonToRowConverters implements Serializable {
     }
 
     private Object convertField(
-            JsonToObjectConverter fieldConverter, String fieldName, JsonNode field) {
-        if (field == null) {
-            if (failOnMissingField) {
+            JsonToObjectConverter fieldConverter,
+            String fieldName,
+            JsonNode field,
+            int fieldIndex,
+            Object[] defaultValues,
+            JsonNode[] defaultNodes,
+            SqlType[] dynamicTemporalTypes) {
+        if (field == null || field.isNull()) {
+            if (preserveExplicitNull && field != null) {
+                return null;
+            }
+            // Legacy converters apply defaults to both missing fields and explicit nulls.
+            if (dynamicTemporalTypes != null
+                    && fieldIndex < dynamicTemporalTypes.length
+                    && dynamicTemporalTypes[fieldIndex] != null) {
+                return currentTemporalDefault(dynamicTemporalTypes[fieldIndex]);
+            }
+            if (defaultNodes != null
+                    && fieldIndex < defaultNodes.length
+                    && defaultNodes[fieldIndex] != null) {
+                return fieldConverter.convert(defaultNodes[fieldIndex], fieldName);
+            }
+            if (defaultValues != null
+                    && fieldIndex < defaultValues.length
+                    && defaultValues[fieldIndex] != null) {
+                return defaultValues[fieldIndex];
+            }
+            // failOnMissingField only throws for a genuinely missing field (field == null);
+            // an explicit JSON null without a default keeps returning null as before
+            if (field == null && failOnMissingField) {
                 throw new IllegalArgumentException(
                         String.format("Could not find field with name %s .", fieldName));
             } else {

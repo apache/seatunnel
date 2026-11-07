@@ -471,6 +471,15 @@ or state format migration is required.
 
 ### Format Changes
 
+- **Breaking Change: `schema.columns[].defaultValue` is now applied during JSON deserialization**
+  - **Affected component**: `seatunnel-format-json` deserialization paths that construct `JsonDeserializationSchema` from a `CatalogTable`. A connector wrapper is covered only if it uses this path; JSON wrappers that construct the deserializer from only a `SeaTunnelRowType` are not covered.
+  - **Description**: These paths previously ignored `schema.columns[].defaultValue`. Ordinary JSON now applies configured defaults to missing or explicitly-`null` fields and normalizes them to the column type; present, non-null values are preserved. Canal, Maxwell and OGG CDC main row images apply defaults only to missing fields, preserving explicit `null` as a real database NULL. A configured default is applied before the missing-field check and therefore satisfies `failOnMissingField` for that field. Without a configured default, explicit `null` remains `null`, and missing fields continue to follow `failOnMissingField`. An invalid literal default fails during schema construction.
+  - **Temporal defaults**: The case-insensitive token `CURRENT_DATE` is supported for `DATE`, `CURRENT_TIME` for `TIME`, and `CURRENT_TIMESTAMP` for `TIMESTAMP` and `TIMESTAMP_TZ`. For each record with a missing field (or an explicitly-`null` field in ordinary JSON only), the matching token is evaluated using the worker's local clock and system time zone, not when the schema or deserializer is constructed. For a `STRING` column, the same text is a literal string, not a token.
+  - **CDC sparse before images**: Canal and Maxwell CDC deserialize sparse `old`/`before` images without catalog defaults. An explicitly-`null` before value remains `null`; an omitted unchanged field is copied from the full `data` image, not filled with a schema default.
+  - **File JSON**: For all file sources using the shared `JsonReadStrategy` (including LocalFile), schema defaults are supported only with `parse_partition_from_path = false`. The default `true` selects the merge-partition path, which intentionally does not apply schema defaults, even when the file path has no partition fields.
+  - **Impact**: Source schemas that already configure defaults will now emit those defaults instead of `null` for missing fields, and for explicitly-`null` fields in ordinary JSON only. CDC explicit nulls remain null. This also affects jobs that set a source default only to generate a sink save-mode DDL default.
+  - **Migration Guide**: If a job must preserve `null` for missing source fields (or explicitly-`null` fields in ordinary JSON), remove `defaultValue` from the source schema or move it to the sink-side schema. For any file source using the shared `JsonReadStrategy` to read JSON, set `parse_partition_from_path = false` to use schema defaults; path partition fields will then not be parsed by this option. (#11632)
+
 - **CSV source defaults for missing and configured null fields**: When a CSV source declares
   `schema.columns[].defaultValue`, a column absent from the file header or a field matching
   `null_format` now receives that default instead of null. Jobs without configured defaults are
@@ -788,31 +797,31 @@ or state format migration is required.
 
 ## 2.3.13
 
-### API Changes
+### Engine Behavior Changes
 
 - **Breaking Change: Engine REST table metrics key format**
   - **Affected component**: SeaTunnel Engine REST API (job metrics in `/job-info`)
   - **Description**: To support multiple Sources/Sinks/Transforms processing the same table, the key format of table-level metrics has changed from `{tableName}` to `{VertexIdentifier}.{tableName}` (for example, `Sink[0].fake.user_table`).
   - **Impact**: Existing Grafana dashboards, Prometheus alert rules, and custom monitoring integrations that reference the old keys must be updated.
 
-  **Before**
-  ```json
-  {
-    "TableSinkWriteCount": {
-      "fake.user_table": "15"
-    }
+**Before**
+```json
+{
+  "TableSinkWriteCount": {
+    "fake.user_table": "15"
   }
-  ```
+}
+```
 
-  **After**
-  ```json
-  {
-    "TableSinkWriteCount": {
-      "Sink[0].fake.user_table": "10",
-      "Sink[1].fake.user_table": "5"
-    }
+**After**
+```json
+{
+  "TableSinkWriteCount": {
+    "Sink[0].fake.user_table": "10",
+    "Sink[1].fake.user_table": "5"
   }
-  ```
+}
+```
 
 ### Transform Changes
 
@@ -820,3 +829,6 @@ or state format migration is required.
 - Adjusted SQL Transform date & time functions:
   - `DATEDIFF(<start>, <end>, 'MONTH')` now returns the total number of months between the two dates across years (for example, from `2023-01-01` to `2024-03-01` returns `14` instead of `15`).
   - `WEEK(<datetime>)` now returns the ISO week number directly (previous behavior added an extra `+1` to the ISO week value).
+
+### Dependency Upgrades
+

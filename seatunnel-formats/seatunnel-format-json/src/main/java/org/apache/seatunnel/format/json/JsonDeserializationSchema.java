@@ -29,6 +29,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.NullNode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.CompositeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -90,6 +91,18 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
 
     public JsonDeserializationSchema(
             CatalogTable catalogTable, boolean failOnMissingField, boolean ignoreParseErrors) {
+        this(catalogTable, failOnMissingField, ignoreParseErrors, false);
+    }
+
+    /**
+     * Creates a catalog deserializer, optionally applying defaults only to missing fields while
+     * preserving explicit JSON nulls, as required for CDC row images.
+     */
+    public JsonDeserializationSchema(
+            CatalogTable catalogTable,
+            boolean failOnMissingField,
+            boolean ignoreParseErrors,
+            boolean preserveExplicitNull) {
         if (ignoreParseErrors && failOnMissingField) {
             throw new SeaTunnelJsonFormatException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
@@ -99,8 +112,23 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         this.rowType = checkNotNull(catalogTable.getSeaTunnelRowType());
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
+        Column[] columns = null;
+        if (catalogTable.getTableSchema() != null
+                && catalogTable.getTableSchema().getColumns() != null) {
+            // Only physical columns participate in the row type (see AbstractSchema
+            // toPhysicalRowDataType), so defaults must be indexed against the same set
+            // to avoid positional misalignment with metadata/computed columns.
+            columns =
+                    catalogTable.getTableSchema().getColumns().stream()
+                            .filter(Column::isPhysical)
+                            .toArray(Column[]::new);
+        }
         this.runtimeConverter =
-                new JsonToRowConverters(failOnMissingField, ignoreParseErrors)
+                new JsonToRowConverters(
+                                failOnMissingField,
+                                ignoreParseErrors,
+                                columns,
+                                preserveExplicitNull)
                         .createRowConverter(checkNotNull(rowType));
 
         if (hasDecimalType(rowType)) {

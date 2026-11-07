@@ -101,7 +101,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
         this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.jsonDeserializer =
-                new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors);
+                new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors, true);
         this.database = database;
         this.table = table;
         this.fieldNames = seaTunnelRowType.getFieldNames();
