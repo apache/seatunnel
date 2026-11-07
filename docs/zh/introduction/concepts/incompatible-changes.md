@@ -4,6 +4,11 @@
 
 ## dev
 
+### JDBC 带时区时间戳发现
+
+共享 JDBC 元数据回退现在将 JDBC 类型 2014（`TIMESTAMP_WITH_TIMEZONE`）映射为 `TIMESTAMP_TZ`（`OffsetDateTime`），此前为 `TIMESTAMP`（`LocalDateTime`）。已有自动发现 schema 的任务可能向下游提供不同的逻辑类型和 Java 类型。升级前请核对转换与 Sink 的字段类型，需要无时区时间戳时显式转换。配置与 checkpoint 格式不变。JDBC Sink 在驱动拒绝 `setObject(OffsetDateTime)` 时仍回退为 UTC `setTimestamp`；这不保证保留原始时区偏移。
+
+
 ### Databend Source：DECIMAL 列按 DECIMAL 读取，而不再是 STRING
 
 - **行为变更：Databend 的 `DECIMAL(p, s)` 列在作业中的类型为 `DECIMAL(p, s)`**

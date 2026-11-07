@@ -57,6 +57,8 @@ public class PrestoTypeMapper implements JdbcDialectTypeMapper {
     private static final String PRESTO_DATE = "DATE";
     private static final String PRESTO_TIME = "TIME";
     private static final String PRESTO_TIMESTAMP = "TIMESTAMP";
+    /* Presto timestamp type that carries a timezone or UTC offset. */
+    private static final String PRESTO_TIMESTAMP_WITH_TIME_ZONE = "TIMESTAMP WITH TIME ZONE";
 
     // ------------------------------blob-------------------------
     private static final String PRESTO_BINARY = "BINARY";
@@ -67,6 +69,10 @@ public class PrestoTypeMapper implements JdbcDialectTypeMapper {
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
         String columnType = metadata.getColumnTypeName(colIndex).toUpperCase();
+        // Presto can report a precision between TIMESTAMP and WITH TIME ZONE.
+        if (columnType.startsWith(PRESTO_TIMESTAMP) && columnType.contains("WITH TIME ZONE")) {
+            columnType = PRESTO_TIMESTAMP_WITH_TIME_ZONE;
+        }
         // VARCHAR(x)      --->      VARCHAR
         if (columnType.indexOf("(") > -1) {
             columnType = columnType.split("\\(")[0];
@@ -100,6 +106,8 @@ public class PrestoTypeMapper implements JdbcDialectTypeMapper {
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case PRESTO_TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case PRESTO_TIMESTAMP_WITH_TIME_ZONE:
+                return LocalTimeType.OFFSET_DATE_TIME_TYPE;
             case PRESTO_VARBINARY:
             case PRESTO_BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
