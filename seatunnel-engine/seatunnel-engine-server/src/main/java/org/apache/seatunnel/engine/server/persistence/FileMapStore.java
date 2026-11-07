@@ -62,6 +62,18 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
             return;
         }
 
+        // Restore rebuilds each pipeline's checkpoint ID counter from the latest completed
+        // checkpoint in checkpoint storage, so persisting it only grows the append-only storage
+        // with one write per checkpoint trigger.
+        if (EngineStateStoreNames.CHECKPOINT_ID.equals(mapName)) {
+            this.mapStorage = NoOpMapStorage.INSTANCE;
+            log.info(
+                    "Skip persistence for map '{}' because checkpoint ID counters are rebuilt "
+                            + "from checkpoint storage on restore.",
+                    mapName);
+            return;
+        }
+
         Map<String, Object> initMap = new HashMap<>(Maps.fromProperties(properties));
         String storageType = (String) initMap.get("type");
         try {

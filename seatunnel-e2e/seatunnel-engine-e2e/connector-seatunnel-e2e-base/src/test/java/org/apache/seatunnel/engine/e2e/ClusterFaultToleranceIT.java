@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -30,7 +31,9 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -198,6 +201,23 @@ public class ClusterFaultToleranceIT {
                 "cluster_batch_fake_to_localfile_template.conf", valueMap, targetConfigFilePath);
 
         return new ImmutablePair<>(targetDir, targetConfigFilePath);
+    }
+
+    /** Returns the ID of the latest completed checkpoint of the job's only pipeline, or null. */
+    private static Long latestCheckpointId(HazelcastInstanceImpl node, long jobId)
+            throws Exception {
+        SeaTunnelServer server = node.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        PipelineState state =
+                server.getCheckpointService()
+                        .getCheckpointStorage()
+                        .getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId), "1");
+        return state == null ? null : state.getCheckpointId();
+    }
+
+    /** Returns the IMap storage directory of a map, under the namespace the test cluster uses. */
+    private static File imapStorageDir(String testClusterName, String mapName) {
+        return new File(
+                "/tmp/seatunnel/imap/" + TestUtils.getClusterName(testClusterName), mapName);
     }
 
     @Test
@@ -850,6 +870,21 @@ public class ClusterFaultToleranceIT {
                             });
 
             Thread.sleep(5000);
+            // Wait for a few completed checkpoints, so that a restore that started the checkpoint
+            // IDs again from 1 would be told apart by the check after the restart.
+            long checkpointIdBeforeShutdown =
+                    Awaitility.await()
+                            .atMost(60, TimeUnit.SECONDS)
+                            .pollInterval(1, TimeUnit.SECONDS)
+                            .until(
+                                    () -> latestCheckpointId(finalNode, jobId),
+                                    checkpointId -> checkpointId != null && checkpointId >= 2);
+            // engine_checkpoint-id-map matches the engine* map-store config, but it is not written
+            // to the IMap storage, next to the engine maps that are persisted.
+            Assertions.assertTrue(
+                    imapStorageDir(testClusterName, Constant.IMAP_RUNNING_JOB_STATE).isDirectory());
+            Assertions.assertFalse(
+                    imapStorageDir(testClusterName, EngineStateStoreNames.CHECKPOINT_ID).exists());
             // shutdown all node
             node1.shutdown();
             node2.shutdown();
@@ -891,6 +926,24 @@ public class ClusterFaultToleranceIT {
                                 }
                                 Assertions.assertEquals(JobStatus.RUNNING, jobStatus);
                             });
+            // The checkpoint ID counter was not persisted, so the restore rebuilds it from the
+            // latest completed checkpoint: the first checkpoint after the restart continues the
+            // IDs instead of starting again from 1.
+            long checkpointIdAfterRestore =
+                    Awaitility.await()
+                            .atMost(60, TimeUnit.SECONDS)
+                            .pollInterval(1, TimeUnit.SECONDS)
+                            .until(
+                                    () -> latestCheckpointId(restoreFinalNode, jobId),
+                                    checkpointId ->
+                                            checkpointId != null
+                                                    && checkpointId != checkpointIdBeforeShutdown);
+            Assertions.assertTrue(
+                    checkpointIdAfterRestore > checkpointIdBeforeShutdown,
+                    "checkpoint "
+                            + checkpointIdAfterRestore
+                            + " after the restart does not continue from checkpoint "
+                            + checkpointIdBeforeShutdown);
             // In the restore case, ensure that JabStatus is in the RUNNING state before calling
             // waitForJobComplete.
             CompletableFuture<JobStatus> waitForCompletableFuture =
