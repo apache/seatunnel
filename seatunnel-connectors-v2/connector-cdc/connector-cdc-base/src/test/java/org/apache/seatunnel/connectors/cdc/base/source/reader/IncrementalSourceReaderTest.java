@@ -41,6 +41,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.cdc.base.source.split.state.SnapshotSplitState;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitStateBase;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
@@ -97,6 +98,101 @@ class IncrementalSourceReaderTest {
             new TableId("alpha_online", null, "account_histories");
     private static final TableId REMOVED_TABLE =
             new TableId("alpha_online", null, "account_interests");
+
+    @Test
+    void testEmitterClosesSnapshotResourcesAfterEmission() throws Exception {
+        ResourceRecords records = new ResourceRecords();
+        records.add(dataRecord(1));
+        List<Integer> emitted = new ArrayList<>();
+        emitResourceRecords(records, emitted, null);
+        assertEquals(Collections.singletonList(1), emitted);
+        assertTrue(records.closed);
+    }
+
+    @Test
+    void testEmitterClosesSnapshotResourcesAfterDeserializerFailure() throws Exception {
+        ResourceRecords records = new ResourceRecords();
+        records.add(dataRecord(1));
+        IOException failure = new IOException("injected deserialization failure");
+        assertSame(
+                failure,
+                assertThrows(
+                        IOException.class,
+                        () -> emitResourceRecords(records, new ArrayList<>(), failure)));
+        assertTrue(records.closed);
+    }
+
+    @Test
+    void testEmitterPreservesFailureWhenSnapshotCleanupFails() throws Exception {
+        ResourceRecords records = new ResourceRecords();
+        records.add(dataRecord(1));
+        IOException failure = new IOException("injected deserialization failure");
+        records.closeFailure = new IOException("injected cleanup failure");
+        IOException actual =
+                assertThrows(
+                        IOException.class,
+                        () -> emitResourceRecords(records, new ArrayList<>(), failure));
+        assertSame(failure, actual);
+        assertArrayEquals(new Throwable[] {records.closeFailure}, actual.getSuppressed());
+        assertTrue(records.closed);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void emitResourceRecords(
+            ResourceRecords records, List<Integer> emitted, IOException failure) throws Exception {
+        SourceReader.Context context =
+                Mockito.mock(SourceReader.Context.class, Mockito.RETURNS_DEEP_STUBS);
+        DebeziumDeserializationSchema<Integer> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        Mockito.doAnswer(
+                        invocation -> {
+                            if (failure != null) {
+                                throw failure;
+                            }
+                            SourceRecord record = invocation.getArgument(0);
+                            Collector<Integer> output = invocation.getArgument(1);
+                            output.collect(((Number) record.sourceOffset().get("pos")).intValue());
+                            return null;
+                        })
+                .when(schema)
+                .deserialize(Mockito.any(), Mockito.any());
+        Collector<Integer> output =
+                new Collector<Integer>() {
+                    @Override
+                    public void collect(Integer record) {
+                        emitted.add(record);
+                    }
+
+                    @Override
+                    public Object getCheckpointLock() {
+                        return this;
+                    }
+                };
+        IncrementalSourceRecordEmitter<Integer> emitter =
+                new IncrementalSourceRecordEmitter<>(
+                        schema, Mockito.mock(OffsetFactory.class), context);
+        synchronized (output.getCheckpointLock()) {
+            emitter.emitRecord(
+                    new SourceRecords(records),
+                    output,
+                    new SnapshotSplitState(
+                            new SnapshotSplit("snapshot-resource", KEPT_TABLE, null, null, null)));
+        }
+    }
+
+    private static final class ResourceRecords extends ArrayList<SourceRecord>
+            implements AutoCloseable {
+        private boolean closed;
+        private IOException closeFailure;
+
+        @Override
+        public void close() throws IOException {
+            closed = true;
+            if (closeFailure != null) {
+                throw closeFailure;
+            }
+        }
+    }
 
     @Test
     void testFetcherFailureBeforeHandoffRestoresUnemittedBatch() throws Exception {
