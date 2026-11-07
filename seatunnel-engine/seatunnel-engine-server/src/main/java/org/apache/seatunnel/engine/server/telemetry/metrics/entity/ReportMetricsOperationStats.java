@@ -30,6 +30,8 @@ public class ReportMetricsOperationStats {
     private long failureCount;
     /** Total interrupted report invocations sent by this worker. */
     private long interruptedCount;
+    /** Total report invocations rejected by the worker's bounded executor. */
+    private long rejectedCount;
     /** Task metric count in the most recent report payload. */
     private long lastPayloadTaskCount;
     /** Most recent worker-side reporting latency in milliseconds. */
