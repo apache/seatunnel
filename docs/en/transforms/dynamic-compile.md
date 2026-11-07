@@ -22,6 +22,9 @@ If the conversion is too complex, it may affect performance
 | compile_language | Enum   | yes      |               |
 | compile_pattern  | Enum   | no       | SOURCE_CODE   |
 | absolute_path    | string | no       |               |
+| table_match_regex | string | no       | `.*`          |
+| table_transform   | array  | no       | -             |
+| rule_match_mode   | string | no       | `FIRST_MATCH` |
 
 
 ### common options [string]
@@ -47,6 +50,14 @@ The absolute path of the Java, Groovy, or Scala source file on the server
 ### source_code [string]
 
 The source code.
+
+### table_match_regex / table_transform / rule_match_mode
+
+Multi-table options. When the upstream source outputs several tables, one DynamicCompile transform
+can handle all of them: `table_match_regex` selects the tables the transform level rule applies to
+(default `.*`), `table_transform` holds complete per-table rules (`table_path` plus the options
+above), and `rule_match_mode` (`FIRST_MATCH` or `ALL_MATCH`) controls how duplicate `table_path`
+entries are evaluated. See [Multi-Table Transform](transform-multi-table.md).
 
 #### Details about the source code
 

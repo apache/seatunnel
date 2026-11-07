@@ -17,7 +17,12 @@
 
 package org.apache.seatunnel.e2e.common.util;
 
+import org.testcontainers.DockerClientFactory;
+import org.testcontainers.images.RemoteDockerImage;
 import org.testcontainers.images.builder.ImageFromDockerfile;
+import org.testcontainers.utility.DockerImageName;
+
+import com.github.dockerjava.api.command.InspectImageResponse;
 
 import java.util.Locale;
 import java.util.Map;
@@ -78,36 +83,60 @@ public final class EngineImageJdkUpgrader {
     }
 
     private static String build(String sourceImage) {
-        String dockerfile =
-                "FROM "
-                        + JDK_IMAGE
-                        + " AS jdk\n"
-                        + "FROM "
-                        + sourceImage
-                        + "\n"
-                        // bitnami based images build as an unprivileged user, so take root before
-                        // replacing the JDK. The e2e containers already run as root at runtime.
-                        + "USER root\n"
-                        + "COPY --from=jdk "
-                        + JDK_IMAGE_JAVA_HOME
-                        + " "
-                        + JDK_INSTALL_PATH
-                        + "\n"
-                        // Fail the build loudly rather than silently keeping Java 8 if the source
-                        // image does not declare JAVA_HOME. The trailing java -version check closes
-                        // a gap the JAVA_HOME test alone does not: some base images resolve the
-                        // bare
-                        // `java` on PATH through /usr/bin/java -> /etc/alternatives/java rather
-                        // than
-                        // through $JAVA_HOME/bin, so the symlink swap above can succeed while the
-                        // java a caller actually invokes is still the original Java 8 one.
-                        + "RUN test -n \"$JAVA_HOME\" && rm -rf \"$JAVA_HOME\" && ln -s "
-                        + JDK_INSTALL_PATH
-                        + " \"$JAVA_HOME\""
-                        + " && java -version 2>&1 | grep -q 'version \"11'\n";
         return new ImageFromDockerfile(derivedImageName(sourceImage), false)
-                .withFileFromString("Dockerfile", dockerfile)
+                .withFileFromString("Dockerfile", dockerfile(sourceImage, platformOf(sourceImage)))
                 .get();
+    }
+
+    static String dockerfile(String sourceImage, String platform) {
+        return "FROM --platform="
+                + platform
+                + " "
+                + JDK_IMAGE
+                + " AS jdk\n"
+                + "FROM "
+                + sourceImage
+                + "\n"
+                // The classic builder, which the docker API runs by default, caches COPY --from
+                // by the jdk stage's image id, and that id is the same for every platform of a
+                // multi-platform tag. Recording the platform first keeps a JDK cached for another
+                // platform from being reused.
+                + "LABEL org.apache.seatunnel.e2e.jdk-platform="
+                + platform
+                + "\n"
+                // bitnami based images build as an unprivileged user, so take root before
+                // replacing the JDK. The e2e containers already run as root at runtime.
+                + "USER root\n"
+                + "COPY --from=jdk "
+                + JDK_IMAGE_JAVA_HOME
+                + " "
+                + JDK_INSTALL_PATH
+                + "\n"
+                // Fail the build loudly rather than silently keeping Java 8 if the source image
+                // does not declare JAVA_HOME. The trailing java -version check closes a gap the
+                // JAVA_HOME test alone does not: some base images resolve the bare `java` on PATH
+                // through /usr/bin/java -> /etc/alternatives/java rather than through
+                // $JAVA_HOME/bin, so the symlink swap above can succeed while the java a caller
+                // actually invokes is still the original Java 8 one.
+                + "RUN test -n \"$JAVA_HOME\" && rm -rf \"$JAVA_HOME\" && ln -s "
+                + JDK_INSTALL_PATH
+                + " \"$JAVA_HOME\""
+                + " && java -version 2>&1 | grep -q 'version \"11'\n";
+    }
+
+    /**
+     * Returns the {@code os/arch} platform {@code sourceImage} is built for.
+     *
+     * <p>The JDK stage has to be pinned to it. Left unqualified, {@link #JDK_IMAGE} resolves to the
+     * docker host's platform, so on an arm64 host an arm64 JDK would be copied into the amd64 only
+     * engine images, where it cannot run.
+     */
+    private static String platformOf(String sourceImage) {
+        // The image has to be present locally to be inspected; the build would pull it anyway.
+        String pulledImage = new RemoteDockerImage(DockerImageName.parse(sourceImage)).get();
+        InspectImageResponse image =
+                DockerClientFactory.lazyClient().inspectImageCmd(pulledImage).exec();
+        return image.getOs() + "/" + image.getArch();
     }
 
     /** Turns an image reference into a deterministic, docker compatible derived image name. */
