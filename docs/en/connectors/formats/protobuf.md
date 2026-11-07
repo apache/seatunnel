@@ -4,6 +4,16 @@ Protobuf (Protocol Buffers) is a language-neutral, platform-independent data ser
 
 Currently, Protobuf format can be used with Kafka.
 
+## Compiler availability
+
+SeaTunnel compiles `protobuf_schema` at runtime. On macOS ARM64 (Apple Silicon) with a JVM reporting `os.arch=aarch64`, it uses protoc `3.25.3` because the compiler bundled by protoc-jar has no native binary for that platform. Other platforms keep their existing compiler and arguments.
+
+If the compiler is missing from protoc-jar's temporary cache, compilation downloads it from Maven Central or a matching `mirror` in `~/.m2/settings.xml` (`mirrorOf=central` or a value containing `*`). The temporary cache may be cleared, requiring another download. A failed download can surface as `Unsupported platform: protoc-3.25.3-osx-aarch_64.exe`; check network access and whether the mirror serves that artifact. protoc-jar uses a simplified settings parser, not full Maven mirror resolution.
+
+SeaTunnel's platform selector also accepts `os.arch=arm64` defensively, but protoc-jar 3.11.4 does not normalize that alias to its native classifier. This does not provide end-to-end support for JVMs reporting `arm64`.
+
+For schemas shared across platforms, use features accepted by the compiler on every target platform; a schema accepted by the newer macOS ARM64 compiler may not compile with the older compiler elsewhere.
+
 ## Kafka Usage Example
 
 - Example of simulating a randomly generated data source and writing it to Kafka in Protobuf format
@@ -161,3 +171,14 @@ sink {
   }
 }
 ```
+
+## Tombstone and empty messages
+
+A Kafka tombstone is a record whose value is `null`, used on a compacted topic to mark its key as
+deleted. The Protobuf source reads such a record as one that produces no row: it is not a format
+error, so it is passed over whatever `format_error_handle_way` is set to, and the offset moves on
+past it.
+
+An empty (zero length) value is different. Protobuf defines it as a valid message in which every
+field holds its default value, so it is decoded into a row of those defaults rather than being
+passed over.

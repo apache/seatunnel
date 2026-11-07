@@ -63,7 +63,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | driver                       | String     | 是      | -       | JDBC 驱动类名，Snowflake 使用 `net.snowflake.client.jdbc.SnowflakeDriver`。                                                                                                          |
 | username                     | String     | 否       | -       | Snowflake 账户用户名。                                                                                                                                                              |
 | password                     | String     | 否       | -       | Snowflake 账户密码。                                                                                                                                                                |
-| query                        | String     | 是      | -       | 读取数据的 SELECT 语句。SELECT 的列列表决定输出 schema，只选择需要的列即可。                                                                                                          |
+| query                        | String     | 否      | -       | 读取数据的 SELECT 语句。未配置 `table_path` 或 `table_list` 时必填。SELECT 的列列表决定输出 schema，只选择需要的列即可。                                                                                                          |
 | connection_check_timeout_sec | Int        | 否       | 30      | 连接校验超时时间（秒），超过该时间未完成则失败。                                                                                                                                    |
 | partition_column             | String     | 否       | -       | 用于并行拆分读取的列。支持数值列和字符串列（配合 `split.string_split_mode` 使用）；只能配置一列。                                                                                    |
 | partition_lower_bound        | String     | 否       | -       | `partition_column` 的下界，用于范围拆分；不设置时 SeaTunnel 查询最小值。                                                                                                            |
@@ -150,7 +150,7 @@ source {
 - Snowflake 任务使用 `Jdbc` 插件名，并设置 `driver = "net.snowflake.client.jdbc.SnowflakeDriver"`。
 - 运行任务前请把 Snowflake JDBC 驱动 jar 放到 `$SEATUNNEL_HOME/plugins/jdbc/lib/`。
 - 并行读取时，`partition_column`、`partition_lower_bound`、`partition_upper_bound` 和 `partition_num` 必须描述同一数值列的范围。
-- Snowflake 的 `GEOGRAPHY`/`GEOMETRY` 列始终映射为 SeaTunnel 的 `STRING` 类型；返回的文本表示形式由 Snowflake JDBC URL 参数（如 `GEOGRAPHY_OUTPUT_FORMAT`）决定。
+- Snowflake 地理空间列映射为 SeaTunnel `STRING` 类型。
 
 ## 变更日志
 

@@ -68,7 +68,7 @@ Debezium DB2，在初始快照完成后会继续读取已提交的 INSERT、UPDA
 |------|------|----------|--------|------|
 | username | String | 是 | - | 连接 DB2 时使用的用户名。 |
 | password | String | 是 | - | 连接 DB2 时使用的密码。 |
-| url | String | 是 | - | DB2 JDBC URL。URL 必须包含数据库名，例如 `jdbc:db2://127.0.0.1:50000/testdb`。 |
+| url | String | 是 | - | DB2 JDBC URL。该值不能为空或仅包含空白字符。URL 必须包含数据库名，例如 `jdbc:db2://127.0.0.1:50000/testdb`。 |
 | database-names | List | 否 | 从 `url` 中解析出的数据库 | 要监控的数据库名。DB2 CDC 一个 source 监控一个数据库。 |
 | table-names | List | 未设置 `table-pattern` 时必填 | - | 要监控的表名，格式为 `databaseName.schemaName.tableName`，例如 `testdb.DB2INST1.CUSTOMERS`。 |
 | table-pattern | String | 未设置 `table-names` 时必填 | - | 用于发现已开启 capture mode 的表的正则表达式。 |

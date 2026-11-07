@@ -86,7 +86,7 @@ list.
 
 ```
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 5000
 }
