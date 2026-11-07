@@ -12,7 +12,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过 JDBC 写入数据。支持批处理模式和流式模式，支持并发写入，支持精确一次语义（使用 XA 事务保证）。
+PostgreSQL Sink 连接器通过 JDBC 驱动将行写入 PostgreSQL 数据库。支持批处理模式和流式模式，
+写入并发度由作业或管道的并行度控制，并通过 XA 事务保证精确一次语义。
+
+当上游数据需要落到关系型数据库，并且目标表遵循下方“数据类型映射”小节中描述的标准 PostgreSQL
+类型体系时，可以使用该连接器。它既可以写入固定的 `database.table`，也可以根据 schema 自动生成
+`INSERT` 语句，或者使用自定义的 `query` 模板，因此既适合 CDC 场景，也适合纯批量加载场景。
 
 ## 使用依赖
 
@@ -26,12 +31,16 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 主要特性
 
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [变更数据捕获（CDC）](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-> 使用 `XA 事务` 来确保 `精确一次`。因此，仅对支持 `XA 事务` 的数据库支持 `精确一次`。您可以设置 `is_exactly_once=true` 来启用此功能。
+精确一次要求目标数据库支持 XA 事务。需要设置 `is_exactly_once=true`、
+`max_retries=0`，并提供对应的 `xa_data_source_class_name`。
+
 
 ## 支持的数据源信息
 | 数据源       |                     支持的版本                     |        驱动         |                  URL                  |                                  Maven                                   |
@@ -78,12 +87,13 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                     | String  | 否   | -                            | 连接实例的用户名。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | password                     | String  | 否   | -                            | 连接实例的密码。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | query                        | String  | 否   | -                            | 使用此 SQL 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 的优先级更高。                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| database                     | String  | 否   | -                            | 使用此 `database` 和 `table-name` 自动生成 SQL，并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，并具有更高的优先级。                                                                                                                                                                                                                                                                                                                                                                                          |
-| table                        | String  | 否   | -                            | 使用数据库和此表名自动生成 SQL，并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，并具有更高的优先级。表参数可以填写一个不想的表的名称，最终将作为创建表的表名，并支持变量（`${table_name}`，`${schema_name}`）。替换规则： `${schema_name}` 将替换为传递给目标端的 SCHEMA 名称，`${table_name}` 将替换为传递给目标端的表名称。 |
+| database                     | String  | 否   | -                            | 使用此 `database` 和 `table-name` 自动生成 SQL，并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                                                                                                                                                                                                                                                                                                                                                          |
+| table                        | String  | 否   | -                            | 使用数据库和此表名自动生成 SQL，并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准表参数可以填写一个不想的表的名称，最终将作为创建表的表名，并支持变量（`${table_name}`，`${schema_name}`）。替换规则： `${schema_name}` 将替换为传递给目标端的 SCHEMA 名称，`${table_name}` 将替换为传递给目标端的表名称。 |
 | primary_keys                 | Array   | 否   | -                            | 此选项用于支持在自动生成 SQL 时进行 `insert`，`delete` 和 `update` 操作。                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | connection_check_timeout_sec | Int     | 否   | 30                           | 用于验证连接的数据库操作完成的等待时间（秒）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | max_retries                  | Int     | 否   | 0                            | 提交失败的重试次数（executeBatch）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | batch_size                   | Int     | 否   | 1000                         | 对于批量写入，当缓冲记录的数量达到 `batch_size` 或时间达到 `checkpoint.interval`<br/>时，数据将刷新到数据库。                                                                                                                                                                                                                                                                                                                                                                                              |
+| batch_interval_ms           | Long    | 否   | 0                            | 写入触发的定时刷新间隔，单位毫秒。`0` 表示关闭定时刷新；大于 0 时，写入器会在每条记录写入时检查间隔，达到间隔后同步刷新。                                                                                                    |
 | is_exactly_once              | Boolean | 否   | false                        | 是否启用精确一次语义，将使用 XA 事务。如果启用，您需要<br/>设置 `xa_data_source_class_name`。                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | generate_sink_sql            | Boolean | 否   | false                        | 根据要写入的数据库表生成 SQL 语句。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | xa_data_source_class_name    | String  | 否   | -                            | 数据库驱动的 XA 数据源类名，例如，PostgreSQL 是 `org.postgresql.xa.PGXADataSource`，并<br/>请参阅附录以获取其他数据源。                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -98,12 +108,13 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | custom_sql                   | String  | 否   | -                            | 当 `data_save_mode` 选择 `CUSTOM_PROCESSING` 时，您应该填写 `CUSTOM_SQL` 参数。此参数通常填入可执行的 SQL。SQL 将在同步任务之前执行。                                                                                                                                                                                                                                                                                                                                                                        |
 | enable_upsert                | Boolean | 否   | true                         | 通过主键存在启用 upsert，如果任务没有重复数据，设置此参数为 `false` 可以加快数据导入。                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | use_copy_statement           | Boolean | 否   | false                        | 直接使用 PostgreSQL `COPY <table> (...) FROM STDIN WITH CSV` 进行批量导入。该选项优先级高于常规 INSERT / UPSERT 路径；要求 JDBC 驱动连接对象提供 `getCopyAPI()`，且当前不支持 `MAP`、`ARRAY`、`ROW` 类型。                                                                                                                                                                                                                                                                                                                                            |
+| multi_table_sink_replica    | Int     | 否   | 1                            | 多表写入时使用的 Sink Writer 副本数量。                                                                                                  |
 
 ### table [字符串]
 
 使用 `database` 和此 `table-name` 自动生成 SQL，并接收上游输入数据写入数据库。
 
-此选项与 `query` 互斥，并具有更高的优先级。
+仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准
 
 表参数可以填写一个不想的表的名称，最终将作为创建表的表名，并支持变量（`${table_name}`，`${schema_name}`）。替换规则：`${schema_name}` 将替换为传递给目标端的 SCHEMA 名称，`${table_name}` 将替换为传递给目标端的表名称。
 
@@ -135,7 +146,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 提示
 
-> 如果未设置 `partition_column`，它将以单线程并发运行；如果设置了 `partition_column`，它将根据任务的并发性并行执行。
+> Sink 的写入并发度由作业或管道的并行度决定。`partition_column` 是 JDBC Source
+> 用于拆分读取的选项，不控制 Sink 的写入分配。
 
 ## 任务示例
 

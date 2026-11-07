@@ -38,13 +38,13 @@ public class SchemaUtils {
                 .forEach(
                         desc ->
                                 schema.put(
-                                        new Field(
-                                                desc.getName(),
-                                                desc.getType().name(),
-                                                "",
-                                                0,
-                                                0,
-                                                "")));
+                                        new Field(desc.getName(), typeName(desc), "", 0, 0, "")));
         return schema;
+    }
+
+    // The shaded thrift-service only knows the types of its Doris release. Newer ones such as
+    // IPV4, IPV6 or VARIANT deserialize to null; the name is only used for logging.
+    private static String typeName(TScanColumnDesc desc) {
+        return desc.getType() == null ? "UNKNOWN" : desc.getType().name();
     }
 }

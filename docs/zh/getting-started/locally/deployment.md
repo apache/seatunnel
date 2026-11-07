@@ -1,5 +1,5 @@
 ---
-sidebar_position: 1
+sidebar_position: 5
 ---
 
 import Tabs from '@theme/Tabs';
@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 在开始本地运行前，您需要确保您已经安装了SeaTunnel所需要的以下软件：
 
-* 安装[Java](https://www.java.com/en/download/) (Java 8 或 11， 其他高于Java 8的版本理论上也可以工作) 以及设置 `JAVA_HOME`。
+* 安装[Java](https://www.java.com/en/download/) (Java 11 或 Java 17) 以及设置 `JAVA_HOME`。
 
 ## 下载 SeaTunnel 发行包
 
@@ -22,9 +22,22 @@ import TabItem from '@theme/TabItem';
 或者您也可以通过终端下载：
 
 ```shell
-export version="3.0.0"
+export version="3.1.0"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
+```
+
+在 Windows 上，可以从 [SeaTunnel下载页面](https://seatunnel.apache.org/download) 下载 `.tar.gz` 压缩包，
+然后使用 Windows 10 1803+ 自带的 `tar` 工具解压。archive.apache.org 上只发布 `.tar.gz` 包，
+没有 `.zip` 发布包：
+
+```powershell
+$version = "3.1.0"
+Invoke-WebRequest `
+  "https://archive.apache.org/dist/seatunnel/$version/apache-seatunnel-$version-bin.tar.gz" `
+  -OutFile "apache-seatunnel-$version-bin.tar.gz"
+tar -xzf "apache-seatunnel-$version-bin.tar.gz"
+Set-Location "apache-seatunnel-$version"
 ```
 
 ### 下载连接器插件
@@ -35,17 +48,17 @@ tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 sh bin/install-plugin.sh
 ```
 
-如果您需要指定的连接器版本，以3.0.0为例，您需要执行如下命令：
+如果您需要指定的连接器版本，以3.1.0为例，您需要执行如下命令：
 
 ```bash
-sh bin/install-plugin.sh 3.0.0
+sh bin/install-plugin.sh 3.1.0
 ```
 
 对于正式发布的连接器版本，`install-plugin.sh` 通过 HTTPS 直接下载 JAR 及其校验文件，因此 Linux 和 macOS 不需要 Maven。该方式需要 `curl`、`mktemp`，以及 `sha512sum`、`sha1sum`、`shasum` 或 `openssl` 中的任意一个。Windows 的 `install-plugin.cmd` 仍使用发行包内置的 Maven Wrapper。如果需要为 `install-plugin.sh` 使用 Maven 兼容的 HTTPS 镜像，可以通过 `SEATUNNEL_MAVEN_REPOSITORY` 指定仓库根地址：
 
 ```bash
 SEATUNNEL_MAVEN_REPOSITORY=https://repo.example.com/maven2 \
-  sh bin/install-plugin.sh 3.0.0
+  sh bin/install-plugin.sh 3.1.0
 ```
 
 直接下载仅支持提供 `.sha512` 或 `.sha1` 校验文件的不可变正式版本。`SNAPSHOT`、`LATEST`、`RELEASE` 和版本范围需要解析 Maven 元数据，因此脚本会自动使用发行包内置的 Maven Wrapper。如果需要继续使用 Maven `settings.xml` 中的镜像、认证仓库、代理或自定义 TLS 策略，也可以设置 `SEATUNNEL_PLUGIN_DOWNLOAD_METHOD=maven`。

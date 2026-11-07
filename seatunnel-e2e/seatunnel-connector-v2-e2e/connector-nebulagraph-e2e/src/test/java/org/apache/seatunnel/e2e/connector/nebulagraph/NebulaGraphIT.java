@@ -42,7 +42,6 @@ import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class NebulaGraphIT extends TestSuiteBase implements TestResource {
 
@@ -104,13 +103,33 @@ public class NebulaGraphIT extends TestSuiteBase implements TestResource {
         storaged.start();
         graphd.start();
 
-        adminPool = new NebulaPool();
         NebulaPoolConfig poolConfig = new NebulaPoolConfig().setMaxConnSize(1).setTimeout(30000);
-        assertTrue(
-                adminPool.init(
-                        Arrays.asList(
-                                new HostAddress(graphd.getHost(), graphd.getMappedPort(9669))),
-                        poolConfig));
+        HostAddress graphdAddress = new HostAddress(graphd.getHost(), graphd.getMappedPort(9669));
+        // graphd's "/status" HTTP endpoint (waited on above via the container's own wait
+        // strategy) can start answering slightly before its raw graph RPC port (9669) is ready
+        // to serve connections, so the very first NebulaPool#init call can transiently throw
+        // IOErrorException even though the container itself started successfully. Retry pool
+        // creation on a fresh NebulaPool instance instead of failing the whole suite on that
+        // narrow startup race; closing a pool that failed to initialize avoids leaking its
+        // connections across attempts.
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            NebulaPool candidatePool = new NebulaPool();
+                            try {
+                                if (!candidatePool.init(Arrays.asList(graphdAddress), poolConfig)) {
+                                    candidatePool.close();
+                                    return false;
+                                }
+                            } catch (Exception e) {
+                                candidatePool.close();
+                                return false;
+                            }
+                            adminPool = candidatePool;
+                            return true;
+                        });
         adminSession = adminPool.getSession("root", "nebula", false);
         execute("ADD HOSTS \"storaged0\":9779");
 

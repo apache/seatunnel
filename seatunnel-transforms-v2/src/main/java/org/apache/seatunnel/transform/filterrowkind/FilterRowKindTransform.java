@@ -56,15 +56,6 @@ public class FilterRowKindTransform extends FilterRowTransform {
         } else {
             includeKinds = new HashSet<>(config.get(FilterRowKinkTransformConfig.INCLUDE_KINDS));
         }
-        if ((includeKinds.isEmpty() && excludeKinds.isEmpty())
-                || (!includeKinds.isEmpty() && !excludeKinds.isEmpty())) {
-            throw new SeaTunnelRuntimeException(
-                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                    String.format(
-                            "These options(%s,%s) are mutually exclusive, allowing only one set of options to be configured.",
-                            FilterRowKinkTransformConfig.INCLUDE_KINDS.key(),
-                            FilterRowKinkTransformConfig.EXCLUDE_KINDS.key()));
-        }
     }
 
     @Override
@@ -73,9 +64,10 @@ public class FilterRowKindTransform extends FilterRowTransform {
             return this.excludeKinds.contains(inputRow.getRowKind()) ? null : inputRow;
         }
         if (!this.includeKinds.isEmpty()) {
-            Set<RowKind> includeKinds = this.includeKinds;
-            return includeKinds.contains(inputRow.getRowKind()) ? inputRow : null;
+            return this.includeKinds.contains(inputRow.getRowKind()) ? inputRow : null;
         }
+        // An empty rule cannot pass the option rule, so this only happens when the transform is
+        // built without validation: fail closed and keep the previous behaviour.
         throw new SeaTunnelRuntimeException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 "Transform config error! Either excludeKinds or includeKinds must be configured");

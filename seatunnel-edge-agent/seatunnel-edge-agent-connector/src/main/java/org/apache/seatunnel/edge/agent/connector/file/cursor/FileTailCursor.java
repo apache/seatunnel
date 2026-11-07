@@ -24,6 +24,7 @@ import java.io.RandomAccessFile;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.LongSupplier;
 
 public class FileTailCursor implements Closeable {
 
@@ -31,6 +32,7 @@ public class FileTailCursor implements Closeable {
 
     private final Path path;
     private final Charset charset;
+    private final LongSupplier clock;
     private RandomAccessFile raf;
     private long currentOffset;
     private long inode;
@@ -41,8 +43,17 @@ public class FileTailCursor implements Closeable {
     private int bufLen;
 
     public FileTailCursor(Path path, Charset charset) {
+        this(path, charset, System::currentTimeMillis);
+    }
+
+    /**
+     * @param clock source of the millisecond timestamps recorded as the last activity; tests can
+     *     pass a manual clock to drive idle timeouts deterministically
+     */
+    public FileTailCursor(Path path, Charset charset, LongSupplier clock) {
         this.path = path;
         this.charset = charset;
+        this.clock = clock;
         this.currentOffset = 0L;
         this.inode = 0L;
         this.lastActivityMs = 0L;
@@ -60,7 +71,7 @@ public class FileTailCursor implements Closeable {
         }
         this.bufPos = 0;
         this.bufLen = 0;
-        this.lastActivityMs = System.currentTimeMillis();
+        this.lastActivityMs = clock.getAsLong();
     }
 
     /**
@@ -98,7 +109,7 @@ public class FileTailCursor implements Closeable {
                     len--;
                 }
                 this.currentOffset = raf.getFilePointer() - (bufLen - bufPos);
-                this.lastActivityMs = System.currentTimeMillis();
+                this.lastActivityMs = clock.getAsLong();
                 return new String(arr, 0, len, charset);
             }
             baos.write(b);
@@ -119,7 +130,7 @@ public class FileTailCursor implements Closeable {
         this.currentOffset = 0;
         this.bufPos = 0;
         this.bufLen = 0;
-        this.lastActivityMs = System.currentTimeMillis();
+        this.lastActivityMs = clock.getAsLong();
     }
 
     public long offset() {

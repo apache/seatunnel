@@ -10,7 +10,7 @@ FieldRename transform plugin for rename field name.
 
 |          name           | type   | required | default value | Description                                                                                                           |
 |:-----------------------:|--------|----------|---------------|-----------------------------------------------------------------------------------------------------------------------|
-|      convert_case       | string | no       |               | The case conversion type. The options can be `UPPER`, `LOWER`                                                         |
+|      convert_case       | enum   | no       |               | The case conversion type. The options can be `UPPER`, `LOWER`                                                         |
 |         prefix          | string | no       |               | The prefix to be added to the field name                                                                              |
 |         suffix          | string | no       |               | The suffix to be added to the field name                                                                              |
 | replacements_with_regex | array  | no       |               | The array of replacement rules. Each rule is a map with `replace_from`, `replace_to`, and optional `is_regex` (default `true`). When `is_regex=false`, `replace_from` is treated as an exact field name (full match). |

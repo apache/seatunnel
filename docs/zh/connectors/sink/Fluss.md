@@ -48,6 +48,12 @@ Fluss Sink 用于在批处理或流处理作业中，将 SeaTunnel 数据写入�
 | multi_table_sink_replica | int | 否 | 1 | 多表写入模式下的 Sink writer 副本数。 |
 | common-options | - | 否 | - | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
+### bootstrap.servers
+
+Fluss coordinator 地址。
+
+该值不能为空字符串或仅包含空白字符。
+
 ### database
 
 未配置 `database` 时，Sink 会使用输入表标识中的上游数据库名。
@@ -238,8 +244,9 @@ sink {
 ### 跨库复制 CDC 变更
 
 可以使用占位符把一个 Fluss 命名空间下的 CDC 变更复制到另一个命名空间。
-`schema_name` 占位符会解析为上游数据库名，`table_name` 解析为上游表名，
-这样单个 Sink 配置就能扇出多张表。
+Fluss 只有 database + table 两级标识（没有 schema 层级），因此在 Fluss-to-Fluss
+链路中上游的 `schemaName` 始终为 null。应使用 `${database_name}` 获取上游 Fluss
+database、`${table_name}` 获取上游 Fluss 表，这样单个 Sink 配置就能扇出多张表。
 
 ```hocon
 env {
@@ -262,7 +269,7 @@ sink {
   Fluss {
     plugin_input = "fluss_cdc"
     bootstrap.servers = "fluss-coordinator:9123"
-    database = "sink_db_${schema_name}"
+    database = "sink_db_${database_name}"
     table = "sink_${table_name}"
     multi_table_sink_replica = 2
   }

@@ -46,7 +46,7 @@ The source uses MQTT auto-reconnect. If the client remains disconnected longer t
 | password            | string  | no       | -             | MQTT broker authentication password. Leave unset for anonymous access.                                                 |
 | qos                 | int     | no       | 1             | MQTT subscribe QoS level. `0` is at-most-once, `1` is at-least-once.                                                   |
 | format              | string  | no       | json          | Message deserialization format: `json` or `text`.                                                                      |
-| field_delimiter     | string  | no       | ,             | Field delimiter for `text` format. Only used when `format=text`.                                                       |
+| field_delimiter     | string  | no       | ,             | Field delimiter used when `format=text`, e.g. `,`, `\|`, `\t`.                                                       |
 | client_id           | string  | no       | -             | MQTT client id. Required when `clean_session=false`; generated automatically otherwise.                                 |
 | clean_session       | boolean | no       | true          | Whether to use a clean MQTT session.                                                                                  |
 | connection_timeout  | int     | no       | 30            | MQTT connection timeout in seconds.                                                                                    |
@@ -54,6 +54,12 @@ The source uses MQTT auto-reconnect. If the client remains disconnected longer t
 | reconnect_timeout   | int     | no       | 120           | Maximum seconds to wait for MQTT auto-reconnect before failing the source.                                             |
 | max_queue_size      | int     | no       | 1000          | Maximum number of MQTT messages buffered in memory before deserialization.                                             |
 | common-options      |         | no       | -             | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md) for details.  |
+
+:::tip
+
+This connector currently supports only a single topic subscription. For multiple topics, use multiple MQTT sources. MQTT 5.0 features (such as shared subscriptions, message properties) are not yet enabled.
+
+:::
 
 ### url [string]
 
@@ -96,12 +102,6 @@ The deserialization format for incoming messages. Supported values:
 
 - `json` — Deserialize each message as a JSON object (default)
 - `text` — Deserialize each message as delimited plain text (delimiter controlled by `field_delimiter`)
-
-### field_delimiter [string]
-
-The field delimiter used when `format` is set to `text`. Default is `,`.
-
-Examples: `,`, `|`, `\t`
 
 ### client_id [string]
 
@@ -190,6 +190,70 @@ source {
       fields {
         id = bigint
         temperature = double
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+### TLS/SSL source
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  MQTT {
+    url = "ssl://broker.example.com:8883"
+    topic = "factory/line-1/status"
+    username = "seatunnel"
+    password = "broker-token"
+    client_id = "seatunnel-mqtt-tls"
+    qos = 1
+    connection_timeout = 30
+    keep_alive_interval = 60
+    reconnect_timeout = 180
+    format = "json"
+    schema = {
+      fields {
+        device_id = string
+        status = string
+        ts = bigint
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+### Text delimited source
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  MQTT {
+    url = "tcp://broker.example.com:1883"
+    topic = "factory/line-2/log"
+    format = "text"
+    field_delimiter = "|"
+    schema = {
+      fields {
+        device_id = string
+        level = string
+        message = string
       }
     }
   }

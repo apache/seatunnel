@@ -25,9 +25,12 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceCommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.lance.data.LanceTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.lance.exception.LanceConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.lance.exception.LanceConnectorException;
 
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
@@ -54,6 +57,7 @@ public class SchemaUtils {
     }
 
     public static Schema convertSchema(SeaTunnelRow element, SeaTunnelRowType seaTunnelRowType) {
+        rejectUnsupportedTypes(seaTunnelRowType);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         List<Field> fieldList = Lists.newArrayList();
         for (int i = 0; i < fieldTypes.length; i++) {
@@ -127,9 +131,7 @@ public class SchemaUtils {
                         fieldList.add(field);
                         break;
                     case MAP:
-                        field = Field.nullable(fieldName, new ArrowType.Map(true));
-                        fieldList.add(field);
-                        break;
+                        throw unsupportedMapException(fieldName);
                     case ARRAY:
                         field = Field.nullable(fieldName, new ArrowType.List());
                         fieldList.add(field);
@@ -144,6 +146,24 @@ public class SchemaUtils {
         }
 
         return new Schema(fieldList);
+    }
+
+    private static void rejectUnsupportedTypes(SeaTunnelRowType seaTunnelRowType) {
+        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+        for (int i = 0; i < fieldTypes.length; i++) {
+            if (fieldTypes[i].getSqlType() == SqlType.MAP) {
+                throw unsupportedMapException(seaTunnelRowType.getFieldName(i));
+            }
+        }
+    }
+
+    private static LanceConnectorException unsupportedMapException(String fieldName) {
+        return new LanceConnectorException(
+                LanceConnectorErrorCode.UNSUPPORTED_MAP_TYPE,
+                String.format(
+                        "Field '%s' has type MAP. Serialize the Map to a string or flatten it "
+                                + "into columns before writing to Lance.",
+                        fieldName));
     }
 
     public static JsonArrowSchema convertJsonArrowSchema(TableSchema schema) {

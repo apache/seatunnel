@@ -117,6 +117,49 @@ def test_identical_runs_are_unchanged_and_inputs_are_immutable():
     )
 
 
+def test_legacy_baseline_results_compare_with_explicit_baseline_suite():
+    before = results({"a": True})
+    after = copy.deepcopy(before)
+    after["suite"] = "baseline"
+    comparison = compare_results(before, after)
+    assert not comparison["issues"]
+    assert len(comparison["rows"]) == 1
+
+
+def test_cross_suite_comparison_is_rejected_before_task_pairing():
+    before = results({"a": True})
+    before["suite"] = "baseline"
+    after = results({"a_p1": True})
+    after["suite"] = "paraphrase"
+    after["models"][0]["tasks"][0]["parent_id"] = "a"
+    comparison = compare_results(before, after)
+    assert comparison["issues"] == ["suite differs between runs"]
+    assert not comparison["rows"]
+
+
+@pytest.mark.parametrize("suite", [None, "unknown", [], {}])
+def test_invalid_suite_metadata_is_not_scored(suite):
+    before = results({"a": True})
+    after = copy.deepcopy(before)
+    after["suite"] = suite
+    comparison = compare_results(before, after)
+    assert "candidate: suite metadata invalid" in comparison["issues"]
+    assert not comparison["rows"]
+
+
+@pytest.mark.parametrize("suite", [None, "baseline", "paraphrase"])
+def test_suite_and_task_provenance_must_agree(suite):
+    before = results({"a": True})
+    after = copy.deepcopy(before)
+    if suite is not None:
+        after["suite"] = suite
+    if suite != "paraphrase":
+        after["models"][0]["tasks"][0]["parent_id"] = "parent"
+    comparison = compare_results(before, after)
+    assert "candidate: suite metadata does not match task provenance" in comparison["issues"]
+    assert not comparison["rows"]
+
+
 @pytest.mark.parametrize(
     "key,value",
     [
@@ -280,6 +323,7 @@ def test_runner_saved_results_compare_without_changing_legacy_reports(
     models = [{"name": "model-a", "provider": "openai", "model": "model-a"}]
     original_tasks = copy.deepcopy(tasks)
     first = run_benchmark(models, tasks, ["l1"], 3, 2, tmp_path / "before")
+    assert first["suite"] == "baseline"
     second = run_benchmark(models, tasks, ["l1"], 3, 2, tmp_path / "after")
     before = json.loads((tmp_path / "before/results.json").read_text())
     after = json.loads((tmp_path / "after/results.json").read_text())

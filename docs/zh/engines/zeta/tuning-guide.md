@@ -495,6 +495,8 @@ readinessProbe:
 terminationGracePeriodSeconds: 60
 ```
 
+只有当容器直接运行 `seatunnel-cluster.sh`（不通过 `/bin/sh -c` 包装）时，JVM 才能收到 SIGTERM。参见 [健康检查和停止](../../getting-started/kubernetes/hybrid-cluster-mode.md#健康检查和停止)。
+
 并在 `hazelcast.yaml` 中：
 ```yaml
 hazelcast:

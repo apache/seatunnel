@@ -76,7 +76,7 @@ Read data from Snowflake through JDBC. SeaTunnel uses the official Snowflake JDB
 
 ### Tips
 
-> If `partition_column` is not set, the source reads with one split. If it is set, SeaTunnel reads data in parallel according to `partition_num` (default 10) or the job's parallelism, whichever is greater.
+> If `partition_column` is not set, the source reads with one split. If it is set, SeaTunnel creates `partition_num` splits (default 10) and distributes them across readers; set `partition_num` no smaller than the job parallelism if you want one split per reader.
 >
 > Snowflake JDBC URL parameters such as `GEOGRAPHY_OUTPUT_FORMAT` can be appended with `?` (e.g. `?GEOGRAPHY_OUTPUT_FORMAT='EWKT'`). See the Snowflake [Geospatial Data Types](https://docs.snowflake.com/en/sql-reference/data-types-geospatial) reference for the full list.
 

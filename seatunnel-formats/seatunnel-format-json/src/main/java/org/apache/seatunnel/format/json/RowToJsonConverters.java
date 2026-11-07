@@ -34,10 +34,12 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
@@ -55,12 +57,26 @@ public class RowToJsonConverters implements Serializable {
 
     private final boolean serializeTimestampTzAsLocal;
 
+    /**
+     * Zone used when {@link #serializeTimestampTzAsLocal} is true to drop the offset and emit a
+     * wall-clock {@code LocalDateTime}. Defaults to {@link ZoneId#systemDefault()} for backward
+     * compatibility; callers that know the target session zone (for example the Doris sink session
+     * timezone) should pass it explicitly so the JVM default is not silently relied on.
+     */
+    private final ZoneId timestampTzZoneId;
+
     public RowToJsonConverters() {
-        this.serializeTimestampTzAsLocal = false;
+        this(false, ZoneId.systemDefault());
     }
 
     public RowToJsonConverters(boolean serializeTimestampTzAsLocal) {
+        this(serializeTimestampTzAsLocal, ZoneId.systemDefault());
+    }
+
+    public RowToJsonConverters(boolean serializeTimestampTzAsLocal, ZoneId timestampTzZoneId) {
         this.serializeTimestampTzAsLocal = serializeTimestampTzAsLocal;
+        this.timestampTzZoneId =
+                timestampTzZoneId == null ? ZoneId.systemDefault() : timestampTzZoneId;
     }
 
     public RowToJsonConverter createConverter(SeaTunnelDataType<?> type) {
@@ -112,49 +128,49 @@ public class RowToJsonConverters implements Serializable {
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((byte) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case SMALLINT:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((short) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case INT:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((int) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case BIGINT:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((long) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case FLOAT:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((float) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case DOUBLE:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((double) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case DECIMAL:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((BigDecimal) value);
+                        return createNumericNode(mapper, value, sqlType);
                     }
                 };
             case BYTES:
@@ -200,10 +216,19 @@ public class RowToJsonConverters implements Serializable {
                     return new RowToJsonConverter() {
                         @Override
                         public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                            // Preserve the instant and convert to the target zone (the
+                            // Doris session zone when supplied, otherwise the JVM default
+                            // for backward compatibility). A plain toLocalDateTime() would
+                            // emit the wall-clock of the value's own offset (e.g. UTC),
+                            // which shifts TIMESTAMP_TZ columns by the timezone delta once
+                            // a sink such as Doris parses the wall-clock in its session
+                            // timezone (issue #10795).
                             return mapper.getNodeFactory()
                                     .textNode(
                                             ISO_LOCAL_DATE_TIME.format(
-                                                    ((OffsetDateTime) value).toLocalDateTime()));
+                                                    ((OffsetDateTime) value)
+                                                            .atZoneSameInstant(timestampTzZoneId)
+                                                            .toLocalDateTime()));
                         }
                     };
                 }
@@ -270,6 +295,59 @@ public class RowToJsonConverters implements Serializable {
                 return node;
             }
         };
+    }
+
+    /**
+     * Serializes a value declared as a numeric type in the catalog schema.
+     *
+     * <p>Multi-table jobs may match tables whose physical field types differ from the declared
+     * type, so the runtime representation takes precedence over the declared type instead of being
+     * blindly cast to it. Only numeric values and character sequences are accepted here: anything
+     * else still fails fast, so a genuine schema/runtime mismatch is not silently serialized as the
+     * {@code toString()} of an arbitrary object.
+     */
+    private JsonNode createNumericNode(ObjectMapper mapper, Object value, SqlType declaredType) {
+        if (value instanceof Byte) {
+            return mapper.getNodeFactory().numberNode((Byte) value);
+        }
+        if (value instanceof Short) {
+            return mapper.getNodeFactory().numberNode((Short) value);
+        }
+        if (value instanceof Integer) {
+            return mapper.getNodeFactory().numberNode((Integer) value);
+        }
+        if (value instanceof Long) {
+            return mapper.getNodeFactory().numberNode((Long) value);
+        }
+        if (value instanceof Float) {
+            return SqlType.DECIMAL.equals(declaredType)
+                    ? mapper.getNodeFactory().numberNode(BigDecimal.valueOf((Float) value))
+                    : mapper.getNodeFactory().numberNode((Float) value);
+        }
+        if (value instanceof Double) {
+            return SqlType.DECIMAL.equals(declaredType)
+                    ? mapper.getNodeFactory().numberNode(BigDecimal.valueOf((Double) value))
+                    : mapper.getNodeFactory().numberNode((Double) value);
+        }
+        if (value instanceof BigInteger) {
+            return mapper.getNodeFactory().numberNode((BigInteger) value);
+        }
+        if (value instanceof BigDecimal) {
+            return mapper.getNodeFactory().numberNode((BigDecimal) value);
+        }
+        if (value instanceof CharSequence) {
+            String text = value.toString();
+            try {
+                return mapper.getNodeFactory().numberNode(new BigDecimal(text));
+            } catch (NumberFormatException e) {
+                return mapper.getNodeFactory().textNode(text);
+            }
+        }
+        throw new SeaTunnelJsonFormatException(
+                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                String.format(
+                        "Cannot serialize value of type '%s' into the field declared as '%s'",
+                        value.getClass().getName(), declaredType));
     }
 
     private RowToJsonConverter createArrayConverter(ArrayType arrayType) {

@@ -52,6 +52,16 @@ public class SystemLoadStrategy implements SlotAllocationStrategy {
         workerLoadMap.computeIfAbsent(address, k -> EvictingQueue.create(5)).add(systemLoadInfo);
     }
 
+    /**
+     * Returns whether at least one load sample has been collected for the given worker. A worker
+     * without load samples gets the lowest weight in {@link #selectWorker}, so callers that need
+     * load-based allocation decisions can wait on this signal.
+     */
+    public boolean hasLoadInfo(Address address) {
+        EvictingQueue<SystemLoadInfo> loadInfo = workerLoadMap.get(address);
+        return loadInfo != null && !loadInfo.isEmpty();
+    }
+
     @Override
     public Optional<WorkerProfile> selectWorker(List<WorkerProfile> availableWorkers) {
         Optional<WorkerProfile> workerProfile =

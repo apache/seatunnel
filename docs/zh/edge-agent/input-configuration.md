@@ -223,7 +223,7 @@ input:
 
 ### 8. 固定 input.id
 
-省略 id 时使用稳定的采集源标识作为 WAL / 位点 sourceId（见 [身份文件](configuration.md#身份文件edge-agentid)）。多 Agent 或 WAL 迁移时请保留 edge-agent.id 与 WAL，或显式指定：
+省略 id 时使用稳定的采集源标识作为 WAL / 位点 sourceId（见 [身份文件](configuration.md#身份文件)）。多 Agent 或 WAL 迁移时请保留 edge-agent.id 与 WAL，或显式指定：
 
 ```yaml
 input:

@@ -49,23 +49,29 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 :::
 
+## Checkpoint recovery
+
+For bounded Zeta jobs, restore resumes pending file splits after readers register and skips files already completed in the checkpoint. Keep input files unchanged and accessible at the same paths while restoring. Sink delivery guarantees still depend on the selected sink and its checkpoint support.
+
 ## Options
 
 | name                       | type    | required | default value                        |
 |----------------------------|---------|----------|--------------------------------------|
 | path                       | string  | yes      | -                                    |
-| file_format_type           | string  | yes      | -                                    |
+| file_format_type           | string  | conditionally yes | -                         |
 | read_columns               | list    | no       | -                                    |
-| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv          |
+| read_partitions | list | no | - |
+| delimiter/field_delimiter  | string  | no       | \001                                 |
 | row_delimiter              | string  | no       | \n                                   |
 | parse_partition_from_path  | boolean | no       | true                                 |
 | date_format                | string  | no       | yyyy-MM-dd                           |
 | datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss                  |
 | time_format                | string  | no       | HH:mm:ss                             |
 | skip_header_row_number     | long    | no       | 0                                    |
-| schema                     | config  | no       | -                                    |
+| schema                     | config  | conditionally yes | -                               |
 | sheet_name                 | string  | no       | -                                    |
 | excel_engine               | string  | no       | POI                                  |
+| excel_use_header_line      | boolean | no       | false                                |
 | poi_excel_max_file_size    | long    | no       | 52428800                             |
 | xml_row_tag                | string  | no       | -                                    |
 | xml_use_attr_format        | boolean | no       | -                                    |
@@ -78,6 +84,8 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | null_format                | string  | no       | -                                    |
 | binary_chunk_size          | int     | no       | 1024                                 |
 | binary_complete_file_mode  | boolean | no       | false                                |
+| markdown_rag_metadata_enabled | boolean | no    | false                                |
+| pdf_rag_metadata_enabled   | boolean | no       | false                                |
 | discovery_mode             | string  | no       | once                                 |
 | scan_interval              | string  | no       | 10S |
 | start_mode                 | string  | no       | earliest                             |
@@ -93,7 +101,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | retention_max_age          | string  | no       | -                                    |
 | retention_check_interval   | string  | no       | 1H                                   |
 | common-options             |         | no       | -                                    |
-| tables_configs             | list    | no       | used to define a multiple table task |
+| tables_configs             | list    | no       | -                                    |
 | file_filter_modified_start | string  | no       | -                                    |
 | file_filter_modified_end   | string  | no       | -                                    | 
 | enable_file_split          | boolean | no       | false                                | 
@@ -115,6 +123,8 @@ File type, supported as the following file types:
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
+
+Required when reading a single table with `path`. When reading multiple tables with `tables_configs`, the top-level option is not needed because each table entry defines its own `file_format_type`.
 
 For example:
 
@@ -155,23 +165,11 @@ connector will generate data as the following:
 |------|-------------|---------|
 | 200  | get success | true    |
 
-If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
+If you assign file type to `parquet` or `orc`, the schema option is not required because the connector can read the schema from the file metadata.
 
-If you assign file type to `text` `csv`, you can choose to specify the schema information or not.
+If you assign file type to `json`, `excel`, or `xml`, you must specify the schema because these formats do not provide the field types required by SeaTunnel.
 
-For example, upstream data is the following:
-
-```text
-
-tyrantlucifer#26#male
-
-```
-
-If you do not assign data schema connector will treat the upstream data as the following:
-
-|        content        |
-|-----------------------|
-| tyrantlucifer#26#male |
+For `text` and `csv`, the schema is optional. Without a schema, the connector reads each input line into a single `content` field of type string; `read_columns` is not supported in this mode. Configure a schema when you need typed fields or column mapping.
 
 If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
 
@@ -211,7 +209,7 @@ Each extracted element is converted to a document-element row with the following
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids` (`ARRAY<STRING>`): Direct child element IDs; an empty array for a leaf element.
 
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
@@ -313,7 +311,7 @@ default `HH:mm:ss`
 
 ### skip_header_row_number [long]
 
-Skip the first few lines, but only for the txt and csv.
+Skip the first few lines for text, CSV, and Excel.
 
 For example, set like following:
 
@@ -321,9 +319,15 @@ For example, set like following:
 
 then SeaTunnel will skip the first 2 lines from source files
 
+For CSV files read with `enable_file_split = false`, these are physical lines,
+skipped before CSV parsing. If `csv_use_header_line = true`, the first CSV record
+after the skipped lines is used as the header. Do not include that header in
+`skip_header_row_number`; use this option for preamble lines before it. With no
+preamble, leave the value at `0`.
+
 ### schema [config]
 
-Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
+Required when `file_format_type` is `json`, `excel`, or `xml`. Optional for `text` and `csv`; when omitted, each input line is read into a single `content` field of type string and `read_columns` is not supported.
 
 #### fields [Config]
 
@@ -356,6 +360,12 @@ The default Excel reading engine is POI. POI keeps the historical read behavior,
 
 You can set `excel_engine = EasyExcel` to use streaming reads for large Excel files.
 
+### excel_use_header_line [boolean]
+
+Only used when `file_format_type` is `excel`. The default is `false`, so Excel columns are read by position even when `skip_header_row_number` is set.
+
+Set `excel_use_header_line = true` to use the first row as the header and map schema fields by name. This skips the first row; when both options are set, `excel_use_header_line` takes precedence over `skip_header_row_number`. Fields missing from the header produce null values and a warning.
+
 ### poi_excel_max_file_size [long]
 
 Only used when `file_format` is excel and `excel_engine` is POI.
@@ -383,7 +393,7 @@ For security reasons (XXE hardening), XML files (`file_format_type = xml`) conta
 
 ### csv_use_header_line [boolean]
 
-Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180
+When enabled, the connector consumes the first RFC 4180 CSV record as the header and maps its column names to the fields in the configured `schema`. This option does not infer the schema or field types. Do not also use `skip_header_row_number` to skip the same header row.
 
 ### file_filter_pattern [string]
 
@@ -473,8 +483,9 @@ The encoding of the file to read. This param will be parsed by `Charset.forName(
 
 ### null_format [string]
 
-Only used when file_format_type is text.
-null_format to define which strings can be represented as null.
+Used when `file_format_type` is `text` or `csv`. Defines which field value represents null.
+For CSV with a configured `schema.columns[].defaultValue`, a matching `null_format` value or a column absent from the file header uses that default. An empty CSV field still produces null unless it matches `null_format`; columns without a default keep their existing behavior.
+CSV defaults are validated when the reader is created. DATE and TIMESTAMP defaults may use a different supported format from the file data.
 
 e.g: `\N`
 
@@ -497,7 +508,7 @@ File discovery mode. Supported values: `once` (default), `continuous`.
 - `once`: enumerate current files once and finish (bounded).
 - `continuous`: keep scanning the path and processing new/changed files at runtime (unbounded).
 
-In the current implementation, `discovery_mode=continuous` requires `sync_mode=update` (binary only) to avoid repeated transfers.
+For binary files, `discovery_mode=continuous` requires `sync_mode=update`. For append-only text files, use `sync_mode=full`; SeaTunnel checkpoints the last complete row offset and reads only newly appended complete rows.
 
 ### scan_interval [string]
 
@@ -875,7 +886,7 @@ sink {
 
 `discovery_mode=continuous` keeps the job running and periodically scans the path for new/changed files (long-running job, recommended to run with `job.mode="STREAMING"`).
 
-**Note:** `discovery_mode=continuous` currently requires `sync_mode="update"` (binary-only) to avoid repeated transfers without keeping an unbounded "seen" state. `target_path` should align with the sink `path` on the same filesystem.
+For binary files, continuous discovery requires `sync_mode="update"`; `target_path` should align with the sink `path` on the same filesystem.
 
 ```hocon
 env {
@@ -908,6 +919,46 @@ sink {
     path = "/seatunnel/watch/dst/"
     tmp_path = "/seatunnel/watch/dst-tmp/"
     file_format_type = "binary"
+  }
+}
+```
+
+Append-only text files can be tailed with `sync_mode="full"`. The source waits for a complete `row_delimiter` before emitting a row and checkpoints the committed byte offset with the local file identity and a bounded content anchor. `start_mode="earliest"` reads existing complete rows. `start_mode="latest"` ignores content present during the initial scan, including an incomplete row, and reads new complete rows after that point.
+
+The initial `latest` listing is recorded by stable file identity before content inspection, so renamed files retain their baseline and replacement files do not inherit it. A temporarily unreadable initial file does not cause files discovered later to be skipped. If an initial file's identity cannot be inspected, no baseline is assumed: it is read from the configured header boundary if it becomes readable, which can include existing rows. If an initial file does not yet contain all configured header rows, its baseline is retained across checkpoints until the header boundary is complete; subsequent data rows are then read normally.
+
+This mode has the following operational constraints:
+
+- Only uncompressed UTF-8 text files with `post_sync_action="none"` are supported.
+- Delivery is at least once. A range is committed after the reader reports that the complete range was consumed.
+- A file is read serially. Source parallelism is used across files, not within one file.
+- Rename-and-create rotation is supported when the rotated file remains under the configured path and still matches the file filters. Detected copy-truncate rewrites restart from the configured header boundary.
+- The source filesystem must expose a stable `BasicFileAttributes.fileKey()` for the configured path. The connector rejects tailing at startup when this is unavailable, including on the default Windows file provider, because creation time cannot safely distinguish a replaced file.
+- File keys are filesystem-local identities, not permanent identifiers. Inode reuse after deletion or a filesystem remount can invalidate that identity assumption. Keep the same source filesystem across restores; sampled content anchors detect some replacements but do not guarantee detection of every rewrite or reused inode.
+- The content anchor samples at most the first and last 2 KiB before the committed offset. It detects common copy-truncate rewrites but does not inspect content between those samples. The reader also checks the assigned range's end anchor before and after reading. A stale range detected before reading is discarded without advancing its offset. A change detected after reading starts fails the task without acknowledging the range; already emitted rows cannot be retracted. Concurrent rewrites are not atomic reads, so append-only input remains required for reliable tailing.
+- The source path must expose the same files and file identities to the enumerator and reader nodes. Use a shared mount when they can run on different nodes.
+- If an assigned file disappears during the pre-read identity or content checks, the range is discarded without advancing its offset. Other inspection or read I/O failures, including access-denied errors, fail the task rather than silently skipping data. Correct the filesystem or permissions problem before restarting.
+- State for a missing file is retained for three successful scans and is then removed if no split for that file is pending or running.
+
+```hocon
+env {
+  job.mode = "STREAMING"
+}
+
+source {
+  LocalFile {
+    path = "/var/log/application.log"
+    file_format_type = "text"
+    schema {
+      fields {
+        message = "string"
+      }
+    }
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+    sync_mode = "full"
+    encoding = "UTF-8"
   }
 }
 ```

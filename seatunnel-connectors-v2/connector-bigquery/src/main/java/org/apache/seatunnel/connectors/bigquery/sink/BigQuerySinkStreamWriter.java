@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
 import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitInfo;
@@ -26,31 +26,29 @@ import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter
 import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryWriter;
 
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
-import lombok.extern.slf4j.Slf4j;
 
 import java.util.Optional;
 
-@Slf4j
 public class BigQuerySinkStreamWriter extends AbstractBigQuerySinkWriter {
     public static final String STREAMING = "streaming";
 
-    public BigQuerySinkStreamWriter(ReadonlyConfig readOnlyConfig, BigQuerySerializer serializer) {
-        super(readOnlyConfig, serializer);
+    public BigQuerySinkStreamWriter(
+            ReadonlyConfig readOnlyConfig, BigQuerySerializer serializer, TableSchema tableSchema) {
+        super(readOnlyConfig, serializer, tableSchema);
     }
 
     public BigQuerySinkStreamWriter(
             ReadonlyConfig readOnlyConfig,
             BigQueryWriter streamWriter,
-            BigQuerySerializer serializer) {
-        super(readOnlyConfig, streamWriter, serializer);
+            BigQuerySerializer serializer,
+            TableSchema tableSchema,
+            BigQueryWriteClient client) {
+        super(readOnlyConfig, streamWriter, serializer, tableSchema, client);
     }
 
     @Override
-    public void setMultiTableResourceManager(
-            MultiTableResourceManager<BigQueryWriteClient> manager, int queueIndex) {
-        log.info("Injecting shared client and initializing Streaming stream writer...");
-        this.client = manager.getSharedResource().get();
-        this.streamWriter = BigQueryStreamWriter.of(client, config);
+    protected BigQueryWriter openStreamWriter() {
+        return BigQueryStreamWriter.of(client, config);
     }
 
     @Override

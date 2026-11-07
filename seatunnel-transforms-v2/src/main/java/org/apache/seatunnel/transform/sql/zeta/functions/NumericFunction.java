@@ -221,6 +221,13 @@ public class NumericFunction {
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, "Mod by zero");
         }
         BigDecimal[] res = leftBD.divideAndRemainder(rightBD);
+        // The result keeps the type of the divisor, which is what ZetaSQLType declares for MOD.
+        // No range check is needed for the narrow types: divideAndRemainder guarantees that
+        // |remainder| < |divisor|, so the remainder is always within the divisor's range.
+        // In range, not lossless: a FLOAT, DOUBLE or DECIMAL dividend keeps its fractional
+        // part, and byteValue() and shortValue() truncate it, so MOD(5.5, (byte) 2) is 1 and
+        // not 1.5. That is deliberate and matches the type ZetaSQLType declares, so it should
+        // not be "fixed" into rounding or into a wider return type.
         if (rightValue instanceof Byte) {
             return res[1].byteValue();
         }

@@ -217,7 +217,12 @@ public class TaskExecutionServiceCooperativeBudgetTest
                                         task.getTaskID(),
                                         Thread.currentThread().getContextClassLoader()));
         return taskExecutionService.deployLocalTask(
-                taskGroup, classLoaders, new ConcurrentHashMap<>());
+                instance.getFlakeIdGenerator("test").newId(),
+                taskGroup,
+                classLoaders,
+                new ConcurrentHashMap<>(),
+                () -> {},
+                failure -> {});
     }
 
     private static String configFilePath() {

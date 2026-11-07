@@ -70,4 +70,48 @@ public class MultiTableSinkAggregatedCommitterTest {
         committer.close();
         Assertions.assertIterableEquals(Arrays.asList("init", "close"), methodInvoked);
     }
+
+    @Test
+    void testRestoreCommitRoutesToTableRestoreCommit() throws IOException {
+        List<String> calls = new ArrayList<>();
+        Map<String, SinkAggregatedCommitter<?, ?>> aggCommitters = new HashMap<>();
+        aggCommitters.put(
+                "table1",
+                new SinkAggregatedCommitter<Object, Object>() {
+                    @Override
+                    public List<Object> commit(List<Object> aggregatedCommitInfo) {
+                        calls.add("commit" + aggregatedCommitInfo);
+                        return Collections.emptyList();
+                    }
+
+                    @Override
+                    public List<Object> restoreCommit(List<Object> aggregatedCommitInfo) {
+                        calls.add("restoreCommit" + aggregatedCommitInfo);
+                        return Collections.emptyList();
+                    }
+
+                    @Override
+                    public Object combine(List<Object> commitInfos) {
+                        return null;
+                    }
+
+                    @Override
+                    public void abort(List<Object> aggregatedCommitInfo) {}
+
+                    @Override
+                    public void close() {}
+                });
+        MultiTableSinkAggregatedCommitter committer =
+                new MultiTableSinkAggregatedCommitter(aggCommitters);
+        Map<String, Object> info = new HashMap<>();
+        info.put("table1", "xid-1");
+        List<MultiTableAggregatedCommitInfo> infos =
+                Collections.singletonList(new MultiTableAggregatedCommitInfo(info));
+
+        committer.restoreCommit(infos);
+        committer.commit(infos);
+
+        Assertions.assertIterableEquals(
+                Arrays.asList("restoreCommit[xid-1]", "commit[xid-1]"), calls);
+    }
 }

@@ -41,7 +41,9 @@ anthropic = ["anthropic>=0.42.0"]
 openai = ["openai>=1.0.0"]
 bedrock-mantle = ["boto3>=1.34.0", "openai>=2.45.0", "aws-bedrock-token-generator>=1.0.0"]
 all = ["boto3>=1.34.0", "anthropic>=0.42.0", "openai>=2.45.0", "aws-bedrock-token-generator>=1.0.0"]
-dev = ["pytest", "black", "ruff", "boto3>=1.34.0", "anthropic>=0.42.0", "openai>=2.45.0", "aws-bedrock-token-generator>=1.0.0"]
+# ruff is pinned, and kept in step with the Lint job in .github/workflows/cli.yml, so that
+# `ruff check` reports the same findings here as it does in CI.
+dev = ["pytest", "black", "ruff==0.16.7", "boto3>=1.34.0", "anthropic>=0.42.0", "openai>=2.45.0", "aws-bedrock-token-generator>=1.0.0"]
 
 [tool.setuptools.packages.find]
 include = ["seatunnel_cli*"]
@@ -51,3 +53,10 @@ seatunnel_cli = ["golden_examples/*.md", "skills/*.md"]
 
 [tool.setuptools.dynamic]
 version = {attr = "seatunnel_cli.__version__"}
+
+[tool.ruff.lint]
+# Error-level rules only: syntax errors (E9), invalid comparisons and tests (F63, F7) and
+# undefined names (F82). The remaining pyflakes rules and the style rules still report
+# findings across the existing sources, so turning them on belongs in a dedicated clean-up
+# change instead of silently failing every unrelated pull request.
+select = ["E9", "F63", "F7", "F82"]

@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -30,7 +31,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.postgresql.util.PGobject;
+import org.postgresql.util.PSQLException;
+import org.postgresql.util.PSQLState;
 
+import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -43,6 +47,8 @@ import java.util.List;
 
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -102,6 +108,39 @@ public class PostgresJdbcRowConverterTest {
         Assertions.assertEquals(hour, offsetDateTime.getHour());
         Assertions.assertEquals(minute, offsetDateTime.getMinute());
         Assertions.assertEquals(offset, offsetDateTime.getOffset());
+    }
+
+    @Test
+    public void testStringReadDoesNotLookUpColumnByName() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        TableSchema schema = spy(createTableSchema("value", BasicType.STRING_TYPE, "VARCHAR"));
+        when(rs.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnTypeName(2)).thenReturn("varchar");
+        when(rs.getInt(1)).thenReturn(1);
+        when(rs.getObject(2)).thenReturn("value");
+        when(rs.getString(2)).thenReturn("value");
+
+        SeaTunnelRow row = converter.toInternal(rs, schema);
+
+        Assertions.assertEquals("value", row.getField(1));
+        verify(schema, never()).getColumn("value");
+    }
+
+    @Test
+    public void testNumericReadDoesNotQueryResultSetMetadata() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        TableSchema schema = createTableSchema("value", BasicType.LONG_TYPE, "INT8");
+        when(rs.getObject(1)).thenReturn(1);
+        when(rs.getObject(2)).thenReturn(42L);
+        when(rs.getInt(1)).thenReturn(1);
+        when(rs.getLong(2)).thenReturn(42L);
+
+        SeaTunnelRow row = converter.toInternal(rs, schema);
+
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertEquals(42L, row.getField(1));
+        verify(rs, never()).getMetaData();
     }
 
     @Test
@@ -263,6 +302,68 @@ public class PostgresJdbcRowConverterTest {
         Assertions.assertNotNull(row);
         Assertions.assertEquals(1, row.getField(0));
         Assertions.assertEquals("POINT(1 2)", row.getField(1));
+    }
+
+    @Test
+    public void testToInternalWithNormalDecimalValue() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        TableSchema tableSchema = createTableSchema("decimal_col", new DecimalType(10, 2), null);
+
+        setupMockResultSet(rs, "INT4", "NUMERIC", 1, null);
+        when(rs.getBigDecimal(2)).thenReturn(new BigDecimal("123.45"));
+
+        SeaTunnelRow row = new PostgresJdbcRowConverter(true).toInternal(rs, tableSchema);
+
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertEquals(new BigDecimal("123.45"), row.getField(1));
+    }
+
+    @Test
+    public void testToInternalWithNumericSpecialValueAsNull() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        TableSchema tableSchema = createTableSchema("decimal_col", new DecimalType(10, 2), null);
+
+        setupMockResultSet(rs, "INT4", "NUMERIC", 1, null);
+        when(rs.getBigDecimal(2))
+                .thenThrow(
+                        new PSQLException(
+                                "Bad value for type BigDecimal : NaN",
+                                PSQLState.NUMERIC_VALUE_OUT_OF_RANGE));
+        when(rs.getString(2)).thenReturn("NaN");
+
+        SeaTunnelRow row = new PostgresJdbcRowConverter(true).toInternal(rs, tableSchema);
+
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertNull(row.getField(1));
+    }
+
+    @Test
+    public void testToInternalWithNumericSpecialValueWithoutNarrowing() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        TableSchema tableSchema = createTableSchema("decimal_col", new DecimalType(10, 2), null);
+
+        setupMockResultSet(rs, "INT4", "NUMERIC", 1, null);
+        when(rs.getBigDecimal(2))
+                .thenThrow(
+                        new PSQLException(
+                                "Bad value for type BigDecimal : NaN",
+                                PSQLState.NUMERIC_VALUE_OUT_OF_RANGE));
+
+        Assertions.assertThrows(
+                SQLException.class,
+                () -> new PostgresJdbcRowConverter().toInternal(rs, tableSchema));
+    }
+
+    @Test
+    public void testNumericSpecialValueIsLoggedOncePerColumn() {
+        PostgresJdbcRowConverter converter = new PostgresJdbcRowConverter(true);
+
+        // The first occurrence per column is logged, the following ones are not
+        Assertions.assertTrue(converter.shouldLogNumericSpecialValue(2));
+        Assertions.assertFalse(converter.shouldLogNumericSpecialValue(2));
+        Assertions.assertFalse(converter.shouldLogNumericSpecialValue(2));
+        // Another column is logged again on its first occurrence
+        Assertions.assertTrue(converter.shouldLogNumericSpecialValue(3));
     }
 
     @Test

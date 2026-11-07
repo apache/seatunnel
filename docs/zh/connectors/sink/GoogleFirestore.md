@@ -40,22 +40,22 @@ GoogleFirestore Sink 用于将 SeaTunnel 数据写入 Google Cloud Firestore 集
 
 | 名称           | 类型   | 必填 | 默认值 | 说明 |
 |----------------|--------|------|--------|------|
-| project_id     | string | 是   | -      | Firestore 数据库所在的 Google Cloud 项目 ID。 |
-| collection     | string | 是   | -      | 要写入的 Firestore 集合名称。 |
-| credentials    | string | 否   | -      | Base64 编码后的 Google Cloud 服务账号 JSON。 |
+| project_id     | string | 是   | -      | Firestore 数据库所在的非空白 Google Cloud 项目 ID。 |
+| collection     | string | 是   | -      | 要写入的非空白 Firestore 集合名称。 |
+| credentials    | string | 否   | -      | Base64 编码后的 Google Cloud 服务账号 JSON；配置时不能为空白。 |
 | common-options |        | 否   | -      | Sink 通用选项，详见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 ### project_id [string]
 
-Firestore 数据库所在的 Google Cloud 项目 ID。
+Firestore 数据库所在的 Google Cloud 项目 ID。此选项必填，且不能为空白。
 
 ### collection [string]
 
-要写入的 Firestore 集合名称。每个 sink 配置块写入一个集合。
+要写入的 Firestore 集合名称。此选项必填，且不能为空白。每个 sink 配置块写入一个集合。
 
 ### credentials [string]
 
-Base64 编码后的 Google Cloud 服务账号 JSON。
+可选的 Base64 编码 Google Cloud 服务账号 JSON。配置此选项时，值不能为空白。
 
 如果不配置该参数，连接器会使用 Google 应用默认凭证。此时需要确保 `GOOGLE_APPLICATION_CREDENTIALS` 指向服务账号 JSON 文件，或者运行环境已经提供默认凭证。
 

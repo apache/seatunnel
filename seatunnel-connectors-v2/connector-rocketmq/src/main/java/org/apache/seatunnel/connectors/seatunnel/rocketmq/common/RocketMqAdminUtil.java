@@ -47,8 +47,9 @@ import org.apache.rocketmq.remoting.protocol.LanguageCode;
 import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
 import org.apache.rocketmq.tools.command.CommandUtil;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /** Tools for creating RocketMq topic and group. */
+@Slf4j
 public class RocketMqAdminUtil {
 
     public static String createUniqInstance(String prefix) {
@@ -273,47 +275,128 @@ public class RocketMqAdminUtil {
         }
     }
 
-    /** Get consumer group offset */
+    /**
+     * Get consumer group offset.
+     *
+     * <p>An empty result means the lookup succeeded and this group has committed nothing for the
+     * requested queues. A failed lookup is never reported that way: callers such as {@code
+     * RocketMqSourceSplitEnumerator}'s {@code CONSUME_FROM_GROUP_OFFSETS} branch read an empty map
+     * as "this group has committed nothing" and rewind to the first offset, so mapping a failure
+     * onto that answer would silently re-deliver a whole topic.
+     *
+     * <p>{@code TOPIC_NOT_EXIST} (code 17) needs care, because it is the only failure code this
+     * call can raise for a route problem and it covers two very different situations. See {@link
+     * #currentOffsets(DefaultMQAdminExt, String, List, Set)} for how they are told apart.
+     */
     public static Map<MessageQueue, Long> currentOffsets(
             RocketMqBaseConfiguration config,
             List<String> topics,
             Set<MessageQueue> messageQueues) {
-        // Get consumer group offset
         DefaultMQAdminExt adminClient = null;
         try {
             adminClient = RocketMqAdminUtil.startMQAdminTool(config);
-            Map<MessageQueue, OffsetWrapper> consumerOffsets = Maps.newConcurrentMap();
-            for (String topic : topics) {
-                ConsumeStats consumeStats =
-                        adminClient.examineConsumeStats(config.getGroupId(), topic);
-                consumerOffsets.putAll(consumeStats.getOffsetTable());
-            }
-            return consumerOffsets.keySet().stream()
-                    .filter(messageQueue -> messageQueues.contains(messageQueue))
-                    .collect(
-                            Collectors.toMap(
-                                    messageQueue -> messageQueue,
-                                    messageQueue ->
-                                            consumerOffsets.get(messageQueue).getConsumerOffset()));
-        } catch (MQClientException
-                | MQBrokerException
-                | RemotingException
-                | InterruptedException e) {
-            if (e instanceof MQClientException) {
-                if (((MQClientException) e).getResponseCode() == ResponseCode.TOPIC_NOT_EXIST) {
-                    return Collections.emptyMap();
-                } else {
-                    throw new RocketMqConnectorException(
-                            RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
-                }
-            } else {
-                throw new RocketMqConnectorException(
-                        RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
-            }
+            return currentOffsets(adminClient, config.getGroupId(), topics, messageQueues);
+        } catch (MQClientException e) {
+            throw new RocketMqConnectorException(
+                    RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
         } finally {
             if (adminClient != null) {
                 adminClient.shutdown();
             }
+        }
+    }
+
+    /**
+     * Collects committed group offsets through an already-started admin client. Package-private so
+     * that tests can drive {@link DefaultMQAdminExt#examineConsumeStats} deterministically.
+     *
+     * <p>{@code examineConsumeStats} resolves its route solely from the group's auto-generated
+     * retry topic, never from the requested topic, so a {@code TOPIC_NOT_EXIST} response always
+     * refers to that retry topic. It is raised both when the group has never registered, in which
+     * case the retry topic has not been created yet, and when a route has been lost, in which case
+     * the offsets exist but are briefly unreadable. Answering "nothing committed" is correct for
+     * the first and causes a full replay for the second.
+     *
+     * <p>The two are separated by re-resolving the requested topic. The name server removes routes
+     * per broker rather than per topic, so an outage takes the requested topic's route along with
+     * the retry topic's, while a group that has simply never registered leaves it intact. A group
+     * also cannot commit an offset without first registering, which is what creates the retry
+     * topic, so a missing retry topic on a healthy name server implies nothing was committed.
+     *
+     * <p>A topic answering that way is skipped rather than ending the lookup, so offsets already
+     * collected for earlier topics in a multi-topic request survive.
+     */
+    static Map<MessageQueue, Long> currentOffsets(
+            DefaultMQAdminExt adminClient,
+            String groupId,
+            List<String> topics,
+            Set<MessageQueue> messageQueues) {
+        Map<MessageQueue, OffsetWrapper> consumerOffsets = Maps.newConcurrentMap();
+        for (String topic : topics) {
+            try {
+                ConsumeStats consumeStats = adminClient.examineConsumeStats(groupId, topic);
+                consumerOffsets.putAll(consumeStats.getOffsetTable());
+            } catch (MQClientException e) {
+                if (e.getResponseCode() == ResponseCode.TOPIC_NOT_EXIST
+                        && topicRouteAvailable(adminClient, topic)) {
+                    // The group's retry topic is missing while the requested topic still
+                    // resolves, so nothing has been committed and this topic contributes no
+                    // offsets.
+                    //
+                    // Skip it rather than returning, so that offsets already collected for
+                    // earlier topics in the list survive. topics is a supported multi-topic list
+                    // (RocketMqSourceOptions.TOPICS), and the guard probes the requested topic
+                    // rather than the group's retry topic, so on a multi-broker cluster where the
+                    // retry topic and a later topic are hosted on different brokers, losing the
+                    // retry topic's broker part way through the loop still leaves the later topic
+                    // resolvable. Returning there would discard the earlier offsets, and the
+                    // caller reads an empty map as a cold start and rewinds every topic to its
+                    // first offset.
+                    //
+                    // When every topic answers this way the map stays empty, which is the
+                    // cold-start answer the caller needs.
+                    log.warn(
+                            "Consumer group {} has no retry topic yet, so it has committed nothing "
+                                    + "for topic {}. That topic still resolves, so this is not a "
+                                    + "route outage; skipping it and keeping any offsets already "
+                                    + "collected.",
+                            groupId,
+                            topic);
+                    continue;
+                }
+                throw new RocketMqConnectorException(
+                        RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
+            } catch (MQBrokerException | RemotingException e) {
+                throw new RocketMqConnectorException(
+                        RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RocketMqConnectorException(
+                        RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
+            }
+        }
+        return consumerOffsets.keySet().stream()
+                .filter(messageQueue -> messageQueues.contains(messageQueue))
+                .collect(
+                        Collectors.toMap(
+                                messageQueue -> messageQueue,
+                                messageQueue ->
+                                        consumerOffsets.get(messageQueue).getConsumerOffset()));
+    }
+
+    /**
+     * Reports whether the name server can still resolve a route for {@code topic}. Any failure is
+     * reported as unavailable, since the caller only uses this to decide whether a route problem is
+     * broker wide.
+     */
+    private static boolean topicRouteAvailable(DefaultMQAdminExt adminClient, String topic) {
+        try {
+            return adminClient.examineTopicRouteInfo(topic) != null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (MQClientException | RemotingException e) {
+            return false;
         }
     }
 }

@@ -152,6 +152,21 @@ public class SeaTunnelFTPFileSystemTest {
     }
 
     @Test
+    public void testAppendToExistingFile() throws IOException {
+        Path testFile = new Path(HOME_DIR + "/test.txt");
+
+        try (FSDataOutputStream out = ftpFileSystem.append(testFile, 1024, null)) {
+            out.write(" appended".getBytes(StandardCharsets.UTF_8));
+        }
+
+        try (FSDataInputStream in = ftpFileSystem.open(testFile, 1024)) {
+            byte[] buffer = new byte["Test content appended".length()];
+            in.readFully(buffer);
+            assertEquals("Test content appended", new String(buffer, StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
     public void testListStatus() throws IOException {
         // Create test directory structure
         Path testDir = new Path(HOME_DIR + "/testListDir");

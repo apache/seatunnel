@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.lance.sink.LanceSinkFactory;
 
 import org.junit.jupiter.api.Assertions;
@@ -112,6 +114,37 @@ public class LanceFactoryTest {
                         () -> validate(Collections.singletonMap("namespace_id", value)));
 
         Assertions.assertEquals(value, config.get(LanceCommonOptions.KEY_NAMESPACE_ID));
+    }
+
+    @Test
+    void testBatchSizeDefaultsTo10000() {
+        LanceSinkConfig sinkConfig = new LanceSinkConfig(ReadonlyConfig.fromMap(validConfig()));
+
+        Assertions.assertEquals(10000, sinkConfig.getBatchSize());
+    }
+
+    @Test
+    void testPositiveBatchSizeAccepted() {
+        Map<String, Object> config = validConfig();
+        config.put(LanceSinkOptions.WRITE_BATCH_SIZE.key(), 1);
+
+        ReadonlyConfig readonlyConfig = Assertions.assertDoesNotThrow(() -> validate(config));
+
+        Assertions.assertEquals(1, new LanceSinkConfig(readonlyConfig).getBatchSize().intValue());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    void testNonPositiveBatchSizeRejected(int value) {
+        Map<String, Object> config = validConfig();
+        config.put(LanceSinkOptions.WRITE_BATCH_SIZE.key(), value);
+
+        OptionValidationException error =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+
+        Assertions.assertTrue(
+                error.getMessage().contains(LanceSinkOptions.WRITE_BATCH_SIZE.key()),
+                error.getMessage());
     }
 
     private void assertInvalidOption(String key, String value) {

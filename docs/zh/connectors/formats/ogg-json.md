@@ -11,6 +11,10 @@ SeaTunnel 支持将 Ogg JSON 消息解释为 Seatunnel 系统中的 INSERT/UPDAT
 
 SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息转化为 Ogg JSON 消息，并将其发送到类似 Kafka 这样的存储中。然而，目前 SeaTunnel 无法将 UPDATE_BEFORE 和 UPDATE_AFTER 组合成单个 UPDATE 消息。因此，Seatunnel 将 UPDATE_BEFORE 和 UPDATE_AFTER 转化为 DELETE 和 INSERT Ogg 消息来实现
 
+## 限制
+
+更新消息必须包含完整行数据；仅包含变更字段的部分更新暂不支持。
+
 # 格式选项
 
 |              选项              |  默认值   | 是否需要 |                                         描述                                         |

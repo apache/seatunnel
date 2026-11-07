@@ -96,7 +96,31 @@ public class ParquetReadStrategyTest {
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
+        // BaseFileSourceReader reads single-table splits with an empty table id
         parquetReadStrategy.read(path, "", testCollector);
+        List<SeaTunnelRow> rows = testCollector.getRows();
+        Assertions.assertFalse(rows.isEmpty());
+        rows.forEach(row -> Assertions.assertEquals("", row.getTableId()));
+    }
+
+    @Test
+    public void testParquetReadPreservesTableId() throws Exception {
+        URL resource = ParquetReadStrategyTest.class.getResource("/timestamp_as_int64.parquet");
+        Assertions.assertNotNull(resource);
+        String path = Paths.get(resource.toURI()).toString();
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+        // Multi-table readers (e.g. MultipleTableHiveSourceReader) pass the table path of the split
+        String tableId = "my_db.my_table";
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(path, tableId, testCollector);
+        List<SeaTunnelRow> rows = testCollector.getRows();
+        Assertions.assertFalse(rows.isEmpty());
+        rows.forEach(row -> Assertions.assertEquals(tableId, row.getTableId()));
     }
 
     @Test
@@ -264,14 +288,17 @@ public class ParquetReadStrategyTest {
             Assertions.assertEquals("job_blue-collar", rowType.getFieldName(1));
 
             TestCollector testCollector = new TestCollector();
+            // The Avro-incompatible column name forces the native parquet fallback reader
+            String tableId = "my_db.my_table";
             parquetReadStrategy.read(
                     NativeParquetWriterWithAvroIncompatibleColumn.DATA_FILE_PATH,
-                    "",
+                    tableId,
                     testCollector);
             Assertions.assertEquals(1, testCollector.getRows().size());
             SeaTunnelRow row = testCollector.getRows().get(0);
             Assertions.assertEquals(1, row.getField(0));
             Assertions.assertEquals("engineer", row.getField(1));
+            Assertions.assertEquals(tableId, row.getTableId());
         } finally {
             NativeParquetWriterWithAvroIncompatibleColumn.deleteFile();
         }

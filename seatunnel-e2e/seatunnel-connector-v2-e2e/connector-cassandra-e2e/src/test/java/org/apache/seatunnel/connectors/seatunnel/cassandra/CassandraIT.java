@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -25,32 +28,47 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.source.CassandraSourceFactory;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
+import com.datastax.oss.driver.api.core.config.DriverExecutionProfile;
 import com.datastax.oss.driver.api.core.cql.BatchStatement;
 import com.datastax.oss.driver.api.core.cql.BatchType;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.session.Request;
+import com.datastax.oss.driver.api.core.tracker.RequestTracker;
 import com.datastax.oss.driver.api.core.uuid.Uuids;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -73,12 +91,14 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -109,6 +129,249 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     private Config config;
     private CassandraContainer<?> container;
     private CqlSession session;
+
+    @Test
+    public void testUnavailableBootstrapContactPoint() {
+        String available = container.getHost() + ":" + container.getMappedPort(PORT);
+        String unavailable = container.getHost() + ":1";
+        for (String hosts :
+                Arrays.asList(unavailable + "," + available, available + "," + unavailable)) {
+            try (CqlSession connected =
+                    CassandraClient.getCqlSessionBuilder(hosts, KEYSPACE, "", "", DATACENTER)
+                            .build()) {
+                Assertions.assertEquals(KEYSPACE, connected.getKeyspace().get().asInternal());
+                Assertions.assertNotNull(
+                        connected.execute("SELECT * FROM source_table LIMIT 1").one());
+            }
+        }
+    }
+
+    @Test
+    public void testDryRunSchemaParity() throws Exception {
+        CassandraSourceFactory factory = new CassandraSourceFactory();
+        for (String query :
+                Arrays.asList(
+                        "SELECT * FROM source_table",
+                        "SELECT c_bigint AS \"Alias\", c_text FROM source_table",
+                        "SELECT count(*) AS total FROM source_table",
+                        "SELECT * FROM source_table WHERE id = -1",
+                        "SELECT toTimestamp(c_timeuuid) AS created FROM source_table")) {
+            Map<String, Object> options = dryRunOptions();
+            options.put("cql", query);
+            TableSourceFactoryContext context =
+                    new TableSourceFactoryContext(
+                            ReadonlyConfig.fromMap(options), getClass().getClassLoader());
+            List<CatalogTable> expected =
+                    factory.createSource(context).createSource().getProducedCatalogTables();
+            List<CatalogTable> actual = factory.inferSchemaForDryRun(context);
+            Assertions.assertEquals(expected.size(), actual.size());
+            Assertions.assertEquals(expected.get(0).getTableId(), actual.get(0).getTableId());
+            Assertions.assertEquals(
+                    expected.get(0).getSeaTunnelRowType(), actual.get(0).getSeaTunnelRowType());
+            factory.validateConnectionForDryRun(context, actual);
+        }
+    }
+
+    @Test
+    public void testDryRunPreparesWithoutExecutingApplicationQueries() throws Exception {
+        List<Request> requests = new CopyOnWriteArrayList<>();
+        RequestTracker tracker =
+                new RequestTracker() {
+                    @Override
+                    public void onSuccess(
+                            Request request,
+                            long latencyNanos,
+                            DriverExecutionProfile profile,
+                            Node node) {
+                        requests.add(request);
+                    }
+
+                    @Override
+                    public void close() {}
+                };
+        // The driver tracks executed CQL, not PREPARE requests. Establish a positive control.
+        try (CqlSession control = trackingSessionBuilder(tracker).build()) {
+            control.execute("SELECT * FROM source_table LIMIT 1");
+        }
+        Assertions.assertFalse(requests.isEmpty());
+        requests.clear();
+        Map<String, Object> options = dryRunOptions();
+        options.put("cql", "SELECT * FROM source_table");
+        CqlSessionBuilder builder = trackingSessionBuilder(tracker);
+        // Keep the real driver and server; inject only a request observer.
+        try (MockedStatic<CassandraClient> client = Mockito.mockStatic(CassandraClient.class)) {
+            client.when(
+                            () ->
+                                    CassandraClient.getCqlSessionBuilder(
+                                            Mockito.anyString(),
+                                            Mockito.anyString(),
+                                            Mockito.any(),
+                                            Mockito.any(),
+                                            Mockito.anyString()))
+                    .thenReturn(builder);
+            Assertions.assertEquals(
+                    1,
+                    new CassandraSourceFactory()
+                            .inferSchemaForDryRun(dryRunContext(options))
+                            .size());
+        }
+        Assertions.assertTrue(requests.isEmpty());
+    }
+
+    private CqlSessionBuilder trackingSessionBuilder(RequestTracker tracker) {
+        return CqlSession.builder()
+                .addContactPoint(
+                        new InetSocketAddress(container.getHost(), container.getMappedPort(PORT)))
+                .withKeyspace(KEYSPACE)
+                .withLocalDatacenter(DATACENTER)
+                .withRequestTracker(tracker);
+    }
+
+    @Test
+    public void testDryRunMultipleTables() throws Exception {
+        Map<String, Object> options = dryRunOptions();
+        options.put(
+                "tables_configs",
+                Arrays.asList(
+                        Collections.singletonMap("cql", "SELECT * FROM " + MT_SOURCE_TABLE_A),
+                        Collections.singletonMap("cql", "SELECT * FROM " + MT_SOURCE_TABLE_B)));
+        CassandraSourceFactory factory = new CassandraSourceFactory();
+        TableSourceFactoryContext context = dryRunContext(options);
+        List<CatalogTable> expected =
+                factory.createSource(context).createSource().getProducedCatalogTables();
+        List<CatalogTable> actual = factory.inferSchemaForDryRun(context);
+        Assertions.assertEquals(2, actual.size());
+        Map<String, SeaTunnelRowType> expectedTypes = new HashMap<>();
+        expected.forEach(
+                table ->
+                        expectedTypes.put(
+                                table.getTableId().toString(), table.getSeaTunnelRowType()));
+        actual.forEach(
+                table ->
+                        Assertions.assertEquals(
+                                expectedTypes.get(table.getTableId().toString()),
+                                table.getSeaTunnelRowType()));
+    }
+
+    @Test
+    public void testDryRunMissingKeyspace() {
+        Map<String, Object> options = dryRunOptions();
+        options.put("keyspace", "missing_dry_run_keyspace");
+        options.put("cql", "SELECT * FROM source_table");
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> new CassandraSourceFactory().inferSchemaForDryRun(dryRunContext(options)));
+    }
+
+    private TableSourceFactoryContext dryRunContext(Map<String, Object> options) {
+        return new TableSourceFactoryContext(
+                ReadonlyConfig.fromMap(options), getClass().getClassLoader());
+    }
+
+    @Test
+    public void testDryRunAuthenticatedConnection() throws Exception {
+        try (GenericContainer<?> authenticated =
+                new GenericContainer<>(CASSANDRA_DOCKER_IMAGE)
+                        .withExposedPorts(PORT)
+                        .withCommand(
+                                "bash",
+                                "-ec",
+                                "sed -i 's/^authenticator: .*/authenticator: PasswordAuthenticator/' /etc/cassandra/cassandra.yaml; exec docker-entrypoint.sh cassandra -f")
+                        .waitingFor(
+                                Wait.forLogMessage(".*Starting listening for CQL clients.*\\n", 1)
+                                        .withStartupTimeout(Duration.ofMinutes(3)))) {
+            authenticated.start();
+            Map<String, Object> options = dryRunOptions();
+            options.put("host", authenticated.getHost() + ":" + authenticated.getMappedPort(PORT));
+            options.put("username", "cassandra");
+            options.put("password", "cassandra");
+            options.put("keyspace", "system");
+            options.put("cql", "SELECT key FROM local");
+            // Cassandra creates its initial superuser asynchronously after accepting connections.
+            Awaitility.await()
+                    .ignoreException(IllegalStateException.class)
+                    .atMost(Duration.ofSeconds(90))
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            1,
+                                            new CassandraSourceFactory()
+                                                    .inferSchemaForDryRun(dryRunContext(options))
+                                                    .size()));
+            options.put("password", "incorrect-dry-run-password");
+            IllegalStateException failure =
+                    Assertions.assertThrows(
+                            IllegalStateException.class,
+                            () ->
+                                    new CassandraSourceFactory()
+                                            .inferSchemaForDryRun(dryRunContext(options)));
+            Assertions.assertNull(failure.getCause());
+            Assertions.assertFalse(failure.toString().contains("incorrect-dry-run-password"));
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK})
+    public void testDryRunPackagedCli(TestContainer testContainer) throws Exception {
+        testContainer.executeExtraCommands(
+                engine ->
+                        ContainerUtil.copyConnectorJarToContainer(
+                                engine,
+                                CASSANDRA_JOB_CONFIG,
+                                "seatunnel-connectors-v2",
+                                "connector-",
+                                "seatunnel",
+                                AbstractTestContainer.SEATUNNEL_HOME));
+        testContainer.copyFileToContainer("/cassandra-dry-run.conf", "/tmp/cassandra-dry-run.conf");
+        Container.ExecResult success =
+                testContainer.executeBaseCommand(
+                        new String[] {
+                            "--config",
+                            "/tmp/cassandra-dry-run.conf",
+                            "--dry-run",
+                            "connect",
+                            "-i",
+                            "dry_run_keyspace=test"
+                        });
+        Assertions.assertEquals(0, success.getExitCode());
+        Assertions.assertTrue(success.getStdout().contains("source[0](Cassandra): VALIDATED"));
+        Container.ExecResult failure =
+                testContainer.executeBaseCommand(
+                        new String[] {
+                            "--config",
+                            "/tmp/cassandra-dry-run.conf",
+                            "--dry-run",
+                            "connect",
+                            "-i",
+                            "dry_run_keyspace=missing_dry_run_keyspace"
+                        });
+        Assertions.assertNotEquals(0, failure.getExitCode());
+        Assertions.assertNull(getRow());
+    }
+
+    @Test
+    public void testDryRunMissingTable() {
+        Map<String, Object> options = dryRunOptions();
+        options.put("cql", "SELECT * FROM missing_dry_run_table");
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () ->
+                        new CassandraSourceFactory()
+                                .inferSchemaForDryRun(
+                                        new TableSourceFactoryContext(
+                                                ReadonlyConfig.fromMap(options),
+                                                getClass().getClassLoader())));
+    }
+
+    private Map<String, Object> dryRunOptions() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("host", container.getHost() + ":" + container.getMappedPort(PORT));
+        options.put("keyspace", KEYSPACE);
+        options.put("datacenter", DATACENTER);
+        return options;
+    }
 
     @TestTemplate
     public void testCassandra(TestContainer container) throws Exception {

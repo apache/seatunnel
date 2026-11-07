@@ -31,6 +31,7 @@ import org.apache.seatunnel.e2e.common.container.flink.Flink18Container;
 import org.apache.seatunnel.e2e.common.container.flink.Flink20Container;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestCaseInvocationContextProvider;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.junit.TestContainers;
@@ -58,6 +59,10 @@ import java.util.stream.Collectors;
     TimingExtension.class
 })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@DisabledOnContainer(
+        value = {TestContainerId.FLINK_1_13},
+        disabledReason =
+                "The Flink 1.13 image cannot install Python because its Debian security metadata is expired")
 public class TestPythonTransformIT {
 
     private static final String BASE_PATH = "/python_transform/";
@@ -127,6 +132,38 @@ public class TestPythonTransformIT {
         assertFlinkPythonPolicyVisible(container);
         Container.ExecResult execResult =
                 container.executeJob(BASE_PATH + "python_transform_path.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    /**
+     * Verifies a transform level rule combined with a per-table rule.
+     *
+     * @param container test container provided by the shared suite
+     * @throws IOException when the job execution API fails
+     * @throws InterruptedException when the test is interrupted
+     */
+    @TestTemplate
+    public void testMultiTablePythonTransform(TestContainer container)
+            throws IOException, InterruptedException {
+        assertFlinkPythonPolicyVisible(container);
+        Container.ExecResult execResult =
+                container.executeJob(BASE_PATH + "python_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    /**
+     * Verifies a transform configured only through {@code table_transform} entries.
+     *
+     * @param container test container provided by the shared suite
+     * @throws IOException when the job execution API fails
+     * @throws InterruptedException when the test is interrupted
+     */
+    @TestTemplate
+    public void testTableTransformOnlyPythonTransform(TestContainer container)
+            throws IOException, InterruptedException {
+        assertFlinkPythonPolicyVisible(container);
+        Container.ExecResult execResult =
+                container.executeJob(BASE_PATH + "python_transform_table_transform_only.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 

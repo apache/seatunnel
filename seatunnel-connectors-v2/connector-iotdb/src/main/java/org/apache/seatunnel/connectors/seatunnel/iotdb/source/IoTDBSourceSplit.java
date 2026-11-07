@@ -31,6 +31,12 @@ public class IoTDBSourceSplit implements SourceSplit {
     /** final query statement */
     private final String query;
 
+    private final String tableId;
+
+    public String getTableId() {
+        return tableId;
+    }
+
     @Override
     public String splitId() {
         return splitId;
@@ -41,7 +47,12 @@ public class IoTDBSourceSplit implements SourceSplit {
     }
 
     public IoTDBSourceSplit(String splitId, String query) {
+        this(splitId, query, null);
+    }
+
+    public IoTDBSourceSplit(String splitId, String query, String tableId) {
         this.splitId = splitId;
         this.query = query;
+        this.tableId = tableId;
     }
 }

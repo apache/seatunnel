@@ -12,7 +12,7 @@ DataValidator 转换插件会根据配置规则校验字段值，并按照指定
 |-----------------|--------|----------|--------|
 | row_error_handle_way| enum   | 否       | FAIL   |
 | row_error_handle_way.error_table     | string | 否       |        |
-| field_rules     | array  | 是       |        |
+| field_rules     | array  | 是（单表模式）       |        |
 
 ### row_error_handle_way [enum]
 
@@ -25,7 +25,7 @@ DataValidator 转换插件会根据配置规则校验字段值，并按照指定
 
 ### row_error_handle_way.error_table [string]
 
-当 `row_error_handle_way` 设置为 `ROUTE_TO_TABLE` 时，用于路由无效数据的目标表名。使用 `ROUTE_TO_TABLE` 模式时此参数为必需。
+当 `row_error_handle_way` 设置为 `ROUTE_TO_TABLE` 时，用于路由无效数据的目标表名。框架不会强制校验该参数，但如果在 `ROUTE_TO_TABLE` 模式下未配置，DataValidator 无法路由无效行，将输出警告日志并跳过这些行，因此使用 `ROUTE_TO_TABLE` 时应始终配置该参数。
 
 #### 错误表Schema
 
@@ -59,6 +59,8 @@ DataValidator 转换插件会根据配置规则校验字段值，并按照指定
 
 字段验证规则数组。每个规则定义特定字段的验证条件。
 
+单表配置必须设置 `field_rules`。使用 `table_transform` 时每个条目自己声明 `field_rules`，外层可选。
+
 #### 字段规则结构
 
 每个字段规则包含：
@@ -87,6 +89,10 @@ DataValidator 转换插件会根据配置规则校验字段值，并按照指定
 
 ##### LENGTH
 验证字符串、数组或集合值的长度。
+
+数组长度为元素个数，包含空元素。嵌套数组只计算最外层的长度，二进制值按字节数计算。
+字符串长度使用 Java UTF-16 代码单元数，集合长度使用集合大小。
+空值通过此规则；如需拒绝空值，请组合使用 `NOT_NULL`。
 
 参数：
 - `rule_type`: "LENGTH"

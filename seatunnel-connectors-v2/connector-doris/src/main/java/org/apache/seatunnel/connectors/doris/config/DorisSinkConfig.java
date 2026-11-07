@@ -31,6 +31,8 @@ import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -56,10 +58,12 @@ import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SAVE
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_BUFFER_COUNT;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_BUFFER_SIZE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_CHECK_INTERVAL;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_DATETIME_TIMEZONE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_ENABLE_2PC;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_ENABLE_DELETE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_LABEL_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_MAX_RETRIES;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_VISIBILITY_TIMEOUT_MS;
 
 @Slf4j
 @Setter
@@ -83,6 +87,7 @@ public class DorisSinkConfig implements Serializable {
     private String labelPrefix;
     private Integer checkInterval;
     private Integer maxRetries;
+    private Long visibilityTimeoutMs;
     private Integer bufferSize;
     private Integer bufferCount;
     private Properties streamLoadProps;
@@ -90,6 +95,7 @@ public class DorisSinkConfig implements Serializable {
     private boolean directToBe;
     private boolean needsUnsupportedTypeCasting;
     private boolean caseSensitive;
+    private ZoneId datetimeTimezone;
 
     // create table option
     private String createTableTemplate;
@@ -127,12 +133,14 @@ public class DorisSinkConfig implements Serializable {
         dorisSinkConfig.setLabelPrefix(config.get(SINK_LABEL_PREFIX));
         dorisSinkConfig.setCheckInterval(config.get(SINK_CHECK_INTERVAL));
         dorisSinkConfig.setMaxRetries(config.get(SINK_MAX_RETRIES));
+        dorisSinkConfig.setVisibilityTimeoutMs(config.get(SINK_VISIBILITY_TIMEOUT_MS));
         dorisSinkConfig.setBufferSize(config.get(SINK_BUFFER_SIZE));
         dorisSinkConfig.setBufferCount(config.get(SINK_BUFFER_COUNT));
         dorisSinkConfig.setEnableDelete(config.get(SINK_ENABLE_DELETE));
         dorisSinkConfig.setDirectToBe(config.get(DIRECT_TO_BE));
         dorisSinkConfig.setNeedsUnsupportedTypeCasting(config.get(NEEDS_UNSUPPORTED_TYPE_CASTING));
         dorisSinkConfig.setCaseSensitive(config.get(CASE_SENSITIVE));
+        dorisSinkConfig.setDatetimeTimezone(parseDatetimeTimezone(config));
         // create table option
         dorisSinkConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));
 
@@ -141,7 +149,36 @@ public class DorisSinkConfig implements Serializable {
             log.info("Option 'benodes' is configured but inactive because 'direct_to_be=false'.");
         }
 
+        validateVisibilityTimeout(dorisSinkConfig.getVisibilityTimeoutMs());
+
         return dorisSinkConfig;
+    }
+
+    private static void validateVisibilityTimeout(Long visibilityTimeoutMs) {
+        if (visibilityTimeoutMs == null || visibilityTimeoutMs <= 0) {
+            throw new DorisConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "PluginName: Doris, Message: Option 'sink.visibility-timeout-ms' must be greater than 0.");
+        }
+    }
+
+    private static ZoneId parseDatetimeTimezone(ReadonlyConfig config) {
+        if (!config.getOptional(SINK_DATETIME_TIMEZONE).isPresent()) {
+            return null;
+        }
+        String zoneId = config.get(SINK_DATETIME_TIMEZONE).trim();
+        if (zoneId.isEmpty()) {
+            return null;
+        }
+        try {
+            return ZoneId.of(zoneId);
+        } catch (DateTimeException e) {
+            throw new DorisConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "PluginName: Doris, Message: Option 'sink.datetime-timezone' is not a valid ZoneId ID: "
+                            + zoneId,
+                    e);
+        }
     }
 
     private static Properties parseStreamLoadProperties(ReadonlyConfig config) {

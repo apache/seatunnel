@@ -23,13 +23,13 @@ connector-doris
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(cdc-mysql|doris)'
+ls connectors | grep -E 'connector-(cdc-mysql|doris)'
 ```
 
 3. 如果你用的是 SeaTunnel Zeta，再把 MySQL JDBC 驱动放进 `${SEATUNNEL_HOME}/lib`，并确认 jar 已经落盘：
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'mysql-connector'
 ```
 
 如果你用的是 Flink 或 Spark，就把同一个驱动 jar 放到对应引擎实际加载的插件目录里。

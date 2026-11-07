@@ -18,9 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -30,6 +32,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.catalog.ClickhouseCatalog;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ClickhouseSinkFactory;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -39,6 +43,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +62,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
@@ -67,6 +74,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -92,6 +100,8 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_TABLE = "source_table";
     private static final String SOURCE_MERGE_TREE_TABLE = "source_merge_tree_table";
     private static final String SINK_TABLE = "sink_table";
+    private static final String SPECIAL_COLUMN_SOURCE_TABLE = "special_column_source_table";
+    private static final String SPECIAL_COLUMN_SINK_TABLE = "special_column_sink_table";
     private static final List<String> MULTI_SINK_TABLES =
             Arrays.asList("multi_sink_table1", "multi_sink_table2");
     private static final List<String> MULTI_SOURCE_SINK_TABLES =
@@ -108,6 +118,125 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
 
     private static final String FIX_PARTITION_DATE = "2025-06-17";
 
+    @Test
+    public void testSinkConnectDryRunDoesNotExecuteSaveModes() throws Exception {
+        String table = "dry_run_target";
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE default." + table + " (id Int32) ENGINE = Memory");
+            statement.execute("INSERT INTO default." + table + " VALUES (7)");
+            try {
+                for (SchemaSaveMode mode : SchemaSaveMode.values()) {
+                    Map<String, Object> options = dryRunSinkOptions(table);
+                    options.put("schema_save_mode", mode.name());
+                    options.put("data_save_mode", "DROP_DATA");
+                    validateSinkDryRun(options);
+                    options.put("data_save_mode", "CUSTOM_PROCESSING");
+                    options.put("custom_sql", "DROP TABLE default." + table);
+                    validateSinkDryRun(options);
+                    Assertions.assertEquals(1, countData(table));
+                }
+                try (ResultSet rows = statement.executeQuery("SELECT id FROM default." + table)) {
+                    Assertions.assertTrue(rows.next());
+                    Assertions.assertEquals(7, rows.getInt(1));
+                    Assertions.assertFalse(rows.next());
+                }
+            } finally {
+                statement.execute("DROP TABLE default." + table);
+            }
+        }
+    }
+
+    @Test
+    public void testSinkConnectDryRunAllowsCreationWithoutCreatingTarget() throws Exception {
+        Map<String, Object> options = dryRunSinkOptions("dry_run_missing_table");
+        for (SchemaSaveMode mode :
+                Arrays.asList(
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        SchemaSaveMode.RECREATE_SCHEMA,
+                        SchemaSaveMode.IGNORE)) {
+            options.put("schema_save_mode", mode.name());
+            validateSinkDryRun(options);
+        }
+        options.put("schema_save_mode", SchemaSaveMode.ERROR_WHEN_SCHEMA_NOT_EXIST.name());
+        ClickhouseConnectorException error =
+                Assertions.assertThrows(
+                        ClickhouseConnectorException.class, () -> validateSinkDryRun(options));
+        Assertions.assertTrue(error.getMessage().contains("ERROR_WHEN_SCHEMA_NOT_EXIST"));
+        try (Statement statement = connection.createStatement();
+                ResultSet tables =
+                        statement.executeQuery("EXISTS TABLE default.dry_run_missing_table")) {
+            Assertions.assertTrue(tables.next());
+            Assertions.assertEquals(0, tables.getInt(1));
+        }
+        options.put("database", "dry_run_missing_database");
+        options.put("schema_save_mode", SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST.name());
+        validateSinkDryRun(options);
+        try (Statement statement = connection.createStatement();
+                ResultSet databases =
+                        statement.executeQuery(
+                                "SELECT count() FROM system.databases WHERE name = 'dry_run_missing_database'")) {
+            Assertions.assertTrue(databases.next());
+            Assertions.assertEquals(0, databases.getInt(1));
+        }
+    }
+
+    @Test
+    public void testSinkConnectDryRunRejectsAuthenticationAndConnectionFailures() throws Exception {
+        Map<String, Object> options = dryRunSinkOptions(SINK_TABLE);
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE USER seatunnel_dry_run_reader IDENTIFIED BY 'test-only-password'");
+            try {
+                statement.execute("GRANT SELECT ON *.* TO seatunnel_dry_run_reader");
+                options.put("username", "seatunnel_dry_run_reader");
+                options.put("password", "test-only-password");
+                options.put("schema_save_mode", SchemaSaveMode.ERROR_WHEN_SCHEMA_NOT_EXIST.name());
+                // Metadata access does not require INSERT/CREATE/DROP privileges.
+                validateSinkDryRun(options);
+            } finally {
+                statement.execute("DROP USER seatunnel_dry_run_reader");
+            }
+        }
+        options.put("username", container.getUsername());
+        options.put("password", "dry-run-invalid-password");
+        ClickhouseConnectorException error =
+                Assertions.assertThrows(
+                        ClickhouseConnectorException.class, () -> validateSinkDryRun(options));
+        Assertions.assertFalse(error.getMessage().contains("dry-run-invalid-password"));
+        Assertions.assertNull(error.getCause());
+        try (ServerSocket unavailable = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+            options.put("host", "localhost:" + unavailable.getLocalPort());
+            options.put("clickhouse.config", Collections.singletonMap("socket_timeout", "200"));
+            // An accepting-but-unresponsive endpoint exercises the socket deadline without port
+            // races.
+            Assertions.assertTimeoutPreemptively(
+                    Duration.ofSeconds(5),
+                    () ->
+                            Assertions.assertThrows(
+                                    ClickhouseConnectorException.class,
+                                    () -> validateSinkDryRun(options)));
+        }
+    }
+
+    private Map<String, Object> dryRunSinkOptions(String table) {
+        Map<String, Object> options = new HashMap<>();
+        options.put("host", container.getHost() + ":" + container.getMappedPort(8123));
+        options.put("username", container.getUsername());
+        options.put("password", container.getPassword());
+        options.put("database", DATABASE);
+        options.put("table", table);
+        return options;
+    }
+
+    private void validateSinkDryRun(Map<String, Object> options) {
+        new ClickhouseSinkFactory()
+                .validateConnectionForDryRun(
+                        new TableSinkFactoryContext(
+                                null,
+                                ReadonlyConfig.fromMap(options),
+                                getClass().getClassLoader()));
+    }
+
     @TestTemplate
     public void testClickhouse(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(CLICKHOUSE_JOB_CONFIG);
@@ -121,6 +250,18 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     public void testSourceParallelism(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/clickhouse_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testClickhouseSinkWithSpecialCharactersInColumnNames(TestContainer container)
+            throws Exception {
+        initializeClickhouseSpecialColumnTable();
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_special_columns_to_clickhouse.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        assertSpecialColumnTableRows();
+        dropTable(DATABASE + "." + SPECIAL_COLUMN_SOURCE_TABLE);
+        dropTable(DATABASE + "." + SPECIAL_COLUMN_SINK_TABLE);
     }
 
     @TestTemplate
@@ -493,6 +634,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     public void startUp() throws Exception {
         this.container =
                 new ClickHouseContainer(CLICKHOUSE_DOCKER_IMAGE)
+                        .withEnv("CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT", "1")
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
                         .withLogConsumer(
@@ -526,6 +668,71 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             }
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
+        }
+    }
+
+    private void initializeClickhouseSpecialColumnTable() {
+        try {
+            Statement statement = this.connection.createStatement();
+            String createSourceTable =
+                    String.format(
+                            "create table if not exists %s.%s(\n"
+                                    + "    `id`           Int64,\n"
+                                    + "    `GLREG`        String,\n"
+                                    + "    `GLREG#`       String,\n"
+                                    + "    `MY COL`       String,\n"
+                                    + "    `COL-1`        String\n"
+                                    + ")engine=MergeTree ORDER BY(id)",
+                            DATABASE, SPECIAL_COLUMN_SOURCE_TABLE);
+            String createSinkTable =
+                    String.format(
+                            "create table if not exists %s.%s(\n"
+                                    + "    `id`           Int64,\n"
+                                    + "    `GLREG`        String,\n"
+                                    + "    `GLREG#`       String,\n"
+                                    + "    `MY COL`       String,\n"
+                                    + "    `COL-1`        String\n"
+                                    + ")engine=MergeTree ORDER BY(id)",
+                            DATABASE, SPECIAL_COLUMN_SINK_TABLE);
+            statement.execute(createSourceTable);
+            statement.execute(createSinkTable);
+            statement.execute(
+                    String.format(
+                            "insert into %s.%s (`id`, `GLREG`, `GLREG#`, `MY COL`, `COL-1`)"
+                                    + " values (1, 'normal', 'hash', 'space', 'dash'),"
+                                    + " (2, 'row2', 'row2#', 'row2 col', 'row2-1'),"
+                                    + " (3, 'row3', 'row3#', 'row3 col', 'row3-1')",
+                            DATABASE, SPECIAL_COLUMN_SOURCE_TABLE));
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing Clickhouse table failed!", e);
+        }
+    }
+
+    private void assertSpecialColumnTableRows() {
+        String expected =
+                "1,normal,hash,space,dash;"
+                        + "2,row2,row2#,row2 col,row2-1;"
+                        + "3,row3,row3#,row3 col,row3-1";
+        try (Statement statement = this.connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                String.format(
+                                        "select `id`, `GLREG`, `GLREG#`, `MY COL`, `COL-1`"
+                                                + " from %s.%s order by `id`",
+                                        DATABASE, SPECIAL_COLUMN_SINK_TABLE))) {
+            StringBuilder actual = new StringBuilder();
+            while (resultSet.next()) {
+                if (actual.length() > 0) {
+                    actual.append(";");
+                }
+                actual.append(resultSet.getLong(1));
+                for (int i = 2; i <= 5; i++) {
+                    actual.append(",").append(resultSet.getString(i));
+                }
+            }
+            Assertions.assertEquals(expected, actual.toString());
+        } catch (SQLException e) {
+            throw new RuntimeException("Querying Clickhouse table failed!", e);
         }
     }
 

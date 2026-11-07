@@ -34,7 +34,7 @@ Process-wide settings.
 
 | Key                  | Type   | Required | Default       | Description                                                                                                                                                                                                                                                                                                                                                |
 | -------------------- | ------ | -------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id                 | string | No       | auto          | Agent instance identity (logs, ops). Auto: see [Identity file](#identity-file-edge-agentid).                                                                                                                                                                                                                                                               |
+| id                 | string | No       | auto          | Agent instance identity (logs, ops). Auto: see [Identity file](#identity-file).                                                                                                                                                                                                                                                               |
 | delivery-guarantee | string | No       | BEST_EFFORT | Outbound delivery mode. BEST_EFFORT (aliases: best-effort, best_effort): durable local WAL with retry; the same record may reach output more than once — design downstream consumers to be idempotent. NON (aliases: non, none): no WAL, no persistence; events are sent directly from memory and dropped on failure; completely stateless, no local persistence dependency. Details: [Delivery mode](./architecture-overview.md#62-delivery-mode). |
 | idle-sleep-ms      | long    | No       | 200         | Sleep (ms) when a scheduler loop iteration makes no progress. Must be > 0.       |
 | bulk-max-size      | integer | No       | 256         | Flush in-memory reader buffer to WAL when this many events are pending.           |
@@ -67,7 +67,7 @@ For glob patterns, multiline log assembly, and scenario-based YAML examples, see
 
 | Key                     | Type           | Required | Default  | Description                                                                                                                                   |
 | ----------------------- | -------------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| id                    | string         | No       | auto     | Source identity; WAL/position sourceId. Auto: see [Identity file](#identity-file-edge-agentid).                                             |
+| id                    | string         | No       | auto     | Source identity; WAL/position sourceId. Auto: see [Identity file](#identity-file).                                             |
 | type                  | string         | No       | file   | Input plugin id. Only file is implemented.                                                                                                  |
 | paths                 | list of string | Yes  | —        | Glob patterns for files to tail (e.g. /var/log/*.log). Must be non-empty; blank entries are invalid.                                        |
 | encoding              | string         | No       | UTF-8  | File character encoding.                                                                                                                      |
@@ -164,7 +164,7 @@ For endpoint/token alignment, RAW vs PACKET, and scenario YAML, see [Output Conf
 
 | Key    | Type   | Required | Default   | Description                                                                                                             |
 | ------ | ------ | -------- | --------- | ----------------------------------------------------------------------------------------------------------------------- |
-| id   | string | No       | auto      | Outbound logical identity (logs, migration; not on the wire). Auto: see [Identity file](#identity-file-edge-agentid).   |
+| id   | string | No       | auto      | Outbound logical identity (logs, migration; not on the wire). Auto: see [Identity file](#identity-file).   |
 | type | string | No       | console | transport: EdgeSocket client. console: write payload logs as EDGE_CONSOLE_OUTPUT to log/edge-agent.log (debug). |
 
 

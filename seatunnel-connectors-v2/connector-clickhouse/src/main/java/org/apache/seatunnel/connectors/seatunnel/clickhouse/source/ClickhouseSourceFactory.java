@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -239,7 +240,8 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOST, USERNAME, PASSWORD)
+                .required(USERNAME, PASSWORD)
+                .required(HOST, Conditions.notBlank(HOST))
                 .optional(
                         TABLE_PATH,
                         CLICKHOUSE_CONFIG,

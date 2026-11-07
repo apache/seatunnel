@@ -17,10 +17,13 @@
 
 package org.apache.seatunnel.connectors.bigquery.sink.writer;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+
 import org.json.JSONArray;
 
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.protobuf.Descriptors;
 
 import java.io.IOException;
@@ -31,7 +34,22 @@ public interface BigQueryWriter {
 
     default void onAppendSuccess(int rowCount) {}
 
+    /** Returns whether the underlying JSON stream writer can no longer accept appends. */
+    default boolean isClosed() {
+        return false;
+    }
+
     void close();
 
     String getStreamName();
+
+    /**
+     * Recreates the JSON stream writer after a table schema change.
+     *
+     * <p>Implementations must preserve the logical stream and its append position.
+     */
+    default BigQueryWriter refreshSchema(BigQueryWriteClient client, ReadonlyConfig config) {
+        throw new UnsupportedOperationException(
+                "This BigQuery writer does not support refreshing its table schema.");
+    }
 }

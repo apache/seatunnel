@@ -43,6 +43,11 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -181,6 +186,61 @@ public class HttpSourceReaderInternalPollNextTest {
                 .execute(anyString(), anyString(), any(), any(), any(), anyBoolean());
         verify(context, times(1)).signalNoMoreElement();
         httpSourceReader.close();
+    }
+
+    @Test
+    public void testPollIntervalDoesNotHoldCheckpointLock() throws Exception {
+        httpParameter.setPollIntervalMillis(60_000);
+        when(context.getBoundedness()).thenReturn(Boundedness.UNBOUNDED);
+        CountDownLatch polled = new CountDownLatch(1);
+        when(httpClientProvider.execute(
+                        anyString(), anyString(), any(), any(), any(), anyBoolean()))
+                .thenAnswer(
+                        invocation -> {
+                            polled.countDown();
+                            return new HttpResponse(200, "[]");
+                        });
+        Object checkpointLock = new Object();
+        Collector<SeaTunnelRow> lockingCollector =
+                new Collector<SeaTunnelRow>() {
+                    @Override
+                    public void collect(SeaTunnelRow record) {}
+
+                    @Override
+                    public Object getCheckpointLock() {
+                        return checkpointLock;
+                    }
+                };
+
+        httpSourceReader =
+                new HttpSourceReader(
+                        httpParameter, context, deserializationSchema, jsonField, null);
+        httpSourceReader.open();
+        httpSourceReader.setHttpClient(httpClientProvider);
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            executor.submit(
+                    () -> {
+                        httpSourceReader.pollNext(lockingCollector);
+                        return null;
+                    });
+            // The request runs while pollNext holds the checkpoint lock
+            Assertions.assertTrue(polled.await(10, TimeUnit.SECONDS));
+            // A checkpoint barrier must get the lock during the 60 s poll
+            // interval, not only after it
+            Future<Boolean> barrier =
+                    executor.submit(
+                            () -> {
+                                synchronized (checkpointLock) {
+                                    return true;
+                                }
+                            });
+            Assertions.assertTrue(barrier.get(10, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+            httpSourceReader.close();
+        }
     }
 
     @AfterEach

@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 - 4.9.0 or newer
 
-## Support These Engines
+## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
@@ -203,6 +203,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### How can message routing and partition keys be configured in RocketMQ sink?
+
+Configure `partition.key.fields` with one or more table field names. The connector calculates a hash of the specified fields to ensure that messages sharing identical key values are always routed to the same RocketMQ message queue.
+
+### How does RocketMQ sink provide exactly-once delivery guarantees?
+
+When `exactly.once = true`, the sink utilizes RocketMQ 2PC transactional messages. Uncommitted messages are prepared during checkpoint execution and committed as visible messages only when the compute engine completes its checkpoint barrier handshake.
+
+### What message serialization formats are supported?
+
+The sink supports `json` and `text` formats. Fields can be formatted into JSON payloads or delimited text rows according to your target consumer requirements.
 
 ## Changelog
 

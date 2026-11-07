@@ -42,10 +42,15 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class JobInfoServiceNullSafetyTest {
@@ -102,6 +107,49 @@ class JobInfoServiceNullSafetyTest {
         Assertions.assertNotNull(basicInfo);
         Assertions.assertEquals("legacy-job", getFieldValue(basicInfo, "jobName"));
         Assertions.assertEquals(createTime, getFieldValue(basicInfo, "createTime"));
+    }
+
+    /**
+     * A paged request must pay the per-job metrics and DAG lookups for the rows it returns, not for
+     * every retained job. Verifying the lookup count is the point of the test: asserting only on
+     * the returned JSON would still pass if the whole listing were built and then sliced.
+     */
+    @Test
+    void shouldApplyPageBeforePerJobLookups() {
+        List<Object> storedStates = new ArrayList<>();
+        for (int index = 0; index < 25; index++) {
+            storedStates.add(buildJobState((long) index, 1000L, 2000L + index));
+        }
+        when(finishedJobStateMap.values()).thenReturn(storedStates);
+        when(finishedJobMetricsMap.getOrDefault(any(), any())).thenReturn(JobMetrics.empty());
+        when(finishedJobVertexInfoMap.get(any())).thenReturn(null);
+
+        JobInfoService.JobPage page = jobInfoService.getJobsByStateJson("", 0, 10);
+
+        Assertions.assertEquals(10, page.getData().size());
+        Assertions.assertEquals(25, page.getTotal(), "total must count matches before slicing");
+        verify(finishedJobMetricsMap, times(10)).getOrDefault(any(), any());
+        verify(finishedJobVertexInfoMap, times(10)).get(any());
+    }
+
+    /** Newest finish time first, so that paging over a growing history stays stable. */
+    @Test
+    void shouldReturnNewestFinishedJobsFirst() {
+        List<Object> storedStates = new ArrayList<>();
+        for (int index = 0; index < 5; index++) {
+            storedStates.add(buildJobState((long) index, 1000L, 2000L + index));
+        }
+        when(finishedJobStateMap.values()).thenReturn(storedStates);
+        when(finishedJobMetricsMap.getOrDefault(any(), any())).thenReturn(JobMetrics.empty());
+        when(finishedJobVertexInfoMap.get(any())).thenReturn(null);
+
+        JobInfoService.JobPage page = jobInfoService.getJobsByStateJson("", 0, 2);
+
+        Assertions.assertEquals(2, page.getData().size());
+        Assertions.assertEquals(
+                "4", page.getData().get(0).asObject().getString(RestConstant.JOB_ID, null));
+        Assertions.assertEquals(
+                "3", page.getData().get(1).asObject().getString(RestConstant.JOB_ID, null));
     }
 
     private JobHistoryService.JobState buildJobState(Long jobId, Long startTime, Long finishTime) {

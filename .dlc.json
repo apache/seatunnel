@@ -1,4 +1,10 @@
 {
+  "replacementPatterns": [
+    {
+      "pattern": "^@site/docs/",
+      "replacement": "{{BASEURL}}/docs/en/"
+    }
+  ],
   "ignorePatterns": [
     {
       "pattern": "^http://localhost"
@@ -26,6 +32,9 @@
     },
     {
       "pattern": "^https://opencollective.com"
+    },
+    {
+      "pattern": "^https://deepwiki.com"
     },
     {
       "pattern": "^https://twitter.com/ASFSeaTunnel"

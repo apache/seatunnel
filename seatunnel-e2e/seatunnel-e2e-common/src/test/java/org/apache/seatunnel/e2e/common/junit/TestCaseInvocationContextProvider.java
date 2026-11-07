@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.common.junit;
 
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
 import org.junit.jupiter.api.extension.Extension;
@@ -34,8 +35,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
+import static org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension.SHARED_CONTAINER_IDS_STORE_KEY;
 import static org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension.TEST_CONTAINERS_STORE_KEY;
 import static org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension.TEST_EXTENDED_FACTORY_STORE_KEY;
 import static org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension.TEST_RESOURCE_NAMESPACE;
@@ -68,25 +71,35 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
                                 .get(TEST_EXTENDED_FACTORY_STORE_KEY);
 
         int containerAmount = testContainers.size();
+        Set<TestContainerId> sharedContainerIds =
+                (Set<TestContainerId>)
+                        context.getStore(TEST_RESOURCE_NAMESPACE)
+                                .get(SHARED_CONTAINER_IDS_STORE_KEY);
         return testContainers.stream()
                 .map(
                         testContainer ->
                                 new TestResourceProvidingInvocationContext(
-                                        testContainer, containerExtendedFactory, containerAmount));
+                                        testContainer,
+                                        containerExtendedFactory,
+                                        containerAmount,
+                                        sharedContainerIds.contains(testContainer.identifier())));
     }
 
     static class TestResourceProvidingInvocationContext implements TestTemplateInvocationContext {
         private final TestContainer testContainer;
         private final ContainerExtendedFactory containerExtendedFactory;
         private final Integer containerAmount;
+        private final boolean shared;
 
         public TestResourceProvidingInvocationContext(
                 TestContainer testContainer,
                 ContainerExtendedFactory containerExtendedFactory,
-                int containerAmount) {
+                int containerAmount,
+                boolean shared) {
             this.testContainer = testContainer;
             this.containerExtendedFactory = containerExtendedFactory;
             this.containerAmount = containerAmount;
+            this.shared = shared;
         }
 
         @Override
@@ -100,14 +113,16 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
         public List<Extension> getAdditionalExtensions() {
             return Arrays.asList(
                     // Extension for injecting parameters
-                    new TestContainerResolver(testContainer, containerExtendedFactory),
+                    new TestContainerResolver(testContainer, containerExtendedFactory, shared),
                     // Extension for closing test container
                     (AfterTestExecutionCallback)
                             ignore -> {
-                                testContainer.tearDown();
-                                log.info(
-                                        "The TestContainer[{}] is closed.",
-                                        testContainer.identifier());
+                                if (!shared) {
+                                    testContainer.tearDown();
+                                    log.info(
+                                            "The TestContainer[{}] is closed.",
+                                            testContainer.identifier());
+                                }
                             });
         }
     }
@@ -116,11 +131,15 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
 
         private final TestContainer testContainer;
         private final ContainerExtendedFactory containerExtendedFactory;
+        private final boolean shared;
 
         private TestContainerResolver(
-                TestContainer testContainer, ContainerExtendedFactory containerExtendedFactory) {
+                TestContainer testContainer,
+                ContainerExtendedFactory containerExtendedFactory,
+                boolean shared) {
             this.testContainer = testContainer;
             this.containerExtendedFactory = containerExtendedFactory;
+            this.shared = shared;
         }
 
         @Override
@@ -135,8 +154,10 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
         public Object resolveParameter(
                 ParameterContext parameterContext, ExtensionContext extensionContext)
                 throws ParameterResolutionException {
-            testContainer.startUp();
-            testContainer.executeExtraCommands(containerExtendedFactory);
+            if (!shared) {
+                testContainer.startUp();
+                testContainer.executeExtraCommands(containerExtendedFactory);
+            }
             log.info("The TestContainer[{}] is running.", testContainer.identifier());
             return this.testContainer;
         }

@@ -10,7 +10,7 @@ FieldRename 转换插件用于批量重命名字段名。
 
 |          参数           | 类型   | 必选 | 默认值 | 说明                                                                                                    |
 |:-----------------------:|--------|------|--------|---------------------------------------------------------------------------------------------------------|
-|      convert_case       | string | 否   |        | 字母大小写转换类型，可选 `UPPER`、`LOWER`                                                               |
+|      convert_case       | enum   | 否   |        | 字母大小写转换类型，可选 `UPPER`、`LOWER`                                                               |
 |         prefix          | string | 否   |        | 追加到字段名前的前缀                                                                                    |
 |         suffix          | string | 否   |        | 追加到字段名后的后缀                                                                                    |
 | replacements_with_regex | array  | 否   |        | 替换规则数组，元素为包含 `replace_from`、`replace_to` 以及可选 `is_regex`（默认 `true`）的映射；当 `is_regex=false` 时，`replace_from` 按字段名精确匹配（全匹配） |

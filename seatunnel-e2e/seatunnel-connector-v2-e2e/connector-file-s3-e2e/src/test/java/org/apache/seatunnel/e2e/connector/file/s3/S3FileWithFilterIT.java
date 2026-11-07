@@ -54,7 +54,12 @@ import java.util.concurrent.TimeUnit;
 public class S3FileWithFilterIT extends SeaTunnelContainer {
     private GenericContainer<?> s3Container;
 
-    private static final String MINIO_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";
+    // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated pulls
+    // ("pull access denied ... repository does not exist or may require 'docker login'"). The
+    // old quay.io/minio/minio repository is also unavailable. Use a digest-pinned public mirror
+    // of MinIO RELEASE.2025-04-22T22-12-26Z.
+    private static final String MINIO_IMAGE =
+            "ghcr.io/teableio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e";
 
     private static final int S3_PORT = 9000;
 
@@ -72,7 +77,10 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
                         .withEnv("MINIO_ROOT_USER", "minioadmin")
                         .withEnv("MINIO_ROOT_PASSWORD", "minioadmin")
                         .withCommand("server", "/data")
-                        .waitingFor(Wait.forLogMessage(".*", 1));
+                        // MinIO logs its first line before it serves S3 requests, and
+                        // S3Utils.initialize() below calls the bucket API right away. Wait for
+                        // MinIO's readiness endpoint, as S3FileConnectDryRunIT does.
+                        .waitingFor(Wait.forHttp("/minio/health/ready").forPort(S3_PORT));
         s3Container.start();
         S3Utils.initialize(
                 String.format(

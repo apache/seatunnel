@@ -31,12 +31,14 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportMapTransform;
 
 import org.apache.commons.collections4.CollectionUtils;
 
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.LinkedHashMap;
@@ -51,7 +53,7 @@ import java.util.stream.Collectors;
 public class TableRenameTransform extends AbstractCatalogSupportMapTransform {
     public static String PLUGIN_NAME = "TableRename";
 
-    private final CatalogTable inputTable;
+    private CatalogTable inputTable;
     private final TableRenameConfig config;
 
     private TablePath outputTablePath;
@@ -66,6 +68,12 @@ public class TableRenameTransform extends AbstractCatalogSupportMapTransform {
     @Override
     public String getPluginName() {
         return PLUGIN_NAME;
+    }
+
+    @Override
+    public void setInputCatalogTable(@NonNull CatalogTable inputCatalogTable) {
+        super.setInputCatalogTable(inputCatalogTable);
+        this.inputTable = inputCatalogTable;
     }
 
     @Override
@@ -119,6 +127,17 @@ public class TableRenameTransform extends AbstractCatalogSupportMapTransform {
         }
         if (outputTablePath.equals(inputTablePath)) {
             return event;
+        }
+
+        if (event instanceof RestoreTableSchemaEvent) {
+            RestoreTableSchemaEvent sourceEvent = (RestoreTableSchemaEvent) event;
+            setInputCatalogTable(sourceEvent.getChangeAfter());
+            RestoreTableSchemaEvent restoreEvent =
+                    new RestoreTableSchemaEvent(getProducedCatalogTable());
+            restoreEvent.setJobId(sourceEvent.getJobId());
+            restoreEvent.setStatement(sourceEvent.getStatement());
+            restoreEvent.setSourceDialectName(sourceEvent.getSourceDialectName());
+            return restoreEvent;
         }
 
         if (event instanceof AlterTableColumnsEvent) {

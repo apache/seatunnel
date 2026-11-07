@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -179,6 +180,9 @@ public class CalciteTransform extends AbstractCatalogSupportFlatMapTransform {
                             inputCatalogTable.getMetadataSchema());
             closeEngine();
             outputCatalogTable = null;
+            if (event instanceof RestoreTableSchemaEvent) {
+                event.setChangeAfter(getProducedCatalogTable());
+            }
         }
         return event;
     }
