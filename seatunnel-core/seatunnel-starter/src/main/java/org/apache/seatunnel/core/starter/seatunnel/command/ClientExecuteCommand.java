@@ -61,6 +61,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -158,10 +159,8 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 if (clientCommandArgs.getCheckpointHistoryStatus() != null) {
                     try {
                         status =
-                                CheckpointStatus.valueOf(
-                                        clientCommandArgs
-                                                .getCheckpointHistoryStatus()
-                                                .toUpperCase());
+                                parseCheckpointStatus(
+                                        clientCommandArgs.getCheckpointHistoryStatus());
                     } catch (IllegalArgumentException ex) {
                         throw new CommandExecuteException(
                                 String.format(
@@ -315,6 +314,19 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             }
             closeClient();
         }
+    }
+
+    /**
+     * Parses the value of {@code --checkpoint-history-status} without going through the JVM default
+     * locale.
+     *
+     * <p>{@code "failed".toUpperCase()} yields {@code FAİLED} (dotted {@code İ}, {@code U+0130})
+     * under a Turkish default locale, so {@link CheckpointStatus#valueOf} stops recognising a value
+     * that is valid everywhere else and the command reports {@code Unsupported checkpoint history
+     * status}. {@link Locale#ROOT} keeps the fold independent of the machine's language.
+     */
+    static CheckpointStatus parseCheckpointStatus(String status) {
+        return CheckpointStatus.valueOf(status.toUpperCase(Locale.ROOT));
     }
 
     private void closeClient() {

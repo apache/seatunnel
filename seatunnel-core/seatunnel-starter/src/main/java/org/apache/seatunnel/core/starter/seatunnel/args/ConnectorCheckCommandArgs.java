@@ -27,6 +27,8 @@ import com.beust.jcommander.Parameter;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.Locale;
+
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class ConnectorCheckCommandArgs extends CommandArgs {
@@ -56,7 +58,7 @@ public class ConnectorCheckCommandArgs extends CommandArgs {
         @Override
         public PluginType convert(String value) {
             try {
-                return PluginType.valueOf(value.toUpperCase());
+                return PluginType.valueOf(value.toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException(
                         "The plugin type of seaTunnel only "
