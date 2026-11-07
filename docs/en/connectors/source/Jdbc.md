@@ -291,8 +291,6 @@ The appointed dialect. When set, its value must match one of the dialect names i
 
 If the `dialect` option is not set and no dialect matches the url, SeaTunnel uses the default dialect `GenericDialect`. If `dialect` is set to a value that does not match any supported dialect name, job initialization fails instead of falling back. Just make sure the driver you provided supports the database you want to connect.
 
-If one dialect not supported by SeaTunnel, it will use the default dialect `GenericDialect`. Just make sure the driver you provided support the database you want to connect.
-
 #### dialect list
 
 |           | Dialect Name |          |

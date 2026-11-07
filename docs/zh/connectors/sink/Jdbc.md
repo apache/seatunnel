@@ -283,8 +283,6 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 如果未设置 `dialect` 且 url 无法被任何方言识别，SeaTunnel 会使用默认方言 `GenericDialect`；如果 `dialect` 设置了无法匹配任何受支持方言名称的值，任务初始化会直接失败而不是回退。请确保您提供的驱动程序支持您想要连接的数据库。
 
-如果 SeaTunnel 不支持某种方言，它将使用默认方言 `GenericDialect`。请确保您提供的驱动程序支持您想要连接的数据库。
-
 #### 方言列表
 
 |           | 方言名称       |          |
