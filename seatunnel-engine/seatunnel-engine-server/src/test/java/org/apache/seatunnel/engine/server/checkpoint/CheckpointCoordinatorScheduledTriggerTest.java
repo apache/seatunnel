@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.server.checkpoint.scheduler.SharedCheckpointScheduler;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
@@ -41,7 +42,10 @@ class CheckpointCoordinatorScheduledTriggerTest {
     @Test
     void unexpectedPeriodicTriggerErrorFailsCoordinator() throws Exception {
         ExecutorService executorService = Executors.newCachedThreadPool();
+        SharedCheckpointScheduler checkpointScheduler = new SharedCheckpointScheduler();
         CheckpointManager checkpointManager = Mockito.mock(CheckpointManager.class);
+        Mockito.when(checkpointManager.leaseCheckpointScheduler(Mockito.anyInt()))
+                .thenAnswer(invocation -> checkpointScheduler.lease(1L, invocation.getArgument(0)));
         CheckpointConfig checkpointConfig = new CheckpointConfig();
         checkpointConfig.setStorage(new CheckpointStorageConfig());
         TaskLocation taskLocation = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
@@ -85,6 +89,7 @@ class CheckpointCoordinatorScheduledTriggerTest {
                     .handleCheckpointError(1, false);
         } finally {
             coordinator.cancelCheckpoint();
+            checkpointScheduler.close();
             executorService.shutdownNow();
         }
     }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.common;
 
+import org.apache.seatunnel.engine.server.checkpoint.scheduler.SharedCheckpointScheduler;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
 
 import java.util.Objects;
@@ -25,15 +26,23 @@ import java.util.Objects;
  * Shared engine context propagated inside the engine.
  *
  * <p>This context is intended to reduce direct propagation of infrastructure-specific runtime
- * objects into engine services. At the current stage, it only exposes state store bundles and
- * serves as a small entry point for state-related abstractions.
+ * objects into engine services. At the current stage, it exposes state store bundles and the
+ * member-wide checkpoint scheduler, and serves as a small entry point for shared abstractions.
  */
 public final class SeaTunnelEngineContext implements AutoCloseable {
 
     private final EngineStateStores stateStores;
 
+    /**
+     * Member-wide timer threads shared by every checkpoint coordinator on this node. Owned here
+     * because the context has exactly the lifetime the scheduler needs: one instance per member,
+     * closed when the member shuts down.
+     */
+    private final SharedCheckpointScheduler checkpointScheduler;
+
     private SeaTunnelEngineContext(Builder builder) {
         this.stateStores = builder.stateStores;
+        this.checkpointScheduler = new SharedCheckpointScheduler();
     }
 
     public static Builder builder(EngineStateStores stateStores) {
@@ -49,8 +58,18 @@ public final class SeaTunnelEngineContext implements AutoCloseable {
         return stateStores;
     }
 
+    /**
+     * Returns the member-wide checkpoint scheduler that checkpoint coordinators lease timers from.
+     *
+     * @return shared checkpoint scheduler
+     */
+    public SharedCheckpointScheduler getCheckpointScheduler() {
+        return checkpointScheduler;
+    }
+
     @Override
     public void close() {
+        checkpointScheduler.close();
         stateStores.close();
     }
 
