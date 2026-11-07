@@ -66,8 +66,8 @@ import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.mockito.Mockito;
 
 import com.hazelcast.cluster.Address;
-import com.hazelcast.cluster.Member;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.internal.cluster.impl.MemberImpl;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
@@ -373,7 +373,7 @@ public class CoordinatorServiceTest {
             long markedAt = System.currentTimeMillis();
             IMap<Address, Long> markerMap = instance2.getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL);
             markerMap.put(laterDepartingAddress, markedAt);
-            Member member = Mockito.mock(Member.class);
+            MemberImpl member = Mockito.mock(MemberImpl.class);
             Mockito.when(member.getAddress()).thenReturn(laterDepartingAddress);
             MembershipServiceEvent event = Mockito.mock(MembershipServiceEvent.class);
             Mockito.when(event.getMember()).thenReturn(member);
