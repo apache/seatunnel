@@ -35,7 +35,8 @@ import ChangeLog from '../changelog/connector-hive.md';
 |---------------------------------------|---------|----|----------------|---------------------------------------------------------------------------------|
 | table_name                            | string  | 是    | -              | 目标 Hive 表名，例如 `db1.table1`。多表模式下可使用 `${database_name}.${table_name}`，SeaTunnel 会用上游值进行替换。 |
 | metastore_uri                         | string  | 否    | -              | Hive Metastore URI。当未通过 `hive_site_path`、`hive.hadoop.conf-path` 或 `hive.hadoop.conf` 配置 `hive.metastore.client.factory.class` 时必填。多个值用逗号分隔可启用 HA 故障转移。 |
-| compress_codec                        | string  | 否    | none           | 输出压缩编解码器。支持 `lzo` 和 `none`。Parquet / ORC 会自动检测压缩。 |
+| compress_codec                        | string  | 否    | none           | 输出压缩编解码器。支持 `lzo` 和 `none`。继承压缩属性需显式开启 `use_table_compression`。 |
+| use_table_compression                 | boolean | 否  | false          | 未显式设置 codec 时继承已有 ORC/Parquet 表的压缩属性。 |
 | hdfs_site_path                        | string  | 否    | -              | `hdfs-site.xml` 的本地路径。新作业不建议使用——优先使用 `hive.hadoop.conf` 或 `hive.hadoop.conf-path`。 |
 | hive_site_path                        | string  | 否    | -              | `hive-site.xml` 的本地路径。 |
 | hive.hadoop.conf                      | Map     | 否    | -              | 内联的 Hadoop 配置属性。 |
@@ -51,6 +52,35 @@ import ChangeLog from '../changelog/connector-hive.md';
 | schema_save_mode                      | enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 写入前如何处理目标表 schema。可选 `RECREATE_SCHEMA`、`CREATE_SCHEMA_WHEN_NOT_EXIST`、`ERROR_WHEN_SCHEMA_NOT_EXIST`、`IGNORE`。 |
 | save_mode_create_template             | string  | 否    | -              | 自动创建目标 Hive 表时使用的自定义 DDL 模板。变量：`${database}`、`${table}`、`${rowtype_fields}`、`${rowtype_partition_fields}`、`${table_location}`、`${current_timestamp}`。 |
 | common-options                        |         | 否    | -              | Sink 插件通用参数，详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
+
+### compress_codec [string]
+
+显式指定输出压缩格式，默认 `none`。ORC 支持 `NONE`、`SNAPPY`、`ZLIB`、`LZ4` 和 `LZO`。配置后优先于表属性；继承表属性请参阅 `use_table_compression`。
+
+### use_table_compression [boolean]
+
+默认值：`false`。开启后，在 sink 初始化时从**已有 ORC 或 Parquet 表**继承压缩属性：ORC 使用 `orc.compress`，Parquet 使用 `parquet.compression`。不会修改表元数据。
+
+优先级：显式 `compress_codec`（包括 `NONE`）> 开启继承后的对应格式表属性 > 原默认值 `NONE`。表属性去除首尾空白后按大小写不敏感匹配；属性缺失、为 null 或为空白时保留默认值。Parquet 支持继承 `NONE`、`UNCOMPRESSED`（映射为 `NONE`）、`SNAPPY`、`GZIP`、`LZO`、`LZ4`、`BROTLI` 和 `ZSTD`。Parquet 拒绝继承 `ZLIB`，因为其映射会静默写为不压缩。未知或不兼容的继承值在 sink 初始化时报错；显式 codec 沿用原有校验行为。运行环境的原生 codec 依赖及下游读取器必须支持所选格式。
+
+其他文件格式会跳过继承，也不校验这两项表属性。初始化时表尚不存在并走自动建表流程时，也会跳过继承，包括 `save_mode_create_template` 中声明的压缩属性。这些情况不会仅因开启选项而失败；显式 codec 处理、正常配置校验和建表错误仍然适用。
+
+ORC 行为保持不变：拒绝没有有效 ORC 映射的继承值。在 ORC ZSTD 仍映射为 NONE 的版本中，继承 ZSTD 会报错；使用前请确认 SeaTunnel 版本支持 ORC ZSTD。
+
+对于通过 `STORED AS PARQUET TBLPROPERTIES ('parquet.compression'='SNAPPY')` 创建的已有表：
+
+```hocon
+sink {
+  Hive {
+    table_name = "default.existing_parquet_table"
+    metastore_uri = "thrift://metastore:9083"
+    use_table_compression = true
+    # 可选：compress_codec = "NONE" 覆盖表属性。
+  }
+}
+```
+
+同一选项也适用于配置 `TBLPROPERTIES ('orc.compress'='SNAPPY')` 的已有 ORC 表。
 
 ### table_name [string]
 

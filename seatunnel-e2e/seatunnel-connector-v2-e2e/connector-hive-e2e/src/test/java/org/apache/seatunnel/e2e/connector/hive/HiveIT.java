@@ -26,6 +26,15 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.orc.CompressionKind;
+import org.apache.orc.OrcFile;
+import org.apache.orc.Reader;
+import org.apache.parquet.hadoop.ParquetFileReader;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.hadoop.util.HadoopInputFile;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -37,7 +46,9 @@ import org.testcontainers.lifecycle.Startables;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
@@ -350,6 +361,157 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                 container,
                 "/auto_table_creation/fake_to_hive_custom_template.conf",
                 "/auto_table_creation/hive_auto_orc_format_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testExistingOrcTableCompression(TestContainer container) throws Exception {
+        verifyExistingOrcTableCompression(container, "inherited", CompressionKind.SNAPPY);
+        verifyExistingOrcTableCompression(container, "override", CompressionKind.NONE);
+    }
+
+    private void verifyExistingOrcTableCompression(
+            TestContainer container, String scenario, CompressionKind expectedCodec)
+            throws Exception {
+        String table = "test_orc_compression_" + scenario;
+        String location = "/opt/hive/data/warehouse/" + table;
+        try (Statement statement = hiveConnection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS default." + table);
+            statement.execute(
+                    "CREATE TABLE default."
+                            + table
+                            + " (pk_id BIGINT, name STRING, score INT) STORED AS ORC"
+                            + " LOCATION '"
+                            + location
+                            + "'"
+                            + " TBLPROPERTIES ('orc.compress'='SNAPPY')");
+            try {
+                Container.ExecResult result =
+                        container.executeJob("/fake_to_hive_orc_" + scenario + ".conf");
+                Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+                Container.ExecResult files =
+                        hiveServerContainer.execInContainer(
+                                "find", location, "-type", "f", "!", "-name", ".*", "!", "-name",
+                                "_*");
+                Assertions.assertEquals(0, files.getExitCode(), files.getStderr());
+                Assertions.assertFalse(
+                        files.getStdout().trim().isEmpty(), "No published ORC files");
+                long rows = 0;
+                for (String file : files.getStdout().trim().split("\\R")) {
+                    java.nio.file.Path copy = Files.createTempFile("hive-orc-compression-", ".orc");
+                    try {
+                        hiveServerContainer.copyFileFromContainer(file, copy.toString());
+                        try (Reader reader =
+                                OrcFile.createReader(
+                                        new Path(copy.toUri()),
+                                        OrcFile.readerOptions(new Configuration()))) {
+                            Assertions.assertEquals(
+                                    expectedCodec, reader.getCompressionKind(), file);
+                            rows += reader.getNumberOfRows();
+                        }
+                    } finally {
+                        Files.deleteIfExists(copy);
+                    }
+                }
+                Assertions.assertEquals(3, rows);
+                try (ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT pk_id, name, score FROM default."
+                                        + table
+                                        + " ORDER BY pk_id")) {
+                    for (int id = 1; id <= 3; id++) {
+                        Assertions.assertTrue(resultSet.next());
+                        Assertions.assertEquals(id, resultSet.getLong(1));
+                        Assertions.assertEquals(
+                                String.valueOf((char) ('A' + id - 1)), resultSet.getString(2));
+                        Assertions.assertEquals(100, resultSet.getInt(3));
+                    }
+                    Assertions.assertFalse(resultSet.next());
+                }
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS default." + table);
+            }
+        }
+    }
+
+    @TestTemplate
+    public void testExistingParquetTableCompression(TestContainer container) throws Exception {
+        verifyExistingParquetTableCompression(container, "inherited", CompressionCodecName.SNAPPY);
+        verifyExistingParquetTableCompression(
+                container, "override", CompressionCodecName.UNCOMPRESSED);
+    }
+
+    private void verifyExistingParquetTableCompression(
+            TestContainer container, String scenario, CompressionCodecName expectedCodec)
+            throws Exception {
+        String table = "test_parquet_compression_" + scenario;
+        String location = "/opt/hive/data/warehouse/" + table;
+        try (Statement statement = hiveConnection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS default." + table);
+            statement.execute(
+                    "CREATE TABLE default."
+                            + table
+                            + " (pk_id BIGINT, name STRING, score INT) STORED AS PARQUET"
+                            + " LOCATION '"
+                            + location
+                            + "'"
+                            + " TBLPROPERTIES ('parquet.compression'='SNAPPY')");
+            try {
+                Container.ExecResult result =
+                        container.executeJob("/fake_to_hive_parquet_" + scenario + ".conf");
+                Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+                Container.ExecResult files =
+                        hiveServerContainer.execInContainer(
+                                "find", location, "-type", "f", "!", "-name", ".*", "!", "-name",
+                                "_*");
+                Assertions.assertEquals(0, files.getExitCode(), files.getStderr());
+                Assertions.assertFalse(
+                        files.getStdout().trim().isEmpty(), "No published Parquet files");
+                long rows = 0;
+                for (String file : files.getStdout().trim().split("\\R")) {
+                    java.nio.file.Path copy =
+                            Files.createTempFile("hive-parquet-compression-", ".parquet");
+                    try {
+                        hiveServerContainer.copyFileFromContainer(file, copy.toString());
+                        try (ParquetFileReader reader =
+                                ParquetFileReader.open(
+                                        HadoopInputFile.fromPath(
+                                                new Path(copy.toUri()), new Configuration()))) {
+                            Assertions.assertFalse(
+                                    reader.getFooter().getBlocks().isEmpty(),
+                                    "No Parquet row groups");
+                            for (org.apache.parquet.hadoop.metadata.BlockMetaData rowGroup :
+                                    reader.getFooter().getBlocks()) {
+                                Assertions.assertFalse(rowGroup.getColumns().isEmpty());
+                                for (org.apache.parquet.hadoop.metadata.ColumnChunkMetaData column :
+                                        rowGroup.getColumns()) {
+                                    Assertions.assertEquals(expectedCodec, column.getCodec(), file);
+                                }
+                                rows += rowGroup.getRowCount();
+                            }
+                        }
+                    } finally {
+                        Files.deleteIfExists(copy);
+                    }
+                }
+                Assertions.assertEquals(3, rows);
+                try (ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT pk_id, name, score FROM default."
+                                        + table
+                                        + " ORDER BY pk_id")) {
+                    for (int id = 1; id <= 3; id++) {
+                        Assertions.assertTrue(resultSet.next());
+                        Assertions.assertEquals(id, resultSet.getLong(1));
+                        Assertions.assertEquals(
+                                String.valueOf((char) ('A' + id - 1)), resultSet.getString(2));
+                        Assertions.assertEquals(100, resultSet.getInt(3));
+                    }
+                    Assertions.assertFalse(resultSet.next());
+                }
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS default." + table);
+            }
+        }
     }
 
     @TestTemplate
