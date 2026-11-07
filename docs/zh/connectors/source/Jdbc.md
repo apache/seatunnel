@@ -325,7 +325,7 @@ Jdbc {
 
 请为驱动配置集群的受信任根证书。`sslmode=disable` 仅适用于临时的、不启用安全认证的本地测试集群。
 
-CockroachDB 不支持 PostgreSQL 的 `HASHTEXT` 函数。本方言使用 `FNV32` 对 STRING 和 UUID 等分区键进行哈希分片，并将空键值分配到一个分区，避免漏读。由于 CockroachDB 的 `pg_class.reltuples` 为 null，分片器需要行数时使用 `COUNT(*)`，这可能扫描输入表或查询。如果单 Reader 足够，可设置 `enable_concurrent_read = false` 跳过分片分析。
+CockroachDB 不支持 PostgreSQL 的 `HASHTEXT` 函数。本方言使用 `FNV32` 对 STRING 和 UUID 等分区键进行哈希分片。分区键为空的行由[分片列中的 NULL 值](#分片列中的-null-值)中所述的额外分片读取。由于 CockroachDB 的 `pg_class.reltuples` 为 null，分片器需要行数时使用 `COUNT(*)`，这可能扫描输入表或查询。如果单 Reader 足够，可设置 `enable_concurrent_read = false` 跳过分片分析。
 
 字符串转换使用已发现的 schema 中的原生类型信息，而不是在游标打开期间查询结果集类型元数据。支持的读取场景无需启用预览参数 `multiple_active_portals_enabled`。显式 schema 未提供原生类型信息时，STRING 字段按普通字符串处理。
 

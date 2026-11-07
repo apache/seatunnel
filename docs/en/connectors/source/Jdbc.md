@@ -327,7 +327,7 @@ Jdbc {
 
 Configure the driver's trusted root certificate for your cluster. `sslmode=disable` is only appropriate for disposable insecure local test clusters.
 
-CockroachDB does not implement PostgreSQL's `HASHTEXT` function. This dialect uses `FNV32` for hash partitions, including STRING and UUID keys, and places null keys in one partition so they are not omitted. It uses `COUNT(*)` when the splitter needs a row count because CockroachDB's `pg_class.reltuples` is null; this can require a scan of the input table or query. Set `enable_concurrent_read = false` to avoid split analysis when one reader is sufficient.
+CockroachDB does not implement PostgreSQL's `HASHTEXT` function. This dialect uses `FNV32` for hash partitions, including STRING and UUID keys. Rows whose key is null are read by the extra split described in [NULL values in the split column](#null-values-in-the-split-column). It uses `COUNT(*)` when the splitter needs a row count because CockroachDB's `pg_class.reltuples` is null; this can require a scan of the input table or query. Set `enable_concurrent_read = false` to avoid split analysis when one reader is sufficient.
 
 String conversion uses the discovered schema's native type information instead of querying result-set type metadata while a cursor is open. The supported reads do not require the `multiple_active_portals_enabled` preview setting. An explicit schema without native type information treats STRING fields as ordinary strings.
 

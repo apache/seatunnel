@@ -47,7 +47,7 @@ class CockroachDBDialectTest {
 
     @Test
     void usesCockroachHashForStringAndUuidKeys() {
-        String expected = "(COALESCE(FNV32(CAST(\"key\" AS STRING)), 0) % 3)";
+        String expected = "(FNV32(CAST(\"key\" AS STRING)) % 3)";
         Assertions.assertEquals(expected, dialect.hashModForField("key", 3));
         Assertions.assertEquals(expected, dialect.hashModForField("uuid", "key", 3));
     }
