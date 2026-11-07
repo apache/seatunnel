@@ -20,9 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.reader;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.config.TiDBSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.config.TiDBSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.deserializer.SeaTunnelRowSnapshotRecordDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.deserializer.SeaTunnelRowStreamingRecordDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.split.TiDBSourceSplit;
@@ -45,9 +47,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -67,54 +71,69 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
 
     private final Map<TiDBSourceSplit, CDCClient> cacheCDCClient;
 
-    private SeaTunnelRowSnapshotRecordDeserializer snapshotRecordDeserializer;
-    private SeaTunnelRowStreamingRecordDeserializer streamingRecordDeserializer;
+    private final Map<String, SeaTunnelRowSnapshotRecordDeserializer> snapshotDeserializers =
+            new HashMap<>();
+    private final Map<String, SeaTunnelRowStreamingRecordDeserializer> streamingDeserializers =
+            new HashMap<>();
 
     private transient TiSession session;
 
-    private transient TreeMap<RowKeyWithTs, Cdcpb.Event.Row> preWrites;
-    private transient TreeMap<RowKeyWithTs, Cdcpb.Event.Row> commits;
-    private transient BlockingQueue<Cdcpb.Event.Row> committedEvents;
+    // Transaction assembly buffers are isolated per table: each CDC client only streams rows of
+    // its own table's key range, but batches of different tables interleave across pollNext calls,
+    // so sharing one buffer would flush one table's rows through another table's deserializer.
+    private final Map<String, TreeMap<RowKeyWithTs, Cdcpb.Event.Row>> preWrites = new HashMap<>();
+    private final Map<String, TreeMap<RowKeyWithTs, Cdcpb.Event.Row>> commits = new HashMap<>();
+    // cdc event will lose if pull cdc event block when region split
+    // use queue to separate read and write to ensure pull event unblock.
+    // since sink jdbc is slow, 5000W queue size may be safe size.
+    private final Map<String, BlockingQueue<Cdcpb.Event.Row>> committedEvents = new HashMap<>();
 
-    private CatalogTable catalogTable;
+    private final List<CatalogTable> catalogTables;
+    private final Set<String> configuredTables;
 
     private long lastStreamingStatsLogTime;
     private long totalPolledRows;
     private long totalCommittedRows;
     private long totalEmittedRows;
 
-    public TiDBSourceReader(Context context, TiDBSourceConfig config, CatalogTable catalogTable) {
+    public TiDBSourceReader(
+            Context context, TiDBSourceConfig config, List<CatalogTable> catalogTables) {
         this.context = context;
         this.config = config;
         this.sourceSplits = new ArrayList<>();
 
         this.cacheCDCClient = new HashMap<>();
-
-        this.preWrites = new TreeMap<>();
-        this.commits = new TreeMap<>();
-        // cdc event will lose if pull cdc event block when region split
-        // use queue to separate read and write to ensure pull event unblock.
-        // since sink jdbc is slow, 5000W queue size may be safe size.
-        this.committedEvents = new LinkedBlockingQueue<>();
-        this.catalogTable = catalogTable;
+        this.catalogTables = catalogTables;
+        this.configuredTables = new HashSet<>();
+        for (CatalogTable catalogTable : catalogTables) {
+            TablePath tablePath = catalogTable.getTablePath();
+            if (tablePath != null) {
+                this.configuredTables.add(
+                        TiDBSourceOptions.tableFullName(
+                                tablePath.getDatabaseName(), tablePath.getTableName()));
+            }
+        }
     }
 
     /** Open the source reader. */
     @Override
     public void open() throws Exception {
         this.session = TiSession.create(config.getTiConfiguration());
-        TiTableInfo tableInfo =
-                session.getCatalog().getTable(config.getDatabaseName(), config.getTableName());
-        this.snapshotRecordDeserializer =
-                new SeaTunnelRowSnapshotRecordDeserializer(tableInfo, catalogTable);
-        this.streamingRecordDeserializer =
-                new SeaTunnelRowStreamingRecordDeserializer(tableInfo, catalogTable);
+        for (CatalogTable table : catalogTables) {
+            String databaseName = table.getTablePath().getDatabaseName();
+            String tableName = table.getTablePath().getTableName();
+            TiTableInfo tableInfo = session.getCatalog().getTable(databaseName, tableName);
+            String tableKey = TiDBSourceOptions.tableFullName(databaseName, tableName);
+            this.snapshotDeserializers.put(
+                    tableKey, new SeaTunnelRowSnapshotRecordDeserializer(tableInfo, table));
+            this.streamingDeserializers.put(
+                    tableKey, new SeaTunnelRowStreamingRecordDeserializer(tableInfo, table));
+        }
         log.info(
-                "{} Reader opened, database={}, table={}, startupMode={}, batchSize={},"
+                "{} Reader opened, tables={}, startupMode={}, batchSize={},"
                         + " scanTimeout={}, requestTimeout={}.",
                 CDC_DIAG_PREFIX,
-                config.getDatabaseName(),
-                config.getTableName(),
+                snapshotDeserializers.keySet(),
                 config.getStartupMode(),
                 config.getBatchSize(),
                 config.getTiConfiguration().getScanTimeout(),
@@ -144,15 +163,18 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
      */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        // addSplits may append splits concurrently while the engine drives pollNext, so iterate
+        // over a snapshot copy; newly added splits are picked up by a later pollNext call.
+        List<TiDBSourceSplit> currentSplits = new ArrayList<>(sourceSplits);
         if (config.getStartupMode() == StartupMode.INITIAL) {
-            for (TiDBSourceSplit sourceSplit : sourceSplits) {
+            for (TiDBSourceSplit sourceSplit : currentSplits) {
                 if (!sourceSplit.isSnapshotCompleted()) {
                     snapshotEvents(sourceSplit, output);
                     sourceSplit.setSnapshotCompleted(true);
                 }
             }
         }
-        Iterator<TiDBSourceSplit> iterator = sourceSplits.iterator();
+        Iterator<TiDBSourceSplit> iterator = currentSplits.iterator();
         while (iterator.hasNext()) {
             TiDBSourceSplit sourceSplit = iterator.next();
             captureStreamingEvents(sourceSplit, output);
@@ -162,6 +184,8 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
     protected void snapshotEvents(TiDBSourceSplit split, Collector<SeaTunnelRow> output)
             throws Exception {
         log.info(String.format("[%s] Snapshot events start.", split.splitId()));
+        SeaTunnelRowSnapshotRecordDeserializer snapshotRecordDeserializer =
+                requireSnapshotDeserializer(split);
         Coprocessor.KeyRange keyRange = split.getKeyRange();
         // start timestamp
         long startTs = session.getTimestamp().getVersion();
@@ -222,6 +246,7 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
             throws Exception {
         long batchStartTime = System.currentTimeMillis();
         long pullStartNanos = System.nanoTime();
+        String tableKey = deserializerKey(split);
         long resolvedTs = split.getResolvedTs();
         long startResolvedTs = resolvedTs;
         CDCClient cdcClient = getCdcClient(split, resolvedTs);
@@ -255,7 +280,7 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
                 emptyPolls++;
                 break;
             }
-            if (handleRow(row)) {
+            if (handleRow(row, tableKey)) {
                 polledRows++;
             } else {
                 ignoredRows++;
@@ -266,19 +291,24 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
         long flushStartNanos = System.nanoTime();
         // A split is safe to advance only after every TiKV region has reached the timestamp.
         resolvedTs = cdcClient.getMinResolvedTs();
-        int pendingCommitsBeforeFlush = commits.size();
-        int committedEventsBeforeFlush = committedEvents.size();
-        if (commits.size() > 0) {
-            resolvedTs = flushRowsAndGetSafeResolvedTs(resolvedTs);
+        int pendingCommitsBeforeFlush = commitsFor(tableKey).size();
+        int committedEventsBeforeFlush = committedEventsFor(tableKey).size();
+        if (pendingCommitsBeforeFlush > 0) {
+            resolvedTs = flushRowsAndGetSafeResolvedTs(resolvedTs, tableKey);
         }
         long flushCostMs = nanosToMillis(System.nanoTime() - flushStartNanos);
         long emitStartNanos = System.nanoTime();
         int emittedRows = 0;
         // output data
-        while (!committedEvents.isEmpty()) {
-            Cdcpb.Event.Row row = committedEvents.take();
-            this.streamingRecordDeserializer.deserialize(row, output);
-            emittedRows++;
+        if (!committedEventsFor(tableKey).isEmpty()) {
+            SeaTunnelRowStreamingRecordDeserializer streamingDeserializer =
+                    requireStreamingDeserializer(split);
+            BlockingQueue<Cdcpb.Event.Row> committedEvents = committedEventsFor(tableKey);
+            while (!committedEvents.isEmpty()) {
+                Cdcpb.Event.Row row = committedEvents.take();
+                streamingDeserializer.deserialize(row, output);
+                emittedRows++;
+            }
         }
         long emitCostMs = nanosToMillis(System.nanoTime() - emitStartNanos);
         long batchCostMs = System.currentTimeMillis() - batchStartTime;
@@ -324,6 +354,40 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
         return cdcClient;
     }
 
+    private SeaTunnelRowSnapshotRecordDeserializer requireSnapshotDeserializer(
+            TiDBSourceSplit split) {
+        SeaTunnelRowSnapshotRecordDeserializer deserializer =
+                snapshotDeserializers.get(deserializerKey(split));
+        if (deserializer == null) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Split %s belongs to table %s which is not configured on this reader."
+                                    + " Removing tables when restoring a TiDB-CDC job is not"
+                                    + " supported.",
+                            split.splitId(), deserializerKey(split)));
+        }
+        return deserializer;
+    }
+
+    private SeaTunnelRowStreamingRecordDeserializer requireStreamingDeserializer(
+            TiDBSourceSplit split) {
+        SeaTunnelRowStreamingRecordDeserializer deserializer =
+                streamingDeserializers.get(deserializerKey(split));
+        if (deserializer == null) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Split %s belongs to table %s which is not configured on this reader."
+                                    + " Removing tables when restoring a TiDB-CDC job is not"
+                                    + " supported.",
+                            split.splitId(), deserializerKey(split)));
+        }
+        return deserializer;
+    }
+
+    private static String deserializerKey(TiDBSourceSplit split) {
+        return split.tableFullName();
+    }
+
     /**
      * Get the current split checkpoint state by checkpointId.
      *
@@ -345,7 +409,19 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
      */
     @Override
     public void addSplits(List<TiDBSourceSplit> splits) {
-        sourceSplits.addAll(splits);
+        for (TiDBSourceSplit split : splits) {
+            if (configuredTables.contains(split.tableFullName())) {
+                sourceSplits.add(split);
+            } else {
+                log.warn(
+                        "{} Drop split {} of table {} which is no longer configured on restore;"
+                                + " its checkpoint position is discarded and the table will run a"
+                                + " fresh snapshot if it is added back later.",
+                        CDC_DIAG_PREFIX,
+                        split.splitId(),
+                        split.tableFullName());
+            }
+        }
     }
 
     /**
@@ -361,7 +437,7 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 
-    private boolean handleRow(final Cdcpb.Event.Row row) {
+    private boolean handleRow(final Cdcpb.Event.Row row, final String tableKey) {
         if (!TableKeyRangeUtils.isRecordKey(row.getKey().toByteArray())) {
             // Don't handle index key for now
             return false;
@@ -369,17 +445,17 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
         log.debug("binlog record, type: {}, data: {}", row.getType(), row);
         switch (row.getType()) {
             case COMMITTED:
-                preWrites.put(RowKeyWithTs.ofStart(row), row);
-                commits.put(RowKeyWithTs.ofCommit(row), row);
+                preWritesFor(tableKey).put(RowKeyWithTs.ofStart(row), row);
+                commitsFor(tableKey).put(RowKeyWithTs.ofCommit(row), row);
                 break;
             case COMMIT:
-                commits.put(RowKeyWithTs.ofCommit(row), row);
+                commitsFor(tableKey).put(RowKeyWithTs.ofCommit(row), row);
                 break;
             case PREWRITE:
-                preWrites.put(RowKeyWithTs.ofStart(row), row);
+                preWritesFor(tableKey).put(RowKeyWithTs.ofStart(row), row);
                 break;
             case ROLLBACK:
-                preWrites.remove(RowKeyWithTs.ofStart(row));
+                preWritesFor(tableKey).remove(RowKeyWithTs.ofStart(row));
                 break;
             default:
                 log.warn("Unsupported row type:" + row.getType());
@@ -387,16 +463,26 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
         return true;
     }
 
-    protected void flushRows(final long resolvedTs) throws Exception {
-        flushRowsAndGetSafeResolvedTs(resolvedTs);
+    private TreeMap<RowKeyWithTs, Cdcpb.Event.Row> preWritesFor(final String tableKey) {
+        return preWrites.computeIfAbsent(tableKey, ignored -> new TreeMap<>());
     }
 
-    private long flushRowsAndGetSafeResolvedTs(final long resolvedTs) throws Exception {
+    private TreeMap<RowKeyWithTs, Cdcpb.Event.Row> commitsFor(final String tableKey) {
+        return commits.computeIfAbsent(tableKey, ignored -> new TreeMap<>());
+    }
+
+    private BlockingQueue<Cdcpb.Event.Row> committedEventsFor(final String tableKey) {
+        return committedEvents.computeIfAbsent(tableKey, ignored -> new LinkedBlockingQueue<>());
+    }
+
+    private long flushRowsAndGetSafeResolvedTs(final long resolvedTs, final String tableKey) {
         long safeResolvedTs = resolvedTs;
+        TreeMap<RowKeyWithTs, Cdcpb.Event.Row> commits = commitsFor(tableKey);
         while (!commits.isEmpty() && commits.firstKey().getTimestamp() <= resolvedTs) {
             final RowKeyWithTs commitKey = commits.firstKey();
             final Cdcpb.Event.Row commitRow = commits.firstEntry().getValue();
-            final Cdcpb.Event.Row prewriteRow = preWrites.remove(RowKeyWithTs.ofStart(commitRow));
+            final Cdcpb.Event.Row prewriteRow =
+                    preWritesFor(tableKey).remove(RowKeyWithTs.ofStart(commitRow));
             if (prewriteRow == null) {
                 safeResolvedTs = Math.min(safeResolvedTs, commitKey.getTimestamp() - 1);
                 log.warn(
@@ -409,7 +495,7 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
             }
             commits.pollFirstEntry();
             // if pull cdc event block when region split, cdc event will lose.
-            committedEvents.offer(prewriteRow);
+            committedEventsFor(tableKey).offer(prewriteRow);
             totalCommittedRows++;
         }
         return safeResolvedTs;
