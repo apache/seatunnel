@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
+
+- **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**
+  - **Description**: The Databend source takes every column type from `DatabendCatalog`. The catalog compared the type name the driver reports, such as `decimal(10, 2)`, with the bare name `DECIMAL`, so every decimal column fell back to `STRING` and its values were read as text. It now maps the column to `DECIMAL` with the column's own precision and scale. On a worker whose default locale is Turkish or Azerbaijani, `TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `TIMESTAMP` and `BINARY` columns also fell back to `STRING`; they now get their mapped types there too.
+  - **Impact**: A job that reads a Databend `DECIMAL` column now emits decimal values. A sink table that SeaTunnel creates through `schema_save_mode` gets a decimal column instead of a string column, and a transform or sink that expected a string now receives a decimal.
+  - **Migration Guide**: No configuration change is needed. If a downstream step needs text, convert the column explicitly, for example `CAST(price AS STRING)` in the SQL transform. A sink table that an earlier run already created with a string column keeps that type.
+
 ### JDBC Sink: fail safely after losing uncommitted work
 
 - **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection
@@ -41,6 +48,36 @@ Remove any manual offset used to compensate for this defect. Existing stored val
   - **Impact**: A nullable MAP column now yields `null` for a row that holds no map, where it previously yielded an empty map. A row that holds a genuinely empty map still yields an empty map, so absent and empty are no longer the same value. A nullable ROW column is now read instead of failing the whole split.
   - **Migration Guide**: Consumers that treated the previous empty map as "no value" need no change. A consumer that assumed every row carries a non-null map must handle `null` for that column.
 
+### ORC sink: a decimal that does not fit the target column now fails instead of being written as NULL
+
+- **Behavior change: an out-of-range `DECIMAL` fails the write rather than silently becoming `NULL`**
+  - **Affected component**: `seatunnel-connectors-v2`, `connector-file-base`, `OrcWriteStrategy`
+  - **Description**: The ORC sink converted a `BigDecimal` with
+    `decimalColumnVector.set(row, HiveDecimal.create(value))`. Both halves of that return `null`
+    rather than reporting an error: `HiveDecimal.create` returns `null` above ORC's maximum
+    precision of 38, and `DecimalColumnVector.set` internally calls `enforcePrecisionScale`, which
+    returns `null` when the value does not fit the precision and scale the column actually
+    declares. Neither result was checked, so the row was written with the value replaced by
+    `NULL`, with no exception, no warning and no log line. The conversion now reports a failure
+    naming the value and the target column.
+  - **Impact**: A job that silently dropped values now fails at the offending row. The reachable
+    case is a value merely wider than its declared column, which arises from a narrow or inferred
+    JDBC precision, a sampled schema, a schema-less source, or a SQL transform that multiplies
+    decimals. In-range values are unaffected and are written exactly as before.
+  - **Consistency with the Parquet sink**: the Parquet sink in the same module already refused the
+    same overflow loudly, with `AvroTypeException: Cannot encode decimal with precision 39 as max
+    precision 38`. The two sinks no longer disagree about whether losing a value is acceptable.
+  - **Unchanged**: a declared precision above 38 was already rejected when the schema was built,
+    so this entry is about VALUES rather than DECLARATIONS. No option, schema or file layout
+    changes.
+  - **Still rounded, not failed**: `enforcePrecisionScale` rounds fractional digits beyond the
+    declared scale rather than rejecting them, so `1.239` written into a `decimal(10,2)` column is
+    still stored as `1.24` (HALF_UP), exactly as before this change. Only an integer part that does
+    not fit the declared precision, or a value above ORC's maximum precision of 38, now fails.
+  - **Migration Guide**: Widen the declared precision or scale so the value fits, or round the
+    value before it reaches the sink. To find affected rows before upgrading, compare the written
+    ORC data against the source for unexpected `NULL` decimals.
+
 ### Doris sink: `TIMESTAMP_TZ` converts to the Doris session timezone
 
 - **Behavior change: Doris sink stores `TIMESTAMP_TZ` as timezone-adjusted wall-clock `DATETIME`**
@@ -48,6 +85,13 @@ Remove any manual offset used to compensate for this defect. Existing stored val
   - **Description**: `TIMESTAMP_TZ` values are converted to the effective Doris target timezone before being stored as `DATETIME`. Set `sink.datetime-timezone` to choose that target timezone explicitly; if it is unset, SeaTunnel uses the JVM default timezone. For example, with `sink.datetime-timezone = "Asia/Shanghai"`, `2024-01-01T03:00:00+09:00` is stored as `2024-01-01 02:00:00`.
   - **Impact**: Before this change, the Doris sink followed the v3.0.0 downgrade contract and dropped the timezone offset while keeping the wall-clock digits unchanged. Stored `DATETIME` values for the same `TIMESTAMP_TZ` input can differ when the JVM default zone differs from the Doris session zone, or when `sink.datetime-timezone` is set explicitly. When the option is unset and the table has `TIMESTAMP_TZ` columns, the writer logs a warning.
   - **Migration Guide**: Set `sink.datetime-timezone` to the Doris session zone. Verify existing stored data if the JVM default zone and Doris session zone differed. (#11524)
+
+### Socket connector: connections now have a 10-second connect timeout by default
+
+- **Behavior change: `connect_timeout_ms` defaults to 10000 instead of leaving the wait to the operating system**
+  - **Description**: The Socket source and sink used to establish a TCP connection with no application-level timeout (`connect(address, 0)` for the source, `new Socket(host, port)` for the sink). A peer that was unreachable, stopped responding, or silently dropped the SYN blocked the connector thread until the OS TCP timeout expired. Both now default to a 10-second connect bound.
+  - **Impact**: Jobs whose target took longer than 10 seconds to accept a connection now fail at startup or on reconnect where they previously succeeded after a longer OS-managed wait. This applies to existing configurations that do not set the option. The source's blocking read behaviour is unchanged: `read_timeout_ms` defaults to `0`, so an idle stream is not treated as a failure.
+  - **Migration Guide**: Set `connect_timeout_ms = 0` on the source or sink to restore the previous OS-governed behaviour, or raise the value above 10000 for a legitimately slow peer. `read_timeout_ms` is source-only; it has no effect on the sink, which never reads from its socket.
 
 ### Zeta: runtime metric counters restart from zero after a pipeline failover restore
 
@@ -100,6 +144,13 @@ protocol still uses `234`; its wrapper scripts continue to translate help to exi
 ### Markdown file source `child_ids` array
 
 The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a `String[]` for every row. Previously, it declared `STRING`, emitted comma-separated IDs for parents, and used `null` for leaves. Update downstream schemas and consumers to read an array; leaves now contain an empty array. The element IDs, types, page numbers, and position indexes retain their existing formats.
+
+### FTP connector: control connection replies are now bounded by a 60 second timeout
+
+- **Behavior change: the FTP source and sink stop waiting for a control-connection reply after 60 seconds**
+  - **Description**: The FTP file system created its client and called `connect(host, port)` without setting a read timeout. The underlying client's read timeout defaults to `0`, which means wait indefinitely, so a server that accepted the TCP connection but never sent a reply — a stalled server, or a connection accepted by a firewall or load balancer that is silently dropping traffic — left the calling thread blocked forever. The new `control_timeout` option bounds every reply read on the control connection, including the greeting, the login exchange and the per-command replies that precede a transfer, and defaults to 60000 ms. It applies to both the source and the sink.
+  - **Impact**: Jobs against a server that is reachable but does not answer the control channel now fail with a timeout instead of hanging. A job that previously stayed in `RUNNING` with no progress and no error now fails with the `SocketTimeoutException` raised by the underlying client, which reports the read that timed out but not the FTP host and port. Connections that answer within 60 seconds are unaffected. This option bounds control-channel replies only: the TCP connect is not covered, and neither is the data connection, so a host that silently drops the initial SYN, or a transfer that stalls after it has started, is not bounded by this option.
+  - **Migration Guide**: No action is required. If a server legitimately needs more than 60 seconds to answer a control command, for example on a slow link, raise `control_timeout` on the connector. Set it to `0` to restore the previous wait-indefinitely behavior. Note that the upper bound applies per reply, so a sink that uploads a large file and whose server post-processes it can wait longer than 60 seconds for the final `226 Transfer complete`; raise `control_timeout` for such servers.
 
 ### Runtime Requirements
 
@@ -449,6 +500,17 @@ or state format migration is required.
 - **[BREAKING]** Assert sink: `sink_type` in `column_rule` is now checked against the actual column type. It was ignored before, so a mismatching declaration fails the job while an omitted one stays unchecked; remove the key or set the actual type when upgrading.
 
 ### Format Changes
+
+- **CSV source defaults for missing and configured null fields**: When a CSV source declares
+  `schema.columns[].defaultValue`, a column absent from the file header or a field matching
+  `null_format` now receives that default instead of null. Jobs without configured defaults are
+  unchanged, and an empty field remains null unless it matches `null_format`. If downstream logic
+  intentionally relied on null despite a configured default, remove that default from the source
+  schema before upgrading.
+  Configured defaults are now converted to the column type when the CSV reader is created.
+  A default that cannot be converted, such as `CURRENT_TIMESTAMP` for a TIMESTAMP column, now
+  fails the job at reader creation instead of being ignored, even if no field needs the default.
+  Defaults must be literal values, not SQL expressions. Fix or remove invalid defaults before upgrading.
 
 - **Breaking Change: JSON serialization of numeric fields now follows the runtime value type**
   - **Affected component**: `seatunnel-formats/seatunnel-format-json` (`RowToJsonConverters`) - affects every connector that serializes rows with the JSON format (for example Kafka, RabbitMQ, Pulsar, and file JSON sinks)

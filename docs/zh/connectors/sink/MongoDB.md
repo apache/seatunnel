@@ -68,7 +68,6 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 
 | SeaTunnel 数据类型 | MongoDB BSON 类型 |
 |--------------------|-------------------|
-| STRING             | ObjectId          |
 | STRING             | String            |
 | BOOLEAN            | Boolean           |
 | BINARY             | Binary            |
@@ -90,6 +89,9 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 >    类型（BsonDateTime，毫秒精度）。SeaTunnel 的 `Date` 会存储为当天零点，`Timestamp` 则保留时分秒信息。
 > 2. 在 SeaTunnel 中使用 `DECIMAL` 类型时，最大精度不能超过 34 位。建议使用
 >    `decimal(34, 18)` 以满足支持的精度与标度。
+> 3. SeaTunnel 的 `STRING` 值始终写为 BSON `String`，写入时不会转换为 `ObjectId`——即使是 `_id`
+>    字段也一样。如需写入 Extended JSON 值，请将值编码为 `{"_value": <extended-json>}`
+>    （参见 source 的「数据类型映射」说明）。
 
 ## Sink 参数说明
 

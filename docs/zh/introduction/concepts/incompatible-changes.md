@@ -4,6 +4,13 @@
 
 ## dev
 
+### Databend Source：DECIMAL 列按 DECIMAL 读取，而不再是 STRING
+
+- **行为变更：Databend 的 `DECIMAL(p, s)` 列在作业中的类型为 `DECIMAL(p, s)`**
+  - **描述**：Databend Source 的所有列类型都来自 `DatabendCatalog`。Catalog 此前用驱动上报的类型名（例如 `decimal(10, 2)`）与不带参数的 `DECIMAL` 比较，因此所有 decimal 列都回退为 `STRING`，其值按文本读取。现在该列会按其自身的 precision 和 scale 映射为 `DECIMAL`。在默认语言环境为土耳其语或阿塞拜疆语的工作节点上，`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`TIMESTAMP` 和 `BINARY` 列此前也会回退为 `STRING`，现在同样得到对应的映射类型。
+  - **影响**：读取 Databend `DECIMAL` 列的作业现在输出 decimal 值。SeaTunnel 通过 `schema_save_mode` 创建的 Sink 表会得到 decimal 列而不是字符串列，原本期望字符串的 Transform 或 Sink 现在会收到 decimal。
+  - **迁移指南**：无需修改配置。如果下游步骤需要文本，请显式转换该列，例如在 SQL Transform 中使用 `CAST(price AS STRING)`。早期运行中已创建为字符串列的 Sink 表会保留原有类型。
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，
@@ -36,6 +43,30 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：可空的 MAP 列在该行没有 Map 时现在返回 `null`，此前返回空 Map。确实存放空 Map 的行仍然返回空 Map，因此“不存在”和“为空”不再是同一个值。可空的 ROW 列现在可以正常读取，而不会使整个分片失败。
   - **迁移指南**：此前把空 Map 当作“无值”处理的下游无需改动。如果下游假定每行都有非空的 Map，则需要处理该列为 `null` 的情况。
 
+### ORC sink：无法放入目标列的 decimal 现在会失败，而不再被写成 NULL
+
+- **行为变更：超出范围的 `DECIMAL` 会导致写入失败，而不再静默变成 `NULL`**
+  - **受影响组件**：`seatunnel-connectors-v2`，`connector-file-base`，`OrcWriteStrategy`
+  - **说明**：ORC sink 此前通过 `decimalColumnVector.set(row, HiveDecimal.create(value))` 转换
+    `BigDecimal`。这两步都是返回 `null` 而不是报错：当精度超过 ORC 的最大精度 38 时，
+    `HiveDecimal.create` 返回 `null`；而 `DecimalColumnVector.set` 内部会调用
+    `enforcePrecisionScale`，当值无法放入列实际声明的 precision/scale 时同样返回 `null`。
+    两者的结果都没有被检查，因此该行会被写入，而值被替换为 `NULL`，既没有异常，也没有告警或日志。
+    现在该转换会失败，并在消息中给出该值与目标列。
+  - **影响**：此前静默丢弃数据的作业，现在会在出问题的那一行失败。可达的场景是值只是比其声明的列更宽，
+    这会出现在 JDBC 精度偏窄或由系统推断、按采样推断模式、无模式来源，或 SQL transform 对 decimal
+    做乘法等情况下。范围内的值不受影响，写入结果与此前完全一致。
+  - **与 Parquet sink 保持一致**：同一模块中的 Parquet sink 本来就会对同样的溢出明确报错
+    （`AvroTypeException: Cannot encode decimal with precision 39 as max precision 38`）。
+    两个 sink 不再对“丢数据是否可接受”给出相互矛盾的行为。
+  - **未改变的部分**：声明的 precision 超过 38 在构建模式时本来就会被拒绝，因此本条目针对的是“值”，
+    而不是“声明”。不涉及任何配置项、模式或文件格式的变化。
+  - **仍然舍入而不是失败**：`enforcePrecisionScale` 会对超出声明 scale 的小数位做舍入，而不是拒绝，
+    因此写入 `decimal(10,2)` 列的 `1.239` 仍会存成 `1.24`（HALF_UP），与本次变更之前一致。
+    只有整数部分放不下声明的 precision，或值超过 ORC 的最大精度 38，才会失败。
+  - **迁移指南**：请扩大声明的 precision 或 scale 以容纳该值，或在数据进入 sink 之前先做舍入。
+    升级前如需排查受影响的数据，可将已写入的 ORC 数据与来源对比，查找非预期的 `NULL` decimal。
+
 ### Doris Sink：`TIMESTAMP_TZ` 按 Doris 会话时区转换后写入
 
 - **行为变更：Doris Sink 将 `TIMESTAMP_TZ` 转换为会话时区下的 wall-clock `DATETIME` 后存储**
@@ -43,6 +74,13 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **变更说明**：`TIMESTAMP_TZ` 会先转换到 Doris 的目标时区，再以 `DATETIME` 存储。可通过 `sink.datetime-timezone` 显式指定目标时区；未配置时，SeaTunnel 使用 JVM 默认时区。例如，配置 `sink.datetime-timezone = "Asia/Shanghai"` 时，`2024-01-01T03:00:00+09:00` 将存储为 `2024-01-01 02:00:00`。
   - **影响**：在此变更之前，Doris Sink 遵循 v3.0.0 的写入约定，仅丢弃时区偏移并保留原 wall-clock 数字。升级后，当 JVM 默认时区与 Doris 会话时区不同，或显式配置了 `sink.datetime-timezone` 时，同一 `TIMESTAMP_TZ` 输入写入的 `DATETIME` 可能不同。未配置该选项且表中有 `TIMESTAMP_TZ` 列时，writer 会输出警告日志。
   - **迁移指南**：将 `sink.datetime-timezone` 设置为 Doris 会话时区。若 JVM 默认时区与 Doris 会话时区曾不一致，请核对已存储数据。(#11524)
+
+### Socket 连接器：连接默认使用 10 秒连接超时
+
+- **行为变更：`connect_timeout_ms` 默认为 10000，不再把等待交给操作系统**
+  - **描述**：Socket source 与 sink 此前建立 TCP 连接时没有应用层超时（source 使用 `connect(address, 0)`，sink 使用 `new Socket(host, port)`）。当对端不可达、停止响应或静默丢弃 SYN 时，连接器线程会阻塞到操作系统 TCP 超时为止。现在两端的连接等待默认限制为 10 秒。
+  - **影响**：若目标主机建立连接所需时间超过 10 秒，此前能够成功建立连接、现在会在启动或重连时失败。这会影响未设置该选项的既有配置。source 的阻塞读取行为不变：`read_timeout_ms` 默认为 `0`，空闲的数据流不会被判定为失败。
+  - **迁移指南**：在 source 或 sink 上设置 `connect_timeout_ms = 0` 可恢复此前由操作系统决定的行为；若对端确实较慢，可将该值调大至 10000 以上。`read_timeout_ms` 仅适用于 source，对 sink 无效（sink 不从 socket 读取数据）。
 
 ### Zeta：管道故障转移恢复后运行时计数器从零重新计数
 
@@ -95,6 +133,13 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
 ### Markdown File Source 的 `child_ids` 数组
 
 Markdown File Source 现在将 `child_ids` 声明为 `ARRAY<STRING>`，每行输出 `String[]`。此前该字段声明为 `STRING`，父元素输出逗号分隔的 ID，叶子元素输出 `null`。请将下游 schema 和消费逻辑改为读取数组；叶子元素现在输出空数组。元素 ID、类型、页码和位置索引保持原有格式。
+
+### FTP 连接器：控制连接应答现在受 60 秒超时约束
+
+- **行为变更：FTP source 和 sink 在等待控制连接应答超过 60 秒后不再继续等待**
+  - **描述**：FTP 文件系统创建客户端后直接调用 `connect(host, port)`，没有设置读超时。底层客户端的读超时默认值是 `0`，即无限等待。因此当服务端接受了 TCP 连接却永不回复时——例如服务端卡死，或连接被防火墙、负载均衡接受后静默丢包——调用线程会永久阻塞。新增的 `control_timeout` 选项约束控制连接上的每一次应答读取，包括 greeting、登录交互以及传输前各条命令的应答，默认 60000 毫秒，source 和 sink 均生效。
+  - **影响**：对于可以连通但不回复控制通道的服务端，作业现在会以超时失败，而不是挂死。此前会一直停留在 `RUNNING`、既无进展也无错误的作业，现在会抛出底层客户端给出的 `SocketTimeoutException`，该异常指明超时的那次读取，但**不包含** FTP 主机与端口。60 秒内能应答的连接不受影响。该选项只约束控制通道的应答：TCP 连接建立本身不受它约束，数据连接也不受它约束，因此初始 SYN 被静默丢弃的主机、以及传输开始后停滞的数据连接，都不会因本选项而有界。
+  - **升级指南**：无需操作。若某个服务端确实需要超过 60 秒才能应答某条控制命令（例如在慢速链路上），调大连接器上的 `control_timeout`。将其设为 `0` 可恢复此前无限等待的行为。注意该上限是按单次应答计算的，因此 sink 上传大文件时，如果服务端会在接收后做后处理，最后那条 `226 Transfer complete` 可能超过 60 秒，这类服务端需要调大 `control_timeout`。
 
 ### 运行环境要求
 
@@ -378,6 +423,14 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
 - **[BREAKING]** Assert Sink：`column_rule` 里的 `sink_type` 现在会和实际列类型比较。此前会被忽略，所以声明不一致的作业会失败，不声明则仍不校验；升级时删掉该字段或改成实际类型。
 
 ### 格式变更
+
+- **CSV Source 对缺失字段和已配置的 null 值应用默认值**：配置了 `schema.columns[].defaultValue` 时，
+  如果文件表头缺少该列，或字段值与 `null_format` 匹配，读取结果现在使用默认值而不是 null。
+  未配置默认值的作业保持不变；空字段仍为 null，除非它与 `null_format` 匹配。
+  如果下游逻辑原本依赖“配置了默认值但仍输出 null”的行为，升级前请移除 Source Schema 中的该默认值。
+  配置的默认值现在会在创建 CSV 读取器时转换为列类型。无法转换的默认值（例如 TIMESTAMP 列的
+  `CURRENT_TIMESTAMP`）现在会在创建读取器时导致作业失败，而不是被忽略，即使没有字段需要使用该默认值。
+  默认值必须是字面量，不能是 SQL 表达式。升级前请修正或移除无效的默认值。
 
 - **破坏性变更：JSON 数值字段的序列化改为按运行时实际类型处理**
   - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`RowToJsonConverters`）--影响所有以 JSON 格式序列化行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Sink）。
