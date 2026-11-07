@@ -91,7 +91,7 @@ public class JobRuntimeDiagnosticsTest {
                                 "restore 1: java.net.ConnectException: Connection refused",
                                 "restore 2: java.sql.SQLException: Access denied")));
 
-        JsonObject diagnostics = JobRuntimeDiagnostics.build(seaTunnelServer, JOB_ID);
+        JsonObject diagnostics = JobRuntimeDiagnostics.build(server, JOB_ID);
         JsonObject pipeline =
                 diagnostics.get(JobRuntimeDiagnostics.PIPELINES).asArray().get(0).asObject();
         JsonArray causes = pipeline.get(JobRuntimeDiagnostics.RESTORE_CAUSES).asArray();
@@ -111,7 +111,7 @@ public class JobRuntimeDiagnosticsTest {
         // unconditionally.
         mockPipelines(mockSubPlan(1, PipelineStatus.RUNNING, 0, 100));
 
-        JsonObject diagnostics = JobRuntimeDiagnostics.build(seaTunnelServer, JOB_ID);
+        JsonObject diagnostics = JobRuntimeDiagnostics.build(server, JOB_ID);
         JsonObject pipeline =
                 diagnostics.get(JobRuntimeDiagnostics.PIPELINES).asArray().get(0).asObject();
 
