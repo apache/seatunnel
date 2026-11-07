@@ -82,9 +82,9 @@ TDengine 子表名称列表。不配置时读取该超级表下的所有子表�
 
 ### read_columns [List]
 
-要读取的列名列表。不配置时读取所有列。读取超级表时，请将 TAGS 字段放在列表末尾。不要在这里配置 `subtable_name`，连接器会自动把它作为第一列输出。
+要读取的列名列表。不配置时读取所有列。不要在这里配置 `subtable_name`，连接器会自动把它作为第一列输出。
 
-`read_columns` 的顺序会决定 `subtable_name` 之后的输出字段顺序。如果后续继续写入 TDengine Sink，请保持普通列在前、TAGS 字段在后，这样 Sink 才能正确区分普通列和 TAGS 值。
+`read_columns` 只负责筛选要读取的列，列表顺序不影响输出。输出字段顺序始终遵循目标超级表的定义顺序（即 `desc <database>.<stable>` 返回的顺序）：普通列在前，TAGS 列在后。如果后续继续写入 TDengine Sink，请保持超级表定义中普通列在前、TAGS 列在后，这样 Sink 才能正确区分普通列和 TAGS 值。
 
 ### 通用选项
 
@@ -94,7 +94,7 @@ Source 插件通用参数，请参考 [Source Common Options](../common-options/
 
 ## 输出 Schema
 
-输出表的第一列固定为预留字段 `subtable_name`，用来标识该行来自哪个 TDengine 子表。后续字段为 `read_columns` 中声明的列（未设置时为所有列），顺序与 `read_columns` 保持一致；TAGS 列请按声明的顺序排在普通列之后。
+输出表的第一列固定为预留字段 `subtable_name`，用来标识该行来自哪个 TDengine 子表。后续字段为实际读取的列（`read_columns` 中列出的列，未设置时为所有列），顺序遵循目标超级表的定义顺序：普通列在前，TAGS 列在后。
 
 ## 示例
 

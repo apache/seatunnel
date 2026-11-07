@@ -55,6 +55,8 @@ JDBC 做验证或示例下游，请额外准备 MySQL JDBC 驱动。
 | 名称 | 类型 | 必填 | 默认值 | 描述 |
 | --- | --- | --- | --- | --- |
 | hostname | String | 是 | - | Vitess VTGate gRPC 服务的主机名或 IP 地址。 |
+| username | String | 否 | - | 当集群开启认证时，Vitess VTGate gRPC 连接使用的用户名。 |
+| password | String | 否 | - | 当集群开启认证时，Vitess VTGate gRPC 连接使用的密码。 |
 | port | Int | 否 | 15991 | Vitess VTGate gRPC 端口。 |
 | keyspace | String | 是 | - | 当前连接器采集的 Vitess keyspace。 |
 | schema | Config | 是* | - | 单表 schema 定义。schema 中必须提供 `table`，并且至少提供 `columns` 或 `metadata_table_id` 之一。 |

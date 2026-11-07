@@ -54,6 +54,8 @@ Write data to Snowflake through JDBC. The sink supports batch and streaming jobs
 | BINARY<br/>VARBINARY                                                        | BYTES               |
 | GEOGRAPHY<br/>GEOMETRY                                                      | STRING              |
 
+When the sink creates a table, a SeaTunnel `DECIMAL(p, s)` column with `p > 38` is reduced to precision 38, with the scale reduced by the same overflow. SeaTunnel `BYTES` columns are created as Snowflake `GEOMETRY`.
+
 ## Sink Options
 
 |                   Name                    |  Type   | Required | Default | Description                                                                                                                                                                                |
@@ -63,6 +65,7 @@ Write data to Snowflake through JDBC. The sink supports batch and streaming jobs
 | username                                  | String  | No       | -       | Username for the Snowflake account.                                                                                                                                                        |
 | password                                  | String  | No       | -       | Password for the Snowflake account.                                                                                                                                                        |
 | query                                     | String  | No       | -       | SQL used to write upstream rows. Takes precedence over `database`/`table` auto-generated SQL, and disables catalog-based optimizations (no `MERGE` upsert).                                |
+| generate_sink_sql                         | Boolean | No       | false   | Whether to generate sink SQL from `database`, `table` and `primary_keys` instead of using `query`.                                                                                |
 | database                                  | String  | No       | -       | Database name. When `generate_sink_sql = true`, used with `table` to generate `INSERT`/`MERGE` SQL. Mutually exclusive with `query`; when both are set, `query` wins.                       |
 | table                                     | String  | No       | -       | Target table name. Used together with `database` and `generate_sink_sql` to generate writes.                                                                                              |
 | primary_keys                              | Array   | No       | -       | Primary-key columns. Required when `generate_sink_sql = true` together with `enable_upsert = true` to build a `MERGE` upsert statement.                                                    |
