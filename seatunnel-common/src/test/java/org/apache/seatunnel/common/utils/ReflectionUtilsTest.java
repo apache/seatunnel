@@ -26,6 +26,13 @@ import java.net.URLClassLoader;
 
 public class ReflectionUtilsTest {
 
+    private Object nullableField;
+
+    @Test
+    public void testGetFieldWithNullValue() {
+        Assertions.assertFalse(ReflectionUtils.getField(this, "nullableField").isPresent());
+    }
+
     @Test
     public void testInvoke() throws MalformedURLException {
         ReflectionUtils.invoke(new String[] {}, "toString");
