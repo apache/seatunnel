@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageConstants.STORAGE_NAME_SPACE;
@@ -231,6 +232,27 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                     }
                 });
         return pipelineStates;
+    }
+
+    /**
+     * Uses filesystem metadata for retention so checkpoint payload size does not affect listing.
+     */
+    @Override
+    public Optional<List<Long>> getCheckpointIdsByJobIdAndPipelineId(
+            String jobId, String pipelineId) throws CheckpointStorageException {
+        try {
+            List<Long> checkpointIds = new ArrayList<>();
+            for (String fileName : getFileNames(getStorageParentDirectory() + jobId)) {
+                if (pipelineId.equals(getPipelineIdByFileName(fileName))) {
+                    checkpointIds.add(Long.parseLong(getCheckpointIdByFileName(fileName)));
+                }
+            }
+            return Optional.of(checkpointIds);
+        } catch (Exception e) {
+            throw new CheckpointStorageException(
+                    "Failed to list checkpoint IDs for job " + jobId + ", pipeline " + pipelineId,
+                    e);
+        }
     }
 
     @Override

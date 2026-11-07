@@ -28,7 +28,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.condition.OS.LINUX;
@@ -80,6 +85,28 @@ public class LocalFileStorageTest {
     public void testGetCheckpointsByJobIdAndPipelineId() throws CheckpointStorageException {
         List<PipelineState> state = STORAGE.getCheckpointsByJobIdAndPipelineId(JOB_ID, "1");
         Assertions.assertEquals(2, state.size());
+    }
+
+    @Test
+    public void testCheckpointIdsIncludeCorruptPayloadWithoutDeserialization(@TempDir Path root)
+            throws Exception {
+        LocalFileStorage storage =
+                new LocalFileStorage(Collections.singletonMap("namespace", root.toString()));
+        Path directory = Files.createDirectories(root.resolve("metadata-only"));
+        Path corrupt = directory.resolve("1-0-1-7.ser");
+        Path otherPipeline = directory.resolve("1-0-2-99.ser");
+        Files.write(corrupt, new byte[] {1, 2, 3});
+        Files.write(otherPipeline, new byte[] {4, 5, 6});
+
+        Assertions.assertEquals(
+                Arrays.asList(7L),
+                storage.getCheckpointIdsByJobIdAndPipelineId("metadata-only", "1").get());
+        storage.deleteCheckpoint("metadata-only", "1", "7");
+        Assertions.assertFalse(Files.exists(corrupt));
+        Assertions.assertTrue(Files.exists(otherPipeline));
+        Assertions.assertEquals(
+                Collections.emptyList(),
+                storage.getCheckpointIdsByJobIdAndPipelineId("missing-job", "1").get());
     }
 
     @AfterAll

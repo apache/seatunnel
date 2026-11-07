@@ -256,18 +256,22 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
         CheckpointService checkpointService = server.getCheckpointService();
         ReflectionUtils.setField(checkpointService, "checkpointStorage", checkpointStorage);
 
-        startJob(jobId, BATCH_CONF_WITHOUT_CHECKPOINT_INTERVAL_PATH, false);
-        await().atMost(120000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        server.getCoordinatorService().getJobStatus(jobId),
-                                        JobStatus.FINISHED));
+        try {
+            startJob(jobId, BATCH_CONF_WITHOUT_CHECKPOINT_INTERVAL_PATH, false);
+            await().atMost(120000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            server.getCoordinatorService().getJobStatus(jobId),
+                                            JobStatus.FINISHED));
 
-        checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
-        Assertions.assertEquals(1, accessCounter.get());
-
-        // restore the server's checkpointStorage to avoid affecting other unit cases
-        ReflectionUtils.setField(checkpointService, "checkpointStorage", originalCheckpointStorage);
+            checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
+            // A fresh checkpoint-disabled batch job must not enumerate retained checkpoints.
+            Assertions.assertEquals(1, accessCounter.get());
+        } finally {
+            // restore the server's checkpointStorage to avoid affecting other unit cases
+            ReflectionUtils.setField(
+                    checkpointService, "checkpointStorage", originalCheckpointStorage);
+        }
     }
 }
