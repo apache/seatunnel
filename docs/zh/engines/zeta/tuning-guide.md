@@ -170,6 +170,8 @@ Hazelcast 的 `SlowOperationDetector` 监控分区线程上的操作执行时间
 
 #### 第一步：确定慢操作发生的时间点
 
+> 日志文件名取决于节点角色：默认的 master-and-worker 部署写入 `seatunnel-engine-server.log`，master/worker 分离部署分别写入 `seatunnel-engine-master.log` / `seatunnel-engine-worker.log`。请按部署形态调整下述路径。
+
 ```bash
 # 检查慢操作日志的频率和时间
 grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tail -50
@@ -178,7 +180,7 @@ grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tai
 
 将时间戳与以下事件关联：
 - 作业提交事件（REST API 调用）
-- Checkpoint 间隔（默认每 10 秒一次）
+- Checkpoint 间隔（默认每 5 分钟一次，`seatunnel.engine.checkpoint.interval`）
 - 高负载时段（数据摄入高峰期）
 
 #### 第二步：检查节点整体健康状态
@@ -219,9 +221,9 @@ free -h
 
 **IMap / MapStore 延迟：**
 - 症状：对 IMap 键执行 `PutOperation` 或 `GetOperation` 时出现慢操作。
-- 检查：`du -sh $SEATUNNEL_HOME/imap/wal/` 和 `du -sh $SEATUNNEL_HOME/imap/maps/` —— WAL 目录过大表示写入压力大。
+- 检查：测量所配置 MapStore 的 `namespace` 目录（`IMapFileStorage` 写入 `<namespace>/<clusterName>/<businessName>`，而非固定的 `imap/wal` 或 `imap/maps` 目录）——目录过大表示写入压力大。
 - 常见原因：MapStore 目录磁盘 I/O 饱和、WAL 写入频率过高、或磁盘空间耗尽。
-- 缓解：参见[第 6 节](#6-s3-checkpoint状态存储延迟)，增加 `write-behind-delay-seconds`，启用 WAL 压缩。
+- 缓解：参见[第 6 节](#6-s3-checkpoint状态存储延迟)以及[状态存储与恢复](state-storage-and-recovery.md)中的 IMap 持久化说明，同时关注磁盘余量。
 
 ### 3. 合理配置 `hazelcast.operation.generic.thread.count`
 
@@ -550,5 +552,5 @@ kubectl exec <pod> -- du -sh /tmp/seatunnel/imap/
 | 慢操作 + 高 GC | JVM 堆压力 | 增加 `-Xmx`，减少并发任务 |
 | `executor.q.operations.size` > 0 | 操作线程池饱和 | 增加 `generic.thread.count` |
 | `operations.pending.invocations.percentage` > 10% | 远程调用积压 | 检查网络，增加 `generic.thread.count` |
-| WAL 目录持续增长，IMap 操作变慢 | MapStore 写入压力 | 增加 `write-behind-delay-seconds`，增加磁盘 IOPS |
+| WAL 目录持续增长，IMap 操作变慢 | MapStore 写入压力 | 将 map-store 的 `namespace` 迁移到更快/更大的存储，清理过期作业 |
 | Checkpoint 耗时 > 60s | 状态数据过大或存储慢 | 减少 Checkpoint 状态大小，优化存储 |

@@ -44,7 +44,7 @@ Checkpoint 在某一时间点捕获所有流水线算子状态的一致性快照
 seatunnel:
   engine:
     checkpoint:
-      interval: 10000              # 两次 Checkpoint 间隔（毫秒）
+      interval: 300000             # 两次 Checkpoint 间隔（毫秒）
       timeout: 60000               # Checkpoint 完成超时（毫秒）
       storage:
         type: hdfs                 # hdfs（通过 HDFS API 同时支持 S3、本地文件）| localfile（已废弃）
@@ -210,8 +210,8 @@ seatunnel:
 
 | 操作 | 是否受过期影响 |
 |---|---|
-| 从 `finished-job-state` IMap 中移除 | 是 |
-| 从 `finished-job-metrics` IMap 中移除 | 是 |
+| 从 `engine_finishedJobState` IMap 中移除 | 是 |
+| 从 `engine_finishedJobMetrics` IMap 中移除 | 是 |
 | 集群重启后作业仍保持已移除（启用 IMap 持久化时） | 是（过期时间随条目一起持久化，已过期的作业不会被重新加载，尚未过期的作业保留剩余时间） |
 | 删除该作业的 MapStore 持久化文件 | **否**（过期记录仍保留在 IMap 存储文件中） |
 | 删除 Checkpoint 存储目录 | **否** |

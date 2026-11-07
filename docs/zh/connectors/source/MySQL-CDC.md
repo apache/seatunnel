@@ -219,7 +219,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | enable_concurrent_read                    | Boolean  | 否    | true    | 是否在快照阶段启用基于分片的并发读取。当设置为 false 时，source 会跳过分片分析，并以单个 split 读取整张表，适合没有索引的表。默认值为 true。 |
 | exactly_once                              | Boolean  | 否    | false   | 启用精确一次语义.                                                                                                                                                                                                                                    |
 | format                                    | Enum     | 否    | DEFAULT | MySQL CDC 的可选输出格式, 有效的枚举值为 `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                             |
-| schema-changes.enabled                    | Boolean  | 否    | false   | 模式演进默认是禁用的. 当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`.                                                                                                                                                            |
+| schema-changes.enabled                    | Boolean  | 否    | false   | 模式演进默认是禁用的. 当前支持的变更类型：`add column`、`drop column`、`rename column`、`modify column`（类型变更），以及表注释和列注释变更。`schema-changes.include`/`exclude` 中只能选择列级别的变更类型。                                                                                                                                                            |
 | schema-changes.include                     | List     | 否    | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                              |
 | schema-changes.exclude                     | List     | 否    | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                       |
 | debezium                                  | Config   | 否    | -       | 传递 [Debezium的属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) 给Debezium嵌入式引擎, 该引擎用于捕获 MySQL 服务的数据变更.                                                  |
@@ -661,7 +661,7 @@ source options 示例那样，通过 `table-names-config.primaryKeys` 指定自�
 
 支持，但能力有限。需要启用 `schema-changes.enabled = true`，并遵循当前页面以及
 [Schema Evolution 文档](../../introduction/configuration/schema-evolution.md)中已经定义好的契约。
-目前文档中明确支持 `add column`、`drop column`、`rename column` 和 `modify column`。
+当前支持的变更类型为 `add column`、`drop column`、`rename column`、`modify column`（类型变更），以及表注释和列注释变更。
 
 ### 运行多个 CDC 任务时如何避免 `server-id` 冲突？
 
