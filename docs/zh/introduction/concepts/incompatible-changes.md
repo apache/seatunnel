@@ -4,6 +4,13 @@
 
 ## dev
 
+### API：标识符与类型匹配不再跟随工作节点的默认语言环境
+
+- **行为变更：API 在任何工作节点上解析出的标识符和类型名都保持一致**
+  - **描述**：`seatunnel-api` 中若干路径此前使用未指定 `Locale.ROOT` 的 `String#toUpperCase()` / `String#toLowerCase()` 匹配标识符或类型名。在土耳其语或阿塞拜疆语默认语言环境下，大写 `I` 会小写为不带点的 `ı`，小写 `i` 会大写为带点的 `İ`，因此含有 `i` 或 `I` 的名称不再匹配对应的常量：`PluginIdentifier#hashCode` 可能为两个 `equals` 判定相等的标识符返回不同的哈希值，开启元数据湖的作业会以 `No enum constant org.apache.seatunnel.common.constants.MetaLakeType.GRAVİTİNO` 启动失败。现在这些转换统一使用 `Locale.ROOT`。
+  - **影响**：仅影响默认语言环境为土耳其语或阿塞拜疆语的工作节点。在这些节点上，受影响的查找现在会像其他语言环境一样正确解析；此前开启元数据湖的作业无法启动，元数据类型也无法转换。其他默认语言环境的工作节点不受影响。
+  - **迁移指南**：无需修改配置。在这类节点上，开启元数据湖的作业现在可以正常启动，而不再失败。
+
 ### Databend Source：DECIMAL 列按 DECIMAL 读取，而不再是 STRING
 
 - **行为变更：Databend 的 `DECIMAL(p, s)` 列在作业中的类型为 `DECIMAL(p, s)`**
