@@ -8,7 +8,7 @@ StainTrace is SeaTunnel's data lineage and end-to-end performance tracing system
 
 - **Framework-level Implementation**: Works with all Connectors automatically, no connector code changes needed
 - **6 Basic Stages**: SOURCE_EMIT, QUEUE_IN, QUEUE_OUT, TRANSFORM_IN, TRANSFORM_OUT, SINK_WRITE_DONE (all instrumented; temporal order depends on pipeline topology)
-- **Extended Stages**: 40+ fine-grained stage codes defined for future instrumentation (**not yet active — will not appear in trace files**)
+- **Extended Stages**: 34 fine-grained stage codes defined for future instrumentation (**not yet active — will not appear in trace files**)
 - **Local File Storage**: Zero dependencies, OTLP JSON Lines format
 - **Performance Optimized**: < 2% overhead with proper sampling configuration
 
@@ -70,7 +70,7 @@ seatunnel:
   engine:
     stain-trace-enabled: true
     stain-trace-sample-rate: 100000  # Sample 1 out of 100k records
-    stain-trace-file-base-path: /data/seatunnel/traces  # Required for local trace files; no default
+    stain-trace-file-base-path: /tmp/seatunnel/traces  # Required for local trace files; no default
 ```
 
 ### 2. Enable in Job

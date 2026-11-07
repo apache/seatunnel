@@ -424,6 +424,20 @@ may replay a row at an ambiguous boundary to avoid losing it.
 
 Replication lag can occur when the logical decoding plugin is slow or when the WAL sender is under load. Monitor `pg_replication_slots` for `confirmed_flush_lsn` drift. Ensure the CDC job consumes events continuously and that network latency between SeaTunnel and PostgreSQL is low.
 
+### Can PostgreSQL CDC run on the Spark engine?
+
+It can, but it is not covered by end-to-end tests. The Spark engine runs CDC sources as one Spark
+task that holds the split enumerator and all readers, for both `BATCH` and `STREAMING` jobs. Spark
+does not checkpoint the source, so:
+
+- A job cannot be restored from a checkpoint. A restarted job starts again from `startup.mode`.
+- SeaTunnel never confirms a processed LSN to the replication slot, so the slot's `restart_lsn` does
+  not move and PostgreSQL keeps all WAL from it for as long as the slot exists. Watch the WAL size,
+  and advance or drop the slot when the job stops.
+- A sink that only writes on checkpoints or full batches can hold rows back, for example the JDBC
+  sink with its default `batch_size`.
+- Reading the source with Spark micro-batch streaming (`readStream`) is not supported.
+
 ## See Also
 
 For a production-grade end-to-end guide covering full + incremental synchronization lifecycle,

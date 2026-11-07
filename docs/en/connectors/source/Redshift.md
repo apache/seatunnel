@@ -56,7 +56,7 @@ reads via `table_list` are supported.
 | table_path         | String   | No       | -               | The fully-qualified table to read, for example `public.table2`. Useful as a shortcut for a single-table read.                               |
 | table_list         | Array    | No       | -               | List of tables to read. Each entry can override `table_path` and `query`. Enables multi-table reading and auto-split.                       |
 | connection_check_timeout_sec | Int | No       | 30              | The time, in seconds, to wait for the database operation used to validate the connection to complete.                                       |
-| partition_column   | String   | No       | -               | The column name used to split the data for parallel reading. Only numeric primary key columns are supported.                               |
+| partition_column   | String   | No       | -               | The column name used to split the data for parallel reading. Supports numeric, string and date columns; only one column can be configured.        |
 | partition_lower_bound | String     | No   | -               | The `partition_column` minimum value for the scan. If not set, SeaTunnel queries the database for the minimum value.                       |
 | partition_upper_bound | String     | No   | -               | The `partition_column` maximum value for the scan. If not set, SeaTunnel queries the database for the maximum value.                       |
 | partition_num      | Int      | No       | 10              | Number of partitions. Only positive integers are supported. Default value is 10.                                            |
