@@ -48,6 +48,23 @@ Remove any manual offset used to compensate for this defect. Existing stored val
   - **Impact**: A nullable MAP column now yields `null` for a row that holds no map, where it previously yielded an empty map. A row that holds a genuinely empty map still yields an empty map, so absent and empty are no longer the same value. A nullable ROW column is now read instead of failing the whole split.
   - **Migration Guide**: Consumers that treated the previous empty map as "no value" need no change. A consumer that assumed every row carries a non-null map must handle `null` for that column.
 
+### Zeta SQL: FORMATDATETIME uses a fixed English locale
+
+- **Behavior change: the output of `FORMATDATETIME` no longer follows the worker's default locale**
+  - **Description**: `FORMATDATETIME` built its formatter with `DateTimeFormatter.ofPattern(format)`, which captures the JVM default locale. Any pattern letter that renders text rather than digits (`MMM`, `MMMM`, `LLLL`, `EEE`, `EEEE`, `ccc`, `a`, `G`, `QQQ`, `QQQQ`) was therefore translated into the language of whichever worker ran the transform, so the same job wrote `23 Oct 2026` on one worker and `23 Eki 2026` on another. `DAYNAME` and `MONTHNAME` were never affected, because they pin English, so the two disagreed on the same row. It now uses the same `Locale.ENGLISH` formatter as `FROM_UNIXTIME`, which the entry "FROM_UNIXTIME and UNIX_TIMESTAMP text patterns use English locale" below describes.
+  - **Impact on text**: On a worker whose default locale is English, text output is unchanged. On a worker with a non-English default locale, these names change from the local language to English, and are now stable across workers and environments.
+  - **Impact on the localised week fields**: the formatter locale also selects the week rules, through `WeekFields.of(locale)`, so the week based year `Y`, the week of year `w`, the week of month `W` and the numeric day of week `e` and `c` now follow the English rules on every worker: the week starts on Sunday, and one day is enough to make the first week. These patterns produce digits, so a numeric result is not by itself evidence that a pattern was unaffected. An English language regional default is not interchangeable either, because `en-GB` starts the week on Monday and requires 4 days. The same week rules apply to `FROM_UNIXTIME`, which uses the same formatter. Measured for `2021-01-01`, a Friday:
+
+    | pattern | was, `en-US` | was, `en-GB` | was, `de-DE` | was, `tr-TR` | was, `ja-JP` | now, every worker |
+    | --- | --- | --- | --- | --- | --- | --- |
+    | `YYYY` | `2021` | `2020` | `2020` | `2021` | `2021` | `2021` |
+    | `ww` | `01` | `53` | `53` | `01` | `01` | `01` |
+    | `W` | `1` | `0` | `0` | `1` | `1` | `1` |
+    | `e` | `6` | `5` | `5` | `5` | `6` | `6` |
+
+  - **Unaffected**: patterns built only from fields that are not locale dependent keep their previous output on every worker, including `y`, `M`, `d`, `H`, `m`, `s`, `S` and the day of year `D`, so an ordinary pattern such as `yyyy-MM-dd HH:mm:ss` is unchanged. Every pattern in `ZetaDateTimeFormat` is made only of such fields and is unchanged.
+  - **Migration Guide**: No configuration change is needed. If a downstream consumer relied on localised month or weekday text from a non-English worker, translate it downstream, since that text was never reproducible across workers. If a job keyed rows on `Y`, `w`, `W`, `e` or `c` and has to keep the ISO week numbering it got from a Monday based worker, compute that week upstream of the transform and pass it in as its own column, because `FORMATDATETIME` and `FROM_UNIXTIME` no longer take the week rules from the worker.
+
 ### ORC sink: a decimal that does not fit the target column now fails instead of being written as NULL
 
 - **Behavior change: an out-of-range `DECIMAL` fails the write rather than silently becoming `NULL`**

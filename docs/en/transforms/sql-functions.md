@@ -917,6 +917,10 @@ EXTRACT(DOW FROM eventTime)
 
 Formats a date, time or timestamp as a string. The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see java.time.format.DateTimeFormatter.
 
+Month, weekday, era, quarter and am/pm names are always rendered in English, so the result does not depend on the default locale of the worker that runs the transform. `FORMATDATETIME(dt, 'EEEE')` therefore agrees with `DAYNAME(dt)`, and `FORMATDATETIME(dt, 'MMMM')` with `MONTHNAME(dt)`.
+
+The same fixed locale also decides the week rules, so the localized fields `Y` (week based year), `w`, `W` and the numeric weekday `e` and `c` are resolved with the week starting on Sunday and one day being enough to make the first week, on every worker. Use `y`, `M`, `d` and the day of year `D` for values that must not depend on week rules at all.
+
 Example:
 
 CALL FORMATDATETIME(CREATED, 'yyyy-MM-dd HH:mm:ss')
@@ -1115,6 +1119,8 @@ The most important format characters are: y year, M month, d day, H hour, m minu
 Text pattern letters (such as `MMM`, `EEE`) are interpreted in English, independent of the worker JVM locale.
 
 `timeZone` is optional, default value is system's time zone. `timezone` value can be a `UTC+ timezone offset`, for example, `UTC+8` represents the Asia/Shanghai time zone, see  https://en.wikipedia.org/wiki/List_of_tz_database_time_zones .
+
+As in `FORMATDATETIME`, the localized week fields `Y`, `w`, `W`, `e` and `c` follow the fixed English week rules.
 
 
 Example:
