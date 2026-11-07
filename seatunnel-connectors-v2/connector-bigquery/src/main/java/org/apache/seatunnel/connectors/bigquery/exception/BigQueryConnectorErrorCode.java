@@ -28,6 +28,8 @@ public enum BigQueryConnectorErrorCode implements SeaTunnelErrorCode {
     BAD_CREDENTIALS("Bigquery-06", "bad credentials for bigquery client"),
     TABLE_NOT_FOUND("Bigquery-07", "the specified table is not found in bigquery"),
     SCHEMA_CHANGE_FAILED("Bigquery-08", "apply schema change to bigquery failed"),
+    READ_FAILED("Bigquery-09", "read data from bigquery failed"),
+    CONFIG_INVALID("Bigquery-10", "invalid bigquery source configuration"),
     ;
 
     private final String code;
