@@ -75,6 +75,8 @@ libfb303-xxx.jar
 | LIST              | ARRAY               |
 | MAP               | MAP                 |
 
+列表（`LIST`）仅在元素类型为 `BOOLEAN`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE` 或 `STRING` 时才能读取；其他元素类型（例如嵌套 STRUCT 或 DECIMAL）的列表会导致作业失败。
+
 `TIMESTAMP_NS`、`TIMESTAMPTZ_NS` 和 `UNKNOWN` 仅存在于格式版本 3 的表中。纳秒时间戳保留纳秒精度，并以列精度（scale）9 表示。暂不支持 `VARIANT`、`GEOMETRY` 和 `GEOGRAPHY` 列，读取时作业会失败；可通过 `query` 选项排除这些列，例如 `select id, ts from table`。被 deletion vector 删除的行不会被读取。不会读取行血缘（row lineage）字段（`_row_id`、`_last_updated_sequence_number`）。
 
 ## 源选项
@@ -200,7 +202,7 @@ source {
 
 ```hocon
 source {
-  iceberg {
+  Iceberg {
     catalog_name = "seatunnel"
     iceberg.catalog.config={
       "type"="hadoop"

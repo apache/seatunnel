@@ -54,7 +54,7 @@ All columns are STRING: `gid`, `name`, `completed`, `completed_at`, `created_at`
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = BATCH
 }
 

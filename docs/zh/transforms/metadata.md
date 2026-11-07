@@ -31,7 +31,7 @@ Metadata 转换插件用于将数据行中的元数据信息提取为普通字�
 | BinlogPos  | long   | Binlog 字节偏移量。快照行返回 `null`。 | 仅 MySQL-CDC |
 | BinlogRow  | int    | Binlog 事件中的行索引（从 0 开始）。快照行返回 `null`。 | 仅 MySQL-CDC |
 | Gtid       | string | 全局事务 ID（格式：`server_uuid:transaction_id`）。GTID 未启用或快照行时返回 `null`。 | 仅 MySQL-CDC |
-| Partition |  string  |  数据所属的分区信息，多个分区字段使用逗号分隔  | 支持分区的连接器 |
+| Partition | 由输入表的 `MetadataSchema` 声明  |  数据所属的分区信息。值按连接器写入的分区 option 原样返回，transform 不会自动用逗号拼接。该 Key 仅在输入表的 `MetadataSchema` 中显式声明时可用  | 写入分区元数据的连接器 |
 
 ## 连接器声明的元数据字段
 
@@ -297,7 +297,7 @@ sink {
 
 ```hocon
 env {
-  execution.parallelism = 4
+  parallelism = 4
   job.mode = "STREAMING"
   checkpoint.interval = 60000
 }
