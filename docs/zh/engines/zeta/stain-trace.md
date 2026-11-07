@@ -8,7 +8,7 @@ StainTrace 是 SeaTunnel 的数据血缘与端到端性能追踪系统，用于�
 
 - **框架级实现**：所有 Connector 自动支持，无需修改连接器代码
 - **6 个基础阶段**：SOURCE_EMIT、QUEUE_IN、QUEUE_OUT、TRANSFORM_IN、TRANSFORM_OUT、SINK_WRITE_DONE（已全部落点；实际出现顺序取决于流水线拓扑）
-- **扩展阶段**：40+ 个细粒度阶段代码已定义，用于未来精细化性能分析（**当前尚未落点，不会出现在追踪文件中**）
+- **扩展阶段**：34 个细粒度阶段代码已定义，用于未来精细化性能分析（**当前尚未落点，不会出现在追踪文件中**）
 - **本地文件存储**：零依赖，OTLP JSON Lines 格式
 - **性能优化**：合理采样配置下开销 < 2%
 
@@ -70,7 +70,7 @@ seatunnel:
   engine:
     stain-trace-enabled: true
     stain-trace-sample-rate: 100000  # 每 10 万条采样 1 条
-    stain-trace-file-base-path: /data/seatunnel/traces  # 本地追踪文件目录，必须显式配置，默认不启用
+    stain-trace-file-base-path: /tmp/seatunnel/traces  # 本地追踪文件目录，必须显式配置，默认不启用
 ```
 
 ### 2. 启用任务级开关
