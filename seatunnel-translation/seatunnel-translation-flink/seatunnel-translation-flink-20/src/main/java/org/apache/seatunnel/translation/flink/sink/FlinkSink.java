@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.serialization.CommitWrapperSerializer;
 import org.apache.seatunnel.translation.flink.serialization.EmptyFlinkWriterStateSerializer;
 import org.apache.seatunnel.translation.flink.serialization.FlinkWriterStateSerializer;
 
@@ -95,7 +94,8 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
 
         if (seaTunnelSink.createAggregatedCommitter().isPresent()) {
             return new FlinkSimpleAggregatedCommitter<>(
-                    seaTunnelSink.createAggregatedCommitter().get());
+                    seaTunnelSink.createAggregatedCommitter().get(),
+                    context.getRestoredCheckpointId());
         }
 
         return null;
@@ -108,7 +108,7 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
                     || seaTunnelSink.createAggregatedCommitter().isPresent()) {
                 return seaTunnelSink
                         .getCommitInfoSerializer()
-                        .map(CommitWrapperSerializer::new)
+                        .map(CheckpointCommitWrapperSerializer::new)
                         .orElseThrow(
                                 () ->
                                         new IllegalStateException(
@@ -118,7 +118,7 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
             throw new RuntimeException(e);
         }
         // No committer path: still need a non-null serializer to satisfy Flink sink2 contract.
-        return new CommitWrapperSerializer<>(new NoOpCommitSerializer<>());
+        return new CheckpointCommitWrapperSerializer<>(new NoOpCommitSerializer<>());
     }
 
     /**

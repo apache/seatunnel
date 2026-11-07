@@ -103,6 +103,12 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
         return sink.createAggregatedCommitter().map(FlinkGlobalCommitter::new);
     }
 
+    Optional<GlobalCommitter<CommitWrapper<CommT>, GlobalCommT>> createRecoverableGlobalCommitter(
+            RecoveredCommitTracker tracker) throws IOException {
+        return sink.createAggregatedCommitter()
+                .map(committer -> new FlinkGlobalCommitter<>(committer, tracker));
+    }
+
     @Override
     public Optional<SimpleVersionedSerializer<CommitWrapper<CommT>>> getCommittableSerializer() {
         try {

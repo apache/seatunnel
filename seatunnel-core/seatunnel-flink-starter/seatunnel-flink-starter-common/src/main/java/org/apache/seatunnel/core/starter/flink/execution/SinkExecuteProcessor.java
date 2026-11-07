@@ -25,11 +25,11 @@ import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.schema.BroadcastSchemaSinkOperator;
 import org.apache.seatunnel.translation.flink.sink.FlinkSink;
+import org.apache.seatunnel.translation.flink.sink.RecoveryAwareSink;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
-import org.apache.flink.streaming.api.transformations.SinkV1Adapter;
 
 import java.net.URL;
 import java.util.List;
@@ -65,7 +65,7 @@ public class SinkExecuteProcessor extends AbstractSinkExecuteProcessor {
                             .setParallelism(parallelism);
         }
         return ds.sinkTo(
-                        SinkV1Adapter.wrap(
+                        RecoveryAwareSink.wrap(
                                 new FlinkSink<>(sink, stream.getCatalogTables(), parallelism)))
                 .name(String.format("%s-Sink", sink.getPluginName()));
     }
