@@ -5,6 +5,20 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Embedding: honor provider Retry-After without retrying early
+
+- **Affected jobs**: `Embedding` transforms using `OPENAI`, `DOUBAO`, `QIANFAN`, `ZHIPU`, or `CUSTOM`
+  with `model_retry_max_attempts > 1` and a retryable HTTP embedding invocation response carrying a valid `Retry-After` header.
+- **Behavior change**: SeaTunnel now waits for the longer of local backoff and the provider delay
+  (integer seconds or HTTP-date). If the provider delay exceeds a positive `model_retry_max_backoff_ms`,
+  the invocation fails without retrying, rather than retrying before the provider permits it.
+  Missing or malformed headers retain the local backoff behavior.
+- **Migration**: allow for longer waits when retries are enabled. Raise `model_retry_max_backoff_ms`
+  to accommodate the provider's delay, or set it to `0` to remove the limit. With `0`, local backoff
+  remains `model_retry_backoff_ms`. No option names or defaults change; the default single attempt
+  and SDK-managed `AMAZON` Bedrock HTTP retries are unchanged. Qianfan constructor-time OAuth token
+  acquisition does not gain retries.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**

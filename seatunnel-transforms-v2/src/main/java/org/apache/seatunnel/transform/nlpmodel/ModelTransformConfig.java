@@ -104,7 +104,8 @@ public class ModelTransformConfig implements Serializable {
                     .longType()
                     .defaultValue(ModelInvocationOptions.DEFAULT_RETRY_MAX_BACKOFF_MS)
                     .withDescription(
-                            "The maximum backoff in milliseconds before retrying a remote model request.");
+                            "The maximum backoff in milliseconds before retrying a remote model request. "
+                                    + "HTTP embedding requests stop if Retry-After exceeds a positive maximum; zero disables the cap.");
 
     public static final Option<Integer> MODEL_REQUEST_TIMEOUT_MS =
             Options.key("model_request_timeout_ms")

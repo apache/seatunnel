@@ -30,7 +30,7 @@ different API endpoints.
 | custom_request_body            | map    | no       |               | Custom body for the request. Supports placeholders like `${model}`, `${input}`. Only read from inside the `custom_config` block; setting it at the top level has no effect. |
 | model_retry_max_attempts       | int    | no       | 1             | Maximum attempts for one remote model request. The default value `1` keeps the previous no-retry behavior.                                                              |
 | model_retry_backoff_ms         | long   | no       | 1000          | Initial backoff in milliseconds before retrying a remote model request.                                                                                                  |
-| model_retry_max_backoff_ms     | long   | no       | 10000         | Maximum backoff in milliseconds before retrying a remote model request.                                                                                                  |
+| model_retry_max_backoff_ms     | long   | no       | 10000         | Maximum local backoff and accepted provider retry delay in milliseconds. A valid `Retry-After` above a positive limit stops the request without retrying; `0` disables this limit. |
 | model_request_timeout_ms       | int    | no       | 20000         | Request timeout in milliseconds for remote model calls.                                                                                                                  |
 
 ## Precision Support
@@ -75,6 +75,25 @@ The default retry behavior is compatible with previous jobs: `model_retry_max_at
 once. When you configure a value greater than 1, retryable failures such as rate limiting, timeout, and temporary remote
 service errors can be retried with backoff. Authentication failures, configuration errors, response parse failures, and
 response count mismatches are not retried.
+
+For the HTTP embedding adapters `OPENAI`, `DOUBAO`, `QIANFAN`, `ZHIPU`, and `CUSTOM`, retryable failures
+in embedding invocation responses honor the provider's `Retry-After` response header. Both non-negative integer seconds and
+HTTP-date values (for example, `Wed, 21 Oct 2015 07:28:00 GMT`) are supported. A past HTTP-date adds
+no provider delay. Missing or malformed headers fall back to the configured local backoff.
+
+Before another attempt, SeaTunnel waits for the longer of the local backoff and the valid provider
+delay. If the provider delay exceeds a positive `model_retry_max_backoff_ms`, the current invocation
+fails without another attempt: SeaTunnel does not shorten the provider's cooldown to fit the limit.
+For example, `Retry-After: 30` with the default `model_retry_max_backoff_ms = 10000` stops the
+invocation even when attempts remain. Raise the limit to at least `30000` to allow that delay, or set
+`model_retry_max_backoff_ms = 0` to accept an unbounded provider delay. With `0`, the local backoff
+remains `model_retry_backoff_ms`; it does not increase between attempts. Attempt limits still apply,
+and `model_retry_max_attempts = 1` still means no retry, regardless of the header.
+
+This header handling applies only to these HTTP adapters, not to SDK-managed calls such as `AMAZON`
+Bedrock. It does not enable retries for non-retryable errors or change the AWS SDK retry policy.
+Qianfan OAuth token acquisition remains outside the common invocation runtime; this change does not
+add retries to that constructor-time token request.
 
 For every request batch, the number of returned vectors must match the number of inputs. If the provider returns fewer or
 more vectors than requested, the request fails and the transform does not emit possibly misaligned vectors.

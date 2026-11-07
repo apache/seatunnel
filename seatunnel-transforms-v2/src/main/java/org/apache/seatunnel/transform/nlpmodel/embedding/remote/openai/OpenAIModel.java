@@ -153,7 +153,11 @@ public class OpenAIModel extends AbstractModel {
 
             if (response.getStatusLine().getStatusCode() != 200) {
                 throw ModelInvocationException.fromHttpStatus(
-                        "OPENAI", model, response.getStatusLine().getStatusCode(), responseStr);
+                        "OPENAI",
+                        model,
+                        response.getStatusLine().getStatusCode(),
+                        responseStr,
+                        response.getFirstHeader("Retry-After"));
             }
 
             try {

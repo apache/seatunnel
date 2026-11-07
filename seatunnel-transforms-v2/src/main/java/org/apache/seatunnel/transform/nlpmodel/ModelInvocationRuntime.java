@@ -201,6 +201,20 @@ public class ModelInvocationRuntime {
 
         boolean canRetry =
                 invocationException.isRetryable() && attempt < options.getRetryMaxAttempts();
+        Long retryAfterMs = invocationException.getRetryAfterMs();
+        boolean exceedsBackoffLimit =
+                retryAfterMs != null
+                        && options.getRetryMaxBackoffMs() > 0
+                        && retryAfterMs > options.getRetryMaxBackoffMs();
+        canRetry = canRetry && !exceedsBackoffLimit;
+        if (exceedsBackoffLimit) {
+            log.warn(
+                    "Model retry stopped: provider={}, model={}, retryAfterMs={}, maxBackoffMs={}",
+                    context.getProvider(),
+                    context.getModel(),
+                    retryAfterMs,
+                    options.getRetryMaxBackoffMs());
+        }
         logInvocationFailure(
                 context, invocationException, canRetry, System.currentTimeMillis() - start);
         if (!canRetry) {
@@ -214,7 +228,7 @@ public class ModelInvocationRuntime {
         }
         metrics.recordRetry(
                 context.getProvider(), context.getModel(), invocationException.getErrorType());
-        sleepBeforeRetry(attempt);
+        sleepBeforeRetry(attempt, retryAfterMs);
     }
 
     private ModelInvocationException normalize(
@@ -258,17 +272,13 @@ public class ModelInvocationRuntime {
                 elapsedMs);
     }
 
-    private void sleepBeforeRetry(int attempt) throws ModelInvocationException {
-        long backoff = options.getRetryBackoffMs();
-        if (backoff <= 0) {
+    private void sleepBeforeRetry(int attempt, Long retryAfterMs) throws ModelInvocationException {
+        long delay = retryDelayMs(attempt, retryAfterMs);
+        if (delay <= 0) {
             return;
         }
-        long cappedBackoff =
-                options.getRetryMaxBackoffMs() <= 0
-                        ? backoff
-                        : Math.min(backoff * attempt, options.getRetryMaxBackoffMs());
         try {
-            Thread.sleep(cappedBackoff);
+            Thread.sleep(delay);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw ModelInvocationException.nonRetryable(
@@ -278,6 +288,17 @@ public class ModelInvocationRuntime {
                     "Interrupted while waiting to retry model invocation",
                     e);
         }
+    }
+
+    long retryDelayMs(int attempt, Long retryAfterMs) {
+        long backoff = options.getRetryBackoffMs();
+        long multipliedBackoff =
+                backoff > Long.MAX_VALUE / attempt ? Long.MAX_VALUE : backoff * attempt;
+        long cappedBackoff =
+                options.getRetryMaxBackoffMs() <= 0
+                        ? backoff
+                        : Math.min(multipliedBackoff, options.getRetryMaxBackoffMs());
+        return Math.max(cappedBackoff, retryAfterMs == null ? 0L : retryAfterMs);
     }
 
     private static final class CacheLookup {

@@ -4,6 +4,18 @@
 
 ## dev
 
+### Embedding：遵守提供商 Retry-After，不再提前重试
+
+- **影响范围**：使用 `OPENAI`、`DOUBAO`、`QIANFAN`、`ZHIPU` 或 `CUSTOM` 的 `Embedding` 转换，
+  配置 `model_retry_max_attempts > 1`，且 HTTP Embedding 调用中的可重试失败响应包含有效的 `Retry-After` 响应头。
+- **行为变化**：SeaTunnel 现在等待本地退避与提供商延迟（整数秒或 HTTP-date）中的较大值。
+  如果提供商延迟超过正数的 `model_retry_max_backoff_ms`，当前调用会失败且不再重试，
+  而不是在提供商允许之前提前重试。响应头缺失或格式不合法时，保留本地退避行为。
+- **迁移指南**：启用重试的作业可能等待更长时间。请提高 `model_retry_max_backoff_ms` 以容纳提供商延迟，
+  或将其设为 `0` 以取消上限。设置为 `0` 时，本地退避时间仍为 `model_retry_backoff_ms`。
+  配置名称和默认值均未变化；默认单次尝试行为以及 `AMAZON` Bedrock 由 SDK 管理的 HTTP 重试保持不变。
+  Qianfan 构造阶段的 OAuth 令牌获取不会增加重试。
+
 ### Databend Source：DECIMAL 列按 DECIMAL 读取，而不再是 STRING
 
 - **行为变更：Databend 的 `DECIMAL(p, s)` 列在作业中的类型为 `DECIMAL(p, s)`**
