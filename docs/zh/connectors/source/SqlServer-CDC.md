@@ -26,6 +26,8 @@ import ChangeLog from '../changelog/connector-cdc-sqlserver.md';
 
 Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量数据。本文档描述了如何设置 Sql Server CDC 连接器来对 SqlServer 数据库运行 SQL 查询。
 
+当 `startup.mode = initial` 时，连接器会先以并行分片的方式读取每张被监控表的快照数据，然后切换到增量流式读取，从快照结束时记录的 LSN 继续消费。下游应当把快照阶段视为一次性的初始化引导，不要依赖它来做常态化的读取。
+
 :::tip
 
 在通过 JDBC 元数据发现表列信息时，SeaTunnel 会按精确的 schema/table 标识符对返回结果做二次过滤，以避免混入其他表的列（部分驱动会将
@@ -313,6 +315,33 @@ source {
   }
 }
 ```
+
+### 心跳动作（Heartbeat action）
+
+当上游长时间没有变更时，可以使用 `debezium.heartbeat.action.query` 选项让捕获变更表保持活跃。
+配合 `debezium.heartbeat.interval.ms` 使用，可以让该语句按固定频率执行。该动作通过源数据库连接执行并刷新
+SQL Server CDC 的 LSN 追踪；它不会固定任何消费者的保留窗口，也不能替代正确配置的 CDC 保留期与故障/延迟监控
+（参见 [Microsoft CDC 清理文档](https://learn.microsoft.com/en-us/sql/relational-databases/track-changes/administer-and-monitor-change-data-capture-sql-server#cleanup-job)）。
+
+```hocon
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = ["column_type_test.dbo.full_types"]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+    debezium {
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO column_type_test.dbo.heartbeat (ts) VALUES (GETDATE())"
+    }
+  }
+}
+```
+
+心跳表必须存在于**源数据库**中，动作查询是对它执行的 `INSERT` 语句。如果没有心跳，SQL Server 的清理作业
+可能会在无活动时回收变更表数据，一旦检查点所需的变更被清理，可断点续传的流式作业将无法恢复。
 
 ### Schema change 事件过滤
 
