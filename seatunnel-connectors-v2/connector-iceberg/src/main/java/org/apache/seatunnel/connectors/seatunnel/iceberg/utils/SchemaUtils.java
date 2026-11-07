@@ -134,7 +134,6 @@ public class SchemaUtils {
         TableIdentifier tableIdentifier = toIcebergTableIdentifier(tablePath);
         int formatVersion = requestedFormatVersion(tableIdentifier, options);
         Schema schema = toIcebergSchema(tableSchema, pkColumns, formatVersion);
-        checkIdentifierFieldsSupported(tableIdentifier, schema, formatVersion);
         return createTable(catalog, tableIdentifier, config, schema, options);
     }
 
@@ -146,30 +145,7 @@ public class SchemaUtils {
         int formatVersion = requestedFormatVersion(tableIdentifier, config.getAutoCreateProps());
         // Generate struct type
         Schema schema = toIcebergSchema(tableSchema, config.getReadonlyConfig(), formatVersion);
-        checkIdentifierFieldsSupported(tableIdentifier, schema, formatVersion);
         return createTable(catalog, tableIdentifier, config, schema, config.getAutoCreateProps());
-    }
-
-    /**
-     * Identifier fields make the sink use its delta writer, which cannot write format version 3
-     * tables yet (see IcebergWriterFactory). Fail before the table is created rather than on the
-     * first row, also when the keys come from the primary key of the source table.
-     */
-    private static void checkIdentifierFieldsSupported(
-            TableIdentifier tableIdentifier, Schema schema, int formatVersion) {
-        if (formatVersion >= 3 && !schema.identifierFieldIds().isEmpty()) {
-            throw new IcebergConnectorException(
-                    IcebergConnectorErrorCode.UNSUPPORTED_WRITE_FOR_TABLE_FORMAT_VERSION,
-                    String.format(
-                            "Upsert and CDC writes are not supported for Iceberg tables with format"
-                                    + " version %d yet, table: %s. The table would get identifier"
-                                    + " fields %s from %s or from the primary key of the source"
-                                    + " table. Create the table with format version 2.",
-                            formatVersion,
-                            tableIdentifier,
-                            schema.identifierFieldNames(),
-                            IcebergSinkOptions.TABLE_PRIMARY_KEYS.key()));
-        }
     }
 
     /**

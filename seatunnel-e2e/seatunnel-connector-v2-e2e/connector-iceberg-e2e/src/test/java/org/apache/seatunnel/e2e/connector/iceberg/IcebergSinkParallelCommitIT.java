@@ -63,14 +63,15 @@ import static org.awaitility.Awaitility.given;
 
 /**
  * E2E regression test for the fix that ensures the {@code IcebergAggregatedCommitter} produces
- * exactly one Iceberg snapshot per checkpoint, regardless of sink parallelism.
+ * exactly one Iceberg snapshot per append-only checkpoint, regardless of sink parallelism.
  *
  * <p>Tests verify:
  *
  * <ol>
  *   <li>The total row count in the Iceberg table equals the source row count — no duplicate rows.
- *   <li>Exactly one Iceberg snapshot is produced per checkpoint barrier regardless of how many
- *       parallel sink writers participated.
+ *   <li>Without schema-change/equality-delete generation boundaries, exactly one Iceberg snapshot
+ *       is produced per checkpoint barrier regardless of how many parallel sink writers
+ *       participated.
  *   <li>After a savepoint → restore cycle, already-committed checkpoints are not re-committed.
  * </ol>
  */
@@ -204,7 +205,7 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
 
                             Assertions.assertTrue(
                                     snapshots.size() >= 2,
-                                    "Expected at least 2 Iceberg snapshots (one per checkpoint)"
+                                    "Expected at least 2 Iceberg snapshots (one per append-only checkpoint)"
                                             + " but got "
                                             + snapshots.size()
                                             + " — data may have been flushed in a single"

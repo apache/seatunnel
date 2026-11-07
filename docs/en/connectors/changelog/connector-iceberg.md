@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+| [Fix][Connector-V2] Make Iceberg checkpoint publication replay-safe | - | Next |
+| [Feature][Connector-V2] Support Iceberg v3 CDC writes with deletion vectors | - | Next |
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Improve][Core] Unify the aws-sdk-v2 version to 2.31.30 (#9698)|https://github.com/apache/seatunnel/commit/41c251cc8a|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
