@@ -43,7 +43,7 @@ Source connector for Google Cloud BigQuery. Reads data by executing a SQL query 
 | fetch_size               | int     | No       | 0       | SeaTunnel internal batch size — max rows emitted per poll cycle. Zero means no limit. Independent of `max_results`. A smaller value allows more frequent checkpointing between batches.            |
 | location                 | string  | No       | -       | BigQuery job location, set on `JobId.setLocation()`. Required for non-US/EU jobs.                                                                                                                  |
 | use_query_cache          | boolean | No       | true    | Whether to use BigQuery query result caching, mapped to `QueryJobConfiguration.useQueryCache()`.                                                                                                   |
-| dry_run                  | boolean | No       | false   | When true, executes a dry run that returns estimated bytes scanned and cost without actually running the query, mapped to `QueryJobConfiguration.dryRun()`.                                       |
+| dry_run                  | boolean | No       | false   | When true, the reader executes a dry run instead of the real query at runtime and emits no rows, mapped to `QueryJobConfiguration.dryRun()`. Planning always discovers the schema via a zero-cost dry run regardless of this option. |
 | maximum_bytes_billed     | long    | No       | -       | Cost cap; the query fails if estimated bytes exceed this limit, preventing accidental full-table scans, mapped to `QueryJobConfiguration.maximumBytesBilled()`.                                   |
 | partition_filter         | string  | No       | -       | Partition filter predicate for direct table reads (`dataset_id` + `table_id` mode only). Rejected with an error if combined with `query`. Required when the table has `requirePartitionFilter` enabled. |
 | emulator_host            | string  | No       | -       | BigQuery emulator REST host, such as `localhost:9050`. This option is intended for tests only.                                                                                                      |
@@ -65,7 +65,7 @@ The source supports two ways to read data:
 1. **Custom query**: Set `query` to a SQL `SELECT` statement. The connector executes it and converts the results.
 2. **Table read**: Set `dataset_id` and `table_id` (without `query`). The connector generates `SELECT * FROM \`project.dataset.table\`` automatically. Optionally set `partition_filter` to add a `WHERE` clause for partition pruning.
 
-Schema is inferred from the query results or table metadata. When `dataset_id` and `table_id` are provided, the connector reads table metadata via `BigQueryCatalog.getTable()`. When only `query` is provided, the connector executes the query with `max_results = 1` to infer the schema from `TableResult.getSchema()`.
+Schema is inferred from the query results or table metadata. When `dataset_id` and `table_id` are provided, the connector reads table metadata via `BigQueryCatalog.getTable()`. When only `query` is provided, the connector always discovers the schema via a zero-cost dry run without executing the query, extracting the schema from `JobStatistics.QueryStatistics.getSchema()` (populated by BigQuery only for dry-run jobs); this planning step is independent of the `dry_run` option. If the dry-run response has no schema (e.g. when using the BigQuery emulator), the factory falls back to a `max_results = 1` query that executes but returns at most one row, still providing the schema for downstream transforms. The `maximum_bytes_billed` cost cap is applied during schema discovery in both stages.
 
 ### max_results
 
@@ -83,7 +83,9 @@ This is independent of `max_results`: `max_results` controls the BigQuery HTTP A
 
 ### dry_run
 
-When `dry_run = true`, the source executes a dry run via `BigQuery.create(JobInfo.of(queryConfig))` with `dryRun = true`. This validates the query and returns estimated bytes scanned without actually running it. **No rows are emitted** — the source signals `noMoreElement` immediately after the dry run completes. The estimated bytes processed are logged at INFO level via `JobStatistics.QueryStatistics.getEstimatedBytesProcessed()`. If `maximum_bytes_billed` is also set and the estimate exceeds it, a WARN is logged.
+When `dry_run = true`, the reader executes a dry-run job instead of the real query at runtime: it logs estimated bytes processed and signals `noMoreElement` immediately, and **no rows are emitted**. The estimated bytes are logged at INFO level via `JobStatistics.QueryStatistics.getEstimatedBytesProcessed()`. If `maximum_bytes_billed` is also set and the estimate exceeds it, a WARN is logged. When `dry_run = false` (default), the query is executed normally.
+
+Schema discovery at planning is not affected by this option: in `query` mode the factory always performs a zero-cost dry run to validate the query and extract the schema from `JobStatistics.QueryStatistics.getSchema()` without executing it, so planning never bills scanned bytes regardless of `dry_run`. See [Query Modes](#query-modes) for details.
 
 ### maximum_bytes_billed
 
@@ -199,16 +201,18 @@ sink {
 }
 ```
 
+Note: `service_account_key_json = "${GCP_SA_KEY_JSON}"` uses SeaTunnel [variable substitution](../../introduction/concepts/config.md) — provide the variable value when submitting the job; if it is not provided, the raw `${...}` literal is passed through unchanged.
+
 ## Lifecycle and Delivery Semantics
 
 The BigQuery source is a **bounded** source (`Boundedness.BOUNDED`):
 
-1. **Split enumeration**: The `BigQuerySourceSplitEnumerator` creates a single split containing the resolved query and assigns it to the first reader. There is no parallel read — the BigQuery SDK handles pagination internally.
+1. **Split enumeration**: The `BigQuerySourceSplitEnumerator` creates a single split containing the resolved query and assigns it to the first reader. Readers that receive no split are sent a no-more-splits signal so idle readers can terminate. There is no parallel read — the BigQuery SDK handles pagination internally.
 2. **Query execution**: On the first `pollNext`, the reader calls `BigQuery.query(QueryJobConfiguration)` to execute the query. The SDK paginates results via `TableResult.iterateAll()`.
 3. **Batching**: If `fetch_size > 0`, rows are emitted in batches of `fetch_size` per `pollNext` cycle; otherwise all rows are emitted in a single cycle. Between batches, the engine can perform checkpointing.
-4. **Job cleanup**: The BigQuery client lifecycle is managed externally by `BigQueryClientFactory` (singleton). Query jobs created by `BigQuery.query()` are automatically cleaned up by BigQuery after completion. The reader's `close()` is a no-op.
+4. **Job cleanup**: The BigQuery client is created by `BigQueryClientFactory.getBigQuery()` each time it is called (not a singleton). Query jobs created by `BigQuery.query()` are automatically cleaned up by BigQuery after completion. The reader's `close()` is a no-op.
 5. **Delivery semantics**: At-least-once. If a task fails mid-read, the query is re-executed on recovery. There is no offset tracking — the entire query result is re-read.
-6. **Snapshot state**: `snapshotState()` returns the list of pending splits (not yet processed). Since there is only one split, the snapshot is either empty (split already assigned) or contains the single split.
+6. **Snapshot state**: `snapshotState()` returns the list of pending splits plus the in-flight split (the one currently being read), so that recovery re-executes the entire query from the current split. Since there is only one split, the snapshot is either empty (split fully consumed) or contains the single split.
 
 ### Scope: Bounded-Batch Only (No CDC)
 

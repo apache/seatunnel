@@ -22,7 +22,9 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -169,5 +171,61 @@ public class BigQuerySourceSplitEnumeratorTest {
         // Should not throw or assign
         enumerator.handleSplitRequest(0);
         verify(context, never()).assignSplit(anyInt(), anyList());
+    }
+
+    @Test
+    public void testRunSignalsAllReadersNoMoreSplits() {
+        // With two readers, the split goes to the first reader; the second must also
+        // receive signalNoMoreSplits so it can terminate instead of hanging.
+        Set<Integer> readers = new LinkedHashSet<>(Arrays.asList(0, 1));
+        SourceSplitEnumerator.Context<BigQuerySourceSplit> context = mockContext(readers);
+
+        BigQuerySourceSplitEnumerator enumerator =
+                new BigQuerySourceSplitEnumerator(context, TEST_QUERY, null);
+        enumerator.run();
+
+        // Reader 0 gets the split + no-more-splits signal
+        verify(context)
+                .assignSplit(
+                        eq(0),
+                        ArgumentMatchers.<List<BigQuerySourceSplit>>argThat(
+                                list -> list.size() == 1));
+        verify(context).signalNoMoreSplits(0);
+        // Reader 1 gets only the no-more-splits signal (no split assigned)
+        verify(context, never()).assignSplit(eq(1), anyList());
+        verify(context).signalNoMoreSplits(1);
+    }
+
+    @Test
+    public void testLateRegisteredReaderGetsNoMoreSplits() {
+        // After run() completes with reader 0, a late-registered reader 1 must
+        // receive signalNoMoreSplits so it does not wait for splits forever.
+        SourceSplitEnumerator.Context<BigQuerySourceSplit> context = mockContext(Set.of(0));
+
+        BigQuerySourceSplitEnumerator enumerator =
+                new BigQuerySourceSplitEnumerator(context, TEST_QUERY, null);
+        enumerator.run();
+
+        // Now simulate late registration of reader 1
+        when(context.registeredReaders()).thenReturn(new LinkedHashSet<>(Arrays.asList(0, 1)));
+        enumerator.registerReader(1);
+
+        verify(context).signalNoMoreSplits(1);
+    }
+
+    @Test
+    public void testEmptyRestoredStateSignalsNoMoreSplits() {
+        // Restoring from an empty pending-splits list must still signal completion
+        // to all registered readers so the bounded source can finish.
+        BigQuerySourceState emptyState = new BigQuerySourceState(Collections.emptyList());
+        SourceSplitEnumerator.Context<BigQuerySourceSplit> context = mockContext(Set.of(0));
+
+        BigQuerySourceSplitEnumerator enumerator =
+                new BigQuerySourceSplitEnumerator(context, TEST_QUERY, emptyState);
+        enumerator.run();
+
+        // No split to assign, but reader 0 must still be signaled
+        verify(context, never()).assignSplit(anyInt(), anyList());
+        verify(context).signalNoMoreSplits(0);
     }
 }

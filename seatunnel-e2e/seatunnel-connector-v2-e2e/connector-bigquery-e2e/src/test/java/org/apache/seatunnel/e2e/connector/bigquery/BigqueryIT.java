@@ -104,8 +104,7 @@ public class BigqueryIT extends AbstractBigqueryIT {
             throws IOException, InterruptedException {
         createSourceTestTable();
 
-        Container.ExecResult execResult =
-                container.executeJob("/bigquery_source_to_assert.conf");
+        Container.ExecResult execResult = container.executeJob("/bigquery_source_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 

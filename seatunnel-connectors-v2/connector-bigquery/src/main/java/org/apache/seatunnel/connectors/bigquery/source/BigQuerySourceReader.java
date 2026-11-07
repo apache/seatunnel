@@ -28,7 +28,6 @@ import org.apache.seatunnel.connectors.bigquery.option.BigQuerySourceOptions;
 
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryException;
-import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.FieldValue;
@@ -101,6 +100,20 @@ public class BigQuerySourceReader implements SourceReader<SeaTunnelRow, BigQuery
         // no-op
     }
 
+    /**
+     * Reads rows from BigQuery and emits them to the downstream collector. All operations are
+     * performed under the checkpoint lock to ensure consistent snapshots.
+     *
+     * <p>Lifecycle: on the first call with an unprocessed split, the reader either executes a dry
+     * run (validates query, emits no rows, signals completion) or executes the real query and
+     * starts iterating results. Subsequent calls drain the iterator in batches of {@code
+     * fetch_size} rows. When no splits remain and {@code noMoreSplit} is set, the reader signals
+     * {@code noMoreElement} to complete the bounded source.
+     *
+     * <p>Whole-query replay: if the task fails mid-read, recovery re-executes the entire query from
+     * the split. There is no row offset tracking — downstream sinks must tolerate at-least-once
+     * delivery.
+     */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         synchronized (output.getCheckpointLock()) {
@@ -143,6 +156,11 @@ public class BigQuerySourceReader implements SourceReader<SeaTunnelRow, BigQuery
         }
     }
 
+    /**
+     * Returns the current state for checkpointing. Includes both unprocessed pending splits and the
+     * in-flight split (if the reader is mid-read), so that recovery re-executes the entire query
+     * from the current split.
+     */
     @Override
     public List<BigQuerySourceSplit> snapshotState(long checkpointId) {
         if (currentSplit != null) {
@@ -164,23 +182,10 @@ public class BigQuerySourceReader implements SourceReader<SeaTunnelRow, BigQuery
     }
 
     private TableResult executeQuery(String query) throws Exception {
-        QueryJobConfiguration.Builder configBuilder =
-                QueryJobConfiguration.newBuilder(query)
+        QueryJobConfiguration queryConfig =
+                BigQuerySourceFactory.newQueryJobConfigBuilder(query, config)
                         .setMaxResults(config.get(BigQuerySourceOptions.MAX_RESULTS))
-                        .setUseQueryCache(config.get(BigQuerySourceOptions.USE_QUERY_CACHE));
-
-        if (config.get(BigQuerySourceOptions.MAXIMUM_BYTES_BILLED) != null) {
-            configBuilder.setMaximumBytesBilled(
-                    config.get(BigQuerySourceOptions.MAXIMUM_BYTES_BILLED));
-        }
-        if (config.get(BigQuerySourceOptions.DATASET_ID) != null) {
-            configBuilder.setDefaultDataset(
-                    DatasetId.of(
-                            config.get(BigQuerySourceOptions.PROJECT_ID),
-                            config.get(BigQuerySourceOptions.DATASET_ID)));
-        }
-
-        QueryJobConfiguration queryConfig = configBuilder.build();
+                        .build();
 
         try {
             if (config.get(BigQuerySourceOptions.LOCATION) != null) {
@@ -206,23 +211,10 @@ public class BigQuerySourceReader implements SourceReader<SeaTunnelRow, BigQuery
     }
 
     private void executeDryRun(String query) {
-        QueryJobConfiguration.Builder configBuilder =
-                QueryJobConfiguration.newBuilder(query)
+        QueryJobConfiguration queryConfig =
+                BigQuerySourceFactory.newQueryJobConfigBuilder(query, config)
                         .setDryRun(true)
-                        .setUseQueryCache(config.get(BigQuerySourceOptions.USE_QUERY_CACHE));
-
-        if (config.get(BigQuerySourceOptions.MAXIMUM_BYTES_BILLED) != null) {
-            configBuilder.setMaximumBytesBilled(
-                    config.get(BigQuerySourceOptions.MAXIMUM_BYTES_BILLED));
-        }
-        if (config.get(BigQuerySourceOptions.DATASET_ID) != null) {
-            configBuilder.setDefaultDataset(
-                    DatasetId.of(
-                            config.get(BigQuerySourceOptions.PROJECT_ID),
-                            config.get(BigQuerySourceOptions.DATASET_ID)));
-        }
-
-        QueryJobConfiguration queryConfig = configBuilder.build();
+                        .build();
 
         try {
             JobInfo jobInfo;
@@ -238,16 +230,19 @@ public class BigQuerySourceReader implements SourceReader<SeaTunnelRow, BigQuery
             Job job = bigQuery.create(jobInfo);
             JobStatistics.QueryStatistics stats = job.getStatistics();
             if (stats != null) {
-                log.info(
-                        "Dry run for query: {}. Estimated bytes processed: {}",
-                        query,
-                        stats.getEstimatedBytesProcessed());
+                Long estimatedBytes = stats.getEstimatedBytesProcessed();
+                if (estimatedBytes != null) {
+                    log.info(
+                            "Dry run for query: {}. Estimated bytes processed: {}",
+                            query,
+                            estimatedBytes);
+                }
                 Long cap = config.get(BigQuerySourceOptions.MAXIMUM_BYTES_BILLED);
-                if (cap != null && stats.getEstimatedBytesProcessed() != null) {
-                    if (stats.getEstimatedBytesProcessed() > cap) {
+                if (cap != null && estimatedBytes != null) {
+                    if (estimatedBytes > cap) {
                         log.warn(
                                 "Estimated bytes {} exceeds maximum_bytes_billed {}",
-                                stats.getEstimatedBytesProcessed(),
+                                estimatedBytes,
                                 cap);
                     }
                 }
@@ -260,6 +255,11 @@ public class BigQuerySourceReader implements SourceReader<SeaTunnelRow, BigQuery
         }
     }
 
+    /**
+     * Converts a BigQuery {@link FieldValueList} row into a {@link SeaTunnelRow}. Each field is
+     * converted by {@link #convertFieldValue(FieldValue, Field)}, which handles scalar types,
+     * STRUCT (nested {@link SeaTunnelRow}), and REPEATED fields ({@code Object[]} arrays).
+     */
     private SeaTunnelRow convertRow(FieldValueList row, FieldList fields) {
         Object[] values = new Object[fields.size()];
         for (int i = 0; i < fields.size(); i++) {

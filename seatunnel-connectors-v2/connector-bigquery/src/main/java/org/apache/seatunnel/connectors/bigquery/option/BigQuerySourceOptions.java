@@ -55,7 +55,9 @@ public class BigQuerySourceOptions extends BigQueryBaseOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription(
-                            "When true, executes a dry run that returns estimated bytes scanned and cost without actually running the query, mapped to QueryJobConfiguration.dryRun().");
+                            "When true, the reader executes a dry run instead of the real query at runtime and emits no rows, "
+                                    + "mapped to QueryJobConfiguration.dryRun(). Planning always discovers the schema via a zero-cost "
+                                    + "dry run regardless of this option.");
 
     public static final Option<Long> MAXIMUM_BYTES_BILLED =
             Options.key("maximum_bytes_billed")

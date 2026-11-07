@@ -35,6 +35,12 @@ public class BigQuerySourceSplitEnumerator
     private final String query;
     private final ConcurrentLinkedQueue<BigQuerySourceSplit> pendingSplits;
 
+    /** Tracks whether initial split discovery has completed in {@link #run()}. */
+    private volatile boolean splitsDiscovered = false;
+
+    /** Tracks the reader that received the split assignment, or -1 if none assigned. */
+    private volatile int assignedReader = -1;
+
     public BigQuerySourceSplitEnumerator(
             Context<BigQuerySourceSplit> context, String query, BigQuerySourceState restoreState) {
         this.context = context;
@@ -55,6 +61,8 @@ public class BigQuerySourceSplitEnumerator
     @Override
     public void run() {
         assignPendingSplits();
+        splitsDiscovered = true;
+        signalNoMoreSplitsToIdleReaders();
     }
 
     @Override
@@ -67,6 +75,7 @@ public class BigQuerySourceSplitEnumerator
         if (splits != null) {
             pendingSplits.addAll(splits);
             assignPendingSplits();
+            signalNoMoreSplitsToIdleReaders();
         }
     }
 
@@ -85,6 +94,10 @@ public class BigQuerySourceSplitEnumerator
     @Override
     public void registerReader(int subtaskId) {
         assignPendingSplits();
+        if (splitsDiscovered && assignedReader != subtaskId) {
+            context.signalNoMoreSplits(subtaskId);
+            log.info("Signaled no more splits to late-registered reader {}", subtaskId);
+        }
     }
 
     @Override
@@ -97,6 +110,11 @@ public class BigQuerySourceSplitEnumerator
         // no-op
     }
 
+    /**
+     * Assigns all pending splits to the first registered reader. BigQuery source uses a single
+     * split (one query), so all work goes to one reader. The remaining readers are signaled
+     * separately via {@link #signalNoMoreSplitsToIdleReaders()}.
+     */
     private void assignPendingSplits() {
         Set<Integer> readers = context.registeredReaders();
         if (readers.isEmpty() || pendingSplits.isEmpty()) {
@@ -110,7 +128,26 @@ public class BigQuerySourceSplitEnumerator
         if (!toAssign.isEmpty()) {
             context.assignSplit(firstReader, toAssign);
             context.signalNoMoreSplits(firstReader);
+            assignedReader = firstReader;
             log.info("Assigned {} split(s) to reader {}", toAssign.size(), firstReader);
+        }
+    }
+
+    /**
+     * Signals no-more-splits to every registered reader that did not receive a split assignment.
+     * Ensures idle and late-registered readers can terminate instead of waiting indefinitely. Must
+     * be called after {@link #assignPendingSplits()} and after {@code splitsDiscovered} is set.
+     */
+    private void signalNoMoreSplitsToIdleReaders() {
+        if (!splitsDiscovered) {
+            return;
+        }
+        Set<Integer> readers = context.registeredReaders();
+        for (int reader : readers) {
+            if (reader != assignedReader) {
+                context.signalNoMoreSplits(reader);
+                log.info("Signaled no more splits to idle reader {}", reader);
+            }
         }
     }
 }

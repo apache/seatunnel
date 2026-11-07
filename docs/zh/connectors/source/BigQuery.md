@@ -43,7 +43,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 | fetch_size                | int     | 否      | 0      | SeaTunnel 内部批量大小——每次 poll 周期向下游客发送的最大行数。零表示无限制。与 `max_results` 独立。较小的值允许在批次之间更频繁地做 checkpoint。                                                         |
 | location                  | string  | 否      | -      | BigQuery 作业位置，设置在 `JobId.setLocation()` 上。对于非 US/EU 区域的作业是必需的。                                                                                                                  |
 | use_query_cache           | boolean | 否      | true   | 是否使用 BigQuery 查询结果缓存，映射到 `QueryJobConfiguration.useQueryCache()`。                                                                                                                     |
-| dry_run                   | boolean | 否      | false  | 为 true 时执行试运行，返回预估扫描字节数和费用而不实际执行查询，映射到 `QueryJobConfiguration.dryRun()`。                                                                                              |
+| dry_run                   | boolean | 否      | false  | 为 true 时，reader 在运行阶段执行 dry-run 作业而非真实查询，不输出任何行，映射到 `QueryJobConfiguration.dryRun()`。规划阶段的 Schema 发现始终通过零成本 dry-run 完成，不受该参数影响。                 |
 | maximum_bytes_billed      | long    | 否      | -      | 费用上限；如果预估扫描字节数超过此限制，查询将失败，防止意外的全表扫描，映射到 `QueryJobConfiguration.maximumBytesBilled()`。                                                                        |
 | partition_filter          | string  | 否      | -      | 分区过滤谓词，仅用于表读取模式（`dataset_id` + `table_id`）。与 `query` 模式同时使用时会被拒绝并报错。当目标表启用了 `requirePartitionFilter` 时为必填。                                                 |
 | emulator_host             | string  | 否      | -      | BigQuery emulator REST 地址，例如 `localhost:9050`。该参数仅用于测试。                                                                                                                                |
@@ -65,7 +65,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 1. **自定义查询**：设置 `query` 为 SQL `SELECT` 语句。连接器执行该语句并转换结果。
 2. **表读取**：设置 `dataset_id` 和 `table_id`（不设置 `query`）。连接器自动生成 `SELECT * FROM \`project.dataset.table\``。可选设置 `partition_filter` 添加 `WHERE` 子句进行分区裁剪。
 
-Schema 从查询结果或表元数据中推断。当提供 `dataset_id` 和 `table_id` 时，连接器通过 `BigQueryCatalog.getTable()` 读取表元数据。当仅提供 `query` 时，连接器以 `max_results = 1` 执行查询，从 `TableResult.getSchema()` 推断 Schema。
+Schema 从查询结果或表元数据中推断。当提供 `dataset_id` 和 `table_id` 时，连接器通过 `BigQueryCatalog.getTable()` 读取表元数据。当仅提供 `query` 时，连接器始终通过零成本 dry-run 在不执行查询的情况下发现 Schema，从 `JobStatistics.QueryStatistics.getSchema()` 提取（BigQuery 仅为 dry-run 作业填充该字段），该规划步骤与 `dry_run` 参数无关。如果 dry-run 响应不包含 Schema（例如使用 BigQuery emulator 时），工厂会降级为 `max_results = 1` 的查询（会执行但最多返回一行，仍可获取 Schema 供下游 transform 使用）。`maximum_bytes_billed` 成本上限在 Schema 发现的两个阶段均生效。
 
 ### max_results
 
@@ -83,7 +83,9 @@ Schema 从查询结果或表元数据中推断。当提供 `dataset_id` 和 `tab
 
 ### dry_run
 
-当 `dry_run = true` 时，源连接器通过 `BigQuery.create(JobInfo.of(queryConfig))` 并设置 `dryRun = true` 执行试运行。这会验证查询并返回预估扫描字节数，而不实际执行查询。**不输出任何行**——试运行完成后源连接器立即发送 `noMoreElement` 信号。预估扫描字节数通过 `JobStatistics.QueryStatistics.getEstimatedBytesProcessed()` 以 INFO 级别日志输出。如果同时设置了 `maximum_bytes_billed` 且预估字节数超过该限制，将输出 WARN 日志。
+当 `dry_run = true` 时，reader 在运行阶段执行 dry-run 作业而非真实查询：记录预估扫描字节数并立即发送 `noMoreElement` 信号，**不输出任何行**。预估字节数通过 `JobStatistics.QueryStatistics.getEstimatedBytesProcessed()` 以 INFO 级别日志输出。如果同时设置了 `maximum_bytes_billed` 且预估字节数超过该限制，将输出 WARN 日志。当 `dry_run = false`（默认）时，查询正常执行。
+
+规划阶段的 Schema 发现不受该参数影响：在 `query` 模式下，工厂始终执行零成本 dry-run 校验查询并从 `JobStatistics.QueryStatistics.getSchema()` 提取 Schema，不执行查询，因此无论 `dry_run` 取值如何，规划阶段都不会计费扫描字节。详见[读取模式](#读取模式)。
 
 ### maximum_bytes_billed
 
@@ -199,16 +201,18 @@ sink {
 }
 ```
 
+注意：`service_account_key_json = "${GCP_SA_KEY_JSON}"` 使用了 SeaTunnel 的[变量替换](../../introduction/concepts/config.md)机制——请在提交作业时传入该变量的值；若未传入，`${...}` 字面值将被原样传递给连接器。
+
 ## 生命周期和交付语义
 
 BigQuery 源连接器是**有界**源（`Boundedness.BOUNDED`）：
 
-1. **分片枚举**：`BigQuerySourceSplitEnumerator` 创建包含已解析查询的单个分片，并将其分配给第一个 reader。没有并行读取——BigQuery SDK 在内部处理分页。
+1. **分片枚举**：`BigQuerySourceSplitEnumerator` 创建包含已解析查询的单个分片，并将其分配给第一个 reader。未分到分片的 reader 会收到 no-more-splits 信号，使空闲的 reader 能够正常结束。没有并行读取——BigQuery SDK 在内部处理分页。
 2. **查询执行**：在第一次 `pollNext` 时，reader 调用 `BigQuery.query(QueryJobConfiguration)` 执行查询。SDK 通过 `TableResult.iterateAll()` 自动分页。
 3. **批处理**：如果 `fetch_size > 0`，每次 `pollNext` 周期按 `fetch_size` 大小的批次发送行；否则所有行在一个周期内发送。批次之间，引擎可以执行 checkpoint。
-4. **作业清理**：BigQuery 客户端生命周期由 `BigQueryClientFactory`（单例）外部管理。`BigQuery.query()` 创建的查询作业在完成后由 BigQuery 自动清理。reader 的 `close()` 是空操作。
+4. **作业清理**：BigQuery 客户端由 `BigQueryClientFactory.getBigQuery()` 每次调用时创建（并非单例）。`BigQuery.query()` 创建的查询作业在完成后由 BigQuery 自动清理。reader 的 `close()` 是空操作。
 5. **交付语义**：至少一次（at-least-once）。如果任务在读取过程中失败，查询将在恢复时重新执行。没有 offset 跟踪——整个查询结果会被重新读取。
-6. **快照状态**：`snapshotState()` 返回待处理分片列表（尚未处理的）。由于只有一个分片，快照要么为空（分片已分配），要么包含该单个分片。
+6. **快照状态**：`snapshotState()` 返回待处理分片列表加上正在读取中的分片（in-flight split），使恢复时从当前分片重新执行整个查询。由于只有一个分片，快照要么为空（分片已完全消费），要么包含该单个分片。
 
 ### 范围：仅支持有界批处理（不支持 CDC）
 
