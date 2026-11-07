@@ -69,4 +69,30 @@ public class FakeSourceToAssertIT extends TestSuiteBase {
                 container.executeJob("/assertion/fake_full_types_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    /** DECIMAL above precision 38 keeps its values and type, also through a transform on Spark. */
+    @TestTemplate
+    public void testWideDecimalToAssertSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/assertion/fake_wide_decimal_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    /** Spark cannot carry DECIMAL above precision 38 inside a MAP and must say so at job start. */
+    @TestTemplate
+    public void testWideDecimalInMapToAssertSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/assertion/fake_wide_decimal_map_to_assert.conf");
+        if (container.identifier().getEngineType() != EngineType.SPARK) {
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            return;
+        }
+        Assertions.assertNotEquals(0, execResult.getExitCode());
+        String output = execResult.getStdout() + execResult.getStderr();
+        Assertions.assertTrue(output.contains("SPARK-TRANSLATION-01"), output);
+        Assertions.assertTrue(output.contains("`c_attrs.value`"), output);
+        Assertions.assertTrue(output.contains("DECIMAL(39, 0)"), output);
+    }
 }

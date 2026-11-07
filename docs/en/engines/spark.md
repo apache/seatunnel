@@ -98,6 +98,21 @@ sink {
 
 If you need more transform options, see [Transforms Catalog](../transforms) and [Transform Common Options](../transforms/common-options/common-options.md).
 
+## DECIMAL Precision Above 38
+
+Spark's `DECIMAL` type supports a precision of at most 38. SeaTunnel types can be wider, for example a Doris `LARGEINT` (`DECIMAL(39, 0)`) or a PostgreSQL `NUMERIC(50, 10)`.
+
+- **Top-level columns and fields inside a `ROW`**: SeaTunnel carries the value through Spark as plain decimal text in a `STRING` column, and records the declared precision and scale in the column metadata. Transforms and sinks still receive `DECIMAL(p, s)` with the exact value, so auto-created sink tables get the same column type as on the Zeta and Flink engines. Only Spark's own view of the data, such as the Dataset schema or a temporary view, shows the column as `STRING`.
+- **Inside an `ARRAY` or `MAP`** (element, key or value, at any depth): there is no column to hold the metadata, so the job fails at start, before any data is read. The error names the table, the column path (for example `tags.element` or `attrs.value`), the declared type and the Spark limit.
+
+SeaTunnel never rounds or truncates these values. A value that does not fit the declared precision or scale fails the job with an error naming the column.
+
+Workarounds for an `ARRAY` or `MAP` column. They all act at the source, because on Spark the source schema is built before any transform runs:
+
+- leave the column out at the source, for example with Doris `doris.read.field` or a JDBC `query` that omits it;
+- cast it to a string, or to a narrower type if you know the values fit, in the source query;
+- run the job on the Zeta or Flink engine, which keep `DECIMAL(p > 38)`.
+
 ## Running From A Source Checkout
 
 If you are running examples from the repository source tree, the example module is:

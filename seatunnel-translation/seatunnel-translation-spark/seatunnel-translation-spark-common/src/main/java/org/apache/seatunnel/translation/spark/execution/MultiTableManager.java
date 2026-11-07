@@ -27,6 +27,7 @@ import org.apache.seatunnel.translation.spark.serialization.InternalRowCollector
 import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
 import org.apache.seatunnel.translation.spark.serialization.SeaTunnelRowConverter;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
+import org.apache.seatunnel.translation.spark.utils.WideDecimalUtils;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRow;
@@ -58,6 +59,12 @@ public class MultiTableManager implements Serializable {
     private boolean isMultiTable = false;
 
     public MultiTableManager(CatalogTable[] catalogTables) {
+        // Merging renames the columns to column0..N, so check before it to name the real column.
+        for (CatalogTable catalogTable : catalogTables) {
+            WideDecimalUtils.checkNoWideDecimalInCollection(
+                    String.valueOf(catalogTable.getTablePath()),
+                    catalogTable.getSeaTunnelRowType());
+        }
         List<ColumnWithIndex> columnWithIndexes = mergeSchema(catalogTables);
         if (catalogTables.length > 1) {
             isMultiTable = true;
