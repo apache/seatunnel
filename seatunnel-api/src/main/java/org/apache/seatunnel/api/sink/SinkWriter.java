@@ -105,6 +105,19 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
         /** @return The index of this subtask. */
         int getIndexOfSubtask();
 
+        /**
+         * Returns the logical writer index retained across task attempts. Transactional sinks may
+         * use it to fence an abandoned attempt without changing the external identifiers of sinks
+         * that depend on {@link #getIndexOfSubtask()}.
+         *
+         * <p>On Spark this is the partition ID, while {@code getIndexOfSubtask()} retains the
+         * historical task-attempt ID. The stable index can be reused across streaming epochs; it
+         * must not be used alone as a unique identifier for a completed batch.
+         */
+        default int getStableSubtaskIndex() {
+            return getIndexOfSubtask();
+        }
+
         /** @return parallelism of this writer. */
         default int getNumberOfParallelSubtasks() {
             return 1;

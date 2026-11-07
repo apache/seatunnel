@@ -26,6 +26,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
 import java.time.Duration;
@@ -40,7 +41,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -223,6 +226,42 @@ class KafkaTransactionSenderTest {
                 sender.createdTransactionIds);
         Mockito.verify(existingTransaction).close(Duration.ZERO);
         Mockito.verify(unusedTransaction).close(Duration.ZERO);
+    }
+
+    @Test
+    void beginTransactionClosesProducerWhenBeginFails() {
+        KafkaInternalProducer<byte[], byte[]> producer = Mockito.mock(KafkaInternalProducer.class);
+        RuntimeException failure = new RuntimeException("begin failed");
+        doThrow(failure).when(producer).beginTransaction();
+        TestingKafkaTransactionSender sender = new TestingKafkaTransactionSender(producer);
+
+        RuntimeException thrown =
+                Assertions.assertThrows(
+                        RuntimeException.class, () -> sender.beginTransaction(TRANSACTION_ID));
+
+        Assertions.assertSame(failure, thrown);
+        verify(producer).close(Duration.ZERO);
+    }
+
+    @Test
+    void producerInitializationFailureClosesProducer() {
+        RuntimeException failure = new RuntimeException("initialization failed");
+        try (MockedConstruction<KafkaInternalProducer> producers =
+                mockConstruction(
+                        KafkaInternalProducer.class,
+                        (producer, context) ->
+                                doThrow(failure).when(producer).initTransactions())) {
+            KafkaTransactionSender<byte[], byte[]> sender =
+                    new KafkaTransactionSender<>(TRANSACTION_PREFIX, new Properties());
+
+            RuntimeException thrown =
+                    Assertions.assertThrows(
+                            RuntimeException.class, () -> sender.beginTransaction(TRANSACTION_ID));
+
+            Assertions.assertSame(failure, thrown);
+            Assertions.assertEquals(1, producers.constructed().size());
+            verify(producers.constructed().get(0)).close(Duration.ZERO);
+        }
     }
 
     private static ProducerRecord<byte[], byte[]> record() {

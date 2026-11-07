@@ -45,6 +45,14 @@ public class SinkContextProxy implements SinkWriter.Context {
     }
 
     @Override
+    public int getStableSubtaskIndex() {
+        // Preserve the replica offset when the parent has a separate task-attempt index.
+        int replicaIndex = index - context.getIndexOfSubtask() * replicaNum;
+        return Math.addExact(
+                Math.multiplyExact(context.getStableSubtaskIndex(), replicaNum), replicaIndex);
+    }
+
+    @Override
     public int getNumberOfParallelSubtasks() {
         return context.getNumberOfParallelSubtasks() * replicaNum;
     }

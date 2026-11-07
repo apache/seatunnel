@@ -60,7 +60,7 @@ Dry-run 诊断指出无效选项（包括 `topic` 中引用缺失字段的 `${fi
 | kafka_message_value_fields | Array  | 否    | -    | 配置哪些字段作为 kafka 消息的 value。如果没有指定，则将使用行中的所有字段（除了 `kafka_headers_fields` 中的字段）。 注意：此选项不支持 `native`, `compatible_debezium_json` 和 `compatible_kafka_connect_json` 格式。                                                                                      |
 | partition            | Int    | 否    | -    | 可以指定分区，所有消息都会发送到此分区                                                                                                                                                                                                                                                |
 | assign_partitions    | Array  | 否    | -    | 可以根据消息的内容决定发送哪个分区,该参数的作用是分发信息                                                                                                                                                                                                                                      |
-| transaction_prefix   | String | 否    | -    | 当 `semantics` 为 `EXACTLY_ONCE` 时，生产者会把消息写入 Kafka 事务。Kafka 通过 transaction id 区分不同事务，因此不同作业应使用不同前缀。                                                                                                                                           |
+| transaction_prefix   | String | 否    | -    | 当 `semantics` 为 `EXACTLY_ONCE` 时，生产者会把消息写入 Kafka 事务。Kafka 通过 transaction id 区分不同事务，因此不同作业应使用不同前缀。SeaTunnel 会将其扩展为 `<prefix>-<writer>-<sequence>`；详见[语义](#语义)。                                                                                                              |
 | format               | String | 否    | json | 数据格式。默认格式是json。可选 text, canal_json, debezium_json, compatible_debezium_json, ogg_json, maxwell_json, avro, protobuf 和 native。如果使用 json 或 text 格式，默认字段分隔符是 `,`。如果自定义分隔符，请添加 `field_delimiter` 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md)。如果使用 debezium 格式，请参阅 [debezium-json](../formats/debezium-json.md) 了解详细信息 |
 | field_delimiter      | String | 否    | ,    | 自定义数据格式的字段分隔符                                                                                                                                                                                                                                                      |
 | common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](../common-options/sink-common-options.md) 了解详情                                                                                                                                                                                                         |
@@ -94,6 +94,14 @@ Dry-run 诊断指出无效选项（包括 `topic` 中引用缺失字段的 `${fi
 NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢失，并且消息可能会重复，该模式下，任务失败重试可能会产生数据丢失或重复。
 
 使用 `EXACTLY_ONCE` 时需要开启 checkpoint，并确保每个运行中的作业使用唯一的 `transaction_prefix`。多个作业复用同一个事务前缀，可能导致 Kafka 事务冲突。
+
+同一作业的并行 Writer 可以共享配置的前缀。SeaTunnel 会追加一个不透明的 Writer 命名空间和连续的事务序号，生成 Kafka 事务 ID（`<prefix>-<writer>-<sequence>`），从而避免并行 Writer 触发 `ProducerFencedException`。对于同一恢复点的重试，Writer 部分会按确定性规则保持稳定，但不保证等于当前 subtask 索引。
+
+在 Zeta 和 Flink 上进行有状态恢复或调整并行度时，每个 Writer 会先清理恢复状态分配给它的所有未完成事务命名空间，再推进其中一个已分配的 Writer 专属命名空间的恢复修订号后开始新事务。该修订号独立于引擎的 checkpoint 计数器：同一恢复点的重试会得到相同命名空间，后续恢复则会再次推进修订号。没有状态的 Writer 使用不带修订号的当前索引基础命名空间，并在打开序号 1 的事务时对同一 ID 的旧尝试进行 fencing；它不会扫描该命名空间的全部历史。如果此类 Writer 在任何 checkpoint 状态被保留之前遗留了更高序号的事务，则没有 checkpoint 能标识该事务，`read_committed` 消费者可能会一直阻塞到 Kafka 的 `transaction.timeout.ms` 到期。恢复 Writer 专属状态时会推进已采用基础命名空间的修订号；仅恢复旧格式状态时则使用当前 Writer 索引对应的唯一基础命名空间，因此两种情况都不会与无状态的同级 Writer 重叠。
+
+恢复旧 checkpoint 时，还会清理旧共享命名空间中的未完成事务；checkpoint 状态格式保持不变。从使用旧事务 ID 格式的版本升级时，请先停止旧作业，再使用升级后的 SeaTunnel 根据作业配置重新生成执行图，并恢复保留的 checkpoint 或 savepoint 状态；不要复用旧版本序列化的执行图。如果 Kafka 事务 ID 的 ACL 仅允许旧的 `<prefix>-<checkpoint>` 模式，请调整权限以允许新的 ID，并在恢复旧 checkpoint 期间保留对旧 ID 的访问权限。
+
+在 Spark 上使用 Kafka Sink 的精确一次语义时，需要保持 `spark.speculation=false`（Spark 默认值），因为同一分区的并发尝试会共享 Writer 命名空间。Kafka 使用稳定的分区索引，其他 Sink 保留原有的任务尝试索引。稳定索引会在不同流式 epoch 之间复用，不能作为唯一批次标识。
 
 ### 分区关键字段
 
