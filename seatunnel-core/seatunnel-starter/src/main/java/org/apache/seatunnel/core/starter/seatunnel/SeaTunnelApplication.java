@@ -23,10 +23,10 @@ import org.apache.seatunnel.core.starter.seatunnel.args.ApplicationCommandArgs;
 import org.apache.seatunnel.core.starter.seatunnel.command.ApplicationExecuteCommand;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
+import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.HELP_EXIT_CODE;
+
 /** User-facing entrypoint for native Zeta application deployment and management. */
 public final class SeaTunnelApplication {
-    private static final int HELP_EXIT_CODE = 0;
-
     public static void main(String[] args) {
         ApplicationCommandArgs applicationCommandArgs =
                 CommandLineUtils.parse(

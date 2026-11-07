@@ -27,10 +27,10 @@ import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.HELP_EXIT_CODE;
+
 @Slf4j
 public class SeaTunnelClient {
-    private static final int HELP_EXIT_CODE = 0;
-
     public static void main(String[] args) throws CommandException {
         ClientCommandArgs clientCommandArgs =
                 CommandLineUtils.parse(
