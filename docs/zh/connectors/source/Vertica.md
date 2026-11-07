@@ -47,7 +47,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |-----------------|------------------|
 | BIT | BOOLEAN |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT |
-| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT | LONG |
+| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT | BIGINT |
 | BIGINT UNSIGNED | DECIMAL(20,0) |
 | DECIMAL(x,y)(<38) | DECIMAL(x,y) |
 | DECIMAL(x,y)(>38) | DECIMAL(38,18) |
