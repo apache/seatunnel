@@ -31,11 +31,16 @@ import java.net.URISyntaxException;
 
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 
+/**
+ * Executes the historical starter jobs with Flink 1.15's existing planner/runtime test classpath.
+ *
+ * <p>Restore command construction and wrapper argument checks stay in the common module.
+ */
 public class FlinkCommandArgsTest {
     @Test
     public void testExecuteClientCommandArgsWithPluginName()
             throws FileNotFoundException, URISyntaxException {
-        String configurePath = "/config/fake_to_inmemory.json";
+        String configurePath = "/config/fake_to_inmemory_with_flink.json";
         String configFile = MultiTableSinkTest.getTestConfigFile(configurePath);
         FlinkCommandArgs flinkCommandArgs = buildFlinkCommandArgs(configFile);
         Assertions.assertDoesNotThrow(() -> SeaTunnel.run(flinkCommandArgs.buildCommand()));

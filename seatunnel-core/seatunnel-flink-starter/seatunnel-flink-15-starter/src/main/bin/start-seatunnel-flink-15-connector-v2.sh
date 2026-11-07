@@ -64,9 +64,7 @@ fi
 
 if [ $# == 0 ]
 then
-    args="-h"
-else
-    args=$@
+    set -- -h
 fi
 
 set +u
@@ -79,14 +77,14 @@ fi
 
 CLASS_PATH=${APP_DIR}/starter/logging/*:${APP_JAR}
 
-CMD=$(java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
+CMD=$(java ${JAVA_OPTS} -cp "${CLASS_PATH}" "${APP_MAIN}" "$@") && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 234 ]; then
     # print usage
     echo "${CMD}"
     exit 0
 elif [ ${EXIT_CODE} -eq 0 ]; then
     echo "Execute SeaTunnel Flink Job: $(echo "${CMD}" | tail -n 1)"
-    eval $(echo "${CMD}" | tail -n 1)
+    eval "$(echo "${CMD}" | tail -n 1)"
 else
     echo "${CMD}"
     exit ${EXIT_CODE}
