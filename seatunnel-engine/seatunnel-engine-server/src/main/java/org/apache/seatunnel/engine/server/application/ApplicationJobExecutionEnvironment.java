@@ -88,7 +88,7 @@ public final class ApplicationJobExecutionEnvironment extends AbstractJobEnviron
                 idGenerator,
                 jobConfig,
                 commonPluginJars,
-                restoreMode.isRestore(),
+                restoreMode,
                 checkpoints,
                 server.getSeaTunnelConfig().getEngineConfig().getMetadataConfig());
     }

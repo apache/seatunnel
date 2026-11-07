@@ -60,6 +60,8 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
 
     private final Long restoreSourceJobId;
 
+    /** @deprecated Use the constructor that accepts {@link RestoreMode}. */
+    @Deprecated
     public RestJobExecutionEnvironment(
             SeaTunnelServer seaTunnelServer,
             JobConfig jobConfig,
@@ -166,7 +168,7 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                 idGenerator,
                 jobConfig,
                 commonPluginJars,
-                restoreMode.isRestore(),
+                restoreMode,
                 pipelineCheckpoints,
                 metaDataConfig);
     }
