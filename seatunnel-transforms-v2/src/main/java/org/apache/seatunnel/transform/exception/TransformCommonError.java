@@ -34,6 +34,7 @@ import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_TABLE_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.METADATA_FIELDS_NOT_FOUND;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.METADATA_MAPPING_FIELD_EXISTS;
+import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.SQL_SCHEMA_CHANGE_INCOMPATIBLE;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.WHERE_STATEMENT_ERROR;
 
 /** The common error of SeaTunnel transform. Please refer {@link CommonError} */
@@ -95,5 +96,44 @@ public class TransformCommonError {
     public static SeaTunnelRuntimeException encryptionError(String field, Throwable cause) {
         Map<String, String> params = new SingletonMap<>("field", field);
         return new TransformException(ENCRYPTION_FAILED, params, cause);
+    }
+
+    /**
+     * Raised when a schema change cannot be applied to a SQL transform without breaking its query
+     * or the schema contract with the sink.
+     *
+     * @param query the transform query
+     * @param table the table the change targets
+     * @param statement the upstream DDL statement, may be null
+     * @param reason the fixed reason string describing the incompatibility
+     * @return the exception to throw
+     */
+    public static TransformException sqlSchemaChangeIncompatible(
+            String query, String table, String statement, String reason) {
+        return new TransformException(
+                SQL_SCHEMA_CHANGE_INCOMPATIBLE,
+                sqlSchemaChangeParams(query, table, statement, reason));
+    }
+
+    /**
+     * Same as {@link #sqlSchemaChangeIncompatible(String, String, String, String)} with the
+     * underlying cause attached.
+     */
+    public static TransformException sqlSchemaChangeIncompatible(
+            String query, String table, String statement, String reason, Throwable cause) {
+        return new TransformException(
+                SQL_SCHEMA_CHANGE_INCOMPATIBLE,
+                sqlSchemaChangeParams(query, table, statement, reason),
+                cause);
+    }
+
+    private static Map<String, String> sqlSchemaChangeParams(
+            String query, String table, String statement, String reason) {
+        Map<String, String> params = new HashMap<>();
+        params.put("query", String.valueOf(query));
+        params.put("table", String.valueOf(table));
+        params.put("statement", String.valueOf(statement));
+        params.put("reason", String.valueOf(reason));
+        return params;
     }
 }
