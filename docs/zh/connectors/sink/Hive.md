@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 > Hive Sink 连接器
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 将数据写入 Hive。
@@ -269,6 +275,7 @@ sink {
       bucket = "s3a://mybucket"
       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
     }
+  }
 }
 ```
 
@@ -508,7 +515,7 @@ sink {
 }
 ```
 
-### 示例 2
+### 示例 3
 
 我们有多个源表如下：
 
