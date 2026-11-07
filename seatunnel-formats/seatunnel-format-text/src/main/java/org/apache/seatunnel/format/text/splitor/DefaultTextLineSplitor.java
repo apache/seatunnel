@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 public class DefaultTextLineSplitor implements TextLineSplitor, Serializable {
 
     @Override
-    public String[] spliteLine(String line, String seperator) {
+    public String[] spliteLine(String line, String separator) {
         return line.split(Pattern.quote(seperator), -1);
     }
 }
