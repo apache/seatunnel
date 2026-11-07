@@ -244,6 +244,37 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /**
+     * Writes a TIME column to a table the sink creates through the catalog. Databend has no TIME
+     * type, so the table only exists, and the rows only arrive, when the catalog names a text type
+     * for the column and the writer sends the time of day as text.
+     */
+    @TestTemplate
+    public void testFakeTimeToDatabend(TestContainer container) throws Exception {
+        String table = DATABASE + ".time_sink_table";
+        try (Connection conn = getConnection();
+                Statement statement = conn.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS " + table);
+        }
+
+        Container.ExecResult execResult =
+                container.executeJob("/databend/fake_time_to_databend.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        try (Connection conn = getConnection();
+                Statement statement = conn.createStatement()) {
+            List<String> values = new ArrayList<>();
+            try (ResultSet resultSet =
+                    statement.executeQuery("SELECT start_time FROM " + table + " ORDER BY id")) {
+                while (resultSet.next()) {
+                    values.add(resultSet.getString(1));
+                }
+            }
+            Assertions.assertEquals(Arrays.asList("08:00:00", "10:15:30.123"), values);
+            statement.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
     private synchronized Connection getConnection() throws SQLException {
         if (this.connection == null || this.connection.isClosed()) {
             LOG.info("Creating new database connection");
