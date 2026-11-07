@@ -12,6 +12,10 @@ JDBC Sink 通过数据库厂商提供的 JDBC 驱动写入数据。它支持批�
 
 生成的 DB2 upsert 会在传入字段发生变化时更新匹配行，包括 NULL 变为非 NULL 和非 NULL 变为 NULL。相等值（包括两端均为 NULL）不会触发多余的匹配更新。
 
+### SAP HANA 版本兼容
+
+生成的 upsert 通过不带目标表别名的 SQL 兼容 SAP HANA 2.00.033 等较早版本，无需额外配置。全字段均为键的表仍会插入未匹配行，并保持匹配行不变。
+
 ## MySQL 时间值
 
 MySQL `DATETIME` 映射为 SeaTunnel `TIMESTAMP`（`LocalDateTime`）。MySQL JDBC Sink 直接绑定本地日期和时间字段，即使 Worker JVM 与 JDBC 连接使用不同的时区，也会保留目标列支持的小数秒精度。MySQL `TIMESTAMP` 映射为 `TIMESTAMP_TZ`，仍按时间点处理。
@@ -44,6 +48,30 @@ sh bin/install-plugin.sh
 把 JDBC 驱动放到每个 SeaTunnel 节点的 `${SEATUNNEL_HOME}/lib/`，然后重启受影响的 SeaTunnel 进程，让驱动进入类路径。
 
 常用驱动类名和下载地址见[驱动参考](#驱动参考)。
+
+## CockroachDB
+
+使用 `driver = "org.postgresql.Driver"`、PostgreSQL JDBC URL，并显式配置 `dialect = "CockroachDB"`。作业启动前必须创建目标表；本方言不提供用于自动建表或 schema save mode 的 Catalog。
+
+```hocon
+Jdbc {
+  url = "jdbc:postgresql://cockroachdb:26257/app?sslmode=verify-full"
+  driver = "org.postgresql.Driver"
+  dialect = "CockroachDB"
+  username = "seatunnel"
+  password = ${DB_PASSWORD}
+  database = "app"
+  table = "public.orders"
+  generate_sink_sql = true
+  primary_keys = ["id"]
+}
+```
+
+请为驱动配置集群的受信任根证书。生产环境不要禁用 TLS。
+
+生成的 upsert 使用 CockroachDB 原生 `INSERT ... ON CONFLICT (keys) DO UPDATE`，保留 `primary_keys` 指定的冲突目标，也支持匹配的非主键唯一约束。不使用简写 `UPSERT`，因为它始终选择数据库实际主键，可能改变非主键唯一键配置的语义。更新仅修改输入中的非键列，未输入的列保留已有值；仅包含键的记录使用 `DO NOTHING`。重复写入相同的非空键值不会新增记录；可为空的唯一键包含 `NULL` 时不会产生冲突，可能新增记录。配置的键必须匹配目标表的主键或唯一约束。
+
+首期支持对现有表进行插入、upsert、更新和删除，不包含 CockroachDB Catalog、自动 DDL/模式演变、XA exactly-once 或新的事务重试策略。模式变更事件会在刷新缓冲数据或执行 DDL 前被拒绝。仅支持 `data_save_mode = APPEND_DATA`；`schema_save_mode` 可以保持默认值或设为 `IGNORE`，但这两种配置都不会创建或检查目标表。其他 save mode 会被拒绝，而不会被静默忽略。`table_options` 会被拒绝，避免误接受 PostgreSQL 专有设置。现有 PostgreSQL 作业和 URL 匹配规则不变。
 
 ## 选择写入模式
 
@@ -277,7 +305,7 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 | Vertica   | OceanBase  | XUGU     |
 | IRIS      | Inceptor   | Highgo   |
 | DSQL      |            |          |
-| YashanDB  |            |          |
+| YashanDB  | CockroachDB |          |
 
 ### database [string]
 

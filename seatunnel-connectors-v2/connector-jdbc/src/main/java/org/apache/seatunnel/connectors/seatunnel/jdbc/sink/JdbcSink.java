@@ -59,6 +59,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -342,6 +343,9 @@ public class JdbcSink
 
     @Override
     public List<SchemaChangeType> supports() {
+        if (!dialect.supportsSchemaChange()) {
+            return Collections.emptyList();
+        }
         List<SchemaChangeType> supportedTypes =
                 new ArrayList<>(
                         Arrays.asList(

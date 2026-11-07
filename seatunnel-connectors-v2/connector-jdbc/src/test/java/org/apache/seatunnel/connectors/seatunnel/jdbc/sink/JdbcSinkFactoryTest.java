@@ -29,8 +29,10 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -63,6 +65,14 @@ class JdbcSinkFactoryTest {
         cfg.put("data_save_mode", "APPEND_DATA");
         cfg.put("generate_sink_sql", true);
         cfg.put("database", "ORCL");
+        return cfg;
+    }
+
+    private Map<String, Object> cockroachConfig() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("url", "jdbc:postgresql://localhost:26257/defaultdb");
+        cfg.put("driver", "org.postgresql.Driver");
+        cfg.put("dialect", "CockroachDB");
         return cfg;
     }
 
@@ -367,5 +377,37 @@ class JdbcSinkFactoryTest {
                         .getTableSchema()
                         .getPrimaryKey()
                         .getColumnNames());
+    }
+
+    @Test
+    void cockroachDoesNotAdvertiseSchemaEvolutionWhilePostgresStillDoes() {
+        Map<String, Object> cfg = cockroachConfig();
+        JdbcSink cockroach = (JdbcSink) createSinkViaFactoryContext(cfg, true).createSink();
+        Assertions.assertTrue(cockroach.supports().isEmpty());
+
+        cfg.put("dialect", "Postgres");
+        JdbcSink postgres = (JdbcSink) createSinkViaFactoryContext(cfg, true).createSink();
+        Assertions.assertTrue(postgres.supports().contains(SchemaChangeType.ADD_COLUMN));
+    }
+
+    @Test
+    void cockroachRejectsSaveModesThatWouldOtherwiseBeSkipped() {
+        Map<String, Object> cfg = cockroachConfig();
+        cfg.put("schema_save_mode", "IGNORE");
+        Assertions.assertDoesNotThrow(() -> createSinkViaFactoryContext(cfg, true));
+        cfg.put("custom_sql", "DELETE FROM public.target");
+
+        for (String dataMode :
+                new String[] {"DROP_DATA", "CUSTOM_PROCESSING", "ERROR_WHEN_DATA_EXISTS"}) {
+            cfg.put("data_save_mode", dataMode);
+            Assertions.assertThrows(
+                    JdbcConnectorException.class, () -> createSinkViaFactoryContext(cfg, true));
+        }
+        cfg.put("data_save_mode", "APPEND_DATA");
+        for (String schemaMode : new String[] {"RECREATE_SCHEMA", "ERROR_WHEN_SCHEMA_NOT_EXIST"}) {
+            cfg.put("schema_save_mode", schemaMode);
+            Assertions.assertThrows(
+                    JdbcConnectorException.class, () -> createSinkViaFactoryContext(cfg, true));
+        }
     }
 }

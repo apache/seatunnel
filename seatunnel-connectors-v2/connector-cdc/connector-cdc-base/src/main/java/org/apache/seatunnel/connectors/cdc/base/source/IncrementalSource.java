@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -85,10 +86,18 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * Base class of the incremental snapshot CDC sources.
+ *
+ * <p>Its readers and enumerator exchange {@link org.apache.seatunnel.api.source.SourceEvent}s
+ * (finished snapshot split reports, their acknowledgements and the end of the snapshot phase), so
+ * it is marked with {@link SupportCoordinate} to run one enumerator for all readers on engines that
+ * would otherwise give every reader its own enumerator.
+ */
 @NoArgsConstructor
 @Slf4j
 public abstract class IncrementalSource<T, C extends SourceConfig>
-        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
+        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState>, SupportCoordinate {
 
     static {
         // Load DriverManager first to avoid deadlock between DriverManager's
