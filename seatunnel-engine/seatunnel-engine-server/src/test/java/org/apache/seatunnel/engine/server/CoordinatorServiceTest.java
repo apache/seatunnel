@@ -51,6 +51,7 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.observability.ObservabilityConfig;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
@@ -62,6 +63,8 @@ import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.mockito.Mockito;
 
@@ -1430,28 +1433,264 @@ public class CoordinatorServiceTest {
         }
     }
 
-    @Test
-    void testGetPendingJobInfo() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testGetPendingJobInfoPrefersPendingAttemptOverFinishedHistory(boolean enabled) {
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
         CoordinatorService coordinatorService = newMockCoordinatorService(server);
         try {
             Long jobId = 70001L;
             JobHistoryService jobHistoryService = Mockito.mock(JobHistoryService.class);
             ReflectionUtils.setField(coordinatorService, "jobHistoryService", jobHistoryService);
-            Mockito.when(jobHistoryService.getJobDAGInfo(jobId)).thenReturn(null);
+            JobDAGInfo finishedJobDAGInfo = new JobDAGInfo();
+            finishedJobDAGInfo.setJobId(jobId);
+            finishedJobDAGInfo.setEnvOptions(
+                    Collections.singletonMap("engine.observability.enabled", !enabled));
+            Mockito.when(jobHistoryService.getJobDAGInfo(jobId)).thenReturn(finishedJobDAGInfo);
 
             JobDAGInfo pendingJobDAGInfo = new JobDAGInfo();
             pendingJobDAGInfo.setJobId(jobId);
+            pendingJobDAGInfo.setEnvOptions(
+                    Collections.singletonMap("engine.observability.enabled", enabled));
+            ReflectionUtils.setField(coordinatorService, "isActive", false);
+            getCoordinatorExecutor(coordinatorService).shutdownNow();
             JobMaster jobMaster =
                     enqueueMockPendingJob(coordinatorService, jobId, new CountDownLatch(1));
             Mockito.when(jobMaster.getJobDAGInfo()).thenReturn(pendingJobDAGInfo);
 
-            Assertions.assertTrue(coordinatorService.getPendingJobQueue().contains(jobId));
-
             JobDAGInfo jobDAGInfo =
                     Assertions.assertDoesNotThrow(() -> coordinatorService.getJobInfo(jobId));
             Assertions.assertSame(pendingJobDAGInfo, jobDAGInfo);
-            Assertions.assertEquals(jobId, jobDAGInfo.getJobId());
+            Assertions.assertEquals(
+                    enabled,
+                    ObservabilityConfig.fromEnvOptions(jobDAGInfo.getEnvOptions()).isEnabled());
+        } finally {
+            coordinatorService.shutdown();
+        }
+    }
+
+    @Test
+    void testGetJobInfoPrefersCurrentAttemptOverFinishedHistory() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        try {
+            Long jobId = 70002L;
+            JobHistoryService jobHistoryService = Mockito.mock(JobHistoryService.class);
+            ReflectionUtils.setField(coordinatorService, "jobHistoryService", jobHistoryService);
+
+            JobDAGInfo finishedJobDAGInfo = new JobDAGInfo();
+            finishedJobDAGInfo.setJobId(jobId);
+            finishedJobDAGInfo.setEnvOptions(
+                    Collections.singletonMap("engine.observability.enabled", true));
+            Mockito.when(jobHistoryService.getJobDAGInfo(jobId)).thenReturn(finishedJobDAGInfo);
+
+            JobDAGInfo currentJobDAGInfo = new JobDAGInfo();
+            currentJobDAGInfo.setJobId(jobId);
+            Map<String, Object> currentEnvOptions = new HashMap<>();
+            currentEnvOptions.put("engine.observability.enabled", true);
+            currentEnvOptions.put("engine.observability.bucket_ms", 10000L);
+            currentEnvOptions.put("engine.observability.retention_minutes", 7);
+            currentJobDAGInfo.setEnvOptions(currentEnvOptions);
+            JobMaster jobMaster = Mockito.mock(JobMaster.class);
+            Mockito.when(jobMaster.getJobDAGInfo()).thenReturn(currentJobDAGInfo);
+            getRunningJobMasterMap(coordinatorService).put(jobId, jobMaster);
+
+            JobDAGInfo resolvedJobDAGInfo = coordinatorService.getJobInfo(jobId);
+            Assertions.assertSame(currentJobDAGInfo, resolvedJobDAGInfo);
+            ObservabilityConfig observabilityConfig =
+                    ObservabilityConfig.fromEnvOptions(resolvedJobDAGInfo.getEnvOptions());
+            Assertions.assertTrue(observabilityConfig.isEnabled());
+            Assertions.assertEquals(10000L, observabilityConfig.getBucketMs());
+            Assertions.assertEquals(7, observabilityConfig.getRetentionMinutes());
+        } finally {
+            coordinatorService.shutdown();
+        }
+    }
+
+    @Test
+    void testGetJobInfoPrefersDistributedJobInfoOverFinishedHistory() throws Exception {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testGetJobInfoPrefersDistributedJobInfoOverFinishedHistory",
+                        "batch_fake_to_console.conf",
+                        "test_get_job_info_distributed_precedence");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        try {
+            Long jobId = jobInformation.jobId;
+            HazelcastInstanceImpl instance = jobInformation.coordinatorServiceTest;
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED, coordinatorService.getJobStatus(jobId));
+                                Assertions.assertNull(coordinatorService.getJobMaster(jobId));
+                                Assertions.assertFalse(
+                                        coordinatorService.getPendingJobQueue().contains(jobId));
+                                Assertions.assertFalse(
+                                        instance.getMap(Constant.IMAP_RUNNING_JOB_INFO)
+                                                .containsKey(jobId));
+                            });
+
+            LogicalDag logicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "batch_fake_to_console.conf",
+                            "test_get_job_info_distributed_precedence",
+                            jobId);
+            Map<String, Object> distributedEnvOptions = logicalDag.getJobConfig().getEnvOptions();
+            distributedEnvOptions.put("engine.observability.enabled", true);
+            distributedEnvOptions.put("engine.observability.bucket_ms", 2000L);
+            distributedEnvOptions.put("engine.observability.retention_minutes", 3);
+            JobImmutableInformation jobImmutableInformation =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance.getSerializationService(),
+                            logicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            IMap<Long, JobInfo> runningJobInfoIMap =
+                    instance.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            ReflectionUtils.setField(coordinatorService, "runningJobInfoIMap", runningJobInfoIMap);
+            runningJobInfoIMap.put(
+                    jobId,
+                    new JobInfo(
+                            System.currentTimeMillis(),
+                            instance.getSerializationService().toData(jobImmutableInformation)));
+            JobInfo storedJobInfo = runningJobInfoIMap.get(jobId);
+            Assertions.assertNotNull(storedJobInfo);
+            JobImmutableInformation storedImmutableInformation =
+                    instance.getSerializationService()
+                            .toObject(storedJobInfo.getJobImmutableInformation());
+            Assertions.assertEquals(
+                    true,
+                    storedImmutableInformation
+                            .getJobConfig()
+                            .getEnvOptions()
+                            .get("engine.observability.enabled"));
+
+            JobHistoryService jobHistoryService = Mockito.mock(JobHistoryService.class);
+            ReflectionUtils.setField(coordinatorService, "jobHistoryService", jobHistoryService);
+            JobDAGInfo finishedJobDAGInfo = new JobDAGInfo();
+            finishedJobDAGInfo.setJobId(jobId);
+            Map<String, Object> finishedEnvOptions = new HashMap<>();
+            finishedEnvOptions.put("engine.observability.enabled", false);
+            finishedEnvOptions.put("engine.observability.bucket_ms", 1000L);
+            finishedJobDAGInfo.setEnvOptions(finishedEnvOptions);
+            Mockito.when(jobHistoryService.getJobDAGInfo(jobId)).thenReturn(finishedJobDAGInfo);
+
+            ObservabilityConfig observabilityConfig =
+                    ObservabilityConfig.fromEnvOptions(
+                            coordinatorService.getJobInfo(jobId).getEnvOptions());
+            Assertions.assertTrue(observabilityConfig.isEnabled());
+            Assertions.assertEquals(2000L, observabilityConfig.getBucketMs());
+        } finally {
+            jobInformation.coordinatorServiceTest.shutdown();
+        }
+    }
+
+    @Test
+    void testGetJobInfoReturnsHistoryWhenDistributedAndCurrentAttemptsMatch() throws Exception {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testGetJobInfoReturnsHistoryWhenDistributedAndCurrentAttemptsMatch",
+                        "batch_fake_to_console.conf",
+                        "test_get_job_info_matching_history");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        try {
+            Long jobId = jobInformation.jobId;
+            coordinatorService.getPendingJobQueue().removeById(jobId);
+            getRunningJobMasterMap(coordinatorService).remove(jobId);
+
+            JobDAGInfo distributedJobDAGInfo = coordinatorService.getJobInfo(jobId);
+            JobHistoryService jobHistoryService = Mockito.mock(JobHistoryService.class);
+            ReflectionUtils.setField(coordinatorService, "jobHistoryService", jobHistoryService);
+            Mockito.when(jobHistoryService.getJobDAGInfo(jobId)).thenReturn(distributedJobDAGInfo);
+
+            ObservabilityConfig distributedConfig =
+                    ObservabilityConfig.fromEnvOptions(distributedJobDAGInfo.getEnvOptions());
+            ObservabilityConfig resolvedConfig =
+                    ObservabilityConfig.fromEnvOptions(
+                            coordinatorService.getJobInfo(jobId).getEnvOptions());
+            Assertions.assertEquals(distributedConfig.isEnabled(), resolvedConfig.isEnabled());
+            Assertions.assertEquals(distributedConfig.getBucketMs(), resolvedConfig.getBucketMs());
+            Assertions.assertEquals(
+                    distributedConfig.getRetentionMinutes(), resolvedConfig.getRetentionMinutes());
+        } finally {
+            jobInformation.coordinatorServiceTest.shutdown();
+        }
+    }
+
+    @Test
+    void testGetJobInfoThrowsWhenNoCurrentAttemptOrHistory() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        try {
+            JobHistoryService jobHistoryService = Mockito.mock(JobHistoryService.class);
+            ReflectionUtils.setField(coordinatorService, "jobHistoryService", jobHistoryService);
+            ReflectionUtils.setField(
+                    coordinatorService, "runningJobInfoIMap", Mockito.mock(IMap.class));
+            Mockito.when(jobHistoryService.getJobDAGInfo(70005L)).thenReturn(null);
+
+            Assertions.assertThrows(
+                    JobNotFoundException.class, () -> coordinatorService.getJobInfo(70005L));
+        } finally {
+            coordinatorService.shutdown();
+        }
+    }
+
+    @Test
+    void testGetJobInfoFallsBackToFinishedHistoryWithoutCurrentAttempt() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        try {
+            Long jobId = 70003L;
+            JobHistoryService jobHistoryService = Mockito.mock(JobHistoryService.class);
+            ReflectionUtils.setField(coordinatorService, "jobHistoryService", jobHistoryService);
+            ReflectionUtils.setField(
+                    coordinatorService, "runningJobInfoIMap", Mockito.mock(IMap.class));
+
+            JobDAGInfo finishedJobDAGInfo = new JobDAGInfo();
+            finishedJobDAGInfo.setJobId(jobId);
+            Mockito.when(jobHistoryService.getJobDAGInfo(jobId)).thenReturn(finishedJobDAGInfo);
+
+            Assertions.assertSame(finishedJobDAGInfo, coordinatorService.getJobInfo(jobId));
+        } finally {
+            coordinatorService.shutdown();
+        }
+    }
+
+    @Test
+    void testGetJobInfoPreservesUnchangedObservabilityConfigAcrossRestore() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        try {
+            Long jobId = 70004L;
+            JobHistoryService jobHistoryService = Mockito.mock(JobHistoryService.class);
+            ReflectionUtils.setField(coordinatorService, "jobHistoryService", jobHistoryService);
+
+            Map<String, Object> envOptions = new HashMap<>();
+            envOptions.put("engine.observability.enabled", true);
+            envOptions.put("engine.observability.bucket_ms", 5000L);
+            envOptions.put("engine.observability.retention_minutes", 3);
+
+            JobDAGInfo finishedJobDAGInfo = new JobDAGInfo();
+            finishedJobDAGInfo.setJobId(jobId);
+            finishedJobDAGInfo.setEnvOptions(envOptions);
+            Mockito.when(jobHistoryService.getJobDAGInfo(jobId)).thenReturn(finishedJobDAGInfo);
+
+            JobDAGInfo currentJobDAGInfo = new JobDAGInfo();
+            currentJobDAGInfo.setJobId(jobId);
+            currentJobDAGInfo.setEnvOptions(new HashMap<>(envOptions));
+            JobMaster jobMaster = Mockito.mock(JobMaster.class);
+            Mockito.when(jobMaster.getJobDAGInfo()).thenReturn(currentJobDAGInfo);
+            getRunningJobMasterMap(coordinatorService).put(jobId, jobMaster);
+
+            ObservabilityConfig observabilityConfig =
+                    ObservabilityConfig.fromEnvOptions(
+                            coordinatorService.getJobInfo(jobId).getEnvOptions());
+            Assertions.assertTrue(observabilityConfig.isEnabled());
+            Assertions.assertEquals(5000L, observabilityConfig.getBucketMs());
+            Assertions.assertEquals(3, observabilityConfig.getRetentionMinutes());
         } finally {
             coordinatorService.shutdown();
         }
