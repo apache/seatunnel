@@ -114,7 +114,7 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
         } else {
             checkNotNull(hostname, "hostname is required when url is not configured");
             props.setProperty("database.hostname", hostname);
-            checkNotNull(port, "port is required when url is not configured");
+            checkNotNull(port, "port number is required when url is not configured");
             props.setProperty("database.port", String.valueOf(port));
         }
 
@@ -143,15 +143,6 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
 
         // override the user-defined debezium properties
         if (dbzProperties != null) {
-            String debeziumSchemaChanges =
-                    dbzProperties.getProperty(
-                            SCHEMA_CHANGE_KEY, String.valueOf(schemaChangeEnabled));
-            String debeziumLogMiningStrategy = dbzProperties.getProperty(LOG_MINING_STRATEGY_KEY);
-            if (Boolean.parseBoolean(debeziumSchemaChanges)
-                    && LOG_MINING_STRATEGY_DEFAULT.equals(debeziumLogMiningStrategy)) {
-                throw new IllegalArgumentException(
-                        "Debezium log mining strategy must be set to redo_log_catalog when schema changes are enabled");
-            }
             props.putAll(dbzProperties);
         }
 
@@ -186,35 +177,5 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
         // Propagate the enableConcurrentRead flag so the chunk splitter can skip split analysis.
         config.setEnableConcurrentRead(this.enableConcurrentRead);
         return config;
-    }
-
-    private void validateConfig() throws IllegalArgumentException {
-        if (databaseList.size() != 1) {
-            throw new IllegalArgumentException(
-                    "Oracle only supports single database, databaseList: " + databaseList);
-        }
-        for (String database : databaseList) {
-            for (int i = 0; i < database.length(); i++) {
-                if (Character.isLetter(database.charAt(i))
-                        && !Character.isUpperCase(database.charAt(i))) {
-                    throw new IllegalArgumentException(
-                            "Oracle database name must be in all uppercase, database: " + database);
-                }
-            }
-        }
-        for (String table : tableList) {
-            if (table.split("\\.").length != 3 && table.split("\\.").length != 2) {
-                throw new IllegalArgumentException(
-                        "Oracle table name format must be is: ${database}.${schema}.${table} or ${schema}.${table}, table: "
-                                + table);
-            }
-            for (int i = 0; i < table.length(); i++) {
-                if (Character.isLetter(table.charAt(i))
-                        && !Character.isUpperCase(table.charAt(i))) {
-                    throw new IllegalArgumentException(
-                            "Oracle table name must be in all uppercase, table: " + table);
-                }
-            }
-        }
     }
 }
