@@ -108,6 +108,18 @@ The example entry point is:
 
 - `org.apache.seatunnel.example.spark.v2.SeaTunnelApiExample`
 
+## Nested Arrays
+
+For fields whose SeaTunnel type is an array, including types provided by connectors or catalogs, the Spark translation layer preserves array values across source, transform and sink conversion boundaries, including arrays containing arrays, maps, rows and decimals. For example, an `ARRAY<ARRAY<INT>>` field retains its inner arrays, including empty arrays.
+
+Configuration `schema` strings accept array elements of string, boolean, integer, floating-point, map and array types, including `array<array<map<string,array<int>>>>`. Other element types, such as row, decimal, date, time, timestamp and bytes, require types supplied by a connector or catalog.
+
+Connector materialization remains separate from Spark conversion. JSON-based sources such as FakeSource cannot currently materialize parser-declared arrays of arrays of maps, even though the schema string parses successfully.
+
+Null elements, including null maps and rows, remain null. Arrays returned to SeaTunnel transforms use the declared element class (for example, `String[]` or `Integer[]`), and empty arrays retain their type at transform and sink boundaries. See [Spark Array Conversion](../introduction/concepts/incompatible-changes.md#spark-array-conversion) for migration guidance.
+
+Every array must have one compatible element type. Mixed element shapes, such as an integer and an array in the same array, are not supported. Nested SQL expressions and map-of-map pipelines remain subject to the transform and connector type limits. Spark array schemas do not carry the field metadata needed to infer SeaTunnel `TIME` or `TIMESTAMP_TZ`: their physical `BIGINT` and `DECIMAL` representations do not identify the logical time type. Reverse schema inference for `TIMESTAMP` arrays is also unsupported.
+
 ## Next Steps
 
 - [Quick Start With Spark](../getting-started/locally/quick-start-spark.md)
