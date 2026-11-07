@@ -63,6 +63,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | BYTES                           | BLOB           |
 | ARRAY<br/>ROW<br/>MAP           | 不支持           |
 
+DuckDB Sink 自动建表时，精度为 0、3、6、9 的 SeaTunnel `TIMESTAMP` 列分别生成 `TIMESTAMP_S`、`TIMESTAMP_MS`、`TIMESTAMP`、`TIMESTAMP_NS`。中间的正数精度使用下一个更宽的原生精度；未指定精度时保留默认的 `TIMESTAMP` 映射。显式精度 0 表示整秒：这类列此前自动生成为微秒精度的 `TIMESTAMP`，现在改为 `TIMESTAMP_S`。已有目标表不会自动迁移；依赖小数秒之前，请检查源列声明的精度和目标列类型。
+
+写入器将本地 `TIMESTAMP` 值按时间戳文本绑定，保留 `LocalDateTime` 的原始时刻及目标列支持的小数位数。这避免了测试所用 DuckDB JDBC 驱动（1.3.1.0）的类型化时间戳绑定对夏令时缺失区间、公历切换日期产生偏移，以及丢失微秒以下小数位的问题。SQL `NULL` 仍写为 `NULL`，其他数据类型保留原有 JDBC 绑定方式。
+
 JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
 
 ## Sink 选项
