@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 
 @Data
 @Slf4j
@@ -719,6 +720,18 @@ public class SubPlan {
 
     public int getPipelineRestoreNum() {
         return pipelineRestoreNum.get();
+    }
+
+    /**
+     * Checks timeout ownership while excluding restorePipelineState and stateProcess. The callback
+     * must not acquire the coordinator monitor or checkpoint lock.
+     */
+    public synchronized boolean handleRestoreProgressTimeout(BooleanSupplier failCurrentWindow) {
+        if (getPipelineState().isEndState() || !failCurrentWindow.getAsBoolean()) {
+            return false;
+        }
+        handleCheckpointError();
+        return true;
     }
 
     public void handleCheckpointError() {
