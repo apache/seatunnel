@@ -299,9 +299,8 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | SqlServer | Tablestore   | Teradata |
 | Vertica   | OceanBase    | XUGU     |
 | IRIS      | Inceptor     | Highgo   |
-| DSQL      |              |          |
-| YashanDB  | CockroachDB  |          |
-
+| OpenGauss | Presto       | Dsql        |
+| DuckDB    | YashanDB     | CockroachDB |
 
 SeaTunnel `TIMESTAMP_TZ` values are written to existing native timezone-aware columns through JDBC `setObject` with `java.time.OffsetDateTime`. Auto table creation remains available only for dialects that provide a catalog and a timezone-aware type converter; Db2 does not currently provide JDBC auto table creation. If a driver rejects `setObject(OffsetDateTime)`, the existing fallback uses `setTimestamp` with a UTC calendar. That path represents the instant but does not guarantee retaining the original offset; validate the target driver and column semantics.
 

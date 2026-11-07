@@ -255,7 +255,7 @@ over time:
 Baseline → Candidate → Candidate → Baseline
 ```
 
-Java 8 and Java 11 run this comparison separately, and the report summarizes two runs of each
+Java 11 and Java 17 run this comparison separately, and the report summarizes two runs of each
 revision.
 
 After the run, confirm that the job reached JMH measurement and verify the SHAs, method, and

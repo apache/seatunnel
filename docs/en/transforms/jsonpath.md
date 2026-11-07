@@ -234,9 +234,9 @@ transform {
 
 Then the data result table `fake1` will like this
 
-| name | age |   col    | other |
-|------|-----|----------|-------|
-| a    | 18  | ["a",18] | ...   |
+|   col    | other | name | age |
+|----------|-------|------|-----|
+| ["a",18] | ...   | a    | 18  |
 
 
 ## Configure error data handle way
