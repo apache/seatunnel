@@ -42,6 +42,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.zip.CRC32;
@@ -109,6 +110,30 @@ public class MysqlDialectTest {
                                 unsupportedDialect.validateTableOptions(
                                         Collections.singletonMap("engine", "InnoDB")));
         Assertions.assertTrue(exception.getMessage().contains("not supported"));
+    }
+
+    @Test
+    public void testQuoteIdentifierDoesNotDependOnTheDefaultLocale() {
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+        try {
+            for (Locale locale : new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
+                Locale.setDefault(locale);
+                Assertions.assertEquals("`id`", new MysqlDialect("original").quoteIdentifier("id"));
+                Assertions.assertEquals(
+                        "`user_id`", new MysqlDialect("lowercase").quoteIdentifier("USER_ID"));
+                Assertions.assertEquals(
+                        "`USER_ID`", new MysqlDialect("uppercase").quoteIdentifier("user_id"));
+            }
+        } finally {
+            // The base locale first, because setting it overwrites both category defaults.
+            Locale.setDefault(saved[0]);
+            Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+            Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
+        }
     }
 
     @Test
