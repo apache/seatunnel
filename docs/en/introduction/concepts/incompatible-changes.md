@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### JDBC source: rows with a NULL split column value are no longer skipped
+
+- **Behavior change: the JDBC source reads the rows whose split column is NULL**
+  - **Description**: Split conditions are ranges or hashes of the split column, and none of them matches NULL. When a nullable split column (a `partition_column`, or a unique index column chosen automatically for a table without a primary key) was read by more than one split, rows with NULL in it were read by no split and the job finished without an error. SeaTunnel now adds one split that reads these rows when there are any.
+  - **Impact**: Affected jobs read more rows than before: the rows that were silently skipped. Jobs whose split column is declared `NOT NULL`, such as a primary key, or has no NULL values get the same splits as before. A job restored from a checkpoint keeps its pending splits, so the change applies when the table is split again.
+  - **Migration Guide**: No configuration change is needed. If a downstream table was loaded by an affected job, reload it to get the missing rows.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**

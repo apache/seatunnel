@@ -327,7 +327,7 @@ Jdbc {
 
 Configure the driver's trusted root certificate for your cluster. `sslmode=disable` is only appropriate for disposable insecure local test clusters.
 
-CockroachDB does not implement PostgreSQL's `HASHTEXT` function. This dialect uses `FNV32` for hash partitions, including STRING and UUID keys, and places null keys in one partition so they are not omitted. It uses `COUNT(*)` when the splitter needs a row count because CockroachDB's `pg_class.reltuples` is null; this can require a scan of the input table or query. Set `enable_concurrent_read = false` to avoid split analysis when one reader is sufficient.
+CockroachDB does not implement PostgreSQL's `HASHTEXT` function. This dialect uses `FNV32` for hash partitions, including STRING and UUID keys. Rows whose key is null are read by the extra split described in [NULL values in the split column](#null-values-in-the-split-column). It uses `COUNT(*)` when the splitter needs a row count because CockroachDB's `pg_class.reltuples` is null; this can require a scan of the input table or query. Set `enable_concurrent_read = false` to avoid split analysis when one reader is sufficient.
 
 String conversion uses the discovered schema's native type information instead of querying result-set type metadata while a cursor is open. The supported reads do not require the `multiple_active_portals_enabled` preview setting. An explicit schema without native type information treats STRING fields as ordinary strings.
 
@@ -352,6 +352,12 @@ For fixed splitting of integer keys, including BIGINT and zero-scale DECIMAL, th
 Fixed query partitioning supports columns mapped to SeaTunnel DATE with ISO dates or whole epoch-day bounds. Support follows the dialect mapping; for example, Oracle DATE maps to TIMESTAMP and is not covered here. TIME, TIMESTAMP and TIMESTAMP_TZ partition columns are not supported; use a supported partition column or omit partition_column to read the query as a single split.
 
 Entries inside `table_list` continue to use dynamic splitting even when they include `query` or partition settings. Do not expect `split.size` to affect the top-level fixed partition mode.
+
+### NULL values in the split column
+
+Range and hash split conditions never match NULL, so when the split column is nullable, SeaTunnel checks whether any row to be read has NULL in it and, if so, adds one split that reads these rows. This applies to `partition_column` and to a unique index column chosen automatically. A split column declared `NOT NULL`, such as a primary key, or one without NULL values gets no extra split.
+
+The check is one `SELECT 1 ... WHERE <column> IS NULL` query per table, run once when the splits are planned. It stops at the first NULL it finds, but on a large table without NULL values it reads the whole table, unless the database can answer `IS NULL` from an index on the split column. A split column declared `NOT NULL` skips the check.
 
 ### Query and primary-key caution
 

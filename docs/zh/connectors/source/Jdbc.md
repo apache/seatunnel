@@ -325,7 +325,7 @@ Jdbc {
 
 请为驱动配置集群的受信任根证书。`sslmode=disable` 仅适用于临时的、不启用安全认证的本地测试集群。
 
-CockroachDB 不支持 PostgreSQL 的 `HASHTEXT` 函数。本方言使用 `FNV32` 对 STRING 和 UUID 等分区键进行哈希分片，并将空键值分配到一个分区，避免漏读。由于 CockroachDB 的 `pg_class.reltuples` 为 null，分片器需要行数时使用 `COUNT(*)`，这可能扫描输入表或查询。如果单 Reader 足够，可设置 `enable_concurrent_read = false` 跳过分片分析。
+CockroachDB 不支持 PostgreSQL 的 `HASHTEXT` 函数。本方言使用 `FNV32` 对 STRING 和 UUID 等分区键进行哈希分片。分区键为空的行由[分片列中的 NULL 值](#分片列中的-null-值)中所述的额外分片读取。由于 CockroachDB 的 `pg_class.reltuples` 为 null，分片器需要行数时使用 `COUNT(*)`，这可能扫描输入表或查询。如果单 Reader 足够，可设置 `enable_concurrent_read = false` 跳过分片分析。
 
 字符串转换使用已发现的 schema 中的原生类型信息，而不是在游标打开期间查询结果集类型元数据。支持的读取场景无需启用预览参数 `multiple_active_portals_enabled`。显式 schema 未提供原生类型信息时，STRING 字段按普通字符串处理。
 
@@ -348,6 +348,12 @@ CockroachDB 不支持 PostgreSQL 的 `HASHTEXT` 函数。本方言使用 `FNV32`
 对 BIGINT、零标度 DECIMAL 等整数键使用固定分片时，各分片完整覆盖数值范围，不产生间隙或重叠。范围不能被 `partition_num` 整除时，剩余值仍会保留，各区间均位于上下界之内。
 
 `table_list` 中的条目即使配置了 `query` 或分区参数，仍然使用动态分片。`split.size` 不影响顶层 fixed partition 模式。
+
+### 分片列中的 NULL 值
+
+范围分片和哈希分片的条件都不会匹配 NULL，因此分片列可为空时，SeaTunnel 会检查待读取的行中是否有该列为 NULL 的行，如果有，就额外增加一个分片读取这些行。这适用于 `partition_column`，也适用于自动选择的唯一索引列。声明为 `NOT NULL` 的分片列（例如主键），或没有 NULL 值的分片列，不会增加该分片。
+
+该检查是每张表一条 `SELECT 1 ... WHERE <列> IS NULL` 查询，只在规划分片时执行一次。它在找到第一个 NULL 时即停止，但对于没有 NULL 值的大表，除非数据库能通过分片列上的索引回答 `IS NULL`，否则它会读取整张表。声明为 `NOT NULL` 的分片列会跳过该检查。
 
 ### Query 与主键注意事项
 

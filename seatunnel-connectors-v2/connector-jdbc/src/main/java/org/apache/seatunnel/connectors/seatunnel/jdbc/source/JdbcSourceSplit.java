@@ -38,6 +38,32 @@ public class JdbcSourceSplit implements SourceSplit {
     private final Object splitStart;
     private final Object splitEnd;
 
+    /**
+     * True for the split that reads only the rows whose split key is NULL. Range and hash split
+     * predicates never match a NULL key, so these rows need a split of their own. Splits restored
+     * from a checkpoint taken before this field existed deserialize it as false.
+     */
+    private final boolean nullSplitKey;
+
+    public JdbcSourceSplit(
+            TablePath tablePath,
+            String splitId,
+            String splitQuery,
+            String splitKeyName,
+            SeaTunnelDataType splitKeyType,
+            Object splitStart,
+            Object splitEnd) {
+        this(
+                tablePath,
+                splitId,
+                splitQuery,
+                splitKeyName,
+                splitKeyType,
+                splitStart,
+                splitEnd,
+                false);
+    }
+
     @Override
     public String splitId() {
         return splitId;
