@@ -4,6 +4,18 @@
   {
     "httpRequest": {
       "method" : "GET",
+      "path": "/jsonpath/ragged"
+    },
+    "httpResponse": {
+      "body": {
+        "a": [1],
+        "b": [10, 20]
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method" : "GET",
       "path": "/example/http"
     },
     "httpResponse": {
