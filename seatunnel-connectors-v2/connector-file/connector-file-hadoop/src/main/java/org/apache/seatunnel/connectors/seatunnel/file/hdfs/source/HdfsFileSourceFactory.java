@@ -123,6 +123,10 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                         HdfsFileSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.PDF,
                         HdfsFileSourceOptions.PDF_RAG_METADATA_ENABLED)
+                .conditional(
+                        HdfsFileSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.WORD,
+                        HdfsFileSourceOptions.WORD_RAG_METADATA_ENABLED)
                 .optional(
                         HdfsFileSourceOptions.DISCOVERY_MODE,
                         HdfsFileSourceOptions.SCAN_INTERVAL,

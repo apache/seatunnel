@@ -36,6 +36,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
   - [x] excel
   - [x] markdown
   - [x] pdf
+  - [x] word
 
 ## Description
 
@@ -157,7 +158,7 @@ It only supports hadoop version **2.9.X+**.
 
 > File type, supported as the following file types:
 >
-> `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+> `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`
 >
 > If you assign file type to `json`, you should also assign schema option to tell the connector how to parse data to the row you want.
 >
@@ -286,6 +287,8 @@ schema {
 > - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 >
 > Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+When `file_format_type` is `word`, SeaTunnel reads Word documents in `.doc` and `.docx` formats and outputs document-element rows with the same schema as Markdown and PDF. Word is read-only.
 
 #### <span id="schema"> schema  </span>
 

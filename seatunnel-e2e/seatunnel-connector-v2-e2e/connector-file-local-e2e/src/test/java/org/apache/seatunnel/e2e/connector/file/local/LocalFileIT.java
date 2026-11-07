@@ -126,6 +126,11 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
                         container);
 
+                ContainerUtil.copyFileIntoContainers(
+                        "/word/test.doc", "/seatunnel/read/word/test.doc", container);
+                ContainerUtil.copyFileIntoContainers(
+                        "/word/test.docx", "/seatunnel/read/word/test.docx", container);
+
                 Path txtZip =
                         convertToZipFile(
                                 Lists.newArrayList(ContainerUtil.getResourcesFile("/text/e2e.txt")),
@@ -493,6 +498,14 @@ public class LocalFileIT extends TestSuiteBase {
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
         helper.execute("/markdown/local_file_markdown_rag_metadata_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testLocalFileReadWord(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/word/local_file_word_to_assert.conf");
+        helper.execute("/word/local_file_word_docx_to_assert.conf");
     }
 
     @TestTemplate

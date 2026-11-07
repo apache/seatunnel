@@ -36,6 +36,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
   - [x] binary
   - [x] markdown
   - [x] pdf
+  - [x] word
 
 ## 描述
 

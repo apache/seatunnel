@@ -33,6 +33,7 @@ import ChangeLog from '../changelog/connector-file-smb.md';
   - [x] binary
   - [x] markdown
   - [x] pdf
+  - [x] word
 
 ## 描述
 
@@ -84,7 +85,7 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | domain                     | String  | 否   | (空)                          | SMB 认证域名（如 WORKGROUP）                                                              |
 | share                      | String  | 是   | -                             | 要连接的 SMB 共享名称                                                                     |
 | path                       | String  | 是   | -                             | 共享内的源文件路径                                                                        |
-| file_format_type           | String  | 是   | -                             | 支持的文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` |
+| file_format_type           | String  | 是   | -                             | 支持的文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word` |
 | file_filter_pattern        | String  | 否   | -                             | 文件过滤模式，用于过滤文件                                                                 |
 | delimiter/field_delimiter  | String  | 否   | text 为 \001，csv 为 ','        | 字段分隔符，用于告诉连接器在读取文本文件时如何分割字段                                         |
 | row_delimiter              | String  | 否   | \n                            | 行分隔符，用于告诉连接器在读取文本文件时如何分割行                                             |
@@ -112,6 +113,7 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | poi_excel_max_file_size    | Long    | 否   | 52428800                      | 仅在 file_format 为 excel 且 excel_engine 为 POI 时使用。POI 引擎可读取的最大 Excel 文件大小（默认 50 MB） |
 | markdown_rag_metadata_enabled | Boolean | 否 | false                         | 读取 markdown 文件时是否附加面向 RAG 的元数据列。仅在 file_format_type 为 markdown 时有效              |
 | pdf_rag_metadata_enabled   | Boolean | 否   | false                         | 读取 PDF 文件时是否附加面向 RAG 的元数据列。仅在 file_format_type 为 pdf 时有效                       |
+| word_rag_metadata_enabled | boolean | 否 | false | 读取 Word 文件时是否追加 RAG 元数据字段。仅在 file_format_type 为 word 时有效。 |
 | quote_char                 | String  | 否   | "                             | 用于包围 CSV 字段的单个字符，使包含逗号、换行或引号的字段能被正确读取                               |
 | escape_char                | String  | 否   | -                             | 用于在 CSV 字段内转义引号或其他特殊字符的单个字符                                               |
 | metalake_type              | String  | 否   | gravitino                     | metalake 服务类型，目前支持 `gravitino`                                                     |

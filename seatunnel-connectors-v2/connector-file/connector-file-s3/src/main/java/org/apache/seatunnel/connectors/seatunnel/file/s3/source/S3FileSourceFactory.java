@@ -147,6 +147,10 @@ public class S3FileSourceFactory implements TableSourceFactory, SupportSourceDry
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.PDF,
                         FileBaseSourceOptions.PDF_RAG_METADATA_ENABLED)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.WORD,
+                        FileBaseSourceOptions.WORD_RAG_METADATA_ENABLED)
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
                 .optional(ConnectorCommonOptions.METALAKE_TYPE)

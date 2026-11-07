@@ -33,6 +33,7 @@ import ChangeLog from '../changelog/connector-file-smb.md';
   - [x] binary
   - [x] markdown
   - [x] pdf
+  - [x] word
 
 ## Description
 
@@ -84,7 +85,7 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | domain                     | String  | No       | (empty)                       | The SMB authentication domain (e.g. WORKGROUP)                                                                                                 |
 | share                      | String  | Yes      | -                             | The SMB share name to connect to                                                                                                               |
 | path                       | String  | Yes      | -                             | The source file path within the share                                                                                                          |
-| file_format_type           | String  | Yes      | -                             | Supported file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                             |
+| file_format_type           | String  | Yes      | -                             | Supported file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`                                             |
 | file_filter_pattern        | String  | No       | -                             | Filter pattern, which used for filtering files.                                                                                                |
 | delimiter/field_delimiter  | String  | No       | \001 for text and ',' for csv | Field delimiter, used to tell connector how to slice and dice fields when reading text files.                                                   |
 | row_delimiter              | String  | No       | \n                            | Row delimiter, used to tell connector how to slice and dice rows when reading text files.                                                       |
@@ -112,6 +113,7 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | poi_excel_max_file_size    | Long    | No       | 52428800                      | Only used when file_format is excel and excel_engine is POI. The maximum Excel file size in bytes (default 50 MB).                             |
 | markdown_rag_metadata_enabled | Boolean | No    | false                         | Whether to append RAG-oriented metadata columns when reading markdown files. Only valid when file_format_type is markdown.                     |
 | pdf_rag_metadata_enabled   | Boolean | No       | false                         | Whether to append RAG-oriented metadata columns when reading PDF files. Only valid when file_format_type is pdf.                               |
+| word_rag_metadata_enabled | boolean | no | false | Whether to append RAG metadata fields when reading Word files. Only valid when file_format_type is word. |
 | quote_char                 | String  | No       | "                             | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                          |
 | escape_char                | String  | No       | -                             | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                     |
 | metalake_type              | String  | No       | gravitino                     | The type of metalake service, currently supports `gravitino`.                                                                                   |
@@ -134,6 +136,8 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | file_filter_modified_end | string | no | - | File modification time filter. The connector will filter files based on the last modification end time (exclusive). Default format: `yyyy-MM-dd HH:mm:ss`. |
 | sort_files_by_modification_time | boolean | no | false | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file. |
 | common-options             |         | No       | -                             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.               |
+
+When `file_format_type` is `word`, this source reads `.doc` and `.docx` files as ordered paragraph and table rows. Word is read-only; set `word_rag_metadata_enabled = true` to append RAG metadata columns.
 
 ## How to Create a SMB Data Synchronization Job
 

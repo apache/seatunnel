@@ -32,6 +32,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
   - [x] 二进制
   - [x] markdown
   - [x] pdf
+  - [x] word
 
 ## 描述
 
@@ -195,7 +196,7 @@ abc.*
 
 文件类型，支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`
 
 如果您将文件类型指定为 `json`，您还需要指定 schema 选项以告诉连接器如何将数据解析为您所需的行。
 
@@ -322,6 +323,8 @@ PDF 特有的解析行为如下：
 - `element_type` 在 PDF 场景下可能为 `heading`、`paragraph`、`image` 或 `link`。
 
 注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
+
+将 `file_format_type` 设为 `word` 后，SeaTunnel 支持读取 `.doc` 和 `.docx` 格式的 Word 文档，并输出与 Markdown 和 PDF 相同结构的文档元素记录。Word 仅支持读取。
 
 ### connection_mode [string]
 

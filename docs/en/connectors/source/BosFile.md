@@ -36,6 +36,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
   - [x] binary
   - [x] markdown
   - [x] pdf
+  - [x] word
 
 ## Description
 
@@ -114,7 +115,7 @@ The BOS endpoint, for example `http://bj.bcebos.com`.
 
 ### file_format_type [string]
 
-Supported file types: `text`, `csv`, `parquet`, `orc`, `json`, `excel`, `xml`, `binary`, `markdown`, `pdf`.
+Supported file types: `text`, `csv`, `parquet`, `orc`, `json`, `excel`, `xml`, `binary`, `markdown`, `pdf`, `word`.
 
 ### common options
 

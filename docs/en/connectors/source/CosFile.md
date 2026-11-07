@@ -36,6 +36,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
   - [x] binary
   - [x] markdown
   - [x] pdf
+  - [x] word
 
 ## Description
 
@@ -56,7 +57,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | name                       | type    | required | default value               | Description |
 |----------------------------|---------|----------|-----------------------------|-------------|
 | path                       | string  | yes      | -                           | The COS path to read, can have sub paths. See `parse_partition_from_path` for format requirements. |
-| file_format_type           | string  | yes      | -                           | Supported types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` |
+| file_format_type           | string  | yes      | -                           | Supported types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word` |
 | bucket                     | string  | yes      | -                           | The bucket address of the COS file system, for example `cosn://seatunnel-test`. |
 | secret_id                  | string  | yes      | -                           | The secret ID for COS authentication. |
 | secret_key                 | string  | yes      | -                           | The secret key for COS authentication. |
@@ -101,7 +102,7 @@ The source file path.
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -239,6 +240,8 @@ The main PDF-specific behaviors are:
 - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+When `file_format_type` is `word`, SeaTunnel reads Word documents in `.doc` and `.docx` formats and outputs document-element rows with the same schema as Markdown and PDF. Word is read-only.
 
 ### bucket [string]
 

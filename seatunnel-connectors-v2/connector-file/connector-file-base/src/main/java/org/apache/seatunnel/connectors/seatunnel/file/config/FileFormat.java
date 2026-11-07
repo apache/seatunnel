@@ -40,6 +40,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadS
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.PdfReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.TextReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.WordReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.XmlReadStrategy;
 
 import lombok.extern.slf4j.Slf4j;
@@ -194,6 +195,17 @@ public enum FileFormat implements Serializable {
         @Override
         public ReadStrategy getReadStrategy() {
             return new PdfReadStrategy();
+        }
+    },
+    WORD("docx", "doc") {
+        @Override
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            throw new UnsupportedOperationException("File format 'word' does not support writing.");
+        }
+
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new WordReadStrategy();
         }
     };
 
