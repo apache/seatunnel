@@ -116,7 +116,7 @@ seatunnel:
 
     # Sampling interval: sample 1 out of every 100 records (development environment)
     # Production recommendation: 100000-1000000
-    stain-trace-sample-interval: 100
+    stain-trace-sample-rate: 100
 
     # Local file storage base directory. This must be configured explicitly.
     stain-trace-file-base-path: /tmp/seatunnel/traces
@@ -249,7 +249,7 @@ seatunnel:
     # Sampling interval: sample 1 out of every N records (default: 100000)
     # Development recommendation: 100-1000
     # Production recommendation: 100000-1000000
-    stain-trace-sample-interval: 100000
+    stain-trace-sample-rate: 100000
 
     # Max traces per worker per second (default: 50)
     # Controls trace volume to prevent event storms
@@ -313,7 +313,7 @@ env {
 |-------------------|------|---------|-------------|
 | **Engine-level (seatunnel.yaml)** ||||
 | `stain-trace-enabled` | Boolean | false | Engine-level master switch, must be true to enable |
-| `stain-trace-sample-interval` | Integer | 100000 | Sampling interval: sample 1 out of every N records |
+| `stain-trace-sample-rate` | Integer | 100000 | Sampling interval: sample 1 out of every N records |
 | `stain-trace-max-traces-per-second-per-worker` | Integer | 50 | Max traces per worker per second |
 | `stain-trace-max-entries-per-trace` | Integer | 32 | Max stage entries per trace |
 | `stain-trace-propagate-to-all-splits` | Boolean | false | Propagate to all split outputs |
@@ -463,7 +463,7 @@ stain-trace-propagate-to-all-splits: true   # All splits inherit
 
 ```yaml
 # Increase sampling interval to reduce trace count
-stain-trace-sample-interval: 1000000  # Sample 1 out of every 1 million
+stain-trace-sample-rate: 1000000  # Sample 1 out of every 1 million
 
 # Increase file size limit
 stain-trace-file-max-size-mb: 50
@@ -510,7 +510,7 @@ public static void main(String[] args) {
 #### Development Environment Configuration (High Sampling, Easy Debugging)
 ```yaml
 stain-trace-enabled: true
-stain-trace-sample-interval: 100  # Sample 1 out of every 100
+stain-trace-sample-rate: 100  # Sample 1 out of every 100
 stain-trace-max-traces-per-second-per-worker: 1000
 stain-trace-max-entries-per-trace: 64
 stain-trace-file-base-path: /tmp/seatunnel/traces
@@ -529,7 +529,7 @@ stain-trace-file-flush-interval-seconds: 5  # More frequent flushing
 seatunnel:
   engine:
     stain-trace-enabled: true
-    stain-trace-sample-interval: 100000  # Sample 1 out of every 100k
+    stain-trace-sample-rate: 100000  # Sample 1 out of every 100k
     stain-trace-max-traces-per-second-per-worker: 50
     stain-trace-max-entries-per-trace: 32
     # Keep this under the same storage root as checkpoint.storage.plugin-config.namespace

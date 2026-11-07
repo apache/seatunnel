@@ -84,6 +84,12 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | parquet_avro_write_timestamp_as_int96 | boolean | 否   | false                                      | parquet 格式使用 |
 | parquet_avro_write_fixed_as_int96     | array   | 否   | -                                          | parquet 格式使用 |
 | encoding                              | string  | 否   | "UTF-8"                                    | json/text/csv/xml 格式使用 |
+| max_rows_in_memory                    | int     | 否   | -                                          | 仅在 file_format_type 为 excel 时使用 |
+| sheet_max_rows                        | int     | 否   | 1048576                                    | 仅在 file_format_type 为 excel 时使用 |
+| sheet_name                            | string  | 否   | Sheet0                                     | 仅在 file_format_type 为 excel 时使用 |
+| csv_string_quote_mode                 | enum    | 否   | MINIMAL                                    | 仅在 file_format 为 csv 时使用 |
+| enable_header_write                   | boolean | 否   | false                                      | 仅当 file_format_type 为 text、csv 时使用。`false`：不写表头，`true`：写表头 |
+| merge_update_event                    | boolean | 否   | false                                      | 仅当 file_format_type 为 canal_json、debezium_json、maxwell_json 时使用。设置为 `true` 时，会将 `UPDATE_AFTER` 与 `UPDATE_BEFORE` 合并为 `UPDATE` 事件数据 |
 | common-options                        | object  | 否   | -                                          | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) |
 
 ## 示例
