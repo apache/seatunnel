@@ -19,12 +19,15 @@ package org.apache.seatunnel.connectors.doris.serialize;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonGenerator;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.doris.sink.writer.LoadConstants;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
@@ -47,6 +50,7 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
     private final boolean enableDelete;
     private final SerializationSchema serialize;
     private final boolean caseSensitive;
+    private final boolean hasJson;
 
     public SeaTunnelRowSerializer(
             String type,
@@ -103,6 +107,9 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
                         fieldNamesList.toArray(new String[0]),
                         fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
 
+        this.hasJson =
+                Arrays.stream(this.seaTunnelRowType.getFieldTypes())
+                        .anyMatch(fieldType -> fieldType.getSqlType() == SqlType.JSON);
         if (JSON.equals(type)) {
             JsonSerializationSchema jsonSerializationSchema =
                     new JsonSerializationSchema(this.seaTunnelRowType, true, datetimeTimezone);
@@ -122,9 +129,29 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
         }
     }
 
+    /**
+     * Encodes native JSON columns as JSON document strings for Doris Stream Load. Doris 2.1 first
+     * converts top-level JSON tokens to text: a boolean becomes 1/0 and a JSON null becomes SQL
+     * NULL. Supplying the document as a string preserves those types when Doris parses its JSON
+     * column. The common converter still validates every document before this transport encoding.
+     */
     public byte[] buildJsonString(SeaTunnelRow row) {
-
-        return serialize.serialize(row);
+        if (!hasJson) {
+            return serialize.serialize(row);
+        }
+        JsonSerializationSchema jsonSchema = (JsonSerializationSchema) serialize;
+        ObjectNode node = (ObjectNode) jsonSchema.convert(row);
+        for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+            if (seaTunnelRowType.getFieldType(i).getSqlType() == SqlType.JSON
+                    && row.getField(i) != null) {
+                node.put(seaTunnelRowType.getFieldName(i), (String) row.getField(i));
+            }
+        }
+        try {
+            return jsonSchema.getMapper().writeValueAsBytes(node);
+        } catch (IOException e) {
+            throw CommonError.jsonOperationError("Doris", "serialize JSON document", e);
+        }
     }
 
     public byte[] buildCSVString(SeaTunnelRow row) {

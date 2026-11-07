@@ -396,7 +396,10 @@ public class DorisIT extends AbstractDorisIT {
                         continue;
                     }
                     JsonNode sourceNode = JsonUtils.stringToJsonNode(sourceJson);
-                    Assertions.assertEquals(sourceNode, JsonUtils.stringToJsonNode(sinkJson));
+                    Assertions.assertEquals(
+                            sourceNode,
+                            JsonUtils.stringToJsonNode(sinkJson),
+                            "JSON value changed in " + column);
                     sawObject |= sourceNode.isObject();
                     sawArray |= sourceNode.isArray();
                     sawJsonNull |= sourceNode.isNull();

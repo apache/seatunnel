@@ -90,6 +90,8 @@ Please refer [security](security.md)
 
 ## API reference
 
+The [OpenAPI 3.1 contract for the read-only REST v2 subset](openapi-v2.yaml) currently covers `GET /overview` and `GET /resource/workers` only. Other endpoints below remain documented here but are not yet included in the machine-readable contract. The spec is maintained alongside the servlet route registrations and response tests. Configure the generated client's base URL for your listener, port, and optional context path. Basic authentication depends on your server configuration; use HTTPS when sending credentials beyond localhost.
+
 ### Get Connector Option Rules
 
 <details>

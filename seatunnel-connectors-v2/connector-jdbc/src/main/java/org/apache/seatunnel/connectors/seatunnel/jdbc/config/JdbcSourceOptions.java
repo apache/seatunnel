@@ -194,4 +194,11 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                             "If true, native JSON columns that would be exposed as the JSON logical type "
                                     + "(Snowflake VARIANT at now) are exposed as STRING, which is the "
                                     + "schema produced before the JSON logical type was introduced.");
+
+    public static final Option<Boolean> NUMERIC_SPECIAL_VALUE_AS_NULL =
+            Options.key("numeric_special_value_as_null")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "numeric special value as null, if true, the numeric special values (NaN, Infinity, -Infinity) which cannot be represented as BigDecimal will be read as null. Only support for PostgreSQL at now.");
 }

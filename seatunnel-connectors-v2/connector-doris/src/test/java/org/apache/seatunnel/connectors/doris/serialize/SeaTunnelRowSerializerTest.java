@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.connectors.doris.serialize;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -32,6 +36,45 @@ import java.time.ZoneOffset;
 import java.util.TimeZone;
 
 public class SeaTunnelRowSerializerTest {
+
+    /**
+     * Checks the Doris transport boundary without losing scalar types or SQL NULL.
+     *
+     * <p>Changing native documents back to structured transport tokens must fail this regression
+     * before Doris can coerce a boolean to a number or a JSON null to SQL NULL.
+     */
+    @Test
+    void testNativeJsonDocumentsUseStreamLoadStrings() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload", "ordinary"},
+                        new SeaTunnelDataType<?>[] {BasicType.JSON_TYPE, BasicType.STRING_TYPE});
+        SeaTunnelRowSerializer serializer =
+                new SeaTunnelRowSerializer(LoadConstants.JSON, rowType, ",", false);
+        ObjectMapper mapper = new ObjectMapper();
+        for (String document :
+                new String[] {
+                    "{\"nested\":[true,2]}", "[false,1]", "true", "false", "7", "\"text\"", "null"
+                }) {
+            JsonNode encoded =
+                    mapper.readTree(
+                            serializer.serialize(
+                                    new SeaTunnelRow(new Object[] {document, "true"})));
+            Assertions.assertTrue(encoded.get("payload").isTextual());
+            Assertions.assertEquals(document, encoded.get("payload").textValue());
+            Assertions.assertEquals("true", encoded.get("ordinary").textValue());
+        }
+        JsonNode sqlNull =
+                mapper.readTree(
+                        serializer.serialize(new SeaTunnelRow(new Object[] {null, "ordinary"})));
+        Assertions.assertFalse(sqlNull.has("payload"));
+        Assertions.assertEquals("ordinary", sqlNull.get("ordinary").textValue());
+        Assertions.assertThrows(
+                RuntimeException.class,
+                () ->
+                        serializer.serialize(
+                                new SeaTunnelRow(new Object[] {"true false", "ordinary"})));
+    }
 
     @Test
     void testTimestampTzCsvUsesExplicitDatetimeTimezone() throws Exception {

@@ -236,6 +236,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                     objectArrayList.add(convert(element, elementType, level + 1, fieldName));
                 }
                 switch (elementType.getSqlType()) {
+                    case JSON:
                     case STRING:
                         return objectArrayList.toArray(new String[0]);
                     case BOOLEAN:
@@ -285,6 +286,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                     }
                 }
                 return objectMap;
+            case JSON:
             case STRING:
                 return field;
             case BOOLEAN:
