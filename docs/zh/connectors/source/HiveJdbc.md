@@ -60,7 +60,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DECIMAL<br/>NUMERIC<br/>（未定义精度）           | DECIMAL(38, 18)   |
 | CHAR<br/>VARCHAR<br/>STRING                                                               | STRING            |
 | DATE                                                                                      | DATE              |
-| DATETIME<br/>TIMESTAMP                                                                    | TIMESTAMP         |
+| TIMESTAMP                                                                    | TIMESTAMP         |
 | BINARY<br/>  ARRAY <br/>INTERVAL <br/>MAP   <br/>STRUCT<br/>UNIONTYPE                     | Not supported yet |
 
 ## 源配置项
@@ -75,7 +75,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | connection_check_timeout_sec | Int        | 否  | 30              | 等待用于验证连接的数据库操作完成的时间（秒）。 |
 | socket_timeout_ms            | Int        | 否  | 86400000        | 从服务器读取数据的 Socket 超时时间（毫秒）。设置为 `0` 表示无超时。已在 Hive 3.2.0+ 测试，更早版本暂未验证。 |
 | connect_timeout_ms           | Int        | 否  | 86400000        | 建立到服务器的连接超时时间（毫秒）。设置为 `0` 表示无超时。已在 Hive 3.2.0+ 测试，更早版本暂未验证。 |
-| partition_column             | String     | 否  | -               | 并行分区的列名，仅支持数值类型主键，且只能配置一列。 |
+| partition_column             | String     | 否  | -               | 用于并行分割的列名。支持数值、字符串和日期类型的列；只能配置一列。 |
 | partition_lower_bound        | String     | 否  | -               | 扫描的分区列最小值。如果未设置，SeaTunnel 将查询数据库获取最小值。 |
 | partition_upper_bound        | String     | 否  | -               | 扫描的分区列最大值。如果未设置，SeaTunnel 将查询数据库获取最大值。 |
 | partition_num                | Int        | 否  | 10              | 分区数量，仅支持正整数。默认值是 10。 |

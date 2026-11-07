@@ -90,6 +90,8 @@ Please refer [security](security.md)
 
 ## API reference
 
+The [OpenAPI 3.1 contract for the read-only REST v2 subset](openapi-v2.yaml) currently covers `GET /overview` and `GET /resource/workers` only. Other endpoints below remain documented here but are not yet included in the machine-readable contract. The spec is maintained alongside the servlet route registrations and response tests. Configure the generated client's base URL for your listener, port, and optional context path. Basic authentication depends on your server configuration; use HTTPS when sending credentials beyond localhost.
+
 ### Get Connector Option Rules
 
 <details>
@@ -263,7 +265,7 @@ Please refer [security](security.md)
 ```
 
 **Notes:**
-- If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`. when you set it to fix slot number, it will return the correct total and unassigned slot number
+- If you use `dynamic-slot`, the `unassignedSlot` is always `0` because dynamic slots are created on demand and never pre-registered; `totalSlot` reflects the number of slots currently assigned to jobs. When you set `dynamic-slot: false` with a fixed slot number, it will return the correct total and unassigned slot number
 - If the url has tag filter, the `workers`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
 
 </details>
@@ -537,7 +539,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 
 - **queueSummary** – overview of the entire pending queue.
   - `size`: number of jobs currently pending.
-  - `scheduleStrategy`: strategy in use (e.g. `WAIT`, `FAIL_FAST`) that dictates what happens when resources are insufficient.
+  - `scheduleStrategy`: strategy in use (e.g. `WAIT`, `REJECT`) that dictates what happens when resources are insufficient.
   - `oldestEnqueueTimestamp` / `newestEnqueueTimestamp`: timestamps (ms) of the oldest/latest job in the queue.
   - `lackingTaskGroups`: total TaskGroup count still waiting for slots. **Note**: This value reflects only the jobs included in the current response (i.e., the subset limited by the `limit` parameter or filtered by `jobId`), not the entire pending queue. To view the complete statistics for all pending jobs, call this API without the `limit` parameter.
 - **clusterSnapshot** – cluster resource snapshot (can be filtered by tags).

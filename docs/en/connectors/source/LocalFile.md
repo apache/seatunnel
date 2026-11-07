@@ -253,6 +253,10 @@ Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column
 
 The read column list of the data source, user can use it to implement field projection.
 
+For Parquet files, the reader also skips unselected top-level column data. Selected nested fields
+are read in full, and output column order is unchanged. Explicit Hadoop Parquet projections, reader
+schemas and record filters retain their existing behavior and disable automatic column pruning.
+
 ### delimiter/field_delimiter [string]
 
 **delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead.
@@ -483,8 +487,9 @@ The encoding of the file to read. This param will be parsed by `Charset.forName(
 
 ### null_format [string]
 
-Only used when file_format_type is `text` or `csv`.
-null_format to define which strings can be represented as null.
+Used when `file_format_type` is `text` or `csv`. Defines which field value represents null.
+For CSV with a configured `schema.columns[].defaultValue`, a matching `null_format` value or a column absent from the file header uses that default. An empty CSV field still produces null unless it matches `null_format`; columns without a default keep their existing behavior.
+CSV defaults are validated when the reader is created. DATE and TIMESTAMP defaults may use a different supported format from the file data.
 
 e.g: `\N`
 
@@ -650,6 +655,10 @@ Whether to sort files by modification time in descending order. Default is `fals
 When enabled, files will be sorted by their modification time (newest first). This is useful when:
 - Reading files with evolving schemas and you want schema inference to use the latest file
 - You need to process files in chronological order
+
+### metalake_type [string]
+
+The type of metalake service, currently supports `gravitino`.
 
 ### common options
 

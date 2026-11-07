@@ -50,7 +50,8 @@ Read data from Snowflake through JDBC. SeaTunnel uses the official Snowflake JDB
 | CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING              |
 | DATE                                                                        | DATE                |
 | TIME                                                                        | TIME                |
-| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP           |
+| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_NTZ                                    | TIMESTAMP           |
+| TIMESTAMP_LTZ<br/>TIMESTAMP_TZ                                              | TIMESTAMP_TZ        |
 | BINARY<br/>VARBINARY                                                        | BYTES               |
 | GEOGRAPHY<br/>GEOMETRY                                                      | STRING              |
 
@@ -62,7 +63,7 @@ Read data from Snowflake through JDBC. SeaTunnel uses the official Snowflake JDB
 | driver                       | String     | Yes      | -       | JDBC driver class name. Use `net.snowflake.client.jdbc.SnowflakeDriver` for Snowflake.                                                                                                                                                                       |
 | username                     | String     | No       | -       | Username for the Snowflake account.                                                                                                                                                                                                                          |
 | password                     | String     | No       | -       | Password for the Snowflake account.                                                                                                                                                                                                                          |
-| query                        | String     | Yes      | -       | SELECT statement used to read data. The column list of the SELECT defines the output schema; select only the columns you need.                                                                                                                                |
+| query                        | String     | No       | -       | SELECT statement used to read data. Required when neither `table_path` nor `table_list` is configured. The column list of the SELECT defines the output schema; select only the columns you need.                                                                                                                                |
 | connection_check_timeout_sec | Int        | No       | 30      | Seconds to wait for the connection check before failing.                                                                                                                                                                                                     |
 | partition_column             | String     | No       | -       | Column used to split data for parallel reading. Supports numeric columns and string columns (with `split.string_split_mode`); only one column can be configured.                                                                                              |
 | partition_lower_bound        | String     | No       | -       | Lower bound of `partition_column` for range splitting. If not set, SeaTunnel queries the minimum value.                                                                                                                                                      |
@@ -149,7 +150,7 @@ source {
 - Use the `Jdbc` plugin name for Snowflake jobs and set `driver = "net.snowflake.client.jdbc.SnowflakeDriver"`.
 - Place the Snowflake JDBC driver jar in `$SEATUNNEL_HOME/plugins/jdbc/lib/` before running the job.
 - When reading in parallel, `partition_column`, `partition_lower_bound`, `partition_upper_bound`, and `partition_num` must describe the same numeric column range.
-- Snowflake geospatial columns (`GEOGRAPHY`/`GEOMETRY`) are mapped to SeaTunnel `STRING`. The textual representation of the value (e.g. WKB, EWKT, GeoJSON) returned by the Snowflake JDBC driver depends on URL parameters such as `GEOGRAPHY_OUTPUT_FORMAT`.
+- Snowflake geospatial columns are mapped to the SeaTunnel `STRING` type.
 
 ## Changelog
 
