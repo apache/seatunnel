@@ -27,9 +27,12 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -50,6 +53,12 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
 
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition nonEmpty = lock.newCondition();
+
+    /**
+     * Thread executing the fetch task, guarded by lock so shutdown cannot interrupt final reader
+     * cleanup.
+     */
+    private Thread fetchingThread;
 
     SplitFetcher(
             int fetcherId,
@@ -114,6 +123,10 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
         }
     }
 
+    /**
+     * Stops fetching and unblocks interruptible reads while protecting the final reader cleanup in
+     * {@link #run()} from late cancellation.
+     */
     public void shutdown() {
         lock.lock();
         try {
@@ -121,6 +134,9 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
                 closed = true;
                 log.info("Shutting down split fetcher {}", fetcherId);
                 wakeUpUnsafe(false);
+                if (fetchingThread != null) {
+                    fetchingThread.interrupt();
+                }
             }
         } finally {
             lock.unlock();
@@ -153,6 +169,9 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
             log.debug("Prepare to run {}", nextTask);
             // store task for #wakeUp
             this.runningTask = nextTask;
+            if (nextTask == fetchTask) {
+                this.fetchingThread = Thread.currentThread();
+            }
         } finally {
             lock.unlock();
         }
@@ -161,21 +180,49 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
         try {
             nextTask.run();
         } catch (Exception e) {
+            if (nextTask == fetchTask && closed && containsInterruptedException(e)) {
+                return false;
+            }
             throw new RuntimeException(
                     String.format(
                             "SplitFetcher thread %d received unexpected exception while polling the records",
                             fetcherId),
                     e);
-        }
-
-        // re-acquire lock as all post-processing steps, need it
-        lock.lock();
-        try {
-            this.runningTask = null;
         } finally {
-            lock.unlock();
+            lock.lock();
+            try {
+                this.runningTask = null;
+                if (fetchingThread != null) {
+                    this.fetchingThread = null;
+                    // The close path may wait for child readers; do not carry our shutdown
+                    // interrupt into those waits. The lock prevents a late interrupt after this.
+                    if (closed) {
+                        Thread.interrupted();
+                    }
+                }
+            } finally {
+                lock.unlock();
+            }
         }
         return true;
+    }
+
+    /**
+     * Returns whether the exception or one of its causes is an interruption.
+     *
+     * @param throwable exception thrown by the fetch task
+     * @return true if an interruption exists in the cause chain
+     */
+    private static boolean containsInterruptedException(Throwable throwable) {
+        Throwable current = throwable;
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        while (current != null && visited.add(current)) {
+            if (current instanceof InterruptedException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private SplitFetcherTask getNextTaskUnsafe() {
