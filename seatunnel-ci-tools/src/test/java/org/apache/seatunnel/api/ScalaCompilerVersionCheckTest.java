@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.api;
 
+import org.apache.commons.xml.secure.SecureDocumentBuilderFactory;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-
-import javax.xml.parsers.DocumentBuilderFactory;
 
 import java.io.File;
 
@@ -61,12 +61,9 @@ public class ScalaCompilerVersionCheckTest {
     }
 
     private Document parsePom(File pomFile) throws Exception {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        factory.setNamespaceAware(false);
-        return factory.newDocumentBuilder().parse(pomFile);
+        return SecureDocumentBuilderFactory.newDefaultInstance()
+                .newDocumentBuilder()
+                .parse(pomFile);
     }
 
     private String getPropertyValue(Document pom, String propertyName) {

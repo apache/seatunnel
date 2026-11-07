@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -27,8 +28,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
@@ -131,56 +130,75 @@ public class XmlReadStrategyTest {
     }
 
     @Test
-    public void testXmlReadRejectsExternalEntityPayload(@TempDir Path tempDir) throws IOException {
-        XmlReadStrategy xmlReadStrategy = createXmlReadStrategy();
+    public void testXmlReadDoesNotResolveExternalEntities(@TempDir Path tempDir)
+            throws IOException {
         Path sentinel = tempDir.resolve("seatunnel-xxe.txt");
         Files.write(sentinel, Collections.singletonList("secret-from-temp-file"));
+        // Element format, so the external entity sits in element content: the XML specification
+        // already forbids external entity references in attribute values, hardened or not.
+        XmlReadStrategy xmlReadStrategy =
+                createXmlReadStrategy(
+                        loadPluginConfig()
+                                .withValue(
+                                        "xml_use_attr_format",
+                                        ConfigValueFactory.fromAnyRef(false)));
         String xxeXml =
                 "<?xml version=\"1.0\"?>\n"
-                        + "<!DOCTYPE row [<!ENTITY xxe SYSTEM \""
+                        + "<!DOCTYPE RECORDS [\n"
+                        + "  <!ENTITY internal \"internal-value\">\n"
+                        + "  <!ENTITY xxe SYSTEM \""
                         + sentinel.toUri()
-                        + "\">]>\n"
-                        + "<RECORDS><RECORD c_string=\"&xxe;\"/></RECORDS>";
-        TestCollector collector = new TestCollector();
+                        + "\">\n"
+                        + "]>\n"
+                        + "<RECORDS>"
+                        + "<RECORD><c_string>&xxe;</c_string></RECORD>"
+                        + "<RECORD><c_string>&internal;</c_string></RECORD>"
+                        + "</RECORDS>";
 
-        FileConnectorException exception =
-                Assertions.assertThrows(
-                        FileConnectorException.class,
-                        () ->
-                                xmlReadStrategy.readProcess(
-                                        new FileSourceSplit("xml", "poc.xml"),
-                                        collector,
-                                        new ByteArrayInputStream(
-                                                xxeXml.getBytes(StandardCharsets.UTF_8)),
-                                        Collections.emptyMap(),
-                                        "poc.xml"));
+        List<SeaTunnelRow> rows = readXml(xmlReadStrategy, xxeXml);
 
+        Assertions.assertEquals(2, rows.size());
         Assertions.assertEquals(
-                FileConnectorErrorCode.FILE_READ_FAILED, exception.getSeaTunnelErrorCode());
-        Assertions.assertTrue(collector.getRows().isEmpty());
-        Assertions.assertTrue(
-                containsMessage(exception, "DOCTYPE"),
-                "expected secure XML parser to reject the DOCTYPE declaration");
-        Assertions.assertFalse(
-                containsMessage(exception, "secret-from-temp-file"),
-                "expected the sentinel secret to never appear in the exception message/cause chain, "
-                        + "confirming the external entity was rejected rather than resolved and merely dropped");
+                "", rows.get(0).getField(4), "expected the external entity to resolve to nothing");
+        Assertions.assertEquals(
+                "internal-value",
+                rows.get(1).getField(4),
+                "expected internal entities to keep working");
     }
 
-    private boolean containsMessage(Throwable throwable, String message) {
-        Throwable current = throwable;
-        while (current != null) {
-            if (current.getMessage() != null && current.getMessage().contains(message)) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
+    @Test
+    public void testXmlReadDoesNotFetchExternalDtd(@TempDir Path tempDir) throws IOException {
+        Path sentinel = tempDir.resolve("seatunnel-xxe.dtd");
+        // Not a well-formed DTD: fetching it would make the parse fail.
+        Files.write(sentinel, Collections.singletonList("<not a dtd"));
+        XmlReadStrategy xmlReadStrategy = createXmlReadStrategy(loadPluginConfig());
+        String xml =
+                "<?xml version=\"1.0\"?>\n"
+                        + "<!DOCTYPE RECORDS SYSTEM \""
+                        + sentinel.toUri()
+                        + "\">\n"
+                        + "<RECORDS><RECORD c_string=\"value\"/></RECORDS>";
+
+        List<SeaTunnelRow> rows = readXml(xmlReadStrategy, xml);
+
+        Assertions.assertEquals(1, rows.size());
+        Assertions.assertEquals("value", rows.get(0).getField(4));
     }
 
-    /** Build a production-like XML reader instance with the shared test schema loaded. */
-    private XmlReadStrategy createXmlReadStrategy() {
-        Config pluginConfig = loadPluginConfig();
+    private List<SeaTunnelRow> readXml(XmlReadStrategy xmlReadStrategy, String xml)
+            throws IOException {
+        TestCollector collector = new TestCollector();
+        xmlReadStrategy.readProcess(
+                new FileSourceSplit("xml", "poc.xml"),
+                collector,
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)),
+                Collections.emptyMap(),
+                "poc.xml");
+        return collector.getRows();
+    }
+
+    /** Build a production-like XML reader instance with the given configuration loaded. */
+    private XmlReadStrategy createXmlReadStrategy(Config pluginConfig) {
         XmlReadStrategy xmlReadStrategy = new XmlReadStrategy();
         LocalFileSystemConf.LocalConf localConf =
                 new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
