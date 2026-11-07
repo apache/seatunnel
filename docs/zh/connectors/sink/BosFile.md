@@ -26,7 +26,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 
 ## 主要特性
 
-- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态写入multimodal-write)
 
   使用 binary 格式读写任意类型文件，可将任意文件同步到目标位置。
 

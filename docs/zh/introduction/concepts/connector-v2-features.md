@@ -78,6 +78,6 @@ Sink connector有一些公共的核心特性，每个sink connector在不同程�
 
 支持在一个 SeaTunnel 作业中写入多个表，用户可以通过[配置占位符](../configuration/sink-options-placeholders.md)动态指定表的标识符。
 
-### 多模态（multimodal）
+### 多模态写入（multimodal write）
 
 支持多模态数据集成，包括结构化和非结构化文本数据、视频、图像、二进制文件等。
