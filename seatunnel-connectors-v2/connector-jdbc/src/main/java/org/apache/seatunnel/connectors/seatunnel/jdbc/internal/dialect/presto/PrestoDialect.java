@@ -40,6 +40,10 @@ public class PrestoDialect implements JdbcDialect {
         return new PrestoTypeMapper();
     }
 
+    /**
+     * Presto does not expose primary-key metadata through this JDBC driver. Skip the unsupported
+     * metadata call so source discovery can still resolve the columns.
+     */
     @Override
     public boolean supportsPrimaryKeyMetadata() {
         return false;

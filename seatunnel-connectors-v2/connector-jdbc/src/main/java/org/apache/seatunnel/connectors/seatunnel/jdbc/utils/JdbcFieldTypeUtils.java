@@ -412,6 +412,10 @@ public final class JdbcFieldTypeUtils {
         return normalized;
     }
 
+    /**
+     * Converts Db2's date-time separators and truncates fractional digits beyond nanoseconds. Other
+     * representations pass through unchanged for the existing parsers to handle.
+     */
     private static String normalizeDb2OffsetDateTimeString(String value) {
         Matcher matcher = DB2_TIMESTAMP_WITH_TIME_ZONE_PATTERN.matcher(value);
         if (!matcher.matches()) {

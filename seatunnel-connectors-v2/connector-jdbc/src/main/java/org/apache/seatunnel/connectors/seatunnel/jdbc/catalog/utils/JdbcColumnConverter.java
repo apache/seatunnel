@@ -262,6 +262,10 @@ public class JdbcColumnConverter {
                 longColumnLength);
     }
 
+    /**
+     * Recognizes native timezone timestamp aliases and precision-qualified SQL type names before
+     * the generic JDBC fallback can map them to a timezone-less timestamp.
+     */
     private static boolean isTimestampWithTimeZone(String nativeType) {
         if (nativeType == null) {
             return false;

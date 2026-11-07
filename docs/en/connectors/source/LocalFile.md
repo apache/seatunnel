@@ -58,7 +58,7 @@ For bounded Zeta jobs, restore resumes pending file splits after readers registe
 | name                       | type    | required | default value                        |
 |----------------------------|---------|----------|--------------------------------------|
 | path                       | string  | yes      | -                                    |
-| file_format_type           | string  | yes      | -                                    |
+| file_format_type           | string  | conditionally yes | -                         |
 | read_columns               | list    | no       | -                                    |
 | read_partitions | list | no | - |
 | delimiter/field_delimiter  | string  | no       | \001                                 |
@@ -84,6 +84,8 @@ For bounded Zeta jobs, restore resumes pending file splits after readers registe
 | null_format                | string  | no       | -                                    |
 | binary_chunk_size          | int     | no       | 1024                                 |
 | binary_complete_file_mode  | boolean | no       | false                                |
+| markdown_rag_metadata_enabled | boolean | no    | false                                |
+| pdf_rag_metadata_enabled   | boolean | no       | false                                |
 | discovery_mode             | string  | no       | once                                 |
 | scan_interval              | string  | no       | 10S |
 | start_mode                 | string  | no       | earliest                             |
@@ -121,6 +123,8 @@ File type, supported as the following file types:
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
+
+Required when reading a single table with `path`. When reading multiple tables with `tables_configs`, the top-level option is not needed because each table entry defines its own `file_format_type`.
 
 For example:
 
@@ -479,8 +483,9 @@ The encoding of the file to read. This param will be parsed by `Charset.forName(
 
 ### null_format [string]
 
-Only used when file_format_type is text.
-null_format to define which strings can be represented as null.
+Used when `file_format_type` is `text` or `csv`. Defines which field value represents null.
+For CSV with a configured `schema.columns[].defaultValue`, a matching `null_format` value or a column absent from the file header uses that default. An empty CSV field still produces null unless it matches `null_format`; columns without a default keep their existing behavior.
+CSV defaults are validated when the reader is created. DATE and TIMESTAMP defaults may use a different supported format from the file data.
 
 e.g: `\N`
 

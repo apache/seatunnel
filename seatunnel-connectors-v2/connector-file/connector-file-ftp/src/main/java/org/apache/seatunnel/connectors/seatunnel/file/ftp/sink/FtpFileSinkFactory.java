@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -123,6 +124,11 @@ public class FtpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .optional(FtpFileSourceOptions.FTP_REMOTE_VERIFICATION_ENABLED)
                 .optional(FtpFileSourceOptions.FTP_CONTROL_ENCODING)
+                .optional(
+                        FtpFileSourceOptions.FTP_CONTROL_TIMEOUT,
+                        // A negative value reaches Socket.setSoTimeout, which throws an
+                        // IllegalArgumentException that does not name the offending option.
+                        Conditions.greaterOrEqual(FtpFileSourceOptions.FTP_CONTROL_TIMEOUT, 0))
                 .build();
     }
 
