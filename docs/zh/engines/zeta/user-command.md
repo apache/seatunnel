@@ -4,7 +4,7 @@ sidebar_position: 13
 
 # 客户端命令行工具
 
-SeaTunnel Engine 提供了一个命令行工具，用于管理 SeaTunnel Engine 的作业。您可以使用命令行工具提交、停止、暂停、恢复、删除作业，查看作业状态和监控指标等。
+SeaTunnel Engine 提供了一个命令行工具，用于管理 SeaTunnel Engine 的作业。您可以使用命令行工具提交、停止、savepoint、恢复作业，查看作业状态和监控指标等。（目前没有专门的删除作业命令；已结束的作业记录会在 `history-job-expire-minutes` 到期后被自动清除。）
 
 可以通过如下命令获取命令行工具的帮助信息：
 

@@ -178,7 +178,7 @@ grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tai
 
 Correlate the timestamps with:
 - Job submission events (REST API calls)
-- Checkpoint intervals (every 10s by default)
+- Checkpoint intervals (code default: 300000 ms; the shipped `config/seatunnel.yaml` template sets 10000 ms)
 - High-load periods (peak data ingestion)
 
 #### Step 2: Check overall node health
@@ -221,7 +221,7 @@ free -h
 - Symptom: Slow operations during `PutOperation` or `GetOperation` on IMap keys.
 - Check: `du -sh $SEATUNNEL_HOME/imap/wal/` and `du -sh $SEATUNNEL_HOME/imap/maps/` — large WAL directories indicate write pressure.
 - Common cause: Disk I/O saturation on the MapStore directory, aggressive WAL write frequency, or disk space exhaustion.
-- Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency), increase `write-behind-delay-seconds`, enable WAL compaction.
+- Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency), tune the MapStore write behavior (Hazelcast `write-delay-seconds`), enable WAL compaction.
 
 ### 3. Sizing `hazelcast.operation.generic.thread.count`
 
@@ -404,6 +404,7 @@ seatunnel:
       storage:
         type: hdfs
         plugin-config:
+          storage.type: s3
           namespace: /seatunnel/checkpoint/
           s3.bucket: s3a://<your-bucket>
           fs.s3a.endpoint: s3.<region>.amazonaws.com
@@ -417,6 +418,7 @@ seatunnel:
       storage:
         type: hdfs
         plugin-config:
+          storage.type: s3
           fs.s3a.fast.upload: true
           s3.bucket: s3a://<your-bucket>
           fs.s3a.fast.upload.buffer: disk
@@ -432,6 +434,7 @@ seatunnel:
       storage:
         type: hdfs
         plugin-config:
+          storage.type: s3
           fs.s3a.attempts.maximum: 10
           s3.bucket: s3a://<your-bucket>
           fs.s3a.connection.timeout: 30000
@@ -551,5 +554,5 @@ kubectl exec <pod> -- du -sh /tmp/seatunnel/imap/
 | Slow operations + high GC | JVM heap pressure | Increase `-Xmx`, reduce concurrent tasks |
 | `executor.q.operations.size` > 0 | Operation thread pool saturated | Increase `generic.thread.count` |
 | `operations.pending.invocations.percentage` > 10% | Remote invocation backlog | Check network, increase `generic.thread.count` |
-| WAL directory growing, slow IMap operations | MapStore write pressure | Increase `write-behind-delay-seconds`, add disk IOPS |
+| WAL directory growing, slow IMap operations | MapStore write pressure | Tune the Hazelcast MapStore `write-delay-seconds`, add disk IOPS |
 | Checkpoint duration > 60s | Large state or slow storage | Reduce checkpoint state size, optimize storage |
