@@ -90,7 +90,8 @@ public class CheckpointableSequenceSource
         return new CheckpointableSequenceSourceReader(
                 readerContext,
                 config.get(CheckpointableSequenceSourceFactory.RECORDS_PER_POLL),
-                config.get(CheckpointableSequenceSourceFactory.EMIT_INTERVAL_MS));
+                config.get(CheckpointableSequenceSourceFactory.EMIT_INTERVAL_MS),
+                config.get(CheckpointableSequenceSourceFactory.EXHAUSTED_SNAPSHOT_DELAY_MS));
     }
 
     @Override
