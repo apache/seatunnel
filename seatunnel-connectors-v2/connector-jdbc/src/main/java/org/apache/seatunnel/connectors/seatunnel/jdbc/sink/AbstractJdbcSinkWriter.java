@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
@@ -70,6 +71,11 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        if (!(event instanceof RestoreTableSchemaEvent) && !dialect.supportsSchemaChange()) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    dialect.dialectName() + " JDBC dialect does not support schema changes");
+        }
         this.tableSchema = tableSchemaChanger.reset(tableSchema).apply(event);
         reOpenOutputFormat(event);
     }
