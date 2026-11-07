@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.cdc.db2;
 
+import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.seatunnel.cdc.db2.utils.TableDiscoveryUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -38,6 +40,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -47,6 +50,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -149,8 +154,59 @@ public class Db2CDCIT extends TestSuiteBase implements TestResource {
 
     /** Exercises the factory normalization through real catalog discovery and capture filtering. */
     @TestTemplate
-    public void testLowerCaseTableNames(TestContainer container) {
+    public void testLowerCaseTableNames(TestContainer container) throws Exception {
         runSnapshotAndStream(container, "/db2cdc_to_db2_with_lower_case_table_names.conf");
+
+        // Keep the successful uppercase-only path above, then introduce a distinct lowercase
+        // object. Its uppercase twin's ASN registration must not validate this uncaptured table.
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            createSchemaIfNotExists(statement, "\"db2inst1\"");
+            statement.execute(
+                    "CREATE TABLE \"db2inst1\".\"customers\" (ID INTEGER NOT NULL PRIMARY KEY)");
+            try {
+                String resolved =
+                        TableDiscoveryUtils.resolveConfiguredTableName(
+                                "e2e.db2inst1.customers",
+                                path -> {
+                                    try (ResultSet tables =
+                                            connection
+                                                    .getMetaData()
+                                                    .getTables(
+                                                            null,
+                                                            path.getSchemaName(),
+                                                            path.getTableName(),
+                                                            new String[] {"TABLE"})) {
+                                        return tables.next();
+                                    } catch (SQLException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                });
+                Assertions.assertEquals("e2e.db2inst1.customers", resolved);
+                List<TableId> captured = new ArrayList<>();
+                try (ResultSet registrations =
+                        statement.executeQuery(
+                                "SELECT SOURCE_OWNER, SOURCE_TABLE FROM ASNCDC.IBMSNAP_REGISTER")) {
+                    while (registrations.next()) {
+                        captured.add(
+                                new TableId(
+                                        "",
+                                        registrations.getString(1),
+                                        registrations.getString(2)));
+                    }
+                }
+                Assertions.assertTrue(captured.contains(new TableId("", SCHEMA, "CUSTOMERS")));
+                SeaTunnelException mismatch =
+                        Assertions.assertThrows(
+                                SeaTunnelException.class,
+                                () ->
+                                        TableDiscoveryUtils.validateExplicitCaptureTables(
+                                                Collections.singletonList(resolved), captured));
+                Assertions.assertTrue(mismatch.getMessage().contains(resolved));
+            } finally {
+                statement.execute("DROP TABLE \"db2inst1\".\"customers\"");
+            }
+        }
     }
 
     /**

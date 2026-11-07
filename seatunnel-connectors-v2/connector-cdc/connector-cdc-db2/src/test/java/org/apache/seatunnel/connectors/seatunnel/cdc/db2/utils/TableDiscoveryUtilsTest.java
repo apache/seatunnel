@@ -84,7 +84,11 @@ class TableDiscoveryUtilsTest {
         Assertions.assertDoesNotThrow(
                 () ->
                         TableDiscoveryUtils.validateExplicitCaptureTables(
-                                Collections.singletonList("e2e.db2inst1.customers"),
+                                Collections.singletonList(
+                                        TableDiscoveryUtils.resolveConfiguredTableName(
+                                                "e2e.db2inst1.customers",
+                                                TablePath.of("e2e", "DB2INST1", "CUSTOMERS")
+                                                        ::equals)),
                                 Collections.singletonList(
                                         new TableId("", "DB2INST1", "CUSTOMERS"))));
         Assertions.assertEquals(
@@ -126,6 +130,17 @@ class TableDiscoveryUtilsTest {
                         tablePath ->
                                 tablePath.equals(lowercaseCustomers)
                                         || tablePath.equals(uppercaseCustomers)));
+        SeaTunnelException captureMismatch =
+                Assertions.assertThrows(
+                        SeaTunnelException.class,
+                        () ->
+                                TableDiscoveryUtils.validateExplicitCaptureTables(
+                                        Collections.singletonList(
+                                                TableDiscoveryUtils.resolveConfiguredTableName(
+                                                        "e2e.db2inst1.customers", table -> true)),
+                                        Collections.singletonList(
+                                                new TableId("", "DB2INST1", "CUSTOMERS"))));
+        Assertions.assertTrue(captureMismatch.getMessage().contains("e2e.db2inst1.customers"));
         Assertions.assertEquals(
                 "e2e.DB2INST1.CUSTOMERS",
                 TableDiscoveryUtils.resolveConfiguredTableName(

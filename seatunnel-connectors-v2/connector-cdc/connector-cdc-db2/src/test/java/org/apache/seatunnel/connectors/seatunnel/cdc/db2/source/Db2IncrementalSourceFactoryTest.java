@@ -201,7 +201,7 @@ class Db2IncrementalSourceFactoryTest {
 
         // When both spellings exist the configured object keeps its identity in both options.
         ReadonlyConfig bothExist =
-                Db2IncrementalSourceFactory.normalizeDb2Options(original, tablePath -> true);
+                Db2IncrementalSourceFactory.normalizeDb2Options(original, candidate -> true);
         Assertions.assertEquals(
                 Collections.singletonList("e2e.db2inst1.customers"),
                 bothExist.get(ConnectorCommonOptions.TABLE_NAMES));

@@ -75,14 +75,10 @@ public class TableDiscoveryUtils {
                         .collect(Collectors.toSet());
         List<String> missingTables = new ArrayList<>();
         for (String configuredTable : configuredTables) {
-            // Accept the DB2 folded spelling first and the configured spelling as a fallback, so
-            // an object created with quoted lowercase identifiers that was matched unquoted before
-            // folding was introduced still passes startup validation.
-            TableId foldedTableId =
-                    toConfiguredDb2TableId(normalizeConfiguredTableName(configuredTable));
+            // Options already contain the resolved physical spelling. Accepting a folded twin
+            // here could validate capture for a different object than the catalog selected.
             TableId configuredTableId = toConfiguredDb2TableId(configuredTable);
-            if (!normalizedCapturedTables.contains(foldedTableId)
-                    && !normalizedCapturedTables.contains(configuredTableId)) {
+            if (!normalizedCapturedTables.contains(configuredTableId)) {
                 missingTables.add(configuredTable);
             }
         }
