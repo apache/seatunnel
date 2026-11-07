@@ -126,10 +126,6 @@ public final class JobRuntimeDiagnostics {
         }
     }
 
-    /**
-     * Renders a {@code stateTimestamps} array as a state name to epoch millis object, skipping
-     * states that were never entered.
-     */
     /** Causes as a JSON array, oldest first. Empty when the pipeline has not restarted. */
     private static JsonArray toCausesJson(List<String> causes) {
         JsonArray array = new JsonArray();
@@ -139,6 +135,10 @@ public final class JobRuntimeDiagnostics {
         return array;
     }
 
+    /**
+     * Renders a {@code stateTimestamps} array as a state name to epoch millis object, skipping
+     * states that were never entered.
+     */
     private static JsonObject toTimestampsJson(Long[] stateTimestamps, Enum<?>[] states) {
         JsonObject json = new JsonObject();
         if (stateTimestamps == null) {

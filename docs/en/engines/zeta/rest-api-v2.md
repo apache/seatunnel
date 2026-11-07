@@ -686,6 +686,11 @@ node. It is auxiliary information: if it can not be obtained, the field is omitt
 failing the request. Only this endpoint returns it; `/running-jobs` does not, because collecting it
 for every running job would cost one more round trip to the master per job.
 
+`diagnostics` is read from the master's in-memory job state, so like `restoreCount` it describes
+this master's view of the job rather than its whole history. After a master switch the restore
+counters and `restoreCauses` start again from the recovered job, and causes recorded by the
+previous master are not carried over.
+
 #### Metrics field description
 
 | Field | Description |

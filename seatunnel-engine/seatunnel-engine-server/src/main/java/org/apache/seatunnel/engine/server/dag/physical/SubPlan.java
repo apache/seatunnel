@@ -575,18 +575,14 @@ public class SubPlan {
     }
 
     /**
-     * reset the pipeline and task state and init state future again
-     *
-     * @return
-     */
-    /**
      * Keep why a run ended, dropping the oldest when full.
      *
      * <p>A restore with no recorded error is still worth a placeholder: "restarted and we do not
      * know why" is a different and more alarming state than "restarted because the sink refused the
      * connection", and silently omitting it would make the two look alike.
      */
-    private void retainRestoreCause(int restoreAttempt, String cause) {
+    @VisibleForTesting
+    void retainRestoreCause(int restoreAttempt, String cause) {
         String text =
                 cause == null || cause.trim().isEmpty()
                         ? "no error was recorded for this run"
@@ -605,6 +601,11 @@ public class SubPlan {
         return new ArrayList<>(restoreCauses);
     }
 
+    /**
+     * reset the pipeline and task state and init state future again
+     *
+     * @return
+     */
     private boolean prepareRestorePipeline() {
         synchronized (restoreLock) {
             try {

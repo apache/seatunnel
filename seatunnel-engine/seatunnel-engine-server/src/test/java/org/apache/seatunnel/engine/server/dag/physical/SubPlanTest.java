@@ -202,7 +202,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
     }
 
     @Test
-    void shouldRetainWhyEachEarlierRunEnded() throws Exception {
+    void shouldRetainWhyEachEarlierRunEnded() {
         // errorByPhysicalVertex holds only the current attempt and is replaced on every restore,
         // so a pipeline that has restarted repeatedly otherwise reports a restore count with no
         // reason attached. These exercise the retention directly: driving a real restore needs a
@@ -217,8 +217,8 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
 
             Assertions.assertTrue(subPlan.getRestoreCauses().isEmpty());
 
-            retainCause(subPlan, 1, "java.net.ConnectException: Connection refused");
-            retainCause(subPlan, 2, "java.net.ConnectException: Connection refused");
+            subPlan.retainRestoreCause(1, "java.net.ConnectException: Connection refused");
+            subPlan.retainRestoreCause(2, "java.net.ConnectException: Connection refused");
 
             List<String> causes = subPlan.getRestoreCauses();
             Assertions.assertEquals(2, causes.size());
@@ -231,7 +231,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
     }
 
     @Test
-    void shouldRecordARestoreWithNoErrorRatherThanOmitIt() throws Exception {
+    void shouldRecordARestoreWithNoErrorRatherThanOmitIt() {
         // "restarted and we do not know why" is a different and more alarming state than
         // "restarted because the sink refused the connection"; dropping it hides the difference.
         ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -242,8 +242,8 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
                             Collections.singletonList(mockPhysicalVertex(ExecutionState.FAILED)),
                             Collections.emptyList());
 
-            retainCause(subPlan, 1, null);
-            retainCause(subPlan, 2, "   ");
+            subPlan.retainRestoreCause(1, null);
+            subPlan.retainRestoreCause(2, "   ");
 
             List<String> causes = subPlan.getRestoreCauses();
             Assertions.assertEquals(2, causes.size());
@@ -258,7 +258,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
     }
 
     @Test
-    void shouldBoundTheRetainedCausesAndTruncateLongOnes() throws Exception {
+    void shouldBoundTheRetainedCausesAndTruncateLongOnes() {
         // job.retry.times already bounds how many restores happen, but it is user-configurable,
         // so the list is capped independently and each entry is truncated.
         ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -274,7 +274,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
                 huge.append('x');
             }
             for (int attempt = 1; attempt <= 40; attempt++) {
-                retainCause(subPlan, attempt, huge.toString());
+                subPlan.retainRestoreCause(attempt, huge.toString());
             }
 
             List<String> causes = subPlan.getRestoreCauses();
@@ -293,7 +293,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
     }
 
     @Test
-    void shouldReturnACopyOfTheRetainedCauses() throws Exception {
+    void shouldReturnACopyOfTheRetainedCauses() {
         ExecutorService executorService = Executors.newSingleThreadExecutor();
         try {
             SubPlan subPlan =
@@ -301,7 +301,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
                             executorService,
                             Collections.singletonList(mockPhysicalVertex(ExecutionState.FAILED)),
                             Collections.emptyList());
-            retainCause(subPlan, 1, "boom");
+            subPlan.retainRestoreCause(1, "boom");
 
             subPlan.getRestoreCauses().clear();
 
@@ -311,11 +311,58 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
         }
     }
 
-    private static void retainCause(SubPlan subPlan, int attempt, String cause) throws Exception {
-        java.lang.reflect.Method method =
-                SubPlan.class.getDeclaredMethod("retainRestoreCause", int.class, String.class);
+    @Test
+    void shouldCaptureTheRealErrorWhenARestoreIsPrepared() throws Exception {
+        // The tests above exercise retainRestoreCause directly, which proves the retention works
+        // but not that anything calls it. This drives prepareRestorePipeline, so deleting the
+        // capture line or moving it after reset()/initStateFuture() turns this red.
+        CheckpointManager checkpointManager = mock(CheckpointManager.class);
+        PhysicalPlan physicalPlan = mock(PhysicalPlan.class);
+        JobMaster jobMaster = mock(JobMaster.class);
+        when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
+        when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(mockPhysicalVertex(ExecutionState.FAILED)),
+                            Collections.emptyList());
+            subPlan.setJobMaster(jobMaster);
+            subPlan.setCurrPipelineStatus(PipelineStatus.FAILED);
+
+            String failure = "java.sql.SQLException: Access denied for user 'etl'@'10.0.1.7'";
+            setErrorByPhysicalVertex(subPlan, failure);
+
+            invokePrepareRestorePipeline(subPlan);
+
+            List<String> causes = subPlan.getRestoreCauses();
+            Assertions.assertEquals(1, causes.size(), "the restore cause was not captured");
+            Assertions.assertTrue(
+                    causes.get(0).contains("Access denied for user"),
+                    "captured the placeholder instead of the real error: " + causes.get(0));
+            Assertions.assertTrue(causes.get(0).startsWith("restore 1: "));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
+     * Seed the field a failing PhysicalVertex would have set. Reflection is used only to stand in
+     * for that callback; the behaviour under test is reached through the real method below.
+     */
+    @SuppressWarnings("unchecked")
+    private static void setErrorByPhysicalVertex(SubPlan subPlan, String message) throws Exception {
+        java.lang.reflect.Field field = SubPlan.class.getDeclaredField("errorByPhysicalVertex");
+        field.setAccessible(true);
+        ((java.util.concurrent.atomic.AtomicReference<String>) field.get(subPlan)).set(message);
+    }
+
+    private static void invokePrepareRestorePipeline(SubPlan subPlan) throws Exception {
+        java.lang.reflect.Method method = SubPlan.class.getDeclaredMethod("prepareRestorePipeline");
         method.setAccessible(true);
-        method.invoke(subPlan, attempt, cause);
+        method.invoke(subPlan);
     }
 
     private SubPlan newSubPlan(

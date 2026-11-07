@@ -674,7 +674,7 @@ seatunnel:
 `finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
 `diagnostics` 字段在Job运行中且能从Master节点读取到诊断信息时返回。它属于辅助信息，读取失败时该字段会被省略，不会导致请求失败。该字段只在本接口返回，`/running-jobs` 不返回：为列表中的每个Job收集诊断信息会额外增加一次到Master的请求。
 
-#### 指标字段说明
+`diagnostics` 读取的是 Master 内存中的 Job 状态，因此与 `restoreCount` 一样，它描述的是当前这个 Master 对该 Job 的视图，而不是完整历史。Master 切换后，恢复计数与 `restoreCauses` 会从被恢复的 Job 重新开始，上一个 Master 记录的原因不会延续。#### 指标字段说明
 
 | 字段 | 说明 |
 | --- | --- |
