@@ -237,22 +237,23 @@ public class SqlWhereConditionHelper {
         // Remove string literals to avoid false positives
         String cleaned = sql.replaceAll("'[^']*'|\"[^\"]*\"", "");
 
-        // Find the column list between SELECT and FROM
-        String upperCleaned = cleaned.toUpperCase(Locale.ROOT);
+        // Find the column list between SELECT and FROM.
+        // Keywords are matched on the original string so the indices stay aligned with the
+        // text that is sliced below; uppercasing is not length-preserving (e.g. 'ß' -> "SS").
         int selectIdx = -1;
 
         // Find SELECT keyword (not inside parentheses)
         int parenCount = 0;
-        for (int i = 0; i < upperCleaned.length(); i++) {
-            char c = upperCleaned.charAt(i);
+        for (int i = 0; i < cleaned.length(); i++) {
+            char c = cleaned.charAt(i);
             if (c == '(') parenCount++;
             else if (c == ')') parenCount--;
-            else if (parenCount == 0 && upperCleaned.startsWith("SELECT", i)) {
+            else if (parenCount == 0 && matchesAsciiKeyword(cleaned, i, "SELECT")) {
                 // Check it's a keyword, not part of another word
-                if (i == 0 || !Character.isLetterOrDigit(upperCleaned.charAt(i - 1))) {
+                if (i == 0 || !Character.isLetterOrDigit(cleaned.charAt(i - 1))) {
                     int nextIdx = i + 6;
-                    if (nextIdx >= upperCleaned.length()
-                            || Character.isWhitespace(upperCleaned.charAt(nextIdx))) {
+                    if (nextIdx >= cleaned.length()
+                            || Character.isWhitespace(cleaned.charAt(nextIdx))) {
                         selectIdx = i;
                         break;
                     }
@@ -275,10 +276,11 @@ public class SqlWhereConditionHelper {
         int selectEndIdx = selectIdx + 6;
         String columnList = cleaned.substring(selectEndIdx, fromIdx).trim();
 
-        // Skip DISTINCT/ALL keywords
-        if (columnList.toUpperCase(Locale.ROOT).startsWith("DISTINCT ")) {
+        // Skip DISTINCT/ALL keywords. The offsets are applied to the same string they were
+        // matched against, so an expanding code point cannot shorten the payload.
+        if (matchesAsciiKeyword(columnList, 0, "DISTINCT ")) {
             columnList = columnList.substring(9).trim();
-        } else if (columnList.toUpperCase(Locale.ROOT).startsWith("ALL ")) {
+        } else if (matchesAsciiKeyword(columnList, 0, "ALL ")) {
             columnList = columnList.substring(4).trim();
         }
 
@@ -503,7 +505,6 @@ public class SqlWhereConditionHelper {
 
     /** Find the index of the main FROM clause in the SQL query. */
     private static int findMainFromClauseIndex(String sql) {
-        String upperSql = sql.toUpperCase(Locale.ROOT);
         int length = sql.length();
         int parenthesisCount = 0;
         boolean inQuote = false;
@@ -533,7 +534,9 @@ public class SqlWhereConditionHelper {
                                     || Character.isWhitespace(sql.charAt(i - 1))
                                     || sql.charAt(i - 1) == ')')) {
 
-                        if (upperSql.startsWith("FROM", i)) {
+                        // Compare on the original SQL: uppercasing a character such as 'ß'
+                        // expands it to two characters and would shift every later index.
+                        if (matchesAsciiKeyword(sql, i, "FROM")) {
                             int nextCharIdx = i + 4;
                             if (nextCharIdx >= length
                                     || Character.isWhitespace(sql.charAt(nextCharIdx))) {
@@ -571,5 +574,29 @@ public class SqlWhereConditionHelper {
                 || upper.equals("NULL")
                 || upper.equals("TRUE")
                 || upper.equals("FALSE");
+    }
+
+    /**
+     * Match an upper-case SQL keyword at {@code offset} of {@code sql}, ignoring ASCII letter case.
+     *
+     * <p>Only characters below 0x80 are folded, so a code point whose full Unicode upper-case form
+     * equals a keyword letter (U+017F 'ſ' for 'S', U+FB05 'ﬅ' for "ST", ...) is never read as part
+     * of the keyword. Keyword recognition then matches what a database accepts, and both scanners
+     * use the same notion of a keyword letter.
+     */
+    private static boolean matchesAsciiKeyword(String sql, int offset, String keyword) {
+        int length = keyword.length();
+        if (offset < 0 || offset + length > sql.length()) {
+            return false;
+        }
+        for (int i = 0; i < length; i++) {
+            char actual = sql.charAt(offset + i);
+            char expected = keyword.charAt(i);
+            boolean foldable = actual < 0x80 && Character.toUpperCase(actual) == expected;
+            if (actual != expected && !foldable) {
+                return false;
+            }
+        }
+        return true;
     }
 }
