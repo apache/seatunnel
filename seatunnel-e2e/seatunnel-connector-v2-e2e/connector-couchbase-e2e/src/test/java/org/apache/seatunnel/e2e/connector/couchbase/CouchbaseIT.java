@@ -17,6 +17,14 @@
 
 package org.apache.seatunnel.e2e.connector.couchbase;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplit;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitEnumeratorState;
+import org.apache.seatunnel.connectors.seatunnel.couchbase.source.CouchbaseSourceFactory;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -28,7 +36,9 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.Timeout;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.couchbase.BucketDefinition;
@@ -36,19 +46,35 @@ import org.testcontainers.couchbase.CouchbaseContainer;
 import org.testcontainers.couchbase.CouchbaseService;
 import org.testcontainers.utility.DockerImageName;
 
+import com.couchbase.client.core.error.UnambiguousTimeoutException;
 import com.couchbase.client.java.Cluster;
+import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.json.JsonObject;
+import com.couchbase.client.java.query.QueryOptions;
 import com.couchbase.client.java.query.QueryResult;
+import com.couchbase.client.java.query.QueryScanConsistency;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 /**
- * End-to-end integration test for the Couchbase sink connector.
+ * End-to-end integration test for the Couchbase source and sink connector.
  *
  * <p>Starts a real Couchbase community server via {@link CouchbaseContainer}, which handles full
  * cluster bootstrap automatically (node init, services, memory quotas, credentials, bucket). The
@@ -66,6 +92,13 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
     private static final String COUCHBASE_SCOPE = "_default";
     private static final String COUCHBASE_COLLECTION = "test_collection";
     private static final String COUCHBASE_COLLECTION_TIMER_FLUSH = "test_collection_timer_flush";
+    private static final String COUCHBASE_COLLECTION_SOURCE_RESULT = "test_source_result";
+    private static final String COUCHBASE_SOURCE_SCOPE = "source_scope";
+    private static final String COUCHBASE_SOURCE_COLLECTION = "source_collection";
+    private static final String COUCHBASE_TIMEOUT_COLLECTION = "source_timeout";
+    private static final int TIMEOUT_ROW_COUNT = 512;
+    private static final int SMALL_QUERY_TIMEOUT_SECONDS = 5;
+    private static final int SLOW_COLLECTOR_DELAY_SECONDS = 10;
 
     /** Matches row.num in fake_source_to_couchbase.conf. */
     private static final int EXPECTED_ROW_COUNT = 100;
@@ -227,6 +260,64 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                                     rows.get(0).getString("state"),
                                     "Primary index not yet online");
                         });
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                cluster.query(
+                                        "CREATE COLLECTION `test_bucket`.`_default`.`test_source_result`"));
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                cluster.query(
+                                        "CREATE PRIMARY INDEX ON `test_bucket`.`_default`.`test_source_result`"));
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(() -> cluster.query("CREATE SCOPE `test_bucket`.`source_scope`"));
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                cluster.query(
+                                        "CREATE COLLECTION `test_bucket`.`source_scope`.`source_collection`"));
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                cluster.query(
+                                        "CREATE PRIMARY INDEX ON `test_bucket`.`source_scope`.`source_collection`"));
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            QueryResult result =
+                                    cluster.query(
+                                            "SELECT state FROM system:indexes"
+                                                    + " WHERE keyspace_id = 'source_collection'"
+                                                    + " AND scope_id = 'source_scope'"
+                                                    + " AND bucket_id = 'test_bucket'"
+                                                    + " AND `using` = 'gsi' AND is_primary = true");
+                            List<JsonObject> indexes = result.rowsAs(JsonObject.class);
+                            Assertions.assertFalse(
+                                    indexes.isEmpty(), "Source index not created yet");
+                            Assertions.assertEquals(
+                                    "online",
+                                    indexes.get(0).getString("state"),
+                                    "Source index not yet online");
+                        });
         log.info("Couchbase cluster ready at {}", couchbaseContainer.getConnectionString());
     }
 
@@ -337,6 +428,202 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                                     count.get(),
                                     doc.toMap());
                         });
+    }
+
+    @TestTemplate
+    public void testCouchbaseSourceToAssert(TestContainer container)
+            throws IOException, InterruptedException {
+        cluster.query(
+                "DELETE FROM `test_bucket`.`_default`.`test_source_result`",
+                QueryOptions.queryOptions().scanConsistency(QueryScanConsistency.REQUEST_PLUS));
+        Collection sourceCollection =
+                cluster.bucket(COUCHBASE_BUCKET)
+                        .scope(COUCHBASE_SOURCE_SCOPE)
+                        .collection(COUCHBASE_SOURCE_COLLECTION);
+        sourceCollection.upsert(
+                "source-one",
+                JsonObject.create()
+                        .put("id", 1)
+                        .put("name", "first")
+                        .put("enabled", true)
+                        .put("amount", 12.5)
+                        .putNull("nullable"));
+        sourceCollection.upsert(
+                "source-two",
+                JsonObject.create()
+                        .put("id", 2)
+                        .put("name", "second")
+                        .put("enabled", false)
+                        .put("amount", -3.25));
+
+        Container.ExecResult result = container.executeJob("/couchbase_source_to_assert.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1, TimeUnit.SECONDS)
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<JsonObject> rows =
+                                    cluster.query(
+                                                    "SELECT RAW d FROM `test_bucket`.`_default`.`"
+                                                            + COUCHBASE_COLLECTION_SOURCE_RESULT
+                                                            + "` AS d ORDER BY d.id",
+                                                    QueryOptions.queryOptions()
+                                                            .scanConsistency(
+                                                                    QueryScanConsistency
+                                                                            .REQUEST_PLUS))
+                                            .rowsAsObject();
+                            Assertions.assertEquals(2, rows.size());
+                            Assertions.assertEquals(1, rows.get(0).getInt("id"));
+                            Assertions.assertEquals("first", rows.get(0).getString("name"));
+                            Assertions.assertEquals(true, rows.get(0).getBoolean("enabled"));
+                            Assertions.assertEquals(12.5, rows.get(0).getDouble("amount"));
+                            Assertions.assertNull(rows.get(0).get("nullable"));
+                            Assertions.assertEquals(2, rows.get(1).getInt("id"));
+                            Assertions.assertEquals("second", rows.get(1).getString("name"));
+                            Assertions.assertEquals(false, rows.get(1).getBoolean("enabled"));
+                            Assertions.assertEquals(-3.25, rows.get(1).getDouble("amount"));
+                            Assertions.assertNull(rows.get(1).get("nullable"));
+                        });
+    }
+
+    /** Verifies the server's streaming timeout through the production reader, without an engine. */
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    public void testCouchbaseSourceStreamingTimeoutAndReplay() throws Exception {
+        String path = "`test_bucket`.`source_scope`.`source_timeout`";
+        Awaitility.given()
+                .ignoreExceptions()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(() -> cluster.query("CREATE COLLECTION " + path));
+        Awaitility.given()
+                .ignoreExceptions()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(() -> cluster.query("CREATE PRIMARY INDEX ON " + path));
+        Collection collection =
+                cluster.bucket(COUCHBASE_BUCKET)
+                        .scope(COUCHBASE_SOURCE_SCOPE)
+                        .collection(COUCHBASE_TIMEOUT_COLLECTION);
+        // 64 MiB of results prevents SDK prefetch and socket buffers from hiding backpressure.
+        // Sleeping on a tiny, already-buffered response would not exercise a server timeout.
+        String payload = "x".repeat(128 * 1024);
+        for (int id = 0; id < TIMEOUT_ROW_COUNT; id++) {
+            collection.upsert(
+                    "timeout-" + id, JsonObject.create().put("id", id).put("payload", payload));
+        }
+        Awaitility.given()
+                .ignoreExceptions()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        TIMEOUT_ROW_COUNT,
+                                        cluster.query(
+                                                        "SELECT RAW COUNT(*) FROM " + path,
+                                                        QueryOptions.queryOptions()
+                                                                .scanConsistency(
+                                                                        QueryScanConsistency
+                                                                                .REQUEST_PLUS))
+                                                .rowsAs(Integer.class)
+                                                .get(0)));
+
+        Set<Integer> expectedIds =
+                IntStream.range(0, TIMEOUT_ROW_COUNT).boxed().collect(Collectors.toSet());
+        SourceReader.Context fastContext = mock(SourceReader.Context.class);
+        List<Integer> fast = new ArrayList<>();
+        try (SourceReader<SeaTunnelRow, SingleSplit> reader = timeoutReader(60, fastContext)) {
+            reader.addSplits(Collections.singletonList(new SingleSplit(null)));
+            reader.open();
+            // Allow CI headroom: this control checks complete results, not throughput.
+            reader.pollNext(collectorWithInitialDelay(fast, 0));
+            Assertions.assertEquals(TIMEOUT_ROW_COUNT, fast.size());
+            Assertions.assertEquals(expectedIds, new HashSet<>(fast));
+            verify(fastContext).signalNoMoreElement();
+        }
+
+        SourceReader.Context failedContext = mock(SourceReader.Context.class);
+        List<Integer> partial = new ArrayList<>();
+        List<SingleSplit> state;
+        try (SourceReader<SeaTunnelRow, SingleSplit> reader =
+                timeoutReader(SMALL_QUERY_TIMEOUT_SECONDS, failedContext)) {
+            reader.addSplits(Collections.singletonList(new SingleSplit(null)));
+            reader.open();
+            UnambiguousTimeoutException failure =
+                    Assertions.assertThrows(
+                            UnambiguousTimeoutException.class,
+                            () ->
+                                    reader.pollNext(
+                                            collectorWithInitialDelay(
+                                                    partial, SLOW_COLLECTOR_DELAY_SECONDS)));
+            Assertions.assertTrue(
+                    failure.getMessage().contains("Query timed out while streaming/receiving rows"),
+                    "Must observe server error 1080, not a timeout before streaming starts");
+            Assertions.assertFalse(partial.isEmpty(), "Must emit rows before the timeout");
+            Assertions.assertTrue(partial.size() < TIMEOUT_ROW_COUNT);
+            verify(failedContext, never()).signalNoMoreElement();
+            state = reader.snapshotState(1);
+            Assertions.assertNull(state.get(0).getState(), "No offset is checkpointed");
+        }
+
+        SourceReader.Context restoredContext = mock(SourceReader.Context.class);
+        List<Integer> completed = new ArrayList<>();
+        try (SourceReader<SeaTunnelRow, SingleSplit> reader = timeoutReader(60, restoredContext)) {
+            reader.addSplits(state);
+            reader.open();
+            // Same fixture and slow collector; only the query budget changes.
+            reader.pollNext(collectorWithInitialDelay(completed, SLOW_COLLECTOR_DELAY_SECONDS));
+            Assertions.assertEquals(TIMEOUT_ROW_COUNT, completed.size());
+            Assertions.assertEquals(expectedIds, new HashSet<>(completed));
+            Assertions.assertTrue(completed.containsAll(partial), "Recovery replays emitted rows");
+            verify(restoredContext).signalNoMoreElement();
+        }
+    }
+
+    private SourceReader<SeaTunnelRow, SingleSplit> timeoutReader(
+            int timeoutSeconds, SourceReader.Context context) throws Exception {
+        Map<String, Object> options = new HashMap<>();
+        options.put("connection.string", couchbaseContainer.getConnectionString());
+        options.put("username", COUCHBASE_USERNAME);
+        options.put("password", COUCHBASE_PASSWORD);
+        options.put("bucket", COUCHBASE_BUCKET);
+        options.put("scope", COUCHBASE_SOURCE_SCOPE);
+        options.put("collection", COUCHBASE_TIMEOUT_COLLECTION);
+        options.put("query.timeout", timeoutSeconds);
+        options.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("id", "int")));
+        return new CouchbaseSourceFactory()
+                .<SeaTunnelRow, SingleSplit, SingleSplitEnumeratorState>createSource(
+                        new TableSourceFactoryContext(
+                                ReadonlyConfig.fromMap(options), getClass().getClassLoader()))
+                .createSource()
+                .createReader(context);
+    }
+
+    private Collector<SeaTunnelRow> collectorWithInitialDelay(List<Integer> ids, int delaySeconds) {
+        return new Collector<SeaTunnelRow>() {
+            private final Object lock = new Object();
+
+            @Override
+            public void collect(SeaTunnelRow row) {
+                ids.add((Integer) row.getField(0));
+                if (ids.size() == 1) {
+                    // Stall only after the first row to distinguish streaming from startup timeout.
+                    try {
+                        TimeUnit.SECONDS.sleep(delaySeconds);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException("Slow collector interrupted", e);
+                    }
+                }
+            }
+
+            @Override
+            public Object getCheckpointLock() {
+                return lock;
+            }
+        };
     }
 
     @TestTemplate
