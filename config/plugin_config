@@ -131,6 +131,7 @@ connector-tdengine
 connector-web3j
 connector-milvus
 connector-activemq
+connector-jms
 connector-prometheus
 connector-deeplake
 connector-sls
