@@ -17,6 +17,8 @@
 
 package io.debezium.connector.postgresql;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.kafka.connect.errors.ConnectException;
 
 import org.postgresql.core.BaseConnection;
@@ -206,7 +208,7 @@ public class PostgresStreamingChangeEventSource
             this.lastCompletelyProcessedLsn = replicationStream.get().startLsn();
 
             if (walPosition.searchingEnabled()) {
-                searchWalPosition(context, stream, walPosition);
+                searchWalPosition(context, offsetContext, stream, walPosition);
                 try {
                     if (!isInPreSnapshotCatchUpStreaming(offsetContext)) {
                         connection.commit();
@@ -372,7 +374,7 @@ public class PostgresStreamingChangeEventSource
                                 }
                             });
 
-            probeConnectionIfNeeded();
+            probeConnectionIfNeeded(offsetContext);
 
             if (receivedMessage) {
                 noMessageIterations = 0;
@@ -402,6 +404,7 @@ public class PostgresStreamingChangeEventSource
 
     private void searchWalPosition(
             ChangeEventSourceContext context,
+            PostgresOffsetContext offsetContext,
             final ReplicationStream stream,
             final WalPositionLocator walPosition)
             throws SQLException, InterruptedException {
@@ -428,13 +431,44 @@ public class PostgresStreamingChangeEventSource
                 }
             }
 
-            probeConnectionIfNeeded();
+            probeConnectionIfNeeded(offsetContext);
         }
         LOGGER.info("WAL resume position '{}' discovered", resumeLsn.get());
     }
 
-    private void probeConnectionIfNeeded() throws SQLException {
-        if (connectionProbeTimer.hasElapsed()) {
+    /**
+     * Probes the JDBC data connection and, on failure, reconnects it in place once.
+     *
+     * <p>Package-private for {@code PostgresStreamingChangeEventSourceProbeTest}.
+     */
+    @VisibleForTesting
+    void probeConnectionIfNeeded(PostgresOffsetContext offsetContext) throws SQLException {
+        if (!connectionProbeTimer.hasElapsed()) {
+            return;
+        }
+        try {
+            connection.prepareQuery("SELECT 1");
+            connection.commit();
+        } catch (SQLException e) {
+            // Pre-snapshot catch-up streaming keeps a transaction open on this connection to hold
+            // the snapshot view; reconnecting would silently drop it, so fail instead. SeaTunnel
+            // never calls setStreamingStoppingLsn, so this guard is defensive.
+            if (isInPreSnapshotCatchUpStreaming(offsetContext)) {
+                throw e;
+            }
+            LOGGER.warn(
+                    "Postgres JDBC data connection probe failed; reconnecting in-place once", e);
+            try {
+                connection.close();
+            } catch (Exception closeEx) {
+                LOGGER.debug("Exception closing dead JDBC data connection", closeEx);
+            }
+            // JdbcConnection.connect() only opens a new connection when the current one is null or
+            // isClosed(), and pgjdbc may not mark a reset connection as closed. close() first
+            // guarantees a fresh connection and re-runs the initial statements. Retry only once:
+            // if the database is really unreachable, fail fast so Zeta restores from the last
+            // checkpoint instead of looping inside the streaming loop.
+            connection.connect();
             connection.prepareQuery("SELECT 1");
             connection.commit();
         }
