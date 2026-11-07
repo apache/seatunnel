@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.DynamicLookupBootstrapReader;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -70,7 +71,10 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 @Slf4j
 public class IncrementalSourceReader<T, C extends SourceConfig>
         extends SingleThreadMultiplexSourceReaderBase<
-                SourceRecords, T, SourceSplitBase, SourceSplitStateBase> {
+                SourceRecords, T, SourceSplitBase, SourceSplitStateBase>
+        implements DynamicLookupBootstrapReader {
+
+    private volatile boolean dynamicLookupBootstrapComplete;
 
     private final Map<String, SnapshotSplit> finishedUnackedSplits;
 
@@ -239,6 +243,12 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         }
     }
 
+    /** The enumerator assigns the incremental split only after all snapshot splits finish. */
+    @Override
+    public boolean isDynamicLookupBootstrapComplete() {
+        return dynamicLookupBootstrapComplete;
+    }
+
     @Override
     public void handleSourceEvent(SourceEvent sourceEvent) {
         if (sourceEvent instanceof CompletedSnapshotSplitsAckEvent) {
@@ -265,6 +275,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     debeziumDeserializationSchema,
                     isSchemaChangeEnabled(sourceConfig));
             IncrementalSplitState splitState = new IncrementalSplitState(incrementalSplit);
+            dynamicLookupBootstrapComplete = true;
             if (splitState.autoEnterPureIncrementPhaseIfAllowed()) {
                 log.info(
                         "The incremental split[{}] startup position {} is equal the maxSnapshotSplitsHighWatermark {}, auto enter pure increment phase.",

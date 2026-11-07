@@ -499,9 +499,11 @@ class IncrementalSourceReaderTest {
                 createReader(dialect, sourceConfig, context);
 
         try {
+            Assertions.assertFalse(reader.isDynamicLookupBootstrapComplete());
             reader.addSplits(Collections.singletonList(restoredIncrementalSplit()));
 
             Assertions.assertEquals(1, reader.getNumberOfCurrentlyAssignedSplits());
+            Assertions.assertTrue(reader.isDynamicLookupBootstrapComplete());
             List<SourceSplitBase> state = reader.snapshotState(1L);
             Assertions.assertEquals(1, state.size());
             Assertions.assertEquals(
