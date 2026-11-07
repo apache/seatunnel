@@ -139,7 +139,7 @@ Lance uses the Apache Arrow type system. The sink creates the Lance schema from 
 | SMALLINT            | int32                   |
 | INT                 | int32                   |
 | BIGINT              | int32 (values outside the signed 32-bit range are truncated) |
-| FLOAT               | float32                 |
+| FLOAT               | float64 (values are widened to double)          |
 | DOUBLE              | float64                 |
 | DECIMAL             | decimal128              |
 | NULL                | null                    |

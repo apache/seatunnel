@@ -28,14 +28,15 @@ Gitlab 源连接器用于读取 GitLab REST API 数据。它基于 HTTP 源连�
 | params                      | Map     | 否   | -      |
 | body                        | String  | 否   | -      |
 | format                      | String  | 否   | text   |
+| binary_chunk_size           | long    | 否   | 10485760 |
 | schema                      | Config  | 否   | -      |
 | schema.fields               | Config  | 否   | -      |
 | json_field                  | Config  | 否   | -      |
 | content_field               | String  | 否   | -      |
 | pageing                     | Config  | 否   | -      |
-| page_type                   | String  | 否   | PageNumber |
-| cursor_field                | String  | 否   | -      |
-| cursor_response_field       | String  | 否   | -      |
+| pageing.page_type           | String  | 否   | PageNumber |
+| pageing.cursor_field        | String  | 否   | -      |
+| pageing.cursor_response_field | String | 否  | -      |
 | poll_interval_millis        | int     | 否   | -      |
 | retry                       | int     | 否   | -      |
 | retry_backoff_multiplier_ms | int     | 否   | 100    |
@@ -43,10 +44,10 @@ Gitlab 源连接器用于读取 GitLab REST API 数据。它基于 HTTP 源连�
 | enable_multi_lines          | boolean | 否   | false  |
 | keep_params_as_form         | boolean | 否   | false  |
 | keep_page_param_as_http_param | boolean | 否 | false  |
-| batch_size                  | int     | 否   | 100    |
-| start_page_number           | long    | 否   | 1      |
-| total_page_size             | long    | 否   | 0      |
-| use_placeholder_replacement | boolean | 否   | false  |
+| pageing.batch_size          | int     | 否   | 100    |
+| pageing.start_page_number   | long    | 否   | 1      |
+| pageing.total_page_size     | long    | 否   | 0      |
+| pageing.use_placeholder_replacement | boolean | 否 | false  |
 | connect_timeout_ms          | int     | 否   | 12000  |
 | socket_timeout_ms           | int     | 否   | 60000  |
 | json_filed_missed_return_null | boolean | 否 | false  |
@@ -78,7 +79,11 @@ HTTP 请求体。只有目标 API 接口支持请求体时才需要配置。
 
 ### format [String]
 
-响应数据格式，支持 `json` 和 `text`。如果希望输出带字段名的数据行，请使用 `json` 并配置 `schema`。
+响应数据格式，支持 `json`、`text` 和 `binary`。`binary` 模式下响应体按原始字节返回，并以 `binary_chunk_size` 切分（仅批处理模式生效）。如果希望输出带字段名的数据行，请使用 `json` 并配置 `schema`。
+
+### binary_chunk_size [long]
+
+`format = "binary"` 时按字节切分响应的大小。较大的响应会被拆分为多行。仅批处理模式生效。
 
 ### schema [Config]
 
@@ -94,19 +99,19 @@ HTTP 请求体。只有目标 API 接口支持请求体时才需要配置。
 
 ### pageing [Config]
 
-继承自 HTTP 连接器的分页配置。任务配置中请保持 `pageing` 这个拼写。
+继承自 HTTP 连接器的分页配置。所有分页参数必须配置在该 `pageing` 块内，写在 source 顶层的分页参数会被忽略。
 
-### page_type [String]
+### pageing.page_type [String]
 
-分页类型，支持 `PageNumber`（默认）和 `Cursor`。对于响应中包含 `X-Next-Page` 游标的接口，请使用 `Cursor`。
+分页类型，支持 `PageNumber`（默认）和 `Cursor`。使用 `Cursor` 时，下一个游标值会通过 `pageing.cursor_response_field` 从响应体中读取；连接器不会读取 `X-Next-Page` 这类 HTTP 响应头。
 
-### cursor_field [String]
+### pageing.cursor_field [String]
 
-携带游标值的请求参数名称，与 `page_type = "Cursor"` 一起使用。
+携带游标值的请求参数名称，与 `pageing.page_type = "Cursor"` 一起使用。
 
-### cursor_response_field [String]
+### pageing.cursor_response_field [String]
 
-响应体中游标所在的 JSONPath，与 `page_type = "Cursor"` 一起使用。
+响应体中游标所在的 JSONPath，与 `pageing.page_type = "Cursor"` 一起使用。
 
 ### poll_interval_millis [int]
 
@@ -136,19 +141,19 @@ HTTP 请求因 `IOException` 失败时的最大重试次数。
 
 分页时是否将分页参数保留在 URL 中，而不是在请求体内替换。
 
-### batch_size [int]
+### pageing.batch_size [int]
 
 当总页数未知时，每次请求返回的记录数。
 
-### start_page_number [long]
+### pageing.start_page_number [long]
 
 从哪一页开始读取。
 
-### total_page_size [long]
+### pageing.total_page_size [long]
 
-要读取的总页数。`0` 表示按照 `batch_size` 一直读取，直到 API 不再返回新页。
+要读取的总页数。`0` 表示按照 `pageing.batch_size` 一直读取，直到 API 不再返回新页。
 
-### use_placeholder_replacement [boolean]
+### pageing.use_placeholder_replacement [boolean]
 
 是否使用 `${field}` 占位符替换 headers、params 和 body 中的字段值，否则按键名替换。
 
@@ -174,7 +179,7 @@ HTTP 套接字超时时间（毫秒），默认 60000ms。
 - 连接器始终会根据 `access_token` 添加 `PRIVATE-TOKEN` 请求头，请把其他自定义请求头放在 `headers` 中。
 - 需要按字段读取时，把 `format` 设置为 `json` 并配置 `schema`。
 - 当 GitLab 把记录嵌套在数组中时，使用 `content_field` 抽取数组元素。
-- 使用页码分页时，保持 `page_type = "PageNumber"`，并通过 `params` 配置 `page` / `per_page`。
+- 使用页码分页时，保持 `pageing.page_type = "PageNumber"`（默认值），并通过 `params` 配置 `page` / `per_page`。分页参数必须嵌套在 `pageing` 块内。
 - Gitlab 源连接器当前只支持批处理模式，`poll_interval_millis` 不会启用流式行为。
 
 ## 任务示例

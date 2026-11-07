@@ -39,7 +39,7 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 | username          | String  | 否       | -           | Cassandra 用户名，需要和 `password` 一起配置。 |
 | password          | String  | 否       | -           | Cassandra 密码，需要和 `username` 一起配置。 |
 | datacenter        | String  | 否       | datacenter1 | Cassandra Java Driver 使用的本地数据中心名称。 |
-| consistency_level | String  | 否       | LOCAL_ONE   | 写入一致性级别，例如 `LOCAL_ONE`、`ONE`、`QUORUM`、`LOCAL_QUORUM`。 |
+| consistency_level | String  | 否       | LOCAL_ONE   | 该选项会被解析和校验，但当前 Sink 不会把它应用到写入语句；写入一致性由 Driver 默认值决定。 |
 | fields            | Array   | 否       | -           | 要写入的目标字段。不配置时写入目标表的全部字段。 |
 | batch_size        | int     | 否       | 5000        | 每次 flush 前最多缓存的行数。 |
 | batch_type        | String  | 否       | UNLOGGED    | Cassandra batch 类型，常用值包括 `LOGGED`、`UNLOGGED`、`COUNTER`。 |
@@ -75,7 +75,8 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 
 ### consistency_level [String]
 
-`Cassandra` 写入一致性级别, 默认为 `LOCAL_ONE`.
+该选项会被解析和校验（默认 `LOCAL_ONE`），但当前 Sink 写入器不会把它应用到写入语句；写入一致性
+使用 Driver 默认级别。
 
 ### fields [array]
 
@@ -106,9 +107,9 @@ Sink 插件通用参数，详情请参考 [Sink 常用选项](../common-options/
 
 - 任务启动前，目标 keyspace 和表必须已经存在。
 - `fields` 适合上游数据有额外字段、只想写入其中一部分字段的场景；它不是建表配置。
-- `async_write = true` 可以提升吞吐，`batch_size` 用来控制每次 flush 前聚合的行数。
-- 连接器底层使用 Cassandra Java Driver；认证和一致性相关参数与 Driver 保持一致，需要更强一致性时请结合
-  集群的副本策略设置 `consistency_level`。
+- `async_write = true`（默认）下每行都会作为独立的异步语句发送，`batch_size` 只控制 flush 频率；`async_write = false` 时，行才会按 `batch_type` 聚合成一个批次，每次 flush 最多包含 `batch_size` 条。
+- 连接器底层使用 Cassandra Java Driver；认证相关参数与 Driver 保持一致。注意：`consistency_level` 当前
+  仅被接受、不会应用到写入语句；如需调整写入一致性级别，请调整集群/客户端的 Driver 默认配置。
 - `batch_type = "UNLOGGED"` 是常见默认值；当正确性优先于吞吐时使用 `LOGGED`，counter 表使用 `COUNTER`。
 
 ## 任务示例
@@ -192,7 +193,6 @@ sink {
     keyspace = "test"
     table = "orders"
     fields = ["id", "order_id", "customer", "amount", "is_deleted"]
-    consistency_level = "LOCAL_QUORUM"
     batch_size = 2000
     batch_type = "UNLOGGED"
     async_write = true

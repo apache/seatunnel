@@ -53,7 +53,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | key_timestamp               | String  | 否    | processing time                | 在SeaTunnelRow中指定 IoTDB 时间戳的字段名。如果未指定，则使用处理时间作为时间戳                            |
 | key_measurement_fields      | Array   | 否    | 排除设备和时间字段                       | 在 SeaTunnelRow 中指定 IoTDB 测点字段列表。未配置时，会写入除 `key_device` 和 `key_timestamp` 对应字段外的其他字段 |
 | storage_group               | String  | 否    | -                              | 指定设备存储组（路径前缀） <br/> 例如: deviceId = \${storage_group} + "." +  \${key_device} |
-| batch_size                  | Integer | 否    | 1024                           | 批量写入时，当缓存行数达到 `batch_size`，数据会刷新到 IoTDB 中                                      |
+| batch_size                  | Integer | 否    | 1024（见说明）                     | 批量写入时，当缓存行数达到 `batch_size`，数据会刷新到 IoTDB 中。注意：省略该选项时内置默认值实际不会生效——不配置时仅在 checkpoint/关闭时刷新；需要按行数刷新请显式配置 `batch_size`。 |
 | max_retries                 | Integer | 否    | -                              | 写入失败后的最大重试次数                                                                 |
 | retry_backoff_multiplier_ms | Integer | 否    | -                              | 用作生成下一个退避延迟的乘数                                                               |
 | max_retry_backoff_ms        | Integer | 否    | -                              | 尝试重试对 IoTDB 的请求之前等待的时间量                                                      |
@@ -207,7 +207,7 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 
 ### 案例4：显式批量刷写的流式写入
 
-对于长时间运行的流式作业，可以调大 `batch_size` 减少单行 RPC 开销。连接器在缓冲行数达到 `batch_size` 或 checkpoint 完成时刷新缓冲。配合 `max_retries` 和 `max_retry_backoff_ms` 可以让任务在 RPC 抖动时保持稳定。
+对于长时间运行的流式作业，可以调大 `batch_size` 减少单行 RPC 开销。显式配置 `batch_size` 时，连接器在缓冲行数达到 `batch_size` 或 checkpoint 完成时刷新缓冲；若未配置 `batch_size`，则仅在 checkpoint/关闭时刷新。配合 `max_retries` 和 `max_retry_backoff_ms` 可以让任务在 RPC 抖动时保持稳定。
 
 ```hocon
 env {
