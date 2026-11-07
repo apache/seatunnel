@@ -26,6 +26,7 @@ import {
   NDrawerContent,
   NButton,
   NSpace,
+  NResult,
   useMessage
 } from 'naive-ui'
 import { computed, defineComponent, onUnmounted, reactive, ref, watch } from 'vue'
@@ -84,25 +85,72 @@ export default defineComponent({
     const jobId = route.params.jobId as string
     pinStore.ensureJob(jobId)
     const job = reactive({} as Job)
+    const missing = ref(false)
+    const loadError = ref('')
     const duration = ref('')
     let timer: NodeJS.Timeout
     let fetchTimer: NodeJS.Timeout
+    let statusLessSeen = false
+    let lastRefreshError = ''
     const fetch = async () => {
-      const res = await getJobInfo(jobId)
-      Object.assign(job, res)
-      clearInterval(timer)
-      const d = parse(res.createTime, 'yyyy-MM-dd HH:mm:ss', new Date())
-      duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
-      if (isTerminalState(job.jobStatus)) {
+      try {
+        const res = await getJobInfo(jobId)
+        if (res.found === false) {
+          missing.value = true
+          loadError.value = ''
+          clearInterval(timer)
+          clearTimeout(fetchTimer)
+          pinStore.clear()
+          return
+        }
+        if (!res.jobStatus) {
+          // Older servers omit the marker. Tolerate one status-less response during a
+          // master failover, then treat a repeat as a missing job.
+          if (!statusLessSeen) {
+            statusLessSeen = true
+            fetchTimer = setTimeout(fetch, 5000)
+            return
+          }
+          missing.value = true
+          loadError.value = ''
+          clearInterval(timer)
+          clearTimeout(fetchTimer)
+          pinStore.clear()
+          return
+        }
+        statusLessSeen = false
+        lastRefreshError = ''
+        loadError.value = ''
+        Object.assign(job, res)
+        clearInterval(timer)
+        const d = parse(res.createTime, 'yyyy-MM-dd HH:mm:ss', new Date())
+        duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
+        if (isTerminalState(job.jobStatus)) {
+          clearTimeout(fetchTimer)
+          pinStore.clear()
+          return
+        }
+        fetchTimer = setTimeout(fetch, 5000)
+        if (isRunningState(job.jobStatus)) {
+          timer = setInterval(() => {
+            duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
+          }, 1000)
+        }
+      } catch (e) {
+        const error = e instanceof Error ? e.message : String(e)
+        clearInterval(timer)
         clearTimeout(fetchTimer)
-        pinStore.clear()
-        return
-      }
-      fetchTimer = setTimeout(fetch, 5000)
-      if (isRunningState(job.jobStatus)) {
-        timer = setInterval(() => {
-          duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
-        }, 1000)
+        if (!job.jobStatus) {
+          loadError.value = error
+          pinStore.clear()
+          return
+        }
+        loadError.value = ''
+        if (lastRefreshError !== error) {
+          lastRefreshError = error
+          message.warning(t('detail.loadError.refresh', { jobId, error }))
+        }
+        fetchTimer = setTimeout(fetch, 5000)
       }
     }
 
@@ -558,7 +606,21 @@ export default defineComponent({
       return { onClick: () => onFocus(row) }
     }
 
-    return () => (
+    const renderMissing = () => (
+      <div class="job-detail-page w-full bg-white border border-gray-100 rounded-xl">
+        <NResult
+          status={missing.value ? '404' : 'error'}
+          title={missing.value ? t('detail.notFound.title') : t('detail.loadError.title')}
+          description={
+            missing.value
+              ? t('detail.notFound.description', { jobId })
+              : t('detail.loadError.description', { jobId, error: loadError.value })
+          }
+        />
+      </div>
+    )
+
+    const renderContent = () => (
       <div class="job-detail-page w-full bg-white border border-gray-100 rounded-xl">
         <div class="job-detail-title font-bold text-xl">
           <span>{job.jobName}</span>
@@ -727,5 +789,7 @@ export default defineComponent({
         </div>
       </div>
     )
+
+    return () => (missing.value || loadError.value ? renderMissing() : renderContent())
   }
 })

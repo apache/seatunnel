@@ -389,7 +389,7 @@ curl http://<master>:8080/overview | \
 |---|---|---|
 | `HTTP 404` on any endpoint | REST API not enabled or wrong port | Set `enable-http: true` and check port |
 | `Connection refused` | Master not started or firewall blocking port | Verify master process is running; check firewall |
-| `jobId not found` in `job-info` | Job has already finished or was never started | Query `/finished-jobs/:state` with the expected final state |
+| `found: false` (or a status-less 200) in `job-info` | The id is unknown, or the job has expired from finished-job history | Query `/finished-jobs/:state` with the expected final state |
 | Submit returns `400 Bad Request` | Malformed JSON or missing required fields | Validate JSON; check `plugin_name` spelling |
 | `Job already exists with same job.id` | Submitting duplicate `job.id` without stopping first | Cancel or stop the existing job, then resubmit |
 | `Unauthorized 401` | Basic authentication is enabled but no credentials were provided | Include `-u user:pass` |

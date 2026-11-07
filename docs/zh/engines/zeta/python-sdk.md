@@ -70,6 +70,15 @@ with SeaTunnelClient(base_url="http://localhost:8080") as client:
   print(job_details)
 ```
 
+未知 id 仍会返回 HTTP 200，并在响应中带上 `"found": false`。如果只需要判断作业是否存在，
+可以使用 `job_exists`；它也兼容旧版本引擎（旧版本对未知 id 只返回 `jobId`）：
+
+```python
+with SeaTunnelClient(base_url="http://localhost:8080") as client:
+  if not client.jobs.job_exists(jobId=12345):
+    print("该作业 ID 不存在，或已从已完成作业历史中过期")
+```
+
 ### 集群监控
 
 您可以使用 `cluster` 属性来获取集群信息。
