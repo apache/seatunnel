@@ -39,6 +39,7 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 | scan_mem_limit          | long   | 否    | 1073741824        | 单个 BE 查询允许使用的最大内存，单位字节。                                 |
 | max_retries             | int    | 否    | 3                 | 发送到 StarRocks 的重试请求次数。                                      |
 | scan.params.*           | string | 否    | -                 | 额外 BE 扫描参数，发送到 StarRocks 前会去掉 `scan.params.` 前缀。           |
+| be_host_port_mapping    | array  | 否    | -                 | StarRocks BE 的 `host:be_port` 与计算集群可访问的 `ip:be_port` 之间的映射，例如 StarRocks 部署在 Kubernetes 中的场景。 |
 
 ### nodeUrls [list]
 
@@ -149,6 +150,22 @@ partition[5] 从 be_node_3 读取 tablet 数据：tablet[14,15]
 
 从 `BE` 节点扫描数据相关的参数。
 
+### be_host_port_mapping  [array]
+
+`StarRocks`集群`BE`的host:be_port与能够访问的ip:be_port映射关系。
+该配置可选的，主要是解决计算集群不能够直接访问`BE`的`host`以及`be_port`的场景，如`StarRocks`部署在k8s中，但是flink不能直接访问`BE`的`host`以及`be_port`，利用此配置，`flink`可以能够访问`BE`以及`be_port`。
+
+例如:
+
+```
+be_host_port_mapping = [
+  {
+    host_port = "be_host_1:9060"
+    ip_port = "xx.xx.xx.xx:31088"
+  }
+]
+```
+
 ## 示例 1
 
 ```
@@ -241,6 +258,47 @@ source {
     max_retries = 3
     scan.params.scanner_thread_pool_thread_num = "3"
     
+  }
+}
+```
+
+## 示例 3: 利用be_host_port_mapping获取数据
+
+```
+source {
+  StarRocks {
+    nodeUrls = ["starrocks_e2e:8030"]
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_source"
+    scan_batch_rows = 10
+    max_retries = 3
+    schema {
+        fields {
+           BIGINT_COL = BIGINT
+           LARGEINT_COL = STRING
+           SMALLINT_COL = SMALLINT
+           TINYINT_COL = TINYINT
+           BOOLEAN_COL = BOOLEAN
+           DECIMAL_COL = "DECIMAL(20, 1)"
+           DOUBLE_COL = DOUBLE
+           FLOAT_COL = FLOAT
+           INT_COL = INT
+           CHAR_COL = STRING
+           VARCHAR_11_COL = STRING
+           STRING_COL = STRING
+           DATETIME_COL = TIMESTAMP
+           DATE_COL = DATE
+        }
+    }
+    scan.params.scanner_thread_pool_thread_num = "3"
+    be_host_port_mapping = [
+      {
+        host_port = "be_host_1:9060"
+        ip_port = "xx.xx.xx.xx:31088"
+      }
+    ]
   }
 }
 ```
