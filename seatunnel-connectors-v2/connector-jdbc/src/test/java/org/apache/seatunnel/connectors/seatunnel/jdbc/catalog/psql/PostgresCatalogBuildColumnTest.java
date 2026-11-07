@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
@@ -87,6 +88,23 @@ class PostgresCatalogBuildColumnTest {
         Assertions.assertTrue(sql.contains("t.typtype as type_type"));
         Assertions.assertTrue(
                 sql.contains("WHEN t.typtype = 'e' THEN format_type(a.atttypid, NULL)"));
+        Assertions.assertTrue(
+                sql.contains(
+                        "WHEN t.typcategory = 'A' AND et.typtype = 'e'"
+                                + " THEN format_type(a.atttypid, NULL)"));
+        Assertions.assertTrue(sql.contains("LEFT JOIN pg_type et ON t.typelem = et.oid"));
+    }
+
+    @Test
+    void testBuildQuotedEnumArrayKeepsSourceType() throws SQLException {
+        ResultSet resultSet = mockColumn("roles", "_Role", "\"Role\"[]", "b", true);
+        when(resultSet.getString("type_category")).thenReturn("A");
+        when(resultSet.getString("element_type_type")).thenReturn("e");
+
+        Column column = catalog.buildColumn(resultSet);
+
+        Assertions.assertEquals(ArrayType.STRING_ARRAY_TYPE, column.getDataType());
+        Assertions.assertEquals("\"Role\"[]", column.getSourceType());
     }
 
     @Test
