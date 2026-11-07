@@ -158,7 +158,7 @@ Then the data in result table `fake1` will update to
 
 if your upstream data schema is like this:
 
-```hacon
+```hocon
 source {
   FakeSource {
     plugin_output = "fake"

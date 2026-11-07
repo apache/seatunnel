@@ -15,6 +15,9 @@ FieldRename transform plugin for rename field name.
 |         suffix          | string | no       |               | The suffix to be added to the field name                                                                              |
 | replacements_with_regex | array  | no       |               | The array of replacement rules. Each rule is a map with `replace_from`, `replace_to`, and optional `is_regex` (default `true`). When `is_regex=false`, `replace_from` is treated as an exact field name (full match). |
 |        specific         | array  | no       |               | Specific rename rules. Each rule is a map with `field_name` and `target_name`. When matched, it will rename the field directly and skip other rename rules. |
+|    table_match_regex    | string | no       | `.*`          | Regex matched against the upstream table path. The transform level rule only applies to matching tables.                                                    |
+|     table_transform     | array  | no       | -             | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                                                                                      |
+|     rule_match_mode     | string | no       | `FIRST_MATCH` | How multiple `table_transform` entries with the same `table_path` are evaluated.                                                                             |
 
 ## Examples
 

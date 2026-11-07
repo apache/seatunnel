@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 > Hive 源连接器
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 从 Hive 读取数据。连接器通过 Hive Metastore 获取表结构，并读取底层的数据文件。支持的表存储格式为文本、Parquet 和 ORC；文件格式根据 Hive 表的存储格式（`STORED AS`）自动识别，其他存储格式的表会被拒绝。
