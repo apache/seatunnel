@@ -85,6 +85,8 @@ seatunnel:
 
 ## API参考
 
+[REST v2 只读接口的 OpenAPI 3.1 规范](@site/docs/engines/zeta/openapi-v2.yaml)目前仅覆盖 `GET /overview` 和 `GET /resource/workers`。下文的其他接口仍有文档，但尚未纳入机器可读规范。该规范与 Servlet 路由注册及响应测试一起维护。使用生成的客户端时，请按实际地址、端口及可选的上下文路径设置基础 URL。是否使用 Basic 认证取决于服务端配置；向非本机发送凭据时请使用 HTTPS。
+
 ### 获取 Connector 的 OptionRule
 
 <details>
@@ -258,7 +260,7 @@ seatunnel:
 ```
 
 **注意:**
-- 当你使用`dynamic-slot`时, 返回结果中的`totalSlot`和`unassignedSlot`将始终为0. 设置为固定的slot值后, 将正确返回集群中总共的slot数量以及未分配的slot数量.
+- 当你使用`dynamic-slot`时, 返回结果中的`unassignedSlot`将始终为0, 因为动态slot是按需创建的, 不会预先注册; `totalSlot`反映的是当前已被任务占用的slot数量. 设置`dynamic-slot: false`使用固定slot后, 将正确返回集群中总共的slot数量以及未分配的slot数量.
 - 当添加标签过滤后, `workers`, `totalSlot`, `unassignedSlot`将返回满足条件的节点的相关指标. 注意`runningJobs`等job相关指标为集群级别结果, 无法根据标签进行过滤.
 
 </details>

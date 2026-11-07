@@ -20,11 +20,14 @@ SeaTunnel Engine 是基于 [JVM](https://zh.wikipedia.org/wiki/Java%E8%99%9A%E6%
 ##### 排查流程
 
 1. 检查 JVM 堆内存实时占用
-   使用 `jcmd` 命令查看 JVM 堆内存使用情况, 其中 `<pid>` 是 SeaTunnel Engine 进程的 PID。
+   使用 `jcmd` 命令查看 JVM 堆内存使用情况, 其中 `<pid>` 是 SeaTunnel Engine 进程的 PID。JDK 9+ 使用 `jcmd <pid> GC.heap_info`；JDK 8 使用 `jmap -heap <pid>`（该参数在 JDK 9+ 已移除）。
    ```bash
+   # JDK 9+
+   jcmd <pid> GC.heap_info
+   # JDK 8
    jmap -heap <pid>
    ```
-   输出结果示例：
+   输出结果示例（JDK 8 主机上 `jmap -heap` 风格的输出）：
    ```shell
     Attaching to process ID 2111950, please wait...
     Debugger attached successfully.
@@ -169,11 +172,8 @@ Hazelcast 的 `SlowOperationDetector` 监控分区线程上的操作执行时间
 
 ```bash
 # 检查慢操作日志的频率和时间
-
-> 日志文件名因部署模式而异：混合模式写入 `seatunnel-engine-server.log`，分离模式下 Master 写
-> `seatunnel-engine-master.log`、Worker 写 `seatunnel-engine-worker.log`。请按实际模式替换下方示例中的文件名
->（示例为简洁起见使用混合模式的名称）。
-grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-engine-server.log | tail -50
+grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tail -50
+# 默认的 master-and-worker 部署写入 seatunnel-engine-server.log；master/worker 分离部署分别写入 -master.log / -worker.log
 ```
 
 将时间戳与以下事件关联：
@@ -194,7 +194,7 @@ free -h
 
 **REST 提交延迟：**
 - 症状：通过 REST API 提交作业时出现慢操作，且提交客户端响应时间较长。
-- 检查：`grep "submitJob" $SEATUNNEL_HOME/logs/seatunnel-engine-server.log` —— 关注耗时。
+- 检查：`grep "submitJob" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log` —— 关注耗时。
 - 常见原因：Master 节点并发提交过载，或作业配置非常庞大（连接器/Transform 数量多）。
 - 缓解：限制并发提交速率、增加 Master 节点资源、或调整 `hazelcast.operation.generic.thread.count`。
 
@@ -212,7 +212,7 @@ free -h
 
 **Checkpoint 存储延迟：**
 - 症状：慢操作与 Checkpoint 间隔对齐，且 Checkpoint 耗时超过配置的超时。
-- 检查：为 `org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator` 启用 DEBUG 日志，然后执行 `grep "pending checkpoint completed" $SEATUNNEL_HOME/logs/seatunnel-engine-server.log | grep -oP 'cost: \d+ms'` 查看 Checkpoint 耗时。
+- 检查：为 `org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator` 启用 DEBUG 日志，然后执行 `grep "pending checkpoint completed" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | grep -oP 'cost: \d+ms'` 查看 Checkpoint 耗时。
 - 如果使用 S3：运行 `aws s3api head-object --bucket <bucket> --key <checkpoint-path>` 测量延迟，或查看 CloudWatch S3 指标（`FirstByteLatency`、`TotalRequestLatency`）。
 - 常见原因：到 S3/HDFS 的网络延迟高、小文件导致多次往返、或 S3 限流。
 - 缓解：参见[第 6 节](#6-s3-checkpoint状态存储延迟)。
@@ -311,7 +311,7 @@ SeaTunnel 定期输出健康监控日志（默认每 60 秒一次）。这些日
 
 ```bash
 # 提取慢操作告警及其耗时
-grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-engine-server.log | tail -20
+grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tail -20
 ```
 
 #### 4.3 节点资源指标
@@ -501,6 +501,8 @@ readinessProbe:
 ```yaml
 terminationGracePeriodSeconds: 60
 ```
+
+只有当容器直接运行 `seatunnel-cluster.sh`（不通过 `/bin/sh -c` 包装）时，JVM 才能收到 SIGTERM。参见 [健康检查和停止](../../getting-started/kubernetes/hybrid-cluster-mode.md#健康检查和停止)。
 
 并在 `hazelcast.yaml` 中：
 ```yaml

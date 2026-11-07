@@ -21,6 +21,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
@@ -44,10 +45,9 @@ public abstract class BaseTypeWriter implements TypeWriter {
 
     protected long convertToEpochMicro(Object value) {
         if (value instanceof LocalDateTime) {
-            return ((LocalDateTime) value).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                    * 1000;
+            return toEpochMicro(((LocalDateTime) value).atZone(ZoneId.systemDefault()).toInstant());
         } else if (value instanceof java.sql.Timestamp) {
-            return ((java.sql.Timestamp) value).getTime() * 1000;
+            return toEpochMicro(((java.sql.Timestamp) value).toInstant());
         } else if (value instanceof java.util.Date) {
             return ((java.util.Date) value).getTime() * 1000;
         } else if (value instanceof Number) {
@@ -56,5 +56,16 @@ public abstract class BaseTypeWriter implements TypeWriter {
             throw new IllegalArgumentException(
                     "Unsupported timestamp value type: " + value.getClass());
         }
+    }
+
+    /**
+     * Converts an instant to microseconds since the epoch without passing through milliseconds,
+     * which would drop the sub-millisecond digits. {@code getEpochSecond()} rounds down and {@code
+     * getNano()} is never negative, so an instant before 1970 converts exactly as well.
+     */
+    private static long toEpochMicro(Instant instant) {
+        return Math.addExact(
+                Math.multiplyExact(instant.getEpochSecond(), 1_000_000L),
+                instant.getNano() / 1_000);
     }
 }

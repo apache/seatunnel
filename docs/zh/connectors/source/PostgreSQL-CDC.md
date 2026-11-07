@@ -139,7 +139,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 5000
   read_limit.bytes_per_second=7000000
@@ -374,6 +374,16 @@ SeaTunnel PostgreSQL CDC 支持 `pgoutput`（PostgreSQL 10 起内置）、`wal2j
 
 默认需要主键。如果表有可作为唯一标识的列，可以通过 `table-names-config` 中的 `primaryKeys` 字段自定义主键。
 
+### 如何处理生成列？
+
+发布列过滤使用实际生效的解码插件：`debezium { "plugin.name" = "..." }` 的优先级高于 `decoding.plugin.name`。其他插件和仅快照作业会跳过此过滤。
+
+使用 `pgoutput` 时，只会捕获发布（publication）中发布的列。PostgreSQL 18 之前不发布生成列，虚拟生成列始终不会发布。显式发布列列表可以省略部分列，但发布 UPDATE 或 DELETE 操作时必须包含副本标识（replica identity）列。未发布的非主键列会从表结构中排除，因此既不会在快照阶段读取，也不会在自动创建的目标表中创建。没有显式列列表的发布（包括 `FOR ALL TABLES` 和 `FOR TABLES IN SCHEMA`）仍遵循生成列规则。在 PostgreSQL 18 中，如果发布使用 `publish_generated_columns = stored` 创建，则会捕获存储生成列。
+
+SeaTunnel 要求发布 CDC 表结构中的所有主键列，包括通过 `table-names-config.primaryKeys` 配置的主键。如果必需的主键未发布，作业会在启动时失败，并提示发布名、表名和缺少的主键列，而不是在流式同步中输出 NULL 主键。此要求也适用于仅发布 INSERT 的发布，即使 PostgreSQL 允许其省略副本标识列。启动或恢复作业前，请将所有必需主键列加入发布列列表。
+
+如果 SeaTunnel 在作业启动时无法读取发布元数据，会记录错误及失败类型，并保留表结构中的所有列。此时未发布的列可能在流式同步时被写为 NULL，或触发表结构变更错误导致作业停止。依赖捕获数据前，请检查发布元数据的访问权限和 JDBC 连通性。
+
 ### 复制槽如何管理？
 
 SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。当 `startup.mode` 为
@@ -398,6 +408,15 @@ PostgreSQL 13 及以上版本会在某些情况下使复制槽失效，例如复
 ### PostgreSQL CDC 为什么会滞后？
 
 滞后可能由逻辑解码插件处理慢或 WAL sender 负载过高引起。可通过监控 `pg_replication_slots` 中的 `confirmed_flush_lsn` 漂移情况来排查。确保 CDC 任务持续消费事件，并保持 SeaTunnel 与 PostgreSQL 之间的网络低延迟。
+
+### PostgreSQL CDC 能在 Spark 引擎上运行吗？
+
+可以，但这一用法没有端到端测试覆盖。无论 `BATCH` 还是 `STREAMING` 作业，Spark 引擎都在一个 Spark task 中运行 CDC 数据源，这个 task 同时包含分片枚举器和所有 reader。Spark 不会为该数据源做 checkpoint，因此：
+
+- 作业无法从 checkpoint 恢复，重启的作业会按 `startup.mode` 重新开始。
+- SeaTunnel 不会向复制槽确认已处理的 LSN，因此复制槽的 `restart_lsn` 不会前移，只要复制槽存在，PostgreSQL 就会保留从该位置起的全部 WAL。请关注 WAL 占用，并在作业停止后推进或删除该复制槽。
+- 只在 checkpoint 或批次写满时才写出的 sink 可能会暂时攒住数据，例如使用默认 `batch_size` 的 JDBC sink。
+- 不支持通过 Spark 微批流式读取（`readStream`）该数据源。
 
 ## 另请参阅
 

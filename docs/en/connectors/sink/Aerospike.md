@@ -71,9 +71,9 @@ Note:
 
 ### data_format Options
 
-- **map**: Store all non-key fields as a map in `bin_name`
-- **string**: Store all non-key fields as a JSON string in `bin_name`
-- **kv**: Store each non-key field as a separate bin. `bin_name` is not used
+- **map**: Store the selected fields as a map in `bin_name`
+- **string**: Store the selected fields as a JSON string in `bin_name`
+- **kv**: Store each selected field as a separate bin. `bin_name` is not used
 
 When `data_format` is `map` or `string`, configure `bin_name`; otherwise the writer does not know which Aerospike bin should receive the packed row data.
 The `key` field must be present in the input schema because it is used as the Aerospike record key for every write.
