@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -106,6 +107,20 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,
                         SourceOptions.EXACTLY_ONCE)
+                // The specific-offset anchors required by the mixed mode are not listed here: they
+                // are declared once below as optional options guarded by MySqlSpecificOffsetGuards
+                // (which accept both 'specific' and 'mixed'), and an option may not appear in a
+                // conditional block and in a guarded optional block at the same time.
+                .conditional(
+                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                        StartupMode.MIXED,
+                        SourceOptions.EXACTLY_ONCE,
+                        MySqlIncrementalSourceOptions.STARTUP_SNAPSHOT_TABLE_NAMES)
+                .conditional(
+                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                        StartupMode.MIXED,
+                        Condition.of(SourceOptions.EXACTLY_ONCE, true),
+                        Condition.of(SourceOptions.INCREMENTAL_PARALLELISM, 1))
                 .conditional(
                         MySqlIncrementalSourceOptions.STOP_MODE,
                         StopMode.SPECIFIC,

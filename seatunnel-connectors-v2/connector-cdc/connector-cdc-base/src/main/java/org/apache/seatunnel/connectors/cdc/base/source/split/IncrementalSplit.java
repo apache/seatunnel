@@ -48,6 +48,9 @@ public class IncrementalSplit extends SourceSplitBase {
     /** Minimum watermark for SnapshotSplits for all tables in this IncrementalSplit */
     private final Offset startupOffset;
 
+    /** Per-table lower bounds used when tables have different initial synchronization policies. */
+    private Map<TableId, Offset> tableStartOffsets;
+
     /** Obtained by configuration, may not end */
     private final Offset stopOffset;
 
@@ -86,6 +89,7 @@ public class IncrementalSplit extends SourceSplitBase {
                 startupOffset,
                 stopOffset,
                 completedSnapshotSplitInfos,
+                Collections.emptyMap(),
                 new ArrayList<>(),
                 new HashMap<>());
     }
@@ -99,6 +103,11 @@ public class IncrementalSplit extends SourceSplitBase {
                 split.getStopOffset(),
                 split.getCompletedSnapshotSplitInfos(),
                 checkpointDataType);
+        // Carry the per-table lower bounds over without adding another 7-argument constructor:
+        // a (.., Map, SeaTunnelDataType) overload would be ambiguous with the existing
+        // (.., List, Map) overload for callers that pass null arguments, such as
+        // IncrementalSplitTest, and break compilation.
+        this.tableStartOffsets = new HashMap<>(split.getTableStartOffsets());
     }
 
     public IncrementalSplit(
@@ -111,6 +120,7 @@ public class IncrementalSplit extends SourceSplitBase {
                 split.getStartupOffset(),
                 split.getStopOffset(),
                 split.getCompletedSnapshotSplitInfos(),
+                split.getTableStartOffsets(),
                 tables,
                 historyTableChanges,
                 split.getTableStartupOffsets());
@@ -129,6 +139,8 @@ public class IncrementalSplit extends SourceSplitBase {
         this.startupOffset = startupOffset;
         this.stopOffset = stopOffset;
         this.completedSnapshotSplitInfos = completedSnapshotSplitInfos;
+        // Legacy checkpoint splits predate per-table lower bounds, so they start with none.
+        this.tableStartOffsets = Collections.emptyMap();
         this.checkpointDataType = checkpointDataType;
         this.historyTableChanges = new HashMap<>();
         this.tableStartupOffsets = new HashMap<>();
@@ -148,11 +160,41 @@ public class IncrementalSplit extends SourceSplitBase {
                 startupOffset,
                 stopOffset,
                 completedSnapshotSplitInfos,
+                Collections.emptyMap(),
                 checkpointTables,
                 historyTableChanges,
                 new HashMap<>());
     }
 
+    /**
+     * Creates a split that carries mixed-startup lower bounds ({@code tableStartOffsets}) but no
+     * restored per-table offsets.
+     */
+    public IncrementalSplit(
+            String splitId,
+            List<TableId> capturedTables,
+            Offset startupOffset,
+            Offset stopOffset,
+            List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos,
+            Map<TableId, Offset> tableStartOffsets,
+            List<CatalogTable> checkpointTables,
+            Map<TableId, byte[]> historyTableChanges) {
+        this(
+                splitId,
+                capturedTables,
+                startupOffset,
+                stopOffset,
+                completedSnapshotSplitInfos,
+                tableStartOffsets,
+                checkpointTables,
+                historyTableChanges,
+                new HashMap<>());
+    }
+
+    /**
+     * Creates a split that carries restored per-table offsets ({@code tableStartupOffsets}) but no
+     * mixed-startup lower bounds.
+     */
     public IncrementalSplit(
             String splitId,
             List<TableId> capturedTables,
@@ -162,11 +204,44 @@ public class IncrementalSplit extends SourceSplitBase {
             List<CatalogTable> checkpointTables,
             Map<TableId, byte[]> historyTableChanges,
             Map<TableId, Offset> tableStartupOffsets) {
+        this(
+                splitId,
+                capturedTables,
+                startupOffset,
+                stopOffset,
+                completedSnapshotSplitInfos,
+                Collections.emptyMap(),
+                checkpointTables,
+                historyTableChanges,
+                tableStartupOffsets);
+    }
+
+    /**
+     * Canonical constructor. The two per-table offset maps have different lifecycles and must both
+     * be carried through every split reconstruction: {@code tableStartOffsets} are the fixed
+     * mixed-startup lower bounds configured for the job, while {@code tableStartupOffsets} are the
+     * positions restored tables had already been read up to and are dropped once the split has read
+     * past them.
+     */
+    public IncrementalSplit(
+            String splitId,
+            List<TableId> capturedTables,
+            Offset startupOffset,
+            Offset stopOffset,
+            List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos,
+            Map<TableId, Offset> tableStartOffsets,
+            List<CatalogTable> checkpointTables,
+            Map<TableId, byte[]> historyTableChanges,
+            Map<TableId, Offset> tableStartupOffsets) {
         super(splitId);
         this.tableIds = capturedTables;
         this.startupOffset = startupOffset;
         this.stopOffset = stopOffset;
         this.completedSnapshotSplitInfos = completedSnapshotSplitInfos;
+        this.tableStartOffsets =
+                tableStartOffsets == null
+                        ? Collections.emptyMap()
+                        : new HashMap<>(tableStartOffsets);
         this.checkpointTables = checkpointTables;
         this.historyTableChanges = historyTableChanges;
         this.tableStartupOffsets = tableStartupOffsets;
@@ -179,6 +254,16 @@ public class IncrementalSplit extends SourceSplitBase {
      */
     public Map<TableId, Offset> getTableStartupOffsets() {
         return tableStartupOffsets == null ? Collections.emptyMap() : tableStartupOffsets;
+    }
+
+    /**
+     * Returns the table-specific lower bounds for this split.
+     *
+     * <p>Checkpoints written before this field was introduced deserialize it as {@code null}; treat
+     * them as having no table-specific lower bounds to preserve restore compatibility.
+     */
+    public Map<TableId, Offset> getTableStartOffsets() {
+        return tableStartOffsets == null ? Collections.emptyMap() : tableStartOffsets;
     }
 
     /**
@@ -227,6 +312,13 @@ public class IncrementalSplit extends SourceSplitBase {
                         : historyTableChanges.entrySet().stream()
                                 .filter(entry -> capturedTableSet.contains(entry.getKey()))
                                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        // Carry the per-table lower bounds across the prune. The shorter constructor defaults them
+        // to an empty map, which would drop them on every checkpoint restore and let the mixed
+        // startup gate treat tables as if they had no lower bound.
+        Map<TableId, Offset> filteredTableStartOffsets =
+                getTableStartOffsets().entrySet().stream()
+                        .filter(entry -> capturedTableSet.contains(entry.getKey()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         Map<TableId, Offset> filteredTableStartupOffsets =
                 getTableStartupOffsets().entrySet().stream()
                         .filter(entry -> capturedTableSet.contains(entry.getKey()))
@@ -238,6 +330,7 @@ public class IncrementalSplit extends SourceSplitBase {
                         startupOffset,
                         stopOffset,
                         filteredCompletedSnapshotSplitInfos,
+                        filteredTableStartOffsets,
                         filteredCheckpointTables,
                         filteredHistoryTableChanges,
                         filteredTableStartupOffsets);

@@ -322,6 +322,10 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         splitStartWatermark = currentIncrementalSplit.getStartupOffset();
         Map<TableId, List<CompletedSnapshotSplitInfo>> splitsInfoMap = new HashMap<>();
         Map<TableId, Offset> tableIdBinlogPositionMap = new HashMap<>();
+        // Seed the fixed mixed-startup lower bounds first: a table without snapshot splits then
+        // keeps this bound instead of falling back to the split start offset below, and a restored
+        // per-table offset can only raise it.
+        tableIdBinlogPositionMap.putAll(currentIncrementalSplit.getTableStartOffsets());
         Map<TableId, Offset> restoredTableOffsets =
                 currentIncrementalSplit.getTableStartupOffsets();
         List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos =
