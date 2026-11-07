@@ -5,6 +5,8 @@ title: Cluster Architecture
 
 # Kubernetes cluster architecture
 
+The following default layout uses one master. See [Opt-in application HA](#opt-in-application-ha) for the multi-master layout.
+
 Each submission creates resources with a unique application ID in the target namespace. The Job Pod runs the master. Worker Pods do not mount Kubernetes API tokens and communicate with the master through Hazelcast TCP.
 
 ```mermaid
@@ -98,3 +100,118 @@ fallback deletion. Referenced ConfigMaps are user-owned, shared by the master an
 retained after application cleanup.
 
 A caller-owned checkpoint PVC has no Job owner reference, so success, failure, cancellation, or TTL expiry does not delete it. Remote checkpoint storage is also independent of the application lifecycle.
+
+## Opt-in application HA
+
+```hocon
+kubernetes {
+  ha.enabled = true
+  master.replicas = 2
+  ha.backup-count = 1
+}
+```
+
+HA deploys two ordinary native Zeta masters and a fixed pool of worker Pods. A stable
+ClusterIP provides client access; the headless discovery Service gives each master a distinct
+peer address. Members advertise their own Pod addresses. Both masters must join the same cluster,
+and all workers must join, before initial submission. One synchronous native map backup is configured.
+
+### Deployment and native runtime
+
+The suspended owner Job is created first. Its acknowledged UID owns the master StatefulSet,
+Services, fixed worker Pods and generated configuration. After dependencies are created, the owner
+is started as the sole native client. It prepares the graph and submits the immutable application
+job ID through the existing Zeta client API. Masters use the existing standalone resource manager
+for worker registration; they neither submit the application nor own Kubernetes worker cleanup.
+Native Zeta handles election, scheduling and checkpoint recovery unchanged.
+
+The owner is a submission client, not a metadata-only observer. It receives the resolved job
+specification, required environment/Secret/ConfigMap mounts and plugin libraries. It uses the
+configured master resources with a minimum 512Mi memory limit and the normal JVM heap ratio.
+Masters and workers do not mount Kubernetes API tokens; only the owner needs in-cluster API access.
+
+### Submission, failover and cleanup
+
+- Initial submission waits for two native masters and the fixed worker count. Master replacement
+  does not resubmit the graph or replace workers. Native master takeover retains the same job ID.
+- Submission intent is recorded once using the owner UID and resource version. A lost submit
+  acknowledgement is ambiguous: observe the existing job ID, never execute it again. Native
+  `UNKNOWABLE`, a transport error or missing history is not a terminal success. If native recovery
+  cannot recover the job, the owner and remaining workers can keep running indefinitely. Run
+  application `cancel` to release them; an unknown status never permits automatic resubmission.
+- Native `FINISHED`/`SAVEPOINT_DONE`, `FAILED` and `CANCELED` results are persisted before cleanup.
+  Cleanup retries API deletion failures and removes only generated resources owned by the observed
+  owner UID, with individual resource UID preconditions. User PVCs and referenced configuration
+  remain. Created mounted configuration remains until owner Job TTL.
+- Workers are fixed `Never`-restart Pods. Losing a worker fails the deployment and removes its
+  remaining compute; no worker replacement is provided.
+- Application `cancel` deletes the owner by UID with foreground propagation. Its acknowledgement
+  is distinct from observing that all dependent resources have disappeared.
+
+The owner Job has no automatic retry, to avoid repeating ambiguous submissions. Owner process loss
+is not covered by master HA: Kubernetes marks the Job failed, and its configured TTL collects owned
+resources; explicit application cancellation can remove them sooner. This is not an Operator.
+
+### Storage and guarantee limits
+
+Every master must have access to the same retained checkpoints. Native storage semantics, retry
+budgets and sink correctness are unchanged. Two masters do not provide quorum or fence partitioned
+writers. Strict network-partition protection, simultaneous loss of both masters, worker replacement,
+autoscaling, YARN HA and connector fencing are outside this feature.
+
+### Native recovery dependency
+
+Application HA uses the unchanged native Zeta engine and inherits its recovery limitations; no
+separate experimental engine branch is required to build or run it. The Pod-loss and restore
+checks do not establish safety for every terminal-callback replay, checkpoint-counter or storage
+read race, stale-attempt report, or takeover-initialization interleaving.
+
+Related engine work is tracked separately in [#12558](https://github.com/apache/seatunnel/issues/12558)
+and [#12117](https://github.com/apache/seatunnel/issues/12117). These cover parts of checkpoint-state
+coordination and coordinator lifecycle separation, not all the recovery cases above. An engine
+correctness defect reproduced on this feature's supported path must be resolved independently
+before that path can be considered safe; the deployment-only scope does not waive that requirement.
+
+### HA permissions
+
+Use separate namespace-scoped identities for the submitter and the owner; masters and workers
+must not receive the owner Role or a Kubernetes API token. No cluster-scoped permissions are needed.
+The following manifests are also used by the HA integration tests:
+
+- [Submitter Role](./ha-submitter-role.yaml): Job `create/get/patch/delete`, Pod
+  `create/list/delete/deletecollection`, StatefulSet `create`, Service `create/get`, and generated
+  Secret/ConfigMap `create`. The Pod deletion permissions retain cancellation cleanup when the
+  owner is absent. Partial HA deployment rollback deletes the acknowledged owner Job by UID;
+  Kubernetes garbage collection removes its dependents, so child `get/delete` permissions are not
+  required for that rollback. Secret/ConfigMap `get` is optional for validating referenced objects; add it
+  with `resourceNames` limited to the references to validate. Without it, validation warns and
+  leaves mount validation to Kubernetes.
+- [Owner Role](./ha-owner-role.yaml): Job `get/patch`, Pod `list/delete`, StatefulSet `get/delete`,
+  and Service `list/delete`. The owner does not create workers or read Secrets/ConfigMaps through
+  the API; required files are mounted into its Pod.
+
+Both single-master and HA application `cancel` first read the owner Job, so the caller needs Job
+`get` as well as `delete`. A forbidden read fails cancellation instead of falling back to an
+unscoped delete. HA `retrieve` also needs Service `get` to discover the ClusterIP endpoint.
+
+An administrator applies and binds these Roles before submission, replacing `seatunnel-apps`,
+`SUBMITTER` and the owner ServiceAccount name for the target deployment:
+
+```bash
+kubectl -n seatunnel-apps apply -f ha-submitter-role.yaml -f ha-owner-role.yaml
+kubectl -n seatunnel-apps create rolebinding seatunnel-submitter \
+  --role=seatunnel-application-submitter --user=SUBMITTER
+kubectl -n seatunnel-apps create serviceaccount application
+kubectl -n seatunnel-apps create rolebinding seatunnel-owner \
+  --role=application --serviceaccount=seatunnel-apps:application
+```
+
+Set `kubernetes.service-account = application` to use that owner identity. These Roles do not grant
+permission to manage RBAC or provision user PVCs; administrators retain those responsibilities.
+
+### Acceptance checks
+
+Run `KubernetesApplicationHaIT` against the provider-only branch. Check active and standby master
+loss, same native job and worker UID, renewed checkpoint progress, exact LocalFile output, native
+cancellation, success/failure cleanup, API deletion retries and preservation of user resources.
+These are local disposable Kubernetes checks, not a physical-host HA or partition-safety claim.

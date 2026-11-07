@@ -19,8 +19,10 @@ package org.apache.seatunnel.resource.kubernetes.client;
 
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesHaClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
@@ -36,6 +38,7 @@ public final class KubernetesApplicationClient implements AutoCloseable {
     private final KubernetesClient api;
     private final String applicationId;
     private volatile boolean canceled;
+    private volatile boolean haObserved;
 
     public KubernetesApplicationClient(KubernetesClient api, String applicationId) {
         this.api = api;
@@ -57,6 +60,11 @@ public final class KubernetesApplicationClient implements AutoCloseable {
         }
         try {
             KubernetesJob job = api.getJob(applicationId);
+            haObserved |= HaApplicationState.enabled(job);
+            ApplicationStatus recorded = HaApplicationState.terminal(job);
+            if (recorded != null) {
+                return recorded;
+            }
             if (job.isFailed()) {
                 log.warn(
                         "Kubernetes application {} failed: {}",
@@ -66,6 +74,9 @@ public final class KubernetesApplicationClient implements AutoCloseable {
             }
             if (job.isComplete()) {
                 return ApplicationStatus.SUCCEEDED;
+            }
+            if (HaApplicationState.enabled(job)) {
+                return HaApplicationState.status(job);
             }
             ApplicationStatus state = ApplicationStatus.DEPLOYING;
             if (job.isActive()) {
@@ -97,7 +108,29 @@ public final class KubernetesApplicationClient implements AutoCloseable {
      */
     public void cancel() throws Exception {
         log.info("Canceling Kubernetes application {}", applicationId);
-        api.deleteApplication(applicationId);
+        KubernetesJob owner;
+        try {
+            owner = api.getJob(applicationId);
+        } catch (KubernetesClientException failure) {
+            if (failure.getCode() != 404) {
+                throw failure;
+            }
+            // A fresh or single-master handle retains the established graceful master cleanup.
+            // Only a positively observed HA owner opts into UID-scoped orphan cleanup.
+            if (!haObserved) {
+                api.deleteApplication(applicationId);
+            } else {
+                KubernetesHaClient.require(api).deleteOrphanPods(applicationId);
+            }
+            canceled = true;
+            return;
+        }
+        haObserved |= HaApplicationState.enabled(owner);
+        if (haObserved) {
+            KubernetesHaClient.require(api).deleteApplication(applicationId, owner.getUid());
+        } else {
+            api.deleteApplication(applicationId);
+        }
         canceled = true;
     }
 

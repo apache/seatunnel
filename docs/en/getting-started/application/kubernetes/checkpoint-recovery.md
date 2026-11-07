@@ -5,7 +5,7 @@ title: Checkpoint Recovery
 
 # Kubernetes checkpoint recovery
 
-Recovery creates a new Kubernetes Job and a new Zeta job ID. This release does not provide automatic master failover or Job restart.
+Explicit recovery creates a new Kubernetes Job and a new Zeta job ID. With [application HA](architecture.md#opt-in-application-ha), individual master Pod loss recovers within the existing application using the same native job ID. The instructions below describe explicit recovery after an application stops.
 
 ## Choose storage
 
@@ -96,3 +96,7 @@ instead of silently starting over.
 :::
 
 Keep topology, connector versions, state format, and parallelism compatible. Replay after the checkpoint and sink delivery guarantees depend on connector semantics.
+
+## Ordinary HA storage
+
+For HA, every master must access the same durable checkpoint backend and namespace. Use a shared multi-node capable PVC for file-backed storage, or the native remote backend configuration. `--restore-job-id` uses checkpoint restore, fails when no eligible checkpoint exists, and assigns a new destination job ID. Do not run the historical and restored applications concurrently against the same sink without connector-specific coordination.

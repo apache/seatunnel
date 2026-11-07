@@ -26,23 +26,31 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesP
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesStatefulSet;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
 import io.kubernetes.client.custom.V1Patch;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
+import io.kubernetes.client.openapi.apis.AppsV1Api;
 import io.kubernetes.client.openapi.apis.BatchV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1DeleteOptions;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.openapi.models.V1Pod;
+import io.kubernetes.client.openapi.models.V1Preconditions;
 import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1Service;
+import io.kubernetes.client.openapi.models.V1StatefulSet;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Namespace-scoped SDK connection shared by submission, status and resource management.
@@ -52,12 +60,13 @@ import java.util.List;
  * requests and resource cleanup complete.
  */
 @Slf4j
-final class DefaultKubernetesClient implements KubernetesClient {
+final class DefaultKubernetesClient implements KubernetesHaClient {
 
     private final ApiClient client;
     private final ApiClient watchClient;
     private final CoreV1Api core;
     private final BatchV1Api batch;
+    private final AppsV1Api apps;
     private final String namespace;
 
     DefaultKubernetesClient(ApiClient client, String namespace) {
@@ -70,6 +79,7 @@ final class DefaultKubernetesClient implements KubernetesClient {
         this.namespace = namespace;
         this.core = new CoreV1Api(client);
         this.batch = new BatchV1Api(client);
+        this.apps = new AppsV1Api(client);
     }
 
     @Override
@@ -146,6 +156,9 @@ final class DefaultKubernetesClient implements KubernetesClient {
     @Override
     public void createAccompanyingResources(
             KubernetesJob owner, List<KubernetesResource<?>> resources) {
+        if (owner.getUid() == null || owner.getUid().isEmpty()) {
+            throw new IllegalArgumentException("An acknowledged owner Job UID is required");
+        }
         try {
             V1OwnerReference ownerReference = ownerReference(owner);
             for (KubernetesResource<?> resource : resources) {
@@ -165,6 +178,17 @@ final class DefaultKubernetesClient implements KubernetesClient {
                             .getMetadata()
                             .setOwnerReferences(Collections.singletonList(ownerReference));
                     core.createNamespacedConfigMap(namespace, configMap, null, null, null, null);
+                } else if (resource instanceof KubernetesStatefulSet) {
+                    V1StatefulSet pool = ((KubernetesStatefulSet) resource).getInternalResource();
+                    pool.getMetadata()
+                            .setOwnerReferences(Collections.singletonList(ownerReference));
+                    apps.createNamespacedStatefulSet(namespace, pool, null, null, null, null);
+                } else if (resource instanceof KubernetesPod) {
+                    V1Pod pod = ((KubernetesPod) resource).getInternalResource();
+                    // Generation precedes Job creation; replace its provisional owner reference
+                    // with the acknowledged UID before creating a fixed worker.
+                    pod.getMetadata().setOwnerReferences(Collections.singletonList(ownerReference));
+                    core.createNamespacedPod(namespace, pod, null, null, null, null);
                 } else {
                     throw new IllegalArgumentException(
                             "Unsupported accompanying Kubernetes resource " + resource.getName());
@@ -280,6 +304,208 @@ final class DefaultKubernetesClient implements KubernetesClient {
         if (failure != null) {
             throw failure;
         }
+    }
+
+    @Override
+    public KubernetesService getService(String name) {
+        try {
+            return new KubernetesService(core.readNamespacedService(name, namespace, null));
+        } catch (ApiException failure) {
+            throw wrap(failure);
+        }
+    }
+
+    @Override
+    public void updateHaState(KubernetesJob observed, Map<String, String> annotations) {
+        V1ObjectMeta metadata = observed.getInternalResource().getMetadata();
+        List<Map<String, Object>> patch =
+                Arrays.asList(
+                        Map.of("op", "test", "path", "/metadata/uid", "value", observed.getUid()),
+                        Map.of(
+                                "op",
+                                "test",
+                                "path",
+                                "/metadata/resourceVersion",
+                                "value",
+                                metadata.getResourceVersion()),
+                        Map.of("op", "add", "path", "/metadata/annotations", "value", annotations));
+        try {
+            batch.patchNamespacedJob(
+                    observed.getName(),
+                    namespace,
+                    new V1Patch(client.getJSON().serialize(patch)),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null);
+        } catch (ApiException failure) {
+            throw wrap(failure);
+        }
+    }
+
+    @Override
+    public void deleteApplication(String id, String uid) {
+        // With a body, Kubernetes decodes DeleteOptions from that body, not the query parameters.
+        // Keep propagation beside the UID precondition so deleting an application never orphans it.
+        try {
+            batch.deleteNamespacedJob(
+                    id,
+                    namespace,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "Foreground",
+                    new V1DeleteOptions()
+                            .propagationPolicy("Foreground")
+                            .preconditions(new V1Preconditions().uid(uid)));
+        } catch (ApiException failure) {
+            rethrowUnlessMissing(failure);
+        }
+    }
+
+    @Override
+    public void deleteOrphanPods(String id) {
+        try {
+            getJob(id);
+            return;
+        } catch (KubernetesClientException absent) {
+            if (absent.getCode() != 404) {
+                throw absent;
+            }
+        }
+        List<KubernetesPod> orphans = listPods(KubernetesConstants.APPLICATION_LABEL + "=" + id);
+        try {
+            getJob(id);
+            return;
+        } catch (KubernetesClientException absent) {
+            if (absent.getCode() != 404) {
+                throw absent;
+            }
+        }
+        for (KubernetesPod pod : orphans) {
+            V1ObjectMeta metadata = pod.getInternalResource().getMetadata();
+            if (metadata.getUid() == null
+                    || metadata.getOwnerReferences() == null
+                    || metadata.getOwnerReferences().stream()
+                            .noneMatch(
+                                    ref ->
+                                            "Job".equals(ref.getKind())
+                                                    && id.equals(ref.getName())
+                                                    && ref.getUid() != null)) {
+                continue;
+            }
+            try {
+                core.deleteNamespacedPod(
+                        metadata.getName(),
+                        namespace,
+                        null,
+                        null,
+                        0,
+                        null,
+                        "Foreground",
+                        deletion(metadata));
+            } catch (ApiException failure) {
+                rethrowUnlessMissing(failure);
+            }
+        }
+    }
+
+    @Override
+    public void deleteHaResources(KubernetesJob owner) {
+        // Verify that the name still identifies this application before touching any dependencies.
+        if (!owner.getUid().equals(getJob(owner.getName()).getUid())) {
+            throw new IllegalStateException("Application UID changed during finalization");
+        }
+        for (String role : Collections.singletonList("master")) {
+            try {
+                V1StatefulSet pool =
+                        apps.readNamespacedStatefulSet(
+                                owner.getName() + "-" + role, namespace, null);
+                if (ownedBy(pool.getMetadata(), owner)) {
+                    apps.deleteNamespacedStatefulSet(
+                            pool.getMetadata().getName(),
+                            namespace,
+                            null,
+                            null,
+                            0,
+                            null,
+                            "Foreground",
+                            deletion(pool.getMetadata()));
+                }
+            } catch (ApiException failure) {
+                rethrowUnlessMissing(failure);
+            }
+        }
+        String selector = KubernetesConstants.APPLICATION_LABEL + "=" + owner.getName();
+        try {
+            for (KubernetesPod worker :
+                    listPods(
+                            KubernetesResourceIdentity.selector(
+                                    owner.getName(), KubernetesConstants.WORKER_ROLE))) {
+                V1ObjectMeta metadata = worker.getInternalResource().getMetadata();
+                if (ownedBy(metadata, owner)) {
+                    try {
+                        core.deleteNamespacedPod(
+                                metadata.getName(),
+                                namespace,
+                                null,
+                                null,
+                                0,
+                                null,
+                                "Foreground",
+                                deletion(metadata));
+                    } catch (ApiException failure) {
+                        rethrowUnlessMissing(failure);
+                    }
+                }
+            }
+            for (V1Service resource :
+                    core.listNamespacedService(
+                                    namespace, null, null, null, null, selector, null, null, null,
+                                    null, null, null)
+                            .getItems()) {
+                if (ownedBy(resource.getMetadata(), owner)) {
+                    try {
+                        core.deleteNamespacedService(
+                                resource.getMetadata().getName(),
+                                namespace,
+                                null,
+                                null,
+                                null,
+                                null,
+                                "Background",
+                                deletion(resource.getMetadata()).propagationPolicy("Background"));
+                    } catch (ApiException failure) {
+                        // A concurrent finalizer can remove one Service without skipping the rest.
+                        rethrowUnlessMissing(failure);
+                    }
+                }
+            }
+            // Mounted configuration and Secrets remain until owner TTL. The owner retains
+            // them while retrying terminal compute finalization.
+        } catch (ApiException failure) {
+            rethrowUnlessMissing(failure);
+        }
+    }
+
+    private static boolean ownedBy(V1ObjectMeta metadata, KubernetesJob owner) {
+        return metadata.getUid() != null
+                && metadata.getOwnerReferences() != null
+                && metadata.getOwnerReferences().stream()
+                        .anyMatch(
+                                reference ->
+                                        owner.getUid().equals(reference.getUid())
+                                                && "Job".equals(reference.getKind())
+                                                && owner.getName().equals(reference.getName()));
+    }
+
+    private static V1DeleteOptions deletion(V1ObjectMeta metadata) {
+        return new V1DeleteOptions()
+                .propagationPolicy("Foreground")
+                .gracePeriodSeconds(0L)
+                .preconditions(new V1Preconditions().uid(metadata.getUid()));
     }
 
     /** Builds the owner reference used by every resource created for one application Job. */

@@ -5,6 +5,12 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Kubernetes Application Mode: optional native master HA
+
+HA is opt-in: two native masters, one synchronous metadata backup and fixed worker Pods. The provider deploys the cluster and uses one owner Job as the native submission client. Election, recovery, checkpoint storage and task protocols are unchanged. Single-master deployment defaults are unchanged. Worker replacement, Operator behavior, strict partition protection and connector fencing are excluded.
+
+Both single-master and HA `cancel` now require Job `get` before `delete`; grant it to cancellation identities when upgrading. HA `retrieve` also requires Service `get`. See the [RBAC manifests](../../getting-started/application/kubernetes/architecture.md#ha-permissions).
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**

@@ -73,6 +73,21 @@ public final class WorkerPodFactory extends AbstractWorkloadFactory {
                         clusterName,
                         masterAddress,
                         Integer.toString(resources.getSlots())));
+        if (parameters.isHaEnabled()) {
+            container.setCommand(
+                    command(
+                            memoryMb,
+                            parameters.getWorkerHazelcastConfig(),
+                            parameters.getWorkerJvmOptionsFiles(),
+                            SeatunnelKubernetesApplicationWorker.class.getName(),
+                            clusterName,
+                            masterAddress,
+                            Integer.toString(resources.getSlots()),
+                            "--ha",
+                            Integer.toString(parameters.getHaBackupCount()),
+                            Long.toString(
+                                    parameters.getSpecification().getStartupTimeoutMillis())));
+        }
         return new V1Pod()
                 .apiVersion(KubernetesConstants.CORE_API_VERSION)
                 .kind(KubernetesConstants.POD_KIND)

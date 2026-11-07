@@ -201,3 +201,7 @@ kubectl -n seatunnel-apps logs job/APPLICATION_ID
 :::
 
 完整参数、退出码约定和 `kubectl` 排查方式见 [命令参考](commands.md)。
+
+## 启用 HA
+
+本页描述默认单 Master 部署。要启用原生 Master 切换和固定 Worker，请遵循 [Application HA](architecture.md) 的额外 RBAC 与持久存储要求。HA 优先以原生终态 annotation 判定 application 状态；自建挂载配置保留至 owner Job TTL，以支持清理重试。
