@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.e2e.sink.inmemory.InMemoryAggregatedCommitter;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -29,8 +30,13 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
+import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -39,6 +45,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.cluster.Address;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.EntryView;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -48,6 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -516,6 +524,188 @@ public class ClusterFaultToleranceIT {
                 node2.shutdown();
             }
         }
+    }
+
+    /**
+     * Regression guard for apache/seatunnel#12805, fixed by #12807: after a failover, the restored
+     * aggregated commit infos must reach each table's {@code restoreCommit}, not its {@code
+     * commit}.
+     *
+     * <p>Zeta's {@code SinkAggregatedCommitterTask#restoreState} calls {@code restoreCommit} on the
+     * job's aggregated committer. {@code InMemorySink} implements {@code SupportMultiTableSink}, so
+     * {@code MultiTableJobConfigParser#tryGenerateMultiTableSink} wraps even this single-table sink
+     * in {@code MultiTableSink}, making that committer a {@code MultiTableSinkAggregatedCommitter}.
+     * Before #12807 the wrapper did not override {@code restoreCommit} and fell through to its own
+     * {@code commit}, which committed restored transactions as new ones (JDBC XA then failed with
+     * XAER_NOTA). Existing fault-tolerance tests miss this because their sinks keep the default
+     * {@code restoreCommit -> commit}, so both routes produce the same output; this test uses the
+     * InMemory committer's recording {@code restoreCommit} override to tell them apart.
+     *
+     * <p>The fresh-start {@code restoreState} also calls {@code restoreCommit}, but with no state,
+     * so only a non-empty {@code restoreCommit:<n>} event proves the restored checkpoint reached
+     * it.
+     */
+    @Test
+    public void testStreamJobRestoreCommitIn2NodeWorkerDown() throws Exception {
+        String testCaseName = "testStreamJobRestoreCommitIn2NodeWorkerDown";
+        String testClusterName =
+                "ClusterFaultToleranceIT_testStreamJobRestoreCommitIn2NodeWorkerDown";
+        HazelcastInstanceImpl node1 = null;
+        HazelcastInstanceImpl node2 = null;
+        SeaTunnelClient engineClient = null;
+        ClientJobProxy clientJobProxy = null;
+        // The event store is a static list shared by every job in this JVM; reset it so events
+        // left behind by earlier tests cannot satisfy or confuse the assertions below.
+        List<String> commitEvents = InMemoryAggregatedCommitter.getCommitEvents();
+        commitEvents.clear();
+
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
+        // Static slots with SLOT_RATIO spread the job's slots over both nodes, so shutting down
+        // node2 deterministically kills running tasks and forces a pipeline restore.
+        SlotServiceConfig slotServiceConfig =
+                seaTunnelConfig.getEngineConfig().getSlotServiceConfig();
+        slotServiceConfig.setSlotNum(10);
+        slotServiceConfig.setDynamicSlot(false);
+        slotServiceConfig.setAllocateStrategy(AllocateStrategy.SLOT_RATIO);
+        try {
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+
+            HazelcastInstanceImpl finalNode = node1;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalNode.getCluster().getMembers().size()));
+
+            Address node1Address = node1.node.address;
+            Address node2Address = node2.node.address;
+            SeaTunnelServer server = node1.node.nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+            ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+            // Slot allocation only sees a worker after its first heartbeat.
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(
+                                        resourceManager
+                                                .getRegisterWorker()
+                                                .containsKey(node1Address));
+                                Assertions.assertTrue(
+                                        resourceManager
+                                                .getRegisterWorker()
+                                                .containsKey(node2Address));
+                            });
+
+            Common.setDeployMode(DeployMode.CLIENT);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testCaseName);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            TestUtils.getResource("stream_fake_to_inmemory_restore_commit.conf"),
+                            jobConfig,
+                            seaTunnelConfig);
+            ClientJobProxy finalJobProxy = jobExecutionEnv.execute();
+            clientJobProxy = finalJobProxy;
+
+            // Each completed checkpoint commits the writers' commit info, so two non-empty
+            // commits mean the coordinator holds a completed checkpoint with committer state.
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, finalJobProxy.getJobStatus());
+                                Assertions.assertTrue(
+                                        countNonEmpty(commitEvents, "commit:") >= 2,
+                                        "expected >= 2 non-empty commits, got " + commitEvents);
+                            });
+            Assertions.assertEquals(
+                    0L,
+                    countNonEmpty(commitEvents, "restoreCommit:"),
+                    "no checkpoint may be restored before a node goes down: " + commitEvents);
+            // Precondition: node2 must host part of the job, otherwise its shutdown restores
+            // nothing and the assertion below could not fail for the right reason.
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                WorkerProfile node2Profile =
+                                        resourceManager.getRegisterWorker().get(node2Address);
+                                Assertions.assertNotNull(node2Profile);
+                                Assertions.assertTrue(node2Profile.getAssignedSlots().length > 0);
+                            });
+
+            node2.shutdown();
+
+            // The failover restores the pipeline from the latest completed checkpoint; that
+            // checkpoint's aggregated commit info must reach the per-table restoreCommit.
+            Awaitility.await()
+                    .atMost(180, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            countNonEmpty(commitEvents, "restoreCommit:") >= 1,
+                                            "restored commit info must be routed to "
+                                                    + "restoreCommit, not commit: "
+                                                    + commitEvents));
+            Awaitility.await()
+                    .atMost(180, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, finalJobProxy.getJobStatus()));
+            clientJobProxy.cancelJob();
+            Awaitility.await()
+                    .atMost(180, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.CANCELED, finalJobProxy.getJobStatus()));
+        } finally {
+            if (clientJobProxy != null) {
+                try {
+                    if (!clientJobProxy.getJobStatus().isEndState()) {
+                        clientJobProxy.cancelJob();
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to cancel job of {} during cleanup", testCaseName, e);
+                }
+            }
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (node1 != null) {
+                node1.shutdown();
+            }
+            if (node2 != null) {
+                node2.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Counts recorded {@code "<prefix><size>"} commit events whose size is greater than zero.
+     *
+     * <p>Empty calls are ignored: every fresh task start and every checkpoint without commit info
+     * produce them, and they say nothing about restored state.
+     */
+    private static long countNonEmpty(List<String> commitEvents, String prefix) {
+        return commitEvents.stream()
+                .filter(event -> event.startsWith(prefix))
+                .filter(event -> Integer.parseInt(event.substring(prefix.length())) > 0)
+                .count();
     }
 
     @Test
