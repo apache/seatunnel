@@ -27,6 +27,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -45,6 +46,7 @@ import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -55,7 +57,7 @@ public class VictoriaMetricsIT extends TestSuiteBase implements TestResource {
 
     private static final String HOST = "victoria-metrics-host";
 
-    private static final long INDEX_REFRESH_MILL_DELAY = 30000L;
+    private static final long METRICS_QUERY_TIMEOUT_SECONDS = 60L;
 
     @BeforeAll
     @Override
@@ -95,8 +97,6 @@ public class VictoriaMetricsIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/victoriaMetrics_remote_write.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        // waiting  refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
         CloseableHttpClient httpClient = HttpClients.createDefault();
         HttpGet httpGet =
                 new HttpGet(
@@ -105,19 +105,30 @@ public class VictoriaMetricsIT extends TestSuiteBase implements TestResource {
                                 + ":"
                                 + victoriaMetricsContainer.getMappedPort(8428)
                                 + "/api/v1/query?query=metric_1");
-        CloseableHttpResponse response = httpClient.execute(httpGet);
-        String responseContent = EntityUtils.toString(response.getEntity());
-        List<Metric> metrics =
-                JsonUtils.toList(
-                        JsonPath.read(responseContent, "$.data.result.*").toString(), Metric.class);
+        // Poll until the remote-written samples are queryable, instead of a fixed
+        // sleep that fails when ingestion is slower than expected under CI load.
+        Awaitility.await()
+                .atMost(METRICS_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () -> {
+                            CloseableHttpResponse response = httpClient.execute(httpGet);
+                            String responseContent = EntityUtils.toString(response.getEntity());
+                            List<Metric> metrics =
+                                    JsonUtils.toList(
+                                            JsonPath.read(responseContent, "$.data.result.*")
+                                                    .toString(),
+                                            Metric.class);
 
-        Metric metric = metrics.get(0);
+                            Metric metric = metrics.get(0);
 
-        log.info("response:{},metric:{}", responseContent, metrics);
-        Assertions.assertEquals(response.getStatusLine().getStatusCode(), 200);
+                            log.info("response:{},metric:{}", responseContent, metrics);
+                            Assertions.assertEquals(response.getStatusLine().getStatusCode(), 200);
 
-        Assertions.assertEquals(metric.getMetric().get("__name__"), "metric_1");
-        Assertions.assertEquals(metric.getValue().get(1), "1.23");
+                            Assertions.assertEquals(metric.getMetric().get("__name__"), "metric_1");
+                            Assertions.assertEquals(metric.getValue().get(1), "1.23");
+                        });
 
         Container.ExecResult execResultForInstant =
                 container.executeJob("/VictoriaMetrics_instant_json_to_assert.conf");
