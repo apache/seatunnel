@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.Or
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.FixedChunkSplitter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringRangeSplitDecision;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -231,6 +232,22 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 // The shared IT connection disables auto-commit; the splitter reads through its
                 // own connection and must see the inserted rows.
                 connection.commit();
+
+                // The real NOT NULL table must not validate a nullable query projection.
+                StringRangeSplitDecision queryDecision =
+                        new OracleDialect()
+                                .validateStringRangeSplit(
+                                        connection,
+                                        JdbcSourceTable.builder()
+                                                .tablePath(TablePath.of(SCHEMA, STRING_RANGE_TABLE))
+                                                .query(
+                                                        "SELECT NULL AS ORDER_KEY FROM "
+                                                                + qualifiedTable)
+                                                .build(),
+                                        "ORDER_KEY",
+                                        1);
+                Assertions.assertFalse(queryDecision.isSafe());
+                Assertions.assertTrue(queryDecision.getReason().contains("without a custom query"));
 
                 List<JdbcSourceSplit> rangeSplits = new ArrayList<>();
                 Assertions.assertEquals(

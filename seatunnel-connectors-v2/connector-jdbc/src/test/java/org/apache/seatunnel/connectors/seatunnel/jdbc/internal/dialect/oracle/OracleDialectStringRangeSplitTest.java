@@ -42,6 +42,26 @@ import static org.mockito.Mockito.when;
 /** Verifies Oracle range splitting requires binary session ordering and fixed ASCII keys. */
 public class OracleDialectStringRangeSplitTest {
 
+    /**
+     * A physical path cannot vouch for a nullable or transformed custom-query projection.
+     *
+     * <p>A null connection also verifies that rejection happens before table metadata is queried.
+     */
+    @Test
+    public void testRejectsCustomQueryEvenWithPhysicalTablePath() throws SQLException {
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of("APP", "ORDERS"))
+                        .query("SELECT NULL AS ORDER_ID FROM APP.ORDERS")
+                        .build();
+
+        StringRangeSplitDecision decision =
+                new OracleDialect().validateStringRangeSplit(null, table, "ORDER_ID", 1);
+
+        assertFalse(decision.isSafe());
+        assertTrue(decision.getReason().contains("without a custom query"));
+    }
+
     @Test
     public void testAcceptsBinaryNlsAndFixedAsciiSamples() throws SQLException {
         Connection connection = mock(Connection.class);

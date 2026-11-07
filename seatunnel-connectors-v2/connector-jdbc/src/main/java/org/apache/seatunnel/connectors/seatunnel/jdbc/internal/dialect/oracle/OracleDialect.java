@@ -314,6 +314,12 @@ public class OracleDialect implements JdbcDialect {
             return StringRangeSplitDecision.unsafe(
                     "ASCII string range splitting is only validated for the Oracle dialect");
         }
+        // ALL_TAB_COLUMNS describes the physical table, not a query projection or join. Its
+        // collation and NOT NULL guarantees cannot establish safe range predicates for a query.
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            return StringRangeSplitDecision.unsafe(
+                    "Oracle string range splitting requires a physical table without a custom query");
+        }
         if (table.getTablePath() == null
                 || TablePath.DEFAULT.getFullName().equals(table.getTablePath().getFullName())) {
             return StringRangeSplitDecision.unsafe(

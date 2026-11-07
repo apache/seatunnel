@@ -163,8 +163,8 @@ driver = "org.mariadb.jdbc.Driver"
 | connect_timeout_ms                         | Int     | 否    | 86400000 | 建立 JDBC 连接时的连接超时时间，单位毫秒。`0` 表示不超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | socket_timeout_ms                          | Int     | 否    | 86400000 | JDBC 连接建立后的 socket 读取超时时间，单位毫秒。`0` 表示不超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | partition_column                           | String  | 否    | -       | 用于分割数据的列名。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| partition_upper_bound                      | String  | 否    | -       | query 分区读取使用的闭区间上界。未配置时，SeaTunnel 会从源表查询最大值。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| partition_lower_bound                      | String  | 否    | -       | query 分区读取使用的闭区间下界。未配置时，SeaTunnel 会从源表查询最小值。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| partition_upper_bound                      | String  | 否    | -       | query 分区读取使用的闭区间上界。未配置时，SeaTunnel 会从源表查询最大值。对于 DATE 分区列，支持 ISO-8601 日期字符串（`yyyy-MM-dd`）或兼容历史配置的 epoch-day 数字。                                                                                                                                                                                                                                                                                                                                                                                                             |
+| partition_lower_bound                      | String  | 否    | -       | query 分区读取使用的闭区间下界。未配置时，SeaTunnel 会从源表查询最小值。对于 DATE 分区列，支持 ISO-8601 日期字符串（`yyyy-MM-dd`）或兼容历史配置的 epoch-day 数字。                                                                                                                                                                                                                                                                                                                                                                                                             |
 | partition_num                              | Int     | 否    | 10      | 顶层 `query` 与 `partition_column` 触发 fixed splitter 时的分片数，无论是否同时配置 `table_path`。动态 `table_path` 和 `table_list` 布局改用 `split.size`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | decimal_type_narrowing                     | Boolean | 否    | true    | 十进制类型缩小，如果为 true，十进制类型将缩小为 int 或 long 类型（如果没有精度损失）。目前仅支持 Oracle。请参考下面的 `decimal_type_narrowing`                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | int_type_narrowing                         | Boolean | 否    | true    | Int 类型缩小，如果为 true，tinyint(1) 类型将缩小为布尔类型（如果没有精度损失）。目前支持 MySQL。请参考下面的 `int_type_narrowing`                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -193,9 +193,11 @@ driver = "org.mariadb.jdbc.Driver"
 | split.allow-sampling                       | Boolean | 否    | true            | 是否启用基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都将回退到非均匀分片方式（迭代查询方式）。默认值为 true。                                                                                                                                                                                              |
 | enable_concurrent_read                     | Boolean | 否    | true            | 是否在快照阶段启用基于分片的并发读取。当设置为 false 时，source 会跳过分片分析，并以单个 split 读取整张表，适合没有索引的表。默认值为 true。                                                                                                                                                                                          |
 | split.string_split_mode                    | String  | 否    | sample          | 支持不同的字符串分割算法。默认使用 `sample`，通过采样字符串值来确定分割。可以切换为 `charset_based` 启用基于字符集的字符串分割算法。设置为 `charset_based` 时，算法假定 partition_column 的字符在 ASCII 32-126 范围内，覆盖了大多数基于字符的分割场景。                                                                                                                                                    |
-| split.string-strategy                      | String  | 否    | -               | 控制 String 分区列的分片方式，可选值为 `none`、`hash`、`range`、`auto`。`range` 仅在方言验证排序语义后启用：MySQL 要求列使用 binary collation 且键值为固定长度的可打印 ASCII 字符串；Oracle 要求 `NLS_SORT=BINARY`、`NLS_COMP=BINARY`、列的 collation 为 `BINARY` 或 `USING_NLS_COMP`、数据库字符编码保持可打印 ASCII 的二进制排序，以及相同的键值限制；Oracle 还要求 `table_path` 带 schema 限定（例如 `SCHEMA.TABLE`），以保证验证的列元数据属于实际读取的表；Oracle 的分片列还必须声明为 `NOT NULL`，因为 range 条件不会匹配 NULL 键值，这类行否则会被静默跳过，所以可空列会被 `range` 拒绝，`auto` 则回退。Oracle 会在每个 reader 连接上重新验证会话条件；若 reader 会话不安全，会在执行 range 条件前失败关闭。`range` 会拒绝不支持或不安全的配置。对于支持 range 分片的方言，`auto` 在验证通过时使用 range，否则回退为 hash；若方言不支持 hash，则使用单分片。没有经过验证的 range 支持的方言会拒绝 `range` 和 `auto`。未设置该参数时，SeaTunnel 保持现有 `split.string_split_mode` 行为。 |
+| split.string-strategy                      | String  | 否    | -               | 控制 String 分区列的分片方式，可选值为 `none`、`hash`、`range`、`auto`。`range` 仅在方言验证排序语义后启用：MySQL 要求列使用 binary collation 且键值为固定长度的可打印 ASCII 字符串；Oracle 要求 `NLS_SORT=BINARY`、`NLS_COMP=BINARY`、列的 collation 为 `BINARY` 或 `USING_NLS_COMP`、数据库字符编码保持可打印 ASCII 的二进制排序，以及相同的键值限制；Oracle 的字符串 range 分片不接受自定义 `query`，因为物理表的元数据不能证明查询投影的排序和非空约束；`range` 会拒绝该配置，`auto` 会回退。Oracle 还要求 `table_path` 带 schema 限定（例如 `SCHEMA.TABLE`），以保证验证的列元数据属于实际读取的表；Oracle 的分片列还必须声明为 `NOT NULL`，因为 range 条件不会匹配 NULL 键值，这类行否则会被静默跳过，所以可空列会被 `range` 拒绝，`auto` 则回退。Oracle 会在每个 reader 连接上重新验证会话条件；若 reader 会话不安全，会在执行 range 条件前失败关闭。`range` 会拒绝不支持或不安全的配置。对于支持 range 分片的方言，`auto` 在验证通过时使用 range，否则回退为 hash；若方言不支持 hash，则使用单分片。没有经过验证的 range 支持的方言会拒绝 `range` 和 `auto`。未设置该参数时，SeaTunnel 保持现有 `split.string_split_mode` 行为。 |
 | split.string_split_mode_collate            | String  | 否    | -               | 当 string_split_mode 设置为 `charset_based` 且表具有特殊排序规则时，指定要使用的排序规则。如果未指定，将使用数据库的默认排序规则。                                                                                                                                                                                                            |
 | common-options                             |         | 否    | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+
+固定查询分片支持映射为 SeaTunnel DATE 类型的列，边界可使用 ISO 日期或整数 epoch-day。支持范围取决于方言映射；例如 Oracle DATE 映射为 TIMESTAMP，不在本次支持范围内。TIME、TIMESTAMP 和 TIMESTAMP_TZ 列不支持作为分片列；请选择受支持的列，或不设置 partition_column，以单个分片读取查询。
 
 ### 表匹配
 
@@ -298,10 +300,36 @@ numeric_special_value_as_null = true
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase | XUGU |
 | IRIS      | Inceptor | Highgo |
-| YashanDB  | DSQL     |          |
+| YashanDB  | DSQL     | CockroachDB |
 
 达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
 达梦 `TIMESTAMP WITH LOCAL TIME ZONE` 源字段会映射为 `TIMESTAMP_TZ`，`INTERVAL` 源字段会映射为 `STRING`。
+
+### CockroachDB
+
+使用现有 PostgreSQL JDBC 驱动，并显式配置 `dialect = "CockroachDB"`。未配置该选项时，`jdbc:postgresql:` URL 仍然选择 PostgreSQL 方言，不影响现有作业。
+
+```hocon
+Jdbc {
+  url = "jdbc:postgresql://cockroachdb:26257/app?sslmode=verify-full"
+  driver = "org.postgresql.Driver"
+  dialect = "CockroachDB"
+  username = "seatunnel"
+  password = ${DB_PASSWORD}
+  query = "SELECT id, customer, amount FROM public.orders"
+  partition_column = "customer"
+  partition_num = 4
+  split.string-strategy = "hash"
+}
+```
+
+请为驱动配置集群的受信任根证书。`sslmode=disable` 仅适用于临时的、不启用安全认证的本地测试集群。
+
+CockroachDB 不支持 PostgreSQL 的 `HASHTEXT` 函数。本方言使用 `FNV32` 对 STRING 和 UUID 等分区键进行哈希分片，并将空键值分配到一个分区，避免漏读。由于 CockroachDB 的 `pg_class.reltuples` 为 null，分片器需要行数时使用 `COUNT(*)`，这可能扫描输入表或查询。如果单 Reader 足够，可设置 `enable_concurrent_read = false` 跳过分片分析。
+
+字符串转换使用已发现的 schema 中的原生类型信息，而不是在游标打开期间查询结果集类型元数据。支持的读取场景无需启用预览参数 `multiple_active_portals_enabled`。显式 schema 未提供原生类型信息时，STRING 字段按普通字符串处理。
+
+首期支持通过 `query` 或明确的 `table_path` 有界读取现有表，复用 PostgreSQL 驱动兼容的类型映射。CockroachDB 24.3 测试覆盖 INT8、STRING、DECIMAL、BOOL、BYTES、UUID 和空值。不包含正则目录发现、CDC 和 range/auto 字符串分片。数值分片和字符串哈希分片复用现有 JDBC 分片生命周期，无需新增驱动或连接器插件。
 
 ## 并行读取器
 
