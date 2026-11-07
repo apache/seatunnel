@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -60,6 +61,10 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
 
     private final int fetchSize;
     private final boolean autoCommit;
+
+    // This splitter can move across nodes, but a session check is valid only for the local
+    // physical connection that performed it. Keep the marker transient and use identity checks.
+    private transient Connection validatedStringRangeSessionConnection;
 
     public ChunkSplitter(JdbcSourceConfig config) {
         this.config = config;
@@ -148,6 +153,9 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
 
     public PreparedStatement generateSplitStatement(JdbcSourceSplit split, TableSchema schema)
             throws SQLException {
+        if (requiresStringRangeSplitSessionValidation(split)) {
+            validateStringRangeSplitReaderSession();
+        }
         if (split.getSplitKeyName() == null) {
             return createSingleSplitStatement(split);
         }
@@ -207,7 +215,6 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                         && requestedStrategy != StringSplitStrategy.AUTO)) {
             return requestedStrategy;
         }
-
         if (!jdbcDialect.supportStringRangeSplit()) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
@@ -216,9 +223,29 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                             requestedStrategy, jdbcDialect.dialectName()));
         }
 
-        StringRangeSplitDecision decision =
-                jdbcDialect.validateStringRangeSplit(
-                        getOrEstablishConnection(), applyWhereCondition(table), splitKeyName, 256);
+        StringRangeSplitDecision decision;
+        try {
+            decision =
+                    jdbcDialect.validateStringRangeSplit(
+                            getOrEstablishConnection(), table, splitKeyName, 256);
+        } catch (SQLException e) {
+            if (requestedStrategy == StringSplitStrategy.RANGE) {
+                throw new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        String.format(
+                                "String range split validation failed for table %s, split column %s",
+                                table.getTablePath(), splitKeyName),
+                        e);
+            }
+            StringSplitStrategy fallback = getStringSplitFallbackStrategy();
+            log.warn(
+                    "String range split validation failed for table {}, split column {}, fallback strategy: {}",
+                    table.getTablePath(),
+                    splitKeyName,
+                    fallback,
+                    e);
+            return fallback;
+        }
         if (decision.isSafe()) {
             return StringSplitStrategy.RANGE;
         }
@@ -230,10 +257,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                             table.getTablePath(), splitKeyName, decision.getReason()));
         }
 
-        StringSplitStrategy fallback =
-                jdbcDialect.supportHashSplitter()
-                        ? StringSplitStrategy.HASH
-                        : StringSplitStrategy.NONE;
+        StringSplitStrategy fallback = getStringSplitFallbackStrategy();
         log.warn(
                 "String range split is unsafe for table {}, split column {}. Requested strategy: {}, fallback strategy: {}, reason: {}",
                 table.getTablePath(),
@@ -242,6 +266,39 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                 fallback,
                 decision.getReason());
         return fallback;
+    }
+
+    /**
+     * Revalidates once for each physical reader connection because planning and reading can use
+     * different session-scoped comparison settings.
+     */
+    private synchronized void validateStringRangeSplitReaderSession() throws SQLException {
+        Connection connection = getOrEstablishConnection();
+        if (connection == validatedStringRangeSessionConnection) {
+            return;
+        }
+        StringRangeSplitDecision decision = jdbcDialect.validateStringRangeSplitSession(connection);
+        if (!decision.isSafe()) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    "String range split reader session is unsafe: " + decision.getReason());
+        }
+        validatedStringRangeSessionConnection = connection;
+    }
+
+    private boolean requiresStringRangeSplitSessionValidation(JdbcSourceSplit split) {
+        return (config.getStringSplitStrategy() == StringSplitStrategy.RANGE
+                        || config.getStringSplitStrategy() == StringSplitStrategy.AUTO)
+                && split.getSplitKeyType() != null
+                && SqlType.STRING.equals(split.getSplitKeyType().getSqlType())
+                && (split.getSplitStart() instanceof String
+                        || split.getSplitEnd() instanceof String);
+    }
+
+    private StringSplitStrategy getStringSplitFallbackStrategy() {
+        return jdbcDialect.supportHashSplitter()
+                ? StringSplitStrategy.HASH
+                : StringSplitStrategy.NONE;
     }
 
     protected PreparedStatement createSingleSplitStatement(JdbcSourceSplit split)
