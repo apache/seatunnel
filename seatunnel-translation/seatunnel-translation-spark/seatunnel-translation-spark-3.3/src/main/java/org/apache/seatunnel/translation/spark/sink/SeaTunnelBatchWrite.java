@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
@@ -68,16 +70,35 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     private final int parallelism;
 
+    /**
+     * Collector prepared on the driver and passed to Spark writers.
+     *
+     * <p>Keeping this instance with the write plan preserves the selected provider and its explicit
+     * configuration when Spark creates individual writer tasks.
+     */
+    private final DirtyRecordCollector dirtyRecordCollector;
+
     public SeaTunnelBatchWrite(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
             CatalogTable[] catalogTables,
             String jobId,
             int parallelism)
             throws IOException {
+        this(sink, catalogTables, jobId, parallelism, NoOpDirtyRecordCollector.INSTANCE);
+    }
+
+    public SeaTunnelBatchWrite(
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            CatalogTable[] catalogTables,
+            String jobId,
+            int parallelism,
+            DirtyRecordCollector dirtyRecordCollector)
+            throws IOException {
         this.sink = sink;
         this.catalogTables = catalogTables;
         this.jobId = jobId;
         this.parallelism = parallelism;
+        this.dirtyRecordCollector = dirtyRecordCollector;
         this.aggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
         if (aggregatedCommitter != null) {
             if (this.aggregatedCommitter instanceof SupportResourceShare) {
@@ -95,7 +116,8 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     @Override
     public DataWriterFactory createBatchWriterFactory(PhysicalWriteInfo info) {
-        return new SeaTunnelSparkDataWriterFactory<>(sink, catalogTables, jobId, parallelism);
+        return new SeaTunnelSparkDataWriterFactory<>(
+                sink, catalogTables, jobId, parallelism, dirtyRecordCollector);
     }
 
     @Override

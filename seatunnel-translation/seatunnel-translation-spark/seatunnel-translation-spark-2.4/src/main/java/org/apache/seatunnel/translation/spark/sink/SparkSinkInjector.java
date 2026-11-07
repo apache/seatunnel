@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.Constants;
@@ -35,6 +36,7 @@ public class SparkSinkInjector {
     public static final String SINK_CATALOG_TABLE = "sink.catalog.table";
     public static final String JOB_ID = "jobId";
     public static final String PARALLELISM = "parallelism";
+    public static final String DIRTY_COLLECTOR = "dirty.collector.serialized";
 
     public static DataStreamWriter<Row> inject(
             DataStreamWriter<Row> dataset,
@@ -42,12 +44,34 @@ public class SparkSinkInjector {
             CatalogTable[] catalogTables,
             String applicationId,
             int parallelism) {
-        return dataset.format(SPARK_SINK_CLASS_NAME)
-                .outputMode(OutputMode.Append())
-                .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink))
-                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTables))
-                .option(JOB_ID, applicationId)
-                .option(PARALLELISM, parallelism);
+        return inject(dataset, sink, catalogTables, applicationId, parallelism, null);
+    }
+
+    public static DataStreamWriter<Row> inject(
+            DataStreamWriter<Row> dataset,
+            SeaTunnelSink<?, ?, ?, ?> sink,
+            CatalogTable[] catalogTables,
+            String applicationId,
+            int parallelism,
+            DirtyRecordCollector dirtyRecordCollector) {
+        DataStreamWriter<Row> writer =
+                dataset.format(SPARK_SINK_CLASS_NAME)
+                        .outputMode(OutputMode.Append())
+                        .option(
+                                Constants.SINK_SERIALIZATION,
+                                SerializationUtils.objectToString(sink))
+                        .option(
+                                SINK_CATALOG_TABLE,
+                                SerializationUtils.objectToString(catalogTables))
+                        .option(JOB_ID, applicationId)
+                        .option(PARALLELISM, parallelism);
+        if (dirtyRecordCollector != null) {
+            writer =
+                    writer.option(
+                            DIRTY_COLLECTOR,
+                            SerializationUtils.objectToString(dirtyRecordCollector));
+        }
+        return writer;
     }
 
     public static DataFrameWriter<Row> inject(
@@ -56,10 +80,32 @@ public class SparkSinkInjector {
             CatalogTable[] catalogTables,
             String applicationId,
             int parallelism) {
-        return dataset.format(SPARK_SINK_CLASS_NAME)
-                .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink))
-                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTables))
-                .option(JOB_ID, applicationId)
-                .option(PARALLELISM, parallelism);
+        return inject(dataset, sink, catalogTables, applicationId, parallelism, null);
+    }
+
+    public static DataFrameWriter<Row> inject(
+            DataFrameWriter<Row> dataset,
+            SeaTunnelSink<?, ?, ?, ?> sink,
+            CatalogTable[] catalogTables,
+            String applicationId,
+            int parallelism,
+            DirtyRecordCollector dirtyRecordCollector) {
+        DataFrameWriter<Row> writer =
+                dataset.format(SPARK_SINK_CLASS_NAME)
+                        .option(
+                                Constants.SINK_SERIALIZATION,
+                                SerializationUtils.objectToString(sink))
+                        .option(
+                                SINK_CATALOG_TABLE,
+                                SerializationUtils.objectToString(catalogTables))
+                        .option(JOB_ID, applicationId)
+                        .option(PARALLELISM, parallelism);
+        if (dirtyRecordCollector != null) {
+            writer =
+                    writer.option(
+                            DIRTY_COLLECTOR,
+                            SerializationUtils.objectToString(dirtyRecordCollector));
+        }
+        return writer;
     }
 }

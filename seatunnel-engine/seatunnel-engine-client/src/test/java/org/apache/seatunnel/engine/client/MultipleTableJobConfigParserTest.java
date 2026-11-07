@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DirtyDataValidator;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -39,6 +40,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
@@ -50,6 +52,7 @@ import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
 import org.junit.jupiter.api.Assertions;
@@ -72,6 +75,26 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 public class MultipleTableJobConfigParserTest {
+
+    @Test
+    public void testDirtyPolicyClosesWhenSinkCreationFails() {
+        MultipleTableJobConfigParser parser = dirtyPolicyParser(true);
+        IllegalStateException failure =
+                Assertions.assertThrows(IllegalStateException.class, () -> parser.parse(null));
+        Assertions.assertEquals("sink-create", failure.getMessage());
+        Assertions.assertEquals(1, failure.getSuppressed().length);
+        Assertions.assertEquals("validator-close", failure.getSuppressed()[0].getMessage());
+        Assertions.assertEquals(1, PlanningCloseValidator.INITIALIZED.get());
+        Assertions.assertEquals(1, PlanningCloseValidator.CLOSED.get());
+    }
+
+    @Test
+    public void testDirtyPolicyClosesWhenEverySinkActionIsSkipped() {
+        MultipleTableJobConfigParser parser = dirtyPolicyParser(false);
+        Assertions.assertTrue(parser.parse(null).getLeft().isEmpty());
+        Assertions.assertEquals(1, PlanningCloseValidator.INITIALIZED.get());
+        Assertions.assertEquals(1, PlanningCloseValidator.CLOSED.get());
+    }
 
     @Test
     public void testSampleDryRunReplacesConfiguredSink() {
@@ -524,6 +547,79 @@ public class MultipleTableJobConfigParserTest {
         Assertions.assertEquals("test_db.test_schema.table2", failedTable.getTablePath());
         Assertions.assertEquals(MultiTableFailurePhase.DISCOVERY, failedTable.getPhase());
         Assertions.assertTrue(failedTable.getMessageSummary().contains("metadata read failed"));
+    }
+
+    private MultipleTableJobConfigParser dirtyPolicyParser(boolean failCreation) {
+        Common.setDeployMode(DeployMode.CLIENT);
+        PlanningCloseValidator.INITIALIZED.set(0);
+        PlanningCloseValidator.CLOSED.set(0);
+        PlanningCloseValidator.failClose = failCreation;
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fake_to_console_multi_table.conf");
+        Config config =
+                ConfigFactory.parseString(
+                                "env { dirty.collector.type=log, dirty.validator.type=\""
+                                        + PlanningCloseValidator.class.getName()
+                                        + "\" }")
+                        .withFallback(ConfigBuilder.of(Paths.get(filePath)));
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        return new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig) {
+            @Override
+            public Tuple2<String, List<Tuple2<CatalogTable, Action>>> parseSource(
+                    int configIndex, Config sourceConfig, ClassLoader classLoader) {
+                Tuple2<String, List<Tuple2<CatalogTable, Action>>> parsed =
+                        super.parseSource(configIndex, sourceConfig, classLoader);
+                return new Tuple2<>(parsed._1(), Collections.singletonList(parsed._2().get(0)));
+            }
+
+            @Override
+            protected Optional<SinkAction<?, ?, ?, ?>> createSinkAction(
+                    CatalogTable catalogTable,
+                    Set<Action> inputActions,
+                    ReadonlyConfig readonlyConfig,
+                    ClassLoader classLoader,
+                    Set<URL> factoryUrls,
+                    Set<ConnectorJarIdentifier> connectorJarIdentifiers,
+                    String factoryId,
+                    int parallelism,
+                    int configIndex) {
+                if (failCreation) {
+                    throw new IllegalStateException("sink-create");
+                }
+                return Optional.empty();
+            }
+        };
+    }
+
+    /**
+     * Tracks ownership of a policy initialized by the real parser before sink creation.
+     *
+     * <p>These tests stop planning before any writer owns the serialized policy, so both failure
+     * and empty-output paths must release this planning instance exactly once.
+     */
+    public static class PlanningCloseValidator implements DirtyDataValidator {
+        private static final AtomicInteger INITIALIZED = new AtomicInteger();
+        private static final AtomicInteger CLOSED = new AtomicInteger();
+        private static volatile boolean failClose;
+
+        @Override
+        public void init(Config config, CatalogTable table) {
+            INITIALIZED.incrementAndGet();
+        }
+
+        @Override
+        public ValidationResult validate(SeaTunnelRow row, CatalogTable table) {
+            return ValidationResult.clean();
+        }
+
+        @Override
+        public void close() throws IOException {
+            CLOSED.incrementAndGet();
+            if (failClose) {
+                throw new IOException("validator-close");
+            }
+        }
     }
 
     private CatalogTable mockCatalogTable(String tableName) {
