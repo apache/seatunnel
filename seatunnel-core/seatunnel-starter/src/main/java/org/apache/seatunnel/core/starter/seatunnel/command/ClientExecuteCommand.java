@@ -51,6 +51,8 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.cluster.Address;
+import com.hazelcast.config.Config;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.internal.util.ConcurrencyUtil;
@@ -101,14 +103,19 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                         ? clusterName
                                         : Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
                 instance = createServerInLocal(clusterName, seaTunnelConfig);
-                int port = instance.getCluster().getLocalMember().getSocketAddress().getPort();
-                clientConfig
-                        .getNetworkConfig()
-                        .setAddresses(Collections.singletonList("localhost:" + port));
             }
             if (StringUtils.isNotEmpty(clusterName)) {
                 seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
                 clientConfig.setClusterName(clusterName);
+            }
+            if (isLocalMode) {
+                // The advertised member address supplies both the actual interface and bound port.
+                String memberAddress =
+                        formatMemberAddress(instance.getCluster().getLocalMember().getAddress());
+                clientConfig
+                        .getNetworkConfig()
+                        .setAddresses(Collections.singletonList(memberAddress));
+                log.info("Local mode: Client configured to connect to {}", memberAddress);
             }
             engineClient = new SeaTunnelClient(clientConfig);
             if (clientCommandArgs.isListJob()) {
@@ -341,7 +348,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 .setClusterRole(EngineConfig.ClusterRole.MASTER_AND_WORKER);
         // set local mode
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
-        seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
+        configureLocalNetwork(seaTunnelConfig.getHazelcastConfig());
 
         // Ensure the local mode can expose REST/UI endpoints by default when users didn't provide
         // a custom seatunnel.yaml. If users explicitly provide a config (system property:
@@ -364,7 +371,43 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
 
         // set the default async executor for Hazelcast InvocationFuture
         ConcurrencyUtil.setDefaultAsyncExecutor(CompletableFuture.EXECUTOR);
+        HazelcastInstance hazelcastInstance = createHazelcastInstance(seaTunnelConfig);
+        log.info(
+                "Local mode: Hazelcast use port {}",
+                hazelcastInstance.getCluster().getLocalMember().getSocketAddress().getPort());
+        return hazelcastInstance;
+    }
 
+    /**
+     * Formats the advertised member endpoint for Hazelcast's client address parser. Display strings
+     * bracket hostnames too, while client syntax requires brackets only around IPv6 literals.
+     */
+    static String formatMemberAddress(Address address) {
+        String host = address.getScopedHost();
+        return (host.indexOf(':') >= 0 ? "[" + host + "]" : host) + ":" + address.getPort();
+    }
+
+    /**
+     * Applies an explicit local port without changing existing users' TCP/IP join members. An
+     * explicit override isolates the member and prevents fallback to a different port.
+     */
+    void configureLocalNetwork(Config hazelcastConfig) {
+        Integer hazelcastPort = clientCommandArgs.getHazelcastPort();
+        hazelcastConfig.getNetworkConfig().setPortAutoIncrement(hazelcastPort == null);
+        if (hazelcastPort != null) {
+            // An explicit local override must not join configured remote members or silently use
+            // another port. Port zero delegates selection to the operating system.
+            hazelcastConfig.getNetworkConfig().getJoin().getTcpIpConfig().getMembers().clear();
+            hazelcastConfig.getNetworkConfig().setPort(hazelcastPort);
+            log.info("Local mode: Hazelcast port configured as {}", hazelcastPort);
+        }
+    }
+
+    /**
+     * Creates the local member. Package access lets command-entry tests observe the effective
+     * network configuration before the member starts.
+     */
+    HazelcastInstance createHazelcastInstance(SeaTunnelConfig seaTunnelConfig) {
         return HazelcastInstanceFactory.newHazelcastInstance(
                 seaTunnelConfig.getHazelcastConfig(),
                 Thread.currentThread().getName(),

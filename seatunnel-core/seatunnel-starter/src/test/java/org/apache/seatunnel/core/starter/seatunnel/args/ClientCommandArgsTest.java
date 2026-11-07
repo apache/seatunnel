@@ -29,6 +29,8 @@ import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.beust.jcommander.ParameterException;
+
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -354,5 +356,41 @@ public class ClientCommandArgsTest {
 
     private static ClientCommandArgs buildClientCommandArgs(String configFile) {
         return buildClientCommandArgs(configFile, null);
+    }
+
+    @Test
+    public void testLocalPortRejectsClusterMode() {
+        ClientCommandArgs args = new ClientCommandArgs();
+        args.setHazelcastPort(0);
+        ParameterException error =
+                Assertions.assertThrows(ParameterException.class, args::validateCommandOptions);
+        Assertions.assertEquals("--hazelcast-port requires --master local.", error.getMessage());
+    }
+
+    @Test
+    public void testProgrammaticLocalPortRejectsOutOfRange() {
+        ClientCommandArgs args = new ClientCommandArgs();
+        args.setMasterType(MasterType.LOCAL);
+        args.setHazelcastPort(65536);
+        Assertions.assertThrows(ParameterException.class, args::validateCommandOptions);
+    }
+
+    @Test
+    public void testPortValidator() {
+        ClientCommandArgs.PortValidator validator = new ClientCommandArgs.PortValidator();
+
+        // Valid ports
+        Assertions.assertDoesNotThrow(() -> validator.validate("-port", "0"));
+        Assertions.assertDoesNotThrow(() -> validator.validate("-port", "5801"));
+        Assertions.assertDoesNotThrow(() -> validator.validate("--hazelcast-port", "65535"));
+
+        // Invalid ports - out of range
+        Assertions.assertThrows(ParameterException.class, () -> validator.validate("-port", "-1"));
+        Assertions.assertThrows(
+                ParameterException.class, () -> validator.validate("-port", "65536"));
+
+        // Invalid ports - not a number
+        Assertions.assertThrows(ParameterException.class, () -> validator.validate("-port", "abc"));
+        Assertions.assertThrows(ParameterException.class, () -> validator.validate("-port", ""));
     }
 }
