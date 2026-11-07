@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.activemq.source.ActivemqSourceE
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import org.apache.activemq.ActiveMQConnection;
+import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.ActiveMQSession;
 import org.apache.activemq.transport.Transport;
 
@@ -41,6 +42,7 @@ import org.mockito.ArgumentCaptor;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.ExceptionListener;
+import javax.jms.InvalidSelectorException;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
@@ -105,6 +107,7 @@ class ActivemqSourceReaderTest {
                 .thenReturn(session);
         when(session.createQueue("events")).thenReturn(mock(Queue.class));
         when(session.createConsumer(any())).thenReturn(consumer);
+        when(session.createConsumer(any(), any())).thenReturn(consumer);
         when(consumer.receive(anyLong())).thenAnswer(call -> messages.poll());
         when(consumer.receiveNoWait()).thenAnswer(call -> messages.poll());
         when(collector.getCheckpointLock()).thenReturn(new Object());
@@ -288,7 +291,7 @@ class ActivemqSourceReaderTest {
         reader.addSplits(Arrays.asList(new Split(0), new Split(1)));
         reader.pollNext(collector);
         assertEquals(2, reader.snapshotState(1).size());
-        verify(session, times(1)).createConsumer(any());
+        verify(session, times(1)).createConsumer(any(), any());
     }
 
     @Test
@@ -300,6 +303,138 @@ class ActivemqSourceReaderTest {
         reader.pollNext(collector);
         assertEquals(0, reader.snapshotState(1).size());
         verify(factory, never()).createConnection();
+    }
+
+    @Test
+    void messageSelectorIsPassedToConsumer() throws Exception {
+        reader.close();
+        Map<String, Object> options = new HashMap<>();
+        options.put("queue_name", "events");
+        options.put("max_in_flight_messages", 2);
+        options.put("message_selector", "JMSType = 'car'");
+        reader = new ActivemqSourceReader(ReadonlyConfig.fromMap(options), deserializer, factory);
+        reader.addSplits(Collections.singletonList(new Split(0)));
+        reader.pollNext(collector);
+        verify(session).createConsumer(any(), eq("JMSType = 'car'"));
+    }
+
+    @Test
+    void invalidMessageSelectorSurfacesWithSelectorContext() throws Exception {
+        // Bad selector syntax must surface the offending expression so users can debug the
+        // message_selector config key rather than guess from a raw JMS error.
+        reader.close();
+        Map<String, Object> options = new HashMap<>();
+        options.put("queue_name", "events");
+        options.put("max_in_flight_messages", 2);
+        options.put("message_selector", "JMSType = 'car");
+        reader = new ActivemqSourceReader(ReadonlyConfig.fromMap(options), deserializer, factory);
+        reader.addSplits(Collections.singletonList(new Split(0)));
+        when(session.createConsumer(any(), eq("JMSType = 'car")))
+                .thenThrow(new InvalidSelectorException("unbalanced string literal"));
+        JMSException error = assertThrows(JMSException.class, () -> reader.pollNext(collector));
+        assertTrue(error.getMessage().contains("Invalid message_selector"));
+        assertTrue(error.getMessage().contains("JMSType = 'car"));
+        verify(connection).close();
+    }
+
+    @Test
+    void receiveTimeoutIsPassedToConsumerReceive() throws Exception {
+        reader.close();
+        Map<String, Object> options = new HashMap<>();
+        options.put("queue_name", "events");
+        options.put("max_in_flight_messages", 2);
+        options.put("receive_timeout", 500);
+        reader = new ActivemqSourceReader(ReadonlyConfig.fromMap(options), deserializer, factory);
+        reader.addSplits(Collections.singletonList(new Split(0)));
+        reader.pollNext(collector);
+        verify(consumer).receive(eq(500L));
+    }
+
+    @Test
+    void createConnectionFactoryPropagatesAllConnectionOptions() {
+        // Exercises the factory wiring end-to-end without a live broker: every shared connection
+        // option set on the config must land on the returned ActiveMQConnectionFactory.
+        Map<String, Object> options = new HashMap<>();
+        options.put("uri", "tcp://localhost:61616");
+        options.put("queue_name", "events");
+        options.put("max_in_flight_messages", 2);
+        options.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
+        options.put("client_id", "source-client");
+        options.put("close_timeout", 3000);
+        options.put("connect_response_timeout", 8000);
+        options.put("always_session_async", false);
+        options.put("check_for_duplicate", false);
+        options.put("dispatch_async", false);
+        options.put("warn_about_unstarted_connection_timeout", 1000);
+        options.put("consumer_expiry_check_enabled", false);
+
+        ActiveMQConnectionFactory factory =
+                ActivemqSourceReader.createConnectionFactory(ReadonlyConfig.fromMap(options), 0);
+
+        assertEquals("source-client-0", factory.getClientID());
+        assertEquals(3000, factory.getCloseTimeout());
+        assertEquals(8000, factory.getConnectResponseTimeout());
+        assertFalse(factory.isAlwaysSessionAsync());
+        assertFalse(factory.isCheckForDuplicates());
+        assertFalse(factory.isDispatchAsync());
+        assertEquals(1000, factory.getWarnAboutUnstartedConnectionTimeout());
+        assertFalse(factory.isConsumerExpiryCheckEnabled());
+    }
+
+    @Test
+    void clientIdAppendsSubtaskIndexForParallelReaders() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("uri", "tcp://localhost:61616");
+        options.put("queue_name", "events");
+        options.put("max_in_flight_messages", 2);
+        options.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
+        options.put("client_id", "source-client");
+
+        ActiveMQConnectionFactory factory0 =
+                ActivemqSourceReader.createConnectionFactory(ReadonlyConfig.fromMap(options), 0);
+        ActiveMQConnectionFactory factory1 =
+                ActivemqSourceReader.createConnectionFactory(ReadonlyConfig.fromMap(options), 1);
+
+        assertEquals("source-client-0", factory0.getClientID());
+        assertEquals("source-client-1", factory1.getClientID());
+    }
+
+    @Test
+    void closeTimeoutDefaultsTo5000WhenUnset() {
+        // The code-level fallback (5000) must apply when close_timeout is absent so the
+        // source reader does not hang on close() when the broker is unreachable.
+        Map<String, Object> options = new HashMap<>();
+        options.put("uri", "tcp://localhost:61616");
+        options.put("queue_name", "events");
+        options.put("max_in_flight_messages", 2);
+        options.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
+
+        ActiveMQConnectionFactory factory =
+                ActivemqSourceReader.createConnectionFactory(ReadonlyConfig.fromMap(options), 0);
+        assertEquals(5000, factory.getCloseTimeout());
+    }
+
+    @Test
+    void connectResponseTimeoutDefaultsTo10000WhenUnset() {
+        // The source falls back to 10000 ms for the broker connection response wait when
+        // connect_response_timeout is absent, matching the value previously hardcoded.
+        Map<String, Object> options = new HashMap<>();
+        options.put("uri", "tcp://localhost:61616");
+        options.put("queue_name", "events");
+        options.put("max_in_flight_messages", 2);
+        options.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
+
+        ActiveMQConnectionFactory factory =
+                ActivemqSourceReader.createConnectionFactory(ReadonlyConfig.fromMap(options), 0);
+        assertEquals(10000, factory.getConnectResponseTimeout());
     }
 
     @Test
