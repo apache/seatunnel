@@ -387,6 +387,24 @@ public class MultiTableWriterRunnable implements Runnable {
         tableIdWriterMap.remove(tableId);
     }
 
+    /**
+     * Registers a sink writer for a table discovered after the runnable has already started.
+     *
+     * <p>Intentionally not synchronized. The only caller is the schema-change barrier dispatcher in
+     * {@code MultiTableSinkWriter#registerNewlyCreatedTable}, which runs while this worker is
+     * parked in {@link #run()} inside {@code awaitSchemaChangeBarrier} and still holds its own
+     * monitor; taking that monitor from the dispatcher thread would deadlock against the barrier
+     * latch the parked worker is waiting on. Exclusion comes from the barrier instead: the parked
+     * worker cannot read {@code tableIdWriterMap} until the latch is released, {@link
+     * #removeTableWriter(String)} callers block on the monitor the worker holds, and the latch
+     * count-down happens-before the worker resumes, which publishes this write to it. Callers that
+     * are not inside the barrier phase must not use this method.
+     */
+    void registerWriterAtSchemaChangeBarrier(
+            String tableId, SinkWriter<SeaTunnelRow, ?, ?> sinkWriter) {
+        tableIdWriterMap.put(tableId, sinkWriter);
+    }
+
     /** Creates one ordered queue element that writes a data row. */
     static QueueElement rowRequest(SeaTunnelRow row) {
         return new RowWriteRequest(row, false);

@@ -4,6 +4,15 @@
 
 ## dev
 
+### MySQL-CDC：包含运行期新表的 checkpoint 不支持降级
+
+- **影响范围**：设置 `scan.binlog.newly-added-table.enabled = true`，并在任务启动后接纳新建表的
+  MySQL-CDC 任务（例如 JDBC Sink 配置 `table = "${database_name}_${table_name}"`）。
+- **行为变化**：`MultiTableState` checkpoint 现在还会保存运行期接纳表的元数据及 writer state。旧格式
+  checkpoint 仍可恢复，运行期表列表为空。已包含运行期表的 checkpoint 不能由未实现该能力的版本恢复。
+- **迁移方式**：保持该选项关闭（默认值）的任务不受影响。开启前应保留升级前的 checkpoint 或 savepoint，
+  并保证 binlog 保留时间足以在回退时从该位置重放。详见 [MySQL CDC](../../connectors/source/MySQL-CDC.md)。
+
 ### Databend Source：DECIMAL 列按 DECIMAL 读取，而不再是 STRING
 
 - **行为变更：Databend 的 `DECIMAL(p, s)` 列在作业中的类型为 `DECIMAL(p, s)`**

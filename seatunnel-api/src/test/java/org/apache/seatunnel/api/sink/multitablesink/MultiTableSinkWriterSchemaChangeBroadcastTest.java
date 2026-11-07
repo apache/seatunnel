@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -37,6 +39,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -88,6 +91,46 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
         assertEquals(1, sinkForA.getInvocationCount());
         assertEquals(1, sinkForB.getInvocationCount());
         assertEquals(0, sinkForC.getInvocationCount());
+    }
+
+    /** CREATE replay stays source-scoped, while later ALTER retains shared-target fan-out. */
+    @Test
+    void createTableDoesNotReinitializeSiblingsSharingThePhysicalSink() throws IOException {
+        RecordingSinkWriter sinkForA =
+                new RecordingSinkWriter(PHYSICAL_SINK_SHARED) {
+                    @Override
+                    public boolean supportsNewlyCreatedTable() {
+                        return true;
+                    }
+                };
+        RecordingSinkWriter sinkForB = new RecordingSinkWriter(PHYSICAL_SINK_SHARED);
+        RecordingSinkWriter sinkForC = new RecordingSinkWriter(PHYSICAL_SINK_OTHER);
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
+        writers.put(SinkIdentifier.of("dbA.users", 0), sinkForA);
+        writers.put(SinkIdentifier.of("dbB.users", 0), sinkForB);
+        writers.put(SinkIdentifier.of("dbC.users", 0), sinkForC);
+        MultiTableSinkWriter coordinator =
+                new MultiTableSinkWriter(writers, 1, buildContextMap(writers));
+        CatalogTable source =
+                CatalogTable.of(
+                        TableIdentifier.of("mysql", "dbA", null, "users"),
+                        TableSchema.builder().build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+        try {
+            coordinator.applySchemaChange(new CreateTableEvent(source.getTableId(), source));
+            assertEquals(1, sinkForA.getInvocationCount());
+            assertEquals(0, sinkForB.getInvocationCount());
+            assertEquals(0, sinkForC.getInvocationCount());
+
+            coordinator.applySchemaChange(new TestSchemaChangeEvent(source.getTablePath()));
+            assertEquals(2, sinkForA.getInvocationCount());
+            assertEquals(1, sinkForB.getInvocationCount());
+            assertEquals(0, sinkForC.getInvocationCount());
+        } finally {
+            coordinator.close();
+        }
     }
 
     /**

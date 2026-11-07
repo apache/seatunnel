@@ -30,11 +30,19 @@ import org.apache.seatunnel.api.options.MultiTableCommonOptions;
 import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 
@@ -47,6 +55,9 @@ import lombok.Data;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,6 +65,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.FutureTask;
@@ -86,6 +99,362 @@ public class MultiTableSinkWriterTest {
             byte[] bytes = defaultSerializer.serialize(multiTableSinkWriter.prepareCommit(i).get());
             defaultSerializer.deserialize(bytes);
         }
+    }
+
+    @Test
+    public void testRegisterWriterForRuntimeCreateTableEvent() throws Exception {
+        DynamicTestSinkWriter.WRITTEN_ROWS.clear();
+        DynamicTestSinkWriter.APPLIED_SCHEMA_EVENTS.clear();
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        DynamicTestSinkWriter initialWriter = new DynamicTestSinkWriter("default.default.default");
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of(TablePath.DEFAULT.getFullName(), 0);
+        sinkWriters.put(sinkIdentifier, initialWriter);
+        sinkWritersContext.put(sinkIdentifier, new TestSinkWriterContext());
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, 1, sinkWritersContext);
+
+        CatalogTable catalogTable = catalogTable(TablePath.of("db1", "new_table"));
+        multiTableSinkWriter.applySchemaChange(
+                new CreateTableEvent(catalogTable.getTableId(), catalogTable));
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
+        row.setTableId("db1.new_table");
+        multiTableSinkWriter.write(row);
+        multiTableSinkWriter.close();
+
+        Assertions.assertEquals(1, DynamicTestSinkWriter.WRITTEN_ROWS.get("db1.new_table").size());
+        Assertions.assertEquals(
+                1, DynamicTestSinkWriter.APPLIED_SCHEMA_EVENTS.get("db1.new_table").size());
+    }
+
+    @Test
+    public void testRegisterFirstRuntimeWriterWithEmptyStartupWriterMap() throws Exception {
+        DynamicTestSinkWriter.WRITTEN_ROWS.clear();
+        DynamicTestSinkWriter.APPLIED_SCHEMA_EVENTS.clear();
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        TestSinkWriterContext context = new TestSinkWriterContext();
+        MultiTableSinkWriter.SinkWriterTemplate sinkWriterTemplate =
+                new MultiTableSinkWriter.SinkWriterTemplate(null, context, 0);
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.FAIL_FAST,
+                        JobMode.STREAMING,
+                        Collections.emptyList(),
+                        0,
+                        0,
+                        Collections.singletonList(sinkWriterTemplate),
+                        (runtimeCatalogTable, runtimeContext) ->
+                                new DynamicTestSinkWriter(
+                                        runtimeCatalogTable.getTablePath().getFullName()));
+
+        CatalogTable catalogTable = catalogTable(TablePath.of("db1", "first_runtime_table"));
+        multiTableSinkWriter.applySchemaChange(
+                new CreateTableEvent(catalogTable.getTableId(), catalogTable));
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
+        row.setTableId("db1.first_runtime_table");
+        multiTableSinkWriter.write(row);
+        multiTableSinkWriter.close();
+
+        Assertions.assertEquals(
+                1, DynamicTestSinkWriter.WRITTEN_ROWS.get("db1.first_runtime_table").size());
+        Assertions.assertEquals(
+                1,
+                DynamicTestSinkWriter.APPLIED_SCHEMA_EVENTS.get("db1.first_runtime_table").size());
+    }
+
+    /** An event cannot use a different source identity to create or register a target writer. */
+    @Test
+    public void testRuntimeCreateRejectsMismatchedIdentityBeforeFactory() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        MultiTableSinkWriter writer =
+                new MultiTableSinkWriter(
+                        new HashMap<>(),
+                        1,
+                        new HashMap<>(),
+                        MultiTableFailurePolicy.FAIL_FAST,
+                        JobMode.STREAMING,
+                        Collections.emptyList(),
+                        0,
+                        0,
+                        Collections.singletonList(
+                                new MultiTableSinkWriter.SinkWriterTemplate(
+                                        null, new TestSinkWriterContext(), 0)),
+                        (table, context) -> {
+                            attempts.incrementAndGet();
+                            return new DynamicTestSinkWriter(table.getTablePath().getFullName());
+                        });
+        CatalogTable source = catalogTable(TablePath.of("db1", "source"));
+        CatalogTable other = catalogTable(TablePath.of("db1", "other"));
+        IOException error =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () ->
+                                writer.applySchemaChange(
+                                        new CreateTableEvent(source.getTableId(), other)));
+        Assertions.assertTrue(error.getMessage().contains("identity does not match"));
+        Assertions.assertEquals(0, attempts.get());
+        writer.close();
+    }
+
+    /**
+     * Failed runtime registration either fails the task or checkpoints the table quarantine; no
+     * path may continue as though the rejected table had a working writer.
+     *
+     * <p>The sink starts with one healthy table so CONTINUE_OTHER_TABLES really has another table
+     * to continue with. Without it the quarantined runtime table would be the only table the sink
+     * knows, and the pre-existing all-tables-isolated rule of the coordinator reports that state as
+     * an isolated-failure IOException instead of continuing.
+     */
+    @Test
+    public void testRuntimeRegistrationFailurePolicy() throws Exception {
+        for (MultiTableFailurePolicy policy : MultiTableFailurePolicy.values()) {
+            DynamicTestSinkWriter.WRITTEN_ROWS.clear();
+            AtomicInteger attempts = new AtomicInteger();
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+            SinkIdentifier healthyIdentifier = SinkIdentifier.of("db1.healthy", 0);
+            sinkWriters.put(healthyIdentifier, new DynamicTestSinkWriter("db1.healthy"));
+            sinkWritersContext.put(healthyIdentifier, new TestSinkWriterContext());
+            MultiTableSinkWriter writer =
+                    new MultiTableSinkWriter(
+                            sinkWriters,
+                            1,
+                            sinkWritersContext,
+                            policy,
+                            JobMode.STREAMING,
+                            Collections.emptyList(),
+                            2,
+                            0,
+                            Collections.singletonList(
+                                    new MultiTableSinkWriter.SinkWriterTemplate(
+                                            null, new TestSinkWriterContext(), 0)),
+                            (table, context) -> {
+                                attempts.incrementAndGet();
+                                throw new IOException("runtime registration unavailable");
+                            });
+            CatalogTable table = catalogTable(TablePath.of("db1", "unavailable"));
+            CreateTableEvent event = new CreateTableEvent(table.getTableId(), table);
+            if (policy == MultiTableFailurePolicy.FAIL_FAST) {
+                Assertions.assertThrows(IOException.class, () -> writer.applySchemaChange(event));
+                Assertions.assertEquals(1, attempts.get());
+            } else {
+                writer.applySchemaChange(event);
+                writer.write(buildRow(table.getTablePath().getFullName(), 1));
+                writer.write(buildRow("db1.healthy", 1));
+                List<MultiTableState> states = writer.snapshotState(1);
+                Assertions.assertEquals(3, attempts.get());
+                Assertions.assertEquals(1, states.get(0).getFailedTables().size());
+                Assertions.assertEquals(
+                        table.getTablePath().getFullName(),
+                        states.get(0).getFailedTables().get(0).getTablePath());
+                Assertions.assertEquals(
+                        Collections.emptyList(), states.get(0).getRuntimeCreatedTables());
+                // The quarantine isolates the rejected table only; the healthy table keeps writing
+                // and no row of the rejected table reaches any writer.
+                Assertions.assertEquals(
+                        1, DynamicTestSinkWriter.WRITTEN_ROWS.get("db1.healthy").size());
+                Assertions.assertNull(
+                        DynamicTestSinkWriter.WRITTEN_ROWS.get(table.getTablePath().getFullName()));
+            }
+            try {
+                writer.close();
+            } catch (IOException | RuntimeException error) {
+                if (policy != MultiTableFailurePolicy.FAIL_FAST) {
+                    throw error;
+                }
+            }
+        }
+    }
+
+    /**
+     * Two queue workers park at the schema-change barrier while each holds its own runnable
+     * monitor; the dispatcher must install the runtime writers without waiting for those monitors.
+     * Registration that synchronizes on every runnable hangs forever with two replicas, so the
+     * whole flow runs under a preemptive timeout and the timeout is the failure signal.
+     */
+    @Test
+    public void testRuntimeCreateTableRegistersOnEveryQueueWithoutDeadlock() {
+        DynamicTestSinkWriter.WRITTEN_ROWS.clear();
+        DynamicTestSinkWriter.APPLIED_SCHEMA_EVENTS.clear();
+        MultiTableSinkWriter writer =
+                new MultiTableSinkWriter(
+                        new HashMap<>(),
+                        2,
+                        new HashMap<>(),
+                        MultiTableFailurePolicy.FAIL_FAST,
+                        JobMode.STREAMING,
+                        Collections.emptyList(),
+                        0,
+                        0,
+                        Arrays.asList(
+                                new MultiTableSinkWriter.SinkWriterTemplate(
+                                        null, new TestSinkWriterContext(), 0),
+                                new MultiTableSinkWriter.SinkWriterTemplate(
+                                        null, new TestSinkWriterContext(), 1)),
+                        (table, context) ->
+                                new DynamicTestSinkWriter(table.getTablePath().getFullName()));
+        CatalogTable table = catalogTable(TablePath.of("db1", "two_replica_table"));
+        String tableId = table.getTablePath().getFullName();
+
+        Assertions.assertTimeoutPreemptively(
+                Duration.ofSeconds(30),
+                () -> {
+                    writer.applySchemaChange(new CreateTableEvent(table.getTableId(), table));
+                    // Primary-key values 0 and 1 hash to queue 0 and queue 1, so both rows are
+                    // only written when both per-queue runtime writers were registered.
+                    writer.write(buildRow(tableId, 0));
+                    writer.write(buildRow(tableId, 1));
+                    List<MultiTableState> states = writer.snapshotState(1L);
+                    Assertions.assertEquals(2, states.get(0).getStates().size());
+                    Assertions.assertEquals(1, states.get(0).getRuntimeCreatedTables().size());
+                    writer.close();
+                });
+
+        Assertions.assertEquals(2, DynamicTestSinkWriter.APPLIED_SCHEMA_EVENTS.get(tableId).size());
+        Assertions.assertEquals(2, DynamicTestSinkWriter.WRITTEN_ROWS.get(tableId).size());
+    }
+
+    @Test
+    public void testRuntimeTableRegistrationRetriesWriterCreation() throws Exception {
+        DynamicTestSinkWriter.WRITTEN_ROWS.clear();
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        SinkWriter.Context context = new TestSinkWriterContext();
+        AtomicInteger attempts = new AtomicInteger();
+        MultiTableSinkWriter.SinkWriterTemplate sinkWriterTemplate =
+                new MultiTableSinkWriter.SinkWriterTemplate(null, context, 0);
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.STREAMING,
+                        Collections.emptyList(),
+                        2,
+                        0,
+                        Collections.singletonList(sinkWriterTemplate),
+                        (runtimeCatalogTable, runtimeContext) -> {
+                            if (attempts.incrementAndGet() < 3) {
+                                throw new IOException("transient runtime writer creation failure");
+                            }
+                            return new DynamicTestSinkWriter(
+                                    runtimeCatalogTable.getTablePath().getFullName());
+                        });
+
+        CatalogTable catalogTable = catalogTable(TablePath.of("db1", "retry_runtime_table"));
+        multiTableSinkWriter.applySchemaChange(
+                new CreateTableEvent(catalogTable.getTableId(), catalogTable));
+        // Replay must reuse the registered writer, not run the failing factory again.
+        multiTableSinkWriter.applySchemaChange(
+                new CreateTableEvent(catalogTable.getTableId(), catalogTable));
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {42});
+        row.setTableId(catalogTable.getTablePath().getFullName());
+        multiTableSinkWriter.write(row);
+        multiTableSinkWriter.close();
+
+        Assertions.assertEquals(3, attempts.get());
+        Assertions.assertEquals(
+                Collections.singletonList(row),
+                DynamicTestSinkWriter.WRITTEN_ROWS.get(row.getTableId()));
+    }
+
+    /** Rejected or incompletely initialized writers are closed before registration is retried. */
+    @Test
+    public void testRuntimeRegistrationRetryClosesUninstalledWriter() throws Exception {
+        for (boolean rejectCapability : new boolean[] {true, false}) {
+            DynamicTestSinkWriter.WRITTEN_ROWS.clear();
+            AtomicInteger attempts = new AtomicInteger();
+            AtomicInteger rejectedCloses = new AtomicInteger();
+            MultiTableSinkWriter writer =
+                    new MultiTableSinkWriter(
+                            new HashMap<>(),
+                            1,
+                            new HashMap<>(),
+                            MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                            JobMode.STREAMING,
+                            Collections.emptyList(),
+                            1,
+                            0,
+                            Collections.singletonList(
+                                    new MultiTableSinkWriter.SinkWriterTemplate(
+                                            null, new TestSinkWriterContext(), 0)),
+                            (table, context) -> {
+                                if (attempts.incrementAndGet() > 1) {
+                                    return new DynamicTestSinkWriter(
+                                            table.getTablePath().getFullName());
+                                }
+                                return new DynamicTestSinkWriter(
+                                        table.getTablePath().getFullName()) {
+                                    @Override
+                                    public boolean supportsNewlyCreatedTable() {
+                                        return !rejectCapability;
+                                    }
+
+                                    @Override
+                                    public void setMultiTableResourceManager(
+                                            MultiTableResourceManager resourceManager, int index) {
+                                        throw new IllegalStateException("resource setup failed");
+                                    }
+
+                                    @Override
+                                    public void close() {
+                                        rejectedCloses.incrementAndGet();
+                                    }
+                                };
+                            });
+            CatalogTable table = catalogTable(TablePath.of("db1", "retry_setup"));
+            writer.applySchemaChange(new CreateTableEvent(table.getTableId(), table));
+            SeaTunnelRow row = buildRow(table.getTablePath().getFullName(), 42);
+            writer.write(row);
+            writer.close();
+
+            Assertions.assertEquals(2, attempts.get());
+            Assertions.assertEquals(1, rejectedCloses.get());
+            Assertions.assertEquals(
+                    Collections.singletonList(row),
+                    DynamicTestSinkWriter.WRITTEN_ROWS.get(row.getTableId()));
+        }
+    }
+
+    @Test
+    public void testAggregatedFlushIncludesRuntimeCreatedWriterContext() throws Exception {
+        RuntimeFlushSinkWriter.FLUSH_COUNT.set(0);
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        TestSinkWriterContext context = new TestSinkWriterContext();
+        MultiTableSinkWriter.SinkWriterTemplate sinkWriterTemplate =
+                new MultiTableSinkWriter.SinkWriterTemplate(null, context, 0);
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.FAIL_FAST,
+                        JobMode.STREAMING,
+                        Collections.emptyList(),
+                        0,
+                        0,
+                        Collections.singletonList(sinkWriterTemplate),
+                        (runtimeCatalogTable, runtimeContext) ->
+                                new RuntimeFlushSinkWriter(
+                                        runtimeCatalogTable.getTablePath().getFullName(),
+                                        runtimeContext));
+
+        CatalogTable catalogTable = catalogTable(TablePath.of("db1", "first_runtime_table"));
+        multiTableSinkWriter.applySchemaChange(
+                new CreateTableEvent(catalogTable.getTableId(), catalogTable));
+
+        multiTableSinkWriter.aggregatedFlush();
+        multiTableSinkWriter.close();
+
+        Assertions.assertEquals(1, RuntimeFlushSinkWriter.FLUSH_COUNT.get());
     }
 
     @Test
@@ -360,6 +729,30 @@ public class MultiTableSinkWriterTest {
         Assertions.assertTrue(restoredCloseException.getMessage().contains("test.failed"));
     }
 
+    /** Verifies that the runtime writer factory remains serializable with the enclosing sink. */
+    @Test
+    public void testMultiTableSinkSerializesRuntimeWriterFactory() throws IOException {
+        Map<String, Object> options = new HashMap<>();
+        options.put(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), 1);
+        options.put(
+                MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY.key(),
+                MultiTableFailurePolicy.FAIL_FAST.name());
+        options.put(EnvCommonOptions.JOB_RETRY_TIMES.key(), 0);
+        options.put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
+        MultiTableSink multiTableSink =
+                new MultiTableSink(
+                        new MultiTableFactoryContext(
+                                ReadonlyConfig.fromMap(options),
+                                Thread.currentThread().getContextClassLoader(),
+                                Collections.emptyMap()));
+        DefaultSerializer<Serializable> serializer = new DefaultSerializer<>();
+
+        MultiTableSink restored =
+                (MultiTableSink) serializer.deserialize(serializer.serialize(multiTableSink));
+
+        Assertions.assertNotNull(restored);
+    }
+
     @Test
     public void testRestoreWriterDoesNotRestorePreviouslyFailedTable() throws IOException {
         MultiTableFailedTable failedTable =
@@ -400,6 +793,22 @@ public class MultiTableSinkWriterTest {
         IOException closeException =
                 Assertions.assertThrows(IOException.class, restoredWriter::close);
         Assertions.assertTrue(closeException.getMessage().contains("test.failed"));
+    }
+
+    /** Ensures checkpointed runtime writer state reaches the underlying sink restore method. */
+    @Test
+    public void testRuntimeWriterRestoreDelegatesStateToSink() throws IOException {
+        RecordingSinkWriter restoredWriter = new RecordingSinkWriter(false);
+        RuntimeRestoreTestSink runtimeSink = new RuntimeRestoreTestSink(restoredWriter);
+        List<Object> states = Collections.singletonList("runtime-state");
+
+        SinkWriter<SeaTunnelRow, ?, ?> actual =
+                MultiTableSink.createOrRestoreRuntimeSinkWriter(
+                        runtimeSink, new TestSinkWriterContext(), states);
+
+        Assertions.assertSame(restoredWriter, actual);
+        Assertions.assertEquals(states, runtimeSink.getRestoredStates());
+        Assertions.assertEquals(0, runtimeSink.getCreateCalls());
     }
 
     @Test
@@ -925,6 +1334,7 @@ public class MultiTableSinkWriterTest {
         Assertions.assertNotNull(restored.getStates());
         Assertions.assertTrue(restored.getStates().isEmpty());
         Assertions.assertTrue(restored.getFailedTables().isEmpty());
+        Assertions.assertEquals(Collections.emptyList(), restored.getRuntimeCreatedTables());
     }
 
     /**
@@ -1352,6 +1762,54 @@ public class MultiTableSinkWriterTest {
         }
     }
 
+    static class DynamicTestSinkWriter extends TestSinkWriter {
+        private static final Map<String, List<SeaTunnelRow>> WRITTEN_ROWS =
+                new ConcurrentHashMap<>();
+        private static final Map<String, List<String>> APPLIED_SCHEMA_EVENTS =
+                new ConcurrentHashMap<>();
+
+        private final String tableId;
+
+        DynamicTestSinkWriter(String tableId) {
+            this.tableId = tableId;
+        }
+
+        @Override
+        public void write(SeaTunnelRow seaTunnelRow) {
+            WRITTEN_ROWS
+                    .computeIfAbsent(tableId, key -> new CopyOnWriteArrayList<>())
+                    .add(seaTunnelRow);
+        }
+
+        @Override
+        public boolean supportsNewlyCreatedTable() {
+            return true;
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, ?, ?> createSinkWriter(
+                CatalogTable catalogTable, SinkWriter.Context context) {
+            return new DynamicTestSinkWriter(catalogTable.getTablePath().getFullName());
+        }
+
+        @Override
+        public void applySchemaChange(
+                org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent event) {
+            APPLIED_SCHEMA_EVENTS
+                    .computeIfAbsent(tableId, key -> new CopyOnWriteArrayList<>())
+                    .add(event.getEventType().name());
+        }
+    }
+
+    static class RuntimeFlushSinkWriter extends DynamicTestSinkWriter {
+        private static final AtomicInteger FLUSH_COUNT = new AtomicInteger();
+
+        RuntimeFlushSinkWriter(String tableId, SinkWriter.Context context) {
+            super(tableId);
+            context.registerFlushAction(FLUSH_COUNT::incrementAndGet);
+        }
+    }
+
     static class TestSeaTunnelSink
             implements SeaTunnelSink<SeaTunnelRow, Object, TestSinkState, Object> {
         private final SinkWriter<SeaTunnelRow, TestSinkState, Object> writer;
@@ -1396,6 +1854,50 @@ public class MultiTableSinkWriterTest {
         }
     }
 
+    /** Records which lifecycle method MultiTableSink chooses for a runtime writer restore. */
+    static class RuntimeRestoreTestSink
+            implements SeaTunnelSink<SeaTunnelRow, Object, TestSinkState, Object> {
+        /** Writer returned after the runtime sink receives checkpoint state. */
+        private final SinkWriter<SeaTunnelRow, TestSinkState, Object> restoredWriter;
+        /** Checkpoint state observed by the restore method. */
+        private List<Object> restoredStates;
+        /** Number of calls to the fresh-writer path. */
+        private int createCalls;
+
+        RuntimeRestoreTestSink(SinkWriter<SeaTunnelRow, TestSinkState, Object> restoredWriter) {
+            this.restoredWriter = restoredWriter;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "runtime-restore-test";
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, TestSinkState, Object> createWriter(
+                SinkWriter.Context context) {
+            createCalls++;
+            return restoredWriter;
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, TestSinkState, Object> restoreWriter(
+                SinkWriter.Context context, List<Object> states) {
+            restoredStates = states;
+            return restoredWriter;
+        }
+
+        /** Returns the state passed through MultiTableSink's runtime restore path. */
+        List<Object> getRestoredStates() {
+            return restoredStates;
+        }
+
+        /** Returns the number of fresh-writer creation attempts. */
+        int getCreateCalls() {
+            return createCalls;
+        }
+    }
+
     static class TestSinkWriterContext implements SinkWriter.Context {
 
         @Override
@@ -1418,5 +1920,21 @@ public class MultiTableSinkWriterTest {
     @AllArgsConstructor
     static class TestSinkState implements Serializable {
         private String state;
+    }
+
+    private static CatalogTable catalogTable(TablePath tablePath) {
+        return CatalogTable.of(
+                TableIdentifier.of("test", tablePath),
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("id")
+                                        .dataType(BasicType.INT_TYPE)
+                                        .build())
+                        .primaryKey(PrimaryKey.of("pk", Collections.singletonList("id")))
+                        .build(),
+                new HashMap<>(),
+                new ArrayList<>(),
+                null);
     }
 }

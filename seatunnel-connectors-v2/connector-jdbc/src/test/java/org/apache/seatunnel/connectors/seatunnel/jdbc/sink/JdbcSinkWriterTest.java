@@ -22,10 +22,15 @@ import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -60,7 +65,10 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Savepoint;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -77,6 +85,102 @@ import static org.mockito.Mockito.when;
 
 /** Tests JDBC sink writer helper behavior. */
 class JdbcSinkWriterTest {
+
+    /** Runtime CREATE honors schema save modes and cannot redirect DDL to source metadata. */
+    @Test
+    void testRuntimeCreateHonorsSaveModeAndResolvedTarget() throws Exception {
+        for (SchemaSaveMode mode : SchemaSaveMode.values()) {
+            JdbcSinkWriter writer = Mockito.spy(createWriterWithoutRowErrorCollector());
+            CatalogTable target = runtimeTable("test_db", "test_table", writer.tableSchema);
+            CatalogTable source = runtimeTable("source_db", "source_table", writer.tableSchema);
+            Map<TablePath, CatalogTable> tables = new HashMap<>();
+            Catalog catalog = runtimeCatalog(tables);
+            Mockito.doReturn(Optional.of(catalog)).when(writer).findCatalog();
+            writer.configureRuntimeTableCreation(target, mode);
+            CreateTableEvent event = new CreateTableEvent(source.getTableId(), source);
+
+            if (mode == SchemaSaveMode.ERROR_WHEN_SCHEMA_NOT_EXIST) {
+                JdbcConnectorException error =
+                        Assertions.assertThrows(
+                                JdbcConnectorException.class,
+                                () -> writer.applySchemaChange(event));
+                Assertions.assertTrue(
+                        error.getCause().getMessage().contains("sink table not exist"));
+                Assertions.assertEquals(Collections.emptyMap(), tables);
+            } else {
+                writer.applySchemaChange(event);
+                Assertions.assertEquals(
+                        mode == SchemaSaveMode.IGNORE
+                                ? Collections.emptyMap()
+                                : Collections.singletonMap(target.getTablePath(), target),
+                        tables);
+            }
+            writer.close();
+        }
+    }
+
+    /**
+     * Replayed CREATE must not replace a pre-existing target, even with RECREATE_SCHEMA configured.
+     */
+    @Test
+    void testRuntimeCreateReplayKeepsExistingTarget() throws Exception {
+        for (SchemaSaveMode mode : SchemaSaveMode.values()) {
+            JdbcSinkWriter writer = Mockito.spy(createWriterWithoutRowErrorCollector());
+            CatalogTable target = runtimeTable("test_db", "test_table", writer.tableSchema);
+            CatalogTable existing = runtimeTable("test_db", "test_table", writer.tableSchema);
+            Map<TablePath, CatalogTable> tables = new HashMap<>();
+            tables.put(existing.getTablePath(), existing);
+            Mockito.doReturn(Optional.of(runtimeCatalog(tables))).when(writer).findCatalog();
+            writer.configureRuntimeTableCreation(target, mode);
+            CatalogTable source = runtimeTable("source_db", "orders", writer.tableSchema);
+            CreateTableEvent event = new CreateTableEvent(source.getTableId(), source);
+
+            writer.applySchemaChange(event);
+            writer.applySchemaChange(event);
+
+            Assertions.assertEquals(1, tables.size());
+            Assertions.assertSame(existing, tables.get(target.getTablePath()));
+            Assertions.assertSame(target.getTableSchema(), writer.tableSchema);
+            writer.close();
+        }
+    }
+
+    private static CatalogTable runtimeTable(String database, String table, TableSchema schema) {
+        return CatalogTable.of(
+                TableIdentifier.of("jdbc", database, null, table),
+                schema,
+                new HashMap<>(),
+                Collections.emptyList(),
+                null);
+    }
+
+    /**
+     * Records target metadata while making any destructive runtime DDL/data operation fail the
+     * test.
+     */
+    private static Catalog runtimeCatalog(Map<TablePath, CatalogTable> tables) {
+        Catalog catalog = mock(Catalog.class);
+        when(catalog.tableExists(any()))
+                .thenAnswer(call -> tables.containsKey(call.getArgument(0)));
+        when(catalog.databaseExists(anyString())).thenReturn(true);
+        Mockito.doAnswer(
+                        call -> {
+                            tables.put(call.getArgument(0), call.getArgument(1));
+                            return null;
+                        })
+                .when(catalog)
+                .createTable(any(), any(), Mockito.eq(true), Mockito.anyBoolean());
+        Mockito.doThrow(new AssertionError("Runtime replay must not drop tables"))
+                .when(catalog)
+                .dropTable(any(), Mockito.anyBoolean());
+        Mockito.doThrow(new AssertionError("Runtime replay must not truncate data"))
+                .when(catalog)
+                .truncateTable(any(), Mockito.anyBoolean());
+        Mockito.doThrow(new AssertionError("Runtime replay must not execute custom data SQL"))
+                .when(catalog)
+                .executeSql(any(), anyString());
+        return catalog;
+    }
 
     @Test
     void testLegacyConstructorSignatureIsKept() throws Exception {
@@ -650,7 +754,7 @@ class JdbcSinkWriterTest {
         return new WriterFixture(writer, connection, savepoint);
     }
 
-    private static JdbcSinkWriter createWriterWithoutRowErrorCollector() {
+    private static JdbcSinkWriter createWriterWithoutRowErrorCollector() throws Exception {
         JdbcConnectionConfig connectionConfig =
                 JdbcConnectionConfig.builder().batchSize(100).autoCommit(false).build();
         JdbcSinkConfig sinkConfig =
@@ -661,6 +765,11 @@ class JdbcSinkWriterTest {
                         .build();
         JdbcDialect dialect = mock(JdbcDialect.class);
         JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
+        Connection connection = mock(Connection.class);
+        when(connectionProvider.getOrEstablishConnection()).thenReturn(connection);
+        when(connectionProvider.getConnection()).thenReturn(connection);
+        when(connection.prepareStatement(anyString())).thenReturn(mock(PreparedStatement.class));
+        when(dialect.getRowConverter()).thenReturn(mock(JdbcRowConverter.class));
         TableSchema schema =
                 TableSchema.builder()
                         .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 10L, false, null, ""))

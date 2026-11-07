@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
@@ -37,6 +38,7 @@ import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 import org.apache.seatunnel.connectors.cdc.debezium.AbstractDebeziumDeserializationSchema;
+import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationConverterFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.MetadataConverter;
 
@@ -46,12 +48,14 @@ import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.data.Envelope;
 import io.debezium.relational.TableId;
+import io.debezium.relational.history.TableChanges;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.Serializable;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -80,9 +84,30 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     private final SchemaChangeResolver schemaChangeResolver;
     private final SchemaChangeEventFilter schemaChangeEventFilter;
     private final TableSchemaChangeEventHandler tableSchemaChangeHandler;
+
+    /**
+     * Whether CREATE TABLE records from the binlog should register tables that were not known when
+     * the reader was initialized.
+     */
+    private final boolean scanBinlogNewlyAddedTableEnabled;
+
+    /**
+     * Converts Debezium table metadata from a schema change record to a SeaTunnel catalog table.
+     */
+    private final TableChangeCatalogTableConverter tableChangeCatalogTableConverter;
+
     private List<CatalogTable> tables;
     private Map<String, SeaTunnelRowDebeziumDeserializationConverters> tableRowConverters;
+    /** Tables discovered from CREATE TABLE records that still need create-table events emitted. */
+    private final List<CatalogTable> pendingCreateTables = new ArrayList<>();
+
     private List<CatalogTable> pendingRestoreTables = Collections.emptyList();
+
+    /**
+     * Runtime-admitted tables restored from checkpoint metadata whose {@link CreateTableEvent} must
+     * be re-established downstream before the first resumed record is emitted.
+     */
+    private List<CatalogTable> pendingRestoreCreateTables = Collections.emptyList();
 
     SeaTunnelRowDebeziumDeserializeSchema(
             MetadataConverter[] metadataConverters,
@@ -91,6 +116,8 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             DebeziumDeserializationConverterFactory userDefinedConverterFactory,
             SchemaChangeResolver schemaChangeResolver,
             SchemaChangeEventFilter schemaChangeEventFilter,
+            boolean scanBinlogNewlyAddedTableEnabled,
+            TableChangeCatalogTableConverter tableChangeCatalogTableConverter,
             Map<TableId, Struct> tableIdTableChangeMap) {
         super(tableIdTableChangeMap);
         this.metadataConverters = metadataConverters;
@@ -99,10 +126,63 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         this.tables = checkNotNull(tables);
         this.schemaChangeResolver = schemaChangeResolver;
         this.schemaChangeEventFilter = schemaChangeEventFilter;
+        this.scanBinlogNewlyAddedTableEnabled = scanBinlogNewlyAddedTableEnabled;
+        this.tableChangeCatalogTableConverter = tableChangeCatalogTableConverter;
         this.tableSchemaChangeHandler = new TableSchemaChangeEventDispatcher();
         this.tableRowConverters =
                 createTableRowConverters(
                         tables, metadataConverters, serverTimeZone, userDefinedConverterFactory);
+    }
+
+    @Override
+    protected void handleTableChangeStruct(Struct tableChangeStruct) {
+        if (!scanBinlogNewlyAddedTableEnabled || tableChangeCatalogTableConverter == null) {
+            return;
+        }
+        TableChanges tableChanges =
+                new ConnectTableChangeSerializer()
+                        .deserialize(Collections.singletonList(tableChangeStruct), false);
+        tableChanges.forEach(
+                tableChange -> {
+                    if (tableChange.getType() != TableChanges.TableChangeType.CREATE) {
+                        return;
+                    }
+                    CatalogTable catalogTable;
+                    try {
+                        catalogTable = tableChangeCatalogTableConverter.convert(tableChange);
+                    } catch (IllegalArgumentException e) {
+                        log.warn(
+                                "Skip newly added CDC table {} because its identifier or schema is unsupported",
+                                tableChange.getId(),
+                                e);
+                        return;
+                    }
+                    if (catalogTable == null) {
+                        return;
+                    }
+                    if (containsTable(catalogTable.getTablePath())) {
+                        return;
+                    }
+                    tables.add(catalogTable);
+                    pendingCreateTables.add(catalogTable);
+                    tableRowConverters =
+                            createTableRowConverters(
+                                    tables,
+                                    metadataConverters,
+                                    serverTimeZone,
+                                    userDefinedConverterFactory);
+                    log.info("Registered newly added CDC table {}", catalogTable.getTablePath());
+                });
+    }
+
+    /**
+     * Checks whether the current deserializer has already built converters for the given table.
+     *
+     * <p>This protects repeated CREATE TABLE schema records from rebuilding converters
+     * unnecessarily.
+     */
+    private boolean containsTable(TablePath tablePath) {
+        return tables.stream().anyMatch(table -> table.getTablePath().equals(tablePath));
     }
 
     @Override
@@ -134,6 +214,9 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
 
     private void deserializeSchemaChangeRecord(
             SourceRecord record, Collector<SeaTunnelRow> collector) {
+        if (emitPendingCreateTableEvents(record, collector)) {
+            return;
+        }
         SchemaChangeEvent schemaChangeEvent = null;
         try {
             if (schemaChangeResolver != null) {
@@ -229,6 +312,42 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         collector.collect(schemaChangeEvent);
     }
 
+    /**
+     * Emits create-table schema events for tables that were registered from Debezium CREATE TABLE
+     * metadata earlier in the same source record.
+     */
+    private boolean emitPendingCreateTableEvents(
+            SourceRecord record, Collector<SeaTunnelRow> collector) {
+        if (pendingCreateTables.isEmpty()) {
+            return false;
+        }
+        String ddl = SourceRecordUtils.getDdl(record);
+        List<CatalogTable> createTables = new ArrayList<>(pendingCreateTables);
+        pendingCreateTables.clear();
+        for (CatalogTable catalogTable : createTables) {
+            // Runtime table registration is a control event, not a filterable schema change. The
+            // table and its row converter were already admitted in handleTableChangeStruct, and
+            // every following DML record of the table depends on the downstream row type and sink
+            // writer this event creates. Applying schema-changes.include/exclude here (a nonempty
+            // include list has no canonical name for CREATE) would keep the rows but drop the
+            // event, and the engine would then dereference a missing row type on the first row.
+            // The filter only governs column-level DDL of captured tables; see
+            // SchemaChangeEventFilter.
+            emitCreateTableEvent(catalogTable, ddl, collector);
+        }
+        return true;
+    }
+
+    /** Builds and emits the CREATE control event that registers {@code catalogTable} downstream. */
+    private void emitCreateTableEvent(
+            CatalogTable catalogTable, String ddl, Collector<SeaTunnelRow> collector) {
+        CreateTableEvent createTableEvent =
+                new CreateTableEvent(catalogTable.getTableId(), catalogTable);
+        createTableEvent.setStatement(ddl);
+        createTableEvent.setSourceDialectName(catalogTable.getTableId().getCatalogName());
+        collector.collect(createTableEvent);
+    }
+
     private String getChangeAfterTableComment(
             CatalogTable changeBefore, SchemaChangeEvent schemaChangeEvent) {
         if (schemaChangeEvent instanceof AlterTableCommentEvent) {
@@ -248,10 +367,19 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         if (tables.size() > 1) {
             converters = tableRowConverters.get(tableId);
             if (converters == null) {
-                log.debug("Ignore newly added table {}", tableId);
+                log.debug(
+                        "Ignore newly added table {} because scan.binlog.newly-added-table.enabled is disabled or the table schema has not been registered yet",
+                        tableId);
                 return;
             }
         } else {
+            if (tables.isEmpty() || !tables.get(0).getTablePath().equals(tablePath)) {
+                log.debug(
+                        "Ignore table {} because the single-table deserializer is initialized for {}",
+                        tablePath,
+                        tables.isEmpty() ? "<empty>" : tables.get(0).getTablePath());
+                return;
+            }
             converters = tableRowConverters.get(DEFAULT_TABLE_NAME_KEY);
         }
         Long fetchTimestamp = SourceRecordUtils.getFetchTimestamp(record);
@@ -373,10 +501,32 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                 checkpointDataType.stream()
                         .collect(Collectors.toMap(CatalogTable::getTablePath, t -> t));
         List<CatalogTable> restoreEvents = new ArrayList<>();
+        List<CatalogTable> restoreCreateTables = new ArrayList<>();
         for (TablePath tablePath : restoreTableMap.keySet()) {
             CatalogTable latestTable = latestTableMap.get(tablePath);
             CatalogTable restoreTable = restoreTableMap.get(tablePath);
             if (latestTable == null) {
+                if (scanBinlogNewlyAddedTableEnabled) {
+                    // Restore-admission reasoning: the restored reader is rebuilt from the
+                    // submitted source catalog, which predates every table admitted from a binlog
+                    // CREATE after startup, so "absent from the initial catalog" does not mean
+                    // "deleted" here. The checkpoint is the only place that still carries that
+                    // table's schema; dropping it would make deserializeDataChangeRecord silently
+                    // ignore every resumed row of the table. Debezium does not replay the CREATE
+                    // either (it is before the restart offset), so the downstream row type and
+                    // sink writer are re-established by emitting a CreateTableEvent before the
+                    // first resumed record; sinks treat a replayed CREATE as idempotent. A table
+                    // dropped or excluded while the job was stopped is pruned from the checkpoint
+                    // tables by the reader against the live captured set before this method runs,
+                    // so it is not re-admitted here.
+                    log.info(
+                            "Restore runtime-admitted table[{}] from checkpoint: {}",
+                            tablePath,
+                            restoreTable.getSeaTunnelRowType());
+                    latestTableMap.put(tablePath, restoreTable);
+                    restoreCreateTables.add(restoreTable);
+                    continue;
+                }
                 log.info("Ignore restore table[{}] has been deleted.", tablePath);
                 continue;
             }
@@ -390,12 +540,24 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         }
         this.tables = new ArrayList<>(latestTableMap.values());
         this.pendingRestoreTables = restoreEvents;
+        this.pendingRestoreCreateTables = restoreCreateTables;
         this.tableRowConverters =
                 createTableRowConverters(
                         tables, metadataConverters, serverTimeZone, userDefinedConverterFactory);
     }
 
     private void emitPendingRestoreSchemaEvents(Collector<SeaTunnelRow> collector) {
+        List<CatalogTable> restoreCreateTables = pendingRestoreCreateTables;
+        if (!restoreCreateTables.isEmpty()) {
+            pendingRestoreCreateTables = Collections.emptyList();
+            for (CatalogTable restoreCreateTable : restoreCreateTables) {
+                log.info(
+                        "Emit create table event for runtime-admitted table[{}] restored from checkpoint: {}",
+                        restoreCreateTable.getTablePath(),
+                        restoreCreateTable.getSeaTunnelRowType());
+                emitCreateTableEvent(restoreCreateTable, null, collector);
+            }
+        }
         List<CatalogTable> restoreTables = pendingRestoreTables;
         if (restoreTables.isEmpty()) {
             return;
@@ -458,6 +620,19 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         private SchemaChangeResolver schemaChangeResolver;
         private SchemaChangeEventFilter schemaChangeEventFilter;
 
+        /**
+         * Enables table converter registration from CREATE TABLE binlog schema records.
+         *
+         * <p>The default remains disabled so existing jobs keep ignoring unknown binlog tables.
+         */
+        private boolean scanBinlogNewlyAddedTableEnabled;
+
+        /**
+         * Connector-specific converter used because Debezium table metadata does not contain a
+         * SeaTunnel catalog table directly.
+         */
+        private TableChangeCatalogTableConverter tableChangeCatalogTableConverter;
+
         public SeaTunnelRowDebeziumDeserializeSchema build() {
             return new SeaTunnelRowDebeziumDeserializeSchema(
                     metadataConverters,
@@ -466,7 +641,24 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                     userDefinedConverterFactory,
                     schemaChangeResolver,
                     schemaChangeEventFilter,
+                    scanBinlogNewlyAddedTableEnabled,
+                    tableChangeCatalogTableConverter,
                     tableIdTableChangeMap);
         }
+    }
+
+    /**
+     * Converts a Debezium table change into the SeaTunnel table metadata required by row
+     * converters.
+     */
+    @FunctionalInterface
+    public interface TableChangeCatalogTableConverter extends Serializable {
+
+        /**
+         * Converts one Debezium table change into one SeaTunnel catalog table.
+         *
+         * <p>The returned catalog table is used immediately to build runtime row converters.
+         */
+        CatalogTable convert(TableChanges.TableChange tableChange);
     }
 }

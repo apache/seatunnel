@@ -53,8 +53,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -167,6 +169,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     }
                     incrementalSplit =
                             pruneRestoredIncrementalSplit(incrementalSplit, capturedTables);
+                    incrementalSplit = admitCheckpointedRuntimeTables(incrementalSplit);
                 }
                 if (incrementalSplit.getTableIds().isEmpty()) {
                     log.info(
@@ -445,6 +448,65 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     prunedSplit.getTableIds());
         }
         return prunedSplit;
+    }
+
+    /**
+     * Adds tables that exist only in the checkpointed produced type to the restored split's
+     * captured table ids.
+     *
+     * <p>A table admitted from a binlog CREATE after job startup is checkpointed in {@code
+     * checkpointTables} and {@code historyTableChanges}, but {@code tableIds} still lists the
+     * submitted catalog, and so does the deserializer's initial produced type. Debezium schema
+     * history is registered only for {@code tableIds} (see {@code
+     * JdbcSourceFetchTaskContext#registerDatabaseHistory}), so without this step the resumed stream
+     * treats every row of that table as a change for a table whose schema is unknown. The split was
+     * already pruned against the live captured tables, so a table dropped or excluded while the job
+     * was stopped is no longer in {@code checkpointTables} and is not re-admitted. Jobs without
+     * runtime admission always checkpoint a subset of the submitted catalog, which keeps this a
+     * no-op for them.
+     */
+    private IncrementalSplit admitCheckpointedRuntimeTables(IncrementalSplit incrementalSplit) {
+        List<CatalogTable> checkpointTables = incrementalSplit.getCheckpointTables();
+        if (checkpointTables == null || checkpointTables.isEmpty()) {
+            return incrementalSplit;
+        }
+        List<CatalogTable> submittedCatalog = debeziumDeserializationSchema.getProducedType();
+        Set<TablePath> submittedTables =
+                submittedCatalog == null
+                        ? Collections.<TablePath>emptySet()
+                        : submittedCatalog.stream()
+                                .map(CatalogTable::getTablePath)
+                                .collect(Collectors.toSet());
+        Set<TableId> tableIds = new LinkedHashSet<>();
+        if (incrementalSplit.getTableIds() != null) {
+            tableIds.addAll(incrementalSplit.getTableIds());
+        }
+        List<TableId> admittedTables = new ArrayList<>();
+        for (CatalogTable checkpointTable : checkpointTables) {
+            if (submittedTables.contains(checkpointTable.getTablePath())) {
+                continue;
+            }
+            TableId tableId = dataSourceDialect.toTableId(checkpointTable.getTablePath());
+            if (tableIds.add(tableId)) {
+                admittedTables.add(tableId);
+            }
+        }
+        if (admittedTables.isEmpty()) {
+            return incrementalSplit;
+        }
+        log.info(
+                "Admit runtime-registered tables {} from checkpoint metadata into restored incremental split {}.",
+                admittedTables,
+                incrementalSplit.splitId());
+        return new IncrementalSplit(
+                incrementalSplit.splitId(),
+                new ArrayList<>(tableIds),
+                incrementalSplit.getStartupOffset(),
+                incrementalSplit.getStopOffset(),
+                incrementalSplit.getCompletedSnapshotSplitInfos(),
+                checkpointTables,
+                incrementalSplit.getHistoryTableChanges(),
+                incrementalSplit.getTableStartupOffsets());
     }
 
     private boolean hasRestoredCheckpointMetadata(IncrementalSplit incrementalSplit) {
