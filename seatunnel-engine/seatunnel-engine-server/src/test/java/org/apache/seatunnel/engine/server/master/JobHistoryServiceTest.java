@@ -148,6 +148,31 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
                                                         .contains("FINISHED")));
     }
 
+    @Test
+    void testFinishedJobCountsMatchHistory() {
+        long jobId = System.currentTimeMillis() + 10L;
+        startJob(jobId, "fake_to_console.conf");
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            long listed =
+                                    listJob().stream()
+                                            .filter(job -> job.getJobStatus() == JobStatus.FINISHED)
+                                            .count();
+                            Assertions.assertEquals(
+                                    JobStatus.FINISHED,
+                                    server.getCoordinatorService()
+                                            .getJobHistoryService()
+                                            .getJobDetailState(jobId)
+                                            .getJobStatus());
+                            Assertions.assertEquals(
+                                    listed,
+                                    server.getCoordinatorService()
+                                            .getJobCountMetrics()
+                                            .getFinishedJobCount());
+                        });
+    }
+
     private void startJob(Long jobid, String path) {
         LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(path, jobid.toString(), jobid);
 
