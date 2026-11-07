@@ -34,6 +34,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -86,7 +87,7 @@ public class DatabendSinkWriterTest {
                         + "FROM test_db.cdc_stream "
                         + "QUALIFY ROW_NUMBER() OVER(PARTITION BY id ORDER BY add_time DESC) = 1) b "
                         + "ON a.id = b.id "
-                        + "WHEN MATCHED AND b.action = 'update' THEN UPDATE * "
+                        + "WHEN MATCHED AND b.action IN ('insert', 'update') THEN UPDATE * "
                         + "WHEN MATCHED AND b.action = 'delete' THEN DELETE "
                         + "WHEN NOT MATCHED AND b.action!='delete' THEN INSERT *";
 
@@ -131,7 +132,7 @@ public class DatabendSinkWriterTest {
                         + "FROM test_db.cdc_stream "
                         + "QUALIFY ROW_NUMBER() OVER(PARTITION BY id ORDER BY add_time DESC) = 1) b "
                         + "ON a.id = b.id "
-                        + "WHEN MATCHED AND b.action = 'update' THEN UPDATE * "
+                        + "WHEN MATCHED AND b.action IN ('insert', 'update') THEN UPDATE * "
                         + "WHEN NOT MATCHED AND b.action!='delete' THEN INSERT *";
 
         assertEquals(expectedSql, mergeSql);
@@ -284,6 +285,9 @@ public class DatabendSinkWriterTest {
         org.junit.jupiter.api.Assertions.assertTrue(mergeSql.contains("raw_data:id as id"));
         org.junit.jupiter.api.Assertions.assertTrue(mergeSql.contains("raw_data:name as name"));
         org.junit.jupiter.api.Assertions.assertFalse(mergeSql.contains("raw_data:score as score"));
+        org.junit.jupiter.api.Assertions.assertTrue(
+                mergeSql.contains(
+                        "WHEN MATCHED AND b.action IN ('insert', 'update') THEN UPDATE * "));
     }
 
     @Test
@@ -310,6 +314,22 @@ public class DatabendSinkWriterTest {
         sinkWriter.close();
 
         verify(statement, never()).execute(startsWith("MERGE INTO"));
+    }
+
+    @Test
+    public void testEventsOfABurstGetDistinctIncreasingAddTimes() {
+        DatabendSinkWriter sinkWriter = mock(DatabendSinkWriter.class);
+        when(sinkWriter.nextAddTime()).thenCallRealMethod();
+
+        Timestamp previous = Timestamp.valueOf(sinkWriter.nextAddTime());
+        for (int i = 0; i < 10000; i++) {
+            Timestamp current = Timestamp.valueOf(sinkWriter.nextAddTime());
+            org.junit.jupiter.api.Assertions.assertTrue(current.after(previous));
+            previous = current;
+        }
+        // Microsecond steps keep a burst close to the clock: millisecond steps would be 10 s ahead.
+        org.junit.jupiter.api.Assertions.assertTrue(
+                previous.getTime() < System.currentTimeMillis() + 5000);
     }
 
     private DatabendSinkWriter mockCdcWriter(Statement statement) throws Exception {

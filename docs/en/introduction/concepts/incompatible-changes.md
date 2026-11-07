@@ -5,6 +5,18 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Databend Sink: the latest CDC event of a key is applied
+
+- **Affected jobs**: Databend sinks in CDC mode (`conflict_key` set).
+- **Behavior change**: an INSERT event for a key that already exists in the target table was ignored,
+  so the row kept its old values. It now overwrites the row, the same as an update event. This
+  includes a re-insert after a DELETE that `enable_delete = false` dropped, and a snapshot that runs
+  again over an existing table. When events of one key from one writer reach the same merge, the latest
+  now always wins. Before, events within the same millisecond could leave an older value in the row, or
+  remove a row that had been inserted again.
+- **Migration**: no configuration change is required. Jobs that relied on an INSERT leaving an
+  existing row unchanged need to filter those events before the sink.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**
