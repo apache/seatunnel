@@ -107,6 +107,7 @@ SeaTunnel 依赖表元数据来支持：
 - [多表支持](./features/multi-table.md)
 - [Catalog Table](./api-design/catalog-table.md)
 - [Schema Evolution 配置](../introduction/configuration/schema-evolution.md)
+- [CDC Schema Evolution 契约](./cdc-schema-evolution-contract.md)
 
 ## 执行阶段
 
