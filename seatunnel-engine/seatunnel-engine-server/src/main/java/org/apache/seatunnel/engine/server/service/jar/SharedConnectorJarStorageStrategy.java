@@ -38,6 +38,10 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 
 public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStorageStrategy {
 
+    /** Name shared by cleanup timer threads so their lifecycle remains observable. */
+    private static final String CLEANUP_TIMER_THREAD_NAME =
+            "seatunnel-shared-connector-jar-cleanup";
+
     /** Lock guarding concurrent file accesses. */
     private final ReadWriteLock readWriteLock;
 
@@ -55,14 +59,20 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
         this.readWriteLock = new ReentrantReadWriteLock();
         this.connectorJarRefCounters =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS);
-        // Initializing the cleanup task
-        this.cleanupTimer = new Timer(true);
         this.cleanupInterval = connectorJarStorageConfig.getCleanupTaskInterval() * 1000;
-        this.cleanupTimer.schedule(
-                new SharedConnectorJarCleanupTask(
-                        this::deleteConnectorJar, connectorJarRefCounters),
-                cleanupInterval,
-                cleanupInterval);
+        Timer timer = new Timer(CLEANUP_TIMER_THREAD_NAME, true);
+        try {
+            timer.schedule(
+                    new SharedConnectorJarCleanupTask(
+                            this::deleteConnectorJar, connectorJarRefCounters),
+                    cleanupInterval,
+                    cleanupInterval);
+        } catch (RuntimeException e) {
+            // Constructor failures must not leave the already-started timer thread behind.
+            timer.cancel();
+            throw e;
+        }
+        this.cleanupTimer = timer;
     }
 
     @Override
@@ -142,6 +152,12 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
     public void cleanUpWhenJobFinished(
             long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList) {
         connectorJarIdentifierList.forEach(this::decreaseConnectorJarRefCount);
+    }
+
+    /** Stops the periodic cleanup task when this node no longer owns the master service. */
+    @Override
+    public void close() {
+        cleanupTimer.cancel();
     }
 
     public void decreaseConnectorJarRefCount(ConnectorJarIdentifier connectorJarIdentifier) {
