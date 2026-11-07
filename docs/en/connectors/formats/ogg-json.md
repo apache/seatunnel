@@ -24,6 +24,14 @@ UPDATE messages must contain a complete row image; partial updates containing on
 | ogg_json.database.include    | (none)  | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the Canal record. The pattern string is compatible with Java's Pattern. |
 | ogg_json.table.include       | (none)  | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the Canal record. The pattern string is compatible with Java's Pattern.       |
 
+:::warning
+
+In the current SeaTunnel implementation, the options above (except `format`) are not read from the job
+configuration. Only the Kafka source supports `ogg_json`, and it always skips rows with parse errors.
+The `ogg_json.database.include` / `ogg_json.table.include` filtering is not applied.
+
+:::
+
 # How to Use Ogg format
 
 ## Kafka Uses Example
