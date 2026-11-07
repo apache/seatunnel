@@ -24,6 +24,8 @@ SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息编码为 Max
 | maxwell_json.database.include | (none) | 否 | 正则表达式，可选，通过正则匹配 Maxwell 记录中的 `database` 元字段来仅读取特定数据库变更日志行。此字符串 Pattern 模式与 Java 的 Pattern 兼容。 |
 | maxwell_json.table.include | (none) | 否 | 正则表达式，可选，通过正则匹配 Maxwell 记录中的 `table` 元字段来仅读取特定表的变更日志行。此字符串 Pattern 模式与 Java 的 Pattern 兼容。 |
 
+当 `maxwell_json.ignore-parse-errors` 为 `true` 时，JSON 无法解析的 Maxwell 消息会被跳过，不产生任何行，并继续处理后续消息。
+
 # 如何使用 Maxwell 格式
 
 ## Kafka 使用示例
