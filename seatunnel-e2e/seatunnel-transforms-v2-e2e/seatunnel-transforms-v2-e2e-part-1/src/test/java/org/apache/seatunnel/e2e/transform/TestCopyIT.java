@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.e2e.transform;
 
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -30,6 +32,20 @@ public class TestCopyIT extends TestSuiteBase {
     @TestTemplate
     public void testCopy(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/copy_transform.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /**
+     * Keeps supported Spark types covered separately while exercising vector copies on Flink and
+     * Zeta, whose translation layers support vector fields.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Spark translation does not support vector types")
+    public void testCopyVectors(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/copy_transform_vector.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
