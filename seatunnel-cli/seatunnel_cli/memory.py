@@ -61,21 +61,121 @@ _CREDENTIAL_VALUE_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-# Patterns that match key=value credential assignments (password=X, password: X)
+# Match the whole credential value, including spaces, punctuation, escaped
+# quotes and the components HOCON concatenates into that value. Keep the prefix
+# separate so a value equal to the key cannot alter it. Values are bound to a
+# single line, and an opening quote that is never closed falls back to the rest
+# of its own line, so a dangling quote can never pair up with an unrelated quote
+# on a later line and swallow what lies between.
+# A match must also start at the left edge of a `[\w.-]` run: without that
+# boundary the leading `[\w.-]*` re-scans every offset of a long credential-free
+# word run, which makes redacting one such line quadratic in its length.
+_CREDENTIAL_KEYS = (
+    r"(?:password|passwd|secret[-_]?key|access[-_]?key|api[-_]?key|token|"
+    r"auth[-_]?token|secret|credential|private[-_]?key)"
+)
+# A HOCON substitution, as used to keep secrets out of a config file.
+_SUBSTITUTION = r"\$\{[^{}\r\n]*\}"
+# Content of a quoted group that may hold references and padding only, such as
+# `${DB_PASSWORD}`, `${?MYSQL_PASSWORD}` or `${ A } ${ B }`.
+_REFERENCE_GROUP_CONTENT = r"""\s*(?:""" + _SUBSTITUTION + r"""\s*)+"""
+# A quoted group is bounded by a single quote delimiter, so the two quoted
+# branches below are told apart by their first character, and an empty pair is
+# not a group: `""` is a placeholder only while it is the whole value.
+_QUOTED_REFERENCE_GROUP = (
+    r'"(?:' + _REFERENCE_GROUP_CONTENT + r')"'
+    + r"|'(?:"
+    + _REFERENCE_GROUP_CONTENT
+    + r")'"
+)
+# Values that hold no secret of their own: a sequence of components where each
+# component is one unquoted substitution such as `${DB_PASSWORD}`,
+# `${?MYSQL_PASSWORD}`, `${ A }` or `${a."b"}`, or a quoted group that holds
+# nothing but substitutions and whitespace. HOCON concatenates that sequence into
+# a single value, so `${DB_PASSWORD}${?MYSQL_PASSWORD}`, `"${A}" "${B}"` and
+# `${A}"${B}"` each resolve to a reference and nothing else. They must be
+# returned unchanged, because the stored config is reloaded on /resume and
+# written out again by /save and /export. The grammar is built from
+# `_SUBSTITUTION` so the two cannot drift apart: a reference spelling that the
+# value grammar accepts is a reference here as well.
+# An unquoted component is exactly one substitution, never a repeated chain: a
+# chain repeated inside a repeated component would make a long sequence followed
+# by a literal tail explore exponentially many ways to split it. With one
+# substitution per component, and the quoted branches anchored on their own
+# quote, every component has a single possible match, so the sequence is scanned
+# linearly.
+_REFERENCE_COMPONENT = "(?:" + _QUOTED_REFERENCE_GROUP + "|" + _SUBSTITUTION + ")"
+_CREDENTIAL_FREE_VALUE = re.compile(
+    _REFERENCE_COMPONENT + r"(?:\s*" + _REFERENCE_COMPONENT + r")*"
+)
+# An empty pair is exempt as well, but only as the whole value: `""` is a
+# placeholder when nothing continues the value, and part of a longer secret when
+# something does (`""s3cret`, the `"""` that opens a triple-quoted string, or the
+# `""` of a concatenation). That is decided by the match itself instead of by
+# looking at the rest of the line, because the value is the whole concatenation.
+_EMPTY_CREDENTIAL_VALUE = re.compile(r"""(?:""|'')""")
+# The components a single HOCON value is concatenated from:
+#   - a triple-quoted string, which may contain almost anything but a newline;
+#   - a quoted string, with escapes and, like the above, no newline;
+#   - an opening quote that is never closed, which falls back to the rest of its
+#     own line so a dangling quote can never pair up with an unrelated quote on a
+#     later line and swallow the configuration in between;
+#   - a substitution, which is a reference and carries no secret by itself;
+#   - a bare run that stops at whitespace, a quote, `,`, `:`, braces, brackets,
+#     the end of the line, `$` except for a `$` that does not open a
+#     substitution, and at the `#` or `//` that start a HOCON comment. Consuming
+#     a whole `${...}` instead of stopping at its `$` keeps a value such as
+#     `s3cret-${DB_PASSWORD}` in one piece; redacting only the part in front of
+#     `${` would leave a `{DB_PASSWORD}` tail behind. A single `/` is ordinary
+#     value text, so it is matched by its own branch that refuses to stand next
+#     to another `/`. The alternatives are disjoint — the character run excludes
+#     `$`, `#` and `/`, the single `$` is guarded by `(?!\$\{)`, the single `/`
+#     by `(?<!/)/(?!/)`, and a substitution starts with `$` — so the repetition
+#     scans linearly instead of backtracking.
+_TRIPLE_QUOTED = r'"""(?:\\.|[^\\\r\n])*?"""'
+_DOUBLE_QUOTED = r'"(?:\\.|[^"\\\r\n])*"'
+_SINGLE_QUOTED = r"'(?:\\.|[^'\\\r\n])*'"
+_QUOTE_TO_LINE_END = r"""["'][^\r\n]+"""
+_BARE_RUN = r"""[^\s"',:}{)\]$#/]+"""
+_BARE_DOLLAR = r"""(?!\$\{)\$"""
+_BARE_SLASH = r"""(?<!/)/(?!/)"""
+_BARE_VALUE = "(?:" + _BARE_RUN + "|" + _BARE_DOLLAR + "|" + _BARE_SLASH + ")"
+_VALUE_COMPONENT = (
+    "(?:"
+    + _TRIPLE_QUOTED
+    + "|"
+    + _DOUBLE_QUOTED
+    + "|"
+    + _SINGLE_QUOTED
+    + "|"
+    + _QUOTE_TO_LINE_END
+    + "|"
+    + _SUBSTITUTION
+    + "|"
+    + _BARE_VALUE
+    + ")"
+)
+# HOCON concatenates adjacent components, with or without whitespace between
+# them, so `""s3cret`, `"ab" s3cret` and `${A} s3cret` are each a single value
+# that resolves to a secret. A value therefore runs from its first component to
+# the first comment or to the `,`/`}`/`]` that ends it inside a structure, and
+# redacting anything less than that leaves the rest of the line in the clear.
+_CREDENTIAL_ASSIGNMENT_VALUE = (
+    _VALUE_COMPONENT
+    + r"(?:[ \t]*(?!#)(?!/{2})"
+    + _VALUE_COMPONENT
+    + ")*"
+)
+
 _CREDENTIAL_KV_PATTERNS = re.compile(
-    r'(?:password|passwd|secret[-_]?key|access[-_]?key|api[-_]?key|token|'
-    r'auth[-_]?token|secret|credential|private[-_]?key)'
-    r'\s*[=:]\s*'
-    r'["\']?([^\s"\',:}{)\]]{3,})["\']?',
+    r"(?<![\w.-])(?P<prefix>(?P<key_quote>[\"']?)[\w.-]*" + _CREDENTIAL_KEYS
+    + r"(?P=key_quote)\s*[=:]\s*)(?P<value>" + _CREDENTIAL_ASSIGNMENT_VALUE + r")",
     re.IGNORECASE,
 )
 
-# Patterns that match natural language credential disclosure (password is X, password was X)
 _CREDENTIAL_NL_PATTERNS = re.compile(
-    r'(?:password|passwd|secret[-_]?key|access[-_]?key|api[-_]?key|token|'
-    r'auth[-_]?token|secret|credential|private[-_]?key)'
-    r'\s+(?:is|was|are|were)\s+'
-    r'["\']?([^\s"\',:}{)\]]{3,})["\']?',
+    r"(?<![\w.-])(?P<prefix>[\w.-]*" + _CREDENTIAL_KEYS
+    + r"\s+(?:is|was|are|were)\s+)(?P<value>" + _CREDENTIAL_ASSIGNMENT_VALUE + r")",
     re.IGNORECASE,
 )
 
@@ -107,24 +207,46 @@ def contains_credential(text: str) -> bool:
     return False
 
 
+def _redact_assignment(match: re.Match) -> str:
+    """Replace a credential value with a marker, keeping key and quote style.
+
+    A value that is only a reference is not a secret, and an empty pair that is
+    the whole value is a placeholder, so both are returned as they are:
+    rewriting them would corrupt the stored config instead of protecting
+    anything. Every other value is replaced in full — HOCON would concatenate
+    whatever is left of it back into the secret.
+    """
+    value = match.group("value")
+    if _CREDENTIAL_FREE_VALUE.fullmatch(value):
+        return match.group(0)
+    if _EMPTY_CREDENTIAL_VALUE.fullmatch(value):
+        return match.group(0)
+    quote = value[0] if value[0] in "\"'" else ""
+    return match.group("prefix") + quote + "***REDACTED***" + quote
+
+
 def redact_credentials(text: str) -> str:
     """Replace credential values in text with placeholder markers.
 
     Used to scrub session history and memory content before persistence.
     Preserves the structure (key names, hosts, ports) but removes secret values.
+    A value is the whole HOCON concatenation, so `""s3cret` and `"ab" s3cret` are
+    removed in full rather than only up to their first component.
+    Substitutions and empty values are kept: they carry no secret themselves, and
+    rewriting them would corrupt the config that is reloaded after a resume. An
+    empty value is only kept while it is the whole value.
+
+    Two deliberate limits, both documented in the CLI README:
+      - matching is bounded by a line, so only the opening line of a
+        triple-quoted block is redacted;
+      - an unquoted value cannot be told apart from the prose that follows it, so
+        the rest of that line goes with the value.
     """
     # Redact known token patterns
     text = _CREDENTIAL_VALUE_PATTERNS.sub("***REDACTED***", text)
-    # Redact key=value credential pairs (replace only the value part)
-    text = _CREDENTIAL_KV_PATTERNS.sub(
-        lambda m: m.group(0).replace(m.group(1), "***REDACTED***") if m.group(1) else m.group(0),
-        text,
-    )
-    # Redact natural language credential disclosure ("password is X")
-    text = _CREDENTIAL_NL_PATTERNS.sub(
-        lambda m: m.group(0).replace(m.group(1), "***REDACTED***") if m.group(1) else m.group(0),
-        text,
-    )
+    # Redact assignment values while preserving their key and quote style.
+    text = _CREDENTIAL_KV_PATTERNS.sub(_redact_assignment, text)
+    text = _CREDENTIAL_NL_PATTERNS.sub(_redact_assignment, text)
     # Redact JDBC URL embedded passwords (jdbc:mysql://user:PASSWORD@host)
     text = _JDBC_CREDENTIAL_PATTERN.sub(
         lambda m: m.group(0).replace(m.group(1), "***REDACTED***") if m.group(1) else m.group(0),
