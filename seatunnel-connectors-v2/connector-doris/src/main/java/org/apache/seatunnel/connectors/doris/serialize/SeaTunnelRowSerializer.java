@@ -50,7 +50,6 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
     private final boolean enableDelete;
     private final SerializationSchema serialize;
     private final boolean caseSensitive;
-    private final boolean hasJson;
 
     public SeaTunnelRowSerializer(
             String type,
@@ -107,9 +106,6 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
                         fieldNamesList.toArray(new String[0]),
                         fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
 
-        this.hasJson =
-                Arrays.stream(this.seaTunnelRowType.getFieldTypes())
-                        .anyMatch(fieldType -> fieldType.getSqlType() == SqlType.JSON);
         if (JSON.equals(type)) {
             JsonSerializationSchema jsonSerializationSchema =
                     new JsonSerializationSchema(this.seaTunnelRowType, true, datetimeTimezone);
@@ -136,6 +132,14 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
      * column. The common converter still validates every document before this transport encoding.
      */
     public byte[] buildJsonString(SeaTunnelRow row) {
+        // Keep the serialized class shape unchanged; do not cache this as an instance field.
+        boolean hasJson = false;
+        for (SeaTunnelDataType<?> fieldType : seaTunnelRowType.getFieldTypes()) {
+            if (fieldType.getSqlType() == SqlType.JSON) {
+                hasJson = true;
+                break;
+            }
+        }
         if (!hasJson) {
             return serialize.serialize(row);
         }
