@@ -18,7 +18,14 @@
 package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigIncludeContext;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigIncluder;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigIncluderClasspath;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigIncluderFile;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigIncluderURL;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
@@ -35,6 +42,8 @@ import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
+import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -44,6 +53,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -62,6 +73,13 @@ public class ConfigBuilder {
     private static final String CONFIG_PATH_SEPARATOR = ".";
     // Treat common option separators as equivalent when matching config paths in logs.
     private static final Pattern CONFIG_OPTION_SEPARATOR_PATTERN = Pattern.compile("[._-]+");
+
+    // A config submitted to a running engine must not read the files, URLs or environment
+    // variables of the engine process.
+    private static final ConfigParseOptions SUBMITTED_VALUE_PARSE_OPTIONS =
+            ConfigParseOptions.defaults().setIncluder(new RejectingIncluder());
+    private static final ConfigResolveOptions SUBMITTED_CONFIG_RESOLVE_OPTIONS =
+            ConfigResolveOptions.noSystem().setAllowUnresolved(true);
 
     private ConfigBuilder() {
         // utility class and cannot be instantiated
@@ -256,9 +274,73 @@ public class ConfigBuilder {
 
         Map<String, Object> resolvedConfigMap = resolvedConfig.root().unwrapped();
 
-        processVariablesMap(resolvedConfigMap, userConfigMap);
+        processVariablesMap(
+                resolvedConfigMap,
+                placeholder -> true,
+                placeholder ->
+                        userConfigMap.containsKey(placeholder)
+                                ? userConfigMap.get(placeholder)
+                                : System.getProperty(placeholder));
 
         return ConfigFactory.parseMap(resolvedConfigMap);
+    }
+
+    /**
+     * Applies variables to a job config that was submitted to a running engine, for example through
+     * the REST API, with the same rules as {@code -i} on the command line.
+     *
+     * <p>Two things differ from the command line, because this process belongs to the engine rather
+     * than to the submitter: placeholders are never resolved from the system properties or the
+     * environment variables of this process, and a structured value cannot {@code include} a file
+     * or URL. Placeholders without a variable are left as they are, as on the command line, and
+     * sink table placeholders such as {@code ${table_name}} are always left for the sink.
+     *
+     * @param config the parsed job config
+     * @param variables variable names and raw values, with names already checked by the caller
+     * @return the config with the variables applied
+     * @throws IllegalArgumentException if a value cannot be parsed or a placeholder cannot be
+     *     resolved; the message never contains a value
+     */
+    public static Config substituteVariables(
+            @NonNull Config config, @NonNull Map<String, String> variables) {
+        Map<String, Object> userValues = new LinkedHashMap<>();
+        variables.forEach((key, value) -> userValues.put(key, parseSubmittedValue(key, value)));
+
+        Map<String, Object> resolvedConfigMap;
+        try {
+            resolvedConfigMap =
+                    config.resolve(SUBMITTED_CONFIG_RESOLVE_OPTIONS)
+                            .resolveWith(
+                                    ConfigFactory.parseMap(userValues),
+                                    SUBMITTED_CONFIG_RESOLVE_OPTIONS)
+                            .root()
+                            .unwrapped();
+        } catch (ConfigException e) {
+            // Typesafe messages render the partly substituted value, so only the line is kept
+            int line = e.origin() == null ? -1 : e.origin().lineNumber();
+            throw new IllegalArgumentException(
+                    "Cannot apply variables to the job config"
+                            + (line > 0 ? " at line " + line : "")
+                            + ": a placeholder has no variable, or a variable does not fit where"
+                            + " it is used");
+        }
+
+        // sink table placeholders such as ${table_name} are filled per table at runtime
+        processVariablesMap(
+                resolvedConfigMap,
+                placeholder -> !TablePlaceholder.isSystemPlaceholder(placeholder),
+                variables::get);
+
+        return ConfigFactory.parseMap(resolvedConfigMap);
+    }
+
+    private static Object parseSubmittedValue(String key, String value) {
+        try {
+            return ConfigValueUtils.parseValue(value, SUBMITTED_VALUE_PARSE_OPTIONS).unwrapped();
+        } catch (RuntimeException e) {
+            // the value may be a secret, so neither the message nor a cause may carry it
+            throw new IllegalArgumentException("Invalid value for variable '" + key + "'");
+        }
     }
 
     public static Config substituteUserConfig(
@@ -355,44 +437,54 @@ public class ConfigBuilder {
     }
 
     private static void processVariablesMap(
-            Map<String, Object> mapValue, Map<String, String> userConfigMap) {
+            Map<String, Object> mapValue,
+            Predicate<String> substitutable,
+            Function<String, String> placeholderValue) {
         mapValue.forEach(
                 (innerKey, innerValue) -> {
                     if (innerValue instanceof Map) {
-                        processVariablesMap((Map<String, Object>) innerValue, userConfigMap);
+                        processVariablesMap(
+                                (Map<String, Object>) innerValue, substitutable, placeholderValue);
                     } else if (innerValue instanceof List) {
                         mapValue.put(
                                 innerKey,
-                                processVariablesList((List<?>) innerValue, userConfigMap));
+                                processVariablesList(
+                                        (List<?>) innerValue, substitutable, placeholderValue));
                     } else {
-                        processVariable(innerKey, innerValue, mapValue, userConfigMap);
+                        processVariable(
+                                innerKey, innerValue, mapValue, substitutable, placeholderValue);
                     }
                 });
     }
 
-    private static List<?> processVariablesList(List<?> list, Map<String, String> userConfigMap) {
+    private static List<?> processVariablesList(
+            List<?> list,
+            Predicate<String> substitutable,
+            Function<String, String> placeholderValue) {
         return list.stream()
                 .map(
                         variable -> {
                             if (variable instanceof String) {
                                 String variableString = (String) variable;
                                 return extractPlaceholder(variableString).stream()
+                                        .filter(substitutable)
                                         .reduce(
                                                 variableString,
-                                                (result, placeholder) -> {
-                                                    String value =
-                                                            userConfigMap.containsKey(placeholder)
-                                                                    ? userConfigMap.get(placeholder)
-                                                                    : System.getProperty(
-                                                                            placeholder);
-                                                    return replacePlaceholders(
-                                                            result, placeholder, value, null);
-                                                });
+                                                (result, placeholder) ->
+                                                        replacePlaceholders(
+                                                                result,
+                                                                placeholder,
+                                                                placeholderValue.apply(placeholder),
+                                                                null));
                             } else if (variable instanceof Map) {
-                                processVariablesMap((Map<String, Object>) variable, userConfigMap);
+                                processVariablesMap(
+                                        (Map<String, Object>) variable,
+                                        substitutable,
+                                        placeholderValue);
                                 return variable;
                             } else if (variable instanceof List) {
-                                return processVariablesList((List<?>) variable, userConfigMap);
+                                return processVariablesList(
+                                        (List<?>) variable, substitutable, placeholderValue);
                             }
                             return variable;
                         })
@@ -403,20 +495,21 @@ public class ConfigBuilder {
             String variableKey,
             Object variableValue,
             Map<String, Object> parentMap,
-            Map<String, String> userConfigMap) {
+            Predicate<String> substitutable,
+            Function<String, String> placeholderValue) {
         if (Objects.isNull(variableValue)) {
             return;
         }
         String variableString = variableValue.toString();
-        List<String> placeholders = extractPlaceholder(variableString);
+        List<String> placeholders =
+                extractPlaceholder(variableString).stream()
+                        .filter(substitutable)
+                        .collect(Collectors.toList());
 
         for (String placeholder : placeholders) {
-            String value =
-                    userConfigMap.containsKey(placeholder)
-                            ? userConfigMap.get(placeholder)
-                            : System.getProperty(placeholder);
-
-            variableString = replacePlaceholders(variableString, placeholder, value, null);
+            variableString =
+                    replacePlaceholders(
+                            variableString, placeholder, placeholderValue.apply(placeholder), null);
         }
 
         if (!placeholders.isEmpty()) {
@@ -446,5 +539,42 @@ public class ConfigBuilder {
                                 ConfigFactory.systemProperties(),
                                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
         return config.root().render(CONFIG_RENDER_OPTIONS);
+    }
+
+    /** Refuses every kind of {@code include}. */
+    private static class RejectingIncluder
+            implements ConfigIncluder,
+                    ConfigIncluderFile,
+                    ConfigIncluderURL,
+                    ConfigIncluderClasspath {
+
+        @Override
+        public ConfigIncluder withFallback(ConfigIncluder fallback) {
+            return this;
+        }
+
+        @Override
+        public ConfigObject include(ConfigIncludeContext context, String what) {
+            throw rejected();
+        }
+
+        @Override
+        public ConfigObject includeFile(ConfigIncludeContext context, File what) {
+            throw rejected();
+        }
+
+        @Override
+        public ConfigObject includeURL(ConfigIncludeContext context, URL what) {
+            throw rejected();
+        }
+
+        @Override
+        public ConfigObject includeResources(ConfigIncludeContext context, String what) {
+            throw rejected();
+        }
+
+        private static ConfigException rejected() {
+            return new ConfigException.Generic("include is not allowed here");
+        }
     }
 }

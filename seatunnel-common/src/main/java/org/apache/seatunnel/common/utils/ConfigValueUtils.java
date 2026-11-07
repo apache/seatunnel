@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigOriginFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
@@ -63,6 +64,18 @@ public class ConfigValueUtils {
      *     parse
      */
     public static ConfigValue parseValue(String value) {
+        return parseValue(value, ConfigParseOptions.defaults());
+    }
+
+    /**
+     * Same as {@link #parseValue(String)}, but parses a structured value with the given options,
+     * for example to control how an {@code include} inside it is handled.
+     *
+     * @param value the raw string value to parse
+     * @param parseOptions the options used to parse a JSON object or array value
+     * @return the parsed {@link ConfigValue}
+     */
+    public static ConfigValue parseValue(String value, ConfigParseOptions parseOptions) {
         if (value == null) {
             return ConfigValueFactory.fromAnyRef(null);
         }
@@ -78,7 +91,7 @@ public class ConfigValueUtils {
 
         if (isStructured(value)) {
             try {
-                Config parsed = ConfigFactory.parseString("v = " + value);
+                Config parsed = ConfigFactory.parseString("v = " + value, parseOptions);
                 return parsed.root().get("v");
             } catch (ConfigException e) {
                 throw new ConfigException.BadValue(
