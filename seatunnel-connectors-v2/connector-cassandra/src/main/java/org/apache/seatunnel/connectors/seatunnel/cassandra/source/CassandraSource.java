@@ -119,6 +119,12 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow>
                 session.execute(CassandraClient.createSimpleStatement(cql, consistencyLevel))
                         .getColumnDefinitions();
 
+        return buildTableConfig(cql, columnDefs, keyspace);
+    }
+
+    static CassandraTableConfig buildTableConfig(
+            String cql, ColumnDefinitions columnDefs, String keyspace) {
+
         if (columnDefs.size() == 0) {
             throw new CassandraConnectorException(
                     CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
