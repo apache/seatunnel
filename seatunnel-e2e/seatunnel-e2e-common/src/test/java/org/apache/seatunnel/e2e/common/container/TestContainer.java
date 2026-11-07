@@ -24,6 +24,7 @@ import org.testcontainers.containers.Network;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface TestContainer extends TestResource {
@@ -43,6 +44,17 @@ public interface TestContainer extends TestResource {
 
     Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException;
+
+    /**
+     * Executes a job with environment variables scoped to that command, retaining the
+     * implementation's normal completion and resource checks. Null or empty maps use the normal
+     * environment. Zeta and Flink support this entry; other implementations reject it unless
+     * explicitly overridden.
+     */
+    default Container.ExecResult executeJobWithEnv(String confFile, Map<String, String> envs)
+            throws IOException, InterruptedException {
+        throw new UnsupportedOperationException("Not implemented");
+    }
 
     default Container.ExecResult executeJob(String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {

@@ -592,6 +592,12 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     }
 
     @Override
+    public Container.ExecResult executeJobWithEnv(String confFile, Map<String, String> envs)
+            throws IOException, InterruptedException {
+        return doExecuteJob(confFile, null, null, envs);
+    }
+
+    @Override
     public Container.ExecResult executeJob(String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {
         return doExecuteJob(confFile, jobId, variables != null ? Arrays.asList(variables) : null);
@@ -599,13 +605,23 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
 
     private Container.ExecResult doExecuteJob(String confFile, String jobId, List<String> variables)
             throws IOException, InterruptedException {
+        return doExecuteJob(confFile, jobId, variables, null);
+    }
+
+    /**
+     * Runs environment-aware jobs through the normal thread-accounting and cleanup checks. The
+     * environment applies only to this command and does not change the container's defaults.
+     */
+    private Container.ExecResult doExecuteJob(
+            String confFile, String jobId, List<String> variables, Map<String, String> envs)
+            throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         List<String> beforeThreads = ContainerUtil.getJVMThreadNames(server);
         runningCount.incrementAndGet();
         Container.ExecResult result;
         int remainingJobs;
         try {
-            result = executeJob(server, confFile, jobId, variables);
+            result = executeJob(server, confFile, jobId, variables, envs);
         } finally {
             remainingJobs = runningCount.decrementAndGet();
         }

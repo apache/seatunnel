@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
@@ -26,6 +29,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.api.metadata.MetadataOptions;
 import org.apache.seatunnel.api.sink.TablePlaceholder;
 import org.apache.seatunnel.common.utils.ConfigValueUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -35,9 +40,12 @@ import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,10 +76,15 @@ public class ConfigBuilder {
     }
 
     private static Config ofInner(@NonNull Path filePath, List<String> variables) {
+        Config config = parseConfigFile(filePath);
+        return ConfigShadeUtils.decryptConfig(backfillUserVariables(config, variables));
+    }
+
+    private static Config parseConfigFile(@NonNull Path filePath) {
         Config config =
                 ConfigFactory.parseFile(filePath.toFile())
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
-        return ConfigShadeUtils.decryptConfig(backfillUserVariables(config, variables));
+        return config;
     }
 
     public static Config of(@NonNull String filePath) {
@@ -446,5 +459,92 @@ public class ConfigBuilder {
                                 ConfigFactory.systemProperties(),
                                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
         return config.root().render(CONFIG_RENDER_OPTIONS);
+    }
+
+    /**
+     * Parses MetadataConfig from the default seatunnel.yaml file.
+     *
+     * <p>The default path is $SEATUNNEL_HOME/config/seatunnel.yaml. If the file doesn't exist or
+     * metadata is not configured, returns a default MetadataConfig (disabled).
+     *
+     * @return MetadataConfig parsed from seatunnel.yaml, or default MetadataConfig if not found
+     */
+    public static MetadataConfig parseMetadataConfigFromSeatunnelYaml() {
+        String seatunnelHome = getSeatunnelHome();
+        if (seatunnelHome == null) {
+            log.info("SEATUNNEL_HOME not set, metadata provider disabled");
+            return new MetadataConfig();
+        }
+
+        Path yamlPath = Paths.get(seatunnelHome, "config", "seatunnel.yaml");
+        if (!Files.exists(yamlPath)) {
+            log.info("seatunnel.yaml not found at {}, metadata provider disabled", yamlPath);
+            return new MetadataConfig();
+        }
+
+        try {
+            return parseMetadataConfig(yamlPath);
+        } catch (Exception e) {
+            // Parser messages can include raw YAML source lines containing credentials.
+            log.warn(
+                    "Failed to parse seatunnel.yaml for metadata config ({}); metadata provider disabled",
+                    e.getClass().getSimpleName());
+            return new MetadataConfig();
+        }
+    }
+
+    /**
+     * Gets the SEATUNNEL_HOME from environment variables or system properties.
+     *
+     * @return the SEATUNNEL_HOME path, or null if not set
+     */
+    private static String getSeatunnelHome() {
+        String home = System.getenv("SEATUNNEL_HOME");
+        if (home == null) {
+            home = System.getProperty("SEATUNNEL_HOME");
+        }
+        return home;
+    }
+
+    /**
+     * Reads the complete YAML mapping before selecting provider properties. YAML parsing preserves
+     * mapping order independence, quoted scalars, comments and user-selected indentation.
+     */
+    private static MetadataConfig parseMetadataConfig(Path yamlPath) throws Exception {
+        MetadataConfig config = new MetadataConfig();
+        try (InputStream input = Files.newInputStream(yamlPath)) {
+            JsonNode root = new ObjectMapper(new YAMLFactory()).readTree(input);
+            if (root == null) {
+                return config;
+            }
+            JsonNode metadata = root.path("seatunnel").path("engine").path("metadata");
+            if (!metadata.isObject()) {
+                return config;
+            }
+            config.setEnabled(
+                    metadata.path(MetadataOptions.ENABLED.key())
+                            .asBoolean(MetadataOptions.ENABLED.defaultValue()));
+            String kind =
+                    metadata.path(MetadataOptions.KIND.key())
+                            .asText(MetadataOptions.KIND.defaultValue());
+            config.setKind(kind);
+            Map<String, String> properties = new HashMap<>();
+            metadata.fields()
+                    .forEachRemaining(
+                            provider -> {
+                                if (provider.getKey().equalsIgnoreCase(kind)
+                                        && provider.getValue().isObject()) {
+                                    provider.getValue()
+                                            .fields()
+                                            .forEachRemaining(
+                                                    property ->
+                                                            properties.put(
+                                                                    property.getKey(),
+                                                                    property.getValue().asText()));
+                                }
+                            });
+            config.setProperties(properties);
+            return config;
+        }
     }
 }
