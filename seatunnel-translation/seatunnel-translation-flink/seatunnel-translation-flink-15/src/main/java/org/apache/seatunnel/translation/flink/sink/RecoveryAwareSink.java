@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.flink.api.common.eventtime.Watermark;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.sink2.Committer;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.sink2.SinkWriter;
@@ -27,6 +28,8 @@ import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.streaming.api.connector.sink2.CommittableMessage;
 import org.apache.flink.streaming.api.connector.sink2.WithPostCommitTopology;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
+import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.transformations.SinkV1Adapter;
 
 import java.io.IOException;
@@ -60,29 +63,35 @@ public final class RecoveryAwareSink<InputT, CommT, StateT>
         return delegate;
     }
 
+    @Override
     public Writer<InputT, CommitWrapper<CommT>, FlinkWriterState<StateT>> createWriter(
             Sink.InitContext context) throws IOException {
         return new Writer<>(stateful.createWriter(context));
     }
 
+    @Override
     public Writer<InputT, CommitWrapper<CommT>, FlinkWriterState<StateT>> restoreWriter(
             Sink.InitContext context, Collection<FlinkWriterState<StateT>> states)
             throws IOException {
         return new Writer<>(stateful.restoreWriter(context, states));
     }
 
+    @Override
     public SimpleVersionedSerializer<FlinkWriterState<StateT>> getWriterStateSerializer() {
         return stateful.getWriterStateSerializer();
     }
 
+    @Override
     public Committer<CommitWrapper<CommT>> createCommitter() throws IOException {
         return committing.createCommitter();
     }
 
+    @Override
     public SimpleVersionedSerializer<CommitWrapper<CommT>> getCommittableSerializer() {
         return committing.getCommittableSerializer();
     }
 
+    @Override
     public void addPostCommitTopology(DataStream<CommittableMessage<CommitWrapper<CommT>>> stream) {
         committing.addPostCommitTopology(new RecoveryDataStream<>(stream));
     }
@@ -129,13 +138,10 @@ public final class RecoveryAwareSink<InputT, CommT, StateT>
         }
 
         @Override
-        public <R>
-                org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator<R> transform(
-                        String name,
-                        org.apache.flink.api.common.typeinfo.TypeInformation<R> type,
-                        org.apache.flink.streaming.api.operators.OneInputStreamOperator<
-                                        CommittableMessage<CommitWrapper<T>>, R>
-                                operator) {
+        public <R> SingleOutputStreamOperator<R> transform(
+                String name,
+                TypeInformation<R> type,
+                OneInputStreamOperator<CommittableMessage<CommitWrapper<T>>, R> operator) {
             return super.transform(name, type, new RestoredCommittableOperatorFactory<>(operator));
         }
     }
@@ -144,6 +150,8 @@ public final class RecoveryAwareSink<InputT, CommT, StateT>
             implements org.apache.flink.api.connector.sink.Sink<
                     I, CommitWrapper<C>, FlinkWriterState<S>, G> {
         private final FlinkSink<I, C, S, G> delegate;
+        // Serializer and committer factories share this sink instance so deserialized payloads
+        // are marked before the same operator reconciles restored state.
         private transient RecoveredCommitTracker tracker;
 
         private RecoverableLegacySink(FlinkSink<I, C, S, G> delegate) {
@@ -157,6 +165,7 @@ public final class RecoveryAwareSink<InputT, CommT, StateT>
             return tracker;
         }
 
+        @Override
         public org.apache.flink.api.connector.sink.SinkWriter<
                         I, CommitWrapper<C>, FlinkWriterState<S>>
                 createWriter(
@@ -166,25 +175,30 @@ public final class RecoveryAwareSink<InputT, CommT, StateT>
             return delegate.createWriter(context, states);
         }
 
+        @Override
         public Optional<org.apache.flink.api.connector.sink.Committer<CommitWrapper<C>>>
                 createCommitter() throws IOException {
             return delegate.createCommitter();
         }
 
+        @Override
         public Optional<org.apache.flink.api.connector.sink.GlobalCommitter<CommitWrapper<C>, G>>
                 createGlobalCommitter() throws IOException {
             return delegate.createRecoverableGlobalCommitter(tracker());
         }
 
+        @Override
         public Optional<SimpleVersionedSerializer<CommitWrapper<C>>> getCommittableSerializer() {
             return delegate.getCommittableSerializer()
                     .map(serializer -> new RecoveryCommitSerializer<>(serializer, tracker()));
         }
 
+        @Override
         public Optional<SimpleVersionedSerializer<G>> getGlobalCommittableSerializer() {
             return delegate.getGlobalCommittableSerializer();
         }
 
+        @Override
         public Optional<SimpleVersionedSerializer<FlinkWriterState<S>>> getWriterStateSerializer() {
             return delegate.getWriterStateSerializer();
         }
@@ -199,28 +213,34 @@ public final class RecoveryAwareSink<InputT, CommT, StateT>
             this.delegate = delegate;
         }
 
+        @Override
         public void write(I value, SinkWriter.Context context)
                 throws IOException, InterruptedException {
             delegate.write(value, context);
         }
 
+        @Override
         public void flush(boolean endOfInput) throws IOException, InterruptedException {
             delegate.flush(endOfInput);
         }
 
+        @Override
         public List<S> snapshotState(long checkpointId) throws IOException {
             return delegate.snapshotState(checkpointId);
         }
 
+        @Override
         public Collection<C> prepareCommit() throws IOException, InterruptedException {
             return ((TwoPhaseCommittingSink.PrecommittingSinkWriter<I, C>) delegate)
                     .prepareCommit();
         }
 
+        @Override
         public void writeWatermark(Watermark watermark) throws IOException, InterruptedException {
             delegate.writeWatermark(watermark);
         }
 
+        @Override
         public void close() throws Exception {
             delegate.close();
         }

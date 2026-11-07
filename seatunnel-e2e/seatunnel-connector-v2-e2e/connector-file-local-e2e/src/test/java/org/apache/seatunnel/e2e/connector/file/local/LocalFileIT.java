@@ -72,6 +72,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -328,6 +329,10 @@ public class LocalFileIT extends TestSuiteBase {
                         "/csv/csv_with_header2.csv",
                         "/seatunnel/read/csv/header/csv_with_header2.csv",
                         container);
+                ContainerUtil.copyFileIntoContainers(
+                        "/csv/default-values.csv",
+                        "/seatunnel/read/csv/defaults/default-values.csv",
+                        container);
 
                 Path csvWithPreamble = Files.createTempFile("csv-preamble-", ".csv");
                 try {
@@ -373,11 +378,13 @@ public class LocalFileIT extends TestSuiteBase {
                         container);
 
                 Container.ExecResult create =
-                        container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
+                        container.execInContainer(
+                                "mkdir", "-p", "/tmp/fake_empty", "/seatunnel/read/binary2");
                 Assertions.assertEquals(0, create.getExitCode(), create.getStderr());
                 // Fixture setup runs as root; engine workers may run as a different user.
                 Container.ExecResult permissions =
-                        container.execInContainer("chmod", "1777", "/tmp/fake_empty");
+                        container.execInContainer(
+                                "chmod", "1777", "/tmp/fake_empty", "/seatunnel/read/binary2");
                 Assertions.assertEquals(0, permissions.getExitCode(), permissions.getStderr());
             };
 
@@ -388,6 +395,7 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/csv/local_csv_to_assert.conf");
         helper.execute("/csv/local_csv_enable_split_to_assert.conf");
         helper.execute("/csv/csv_with_header_to_assert.conf");
+        helper.execute("/csv/default_values_to_assert.conf");
         helper.execute("/csv/breakline_csv_to_assert.conf");
     }
 
@@ -443,6 +451,13 @@ public class LocalFileIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    public void testLocalFileParquetProjection(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
+    }
+
+    @TestTemplate
     public void testLocalFileOrcParquetBinaryXml(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
@@ -456,6 +471,22 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
         helper.execute("/parquet/local_file_to_console.conf");
         helper.execute("/binary/local_file_binary_to_local_file_binary.conf");
+        AtomicBoolean binaryCopied = new AtomicBoolean();
+        container.executeExtraCommands(
+                engine -> {
+                    Container.ExecResult comparison =
+                            engine.execInContainer(
+                                    "sh",
+                                    "-c",
+                                    "if test -f /seatunnel/read/binary2/cat.png; then "
+                                            + "cmp /seatunnel/read/binary/cat.png "
+                                            + "/seatunnel/read/binary2/cat.png && printf matched; fi");
+                    Assertions.assertEquals(0, comparison.getExitCode(), comparison.getStderr());
+                    if ("matched".equals(comparison.getStdout().trim())) {
+                        binaryCopied.set(true);
+                    }
+                });
+        Assertions.assertTrue(binaryCopied.get(), "Missing committed binary copy");
         if (!container.identifier().getEngineType().equals(EngineType.FLINK)) {
             helper.execute("/binary/local_file_binary_to_assert.conf");
         }

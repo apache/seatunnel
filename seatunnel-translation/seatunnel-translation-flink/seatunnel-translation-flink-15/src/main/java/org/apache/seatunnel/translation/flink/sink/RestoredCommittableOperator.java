@@ -45,6 +45,7 @@ final class RestoredCommittableOperator<T, R>
         this.delegate = delegate;
     }
 
+    @Override
     public void initializeState(StreamTaskStateInitializer initializer) throws Exception {
         delegate.initializeState(
                 (id, name, time, key, serializer, registry, metrics, fraction, managed) -> {
@@ -64,6 +65,7 @@ final class RestoredCommittableOperator<T, R>
                 });
     }
 
+    @Override
     public void processElement(StreamRecord<CommittableMessage<CommitWrapper<T>>> element)
             throws Exception {
         markRecovered(element.getValue(), restoredCheckpoint);
@@ -80,26 +82,32 @@ final class RestoredCommittableOperator<T, R>
         }
     }
 
+    @Override
     public void open() throws Exception {
         delegate.open();
     }
 
+    @Override
     public void finish() throws Exception {
         delegate.finish();
     }
 
+    @Override
     public void close() throws Exception {
         delegate.close();
     }
 
+    @Override
     public void endInput() throws Exception {
         ((BoundedOneInput) delegate).endInput();
     }
 
+    @Override
     public void prepareSnapshotPreBarrier(long checkpoint) throws Exception {
         delegate.prepareSnapshotPreBarrier(checkpoint);
     }
 
+    @Override
     public OperatorSnapshotFutures snapshotState(
             long checkpoint,
             long timestamp,
@@ -109,46 +117,57 @@ final class RestoredCommittableOperator<T, R>
         return delegate.snapshotState(checkpoint, timestamp, options, factory);
     }
 
+    @Override
     public void notifyCheckpointComplete(long checkpoint) throws Exception {
         delegate.notifyCheckpointComplete(checkpoint);
     }
 
+    @Override
     public void notifyCheckpointAborted(long checkpoint) throws Exception {
         delegate.notifyCheckpointAborted(checkpoint);
     }
 
+    @Override
     public void setKeyContextElement1(StreamRecord<?> record) throws Exception {
         delegate.setKeyContextElement1(record);
     }
 
+    @Override
     public void setKeyContextElement2(StreamRecord<?> record) throws Exception {
         delegate.setKeyContextElement2(record);
     }
 
+    @Override
     public void setCurrentKey(Object key) {
         delegate.setCurrentKey(key);
     }
 
+    @Override
     public Object getCurrentKey() {
         return delegate.getCurrentKey();
     }
 
+    @Override
     public OperatorMetricGroup getMetricGroup() {
         return delegate.getMetricGroup();
     }
 
+    @Override
     public OperatorID getOperatorID() {
         return delegate.getOperatorID();
     }
 
+    @Override
     public void processWatermark(Watermark watermark) throws Exception {
         delegate.processWatermark(watermark);
     }
 
+    @Override
     public void processWatermarkStatus(WatermarkStatus status) throws Exception {
         delegate.processWatermarkStatus(status);
     }
 
+    @Override
     public void processLatencyMarker(LatencyMarker marker) throws Exception {
         delegate.processLatencyMarker(marker);
     }

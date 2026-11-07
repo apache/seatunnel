@@ -28,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.OptionalLong;
 
@@ -170,9 +171,8 @@ public class FlinkSimpleAggregatedCommitter<CommT, GlobalCommT>
             List<GlobalCommT> reCommittable =
                     recovered
                             ? aggregatedCommitter.restoreCommit(
-                                    java.util.Collections.singletonList(globalCommit))
-                            : aggregatedCommitter.commit(
-                                    java.util.Collections.singletonList(globalCommit));
+                                    Collections.singletonList(globalCommit))
+                            : aggregatedCommitter.commit(Collections.singletonList(globalCommit));
 
             if (reCommittable != null && !reCommittable.isEmpty()) {
                 // Retry the entire original batch: the connector's recovery path reconciles any

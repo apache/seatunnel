@@ -27,9 +27,14 @@ import org.apache.flink.api.connector.sink.Sink;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -48,23 +53,23 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
 
     private MultiTableResourceManager resourceManager;
     private final RecoveredCommitTracker tracker;
-    private final java.lang.ref.ReferenceQueue<GlobalCommT> recoveredQueue =
-            new java.lang.ref.ReferenceQueue<>();
-    private final java.util.Map<IdentityReference<GlobalCommT>, Boolean> recovered =
-            new java.util.HashMap<>();
+    private final ReferenceQueue<GlobalCommT> recoveredQueue = new ReferenceQueue<>();
+    private final Map<IdentityReference<GlobalCommT>, Boolean> recovered = new HashMap<>();
 
-    private static final class IdentityReference<T> extends java.lang.ref.WeakReference<T> {
+    private static final class IdentityReference<T> extends WeakReference<T> {
         private final int hash;
 
-        IdentityReference(T value, java.lang.ref.ReferenceQueue<T> queue) {
+        IdentityReference(T value, ReferenceQueue<T> queue) {
             super(value, queue);
             hash = System.identityHashCode(value);
         }
 
+        @Override
         public int hashCode() {
             return hash;
         }
 
+        @Override
         public boolean equals(Object other) {
             return this == other
                     || (other instanceof IdentityReference
@@ -74,7 +79,7 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
     }
 
     private void cleanRecovered() {
-        java.lang.ref.Reference<? extends GlobalCommT> reference;
+        Reference<? extends GlobalCommT> reference;
         while ((reference = recoveredQueue.poll()) != null) {
             recovered.remove(reference);
         }
@@ -121,7 +126,7 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
         if (pending != null) {
             pending.forEach(this::markRecovered);
         }
-        failIfPending(pending);
+        failIfPending(pending, "restoreCommit");
         return Collections.emptyList();
     }
 
@@ -167,17 +172,26 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
         }
         replay.forEach(value -> recovered.remove(new IdentityReference<>(value, null)));
         replayRetry.forEach(this::markRecovered);
-        failIfPending(pending);
+        failIfPending(
+                pending,
+                "restoreCommit="
+                        + replayRetry.size()
+                        + ", commit="
+                        + (pending.size() - replayRetry.size()));
         return Collections.emptyList();
     }
 
-    private void failIfPending(List<GlobalCommT> pending) throws IOException {
+    private void failIfPending(List<GlobalCommT> pending, String operation) throws IOException {
         if (pending != null && !pending.isEmpty()) {
             // Flink 1.15 retries pending global committables in a tight loop at end of input.
             // Fail instead: recovery replays checkpointed work through restoreCommit, without
             // acknowledging unresolved transactions or spinning indefinitely on permanent errors.
             throw new IOException(
-                    "Aggregated commit has unresolved transactions; recovery is required");
+                    "Aggregated commit has "
+                            + pending.size()
+                            + " unresolved transactions ("
+                            + operation
+                            + "); recovery is required");
         }
     }
 
