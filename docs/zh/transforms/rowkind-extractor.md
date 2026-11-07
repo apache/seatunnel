@@ -42,6 +42,9 @@ RowKindExtractor 转换插件用于将 CDC（Change Data Capture）数据流改�
 |-------------------|--------|----------|---------------|------|
 | custom_field_name | string | 否      | row_kind      | 新增字段的名称，用于存储原始的 RowKind 信息 |
 | transform_type    | enum   | 否      | SHORT         | RowKind 的输出格式，可选值：SHORT（短格式）或 FULL（完整格式） |
+| table_match_regex | string | 否      | `.*`          | 与上游表路径进行匹配的正则表达式，转换级别规则只应用于匹配的表。 |
+| table_transform   | array  | 否      | -             | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。 |
+| rule_match_mode   | string | 否      | `FIRST_MATCH` | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
 
 ### custom_field_name [string]
 
@@ -88,6 +91,10 @@ custom_field_name = "operation_type"  # 使用自定义字段名
 ```hocon
 transform_type = FULL  # 使用完整格式
 ```
+
+### table_match_regex / table_transform / rule_match_mode
+
+多表选项。当上游数据源输出多张表时，一个 RowKindExtractor 转换即可处理所有这些表：`table_match_regex` 选择转换级别规则适用的表（默认 `.*`），`table_transform` 保存完整的单表规则（`table_path` 加上 `custom_field_name` / `transform_type`），`rule_match_mode`（`FIRST_MATCH` 或 `ALL_MATCH`）控制相同 `table_path` 条目的求值方式。参见 [多表转换](transform-multi-table.md)。
 
 ## 完整示例
 

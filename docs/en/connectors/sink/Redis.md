@@ -103,7 +103,7 @@ the legacy `{field}` style are supported.
 
 - `KEY` and `STRING`: write one Redis string value for each row. Later rows overwrite earlier rows with the same key.
 - `HASH`: write one or more fields into a Redis hash. Configure `hash_key_field` to choose the hash field name.
-- `LIST`: append each row value to a Redis list.
+- `LIST`: add each row value to a Redis list. Values are pushed to the head of the list (`LPUSH`), so they are returned in reverse insertion order by `LRANGE`.
 - `SET`: add each row value to a Redis set.
 - `ZSET`: add each row value to a Redis sorted set with score `1`.
 

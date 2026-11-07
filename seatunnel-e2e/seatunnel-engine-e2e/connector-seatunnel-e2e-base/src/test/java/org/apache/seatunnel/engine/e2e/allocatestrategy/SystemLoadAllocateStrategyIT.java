@@ -30,7 +30,9 @@ import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.e2e.TestUtils;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SystemLoadStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
 import org.awaitility.Awaitility;
@@ -117,8 +119,31 @@ public class SystemLoadAllocateStrategyIT {
                                     Assertions.assertEquals(
                                             2, finalNode.getCluster().getMembers().size()));
 
-            // Waiting for worker heartbeat registration
-            Thread.sleep(10000);
+            // The resource manager only knows about a worker after its first heartbeat, and
+            // job submission needs both workers to be registered, so poll for registration
+            // instead of waiting a fixed time.
+            NodeEngineImpl nodeEngine = node1.node.nodeEngine;
+            Address node1Address = node1.node.address;
+            Address node2Address = node2.node.address;
+            SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+            ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(
+                                        resourceManager
+                                                .getRegisterWorker()
+                                                .containsKey(node1Address),
+                                        "Node1 has not registered yet");
+                                Assertions.assertTrue(
+                                        resourceManager
+                                                .getRegisterWorker()
+                                                .containsKey(node2Address),
+                                        "Node2 has not registered yet");
+                            });
+
             Common.setDeployMode(DeployMode.CLIENT);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
@@ -152,13 +177,6 @@ public class SystemLoadAllocateStrategyIT {
                                     seaTunnelConfig)
                             .execute();
 
-            NodeEngineImpl nodeEngine = node1.node.nodeEngine;
-            Address node2Address = node2.node.address;
-            Address node1Address = node1.node.address;
-
-            SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-            ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
-
             Awaitility.await()
                     .atMost(600, TimeUnit.SECONDS)
                     .untilAsserted(
@@ -176,8 +194,25 @@ public class SystemLoadAllocateStrategyIT {
                             });
             log.info("The first step is completed");
 
-            // Waiting to collect the node's System Load information
-            Thread.sleep(60000);
+            // The SYSTEM_LOAD strategy weights a worker without load samples with the lowest
+            // priority, so submitting the second job before both workers have reported their
+            // system load can assign all slots to a single node. Poll until both workers have
+            // reported load samples instead of waiting a fixed time (a sample is sent every
+            // SYSTEM_LOAD_SEND_INTERVAL heartbeats).
+            SystemLoadStrategy systemLoadStrategy =
+                    (SystemLoadStrategy)
+                            ((AbstractResourceManager) resourceManager).getSlotAllocationStrategy();
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(
+                                        systemLoadStrategy.hasLoadInfo(node1Address),
+                                        "Node1 has not reported system load yet");
+                                Assertions.assertTrue(
+                                        systemLoadStrategy.hasLoadInfo(node2Address),
+                                        "Node2 has not reported system load yet");
+                            });
 
             // Start a task that occupies 4 slots
             jobConfig = new JobConfig();
