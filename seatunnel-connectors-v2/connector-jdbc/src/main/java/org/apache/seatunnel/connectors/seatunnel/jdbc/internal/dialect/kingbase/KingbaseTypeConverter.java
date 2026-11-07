@@ -37,6 +37,7 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Types;
+import java.util.Locale;
 
 // reference https://help.kingbase.com.cn/v8/development/sql-plsql/sql/datatype.html#id2
 @Slf4j
@@ -74,7 +75,7 @@ public class KingbaseTypeConverter extends PostgresTypeConverter {
                             .defaultValue(typeDefine.getDefaultValue())
                             .comment(typeDefine.getComment());
 
-            String kingbaseDataType = typeDefine.getDataType().toUpperCase();
+            String kingbaseDataType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
             switch (kingbaseDataType) {
                     // MySQL compatibility - only types not in PostgresTypeConverter
                     // int not in PG (PG has SMALLINT/INTEGER/BIGINT)

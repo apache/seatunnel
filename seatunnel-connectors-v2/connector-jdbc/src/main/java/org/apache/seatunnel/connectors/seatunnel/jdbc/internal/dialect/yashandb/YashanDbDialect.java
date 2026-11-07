@@ -44,6 +44,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -209,7 +210,7 @@ public class YashanDbDialect implements JdbcDialect {
 
         boolean useTableStats =
                 StringUtils.isBlank(query)
-                        || (!query.toLowerCase().contains("where")
+                        || (!query.toLowerCase(Locale.ROOT).contains("where")
                                 && table.getTablePath() != null
                                 && !TablePath.DEFAULT
                                         .getFullName()

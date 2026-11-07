@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Locale;
 
 public class VerticaTypeMapper implements JdbcDialectTypeMapper {
 
@@ -92,7 +93,7 @@ public class VerticaTypeMapper implements JdbcDialectTypeMapper {
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
-        String type = metadata.getColumnTypeName(colIndex).toUpperCase();
+        String type = metadata.getColumnTypeName(colIndex).toUpperCase(Locale.ROOT);
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
         switch (type) {

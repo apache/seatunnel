@@ -33,6 +33,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Locale;
 import java.util.Optional;
 
 public class RedshiftDialect implements JdbcDialect {
@@ -145,7 +146,7 @@ public class RedshiftDialect implements JdbcDialect {
 
         boolean useTableStats =
                 StringUtils.isBlank(table.getQuery())
-                        || (!table.getQuery().toLowerCase().contains("where")
+                        || (!table.getQuery().toLowerCase(Locale.ROOT).contains("where")
                                 && table.getTablePath() != null
                                 && !TablePath.DEFAULT
                                         .getFullName()

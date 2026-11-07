@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Locale;
 
 public class TeradataTypeMapper implements JdbcDialectTypeMapper {
 
@@ -61,7 +62,7 @@ public class TeradataTypeMapper implements JdbcDialectTypeMapper {
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
-        String teradataType = metadata.getColumnTypeName(colIndex).toUpperCase();
+        String teradataType = metadata.getColumnTypeName(colIndex).toUpperCase(Locale.ROOT);
         switch (teradataType) {
             case TERADATA_BYTEINT:
                 return BasicType.BYTE_TYPE;

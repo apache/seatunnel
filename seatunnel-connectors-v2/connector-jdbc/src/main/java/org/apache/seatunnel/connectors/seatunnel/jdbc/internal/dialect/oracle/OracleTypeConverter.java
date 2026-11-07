@@ -33,6 +33,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
+
 // reference https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Data-Types.html
 @Slf4j
 @AutoService(TypeConverter.class)
@@ -127,7 +129,7 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String oracleType = typeDefine.getDataType().toUpperCase();
+        String oracleType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         if (oracleType.startsWith(ORACLE_INTERVAL)) {
             // The JDBC driver may report precision qualifiers in the type name,
             // e.g. "INTERVAL DAY(2) TO SECOND(6)", strip them for exact matching.

@@ -44,6 +44,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -153,7 +154,11 @@ public class YashanDbCatalog extends AbstractJdbcCatalog {
         // DATA_TYPE from all_tab_columns may include precision like TIMESTAMP(6),
         // strip parenthesized digits to get the pure type name
         String typeName =
-                resultSet.getString("DATA_TYPE").toUpperCase().replaceAll("\\(\\d+\\)", "").trim();
+                resultSet
+                        .getString("DATA_TYPE")
+                        .toUpperCase(Locale.ROOT)
+                        .replaceAll("\\(\\d+\\)", "")
+                        .trim();
         // e.g NUMBER(10, 2)
         String fullTypeName = resultSet.getString("FULL_TYPE_NAME");
         long columnLength = resultSet.getLong("COLUMN_LENGTH");

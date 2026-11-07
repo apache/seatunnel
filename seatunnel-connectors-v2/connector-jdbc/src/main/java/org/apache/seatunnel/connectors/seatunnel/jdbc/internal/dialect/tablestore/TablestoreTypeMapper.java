@@ -28,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Locale;
 
 @Slf4j
 public class TablestoreTypeMapper implements JdbcDialectTypeMapper {
@@ -52,7 +53,7 @@ public class TablestoreTypeMapper implements JdbcDialectTypeMapper {
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
-        String tablestoreServerType = metadata.getColumnTypeName(colIndex).toUpperCase();
+        String tablestoreServerType = metadata.getColumnTypeName(colIndex).toUpperCase(Locale.ROOT);
         switch (tablestoreServerType) {
             case TABLESTORE_BOOL:
                 return BasicType.BOOLEAN_TYPE;

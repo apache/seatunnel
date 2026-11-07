@@ -41,6 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -184,7 +185,7 @@ public class JdbcSourceFactory implements TableSourceFactory, SupportSourceDryRu
 
         @Override
         public boolean evaluate(ReadonlyConfig config, String value) {
-            return value == null || value.toLowerCase().startsWith("where");
+            return value == null || value.toLowerCase(Locale.ROOT).startsWith("where");
         }
     }
 }

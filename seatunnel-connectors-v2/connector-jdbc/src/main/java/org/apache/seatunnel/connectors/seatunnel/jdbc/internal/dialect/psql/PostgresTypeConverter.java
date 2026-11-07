@@ -35,6 +35,7 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Types;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 // reference http://www.postgres.cn/docs/13/datatype.html
@@ -141,7 +142,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String pgDataType = typeDefine.getDataType().toLowerCase();
+        String pgDataType = typeDefine.getDataType().toLowerCase(Locale.ROOT);
         switch (pgDataType) {
             case PG_BOOLEAN:
                 builder.dataType(BasicType.BOOLEAN_TYPE);
