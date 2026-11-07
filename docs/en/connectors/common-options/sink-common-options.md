@@ -38,7 +38,7 @@ A sink only consumes data sets, so it has no `plugin_output` option. The `plugin
 
 ### Simple
 
-> This is the process of passing a data source through two transforms and returning two different pipiles to different sinks
+> This is the process of passing a data source through two transforms and returning two different pipelines to different sinks
 
 ```bash
 source {

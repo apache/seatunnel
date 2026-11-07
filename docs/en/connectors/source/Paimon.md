@@ -58,7 +58,7 @@ Read data from Apache Paimon.
 | catalog_name            | String   | No             | paimon        | The name of the Paimon catalog.                                                                                              |
 | catalog_type            | String   | No             | filesystem    | Catalog type of Paimon, supports `filesystem` and `hive`.                                                                    |
 | catalog_uri             | String   | Yes when `catalog_type` is `hive` | -             | Catalog URI of Paimon. Required when `catalog_type` is `hive`.                                                                |
-| database                | String   | Yes            | -             | The database you want to access.                                                                                             |
+| database                | String   | Yes when `table_list` is absent | -             | The database you want to access. Not used when reading via `table_list`; each `table_list` item carries its own `database`.  |
 | table                   | String   | Yes when `table_list` is absent | -             | The table you want to access. Configure exactly one of `table` and `table_list`.                                              |
 | table_list              | array    | Yes when `table` is absent | -             | The list of tables to read. Each item must contain `database` and `table`, and may contain its own `query`.                                  |
 | user                    | String   | No             | -             | The Paimon user used to access the table (for example, with a `hive` catalog that enables authentication).                   |
@@ -149,7 +149,7 @@ The field data types currently supported by where conditions are as follows:
 * timestamp
 * time
 
-### paimon.hadoop.conf [string]
+### paimon.hadoop.conf [map]
 
 Properties in hadoop conf
 

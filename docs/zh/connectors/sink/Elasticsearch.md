@@ -33,7 +33,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | primary_keys           | list    | 否    |                              |
 | key_delimiter          | string  | 否    | `_`                          |
 | key_encoding           | enum    | 否    | LEGACY                       |
-| auth_type              | string  | 否    | basic                        |
+| auth_type              | enum    | 否    | basic                        |
 | username               | string  | 否    |                              |
 | password               | string  | 否    |                              |
 | auth.api_key_id        | string  | 否    | -                            |
@@ -55,7 +55,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 ### hosts [array]
 
-`Elasticsearch` 集群http地址，格式为 `host:port` ，允许指定多个主机。例如 `["host1:9200"， "host2:9200"]`
+`Elasticsearch` 集群http地址，格式为 `host:port` ，允许指定多个主机。例如 `["host1:9200", "host2:9200"]`
 
 ### index [string]
 
@@ -384,7 +384,7 @@ CDC采集支持有限数量的模式更改。目前支持的模式更改包括�
 
 * 添加列。
 
-### 模式演变
+示例：
 ```hocon
 env {
   # You can set engine configuration here
