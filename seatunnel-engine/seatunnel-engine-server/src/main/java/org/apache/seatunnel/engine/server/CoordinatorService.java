@@ -1908,11 +1908,7 @@ public class CoordinatorService {
     }
 
     public JobDAGInfo getJobInfo(long jobId) {
-        JobDAGInfo jobInfo = jobHistoryService.getJobDAGInfo(jobId);
-        if (jobInfo != null) {
-            return jobInfo;
-        }
-
+        // Savepoint restores reuse the job ID; retained history belongs to the previous attempt.
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster != null) {
             return runningJobMaster.getJobDAGInfo();
@@ -1921,6 +1917,11 @@ public class CoordinatorService {
         PendingJobInfo pendingJobInfo = pendingJobQueue.getById(jobId);
         if (pendingJobInfo != null) {
             return pendingJobInfo.getJobMaster().getJobDAGInfo();
+        }
+
+        JobDAGInfo jobInfo = jobHistoryService.getJobDAGInfo(jobId);
+        if (jobInfo != null) {
+            return jobInfo;
         }
 
         JobInfo runningJobInfo = runningJobInfoIMap.get(jobId);

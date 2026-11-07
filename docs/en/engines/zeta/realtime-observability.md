@@ -33,6 +33,10 @@ Configuration is under job `env`, using key prefix:
 
 > Parsing supports dot notation (e.g., `engine.observability.enabled`), corresponding to nested objects in HOCON/YAML.
 
+When restoring a job from a savepoint with the same job ID, realtime observability uses the
+configuration of the current running or pending attempt. Retained history from the previous attempt
+does not override the current observability settings.
+
 ### 2.2 Configuration Items (Current Implementation)
 
 ```hocon
