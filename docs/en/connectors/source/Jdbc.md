@@ -167,8 +167,8 @@ Use `query` to select only the required columns.
 | connect_timeout_ms                         | Int     | No        | 86400000        | Connection timeout in milliseconds when establishing the JDBC connection. `0` means no timeout.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | socket_timeout_ms                          | Int     | No        | 86400000        | Socket read timeout in milliseconds after the JDBC connection is established. `0` means no timeout.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | partition_column                           | String  | No        | -               | The column name for split data.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| partition_upper_bound                      | String  | No        | -               | Inclusive upper value used for query-based partitioning. When omitted, SeaTunnel queries the source for the maximum value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| partition_lower_bound                      | String  | No        | -               | Inclusive lower value used for query-based partitioning. When omitted, SeaTunnel queries the source for the minimum value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| partition_upper_bound                      | String  | No        | -               | Inclusive upper value used for query-based partitioning. When omitted, SeaTunnel queries the source for the maximum value. For a DATE partition column, an ISO-8601 date string (`yyyy-MM-dd`) or a legacy epoch-day number can be used.                                                                                                                                                                                                                                                                                                                                                                                                      |
+| partition_lower_bound                      | String  | No        | -               | Inclusive lower value used for query-based partitioning. When omitted, SeaTunnel queries the source for the minimum value. For a DATE partition column, an ISO-8601 date string (`yyyy-MM-dd`) or a legacy epoch-day number can be used.                                                                                                                                                                                                                                                                                                                                                                                                      |
 | partition_num                              | Int     | No        | 10              | Number of splits when top-level `query` and `partition_column` select the fixed splitter, whether or not `table_path` is also present. Dynamic `table_path` and `table_list` layouts use `split.size` instead.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | decimal_type_narrowing                     | Boolean | No        | true            | Decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now. Please refer to `decimal_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | int_type_narrowing                         | Boolean | No        | true            | Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now. Please refer to `int_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -302,10 +302,36 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | SqlServer | Tablestore   | Teradata |
 | Vertica   | OceanBase    | XUGU     |
 | IRIS      | Inceptor     | Highgo   |
-| YashanDB  | DSQL         |          |
+| YashanDB  | DSQL         | CockroachDB |
 
 Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
 Dameng `TIMESTAMP WITH LOCAL TIME ZONE` source columns are mapped to `TIMESTAMP_TZ`, and `INTERVAL` source columns are mapped to `STRING`.
+
+### CockroachDB
+
+Use the existing PostgreSQL JDBC driver with `dialect = "CockroachDB"`. The dialect must be explicit: a `jdbc:postgresql:` URL without it continues to select PostgreSQL.
+
+```hocon
+Jdbc {
+  url = "jdbc:postgresql://cockroachdb:26257/app?sslmode=verify-full"
+  driver = "org.postgresql.Driver"
+  dialect = "CockroachDB"
+  username = "seatunnel"
+  password = ${DB_PASSWORD}
+  query = "SELECT id, customer, amount FROM public.orders"
+  partition_column = "customer"
+  partition_num = 4
+  split.string-strategy = "hash"
+}
+```
+
+Configure the driver's trusted root certificate for your cluster. `sslmode=disable` is only appropriate for disposable insecure local test clusters.
+
+CockroachDB does not implement PostgreSQL's `HASHTEXT` function. This dialect uses `FNV32` for hash partitions, including STRING and UUID keys, and places null keys in one partition so they are not omitted. It uses `COUNT(*)` when the splitter needs a row count because CockroachDB's `pg_class.reltuples` is null; this can require a scan of the input table or query. Set `enable_concurrent_read = false` to avoid split analysis when one reader is sufficient.
+
+String conversion uses the discovered schema's native type information instead of querying result-set type metadata while a cursor is open. The supported reads do not require the `multiple_active_portals_enabled` preview setting. An explicit schema without native type information treats STRING fields as ordinary strings.
+
+The initial scope is bounded reads from existing tables using `query` or explicit `table_path`, with the PostgreSQL driver's compatible type mapping. CockroachDB 24.3 tests cover INT8, STRING, DECIMAL, BOOL, BYTES, UUID, and null values. Regex catalog discovery, CDC, and range/auto string splitting are not included. Numeric splitting and hash string splitting use the existing JDBC splitter lifecycle; no new driver or connector plugin is required.
 
 ## Parallel Reader
 
@@ -322,6 +348,8 @@ For a full-table snapshot, configure `table_path` and normally leave split-key d
 Only the top-level combination of `query` and `partition_column` selects the legacy fixed splitter; `partition_num` then controls the number of splits. The partition column must be present in the query result. Optional lower and upper bounds avoid extra `MIN`/`MAX` queries, but incorrect bounds can omit source rows, so use them only when the full data range is known.
 
 For fixed splitting of integer keys, including BIGINT and zero-scale DECIMAL, the partitions cover the numeric range without gaps or overlaps. An uneven division by `partition_num` preserves the remaining values, and each interval stays within the lower and upper bounds.
+
+Fixed query partitioning supports columns mapped to SeaTunnel DATE with ISO dates or whole epoch-day bounds. Support follows the dialect mapping; for example, Oracle DATE maps to TIMESTAMP and is not covered here. TIME, TIMESTAMP and TIMESTAMP_TZ partition columns are not supported; use a supported partition column or omit partition_column to read the query as a single split.
 
 Entries inside `table_list` continue to use dynamic splitting even when they include `query` or partition settings. Do not expect `split.size` to affect the top-level fixed partition mode.
 
