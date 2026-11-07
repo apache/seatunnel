@@ -24,7 +24,9 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
+import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -34,6 +36,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -196,6 +199,93 @@ public class PostgresUtilsTest {
         Assertions.assertTrue(exception.getMessage().contains("reason: idle_timeout"));
         Assertions.assertTrue(
                 exception.getMessage().contains("pg_drop_replication_slot('st_idle')"));
+    }
+
+    @Test
+    public void testUuidSampleQueryOrdersByRawColumnButSelectsConvertedColumn() throws Exception {
+        Statement stmt = mock(Statement.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.next()).thenReturn(false);
+        JdbcConnection jdbc = mockSamplingConnection(mock(Connection.class), stmt, rs);
+        Column uuidColumn = Column.editor().name("id").type("uuid").create();
+
+        PostgresUtils.skipReadAndSampleData(
+                jdbc, TableId.parse("db1.schema1.table1"), "id", uuidColumn, 1000);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(stmt).executeQuery(sqlCaptor.capture());
+        // The SELECT list keeps the ::text cast so uuid keys are read back as text like the
+        // snapshot WHERE filters, but the ORDER BY must use the raw column: an ORDER BY on the
+        // cast expression cannot use the uuid btree index.
+        Assertions.assertEquals(
+                "SELECT \"id\"::text FROM \"schema1\".\"table1\" ORDER BY \"id\"",
+                sqlCaptor.getValue());
+    }
+
+    @Test
+    public void testNonUuidSampleQueryUsesRawColumnForBothClauses() throws Exception {
+        Statement stmt = mock(Statement.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.next()).thenReturn(false);
+        JdbcConnection jdbc = mockSamplingConnection(mock(Connection.class), stmt, rs);
+        Column varcharColumn = Column.editor().name("code").type("varchar").create();
+
+        PostgresUtils.skipReadAndSampleData(
+                jdbc, TableId.parse("db1.schema1.table1"), "code", varcharColumn, 1000);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(stmt).executeQuery(sqlCaptor.capture());
+        Assertions.assertEquals(
+                "SELECT \"code\" FROM \"schema1\".\"table1\" ORDER BY \"code\"",
+                sqlCaptor.getValue());
+    }
+
+    @Test
+    public void testSamplePreservesDatabaseOrderWithoutJavaSorting() throws Exception {
+        Statement stmt = mock(Statement.class);
+        ResultSet rs = mock(ResultSet.class);
+        // Values arrive in database collation order (case-insensitive dictionary order);
+        // they must be returned as-is. A Java Arrays.sort would reorder this to
+        // ["Apple", "apple", "banana"] and misalign the chunk boundaries again.
+        when(rs.next()).thenReturn(true, true, true, false);
+        when(rs.getObject(1)).thenReturn("apple", "Apple", "banana");
+        JdbcConnection jdbc = mockSamplingConnection(mock(Connection.class), stmt, rs);
+        Column varcharColumn = Column.editor().name("code").type("varchar").create();
+
+        Object[] sample =
+                PostgresUtils.skipReadAndSampleData(
+                        jdbc, TableId.parse("db1.schema1.table1"), "code", varcharColumn, 1);
+
+        Assertions.assertArrayEquals(new String[] {"apple", "Apple", "banana"}, sample);
+    }
+
+    @Test
+    public void testAutoCommitStateIsRestoredAfterSampling() throws Exception {
+        Statement stmt = mock(Statement.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.next()).thenReturn(false);
+        Connection connection = mock(Connection.class);
+        JdbcConnection jdbc = mockSamplingConnection(connection, stmt, rs);
+        Column uuidColumn = Column.editor().name("id").type("uuid").create();
+
+        PostgresUtils.skipReadAndSampleData(
+                jdbc, TableId.parse("db1.schema1.table1"), "id", uuidColumn, 1000);
+
+        // pgjdbc honors fetchSize only with auto-commit off (cursor mode); the original
+        // state must be restored afterwards.
+        verify(connection).setAutoCommit(false);
+        verify(connection).setAutoCommit(true);
+    }
+
+    private static JdbcConnection mockSamplingConnection(
+            Connection connection, Statement stmt, ResultSet rs) throws Exception {
+        JdbcConnection jdbc = mock(JdbcConnection.class);
+        when(jdbc.connection()).thenReturn(connection);
+        when(connection.getAutoCommit()).thenReturn(true);
+        when(connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
+                .thenReturn(stmt);
+        when(stmt.executeQuery(anyString())).thenReturn(rs);
+        return jdbc;
     }
 
     private static Map<String, Object> slotRow(String walStatus) {
