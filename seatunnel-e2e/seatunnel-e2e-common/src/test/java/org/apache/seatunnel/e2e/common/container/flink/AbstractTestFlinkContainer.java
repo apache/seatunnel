@@ -114,6 +114,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                                 CONTAINER_VOLUME_MOUNT_PATH,
                                 BindMode.READ_WRITE);
         applyJavaToolOptions(jobManager);
+        applyEnvironmentVariables(jobManager);
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
 
@@ -138,6 +139,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                                 CONTAINER_VOLUME_MOUNT_PATH,
                                 BindMode.READ_WRITE);
         applyJavaToolOptions(taskManager);
+        applyEnvironmentVariables(taskManager);
 
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
