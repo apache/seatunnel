@@ -98,7 +98,7 @@ public class RestoredSplitOperation extends TaskOperation {
                     try {
                         Thread.currentThread().setContextClassLoader(taskClassLoader);
                         for (byte[] split : splits) {
-                            deserializeSplits.add(task.getSplitSerializer().deserialize(split));
+                            deserializeSplits.add(task.restoreSplit(split));
                         }
                         task.addSplitsBack(deserializeSplits, subtaskIndex);
                     } finally {

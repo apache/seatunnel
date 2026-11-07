@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointException;
+import org.apache.seatunnel.engine.server.checkpoint.StateRestoreException;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -55,7 +56,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CLOSED;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.INIT;
@@ -266,10 +266,13 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                         .filter(Objects::nonNull)
                         .map(
                                 bytes ->
-                                        sneaky(
-                                                () ->
-                                                        aggregatedCommitInfoSerializer.deserialize(
-                                                                bytes)))
+                                        StateRestoreException.deserialize(
+                                                aggregatedCommitInfoSerializer,
+                                                bytes,
+                                                sink.getName(),
+                                                StateRestoreException.sinkPluginName(
+                                                        sink.getSink()),
+                                                taskLocation))
                         .collect(Collectors.toList());
         List<AggregatedCommitInfoT> commit =
                 aggregatedCommitter.restoreCommit(aggregatedCommitInfos);
