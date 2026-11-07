@@ -48,7 +48,7 @@ Used to read data from Apache Doris.
 | TINYINT                              | TINYINT                                                                                                                                             |
 | SMALLINT                             | SMALLINT                                                                                                                                            |
 | BIGINT                               | BIGINT                                                                                                                                              |
-| LARGEINT                             | STRING                                                                                                                                              |
+| LARGEINT                             | DECIMAL(39, 0)                                                                                                                                      |
 | BOOLEAN                              | BOOLEAN                                                                                                                                             |
 | DECIMAL                              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
 | FLOAT                                | FLOAT                                                                                                                                               |
