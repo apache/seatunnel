@@ -86,6 +86,30 @@ public class MetadataTransformTest {
                         true,
                         null,
                         null));
+        metadata.add(
+                MetadataColumn.of(
+                        CommonOptions.SCHEMA.getName(),
+                        BasicType.STRING_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        metadata.add(
+                MetadataColumn.of(
+                        CommonOptions.COLLECTION.getName(),
+                        BasicType.STRING_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        metadata.add(
+                MetadataColumn.of(
+                        CommonOptions.NAMESPACE.getName(),
+                        BasicType.STRING_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
         catalogTable =
                 CatalogTable.of(
                         TableIdentifier.of("catalog", TablePath.DEFAULT),
@@ -143,6 +167,9 @@ public class MetadataTransformTest {
         MetadataUtil.setDelay(inputRow, 150L);
         MetadataUtil.setEventTime(inputRow, eventTime);
         MetadataUtil.setPartition(inputRow, Arrays.asList("key1", "key2").toArray(new String[0]));
+        MetadataUtil.setSchema(inputRow, "public");
+        MetadataUtil.setCollection(inputRow, "orders");
+        MetadataUtil.setNamespace(inputRow, "inventory.orders");
     }
 
     @Test
@@ -544,6 +571,33 @@ public class MetadataTransformTest {
 
         Assertions.assertTrue(
                 exception.getMessage().contains(KnowledgeSyncMetadataField.DOCUMENT_ID.getName()));
+    }
+
+    @Test
+    void testSourceIdentifierMetadataTransform() {
+        Map<String, String> metadataMapping = new LinkedHashMap<>();
+        metadataMapping.put("Schema", "source_schema");
+        metadataMapping.put("Collection", "source_collection");
+        metadataMapping.put("Namespace", "source_namespace");
+        Map<String, Object> config = new HashMap<>();
+        config.put("metadata_fields", metadataMapping);
+        MetadataTransform transform =
+                new MetadataTransform(ReadonlyConfig.fromMap(config), catalogTable);
+        transform.initRowContainerGenerator();
+
+        Column[] columns = transform.getOutputColumns();
+        Assertions.assertEquals("source_schema", columns[0].getName());
+        Assertions.assertEquals("source_collection", columns[1].getName());
+        Assertions.assertEquals("source_namespace", columns[2].getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, columns[0].getDataType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, columns[1].getDataType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, columns[2].getDataType());
+
+        SeaTunnelRow outputRow = transform.map(inputRow);
+        Assertions.assertEquals(values.length + 3, outputRow.getArity());
+        Assertions.assertEquals("public", outputRow.getField(5));
+        Assertions.assertEquals("orders", outputRow.getField(6));
+        Assertions.assertEquals("inventory.orders", outputRow.getField(7));
     }
 
     private static Map<String, Object> metadataFieldsConfig(String metadataKey, String outputName) {
