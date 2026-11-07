@@ -30,6 +30,15 @@
     <artifactId>connector-cdc-vitess</artifactId>
     <name>SeaTunnel : Connectors V2 : CDC : Vitess</name>
 
+    <properties>
+        <!--
+            Debezium version shipped by this connector. Owned here so it can move independently of
+            the other CDC connectors; VitessDebeziumAdapter reports the same value at runtime and
+            VitessDebeziumAdapterTest fails the build if the two ever drift apart.
+        -->
+        <debezium.version>1.9.8.Final</debezium.version>
+    </properties>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -75,6 +84,24 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-base</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <!--
+            Debezium runtime owned by this connector. connector-cdc-base declares these as provided,
+            so the copies packaged into connector-cdc-vitess are the ones this connector runs on, at
+            the ${debezium.version} declared above.
+        -->
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-embedded</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.luben</groupId>
+            <artifactId>zstd-jni</artifactId>
         </dependency>
 
         <dependency>

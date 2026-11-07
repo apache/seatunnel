@@ -44,53 +44,36 @@
                 <artifactId>seatunnel-format-compatible-debezium-json</artifactId>
                 <version>${project.version}</version>
             </dependency>
-            <!-- Debezium dependencies -->
-            <dependency>
-                <groupId>io.debezium</groupId>
-                <artifactId>debezium-api</artifactId>
-                <version>${debezium.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.debezium</groupId>
-                <artifactId>debezium-embedded</artifactId>
-                <version>${debezium.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.kafka</groupId>
-                        <artifactId>kafka-log4j-appender</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.glassfish.jersey.core</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <!--The lower version is no longer compatible with Apple M1-->
-                        <groupId>com.github.luben</groupId>
-                        <artifactId>zstd-jni</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-            <dependency>
-                <groupId>com.github.luben</groupId>
-                <artifactId>zstd-jni</artifactId>
-                <version>1.5.5-5</version>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 
     <dependencies>
-        <!-- Debezium dependencies -->
+        <!--
+            Debezium is compiled against but never shipped by this module.
+
+            connector-cdc-base is loaded into the class loader of *every* CDC connector (see
+            AbstractPluginDiscovery#filterPluginJar), so any Debezium artifact packaged here would
+            become a single project-wide Debezium version that no connector could override. Keeping
+            these dependencies provided keeps stock Debezium artifacts out of the shaded
+            connector-cdc-base jar and forces each connector to declare the Debezium version it
+            ships. The base jar intentionally still contains its five patched io.debezium classes:
+            four replace classes from debezium-core, while DefaultHeartbeatConnectionProvider is a
+            SeaTunnel-only implementation.
+        -->
         <dependency>
             <groupId>io.debezium</groupId>
             <artifactId>debezium-api</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>io.debezium</groupId>
             <artifactId>debezium-embedded</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.github.luben</groupId>
             <artifactId>zstd-jni</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
