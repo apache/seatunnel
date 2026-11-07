@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogEnum;
 
+import org.apache.paimon.rest.RESTCatalogOptions;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -32,7 +34,8 @@ public class PaimonBaseOptions {
             Options.key("warehouse")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("The warehouse path of paimon");
+                    .withDescription(
+                            "The warehouse path of paimon, or warehouse name for REST catalogs");
 
     public static final Option<PaimonCatalogEnum> CATALOG_TYPE =
             Options.key("catalog_type")
@@ -44,7 +47,43 @@ public class PaimonBaseOptions {
             Options.key("catalog_uri")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("The uri of paimon with hive catalog");
+                    .withDescription("The uri of paimon with Hive or REST catalog");
+
+    public static final Option<String> TOKEN_PROVIDER =
+            Options.key(RESTCatalogOptions.TOKEN_PROVIDER.key())
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("REST catalog authentication provider: bear or dlf");
+
+    public static final Option<String> TOKEN =
+            Options.key(RESTCatalogOptions.TOKEN.key())
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("REST catalog bearer token");
+
+    public static final Option<String> DLF_ACCESS_KEY_ID =
+            Options.key(RESTCatalogOptions.DLF_ACCESS_KEY_ID.key())
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("DLF access key ID");
+
+    public static final Option<String> DLF_ACCESS_KEY_SECRET =
+            Options.key(RESTCatalogOptions.DLF_ACCESS_KEY_SECRET.key())
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("DLF access key secret");
+
+    public static final Option<String> DLF_SECURITY_TOKEN =
+            Options.key(RESTCatalogOptions.DLF_SECURITY_TOKEN.key())
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Optional DLF temporary security token");
+
+    public static final Option<String> DLF_REGION =
+            Options.key(RESTCatalogOptions.DLF_REGION.key())
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("DLF region; inferred from catalog_uri when omitted");
 
     public static final Option<String> CATALOG_NAME =
             Options.key("catalog_name")

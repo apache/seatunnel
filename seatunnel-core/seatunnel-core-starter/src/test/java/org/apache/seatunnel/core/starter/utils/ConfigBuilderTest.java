@@ -170,6 +170,42 @@ public class ConfigBuilderTest {
     }
 
     @Test
+    public void testPaimonRestCredentialsAreMaskedWithoutChangingEncryptionKeys() {
+        Map<String, Object> connector = new LinkedHashMap<>();
+        connector.put("token", "test-bearer");
+        connector.put("token.provider", "bear");
+        connector.put("dlf.access-key-id", "test-id");
+        connector.put("dlf.access-key-secret", "test-secret");
+        connector.put("dlf.security-token", "test-session");
+        Map<String, Object> dlf = new LinkedHashMap<>();
+        dlf.put("access-key-id", "nested-id");
+        dlf.put("access-key-secret", "nested-secret");
+        dlf.put("security-token", "nested-session");
+        dlf.put("region", "cn-hangzhou");
+        connector.put("dlf", dlf);
+        Map<String, Object> masked =
+                ConfigBuilder.configDesensitization(
+                        connector, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        for (String key :
+                Arrays.asList(
+                        "token",
+                        "dlf.access-key-id",
+                        "dlf.access-key-secret",
+                        "dlf.security-token")) {
+            Assertions.assertEquals("******", masked.get(key));
+        }
+        Assertions.assertEquals("bear", masked.get("token.provider"));
+        Map<?, ?> maskedDlf = (Map<?, ?>) masked.get("dlf");
+        for (String key : Arrays.asList("access-key-id", "access-key-secret", "security-token")) {
+            Assertions.assertEquals("******", maskedDlf.get(key));
+        }
+        Assertions.assertEquals("cn-hangzhou", maskedDlf.get("region"));
+        Assertions.assertEquals("test-secret", connector.get("dlf.access-key-secret"));
+        Assertions.assertFalse(
+                ConfigShadeUtils.getSensitiveOptions(null).contains("dlf.access-key-secret"));
+    }
+
+    @Test
     public void testConfigDesensitizationMasksS3CredentialOptions() {
         Map<String, Object> accessKeyConfig = new LinkedHashMap<>();
         accessKeyConfig.put("key", "access-key");
