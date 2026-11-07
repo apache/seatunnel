@@ -269,37 +269,43 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 builder.dataType(BasicType.DOUBLE_TYPE);
                 break;
             case MYSQL_DECIMAL:
-                Preconditions.checkArgument(typeDefine.getPrecision() > 0);
-
-                DecimalType decimalType;
-                if (typeDefine.getPrecision() > DEFAULT_PRECISION) {
-                    log.warn("{} will probably cause value overflow.", MYSQL_DECIMAL);
-                    decimalType = new DecimalType(DEFAULT_PRECISION, DEFAULT_SCALE);
-                } else {
-                    decimalType =
-                            new DecimalType(
-                                    typeDefine.getPrecision().intValue(),
-                                    typeDefine.getScale() == null
-                                            ? 0
-                                            : typeDefine.getScale().intValue());
-                }
-                builder.dataType(decimalType);
-                builder.columnLength(Long.valueOf(decimalType.getPrecision()));
-                builder.scale(decimalType.getScale());
-                break;
             case MYSQL_DECIMAL_UNSIGNED:
                 Preconditions.checkArgument(typeDefine.getPrecision() > 0);
 
-                log.warn("{} will probably cause value overflow.", MYSQL_DECIMAL_UNSIGNED);
-                DecimalType decimalUnsignedType =
-                        new DecimalType(
-                                typeDefine.getPrecision().intValue() + 1,
-                                typeDefine.getScale() == null
-                                        ? 0
-                                        : typeDefine.getScale().intValue());
-                builder.dataType(decimalUnsignedType);
-                builder.columnLength(Long.valueOf(decimalUnsignedType.getPrecision()));
-                builder.scale(decimalUnsignedType.getScale());
+                int precision = typeDefine.getPrecision().intValue();
+                int scale = typeDefine.getScale() == null ? 0 : typeDefine.getScale().intValue();
+                if (precision > MAX_PRECISION) {
+                    int adjustedScale =
+                            Math.min(MAX_SCALE, Math.max(0, scale - (precision - MAX_PRECISION)));
+                    log.warn(
+                            "The decimal column {} type decimal({},{}) is out of range, "
+                                    + "which exceeds the maximum precision of {}, "
+                                    + "it will be converted to decimal({},{})",
+                            typeDefine.getName(),
+                            precision,
+                            scale,
+                            MAX_PRECISION,
+                            MAX_PRECISION,
+                            adjustedScale);
+                    scale = adjustedScale;
+                    precision = MAX_PRECISION;
+                } else if (scale > MAX_SCALE) {
+                    log.warn(
+                            "The decimal column {} type decimal({},{}) is out of range, "
+                                    + "which exceeds the maximum scale of {}, "
+                                    + "it will be converted to decimal({},{})",
+                            typeDefine.getName(),
+                            precision,
+                            scale,
+                            MAX_SCALE,
+                            precision,
+                            MAX_SCALE);
+                    scale = MAX_SCALE;
+                }
+                DecimalType decimalType = new DecimalType(precision, scale);
+                builder.dataType(decimalType);
+                builder.columnLength(Long.valueOf(decimalType.getPrecision()));
+                builder.scale(decimalType.getScale());
                 break;
             case MYSQL_ENUM:
             case MYSQL_SET:

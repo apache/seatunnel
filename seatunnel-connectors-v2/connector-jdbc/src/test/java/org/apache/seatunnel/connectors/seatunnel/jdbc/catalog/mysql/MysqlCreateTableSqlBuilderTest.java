@@ -27,7 +27,9 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -180,6 +182,64 @@ public class MysqlCreateTableSqlBuilderTest {
         Assertions.assertTrue(createTableSql.contains("ENGINE = InnoDB"));
         Assertions.assertTrue(createTableSql.contains("DEFAULT CHARSET = utf8mb4"));
         Assertions.assertTrue(createTableSql.contains("COLLATE = utf8mb4_unicode_ci"));
+    }
+
+    @Test
+    public void testBuildWideDecimalDdlFromConvertedSourceColumn() {
+        BasicTypeDefine<Object> sourceType =
+                BasicTypeDefine.builder()
+                        .name("amount")
+                        .columnType("decimal(65,0)")
+                        .dataType("decimal")
+                        .precision(65L)
+                        .scale(0)
+                        .build();
+        BasicTypeDefine<Object> ratioSourceType =
+                BasicTypeDefine.builder()
+                        .name("ratio")
+                        .columnType("decimal(50,30)")
+                        .dataType("decimal")
+                        .precision(50L)
+                        .scale(30)
+                        .build();
+        Column convertedColumn = MySqlTypeConverter.DEFAULT_INSTANCE.convert(sourceType);
+        Column convertedRatioColumn = MySqlTypeConverter.DEFAULT_INSTANCE.convert(ratioSourceType);
+        Column sinkColumn =
+                PhysicalColumn.of(
+                        convertedColumn.getName(),
+                        convertedColumn.getDataType(),
+                        convertedColumn.getColumnLength(),
+                        true,
+                        null,
+                        null);
+        Column sinkRatioColumn =
+                PhysicalColumn.of(
+                        convertedRatioColumn.getName(),
+                        convertedRatioColumn.getDataType(),
+                        convertedRatioColumn.getColumnLength(),
+                        true,
+                        null,
+                        null);
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", "test_db", "test_table"),
+                        TableSchema.builder().column(sinkColumn).column(sinkRatioColumn).build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        String createTableSql =
+                MysqlCreateTableSqlBuilder.builder(
+                                TablePath.of("test_db", "test_table"),
+                                catalogTable,
+                                MySqlTypeConverter.DEFAULT_INSTANCE,
+                                false)
+                        .build(DatabaseIdentifier.MYSQL);
+
+        Assertions.assertTrue(createTableSql.contains("`amount` DECIMAL(65,0) NULL"));
+        Assertions.assertTrue(createTableSql.contains("`ratio` DECIMAL(50,30) NULL"));
+        Assertions.assertEquals(new DecimalType(65, 0), sinkColumn.getDataType());
+        Assertions.assertEquals(new DecimalType(50, 30), sinkRatioColumn.getDataType());
     }
 
     @Test
