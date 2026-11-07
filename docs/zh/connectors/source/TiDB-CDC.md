@@ -43,6 +43,12 @@ TiDB CDC 连接器通过 `tikv-client-java` 客户端与 TiKV 的 Placement Driv
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
 
+## 聚簇主键
+
+对于 TiDB 非整数或组合聚簇主键，连接器在快照读取和流式读取时从完整记录键补齐行数据中缺失的主键值。行数据中已有的值会保留，包括新排序规则下的原始字符串。整数主键和非聚簇主键沿用原有的解码行为。
+
+连接器在创建数据源时使用现有 JDBC 连接配置读取一次表的 `TIDB_PK_TYPE` 元数据，无需增加配置。TiDB 5.0 之前的版本不支持 common handle，继续使用整数句柄路径。
+
 ## 数据类型映射
 
 | MySQL 数据类型                                                                                     | SeaTunnel 数据类型 |

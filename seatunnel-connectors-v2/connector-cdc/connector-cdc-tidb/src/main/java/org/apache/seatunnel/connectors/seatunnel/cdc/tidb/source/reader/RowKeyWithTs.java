@@ -19,56 +19,72 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.reader;
 
 import org.tikv.common.key.RowKey;
 import org.tikv.kvproto.Cdcpb;
-
-import lombok.Data;
+import org.tikv.shade.com.google.protobuf.ByteString;
 
 import java.util.Objects;
 
-@Data
+/**
+ * Identifies transaction rows by timestamp and their complete immutable TiKV record keys. Comparing
+ * an integer prefix would collapse different composite handles before deserialization.
+ */
 public class RowKeyWithTs implements Comparable<RowKeyWithTs> {
     private final long timestamp;
-    private final RowKey rowKey;
+    private final ByteString recordKey;
 
-    private RowKeyWithTs(final long timestamp, final RowKey rowKey) {
+    private RowKeyWithTs(long timestamp, ByteString recordKey) {
         this.timestamp = timestamp;
-        this.rowKey = rowKey;
+        this.recordKey = recordKey;
     }
 
-    private RowKeyWithTs(final long timestamp, final byte[] key) {
-        this(timestamp, RowKey.decode(key));
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    /**
+     * Preserves the integer-handle accessor for existing callers of this public class. Transaction
+     * buffering deliberately compares opaque keys and never calls this legacy accessor.
+     */
+    public RowKey getRowKey() {
+        return RowKey.decode(recordKey.toByteArray());
     }
 
     @Override
-    public int compareTo(final RowKeyWithTs that) {
-        int res = Long.compare(this.timestamp, that.timestamp);
-        if (res == 0) {
-            res = Long.compare(this.rowKey.getTableId(), that.rowKey.getTableId());
+    public int compareTo(RowKeyWithTs that) {
+        int result = Long.compare(timestamp, that.timestamp);
+        if (result != 0) {
+            return result;
         }
-        if (res == 0) {
-            res = Long.compare(this.rowKey.getHandle(), that.rowKey.getHandle());
+        // Prefix-only integer decoding truncates composite keys and loses distinct transaction
+        // rows.
+        int size = Math.min(recordKey.size(), that.recordKey.size());
+        for (int i = 0; i < size; i++) {
+            result = Integer.compare(recordKey.byteAt(i) & 0xff, that.recordKey.byteAt(i) & 0xff);
+            if (result != 0) {
+                return result;
+            }
         }
-        return res;
+        return Integer.compare(recordKey.size(), that.recordKey.size());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(this.timestamp, this.rowKey.getTableId(), this.rowKey.getHandle());
+        return Objects.hash(timestamp, recordKey);
     }
 
     @Override
-    public boolean equals(final Object thatObj) {
-        if (thatObj instanceof RowKeyWithTs) {
-            final RowKeyWithTs that = (RowKeyWithTs) thatObj;
-            return this.timestamp == that.timestamp && this.rowKey.equals(that.rowKey);
+    public boolean equals(Object object) {
+        if (!(object instanceof RowKeyWithTs)) {
+            return false;
         }
-        return false;
+        RowKeyWithTs that = (RowKeyWithTs) object;
+        return timestamp == that.timestamp && recordKey.equals(that.recordKey);
     }
 
-    static RowKeyWithTs ofStart(final Cdcpb.Event.Row row) {
-        return new RowKeyWithTs(row.getStartTs(), row.getKey().toByteArray());
+    static RowKeyWithTs ofStart(Cdcpb.Event.Row row) {
+        return new RowKeyWithTs(row.getStartTs(), row.getKey());
     }
 
-    static RowKeyWithTs ofCommit(final Cdcpb.Event.Row row) {
-        return new RowKeyWithTs(row.getCommitTs(), row.getKey().toByteArray());
+    static RowKeyWithTs ofCommit(Cdcpb.Event.Row row) {
+        return new RowKeyWithTs(row.getCommitTs(), row.getKey());
     }
 }
