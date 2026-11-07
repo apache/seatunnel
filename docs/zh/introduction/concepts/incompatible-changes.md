@@ -11,6 +11,13 @@
   - **影响**：仅影响默认语言环境为土耳其语或阿塞拜疆语的工作节点。在这些节点上，`UPPERCASE` 和 `LOWERCASE` 现在分别生成 `USER_ID` 和 `user_id`，而此前生成 `USER_İD` 和 `user_ıd`；未设置 `field_ide` 或设置为 `ORIGINAL` 的 Sink 现在可以正常启动。其他默认语言环境的工作节点不受影响。
   - **迁移指南**：无需修改配置。在这类节点上，如果 Sink 因 `field_ide` 创建或写入了名称中含有 `İ` 或 `ı` 的表或列，请在升级前将其重命名为 ASCII 拼写，否则 Sink 会访问不同的名称。
 
+### Databend Source：DECIMAL 列按 DECIMAL 读取，而不再是 STRING
+
+- **行为变更：Databend 的 `DECIMAL(p, s)` 列在作业中的类型为 `DECIMAL(p, s)`**
+  - **描述**：Databend Source 的所有列类型都来自 `DatabendCatalog`。Catalog 此前用驱动上报的类型名（例如 `decimal(10, 2)`）与不带参数的 `DECIMAL` 比较，因此所有 decimal 列都回退为 `STRING`，其值按文本读取。现在该列会按其自身的 precision 和 scale 映射为 `DECIMAL`。在默认语言环境为土耳其语或阿塞拜疆语的工作节点上，`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`TIMESTAMP` 和 `BINARY` 列此前也会回退为 `STRING`，现在同样得到对应的映射类型。
+  - **影响**：读取 Databend `DECIMAL` 列的作业现在输出 decimal 值。SeaTunnel 通过 `schema_save_mode` 创建的 Sink 表会得到 decimal 列而不是字符串列，原本期望字符串的 Transform 或 Sink 现在会收到 decimal。
+  - **迁移指南**：无需修改配置。如果下游步骤需要文本，请显式转换该列，例如在 SQL Transform 中使用 `CAST(price AS STRING)`。早期运行中已创建为字符串列的 Sink 表会保留原有类型。
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，
@@ -43,6 +50,44 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：可空的 MAP 列在该行没有 Map 时现在返回 `null`，此前返回空 Map。确实存放空 Map 的行仍然返回空 Map，因此“不存在”和“为空”不再是同一个值。可空的 ROW 列现在可以正常读取，而不会使整个分片失败。
   - **迁移指南**：此前把空 Map 当作“无值”处理的下游无需改动。如果下游假定每行都有非空的 Map，则需要处理该列为 `null` 的情况。
 
+### ORC sink：无法放入目标列的 decimal 现在会失败，而不再被写成 NULL
+
+- **行为变更：超出范围的 `DECIMAL` 会导致写入失败，而不再静默变成 `NULL`**
+  - **受影响组件**：`seatunnel-connectors-v2`，`connector-file-base`，`OrcWriteStrategy`
+  - **说明**：ORC sink 此前通过 `decimalColumnVector.set(row, HiveDecimal.create(value))` 转换
+    `BigDecimal`。这两步都是返回 `null` 而不是报错：当精度超过 ORC 的最大精度 38 时，
+    `HiveDecimal.create` 返回 `null`；而 `DecimalColumnVector.set` 内部会调用
+    `enforcePrecisionScale`，当值无法放入列实际声明的 precision/scale 时同样返回 `null`。
+    两者的结果都没有被检查，因此该行会被写入，而值被替换为 `NULL`，既没有异常，也没有告警或日志。
+    现在该转换会失败，并在消息中给出该值与目标列。
+  - **影响**：此前静默丢弃数据的作业，现在会在出问题的那一行失败。可达的场景是值只是比其声明的列更宽，
+    这会出现在 JDBC 精度偏窄或由系统推断、按采样推断模式、无模式来源，或 SQL transform 对 decimal
+    做乘法等情况下。范围内的值不受影响，写入结果与此前完全一致。
+  - **与 Parquet sink 保持一致**：同一模块中的 Parquet sink 本来就会对同样的溢出明确报错
+    （`AvroTypeException: Cannot encode decimal with precision 39 as max precision 38`）。
+    两个 sink 不再对“丢数据是否可接受”给出相互矛盾的行为。
+  - **未改变的部分**：声明的 precision 超过 38 在构建模式时本来就会被拒绝，因此本条目针对的是“值”，
+    而不是“声明”。不涉及任何配置项、模式或文件格式的变化。
+  - **仍然舍入而不是失败**：`enforcePrecisionScale` 会对超出声明 scale 的小数位做舍入，而不是拒绝，
+    因此写入 `decimal(10,2)` 列的 `1.239` 仍会存成 `1.24`（HALF_UP），与本次变更之前一致。
+    只有整数部分放不下声明的 precision，或值超过 ORC 的最大精度 38，才会失败。
+  - **迁移指南**：请扩大声明的 precision 或 scale 以容纳该值，或在数据进入 sink 之前先做舍入。
+    升级前如需排查受影响的数据，可将已写入的 ORC 数据与来源对比，查找非预期的 `NULL` decimal。
+
+### Doris Sink：`TIMESTAMP_TZ` 按 Doris 会话时区转换后写入
+
+- **行为变更：Doris Sink 将 `TIMESTAMP_TZ` 转换为会话时区下的 wall-clock `DATETIME` 后存储**
+  - **影响范围**：`seatunnel-connectors-v2/connector-doris`
+  - **变更说明**：`TIMESTAMP_TZ` 会先转换到 Doris 的目标时区，再以 `DATETIME` 存储。可通过 `sink.datetime-timezone` 显式指定目标时区；未配置时，SeaTunnel 使用 JVM 默认时区。例如，配置 `sink.datetime-timezone = "Asia/Shanghai"` 时，`2024-01-01T03:00:00+09:00` 将存储为 `2024-01-01 02:00:00`。
+  - **影响**：在此变更之前，Doris Sink 遵循 v3.0.0 的写入约定，仅丢弃时区偏移并保留原 wall-clock 数字。升级后，当 JVM 默认时区与 Doris 会话时区不同，或显式配置了 `sink.datetime-timezone` 时，同一 `TIMESTAMP_TZ` 输入写入的 `DATETIME` 可能不同。未配置该选项且表中有 `TIMESTAMP_TZ` 列时，writer 会输出警告日志。
+  - **迁移指南**：将 `sink.datetime-timezone` 设置为 Doris 会话时区。若 JVM 默认时区与 Doris 会话时区曾不一致，请核对已存储数据。(#11524)
+
+### Socket 连接器：连接默认使用 10 秒连接超时
+
+- **行为变更：`connect_timeout_ms` 默认为 10000，不再把等待交给操作系统**
+  - **描述**：Socket source 与 sink 此前建立 TCP 连接时没有应用层超时（source 使用 `connect(address, 0)`，sink 使用 `new Socket(host, port)`）。当对端不可达、停止响应或静默丢弃 SYN 时，连接器线程会阻塞到操作系统 TCP 超时为止。现在两端的连接等待默认限制为 10 秒。
+  - **影响**：若目标主机建立连接所需时间超过 10 秒，此前能够成功建立连接、现在会在启动或重连时失败。这会影响未设置该选项的既有配置。source 的阻塞读取行为不变：`read_timeout_ms` 默认为 `0`，空闲的数据流不会被判定为失败。
+  - **迁移指南**：在 source 或 sink 上设置 `connect_timeout_ms = 0` 可恢复此前由操作系统决定的行为；若对端确实较慢，可将该值调大至 10000 以上。`read_timeout_ms` 仅适用于 source，对 sink 无效（sink 不从 socket 读取数据）。
 
 ### Zeta：管道故障转移恢复后运行时计数器从零重新计数
 
@@ -95,6 +140,13 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
 ### Markdown File Source 的 `child_ids` 数组
 
 Markdown File Source 现在将 `child_ids` 声明为 `ARRAY<STRING>`，每行输出 `String[]`。此前该字段声明为 `STRING`，父元素输出逗号分隔的 ID，叶子元素输出 `null`。请将下游 schema 和消费逻辑改为读取数组；叶子元素现在输出空数组。元素 ID、类型、页码和位置索引保持原有格式。
+
+### FTP 连接器：控制连接应答现在受 60 秒超时约束
+
+- **行为变更：FTP source 和 sink 在等待控制连接应答超过 60 秒后不再继续等待**
+  - **描述**：FTP 文件系统创建客户端后直接调用 `connect(host, port)`，没有设置读超时。底层客户端的读超时默认值是 `0`，即无限等待。因此当服务端接受了 TCP 连接却永不回复时——例如服务端卡死，或连接被防火墙、负载均衡接受后静默丢包——调用线程会永久阻塞。新增的 `control_timeout` 选项约束控制连接上的每一次应答读取，包括 greeting、登录交互以及传输前各条命令的应答，默认 60000 毫秒，source 和 sink 均生效。
+  - **影响**：对于可以连通但不回复控制通道的服务端，作业现在会以超时失败，而不是挂死。此前会一直停留在 `RUNNING`、既无进展也无错误的作业，现在会抛出底层客户端给出的 `SocketTimeoutException`，该异常指明超时的那次读取，但**不包含** FTP 主机与端口。60 秒内能应答的连接不受影响。该选项只约束控制通道的应答：TCP 连接建立本身不受它约束，数据连接也不受它约束，因此初始 SYN 被静默丢弃的主机、以及传输开始后停滞的数据连接，都不会因本选项而有界。
+  - **升级指南**：无需操作。若某个服务端确实需要超过 60 秒才能应答某条控制命令（例如在慢速链路上），调大连接器上的 `control_timeout`。将其设为 `0` 可恢复此前无限等待的行为。注意该上限是按单次应答计算的，因此 sink 上传大文件时，如果服务端会在接收后做后处理，最后那条 `226 Transfer complete` 可能超过 60 秒，这类服务端需要调大 `control_timeout`。
 
 ### 运行环境要求
 
@@ -221,6 +273,27 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
   `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
 
+### JsonPath 转换
+
+- 已识别的目标类型转换失败现在遵循现有的列级和行级错误策略。列级 `SKIP` 产生 null
+  字段；列级 `SKIP_ROW` 或未被列级策略覆盖的行级 `SKIP` 丢弃整行。显式列级 `FAIL`
+  仍优先，默认策略仍为 `FAIL`。
+- 在 `FAIL` 策略下，已识别的转换错误现在以 `ErrorDataTransformException` 和
+  `JSONPATH_ERROR_CODE-07` 报告，不再直接报告原始转换器异常或其 `COMMON-*` 错误码。
+  这些诊断及跳过日志会有意省略源记录、提取值和原始异常原因。请更新依赖旧异常文本或错误码
+  的告警和运维手册。不支持的转换和意外失败保留现有行为；本变更不增加
+  `ROUTE_TO_TABLE` 支持，也不改变检查点格式。
+- 路径读取错误的处理策略不变。`ErrorDataTransformException` 现在附加经过净化的
+  `JsonPathException` cause，而不是原始异常，因为原始消息或堆栈可能包含源数据或私有路径字面量；
+  此前该异常没有 cause。诊断仅保留安全的字段标识符和原始异常类型，不包含源 JSON、配置路径或
+  原始异常文本。cause 链仍存在，但不保留原始 cause 的子类型和堆栈细节。请更新原先假设不存在
+  嵌套 cause 或依赖旧异常文本的堆栈解析器和告警。
+
+### Replace 转换的模式刷新
+
+- **行为变更**：模式变更或检查点恢复后，Replace 会根据刷新的输入模式重新解析 `replace_fields`。此前，列位置变化后，缓存的位置可能导致替换无关列或漏掉配置的字段。
+- **影响和迁移**：如果配置的字段已被删除或重命名，模式刷新现在会报出现有的字段不存在错误，而不是使用过期位置继续处理数据行。重新启动作业之前，请更新 `replace_fields`，使其与源表模式一致。此更改不涉及选项、默认值、API 或检查点格式变更。
+
 ### SQL 和 Calcite 向量运算
 
 - **行为修正**：`VECTOR_NORM`、`INNER_PRODUCT`、`COSINE_DISTANCE`、`L1_DISTANCE`、
@@ -286,6 +359,22 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **影响**：若作业此前注册了名为 `AES_ENCRYPT` 或 `AES_DECRYPT` 的自定义 `ZetaUDF`（此前缺少内置函数时的变通做法），升级后将静默改用此内置实现而非 UDF。若该 UDF 使用了不同的密钥派生、IV 处理或输出编码，则已由 UDF 写入的密文可能无法解密（或在 CBC 填充校验以约 1/256 概率碰巧通过时解出垃圾）。
   - **迁移指南**：重命名已有 UDF，或迁移到内置函数。如需与 `FieldEncrypt` 的 `AesCbcEncryptor` 保持线兼容，请使用带 `base64:` 前缀的密钥（裸密钥会按口令经 SHA-256 派生，**不**与 `FieldEncrypt` 互通）。完整契约见 [SQL 函数](../../transforms/sql-functions.md)。
 
+### Zeta SQL Transform：内置 UNIX_TIMESTAMP
+
+- **行为变更：UNIX_TIMESTAMP 现为内置函数**
+  - **影响范围**：`seatunnel-transforms-v2`（Zeta SQL transform）。
+  - **变更说明**：`UNIX_TIMESTAMP()` / `UNIX_TIMESTAMP(string[, pattern])` / `UNIX_TIMESTAMP(dateTime)` 现为内置 Zeta SQL 函数，分发顺序在用户注册的 `ZetaUDF` 之前，输出类型解析为 `BIGINT`（`BasicType.LONG_TYPE`）。
+  - **影响**：若作业此前注册了名为 `UNIX_TIMESTAMP` 的自定义 `ZetaUDF`（此前缺少内置函数时的变通做法），升级后将静默改用此内置实现而非 UDF。声明的输出类型现在被强制为 `BIGINT`，无视该 UDF 的 `resultType` 返回值，若 UDF 返回不同类型，可能破坏下游 sink 的 schema。
+  - **迁移指南**：重命名已有 UDF，或迁移到内置函数。完整契约见 [SQL 函数](../../transforms/sql-functions.md)。
+
+### Zeta SQL Transform：FROM_UNIXTIME 与 UNIX_TIMESTAMP 文本 pattern 使用英语 locale
+
+- **行为变更：文本 pattern 字母现在按英语解释，不受 worker JVM locale 影响**
+  - **影响范围**：`seatunnel-transforms-v2`（Zeta SQL transform）。
+  - **变更说明**：`getFormatter` 是 `FROM_UNIXTIME`（格式化路径）和 `UNIX_TIMESTAMP`（解析路径）共用的 `DateTimeFormatter` 工厂，现在向 `DateTimeFormatter.ofPattern` 传入 `Locale.ENGLISH`。此前捕获的是 JVM 默认 FORMAT locale，导致文本 pattern 字母（如 `MMM` 月份名、`EEE` 星期、`a` 上下午）按 worker 语言渲染或解析。
+  - **影响**：在非英语 worker 上（如 `de-DE`），`FROM_UNIXTIME(epoch, 'dd MMM yyyy')` 此前输出 `23 Okt 2026`，现在输出 `23 Oct 2026`；`UNIX_TIMESTAMP('23 Oct 2026', 'dd MMM yyyy')` 此前返回 `NULL`（解析失败），现在返回正确的 epoch 值。英语 locale 的 worker 不受影响。此变更与 `DAYNAME` 和 `MONTHNAME` 一致，后者已通过 `DateFormatSymbols.getInstance(Locale.ENGLISH)` 固定英语。
+  - **迁移指南**：无需操作即可保证正确性——文本 pattern 按英语解释始终是预期行为。若下游消费方依赖 `FROM_UNIXTIME` 输出中的本地化月份或星期名称，需更新为预期英语名称。完整 pattern 参考见 [SQL 函数](../../transforms/sql-functions.md)。
+
 ### RabbitMQ Connector
 
 - **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
@@ -341,13 +430,6 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **变更说明**：这些接口现在会拒绝非整数或不大于 0 的 `page` 与 `rows`，并拒绝起始偏移量会超出 32 位整数范围的分页请求。此前 `rows=0` 会被接受并返回空页，负数 `rows` 会引发内部错误，而足够大的 `page` 与 `rows` 组合可能溢出为一个较小的正偏移量，从而静默返回错误的页。
   - **影响**：依赖 `rows=0` 返回空页的请求现在会收到 `400`，错误信息中会指明具体参数。传入合法正整数的调用方不受影响。响应结构、`{"data": [...], "total": n}` 包装格式，以及起始位置恰好等于 `total` 时仍返回空页的行为，均保持不变。
 
-### MySQL CDC Schema-Change 解析
-
-- **行为变更：向上传播 DDL 解析监听器错误**
-  - **影响范围**：`connector-cdc-mysql`
-  - **变更说明**：处理已解析 DDL 时发生的错误不再被吞掉并当作无操作处理，而是作为解析失败向上抛出，避免 CDC 作业静默跳过 schema 变更。
-  - **影响**：某些过去在内部解析器或监听器出错后被忽略的 DDL，升级后可能导致作业失败。请检查源端 DDL，修改为连接器支持的语法后再重启作业。本变更不修改 checkpoint 或 savepoint 格式。
-
 ### MySQL-CDC：可空唯一键列中的 NULL 按 NULL 输出
 
 - **行为变更：对于没有主键的表，MySQL-CDC 对可空唯一键列输出 NULL，而不是类型默认值**
@@ -355,6 +437,93 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **描述**：对于没有主键的表，MySQL DDL 解析器（Debezium 1.9.8）会把第一个唯一键提升为主键，并把其中的列标记为 NOT NULL，尽管数据库允许这些列为 NULL。这些列中的 NULL 值在快照阶段和 binlog 阶段会被输出为类型默认值（例如 `0`、`''` 或纪元时间），在 binlog 中出现 `ALTER TABLE ... ADD UNIQUE KEY` 或 `CREATE UNIQUE INDEX` 等 DDL 之后也是如此。现在这些列保持声明时的可空性，NULL 按 NULL 输出。真正的主键列不受影响。这一变更依赖于可空列不再被用作快照分片列（见“CDC：可空列不再用作快照分片列”）：否则在 `exactly_once = true` 时，分片列中的 NULL 会导致分片范围检查失败。
   - **影响**：Sink 现在会在原来收到类型默认值的位置收到 NULL。如果 Sink 列声明为 `NOT NULL`，或 Sink 的 `primary_keys` 包含这样的列，这些行可能会被拒绝。
   - **迁移指南**：将受影响的 Sink 列改为可空，并且不要使用可空列作为 Sink 主键。如果作业从一个已经保存了此类表结构的 checkpoint 恢复（该表在 binlog 中出现过 DDL 之后保存），该表会保持旧行为，直到作业不使用该 checkpoint 重新启动。
+
+### 连接器变更
+
+- **破坏性变更：Doris Source 选项 `doris.request.retriesdoris.deserialize.queue.size` 更名为 `doris.deserialize.queue.size`**
+  - **影响范围**：`seatunnel-connectors-v2/connector-doris`（`DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE`）
+  - **变更说明**：异步 Arrow 反序列化队列大小选项的 key 自 #7895 引入时就带有笔误：key 被意外拼接成了 `doris.request.retriesdoris.deserialize.queue.size`，把前一个选项的名称（`doris.request.retries`）粘到了本意使用的 key（`doris.deserialize.queue.size`）上。现在该选项 key 修正为 `doris.deserialize.queue.size`。默认值（`64`）和选项行为均无变化。
+  - **影响**：显式配置了旧的错误 key `doris.request.retriesdoris.deserialize.queue.size` 的作业将不再读取到该配置，连接器会回退为默认队列大小 `64`。旧 key 是拼接笔误，基本只能从文档复制得到，因此绝大多数用户不受影响。
+  - **迁移指南**：如果您曾显式调优过该选项，请把 source 配置中的 key 重命名为 `doris.deserialize.queue.size`。
+
+- **行为变更：HTTP Sink 写入失败现在会使任务失败，而不再被静默丢弃**
+  - **影响范围**：`seatunnel-connectors-v2/connector-http/connector-http-base`
+  - **变更说明**：此前 `HttpSinkWriter.doHttpRequest` 对非 200 的 HTTP 响应和任何请求异常（网络错误、超时、序列化错误）都只记录 `error` 日志后正常返回，导致失败的行/批次被静默丢弃，而作业继续运行、checkpoint 正常完成。现在这两种情况都会抛出 `HttpConnectorException`（`REQUEST_FAILED`），失败会传播到引擎并使任务/作业失败。
+  - **影响**：下游 HTTP 端点偶发返回非 200 或偶发不可达的作业，此前会带着静默丢数据继续运行；升级后会在第一次写入失败时大声失败。该连接器仍没有内置重试或死信机制，重新提交失败的作业可能重复投递失败前已成功的行——请确保接收端能够容忍重试/重启时的重复投递。
+  - **迁移指南**：无需更改配置。如果您的端点在正常业务中就会返回非 200 响应，请在 Sink 之前的环节处理这些响应，或在升级前引入外部重试机制。
+
+### 转换变更
+
+- **行为变更：每个 `table_transform` 条目都会在提交时校验**
+  - **影响范围**：所有支持 `table_transform` 的转换：`Copy`、`Calcite`、`DataValidator`、`DefineSinkType`、`DynamicCompile`、`FieldEncrypt`、`FieldMapper`、`Filter`、`FilterRowKind`、`JsonPath`、`Metadata`、`Python`、`RegexExtract`、`Replace`、`Sql`、`Split`、`TableMerge` 和 `TextChunk`。
+  - **变更说明**：此前缺少 `table_path` 或 `table_path` 为空的条目会被静默过滤掉，条目被忽略但作业仍会运行；条目也不会在提交时按其单表规则校验，问题要到处理数据时才暴露。现在提交作业前就会校验：每个条目都必须用非空的 `table_path` 选中目标表，并且是该转换的完整单表规则；转换级规则要么不配置，要么配置完整。
+  - **影响**：带残留条目的配置（例如 `table_transform = [{ field_rules = [...] }]` 缺少 `table_path`）以前可以提交，现在会在提交时报错 `Each 'table_transform' entry must select its table with a non-blank 'table_path'`；条目缺少必填选项时报错 `Invalid 'table_transform' entry for table [...]`。单表作业（没有 `table_transform`）不受影响。
+  - **迁移指南**：为每个条目补上 `table_path`，并按该转换的单表配置补全条目。不再使用的条目也可以直接删除，因为只配置 `table_transform` 的写法是合法的。
+- **[BREAKING]** Assert Sink：`column_rule` 里的 `sink_type` 现在会和实际列类型比较。此前会被忽略，所以声明不一致的作业会失败，不声明则仍不校验；升级时删掉该字段或改成实际类型。
+
+### 格式变更
+
+- **CSV Source 对缺失字段和已配置的 null 值应用默认值**：配置了 `schema.columns[].defaultValue` 时，
+  如果文件表头缺少该列，或字段值与 `null_format` 匹配，读取结果现在使用默认值而不是 null。
+  未配置默认值的作业保持不变；空字段仍为 null，除非它与 `null_format` 匹配。
+  如果下游逻辑原本依赖“配置了默认值但仍输出 null”的行为，升级前请移除 Source Schema 中的该默认值。
+  配置的默认值现在会在创建 CSV 读取器时转换为列类型。无法转换的默认值（例如 TIMESTAMP 列的
+  `CURRENT_TIMESTAMP`）现在会在创建读取器时导致作业失败，而不是被忽略，即使没有字段需要使用该默认值。
+  默认值必须是字面量，不能是 SQL 表达式。升级前请修正或移除无效的默认值。
+
+- **破坏性变更：JSON 数值字段的序列化改为按运行时实际类型处理**
+  - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`RowToJsonConverters`）--影响所有以 JSON 格式序列化行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Sink）。
+  - **变更说明**：以前，目录 Schema 中声明为数值类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE`、`DECIMAL`）的字段，序列化时会把运行时值强制转换为声明类型对应的 Java 类型（例如 `BIGINT` 直接 `(long) value`）。在多表作业（例如多表 CDC 作业写 JSON 到 RabbitMQ/Kafka）中，多张表共享同一份目录 Schema 但物理列类型不一致时，`String` 或 `BigDecimal` 运行时值会抛出原始 `ClassCastException` 并导致作业失败。现在数值字段按运行时实际类型序列化：任意数值包装类型（`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`、`BigInteger`、`BigDecimal`）输出为对应的 JSON 数字；可解析为数字的字符串会解析成 JSON 数字，无法解析的文本则输出为 JSON 字符串；声明为 `DECIMAL` 的字段遇到 `Float`/`Double` 运行时值时，通过 `BigDecimal.valueOf` 序列化以避免浮点表示误差。
+  - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
+
+- **行为变更：JSON 反序列化保留嵌套在数组中的 `DECIMAL` 精度**
+  - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`JsonDeserializationSchema`）--影响所有以 JSON 格式读取行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Source）。
+  - **变更说明**：判断是否需要把文档中的数字按 `BigDecimal` 解析时，此前不会发现声明在 `ARRAY` 中的 `DECIMAL`（例如 `ARRAY<DECIMAL>`、`ARRAY<ARRAY<DECIMAL>>` 或 `ARRAY<ROW<DECIMAL>>`），因为数组不是复合类型。其元素会先按 `double` 解析，随后才转换为 `DECIMAL`，因此会丢失 `double` 精度之外的各位数字，而同一 Schema 中的标量 `DECIMAL` 列却能保留。现在嵌套在数组中的 `DECIMAL` 与标量 `DECIMAL` 一样保留数值精度。选项、默认值和行结构均未变化。
+  - **影响**：声明为 `DECIMAL` 的数组元素不再被舍入到约 17 位有效数字。由于底层的 mapper 设置作用于整个文档，在声明了数组内 `DECIMAL` 的 Schema 中，赋给 `STRING` 字段的裸数字现在会保留全部数位（`3.14159265358979323846`，此前为 `3.141592653589793`）。作为文本赋给 `STRING` 字段的 JSON 对象或数组同理：容器会按十进制值重新生成文本，其中的浮点数可能保留更多位数或改用指数表示（`1e-10` 会变为 `1E-10`），而同一对象或数组内以引号包裹的数字仍保持原始文本。带引号的 JSON 字符串以及不含任何 `DECIMAL` 的 Schema 不受影响。 (#12871)
+  - **迁移指南**：如果下游环节会比较这类数值的文本，请按精确数位重新评估这些比较逻辑，或让来源为承载裸数字的 `STRING` 列提供带引号的 JSON 字符串。存放在 `STRING` 列中的 JSON 对象或数组也属于同一类：请先核对它们序列化后的文本（数位与指数写法）再依赖该文本，或让来源以带引号的 JSON 字符串提供这些值。`DECIMAL` 列无需修改配置即可保留声明的数值精度。
+
+### 引擎行为变更
+
+- **文件型 IMap 存储：启动时自动重映射 WAL 文件中的旧版作业模型类名**
+  - **受影响组件**：`seatunnel-engine/seatunnel-engine-storage/imap-storage-plugins/imap-storage-file`
+  - **描述**：SeaTunnel 3.0 将作业状态模型类（`JobStatus`、`JobResult`、`JobStatusData`）从 `org.apache.seatunnel.engine.core.job.*` 迁移到了 `org.apache.seatunnel.engine.common.job.*`（#9689）。迁移之前版本写入的 WAL 文件仍记录旧的完整类名，在当前发行版上回放会抛出 `ClassNotFoundException`。文件型 IMap 存储现在在读取 WAL 条目时会自动将这三个旧类名重写到当前位置，无需任何配置变更。
+  - **影响**：使用文件型 IMap 持久化的集群可以跨 #9689 迁移直接升级重启，无需手工修改 WAL 数据。写入不受影响：新的 WAL 条目始终记录当前类名。注意该重写是单向的：当前发行版写出的 WAL 文件中的类名无法被旧版本解析，因此在写出新 WAL 条目后回滚降级集群时，需要删除或手工改写已持久化的 WAL 数据。(#11781)
+
+- **行为变更：REST 日志内容接口默认最多返回 64 MB**
+  - **受影响组件**：`seatunnel-engine-server`，REST v2 接口 `GET /logs/:file`、`GET /log/:file`，
+    以及对应的 REST v1 接口 `GET /hazelcast/rest/maps/logs/:file`、`GET /hazelcast/rest/maps/log/:file`。
+  - **说明**：这些接口原本会把整个日志文件读入内存，且会在堆上生成两份副本，因此对长时间运行的流作业
+    发起一次日志请求就可能耗尽节点内存。新增的 `seatunnel.engine.http.log-response-max-size-mb`
+    选项限制单次读取的大小，默认值为 `64`。超过该限制的文件只返回末尾 `log-response-max-size-mb`
+    的 UTF-8 内容，尽量从完整行开始；超长单行则保留部分末尾内容。响应开头的提示写明实际保留的字节数和文件大小快照。
+  - **影响**：升级后未修改 `seatunnel.yaml` 的集群，对超过 64 MB 的日志文件将只得到末尾内容，
+    HTTP 状态码仍为 `200`。所有通过这些接口归档日志的用法——例如
+    `curl .../logs/<job-id> > job.log`，或 `docs/zh/engines/zeta/log-analysis-with-ai.md`
+    中的日志分析流程——在不调高限制的情况下都只会保存到部分内容。第一行的截断提示可以用来识别
+    响应是否完整。
+  - **迁移指南**：在 `seatunnel.engine.http` 下设置
+    `log-response-max-size-mb: 0` 可恢复此前的不限制读取，也可以把它调高到
+    足以覆盖需要收集的日志大小。建议保留默认值，因为不限制读取意味着多 GB 的日志需要完整放进节点堆内存。
+
+- **行为变化：引擎启动阶段的部分日志输出发生变化**
+  - **影响组件**：`seatunnel-engine-server`（`SeaTunnelServer`、`AbstractResourceManager`、
+    `StandaloneResourceManager`）；仅影响基于日志的监控。
+  - **描述**：`SeaTunnel server start...`、`Init ResourceManager` 和 `initWorker... ` 这三行日志不再
+    输出；Worker 同步改为 `Synchronizing existing worker profiles`，standalone 资源管理器输出
+    `Init standalone ResourceManager`。
+  - **影响**：按旧文案匹配的告警或日志解析不再命中；运行时行为和集群生命周期不变。
+  - **迁移指南**：改为匹配新文案，或按前后生命周期事件判断，而不要匹配具体字符串。
+
+### 依赖升级
+
+## 3.0.0
+
+### MySQL CDC Schema-Change 解析
+
+- **行为变更：向上传播 DDL 解析监听器错误**
+  - **影响范围**：`connector-cdc-mysql`
+  - **变更说明**：处理已解析 DDL 时发生的错误不再被吞掉并当作无操作处理，而是作为解析失败向上抛出，避免 CDC 作业静默跳过 schema 变更。
+  - **影响**：某些过去在内部解析器或监听器出错后被忽略的 DDL，升级后可能导致作业失败。请检查源端 DDL，修改为连接器支持的语法后再重启作业。本变更不修改 checkpoint 或 savepoint 格式。
 
 ### JDBC Connector
 
@@ -375,36 +544,11 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
     - **CDC（基于 Debezium，TiDB）**：CDC 连接器现在可以正确处理 Debezium 反序列化层中的 `TIMESTAMP_TZ` 类型。以前，`TIMESTAMP_TZ` 不受支持，会抛出 `UnsupportedOperationException`。现在，在 CDC 管道中使用带时区列的用户可以正常使用。
     - **Iceberg（已有表）**：在本 PR 之前，SeaTunnel 的 `TIMESTAMP` 类型错误地以带时区（`withZone()`）的形式写入 Iceberg。本 PR 之后，`TIMESTAMP` 写为不带时区（`withoutZone()`），而 Iceberg `withZone()` 列读取时返回 `TIMESTAMP_TZ`。**升级影响**：如果您的 Iceberg 表是由旧版 SeaTunnel 创建的，其时间戳列以 `withZone()` 形式存储。升级后，SeaTunnel 会将其读取为 `TIMESTAMP_TZ` 而非 `TIMESTAMP`，下游 Sink 或 Transform 若期望 `TIMESTAMP` 类型可能遇到类型不匹配错误。**迁移方案**：重新创建受影响的 Iceberg 表，或在管道配置中使用 SQL Transform 将 `TIMESTAMP_TZ` 转换回 `TIMESTAMP`。
     - **TIMESTAMP_TZ 写入约定**：SeaTunnel 根据 Sink 格式的表达能力，对 `TIMESTAMP_TZ` 采用两级序列化约定：
-      - **Doris Sink**：`TIMESTAMP_TZ` 会先转换到 Doris 的目标时区，再以 `DATETIME` 存储。可通过 `sink.datetime-timezone` 显式指定目标时区；未配置时，SeaTunnel 使用 JVM 默认时区。例如，配置 `sink.datetime-timezone = "Asia/Shanghai"` 时，`2024-01-01T03:00:00+09:00` 将存储为 `2024-01-01 02:00:00`。
-      - **其他不支持原生时区类型的 DB 列类型 Sink（StarRocks、Xugu）**：丢弃时区偏移，保留时钟时间（wall-clock）。例如，`2024-01-01T03:00:00+09:00` 将存储为 `2024-01-01 03:00:00`。这是有损操作——仅凭存储值无法还原原始 UTC 时刻。
+      - **不支持原生时区类型的 DB 列类型 Sink（Doris、StarRocks、Xugu）**：丢弃时区偏移，保留时钟时间（wall-clock）。例如，`2024-01-01T03:00:00+09:00` 将存储为 `2024-01-01 03:00:00`。这是有损操作——仅凭存储值无法还原原始 UTC 时刻。
       - **基于字符串/文本的 Sink（Text 文件、Kafka、Pulsar、RocketMQ、RabbitMQ、Redis 等）**：保留完整的 ISO 8601 偏移（例如 `"2024-01-01T03:00:00+09:00"`）。这些格式可以用字符串表示时区偏移，不会丢失信息。如果需要在这类 Sink 中使用 wall-clock 行为，请在写入前通过 SQL Transform 将 `TIMESTAMP_TZ` 转换为 `TIMESTAMP`。
     - **Xugu TIMESTAMP_TZ（有损写入）**：Xugu `TIMESTAMP WITH TIME ZONE` 列在类型层面暴露为 `TIMESTAMP_TZ`，但由于 Xugu JDBC 驱动批量执行缺陷（[E19138]），实际写入时会丢弃时区偏移，仅存储时钟时间。首次写入时会输出 WARN 日志。
 
 ### API 变更
-
-- **破坏性变更：Engine REST 表级指标 key 格式变化**
-  - **影响范围**：SeaTunnel Engine REST API（`/job-info` 返回的 job metrics 中的表级指标）
-  - **变更说明**：为支持多个 Source/Sink/Transform 同时处理同一张表，表级指标的 key 格式从 `{tableName}` 变更为 `{VertexIdentifier}.{tableName}`（例如 `Sink[0].fake.user_table`）。
-  - **影响**：依赖旧 key 的 Grafana 仪表盘、Prometheus 告警规则以及自定义监控解析逻辑需要同步修改，否则升级后会出现指标查询/告警静默失效。
-
-  **变更前**
-  ```json
-  {
-    "TableSinkWriteCount": {
-      "fake.user_table": "15"
-    }
-  }
-  ```
-
-  **变更后**
-  ```json
-  {
-    "TableSinkWriteCount": {
-      "Sink[0].fake.user_table": "10",
-      "Sink[1].fake.user_table": "5"
-    }
-  }
-  ```
 
 - **破坏性变更：运行期日志级别接口拒绝无法识别的级别**
   - **影响范围**：SeaTunnel Engine REST API — `POST /hazelcast/rest/maps/log-level`
@@ -454,20 +598,7 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **影响**：如果 catalog factory 的 `optionRule()` 将某些选项声明为 `required`，而传入 `createOptionalCatalog()` 的配置中这些选项并不总是存在，则会抛出 `OptionValidationException`。这主要影响通过 `JdbcCatalogUtils.findCatalog()` 触发的 JDBC 连接器路径。
   - **迁移指南**：如果您有自定义的 `CatalogFactory` 实现，请确保其 `optionRule()` 准确反映在运行时到达它的配置中，哪些选项是真正必填的，哪些是可选的。
 
-
 ### 连接器变更
-
-- **破坏性变更：Doris Source 选项 `doris.request.retriesdoris.deserialize.queue.size` 更名为 `doris.deserialize.queue.size`**
-  - **影响范围**：`seatunnel-connectors-v2/connector-doris`（`DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE`）
-  - **变更说明**：异步 Arrow 反序列化队列大小选项的 key 自 #7895 引入时就带有笔误：key 被意外拼接成了 `doris.request.retriesdoris.deserialize.queue.size`，把前一个选项的名称（`doris.request.retries`）粘到了本意使用的 key（`doris.deserialize.queue.size`）上。现在该选项 key 修正为 `doris.deserialize.queue.size`。默认值（`64`）和选项行为均无变化。
-  - **影响**：显式配置了旧的错误 key `doris.request.retriesdoris.deserialize.queue.size` 的作业将不再读取到该配置，连接器会回退为默认队列大小 `64`。旧 key 是拼接笔误，基本只能从文档复制得到，因此绝大多数用户不受影响。
-  - **迁移指南**：如果您曾显式调优过该选项，请把 source 配置中的 key 重命名为 `doris.deserialize.queue.size`。
-
-- **行为变更：HTTP Sink 写入失败现在会使任务失败，而不再被静默丢弃**
-  - **影响范围**：`seatunnel-connectors-v2/connector-http/connector-http-base`
-  - **变更说明**：此前 `HttpSinkWriter.doHttpRequest` 对非 200 的 HTTP 响应和任何请求异常（网络错误、超时、序列化错误）都只记录 `error` 日志后正常返回，导致失败的行/批次被静默丢弃，而作业继续运行、checkpoint 正常完成。现在这两种情况都会抛出 `HttpConnectorException`（`REQUEST_FAILED`），失败会传播到引擎并使任务/作业失败。
-  - **影响**：下游 HTTP 端点偶发返回非 200 或偶发不可达的作业，此前会带着静默丢数据继续运行；升级后会在第一次写入失败时大声失败。该连接器仍没有内置重试或死信机制，重新提交失败的作业可能重复投递失败前已成功的行——请确保接收端能够容忍重试/重启时的重复投递。
-  - **迁移指南**：无需更改配置。如果您的端点在正常业务中就会返回非 200 响应，请在 Sink 之前的环节处理这些响应，或在升级前引入外部重试机制。
 
 - **破坏性变更：ORC 文件 Sink 保留嵌套 Struct 字段名的大小写**
   - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（所有共享 `OrcWriteStrategy` 的 File/HDFS/S3/OSS ORC Sink）
@@ -542,7 +673,6 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
 
   **迁移指南**: 如果您在 `PARSEDATETIME`、`TO_DATE` 或 `IS_DATE` 函数中使用自定义日期时间格式模式，您必须更新查询以使用上述支持的模式之一。如果您的数据使用不同的格式，您可能需要预处理输入数据以匹配支持的格式，或使用字符串操作函数在解析之前转换格式。
 
-- DataValidator 转换：当 `row_error_handle_way = ROUTE_TO_TABLE` 时，路由到错误表的行 `table_id` 现在会携带上游的 database/schema 前缀（例如从 `ffp` 变为 `db1.ffp` / `db1.schema1.ffp`）。
 - **[BREAKING]** 多个转换插件现在通过声明式 `OptionRule` 在提交时执行更严格的配置校验。以前在提交时能通过但运行时失败的配置，现在会在提交时被拒绝，并抛出描述清晰的 `OptionValidationException`：
 
   | 转换插件 | 新增拒绝的配置 | 以前的行为 | 迁移方式 |
@@ -554,12 +684,6 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   | `DynamicCompile` | `compile_pattern = ABSOLUTE_PATH` 但 `absolute_path` 为空 | 运行时文件读取失败 | 使用 `ABSOLUTE_PATH` 模式时提供 `absolute_path` |
 
   **迁移指南**：升级前请对照上表检查您的转换配置。如果现有配置匹配了"新增拒绝的配置"中的情况，请在升级前修改。提交时的错误消息会清楚标明哪个选项无效及原因。
-- **行为变更：每个 `table_transform` 条目都会在提交时校验**
-  - **影响范围**：所有支持 `table_transform` 的转换：`Copy`、`Calcite`、`DataValidator`、`DefineSinkType`、`DynamicCompile`、`FieldEncrypt`、`FieldMapper`、`Filter`、`FilterRowKind`、`JsonPath`、`Metadata`、`Python`、`RegexExtract`、`Replace`、`Sql`、`Split`、`TableMerge` 和 `TextChunk`。
-  - **变更说明**：此前缺少 `table_path` 或 `table_path` 为空的条目会被静默过滤掉，条目被忽略但作业仍会运行；条目也不会在提交时按其单表规则校验，问题要到处理数据时才暴露。现在提交作业前就会校验：每个条目都必须用非空的 `table_path` 选中目标表，并且是该转换的完整单表规则；转换级规则要么不配置，要么配置完整。
-  - **影响**：带残留条目的配置（例如 `table_transform = [{ field_rules = [...] }]` 缺少 `table_path`）以前可以提交，现在会在提交时报错 `Each 'table_transform' entry must select its table with a non-blank 'table_path'`；条目缺少必填选项时报错 `Invalid 'table_transform' entry for table [...]`。单表作业（没有 `table_transform`）不受影响。
-  - **迁移指南**：为每个条目补上 `table_path`，并按该转换的单表配置补全条目。不再使用的条目也可以直接删除，因为只配置 `table_transform` 的写法是合法的。
-- **[BREAKING]** Assert Sink：`column_rule` 里的 `sink_type` 现在会和实际列类型比较。此前会被忽略，所以声明不一致的作业会失败，不声明则仍不校验；升级时删掉该字段或改成实际类型。
 - **[BREAKING]** SQL 转换的 `CEIL` / `CEILING`、`FLOOR` 与 `TRUNC` / `TRUNCATE` 现在返回与参数相同的数据类型，
   这与文档中一直声明的行为一致。此前无论输入类型如何，`CEIL` 和 `FLOOR` 都声明为 `INT`、`TRUNC` 声明为 `DOUBLE`，
   从而静默产生错误的值：
@@ -627,43 +751,34 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   `ROUND(CAST(tiny_col AS INT), -1)`——或者在上游过滤掉这些行。此前为绕开 `ABS` / `SIGN` 拒绝而使用的强制转换
   （`ABS(CAST(tiny_col AS INT))`）仍然可以正常工作，可以在方便时再简化。
 
-### 格式变更
+## 2.3.13
 
-- **破坏性变更：JSON 数值字段的序列化改为按运行时实际类型处理**
-  - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`RowToJsonConverters`）--影响所有以 JSON 格式序列化行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Sink）。
-  - **变更说明**：以前，目录 Schema 中声明为数值类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE`、`DECIMAL`）的字段，序列化时会把运行时值强制转换为声明类型对应的 Java 类型（例如 `BIGINT` 直接 `(long) value`）。在多表作业（例如多表 CDC 作业写 JSON 到 RabbitMQ/Kafka）中，多张表共享同一份目录 Schema 但物理列类型不一致时，`String` 或 `BigDecimal` 运行时值会抛出原始 `ClassCastException` 并导致作业失败。现在数值字段按运行时实际类型序列化：任意数值包装类型（`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`、`BigInteger`、`BigDecimal`）输出为对应的 JSON 数字；可解析为数字的字符串会解析成 JSON 数字，无法解析的文本则输出为 JSON 字符串；声明为 `DECIMAL` 的字段遇到 `Float`/`Double` 运行时值时，通过 `BigDecimal.valueOf` 序列化以避免浮点表示误差。
-  - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
+### API 变更
 
-### 引擎行为变更
+- **破坏性变更：Engine REST 表级指标 key 格式变化**
+  - **影响范围**：SeaTunnel Engine REST API（`/job-info` 返回的 job metrics 中的表级指标）
+  - **变更说明**：为支持多个 Source/Sink/Transform 同时处理同一张表，表级指标的 key 格式从 `{tableName}` 变更为 `{VertexIdentifier}.{tableName}`（例如 `Sink[0].fake.user_table`）。
+  - **影响**：依赖旧 key 的 Grafana 仪表盘、Prometheus 告警规则以及自定义监控解析逻辑需要同步修改，否则升级后会出现指标查询/告警静默失效。
 
-- **文件型 IMap 存储：启动时自动重映射 WAL 文件中的旧版作业模型类名**
-  - **受影响组件**：`seatunnel-engine/seatunnel-engine-storage/imap-storage-plugins/imap-storage-file`
-  - **描述**：SeaTunnel 3.0 将作业状态模型类（`JobStatus`、`JobResult`、`JobStatusData`）从 `org.apache.seatunnel.engine.core.job.*` 迁移到了 `org.apache.seatunnel.engine.common.job.*`（#9689）。迁移之前版本写入的 WAL 文件仍记录旧的完整类名，在当前发行版上回放会抛出 `ClassNotFoundException`。文件型 IMap 存储现在在读取 WAL 条目时会自动将这三个旧类名重写到当前位置，无需任何配置变更。
-  - **影响**：使用文件型 IMap 持久化的集群可以跨 #9689 迁移直接升级重启，无需手工修改 WAL 数据。写入不受影响：新的 WAL 条目始终记录当前类名。注意该重写是单向的：当前发行版写出的 WAL 文件中的类名无法被旧版本解析，因此在写出新 WAL 条目后回滚降级集群时，需要删除或手工改写已持久化的 WAL 数据。(#11781)
+  **变更前**
+  ```json
+  {
+    "TableSinkWriteCount": {
+      "fake.user_table": "15"
+    }
+  }
+  ```
 
-- **行为变更：REST 日志内容接口默认最多返回 64 MB**
-  - **受影响组件**：`seatunnel-engine-server`，REST v2 接口 `GET /logs/:file`、`GET /log/:file`，
-    以及对应的 REST v1 接口 `GET /hazelcast/rest/maps/logs/:file`、`GET /hazelcast/rest/maps/log/:file`。
-  - **说明**：这些接口原本会把整个日志文件读入内存，且会在堆上生成两份副本，因此对长时间运行的流作业
-    发起一次日志请求就可能耗尽节点内存。新增的 `seatunnel.engine.http.log-response-max-size-mb`
-    选项限制单次读取的大小，默认值为 `64`。超过该限制的文件只返回末尾 `log-response-max-size-mb`
-    的 UTF-8 内容，尽量从完整行开始；超长单行则保留部分末尾内容。响应开头的提示写明实际保留的字节数和文件大小快照。
-  - **影响**：升级后未修改 `seatunnel.yaml` 的集群，对超过 64 MB 的日志文件将只得到末尾内容，
-    HTTP 状态码仍为 `200`。所有通过这些接口归档日志的用法——例如
-    `curl .../logs/<job-id> > job.log`，或 `docs/zh/engines/zeta/log-analysis-with-ai.md`
-    中的日志分析流程——在不调高限制的情况下都只会保存到部分内容。第一行的截断提示可以用来识别
-    响应是否完整。
-  - **迁移指南**：在 `seatunnel.engine.http` 下设置
-    `log-response-max-size-mb: 0` 可恢复此前的不限制读取，也可以把它调高到
-    足以覆盖需要收集的日志大小。建议保留默认值，因为不限制读取意味着多 GB 的日志需要完整放进节点堆内存。
+  **变更后**
+  ```json
+  {
+    "TableSinkWriteCount": {
+      "Sink[0].fake.user_table": "10",
+      "Sink[1].fake.user_table": "5"
+    }
+  }
+  ```
 
-- **行为变化：引擎启动阶段的部分日志输出发生变化**
-  - **影响组件**：`seatunnel-engine-server`（`SeaTunnelServer`、`AbstractResourceManager`、
-    `StandaloneResourceManager`）；仅影响基于日志的监控。
-  - **描述**：`SeaTunnel server start...`、`Init ResourceManager` 和 `initWorker... ` 这三行日志不再
-    输出；Worker 同步改为 `Synchronizing existing worker profiles`，standalone 资源管理器输出
-    `Init standalone ResourceManager`。
-  - **影响**：按旧文案匹配的告警或日志解析不再命中；运行时行为和集群生命周期不变。
-  - **迁移指南**：改为匹配新文案，或按前后生命周期事件判断，而不要匹配具体字符串。
+### 转换变更
 
-### 依赖升级
+- DataValidator 转换：当 `row_error_handle_way = ROUTE_TO_TABLE` 时，路由到错误表的行 `table_id` 现在会携带上游的 database/schema 前缀（例如从 `ffp` 变为 `db1.ffp` / `db1.schema1.ffp`）。

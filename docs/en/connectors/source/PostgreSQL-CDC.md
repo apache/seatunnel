@@ -142,7 +142,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 5000
   read_limit.bytes_per_second=7000000
@@ -423,6 +423,20 @@ may replay a row at an ambiguous boundary to avoid losing it.
 ### Why does PostgreSQL CDC fall behind?
 
 Replication lag can occur when the logical decoding plugin is slow or when the WAL sender is under load. Monitor `pg_replication_slots` for `confirmed_flush_lsn` drift. Ensure the CDC job consumes events continuously and that network latency between SeaTunnel and PostgreSQL is low.
+
+### Can PostgreSQL CDC run on the Spark engine?
+
+It can, but it is not covered by end-to-end tests. The Spark engine runs CDC sources as one Spark
+task that holds the split enumerator and all readers, for both `BATCH` and `STREAMING` jobs. Spark
+does not checkpoint the source, so:
+
+- A job cannot be restored from a checkpoint. A restarted job starts again from `startup.mode`.
+- SeaTunnel never confirms a processed LSN to the replication slot, so the slot's `restart_lsn` does
+  not move and PostgreSQL keeps all WAL from it for as long as the slot exists. Watch the WAL size,
+  and advance or drop the slot when the job stops.
+- A sink that only writes on checkpoints or full batches can hold rows back, for example the JDBC
+  sink with its default `batch_size`.
+- Reading the source with Spark micro-batch streaming (`readStream`) is not supported.
 
 ## See Also
 
