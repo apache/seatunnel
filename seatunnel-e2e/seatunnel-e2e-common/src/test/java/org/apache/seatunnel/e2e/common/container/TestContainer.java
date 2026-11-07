@@ -81,6 +81,22 @@ public interface TestContainer extends TestResource {
         throw new UnsupportedOperationException("Not implemented");
     }
 
+    /**
+     * Starts a new job from the latest checkpoint of an ended job.
+     *
+     * @param confFile job config file
+     * @param sourceJobId ended job whose checkpoint is restored
+     * @param restoreJobId id of the new job, which must differ from {@code sourceJobId}
+     * @param variables {@code key=value} entries passed to the job config as {@code -i} options, or
+     *     null if the config has no variables
+     * @return result of the restore command
+     */
+    default Container.ExecResult restoreJobWithCheckpoint(
+            String confFile, String sourceJobId, String restoreJobId, List<String> variables)
+            throws IOException, InterruptedException {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
     default Container.ExecResult cancelJob(String jobId) throws IOException, InterruptedException {
         throw new UnsupportedOperationException("Not implemented");
     }

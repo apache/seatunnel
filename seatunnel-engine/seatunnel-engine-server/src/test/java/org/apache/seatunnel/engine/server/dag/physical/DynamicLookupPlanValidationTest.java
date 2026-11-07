@@ -155,7 +155,10 @@ class DynamicLookupPlanValidationTest {
         DynamicLookupAction executionLookup =
                 (DynamicLookupAction) dimensionEdge.getRightVertex().getAction();
 
-        Assertions.assertEquals("dimension", dimensionEdge.getLeftVertex().getAction().getName());
+        // ExecutionPlanGenerator prefixes display names with their pipeline; role identity uses
+        // IDs.
+        Assertions.assertEquals(
+                "pipeline-1 [dimension]", dimensionEdge.getLeftVertex().getAction().getName());
         Assertions.assertEquals(3L, dimensionEdge.getLeftVertex().getAction().getId());
         Assertions.assertEquals(2L, executionLookup.getDimensionSourceActionId());
         Assertions.assertEquals(

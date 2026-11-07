@@ -972,10 +972,22 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     public Container.ExecResult restoreJobWithCheckpoint(
             String confFile, String sourceJobId, String restoreJobId)
             throws IOException, InterruptedException {
+        return restoreJobWithCheckpoint(confFile, sourceJobId, restoreJobId, (List<String>) null);
+    }
+
+    @Override
+    public Container.ExecResult restoreJobWithCheckpoint(
+            String confFile, String sourceJobId, String restoreJobId, List<String> variables)
+            throws IOException, InterruptedException {
         runningCount.incrementAndGet();
         try {
             return restoreJob(
-                    server, confFile, sourceJobId, restoreJobId, null, "--restore-with-checkpoint");
+                    server,
+                    confFile,
+                    sourceJobId,
+                    restoreJobId,
+                    variables,
+                    "--restore-with-checkpoint");
         } finally {
             runningCount.decrementAndGet();
         }
