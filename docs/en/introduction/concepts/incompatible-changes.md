@@ -5,6 +5,21 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Cassandra: a NULL cell stays NULL
+
+- **Affected jobs**: jobs that read NULL cells with the Cassandra source or write NULL values with
+  the Cassandra sink.
+- **Behavior change**: the source used to read a NULL `tinyint`, `smallint`, `int`, `bigint`,
+  `float`, `double` or `boolean` as `0` or `false`, and a NULL `list`, `set` or `map` as empty. A
+  NULL `decimal`, `varint`, `uuid`, `timeuuid`, `inet` or `blob` failed the job. The source now emits
+  NULL for all of them. The sink now writes a NULL value as NULL, which replaces any value the target
+  row already has in that column. It used to fail the job for most types and to write a NULL `inet` as
+  `127.0.0.1`. A NULL in a primary key column now fails the job with the table and column name. For a
+  `text`, `ascii`, `time` or `date` key this replaces a job that succeeded while losing rows.
+- **Migration**: no configuration change is required. Transforms, sinks and queries that relied on
+  `0`, `false` or an empty collection for a NULL cell must handle NULL, and a target column declared
+  `NOT NULL` will now reject these rows. Filter out rows with a NULL key before the Cassandra sink.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**
