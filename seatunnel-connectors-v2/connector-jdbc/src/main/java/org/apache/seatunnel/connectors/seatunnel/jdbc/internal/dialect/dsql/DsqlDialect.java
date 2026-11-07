@@ -23,10 +23,18 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRow
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 
+import java.sql.DatabaseMetaData;
+
 public class DsqlDialect extends PostgresDialect {
 
     public DsqlDialect(String fieldIde) {
         this.fieldIde = fieldIde;
+    }
+
+    @Override
+    public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
+        // Composite splitting has not been validated for this dialect by official E2E.
+        return false;
     }
 
     @Override

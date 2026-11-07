@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psqllow;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 
+import java.sql.DatabaseMetaData;
 import java.util.Optional;
 
 public class PostgresLowDialect extends PostgresDialect {
@@ -29,6 +30,12 @@ public class PostgresLowDialect extends PostgresDialect {
 
     public PostgresLowDialect(String fieldIde, boolean numericSpecialValueAsNull) {
         super(fieldIde, numericSpecialValueAsNull);
+    }
+
+    @Override
+    public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
+        // Composite splitting has not been validated for this dialect by official E2E.
+        return false;
     }
 
     @Override
