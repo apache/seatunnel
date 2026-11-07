@@ -31,6 +31,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
  */
 public class IdentityMapTransform extends AbstractCatalogSupportMapTransform {
 
+    // Keep reading legacy transform streams after adding schema-change handling.
+    private static final long serialVersionUID = -4681742342014343446L;
+
     public IdentityMapTransform(CatalogTable catalogTable) {
         super(catalogTable);
     }

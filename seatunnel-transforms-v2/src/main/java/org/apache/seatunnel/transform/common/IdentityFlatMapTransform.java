@@ -35,6 +35,9 @@ import java.util.List;
  */
 public class IdentityFlatMapTransform extends AbstractCatalogSupportFlatMapTransform {
 
+    // Preserve the legacy stream identity when adding schema-change methods and removing caches.
+    private static final long serialVersionUID = -1251722077743838091L;
+
     public IdentityFlatMapTransform(CatalogTable catalogTable) {
         super(catalogTable);
     }
