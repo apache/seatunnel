@@ -27,6 +27,7 @@ import org.apache.http.Header;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.message.BasicStatusLine;
@@ -34,6 +35,7 @@ import org.apache.http.protocol.HttpContext;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -48,6 +50,8 @@ import java.util.concurrent.Executors;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class DorisStreamLoadTest {
@@ -117,6 +121,41 @@ public class DorisStreamLoadTest {
         } finally {
             redirectServer.stop(0);
         }
+    }
+
+    @Test
+    void testAbortPreCommitUsesTheProvidedLabelPrefix() throws Exception {
+        CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+        CloseableHttpResponse preCommitResponse = mock(CloseableHttpResponse.class);
+        CloseableHttpResponse abortResponse = mock(CloseableHttpResponse.class);
+        when(preCommitResponse.getStatusLine())
+                .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "Success"));
+        when(preCommitResponse.getEntity())
+                .thenReturn(
+                        new StringEntity(
+                                "{\"TxnId\":123,\"Status\":\"Success\",\"TwoPhaseCommit\":\"true\"}"));
+        when(abortResponse.getStatusLine())
+                .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "Success"));
+        when(abortResponse.getEntity()).thenReturn(new StringEntity("{\"status\":\"Success\"}"));
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+                .thenReturn(preCommitResponse, abortResponse);
+
+        DorisStreamLoad streamLoad =
+                new DorisStreamLoad(
+                        "fe1:8030",
+                        TablePath.of("test_db", "test_table"),
+                        createSinkConfig(false, true),
+                        new LabelGenerator("active_prefix", true),
+                        httpClient);
+
+        streamLoad.abortPreCommit("restored_prefix", 1L);
+
+        ArgumentCaptor<HttpUriRequest> requestCaptor =
+                ArgumentCaptor.forClass(HttpUriRequest.class);
+        verify(httpClient, times(2)).execute(requestCaptor.capture(), any(HttpContext.class));
+        Header labelHeader = requestCaptor.getAllValues().get(0).getFirstHeader("label");
+        Assertions.assertNotNull(labelHeader);
+        Assertions.assertEquals("restored_prefix_1", labelHeader.getValue());
     }
 
     private DorisSinkConfig createSinkConfig(boolean directToBe, boolean enable2PC) {

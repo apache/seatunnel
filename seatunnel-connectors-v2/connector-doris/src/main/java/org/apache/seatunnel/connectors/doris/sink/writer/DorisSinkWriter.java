@@ -49,6 +49,7 @@ import org.apache.seatunnel.connectors.doris.util.UnsupportedTypeConverterUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,6 +60,7 @@ import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.CRC32;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
@@ -75,6 +77,7 @@ public class DorisSinkWriter
     private DorisStreamLoad controlStreamLoad;
     private final DorisSinkConfig dorisSinkConfig;
     private final String labelPrefix;
+    private final String restoredLabelPrefix;
     private final LabelGenerator labelGenerator;
     private final int intervalTime;
     private DorisSerializer serializer;
@@ -105,13 +108,25 @@ public class DorisSinkWriter
                 catalogTable,
                 dorisSinkConfig,
                 jobId,
-                (hostPort, tablePath, sinkConfig, currentLabelGenerator) ->
-                        new DorisStreamLoad(
-                                hostPort,
-                                tablePath,
-                                sinkConfig,
-                                currentLabelGenerator,
-                                new HttpUtil().getHttpClient()));
+                catalogTable.getTablePath().getFullName(),
+                defaultStreamLoadFactory());
+    }
+
+    public DorisSinkWriter(
+            SinkWriter.Context context,
+            List<DorisSinkState> state,
+            CatalogTable catalogTable,
+            DorisSinkConfig dorisSinkConfig,
+            String jobId,
+            String sourceTableId) {
+        this(
+                context,
+                state,
+                catalogTable,
+                dorisSinkConfig,
+                jobId,
+                sourceTableId,
+                defaultStreamLoadFactory());
     }
 
     DorisSinkWriter(
@@ -121,12 +136,30 @@ public class DorisSinkWriter
             DorisSinkConfig dorisSinkConfig,
             String jobId,
             DorisStreamLoadFactory streamLoadFactory) {
+        this(
+                context,
+                state,
+                catalogTable,
+                dorisSinkConfig,
+                jobId,
+                catalogTable.getTablePath().getFullName(),
+                streamLoadFactory);
+    }
+
+    DorisSinkWriter(
+            SinkWriter.Context context,
+            List<DorisSinkState> state,
+            CatalogTable catalogTable,
+            DorisSinkConfig dorisSinkConfig,
+            String jobId,
+            String sourceTableId,
+            DorisStreamLoadFactory streamLoadFactory) {
         this.dorisSinkConfig = dorisSinkConfig;
         this.catalogTable = catalogTable;
         this.lastCheckpointId = !state.isEmpty() ? state.get(0).getCheckpointId() : 0;
         log.info("restore checkpointId {}", lastCheckpointId);
         log.info("labelPrefix " + dorisSinkConfig.getLabelPrefix());
-        this.labelPrefix =
+        String baseLabelPrefix =
                 dorisSinkConfig.getLabelPrefix()
                         + "_"
                         + catalogTable.getTablePath().getFullName().replaceAll("\\.", "_")
@@ -134,6 +167,20 @@ public class DorisSinkWriter
                         + jobId
                         + "_"
                         + context.getIndexOfSubtask();
+        // A multi-table sink creates one writer per source table, and all of those writers share
+        // the sink table, the job id and the subtask index. Derive the discriminator from the
+        // source table identity so sub-writers are distinct, while the same writer keeps the same
+        // prefix across attempts. The stable prefix is what lets a restarted writer abort
+        // pre-committed transactions left by a failed attempt that never completed a checkpoint.
+        this.labelPrefix = baseLabelPrefix + "_" + sourceTableDiscriminator(sourceTableId);
+        // A restored writer must abort the pre-committed transactions created with the prefix
+        // persisted in its state. For a state written before the discriminator existed the
+        // persisted prefix is the old, shared prefix; the new run still uses the stable one.
+        String persistedLabelPrefix = state.isEmpty() ? null : state.get(0).getLabelPrefix();
+        this.restoredLabelPrefix =
+                persistedLabelPrefix == null || persistedLabelPrefix.isEmpty()
+                        ? null
+                        : persistedLabelPrefix;
         this.labelGenerator = new LabelGenerator(labelPrefix, dorisSinkConfig.getEnable2PC());
         this.scheduledExecutorService =
                 new ScheduledThreadPoolExecutor(
@@ -148,6 +195,27 @@ public class DorisSinkWriter
         if (!dorisSinkConfig.getEnable2PC()) {
             context.registerFlushAction(this::timerFlush);
         }
+    }
+
+    private static DorisStreamLoadFactory defaultStreamLoadFactory() {
+        return (hostPort, tablePath, sinkConfig, currentLabelGenerator) ->
+                new DorisStreamLoad(
+                        hostPort,
+                        tablePath,
+                        sinkConfig,
+                        currentLabelGenerator,
+                        new HttpUtil().getHttpClient());
+    }
+
+    /**
+     * Stable 8-hex discriminator for a source table. CRC32 is enough to separate the source tables
+     * of one job and keeps the label short; the value must not change across attempts.
+     */
+    private static String sourceTableDiscriminator(String sourceTableId) {
+        CRC32 crc = new CRC32();
+        String value = sourceTableId == null ? "" : sourceTableId;
+        crc.update(value.getBytes(StandardCharsets.UTF_8));
+        return String.format("%08x", crc.getValue());
     }
 
     private void initializeLoad() {
@@ -465,7 +533,9 @@ public class DorisSinkWriter
                         streamLoadFactory.create(
                                 node, catalogTable.getTablePath(), dorisSinkConfig, labelGenerator);
                 if (abortPreCommitOnInit) {
-                    streamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
+                    streamLoad.abortPreCommit(
+                            restoredLabelPrefix != null ? restoredLabelPrefix : labelPrefix,
+                            lastCheckpointId + 1);
                 }
                 return new InitializedStreamLoad(node, streamLoad);
             } catch (Exception e) {
