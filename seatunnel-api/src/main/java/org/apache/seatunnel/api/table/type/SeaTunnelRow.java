@@ -160,6 +160,7 @@ public final class SeaTunnelRow implements Serializable {
         SqlType sqlType = dataType.getSqlType();
         switch (sqlType) {
             case STRING:
+            case JSON:
                 return ((String) v).length();
             case BOOLEAN:
             case TINYINT:
@@ -240,6 +241,7 @@ public final class SeaTunnelRow implements Serializable {
     private int getBytesForArray(Object v, SeaTunnelDataType<?> dataType) {
         switch (dataType.getSqlType()) {
             case STRING:
+            case JSON:
                 int s = 0;
                 for (String i : ((String[]) v)) {
                     s += i == null ? 0 : i.length();

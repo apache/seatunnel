@@ -91,6 +91,7 @@ public abstract class RowConverter<T> implements Serializable {
             case FLOAT:
             case DOUBLE:
             case STRING:
+            case JSON:
             case DECIMAL:
             case BYTES:
                 boolean isEq = (dataType.getTypeClass() == field.getClass());

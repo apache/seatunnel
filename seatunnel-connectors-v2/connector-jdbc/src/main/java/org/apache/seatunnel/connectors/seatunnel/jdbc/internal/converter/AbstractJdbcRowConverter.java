@@ -79,6 +79,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
             int resultSetIndex = fieldIndex + 1;
             switch (seaTunnelDataType.getSqlType()) {
                 case STRING:
+                case JSON:
                     fields[fieldIndex] = JdbcFieldTypeUtils.getString(rs, resultSetIndex);
                     break;
                 case BOOLEAN:
@@ -162,6 +163,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
             switch (elementType.getSqlType()) {
                 case STRING:
+                case JSON:
                     return origArray.toArray(TYPE_ARRAY_STRING);
                 case BOOLEAN:
                     return origArray.toArray(TYPE_ARRAY_BOOLEAN);
@@ -269,6 +271,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
             throws SQLException {
         switch (seaTunnelDataType.getSqlType()) {
             case STRING:
+            case JSON:
                 statement.setString(statementIndex, (String) value);
                 break;
             case BOOLEAN:

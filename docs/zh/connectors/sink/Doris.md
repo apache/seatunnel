@@ -179,7 +179,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table}`
 | STRING         | STRING                                  |
 | ARRAY          | ARRAY                                   |
 | MAP            | MAP                                     |
-| JSON           | STRING                                  |
+| JSON<br/>JSONB | JSON                                    |
 | VARIANT        | STRING                                  |
 | IPV4<br/>IPV6  | STRING                                  |
 | HLL            | 尚不支持                                    |
@@ -190,6 +190,8 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table}`
 #### 支持的导入数据格式
 
 支持的格式包括 CSV 和 JSON。
+
+SeaTunnel `JSON` 字段保存 JSON 文档文本。JSON Stream Load 会先校验文档，再将其编码为文档字符串供 Doris 解析为原生 JSON 列，从而保留布尔标量，并区分 JSON null 和 SQL NULL；CSV 通过文本格式直接写入文档文本。JSON 内容必须符合目标 Doris JSON/JSONB 列的要求。
 
 当从 SeaTunnel `STRING` 字段写入 Doris `VARIANT` 列时，字段值需要是合法的 JSON 文档。
 

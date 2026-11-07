@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
@@ -160,6 +161,39 @@ public class TextFormatSchemaTest {
         Assertions.assertEquals(seaTunnelRow.getField(2), " ");
         Assertions.assertEquals(seaTunnelRow.getField(3), "tyrantlucifer");
         Assertions.assertEquals(data, content);
+    }
+
+    /**
+     * Text formats carry JSON documents verbatim, including scalar and null distinctions.
+     *
+     * <p>This also protects the text serializer used by the Doris CSV sink from rejecting JSON.
+     */
+    @Test
+    public void testJsonDocumentsRoundTripWithoutStringQuoting() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload"}, new SeaTunnelDataType[] {BasicType.JSON_TYPE});
+        TextSerializationSchema serializer =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("\u0001")
+                        .build();
+        TextDeserializationSchema deserializer =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("\u0001")
+                        .build();
+        for (String document :
+                new String[] {
+                    "{\"name\":\"value\"}", "[true,1]", "true", "1", "\"text\"", "null"
+                }) {
+            byte[] bytes = serializer.serialize(new SeaTunnelRow(new Object[] {document}));
+            Assertions.assertEquals(document, new String(bytes, StandardCharsets.UTF_8));
+            Assertions.assertEquals(document, deserializer.deserialize(bytes).getField(0));
+        }
+        byte[] sqlNull = serializer.serialize(new SeaTunnelRow(new Object[] {null}));
+        Assertions.assertEquals("", new String(sqlNull, StandardCharsets.UTF_8));
+        Assertions.assertNull(deserializer.deserialize(sqlNull).getField(0));
     }
 
     @Test

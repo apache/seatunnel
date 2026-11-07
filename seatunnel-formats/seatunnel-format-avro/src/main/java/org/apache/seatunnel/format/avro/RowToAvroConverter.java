@@ -107,6 +107,7 @@ public class RowToAvroConverter implements Serializable {
         }
         switch (seaTunnelDataType.getSqlType()) {
             case STRING:
+            case JSON:
             case INT:
             case BIGINT:
             case FLOAT:
