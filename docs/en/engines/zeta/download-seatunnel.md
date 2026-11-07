@@ -39,7 +39,7 @@ If you need a specific connector version, taking 3.1.0 as an example, you need t
 sh bin/install-plugin.sh 3.1.0
 ```
 
-Usually you don't need all the connector plugins, so you can specify the plugins you need through configuring `config/plugin_config`, for example, if you only need the `connector-console` plugin, then you can modify the plugin.properties configuration file as follows.
+Usually you don't need all the connector plugins, so you can specify the plugins you need through configuring `config/plugin_config`, for example, if you only need the `connector-console` plugin, then you can modify the plugin_config configuration file as follows.
 
 ```plugin_config
 --seatunnel-connectors--
@@ -56,7 +56,7 @@ connector-console
 --end--
 ```
 
-You can find all supported connectors and the corresponding plugin_config configuration names under `${SEATUNNEL_HOME}/connectors/plugins-mapping.properties`.
+You can find all supported connectors and the corresponding plugin_config configuration names under `${SEATUNNEL_HOME}/connectors/plugin-mapping.properties`.
 
 :::tip Tip
 

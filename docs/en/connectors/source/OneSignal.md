@@ -128,6 +128,11 @@ source {
 }
 ```
 
+> Note: the HTTP source `pageing` option advances the page index by exactly 1 per request, so it
+cannot express a stride. OneSignal's `offset` is a record offset, not a page number — combining it
+with `pageing` would request overlapping windows (offsets 0, 1, 2, ...), which is why the example
+above issues a single request instead.
+
 ### Extract Fields With JSONPath
 
 Use `json_field` when each output field lives at a different JSON path:

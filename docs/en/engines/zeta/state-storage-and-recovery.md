@@ -13,10 +13,8 @@ long-running streaming jobs.
 | Storage Category | Purpose | Default Location |
 |---|---|---|
 | Checkpoint | Fault-tolerant snapshots of pipeline operator state | `seatunnel.yaml` `checkpoint.storage` |
-| Savepoint | User-triggered named checkpoint for planned stop/restart | Same path as checkpoint, different directory |
-| IMap / MapStore | Distributed in-memory state (job metadata, running job data, metrics) | `hazelcast.yaml` `map` MapStore configuration (optional; not persisted by default) |
-| WAL (Write-Ahead Log) | Append-only log files that back the file-based IMap storage plugin | `<namespace>/<clusterName>/<businessName>/` (IMap storage) |
-| History Job Metadata | Completed/failed job records | Same IMap storage location |
+| Savepoint | User-triggered named checkpoint for planned stop/restart | Same checkpoint storage, under the job's own directory |
+| IMap / MapStore | Distributed in-memory state (job metadata, job state, history) | In memory; optionally persisted through the Hazelcast MapStore configured in `hazelcast.yaml` |
 
 ---
 
@@ -91,7 +89,7 @@ seatunnel:
 
 | Aspect | Checkpoint | Savepoint |
 |---|---|---|
-| Trigger | Periodic / automatic | Manual (`seatunnel.sh -s <jobId>`) |
+| Trigger | Periodic / automatic | Manual (`$SEATUNNEL_HOME/bin/seatunnel.sh --savepoint <jobId>`) |
 | Purpose | Fault tolerance | Planned stop, upgrade, migration |
 | Lifecycle | Managed by engine | Managed by operator |
 | Retention | Auto-rotated | Kept until manually deleted |
@@ -130,14 +128,9 @@ $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore-with-checkpoint <jo
 
 ### Savepoint path layout
 
-```
-<namespace>/
-  savepoint/
-    <job-id>/
-      <savepoint-timestamp>/
-        <pipeline-id>/
-          <task-location>/state-data
-```
+A savepoint is a checkpoint of savepoint type: it is written to the same checkpoint storage
+configured above, under the directory of the job it belongs to (`<namespace>/<job-id>/`). There is
+no separate savepoint root directory.
 
 ### Safe cleanup
 
@@ -151,51 +144,45 @@ Deleting an active savepoint mid-restore causes the job to fail with a "state no
 ### What IMap stores
 
 SeaTunnel Engine uses Hazelcast IMap as its distributed in-memory key-value store. The main
-logical maps are:
+logical maps used by the engine are:
 
 | IMap Name | Content |
 |---|---|
-| `engine_runningJobInfo` | Metadata of running jobs (job id, job state, etc.) |
-| `engine_runningJobState` | Current state machine status of each running job and its pipelines |
-| `engine_runningJobMetrics` | Real-time throughput, latency, and record count metrics |
-| `engine_finishedJobState` | Terminal state for completed, cancelled, or failed jobs |
+| `engine_runningJobInfo` | Submitted job information and initialization metadata (job id, job name, etc.; metrics live in `engine_finishedJobMetrics` after completion) |
+| `engine_runningJobState` | Current state machine status of running jobs and pipelines |
+| `engine_stateTimestamps` | Timestamps of job/pipeline state transitions |
+| `engine_finishedJobState` | Terminal state for completed, canceled, or failed jobs |
 | `engine_finishedJobMetrics` | Final metrics snapshot after job termination |
-| `engine_finishedJobVertexInfo` | Vertex-level information of finished jobs |
-| `engine_stateTimestamps` | State transition timestamps |
+| `engine_finishedJobVertexInfo` | Execution vertex information of finished jobs |
 
 ### MapStore (disk-backed persistence)
 
-By default the IMap data lives only in cluster memory. Hazelcast MapStore can write IMap entries
-to a filesystem so they survive a full cluster restart. This is **separate** from checkpoint
-storage, and it is **not** enabled in the shipped `config/hazelcast.yaml`.
+By default IMap data is memory-only (replicated across nodes according to the backup count). If all
+nodes stop, the data is lost unless the MapStore persistence is enabled. When enabled, the Hazelcast
+MapStore writes IMap entries to an external file system (HDFS, S3, or local files through the HDFS
+API) so they survive full cluster restarts. This is **separate** from checkpoint storage.
 
-To enable it, add a `map` entry to `hazelcast.yaml`. The entry name can use a Hazelcast `*`
-wildcard to cover all engine maps:
+The persistence is configured in `hazelcast.yaml` (see
+[Separated Zeta Cluster Deployment](separated-cluster-deployment.md) for details):
 
 ```yaml
 # hazelcast.yaml
 map:
-  engine_*:
+  engine*:
     map-store:
       enabled: true
       initial-mode: EAGER
       factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
       properties:
-        type: hdfs                  # IMap file storage factory identifier, keep hdfs for all backends
-        storage.type: hdfs          # backend filesystem: hdfs (default) | s3 | oss | gcs
-        namespace: /seatunnel-imap  # root path for IMap files (default /seatunnel-imap)
-        clusterName: seatunnel      # required, used for cluster isolation in the path
-        fs.defaultFS: hdfs://localhost:9000   # required when storage.type is hdfs
+        type: hdfs
+        namespace: /tmp/seatunnel/imap     # storage namespace (default /seatunnel-imap when unset)
+        clusterName: seatunnel-cluster
+        storage.type: hdfs
+        fs.defaultFS: hdfs://localhost:9000
 ```
 
-Note that `engine_runningJobMetrics` is intentionally not persisted: runtime metrics snapshots
-are auxiliary observability state.
-
-IMap files are written under `<namespace>/<clusterName>/<businessName>/`. The wildcard entry above
-must use `factory-class-name` with `FileMapStoreFactory`: the factory sets each IMap's `businessName`
-to the map name, so every engine map persists under its own directory. Using `class-name` with
-`FileMapStore` and a single fixed `businessName` instead would make all engine maps share one
-directory, and a full-cluster reload could mix or overwrite entries of different maps.
+In separated cluster mode only the Master node stores IMap data, so this configuration takes effect
+on the Master node.
 
 ### Relationship between IMap, MapStore, and Checkpoint
 
@@ -205,26 +192,33 @@ IMap / MapStore     <───────────────────�
 ```
 
 They are **independent**. Deleting checkpoint storage does not affect IMap, and vice versa.
-A job can be restarted from a checkpoint even if the IMap MapStore is wiped, **but the job ID
-and pipeline mapping must be re-submitted** because `engine_runningJobState` is lost.
+A job can be restarted from a checkpoint even if the IMap MapStore data is wiped, **but the job ID
+and pipeline mapping must be re-submitted** because the running job state is lost.
 
 ---
 
-## 4. Write-Ahead Log (WAL)
+## 4. MapStore File Maintenance
 
-The file-based IMap storage plugin (`imap-storage-file`) writes IMap updates to append-only WAL
-files under `<namespace>/<clusterName>/<businessName>/` and periodically archives them into
-compact ORC files. The WAL guarantees IMap durability against process crashes; there is no
-user-tunable compaction or flush-interval option for it.
+The IMap persistence is an append-only write-ahead log: `FileMapStore` delegates to `IMapFileStorage`,
+which appends every state change through the WAL writer into region files under the configured
+`namespace`. Entries of all jobs are appended into the same region files, so the files keep growing
+while jobs keep running.
 
-WAL files are **not** organized per job. All engine maps share the
-`<namespace>/<clusterName>/<businessName>/` root, and every entry update, expiration, and deletion
-is appended as a record to the same files (a deletion is a tombstone that readers skip on load).
-There is no job-specific subset of WAL files that can be deleted safely: removing files can
-discard other jobs' retained entries or drop tombstones, which resurrects older values on the
-next load. The only safe manual deletion is a whole-store reset — stop the cluster, back up
-`<namespace>/<clusterName>/<businessName>/`, and accept that **all** state persisted in that store
-is discarded. Never delete IMap storage files while the cluster is running.
+**Mitigation:**
+
+- Let finished jobs expire: `history-job-expire-minutes` removes finished-job records from the
+  IMaps, which stops them from being persisted again.
+- Monitor the namespace directory on the master node:
+
+```bash
+du -sh /tmp/seatunnel/imap/   # replace with the namespace you configured in hazelcast.yaml (local file storage, i.e. fs.defaultFS starts with file:///)
+hadoop fs -du -s -h <fs-uri>/<namespace>   # for HDFS or object-store backed MapStore
+```
+
+Do not delete MapStore files selectively: there are no job-scoped files to pick out, and removing
+files by hand can corrupt IMap replay on the next master start. Size the namespace volume instead,
+and wipe the whole namespace only while the cluster is stopped and when losing all running-job
+IMap state is acceptable.
 
 ---
 
@@ -245,11 +239,10 @@ seatunnel:
 | Keep the job removed after a cluster restart (IMap persistence enabled) | Yes (the expiration time is persisted with the entry, so an expired job is not loaded again and a job that has not expired yet keeps its remaining time) |
 | Delete MapStore persistence files for that job | **No** (the expired records stay in the IMap storage files) |
 | Delete checkpoint storage directories | **No** |
-| Delete savepoint directories | **No** |
-| Delete WAL files | **No** |
+| Delete savepoint data | **No** |
 
-**Key takeaway**: `history-job-expire-minutes` only cleans up the job metadata stored in
-`engine_finishedJobState`. Checkpoint and savepoint directories on HDFS / S3 / local are **never**
+**Key takeaway**: `history-job-expire-minutes` only cleans up the job metadata stored in the
+finished-job IMaps. Checkpoint and savepoint directories on HDFS / S3 / local are **never**
 touched by this setting. You must manage them separately.
 
 ---
@@ -266,7 +259,7 @@ touched by this setting. You must manage them separately.
 | PostgreSQL CDC (logical replication) | 1–50 KB per table |
 | Oracle CDC (LogMiner) | 50 KB – 2 MB |
 
-Formula: `checkpoint_size ≈ N_tables × avg_splits × state_per_split × max_concurrent_checkpoints`
+Formula: `checkpoint_size ≈ N_tables × avg_splits × state_per_split` (only one checkpoint is in flight at a time, so no concurrency factor applies)
 
 ### Storage sizing rule of thumb
 
@@ -276,26 +269,20 @@ Retain **at least 3 checkpoints** per job at all times. Allocate:
 storage_needed = checkpoint_size × 3 × safety_factor(1.5)
 ```
 
-### IMap / WAL sizing
+### IMap storage sizing
 
 Each running CDC job stores approximately:
 
-- 50–200 bytes per pipeline in `engine_runningJobState`
-- 1–2 KB per pipeline per metric flush in `engine_runningJobMetrics`
+- 50–200 bytes per pipeline of job state
+- 1–2 KB per pipeline per metrics flush
 
-For a cluster running 100 CDC jobs:
-
-```
-imap_memory ≈ 100 × 200B ≈ 20 KB (state)
-imap_memory ≈ 100 × 1KB × flush_rate ≈ manageable
-```
-
-WAL disk: plan 2–5 GB per node for a busy CDC cluster. Mount a dedicated disk partition and monitor
-the IMap storage directory with:
+For a cluster running 100 CDC jobs this is in the order of a few MB of IMap data. The MapStore
+namespace disk usage grows with the state transition history; plan a few GB per long-running
+cluster and monitor it with:
 
 ```bash
-du -sh <namespace>/<clusterName>/<businessName>/
-watch -n 60 'du -sh /seatunnel-imap/'
+du -sh /tmp/seatunnel/imap/   # local file storage (fs.defaultFS starts with file:///)
+hadoop fs -du -s -h <fs-uri>/<namespace>   # for HDFS or object-store backed MapStore
 ```
 
 ---
@@ -333,39 +320,27 @@ state is rotated out.
 
 ---
 
-### IMap / WAL directory growing
+### MapStore namespace directory growing
 
-**Symptom**: The IMap storage directory (e.g. `/seatunnel-imap/`) fills the disk on master/worker
-nodes.
+**Symptom**: The configured MapStore `namespace` directory fills the disk on the master node.
 
 **Diagnosis**:
 
 ```bash
-du -sh <namespace>/<clusterName>/<businessName>/
+du -sh /tmp/seatunnel/imap/   # replace with the namespace you configured in hazelcast.yaml (local file storage, i.e. fs.defaultFS starts with file:///)
+hadoop fs -du -s -h <fs-uri>/<namespace>   # for HDFS or object-store backed MapStore
 ```
 
 **Root cause candidates**:
 
-- Finished-job entries accumulate faster than `history-job-expire-minutes` removes them.
-  `engine_runningJobMetrics` is intentionally not persisted (see section 3): it is in-memory
-  runtime metrics and does not grow IMap storage
-- IMap storage files are append-only between archive cycles, so frequent small updates of
-  long-running jobs increase disk usage
+- Finished jobs are not expiring (`history-job-expire-minutes` is not set or too large)
+- Too many running jobs continuously updating their state and metrics
 
 **Fix**:
 
-```yaml
-# seatunnel.yaml — shorten how long finished-job history is kept
-seatunnel:
-  engine:
-    history-job-expire-minutes: 1440
-```
-
-After jobs expire, the corresponding IMap entries are removed from the IMap, but their records —
-including deletion tombstones — stay in the storage files, and there is no user-managed
-compaction. If the directory must be reclaimed, treat it as a whole-store reset: stop the
-cluster, back up `<namespace>/<clusterName>/<businessName>/`, delete that entire directory, and
-accept that all persisted state in that store is discarded on the next start.
+Enable/tune `history-job-expire-minutes` in `seatunnel.yaml`. MapStore region files cannot be
+trimmed per job; reclaiming their space requires stopping the cluster and wiping the whole
+namespace, which discards the IMap state of all jobs.
 
 ---
 
@@ -389,14 +364,11 @@ accept that all persisted state in that store is discarded on the next start.
 
 Before deleting any state directory:
 
-- [ ] Confirm the job is in `FINISHED`, `CANCELLED`, or `FAILED` terminal state
+- [ ] Confirm the job is in `FINISHED`, `CANCELED`, or `FAILED` terminal state
 - [ ] Confirm you will not restore from checkpoint or savepoint
 - [ ] Confirm the job ID is not referenced in any monitoring or alerting rule
 - [ ] For checkpoint storage: delete `<namespace>/<job-id>/` recursively
-- [ ] For savepoint: delete `<namespace>/savepoint/<job-id>/` recursively
-- [ ] For MapStore/WAL: no per-job deletion is possible; reclaim space only via a whole-store
-  reset of `<namespace>/<clusterName>/<businessName>/` (cluster stopped, backed up, and all state
-  in the store accepted as discarded)
+- [ ] For MapStore data: only a full namespace wipe (cluster stopped) is safe; selective per-job deletion is not supported
 
 ---
 

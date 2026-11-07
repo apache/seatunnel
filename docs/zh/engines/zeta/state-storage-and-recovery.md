@@ -12,10 +12,8 @@ SeaTunnel Engine（Zeta）在作业执行过程中会持久化多类状态数据
 | 存储类别 | 用途 | 默认位置 |
 |---|---|---|
 | Checkpoint（检查点）| 流水线算子状态的容错快照 | `seatunnel.yaml` `checkpoint.storage` 配置路径 |
-| Savepoint（保存点）| 用户手动触发的命名检查点，用于计划性停止或重启 | 与 Checkpoint 同路径，目录名不同 |
-| IMap / MapStore | 分布式内存状态（作业元数据、运行中作业数据、指标）| `hazelcast.yaml` `map` MapStore 配置（可选，默认不持久化）|
-| WAL（预写日志）| 文件型 IMap 存储插件的追加写日志文件 | `<namespace>/<clusterName>/<businessName>/`（IMap 存储）|
-| 历史作业元数据 | 已完成 / 失败作业记录 | 与 IMap 存储位置相同 |
+| Savepoint（保存点）| 用户手动触发的命名检查点，用于计划性停止或重启 | 与 Checkpoint 同一存储，位于所属作业自身的目录下 |
+| IMap / MapStore | 分布式内存状态（作业元数据、作业状态、历史记录）| 默认仅存于内存；可通过 `hazelcast.yaml` 中的 Hazelcast MapStore 配置持久化 |
 
 ---
 
@@ -85,7 +83,7 @@ seatunnel:
 
 | 维度 | Checkpoint | Savepoint |
 |---|---|---|
-| 触发方式 | 周期性 / 自动 | 手动（`seatunnel.sh -s <jobId>`）|
+| 触发方式 | 周期性 / 自动 | 手动（`$SEATUNNEL_HOME/bin/seatunnel.sh --savepoint <jobId>`）|
 | 用途 | 容错恢复 | 计划性停止、升级、迁移 |
 | 生命周期 | 引擎管理 | 操作人员管理 |
 | 保留策略 | 自动轮转 | 手动删除前永久保留 |
@@ -124,14 +122,8 @@ $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore-with-checkpoint <jo
 
 ### Savepoint 路径结构
 
-```
-<namespace>/
-  savepoint/
-    <job-id>/
-      <savepoint-timestamp>/
-        <pipeline-id>/
-          <task-location>/state-data
-```
+Savepoint 是保存点类型的 Checkpoint：它写入上文配置的同一个 Checkpoint 存储中，位于所属作业的目录下
+（`<namespace>/<job-id>/`）。不存在独立的 savepoint 根目录。
 
 ### 安全清理
 
@@ -143,50 +135,42 @@ $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore-with-checkpoint <jo
 
 ### IMap 存储的内容
 
-SeaTunnel Engine 使用 Hazelcast IMap 作为分布式内存键值存储。主要的逻辑映射包括：
+SeaTunnel Engine 使用 Hazelcast IMap 作为分布式内存键值存储。引擎使用的主要逻辑映射包括：
 
 | IMap 名称 | 内容 |
 |---|---|
-| `engine_runningJobInfo` | 运行中作业的元数据（作业 ID、作业状态等）|
-| `engine_runningJobState` | 每个运行中作业及其流水线的状态机当前状态 |
-| `engine_runningJobMetrics` | 实时吞吐量、延迟和记录数指标 |
+| `engine_runningJobInfo` | 已提交作业的信息与初始化元数据（作业 ID、作业名称等；指标在作业完成后存于 `engine_finishedJobMetrics`）|
+| `engine_runningJobState` | 运行中作业和流水线的状态机当前状态 |
+| `engine_stateTimestamps` | 作业 / 流水线状态流转的时间戳 |
 | `engine_finishedJobState` | 已完成、已取消或失败作业的终态 |
 | `engine_finishedJobMetrics` | 作业终止后的最终指标快照 |
-| `engine_finishedJobVertexInfo` | 已完成作业的 Vertex 级信息 |
-| `engine_stateTimestamps` | 状态流转时间戳 |
+| `engine_finishedJobVertexInfo` | 已完成作业的执行节点信息 |
 
 ### MapStore（磁盘持久化）
 
-默认情况下，IMap 数据仅保存在集群内存中。通过 Hazelcast MapStore 可以将 IMap 条目写入文件系统，
-使其在整个集群重启后仍可恢复。它与 Checkpoint 存储**相互独立**，并且发行版自带的
-`config/hazelcast.yaml` 中**默认未启用**。
+默认情况下 IMap 数据仅存储在内存中（并按备份份数在节点间复制）。如果所有节点停止，数据将丢失，
+除非启用了 MapStore 持久化。启用后，Hazelcast MapStore 会将 IMap 条目写入外部文件系统（HDFS、S3，
+或通过 HDFS API 访问的本地文件），使数据在整个集群重启后仍然可用。这与 Checkpoint 存储**相互独立**。
 
-如需启用，请在 `hazelcast.yaml` 中添加 `map` 配置。配置项名称支持 Hazelcast 的 `*`
-通配符，可同时覆盖所有引擎 IMap：
+持久化在 `hazelcast.yaml` 中配置（详见[Zeta 集群分离式部署](separated-cluster-deployment.md)）：
 
 ```yaml
 # hazelcast.yaml
 map:
-  engine_*:
+  engine*:
     map-store:
       enabled: true
       initial-mode: EAGER
       factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
       properties:
-        type: hdfs                  # IMap 文件存储工厂标识，无论后端为何都保持 hdfs
-        storage.type: hdfs          # 后端文件系统：hdfs（默认）| s3 | oss | gcs
-        namespace: /seatunnel-imap  # IMap 文件根路径（默认 /seatunnel-imap）
-        clusterName: seatunnel      # 必填，用于集群隔离的路径段
-        fs.defaultFS: hdfs://localhost:9000   # storage.type 为 hdfs 时必填
+        type: hdfs
+        namespace: /tmp/seatunnel/imap     # 存储 namespace（未设置时默认 /seatunnel-imap）
+        clusterName: seatunnel-cluster
+        storage.type: hdfs
+        fs.defaultFS: hdfs://localhost:9000
 ```
 
-注意：`engine_runningJobMetrics` 不会被持久化——运行时指标快照属于辅助观测状态。
-
-IMap 文件写入 `<namespace>/<clusterName>/<businessName>/` 目录。上面的 `engine_*` 通配符配置
-必须使用 `factory-class-name` 指定 `FileMapStoreFactory`：该工厂会把每个 IMap 的 `businessName`
-设为映射名称，使每个引擎 IMap 落在各自独立的目录中。若改用 `class-name` 指定 `FileMapStore`
-并配置单一固定的 `businessName`，所有引擎 IMap 会共享同一目录，整集群重启恢复时不同映射的
-数据可能互相混淆或覆盖。
+在分离式集群模式下，只有 Master 节点存储 IMap 数据，因此该配置仅在 Master 节点生效。
 
 ### IMap、MapStore 与 Checkpoint 的关系
 
@@ -196,23 +180,31 @@ IMap / MapStore  <────────────────────�
 ```
 
 二者**完全独立**。删除 Checkpoint 存储不影响 IMap；反之亦然。
-作业可以从 Checkpoint 恢复，即使 IMap MapStore 已被清除——但作业 ID 和流水线映射需要**重新提交**，
-因为 `engine_runningJobState` 已丢失。
+作业可以从 Checkpoint 恢复，即使 IMap MapStore 数据已被清除——但作业 ID 和流水线映射需要**重新提交**，
+因为运行作业的状态已丢失。
 
 ---
 
-## 4. WAL（预写日志）
+## 4. MapStore 文件维护
 
-文件型 IMap 存储插件（`imap-storage-file`）将 IMap 更新以追加写方式写入
-`<namespace>/<clusterName>/<businessName>/` 目录下的 WAL 文件，并周期性地将其归档为紧凑的 ORC 文件。
-WAL 用于保证 IMap 数据在进程崩溃时的耐久性；WAL 没有面向用户的压缩阈值或刷新间隔配置项。
+IMap 持久化是一种追加写（append-only）的预写日志：`FileMapStore` 委托 `IMapFileStorage`，通过 WAL
+写入器把每次状态变更追加到配置的 `namespace` 目录下的 region 文件中。所有作业的记录都追加到同一批
+region 文件里，因此只要作业持续运行，这些文件就会不断增长。
 
-WAL 文件**不是**按作业组织的。所有引擎 IMap 共享
-`<namespace>/<clusterName>/<businessName>/` 根目录，每条条目的写入、过期和删除都以追加记录的方式
-写入同一批文件（删除是墓碑记录，读取时跳过）。因此不存在可以安全删除的"某作业专属"WAL 文件子集：
-删除部分文件可能丢弃其他作业仍需保留的条目，或丢失墓碑导致下次加载时旧值复活。
-唯一安全的手动删除方式是整库重置——停止集群、备份 `<namespace>/<clusterName>/<businessName>/`，
-并接受该存储中持久化的**全部**状态被丢弃。**不要**在集群运行期间手动删除 IMap 存储文件。
+**缓解措施：**
+
+- 让已完成作业按期过期：`history-job-expire-minutes` 会将已完成作业的记录从 IMap 中移除，
+  使其不再被持久化。
+- 在 Master 节点上监控 namespace 目录：
+
+```bash
+du -sh /tmp/seatunnel/imap/   # 替换为你在 hazelcast.yaml 中配置的 namespace（本地文件存储，即 fs.defaultFS 以 file:/// 开头时）
+hadoop fs -du -s -h <fs-uri>/<namespace>   # HDFS 或对象存储后端使用该命令查看
+```
+
+**不要**按作业选择性地删除 MapStore 文件：并不存在按作业划分的文件，手工删除文件可能损坏下次
+Master 启动时的 IMap 重放。正确做法是为 namespace 卷规划足够的容量；只有当集群停止、且可以接受
+丢失所有运行中作业的 IMap 状态时，才整体清空 namespace。
 
 ---
 
@@ -233,10 +225,9 @@ seatunnel:
 | 集群重启后作业仍保持已移除（启用 IMap 持久化时） | 是（过期时间随条目一起持久化，已过期的作业不会被重新加载，尚未过期的作业保留剩余时间） |
 | 删除该作业的 MapStore 持久化文件 | **否**（过期记录仍保留在 IMap 存储文件中） |
 | 删除 Checkpoint 存储目录 | **否** |
-| 删除 Savepoint 目录 | **否** |
-| 删除 WAL 文件 | **否** |
+| 删除 Savepoint 数据 | **否** |
 
-**核心结论**：`history-job-expire-minutes` 仅清理 `engine_finishedJobState` 中的作业元数据。
+**核心结论**：`history-job-expire-minutes` 仅清理已完成作业 IMap 中的作业元数据。
 HDFS / S3 / 本地的 Checkpoint 和 Savepoint 目录**不受此配置影响**，必须独立管理。
 
 ---
@@ -253,7 +244,7 @@ HDFS / S3 / 本地的 Checkpoint 和 Savepoint 目录**不受此配置影响**�
 | PostgreSQL CDC（逻辑复制）| 每张表 1–50 KB |
 | Oracle CDC（LogMiner）| 50 KB – 2 MB |
 
-公式：`checkpoint_size ≈ 表数量 × 平均 Split 数 × 每 Split 状态大小 × 最大并发 Checkpoint 数`
+公式：`checkpoint_size ≈ 表数量 × 平均 Split 数 × 每 Split 状态大小`（同一时刻只有一个 Checkpoint 在途，因此无需乘并发系数）
 
 ### 存储容量经验值
 
@@ -263,25 +254,19 @@ HDFS / S3 / 本地的 Checkpoint 和 Savepoint 目录**不受此配置影响**�
 所需存储 = checkpoint_size × 3 × 安全系数(1.5)
 ```
 
-### IMap / WAL 容量估算
+### IMap 存储容量估算
 
 每个运行中的 CDC 作业大约占用：
 
-- `engine_runningJobState`：每条流水线约 50–200 字节
-- `engine_runningJobMetrics`：每次指标刷新每条流水线约 1–2 KB
+- 作业状态：每条流水线约 50–200 字节
+- 指标：每次指标刷新每条流水线约 1–2 KB
 
-对于运行 100 个 CDC 作业的集群：
-
-```
-imap 内存 ≈ 100 × 200B ≈ 20 KB（状态）
-WAL 磁盘：建议每节点规划 2–5 GB
-```
-
-使用以下命令持续监控：
+对于运行 100 个 CDC 作业的集群，IMap 数据量在几 MB 量级。MapStore namespace 的磁盘占用随状态
+流转历史增长，长期运行的集群建议规划数 GB 空间，并使用以下命令持续监控：
 
 ```bash
-du -sh <namespace>/<clusterName>/<businessName>/
-watch -n 60 'du -sh /seatunnel-imap/'
+du -sh /tmp/seatunnel/imap/   # 替换为你配置的 MapStore namespace（本地文件存储场景）
+hadoop fs -du -s -h <fs-uri>/<namespace>   # HDFS 或对象存储后端使用该命令查看
 ```
 
 ---
@@ -318,33 +303,26 @@ ls -lh /tmp/seatunnel/checkpoint/
 
 ---
 
-### IMap / WAL 目录增长
+### MapStore namespace 目录增长
 
-**现象**：IMap 存储目录（如 `/seatunnel-imap/`）占满 Master / Worker 节点磁盘。
+**现象**：配置的 MapStore `namespace` 目录占满 Master 节点磁盘。
 
 **诊断**：
 
 ```bash
-du -sh <namespace>/<clusterName>/<businessName>/
+du -sh /tmp/seatunnel/imap/   # 替换为你在 hazelcast.yaml 中配置的 namespace（本地文件存储，即 fs.defaultFS 以 file:/// 开头时）
+hadoop fs -du -s -h <fs-uri>/<namespace>   # HDFS 或对象存储后端使用该命令查看
 ```
 
 **可能根因**：
 
-- 已完成作业条目的增长速度快于 `history-job-expire-minutes` 的清理速度；`engine_runningJobMetrics` 不会被持久化（见第 3 节），属于内存中的运行时指标，不会导致磁盘增长
-- IMap 存储文件在两次归档之间为追加写，长期运行作业的频繁小量更新会推高磁盘占用
+- 已完成作业未过期（`history-job-expire-minutes` 未设置或过大）
+- 运行中作业过多，状态和指标持续更新
 
 **修复**：
 
-```yaml
-# seatunnel.yaml —— 缩短已完成作业历史的保留时间
-seatunnel:
-  engine:
-    history-job-expire-minutes: 1440
-```
-
-作业过期后，对应的 IMap 条目会从 IMap 中移除，但其记录（包括删除墓碑）仍保留在存储文件中，
-且没有面向用户的压缩机制。如确需回收该目录空间，只能按整库重置处理：停止集群、备份
-`<namespace>/<clusterName>/<businessName>/` 后删除整个目录，并接受该存储中的全部持久化状态在下次启动时丢失。
+在 `seatunnel.yaml` 中启用 / 调整 `history-job-expire-minutes`。MapStore 的 region 文件无法按作业
+裁剪；要回收其空间需要停止集群并整体清空 namespace，这会丢弃所有作业的 IMap 状态。
 
 ---
 
@@ -367,13 +345,11 @@ seatunnel:
 
 删除任何状态目录前，请确认：
 
-- [ ] 作业已处于 `FINISHED`、`CANCELLED` 或 `FAILED` 终态
+- [ ] 作业已处于 `FINISHED`、`CANCELED` 或 `FAILED` 终态
 - [ ] 确认不会从该 Checkpoint 或 Savepoint 恢复
 - [ ] 确认该作业 ID 未被任何监控或告警规则引用
 - [ ] Checkpoint 存储：递归删除 `<namespace>/<job-id>/`
-- [ ] Savepoint：递归删除 `<namespace>/savepoint/<job-id>/`
-- [ ] MapStore / WAL：无法按作业删除；只能通过整库重置
-  `<namespace>/<clusterName>/<businessName>/` 回收空间（停止集群、完成备份、接受该存储中全部状态丢弃）
+- [ ] MapStore 数据：仅支持整体清空 namespace（先停止集群），不支持按作业选择性删除
 
 ---
 
