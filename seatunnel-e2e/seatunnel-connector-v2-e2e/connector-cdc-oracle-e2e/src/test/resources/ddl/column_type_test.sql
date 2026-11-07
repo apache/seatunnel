@@ -366,3 +366,25 @@ CREATE TABLE DEBEZIUM.PARTITION_SINK_TABLE (
     PARTITION p3 VALUES LESS THAN (3000),
     PARTITION p4 VALUES LESS THAN (MAXVALUE)
 );
+
+-- XMLTYPE is not in this table. The JDBC sink binds the CDC string with setString, and an
+-- XMLTYPE column needs oracle.xdb.XMLType. This image is not set up to load xdb for that bind.
+create table DEBEZIUM.LOB_TYPES (
+    ID          NUMBER(9) not null,
+    VAL_VARCHAR VARCHAR2(100),
+    VAL_CLOB    CLOB,
+    VAL_NCLOB   NCLOB,
+    VAL_BLOB    BLOB,
+    primary key (ID)
+);
+
+ALTER TABLE DEBEZIUM.LOB_TYPES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+
+create table DEBEZIUM.SINK_LOB_TYPES (
+    ID          NUMBER(9) not null,
+    VAL_VARCHAR VARCHAR2(100),
+    VAL_CLOB    CLOB,
+    VAL_NCLOB   NCLOB,
+    VAL_BLOB    BLOB,
+    primary key (ID)
+);

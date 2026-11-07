@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.debezium.connector.oracle.logminer.processor;
 
 import org.slf4j.Logger;
@@ -38,16 +39,21 @@ import io.debezium.connector.oracle.logminer.events.LogMinerEvent;
 import io.debezium.connector.oracle.logminer.events.LogMinerEventRow;
 import io.debezium.connector.oracle.logminer.events.SelectLobLocatorEvent;
 import io.debezium.connector.oracle.logminer.events.TruncateEvent;
+import io.debezium.connector.oracle.logminer.events.XmlBeginEvent;
+import io.debezium.connector.oracle.logminer.events.XmlEndEvent;
+import io.debezium.connector.oracle.logminer.events.XmlWriteEvent;
 import io.debezium.connector.oracle.logminer.parser.DmlParserException;
 import io.debezium.connector.oracle.logminer.parser.LogMinerDmlEntry;
 import io.debezium.connector.oracle.logminer.parser.LogMinerDmlEntryImpl;
 import io.debezium.connector.oracle.logminer.parser.LogMinerDmlParser;
 import io.debezium.connector.oracle.logminer.parser.SelectLobParser;
+import io.debezium.connector.oracle.logminer.parser.XmlBeginParser;
 import io.debezium.data.Envelope;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.spi.ChangeEventSource.ChangeEventSourceContext;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
+import io.debezium.text.ParsingException;
 import io.debezium.util.Clock;
 import io.debezium.util.Strings;
 
@@ -85,6 +91,7 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
     private final OracleStreamingChangeEventSourceMetrics metrics;
     private final LogMinerDmlParser dmlParser;
     private final SelectLobParser selectLobParser;
+    private final XmlBeginParser xmlBeginParser;
 
     protected final Counters counters;
 
@@ -111,6 +118,7 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
         this.counters = new Counters();
         this.dmlParser = new LogMinerDmlParser();
         this.selectLobParser = new SelectLobParser();
+        this.xmlBeginParser = new XmlBeginParser();
     }
 
     protected OracleConnectorConfig getConfig() {
@@ -322,6 +330,15 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
                 break;
             case LOB_ERASE:
                 handleLobErase(row);
+                break;
+            case XML_BEGIN:
+                handleXmlBegin(row);
+                break;
+            case XML_WRITE:
+                handleXmlWrite(row);
+                break;
+            case XML_END:
+                handleXmlEnd(row);
                 break;
             case INSERT:
             case UPDATE:
@@ -782,6 +799,82 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
         }
 
         addToTransaction(row.getTransactionId(), row, () -> new LobEraseEvent(row));
+    }
+
+    private void handleXmlBegin(LogMinerEventRow row) {
+        if (!getConfig().isLobEnabled()) {
+            LOGGER.trace("LOB support is disabled, XML_BEGIN '{}' skipped.", row.getRedoSql());
+            return;
+        }
+
+        LOGGER.trace("XML_BEGIN: {}", row);
+        final TableId tableId = row.getTableId();
+        final Table table = getSchema().tableFor(tableId);
+        if (table == null) {
+            LOGGER.warn("XML_BEGIN for table '{}' is not known, skipped.", tableId);
+            return;
+        }
+
+        addToTransaction(
+                row.getTransactionId(),
+                row,
+                () -> {
+                    final LogMinerDmlEntry dmlEntry = xmlBeginParser.parse(row.getRedoSql(), table);
+                    dmlEntry.setObjectName(row.getTableName());
+                    dmlEntry.setObjectOwner(row.getTablespaceName());
+                    return new XmlBeginEvent(row, dmlEntry, xmlBeginParser.getColumnName());
+                });
+
+        metrics.incrementCommittedDmlCount(metrics.getRegisteredDmlCount());
+    }
+
+    private void handleXmlWrite(LogMinerEventRow row) {
+        if (!getConfig().isLobEnabled()) {
+            LOGGER.trace("LOB support is disabled, XML_WRITE '{}' skipped.", row.getRedoSql());
+            return;
+        }
+
+        LOGGER.trace("XML_WRITE: {}", row);
+        final TableId tableId = row.getTableId();
+        final Table table = getSchema().tableFor(tableId);
+        if (table == null) {
+            LOGGER.warn("XML_WRITE for table '{}' is not known, skipped.", tableId);
+            return;
+        }
+
+        addToTransaction(row.getTransactionId(), row, () -> getXmlWriteEventFromRow(row));
+    }
+
+    private XmlWriteEvent getXmlWriteEventFromRow(LogMinerEventRow row) {
+        try {
+            XmlWriteParser.Payload payload = XmlWriteParser.parse(row.getRedoSql());
+            if (payload.isNullValue()) {
+                return new XmlWriteEvent(row, (String) null, 0);
+            }
+            if (payload.getBytes() != null) {
+                return new XmlWriteEvent(row, payload.getBytes(), payload.getLength());
+            }
+            return new XmlWriteEvent(row, payload.getText(), payload.getLength());
+        } catch (Exception e) {
+            throw new ParsingException(null, "Failed to parse XML write data", e);
+        }
+    }
+
+    private void handleXmlEnd(LogMinerEventRow row) {
+        if (!getConfig().isLobEnabled()) {
+            LOGGER.trace("LOB support is disabled, XML_END skipped.");
+            return;
+        }
+
+        LOGGER.trace("XML_END: {}", row);
+        final TableId tableId = row.getTableId();
+        final Table table = getSchema().tableFor(tableId);
+        if (table == null) {
+            LOGGER.warn("XML_END for table '{}' is not known, skipped.", tableId);
+            return;
+        }
+
+        addToTransaction(row.getTransactionId(), row, () -> new XmlEndEvent(row));
     }
 
     /**

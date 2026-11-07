@@ -130,6 +130,111 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
     }
 
     @TestTemplate
+    public void testOracleCdcLobSnapshotStreamingAndOutOfLineInsert(TestContainer container)
+            throws Exception {
+        String sourceTable = "LOB_TYPES";
+        String sinkTable = "SINK_LOB_TYPES";
+        clearTable(SCEHMA_NAME, sourceTable);
+        clearTable(SCEHMA_NAME, sinkTable);
+
+        executeSql(
+                "INSERT INTO "
+                        + SCEHMA_NAME
+                        + "."
+                        + sourceTable
+                        + " VALUES (1, 'keep-me', 'clob-snapshot', N'nclob-snapshot', HEXTORAW('010203'))");
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/oraclecdc_to_oracle_lob.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        String lobCompareSql = lobCompareSql(SCEHMA_NAME);
+        await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(String.format(lobCompareSql, sourceTable)),
+                                    querySql(String.format(lobCompareSql, sinkTable)));
+                        });
+
+        executeSql(
+                "UPDATE "
+                        + SCEHMA_NAME
+                        + "."
+                        + sourceTable
+                        + " SET VAL_VARCHAR = 'updated' WHERE ID = 1");
+        executeSql(
+                "UPDATE "
+                        + SCEHMA_NAME
+                        + "."
+                        + sourceTable
+                        + " SET VAL_CLOB = 'clob-only' WHERE ID = 1");
+        executeSql(
+                "INSERT INTO "
+                        + SCEHMA_NAME
+                        + "."
+                        + sourceTable
+                        + " VALUES (2, 'second', 'clob-stream', N'nclob-stream', HEXTORAW('0A0B'))");
+        executeSql(
+                "DECLARE l_clob CLOB; BEGIN INSERT INTO "
+                        + SCEHMA_NAME
+                        + "."
+                        + sourceTable
+                        + " (ID, VAL_VARCHAR, VAL_CLOB, VAL_NCLOB, VAL_BLOB) VALUES (3, 'outline',"
+                        + " EMPTY_CLOB(), N'short-nclob', HEXTORAW('0C0D')) RETURNING VAL_CLOB INTO"
+                        + " l_clob; DBMS_LOB.WRITEAPPEND(l_clob, 4000, RPAD('a', 4000, 'a'));"
+                        + " DBMS_LOB.WRITEAPPEND(l_clob, 1000, RPAD('b', 1000, 'b')); END;");
+        // 100 grinning-face characters. LogMiner counts each emoji as one character.
+        // DBMS_LOB.SUBSTR of 4000 emoji would exceed VARCHAR2's 4000-byte limit, so the
+        // compare below uses GETLENGTH plus a 100-character window.
+        executeSql(
+                "DECLARE c_chunk VARCHAR2(800); n_chunk NVARCHAR2(100); l_clob CLOB; l_nclob NCLOB;"
+                        + " BEGIN c_chunk := RPAD(UNISTR('\\D83D\\DE00'), 100, UNISTR('\\D83D\\DE00'));"
+                        + " n_chunk := RPAD(UNISTR('\\D83D\\DE00'), 100, UNISTR('\\D83D\\DE00'));"
+                        + " INSERT INTO "
+                        + SCEHMA_NAME
+                        + "."
+                        + sourceTable
+                        + " (ID, VAL_VARCHAR, VAL_CLOB, VAL_NCLOB, VAL_BLOB) VALUES (4, 'emoji',"
+                        + " EMPTY_CLOB(), EMPTY_CLOB(), HEXTORAW('0E0F')) RETURNING VAL_CLOB,"
+                        + " VAL_NCLOB INTO l_clob, l_nclob; DBMS_LOB.WRITEAPPEND(l_clob, 100,"
+                        + " c_chunk); DBMS_LOB.WRITEAPPEND(l_nclob, 100, n_chunk); END;");
+        // 8191 ASCII, one emoji, 8190 ASCII, one emoji, 8190 ASCII, one emoji.
+        // APPEND writes the character. Oracle GETLENGTH counts UTF-16 units, so the length is
+        // 8191+2+8190+2+8190+2 = 24577. The last ASCII unit before each emoji is at 8191, 16383,
+        // and 24575. Each emoji occupies the next two units.
+        executeSql(
+                "DECLARE l_clob CLOB; emoji VARCHAR2(10) := UNISTR('\\D83D\\DE00'); BEGIN INSERT"
+                        + " INTO "
+                        + SCEHMA_NAME
+                        + "."
+                        + sourceTable
+                        + " (ID, VAL_VARCHAR, VAL_CLOB, VAL_NCLOB, VAL_BLOB) VALUES (5, 'boundary',"
+                        + " EMPTY_CLOB(), N'nclob-boundary', HEXTORAW('0F10')) RETURNING VAL_CLOB"
+                        + " INTO"
+                        + " l_clob; DBMS_LOB.WRITEAPPEND(l_clob, 8191, RPAD('a', 8191, 'a'));"
+                        + " DBMS_LOB.APPEND(l_clob, TO_CLOB(emoji)); DBMS_LOB.WRITEAPPEND(l_clob,"
+                        + " 8190, RPAD('a', 8190, 'a')); DBMS_LOB.APPEND(l_clob, TO_CLOB(emoji));"
+                        + " DBMS_LOB.WRITEAPPEND(l_clob, 8190, RPAD('a', 8190, 'a'));"
+                        + " DBMS_LOB.APPEND(l_clob, TO_CLOB(emoji)); END;");
+
+        await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(String.format(lobCompareSql, sourceTable)),
+                                    querySql(String.format(lobCompareSql, sinkTable)));
+                        });
+    }
+
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -631,6 +736,24 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
 
     private String getSourceQuerySQL(String database, String tableName) {
         return String.format(SOURCE_SQL_TEMPLATE, database, tableName);
+    }
+
+    private static String lobCompareSql(String schema) {
+        return "SELECT ID, VAL_VARCHAR, DBMS_LOB.GETLENGTH(VAL_CLOB),"
+                + " DBMS_LOB.SUBSTR(VAL_CLOB, 4000, 1),"
+                + " DBMS_LOB.SUBSTR(VAL_CLOB, 4000, 4001),"
+                + " DBMS_LOB.SUBSTR(VAL_CLOB, 1, 8191),"
+                + " DBMS_LOB.SUBSTR(VAL_CLOB, 2, 8192),"
+                + " DBMS_LOB.SUBSTR(VAL_CLOB, 1, 16383),"
+                + " DBMS_LOB.SUBSTR(VAL_CLOB, 2, 16384),"
+                + " DBMS_LOB.SUBSTR(VAL_CLOB, 1, 24575),"
+                + " DBMS_LOB.SUBSTR(VAL_CLOB, 2, 24576),"
+                + " DBMS_LOB.GETLENGTH(VAL_NCLOB),"
+                + " DBMS_LOB.SUBSTR(VAL_NCLOB, 100, 1),"
+                + " RAWTOHEX(DBMS_LOB.SUBSTR(VAL_BLOB, 2000, 1))"
+                + " FROM "
+                + schema
+                + ".%s ORDER BY ID";
     }
 
     @TestTemplate

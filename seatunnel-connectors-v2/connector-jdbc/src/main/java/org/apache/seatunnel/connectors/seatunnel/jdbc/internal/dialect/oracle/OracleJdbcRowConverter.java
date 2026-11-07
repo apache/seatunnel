@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.StatementBoundLobs;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
@@ -26,6 +27,10 @@ import javax.annotation.Nullable;
 
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
+import java.sql.Blob;
+import java.sql.Clob;
+import java.sql.Connection;
+import java.sql.NClob;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -40,6 +45,13 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.or
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.ORACLE_VARCHAR2;
 
 public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
+
+    /**
+     * ojdbc8 19.18 sends CLOB and NCLOB character streams in blocks of 8192 UTF-16 code units. A
+     * supplementary character that crosses a block boundary is stored as U+FFFD U+FFFD. Values
+     * shorter than one block cannot cross that boundary.
+     */
+    static final int LOB_UTF16_BLOCK = 8192;
 
     @Override
     public String converterName() {
@@ -142,18 +154,23 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
         if (seaTunnelDataType.getSqlType().equals(SqlType.BYTES)) {
             if (ORACLE_BLOB.equals(sourceType)) {
                 byte[] bytes = (byte[]) value;
-                statement.setBinaryStream(
-                        statementIndex, new ByteArrayInputStream(bytes), bytes.length);
+                if (bytes.length == 0) {
+                    // A zero-length binary stream is stored as NULL. An empty locator stays empty.
+                    Blob blob = statement.getConnection().createBlob();
+                    statement.setBlob(statementIndex, blob);
+                    StatementBoundLobs.track(statement, blob);
+                } else {
+                    statement.setBinaryStream(
+                            statementIndex, new ByteArrayInputStream(bytes), bytes.length);
+                }
             } else {
                 statement.setBytes(statementIndex, (byte[]) value);
             }
         } else if (seaTunnelDataType.getSqlType().equals(SqlType.STRING)) {
             if (ORACLE_CLOB.equals(sourceType)) {
-                String str = (String) value;
-                statement.setCharacterStream(statementIndex, new StringReader(str), str.length());
+                setNationalLob(statement, statementIndex, (String) value, false);
             } else if (ORACLE_NCLOB.equals(sourceType)) {
-                String str = (String) value;
-                statement.setNCharacterStream(statementIndex, new StringReader(str), str.length());
+                setNationalLob(statement, statementIndex, (String) value, true);
             } else {
                 statement.setString(statementIndex, (String) value);
             }
@@ -166,6 +183,53 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
         } else {
             super.setValueToStatementByDataType(
                     value, statement, seaTunnelDataType, statementIndex, sourceType);
+        }
+    }
+
+    /**
+     * Binds a CLOB or NCLOB. Long values go through {@link Connection#createClob()} or {@link
+     * Connection#createNClob()} and {@link Clob#setString(long, String)}, which keeps a surrogate
+     * pair that sits on an 8192-code-unit boundary. The temporary LOB is freed after the batch
+     * executes.
+     */
+    private static void setNationalLob(
+            PreparedStatement statement, int statementIndex, String value, boolean national)
+            throws SQLException {
+        // ojdbc stores a zero-length character stream as NULL. An empty temporary locator is an
+        // empty LOB, matching a source EMPTY_CLOB(). setString(1, "") can clear that locator.
+        if (value.isEmpty()) {
+            Connection connection = statement.getConnection();
+            if (national) {
+                NClob nclob = connection.createNClob();
+                statement.setNClob(statementIndex, nclob);
+                StatementBoundLobs.track(statement, nclob);
+            } else {
+                Clob clob = connection.createClob();
+                statement.setClob(statementIndex, clob);
+                StatementBoundLobs.track(statement, clob);
+            }
+            return;
+        }
+        if (value.length() < LOB_UTF16_BLOCK) {
+            StringReader reader = new StringReader(value);
+            if (national) {
+                statement.setNCharacterStream(statementIndex, reader, value.length());
+            } else {
+                statement.setCharacterStream(statementIndex, reader, value.length());
+            }
+            return;
+        }
+        Connection connection = statement.getConnection();
+        if (national) {
+            NClob nclob = connection.createNClob();
+            nclob.setString(1, value);
+            statement.setNClob(statementIndex, nclob);
+            StatementBoundLobs.track(statement, nclob);
+        } else {
+            Clob clob = connection.createClob();
+            clob.setString(1, value);
+            statement.setClob(statementIndex, clob);
+            StatementBoundLobs.track(statement, clob);
         }
     }
 }
