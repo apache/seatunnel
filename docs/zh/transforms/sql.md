@@ -88,7 +88,8 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 
 `%` 和 `_` 也可以匹配换行符，因此 `"a\nb" LIKE 'a%b'` 为 `true`。
 
-如果任一操作数为 `NULL`，该行不会被保留，`LIKE` 和 `NOT LIKE` 均是如此，因为与 `NULL` 比较的结果是未知。
+如果任一操作数为 `NULL`，`LIKE` 和 `NOT LIKE` 谓词均求值为 false，因为与 `NULL` 比较的结果是未知。
+在 `where` 子句中该行会被丢弃；在 `case when` 条件中则会走 `else` 分支。
 
 ### RLIKE 与 REGEXP
 

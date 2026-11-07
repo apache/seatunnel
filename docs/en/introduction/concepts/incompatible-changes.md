@@ -7,9 +7,9 @@ You need to check this document before you upgrade to related version.
 
 ### SQL transform: LIKE wildcards apply to the whole pattern and literal characters are compared literally
 
-- **Affected jobs**: jobs that use the `Sql` transform with the `ZETA` engine (the default) and put
-  a `LIKE` / `NOT LIKE` / `RLIKE` / `REGEXP` predicate in a `where` clause or a `case when`
-  condition.
+- **Affected jobs**: jobs that use the `Sql` transform with the `ZETA` engine (the default) or the
+  `INTERNAL` engine, which maps to the same implementation, and put a `LIKE` / `NOT LIKE` /
+  `RLIKE` / `REGEXP` predicate in a `where` clause or a `case when` condition.
 - **Behavior change**: a `%` or `_` anywhere in a LIKE pattern now behaves as a wildcard. Before,
   only a wildcard at the very start or the very end of the pattern was expanded, so a pattern with
   an interior wildcard matched nothing: `name LIKE 'A%ce'` did not match `Alice` and

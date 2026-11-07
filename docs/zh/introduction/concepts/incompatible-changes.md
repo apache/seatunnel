@@ -6,8 +6,8 @@
 
 ### SQL Transform：LIKE 通配符在模式任意位置生效，字面字符按字面比较
 
-- **影响范围**：使用 `Sql` Transform 且引擎为 `ZETA`（默认值），并在 `where` 子句或 `case when`
-  条件中使用 `LIKE` / `NOT LIKE` / `RLIKE` / `REGEXP` 谓词的作业。
+- **影响范围**：使用 `Sql` Transform 且引擎为 `ZETA`（默认值）或 `INTERNAL`（映射到同一实现），
+  并在 `where` 子句或 `case when` 条件中使用 `LIKE` / `NOT LIKE` / `RLIKE` / `REGEXP` 谓词的作业。
 - **行为变化**：LIKE 模式中任意位置的 `%` 或 `_` 现在都作为通配符生效。此前只有位于模式最开头或最末尾的
   通配符会被展开，因此包含中间通配符的模式匹配不到任何行：`name LIKE 'A%ce'` 匹配不到 `Alice`，
   而 `name NOT LIKE 'A%ce'` 会保留所有行。其余字符现在一律按字面比较，因此 `'125' LIKE '1.5'` 为

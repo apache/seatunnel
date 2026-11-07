@@ -99,8 +99,9 @@ error.
 
 `%` and `_` also match a line break, so `"a\nb" LIKE 'a%b'` is `true`.
 
-If either operand is `NULL` the row is not kept, for both `LIKE` and `NOT LIKE`, because a
-comparison with `NULL` is unknown.
+If either operand is `NULL` the predicate evaluates to false for both `LIKE` and `NOT LIKE`,
+because a comparison with `NULL` is unknown. In a `where` clause that drops the row; in a
+`case when` condition it selects the `else` branch.
 
 ### RLIKE and REGEXP
 

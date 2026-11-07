@@ -75,6 +75,8 @@ public class ZetaSQLFilter {
         if (whereExpr instanceof InExpression) {
             return inExpr((InExpression) whereExpr, inputFields);
         }
+        // ILIKE, RLIKE and REGEXP are parsed into LikeExpression as well, and the keyword is
+        // what decides the semantics inside matchLikeExpression
         if (whereExpr instanceof LikeExpression) {
             boolean isNotLike = ((LikeExpression) whereExpr).isNot();
             // not like SQL parsing
@@ -86,7 +88,6 @@ public class ZetaSQLFilter {
                 return likeExpr((LikeExpression) whereExpr, inputFields);
             }
         }
-        // ILIKE, RLIKE and REGEXP are all parsed into LikeExpression as well
         if (whereExpr instanceof ComparisonOperator) {
             Pair<Object, Object> pair =
                     executeComparisonOperator((ComparisonOperator) whereExpr, inputFields);
