@@ -264,10 +264,28 @@ public class JobHistoryService {
         finishedJobStateImap.put(jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 
+    /**
+     * Persists finished job metrics with a single write-through IMap put and the configured history
+     * TTL.
+     *
+     * <p>Locks {@code jobId}, merges {@code metrics} into the current IMap value (or an empty
+     * metrics bag when absent), then writes the merged value once. Concurrent callers for the same
+     * {@code jobId} are serialized by the IMap key lock.
+     *
+     * @param jobId finished job id
+     * @param metrics metrics to merge into the finished-job metrics IMap; must not be {@code null}
+     */
     public void storeFinishedPipelineMetrics(long jobId, JobMetrics metrics) {
-        finishedJobMetricsImap.computeIfAbsent(jobId, key -> JobMetrics.of(new HashMap<>()));
-        JobMetrics newMetrics = finishedJobMetricsImap.get(jobId).merge(metrics);
-        finishedJobMetricsImap.put(jobId, newMetrics, finishedJobExpireTime, TimeUnit.MINUTES);
+        Objects.requireNonNull(metrics, "metrics");
+        finishedJobMetricsImap.lock(jobId);
+        try {
+            JobMetrics existing = finishedJobMetricsImap.get(jobId);
+            JobMetrics base = existing == null ? JobMetrics.of(new HashMap<>()) : existing;
+            JobMetrics newMetrics = base.merge(metrics);
+            finishedJobMetricsImap.put(jobId, newMetrics, finishedJobExpireTime, TimeUnit.MINUTES);
+        } finally {
+            finishedJobMetricsImap.unlock(jobId);
+        }
     }
 
     private JobState toJobStateMapper(JobMaster jobMaster, boolean simple) {
