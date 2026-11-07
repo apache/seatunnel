@@ -316,14 +316,24 @@ map:
         fs.oss.endpoint: OSS endpoint
 ```
 
+To use OSS credentials from environment variables, remove `fs.oss.accessKeyId` and
+`fs.oss.accessKeySecret` and add:
+
+```yaml
+        fs.oss.credentials.provider: com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider
+```
+
+The provider reads `OSS_ACCESS_KEY_ID` and `OSS_ACCESS_KEY_SECRET`, plus optional
+`OSS_SESSION_TOKEN`.
+
 Notice: When using OSS, make sure that the following jars are in the lib directory.
 
 The `seatunnel-shade-hadoop3-uber` JAR comes from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project, which provides a shaded (package-relocated) version of the Hadoop client. All third-party classes are relocated under `org.apache.seatunnel.shade.*` to avoid classpath conflicts with SeaTunnel's own dependencies. The version follows the `${library.version}-${seatunnel.shade.version}` format (e.g., `3.1.4-3.0.0`). Refer to the actual JAR file name in your SeaTunnel distribution package for the exact version.
 
 ```
-aliyun-sdk-oss-3.13.2.jar
-hadoop-aliyun-3.3.6.jar
-jdom2-2.0.6.jar
+aliyun-sdk-oss-3.4.1.jar
+hadoop-aliyun-3.1.4.jar
+jdom-1.1.jar
 netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
@@ -355,6 +365,11 @@ map:
          fs.s3a.secret.key: YOUR_SECRET_KEY
          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
 ```
+
+For environment-variable credentials, remove `fs.s3a.access.key` and `fs.s3a.secret.key` and use
+`fs.s3a.aws.credentials.provider: com.amazonaws.auth.EnvironmentVariableCredentialsProvider`.
+The provider reads `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, plus optional
+`AWS_SESSION_TOKEN`.
 
 Notice: When using S3, make sure that the following jars are in the lib directory.
 
@@ -571,6 +586,10 @@ mkdir -p $SEATUNNEL_HOME/logs
 ```
 
 The logs will be written to `$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log`.
+
+> A Worker started before any Master will keep retrying the configured master addresses for up to
+> `hazelcast.max.join.seconds` (default 300s) and log `This lite member cannot assume the master
+> role ...` while waiting.
 
 ## 8. Submit And Manage Jobs
 

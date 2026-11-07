@@ -59,6 +59,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | connection_mode             | string  | no       | active_local                |
 | remote_verification_enabled | boolean | no       | true                        |
 | control_encoding            | string  | no       | UTF-8                       |
+| control_timeout             | int     | no       | 60000                       |
 | delimiter/field_delimiter   | string  | no       | \001                        |
 | row_delimiter               | string  | no       | \n                          |
 | read_columns                | list    | no       | -                           |
@@ -515,8 +516,9 @@ The encoding of the file to read. This param will be parsed by `Charset.forName(
 
 ### null_format [string]
 
-Only used when file_format_type is text.
-null_format to define which strings can be represented as null.
+Used when `file_format_type` is `text` or `csv`. Defines which field value represents null.
+For CSV with a configured `schema.columns[].defaultValue`, a matching `null_format` value or a column absent from the file header uses that default. An empty CSV field still produces null unless it matches `null_format`; columns without a default keep their existing behavior.
+CSV defaults are converted to the column type when the reader is created. A default that cannot be converted fails the job even if no field needs it. DATE and TIMESTAMP defaults may use a different supported format from the file data.
 
 e.g: `\N`
 
@@ -680,8 +682,10 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
     password = tianchao
     file_format_type = "text"
     schema = {
-      name = string
-      age = int
+      fields {
+        name = string
+        age = int
+      }
     }
     field_delimiter = "#"
   }
@@ -906,30 +910,9 @@ sink {
 }
 ```
 
-### Reading via SFTP (SSH File Transfer)
+### Reading from an SFTP server
 
-`FtpFile` reads from FTP and SFTP servers through the same Hadoop FileSystem URI scheme; switch to `sftp://` to use SSH instead of plain FTP. SFTP requires an SSH key (or a password) for authentication, and the host key must be trusted by the running JVM (either via `~/.ssh/known_hosts` or a custom `known_hosts` file passed through `ftp_properties`).
-
-```hocon
-source {
-  FtpFile {
-    fs.defaultFS = "sftp://sftp.example.example.com:22"
-    path = "/upload/landing/"
-    user = "seatunnel"
-    file_format_type = "csv"
-    delimiter = ","
-    ftp_properties = {
-      "fs.sftp.user." = "seatunnel"
-      "fs.sftp.keyfile" = "/etc/seatunnel/id_rsa"
-      "fs.sftp.host"   = "sftp.example.example.com"
-      "fs.sftp.port"   = "22"
-      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
-    }
-  }
-}
-```
-
-If the SFTP server uses a self-signed host key, add it to `known_hosts` ahead of time — otherwise the first read throws a `SftpException` complaining about host verification. The connector does not cache or refresh `known_hosts` itself; updating the file and restarting the job is enough.
+The `FtpFile` connector only speaks the plain FTP protocol — its connection is always built as `ftp://<host>:<port>` from the `host`/`port` options, and options such as `fs.defaultFS`, `ftp_properties`, or `known_hosts` are not supported. To read files over SFTP (SSH File Transfer), use the [SftpFile](SftpFile.md) connector instead, which configures the server through `host`/`port`/`user`/`password` (and optional SSH `keyfile`) options.
 
 ## Changelog
 

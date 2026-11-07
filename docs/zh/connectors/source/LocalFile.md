@@ -49,12 +49,16 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 :::
 
+## 检查点恢复
+
+对于 Zeta 批处理作业，恢复时会等待读取器注册后再分配未完成的文件分片，并跳过检查点中已经完成的文件。恢复期间，输入文件应保持不变，且仍可通过相同路径访问。最终写入语义仍取决于所选 Sink 及其检查点支持。
+
 ## 选项
 
 | 名称                         | 类型      | 是否必须 | 默认值                 |
 |----------------------------|---------|------|---------------------|
 | path                       | string  | 是    | -                   |
-| file_format_type           | string  | 是    | -                   |
+| file_format_type           | string  | 视情况而定 | -                |
 | read_columns               | list    | 否    | -                   |
 | read_partitions | list | 否 | - |
 | delimiter/field_delimiter  | string  | 否    | \001                |
@@ -64,7 +68,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | datetime_format            | string  | 否    | yyyy-MM-dd HH:mm:ss |
 | time_format                | string  | 否    | HH:mm:ss            |
 | skip_header_row_number     | long    | 否    | 0                   |
-| schema                     | config  | 否    | -                   |
+| schema                     | config  | 视情况而定 | -                   |
 | sheet_name                 | string  | 否    | -                   |
 | excel_engine               | string  | 否    | POI                 |
 | excel_use_header_line      | boolean | 否    | false               |
@@ -80,6 +84,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | null_format                | string  | 否    | -                   |
 | binary_chunk_size          | int     | 否    | 1024                |
 | binary_complete_file_mode  | boolean | 否    | false               |
+| markdown_rag_metadata_enabled | boolean | 否 | false               |
+| pdf_rag_metadata_enabled   | boolean | 否    | false               |
 | discovery_mode             | string  | 否    | once                |
 | scan_interval              | string  | 否    | 10S |
 | start_mode                 | string  | 否    | earliest            |
@@ -117,6 +123,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 如果您将文件类型指定为 `json`，您还应该指定 schema 选项来告诉连接器如何将数据解析为您想要的行。
+
+使用 `path` 读取单表时必填。使用 `tables_configs` 读取多表时，每个表条目都会定义自己的 `file_format_type`，无需在顶层配置该选项。
 
 例如：
 
@@ -157,23 +165,11 @@ schema {
 |------|-------------|---------|
 | 200  | get success | true    |
 
-如果您将文件类型指定为 `parquet` `orc`，则不需要 schema 选项，连接器可以自动找到上游数据的 schema。
+如果您将文件类型指定为 `parquet` 或 `orc`，则不需要 schema 选项，因为连接器可以从文件元数据中读取 schema。
 
-如果您将文件类型指定为 `text` `csv`，您可以选择指定或不指定 schema 信息。
+如果您将文件类型指定为 `json`、`excel` 或 `xml`，则必须指定 schema，因为这些格式不提供 SeaTunnel 所需的字段类型。
 
-例如，上游数据如下：
-
-```text
-
-tyrantlucifer#26#male
-
-```
-
-如果您不指定数据 schema，连接器将把上游数据视为如下：
-
-|        content        |
-|-----------------------|
-| tyrantlucifer#26#male |
+对于 `text` 和 `csv`，schema 是可选的。未配置 schema 时，连接器会将每个输入行读取为一个 string 类型的 `content` 字段；此模式不支持 `read_columns`。如果需要有类型的字段或列映射，请配置 schema。
 
 如果您指定数据 schema，除了 CSV 文件类型外，您还应该指定选项 `field_delimiter`
 
@@ -323,9 +319,14 @@ PDF 特有的解析行为如下：
 
 然后 SeaTunnel 将跳过源文件的前 2 行
 
+对于设置了 `enable_file_split = false` 的 CSV 文件，此参数跳过的是 CSV 解析之前的物理行。如果设置了
+`csv_use_header_line = true`，跳过这些行之后的第一条 CSV 记录将作为表头。
+`skip_header_row_number` 只应包含表头之前的说明行，不要将表头本身计入；
+如果表头之前没有说明行，请保持默认值 `0`。
+
 ### schema [config]
 
-仅在 file_format_type 为 text、json、excel、xml 或 csv（或其他我们无法从元数据读取 schema 的格式）时需要配置。
+当 `file_format_type` 为 `json`、`excel` 或 `xml` 时必须配置。对于 `text` 和 `csv`，schema 是可选的；未配置时，每个输入行会被读取为一个 string 类型的 `content` 字段，并且不支持 `read_columns`。
 
 #### fields [Config]
 
@@ -391,7 +392,7 @@ POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值
 
 ### csv_use_header_line [boolean]
 
-是否使用标题行解析文件，仅在 file_format 为 `csv` 且文件包含符合 RFC 4180 的标题行时使用
+启用后，连接器会将第一个符合 RFC 4180 的 CSV 记录作为标题行，并按列名映射到已配置 `schema` 中的字段。此选项不会推断 schema 或字段类型。不要再使用 `skip_header_row_number` 跳过同一个标题行。
 
 ### file_filter_pattern [string]
 
@@ -481,8 +482,9 @@ abc.*
 
 ### null_format [string]
 
-仅在 file_format_type 为 text 时使用。
-null_format 定义哪些字符串可以表示为 null。
+当 `file_format_type` 为 `text` 或 `csv` 时使用。指定表示 null 的字段值。
+对于配置了 `schema.columns[].defaultValue` 的 CSV，如果字段值匹配 `null_format`，或文件表头缺少该列，则使用配置的默认值。空 CSV 字段仍为 null，除非它与 `null_format` 匹配；未配置默认值的列保持原有行为。
+CSV 默认值在创建读取器时进行校验。DATE 和 TIMESTAMP 默认值可以使用与文件数据不同的受支持格式。
 
 例如：`\N`
 

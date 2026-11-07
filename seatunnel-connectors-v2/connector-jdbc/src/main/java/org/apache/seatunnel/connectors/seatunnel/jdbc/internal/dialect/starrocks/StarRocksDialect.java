@@ -17,7 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.starrocks;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlJdbcRowConverter;
+
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 
 public class StarRocksDialect extends MysqlDialect {
 
@@ -25,6 +32,19 @@ public class StarRocksDialect extends MysqlDialect {
 
     public StarRocksDialect(String fieldIde) {
         this.fieldIde = fieldIde;
+    }
+
+    /** Keeps the existing StarRocks binding while MySQL uses its DATETIME-specific writer. */
+    @Override
+    public JdbcRowConverter getRowConverter() {
+        return new MysqlJdbcRowConverter() {
+            @Override
+            protected void writeTimestamp(
+                    PreparedStatement statement, int index, LocalDateTime value)
+                    throws SQLException {
+                statement.setTimestamp(index, Timestamp.valueOf(value));
+            }
+        };
     }
 
     @Override
