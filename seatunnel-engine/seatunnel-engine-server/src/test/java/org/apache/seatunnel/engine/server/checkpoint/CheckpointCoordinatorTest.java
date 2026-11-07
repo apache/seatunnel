@@ -1486,6 +1486,173 @@ public class CheckpointCoordinatorTest
                 delivered,
                 scenario + ": every checkpointed subtask state must be restored exactly once");
     }
+
+    @Test
+    void testMonitorCountsEverySubtaskAndStateByteOfAParallelAction() throws Exception {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointMonitorService monitor = Mockito.mock(CheckpointMonitorService.class);
+            ParallelActionPlan plan = new ParallelActionPlan();
+            CheckpointCoordinator coordinator =
+                    plan.coordinator(
+                            executorService, Mockito.mock(CheckpointStorage.class), monitor);
+            PendingCheckpoint pendingCheckpoint = plan.registerPendingCheckpoint(coordinator);
+            Assertions.assertEquals(3, pendingCheckpoint.getTotalSubtasks());
+
+            coordinator.acknowledgeTask(plan.ack(plan.subtask0, 100));
+            coordinator.acknowledgeTask(plan.ack(plan.subtask1, 100));
+
+            // The enumerator acknowledged first, then subtask 0 and subtask 1.
+            Mockito.verify(monitor).onCheckpointAcknowledge(1L, 1, 1L, 2, 3);
+            Mockito.verify(monitor).onCheckpointAcknowledge(1L, 1, 1L, 3, 3);
+
+            CompletedCheckpoint completedCheckpoint =
+                    pendingCheckpoint.getCompletableFuture().get(10, TimeUnit.SECONDS);
+            coordinator.completePendingCheckpoint(completedCheckpoint);
+            Mockito.verify(monitor).onCheckpointCompleted(completedCheckpoint, 200L);
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testCompletePendingCheckpointRejectsMissingSubtaskState() throws Exception {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointStorage storage = Mockito.mock(CheckpointStorage.class);
+            ParallelActionPlan plan = new ParallelActionPlan();
+            CheckpointCoordinator coordinator = plan.coordinator(executorService, storage, null);
+            PendingCheckpoint pendingCheckpoint = plan.registerPendingCheckpoint(coordinator);
+
+            coordinator.acknowledgeTask(plan.ack(plan.subtask0, 100));
+            // Subtask 1 acknowledges without reporting the state of its action.
+            coordinator.acknowledgeTask(
+                    new TaskAcknowledgeOperation(
+                            plan.subtask1, plan.barrier, Collections.emptyList()));
+            CompletedCheckpoint completedCheckpoint =
+                    pendingCheckpoint.getCompletableFuture().get(10, TimeUnit.SECONDS);
+
+            CheckpointException exception =
+                    Assertions.assertThrows(
+                            CheckpointException.class,
+                            () -> coordinator.completePendingCheckpoint(completedCheckpoint));
+            Assertions.assertEquals(
+                    CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR,
+                    exception.getCheckpointFailureReason());
+            Mockito.verify(storage, Mockito.never()).storeCheckPoint(Mockito.any());
+            Mockito.verify(coordinator, Mockito.never()).notifyCompleted(Mockito.any());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
+     * One source action with parallelism 2 plus its split enumerator, laid out like {@code
+     * PhysicalPlanGenerator} does: every parallel subtask runs in its own task group.
+     */
+    private static final class ParallelActionPlan {
+        private final ActionStateKey actionKey = new ActionStateKey("ActionStateKey - source");
+        private final TaskLocation enumerator =
+                new TaskLocation(new TaskGroupLocation(1L, 1, 1), 0, 0);
+        private final TaskLocation subtask0 =
+                new TaskLocation(new TaskGroupLocation(1L, 1, 2), 0, 0);
+        private final TaskLocation subtask1 =
+                new TaskLocation(new TaskGroupLocation(1L, 1, 3), 0, 1);
+        private final CheckpointBarrier barrier =
+                new CheckpointBarrier(
+                        1L, System.currentTimeMillis(), CheckpointType.CHECKPOINT_TYPE);
+
+        private CheckpointCoordinator coordinator(
+                ExecutorService executorService,
+                CheckpointStorage storage,
+                CheckpointMonitorService monitor) {
+            Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions =
+                    new HashMap<>();
+            subtaskActions.put(
+                    enumerator,
+                    Collections.singleton(
+                            Tuple2.tuple2(actionKey, CheckpointPlan.COORDINATOR_INDEX)));
+            subtaskActions.put(subtask0, Collections.singleton(Tuple2.tuple2(actionKey, 0)));
+            subtaskActions.put(subtask1, Collections.singleton(Tuple2.tuple2(actionKey, 1)));
+            CheckpointPlan plan =
+                    CheckpointPlan.builder()
+                            .pipelineId(1)
+                            .pipelineSubtasks(
+                                    new HashSet<>(Arrays.asList(enumerator, subtask0, subtask1)))
+                            .startingSubtasks(Collections.singleton(enumerator))
+                            .subtaskActions(subtaskActions)
+                            .pipelineActions(Collections.singletonMap(actionKey, 2))
+                            .build();
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            checkpointConfig.setStorage(new CheckpointStorageConfig());
+            @SuppressWarnings("unchecked")
+            IMap<Object, Object> mockIMap = Mockito.mock(IMap.class);
+            CheckpointCoordinator coordinator =
+                    Mockito.spy(
+                            new CheckpointCoordinator(
+                                    Mockito.mock(CheckpointManager.class),
+                                    storage,
+                                    checkpointConfig,
+                                    1L,
+                                    plan,
+                                    Mockito.mock(CheckpointIDCounter.class),
+                                    null,
+                                    executorService,
+                                    mockIMap,
+                                    false,
+                                    monitor));
+            // Stop after the checkpoint is stored and reported; notifying tasks needs a cluster.
+            Mockito.doReturn(false).when(coordinator).notifyCompleted(Mockito.any());
+            return coordinator;
+        }
+
+        /** Registers a pending checkpoint built the same way the coordinator builds one. */
+        @SuppressWarnings("unchecked")
+        private PendingCheckpoint registerPendingCheckpoint(CheckpointCoordinator coordinator) {
+            PendingCheckpoint pendingCheckpoint =
+                    new PendingCheckpoint(
+                            1L,
+                            1,
+                            barrier.getId(),
+                            barrier.getTimestamp(),
+                            barrier.getCheckpointType(),
+                            (Set<Long>)
+                                    ReflectionUtils.invoke(
+                                            coordinator, "getNotYetAcknowledgedTasks"),
+                            (Map<Long, TaskStatistics>)
+                                    ReflectionUtils.invoke(coordinator, "getTaskStatistics"),
+                            (Map<ActionStateKey, ActionState>)
+                                    ReflectionUtils.invoke(coordinator, "getActionStates"));
+            ((Map<Long, PendingCheckpoint>)
+                            ReflectionUtils.getField(coordinator, "pendingCheckpoints")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCheckpoints field not found")))
+                    .put(barrier.getId(), pendingCheckpoint);
+            // The enumerator acknowledges with the coordinator state.
+            pendingCheckpoint.acknowledgeTask(
+                    enumerator,
+                    Collections.singletonList(
+                            new ActionSubtaskState(
+                                    actionKey,
+                                    CheckpointPlan.COORDINATOR_INDEX,
+                                    Collections.singletonList(new byte[0]))),
+                    SubtaskStatus.RUNNING);
+            return pendingCheckpoint;
+        }
+
+        private TaskAcknowledgeOperation ack(TaskLocation subtask, int stateBytes) {
+            return new TaskAcknowledgeOperation(
+                    subtask,
+                    barrier,
+                    Collections.singletonList(
+                            new ActionSubtaskState(
+                                    actionKey,
+                                    subtask.getTaskIndex(),
+                                    Collections.singletonList(new byte[stateBytes]))));
+        }
+    }
 }
 
 class TestCheckpointManager extends CheckpointManager {

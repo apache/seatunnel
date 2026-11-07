@@ -31,6 +31,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,6 +51,8 @@ public class PendingCheckpoint implements Checkpoint {
     private final CheckpointType checkpointType;
 
     private final Set<Long> notYetAcknowledgedTasks;
+
+    private final Set<Long> acknowledgedTasks = new HashSet<>();
 
     private final Map<Long, TaskStatistics> taskStatistics;
 
@@ -123,33 +126,52 @@ public class PendingCheckpoint implements Checkpoint {
             List<ActionSubtaskState> states,
             SubtaskStatus subtaskStatus) {
         LOG.debug("acknowledgeTask states [{}]", states);
-        boolean exist = notYetAcknowledgedTasks.remove(taskLocation.getTaskID());
-        if (!exist) {
-            return;
-        }
-        TaskStatistics statistics = taskStatistics.get(taskLocation.getTaskVertexId());
-
-        long stateSize = 0;
-        for (ActionSubtaskState state : states) {
-            ActionState actionState = actionStates.get(state.getStateKey());
-            if (actionState == null) {
-                continue;
+        CompletedCheckpoint completedCheckpoint;
+        // Acks arrive on concurrent operation threads. Taking the task off the pending set and
+        // reporting its states must be one step, otherwise another ack can see the checkpoint
+        // fully acknowledged and complete it before these states are reported.
+        synchronized (this) {
+            boolean exist = notYetAcknowledgedTasks.remove(taskLocation.getTaskID());
+            if (!exist) {
+                return;
             }
-            stateSize +=
-                    state.getState().stream().filter(Objects::nonNull).map(s -> s.length).count();
-            actionState.reportState(state.getIndex(), state);
-        }
-        statistics.reportSubtaskStatistics(
-                new SubtaskStatistics(
-                        taskLocation.getTaskIndex(),
-                        Instant.now().toEpochMilli(),
-                        stateSize,
-                        subtaskStatus));
+            acknowledgedTasks.add(taskLocation.getTaskID());
+            TaskStatistics statistics = taskStatistics.get(taskLocation.getTaskVertexId());
 
-        if (isFullyAcknowledged()) {
-            LOG.debug("checkpoint is full ack!");
-            completableFuture.complete(toCompletedCheckpoint());
+            long stateSize = 0;
+            for (ActionSubtaskState state : states) {
+                ActionState actionState = actionStates.get(state.getStateKey());
+                if (actionState == null) {
+                    continue;
+                }
+                stateSize +=
+                        state.getState().stream()
+                                .filter(Objects::nonNull)
+                                .mapToLong(s -> s.length)
+                                .sum();
+                actionState.reportState(state.getIndex(), state);
+            }
+            // Statistics are kept per subtask (keyed by task id), so each has a single slot.
+            statistics.reportSubtaskStatistics(
+                    0,
+                    new SubtaskStatistics(
+                            taskLocation.getTaskIndex(),
+                            Instant.now().toEpochMilli(),
+                            stateSize,
+                            subtaskStatus));
+
+            if (!isFullyAcknowledged()) {
+                return;
+            }
+            completedCheckpoint = toCompletedCheckpoint();
         }
+        LOG.debug("checkpoint is full ack!");
+        completableFuture.complete(completedCheckpoint);
+    }
+
+    /** Returns the ids of the tasks that have acknowledged this checkpoint. */
+    public synchronized Set<Long> getAcknowledgedTasks() {
+        return new HashSet<>(acknowledgedTasks);
     }
 
     protected boolean isFullyAcknowledged() {
@@ -196,7 +218,7 @@ public class PendingCheckpoint implements Checkpoint {
                 this.getCheckpointType());
     }
 
-    public int getAcknowledgedSubtasks() {
+    public synchronized int getAcknowledgedSubtasks() {
         return taskStatistics.values().stream()
                 .mapToInt(TaskStatistics::getNumAcknowledgedSubtasks)
                 .sum();
