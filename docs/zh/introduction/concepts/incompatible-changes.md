@@ -4,6 +4,16 @@
 
 ## dev
 
+### Zeta SQL：确定性的向量投影
+
+- **行为修正**：`VECTOR_REDUCE` 的 `RANDOM_PROJECTION` 和
+  `SPARSE_RANDOM_PROJECTION` 现在根据输入、输出维度重新创建固定种子的投影矩阵。
+  此前每次调用都会推进共享随机数生成器，导致相同输入可能得到不同向量，且不同行不共享一致的投影。
+  现在结果不再依赖行顺序、并发调用、Transform 实例或 Worker 重启。
+- **迁移说明**：请从原始 embedding 重建已保存的投影向量，再将旧结果与新结果比较或混用。
+  索引向量和查询向量必须使用相同的降维方法和维度。SQL 语法、配置项、模式和 checkpoint 格式不变。
+  `TRUNCATE`、无需降维的路径、现有稀疏投影缩放方式及 Calcite 行为保持不变。
+
 ### Databend Source：DECIMAL 列按 DECIMAL 读取，而不再是 STRING
 
 - **行为变更：Databend 的 `DECIMAL(p, s)` 列在作业中的类型为 `DECIMAL(p, s)`**

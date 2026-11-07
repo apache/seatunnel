@@ -30,7 +30,7 @@ import java.util.Random;
 import java.util.stream.IntStream;
 
 public class VectorFunction {
-    private static final Random random = new Random(42);
+    private static final long PROJECTION_SEED = 42L;
 
     public static Object cosineDistance(List<Object> args) {
         if (args.size() != 2) {
@@ -332,6 +332,8 @@ public class VectorFunction {
             int sourceDimension, int targetDimension) {
         float[][] matrix = new float[targetDimension][sourceDimension];
         float scale = (float) Math.sqrt(1.0 / targetDimension);
+        // Each row must use the same matrix, independent of other calls or worker scheduling.
+        Random random = new Random(PROJECTION_SEED);
 
         for (int i = 0; i < targetDimension; i++) {
             for (int j = 0; j < sourceDimension; j++) {
@@ -345,6 +347,7 @@ public class VectorFunction {
             int sourceDimension, int targetDimension) {
         float[][] matrix = new float[targetDimension][sourceDimension];
         float scale = (float) Math.sqrt(3.0);
+        Random random = new Random(PROJECTION_SEED);
         double p1 = 1.0 / 6.0;
         double p2 = 2.0 / 6.0;
 

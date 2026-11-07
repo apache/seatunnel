@@ -5,6 +5,20 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta SQL: deterministic vector projection
+
+- **Behavior correction**: `VECTOR_REDUCE` with `RANDOM_PROJECTION` or
+  `SPARSE_RANDOM_PROJECTION` now recreates a fixed-seed matrix for the requested
+  source/target dimensions. Previously, every call advanced a shared random
+  generator, so identical inputs could produce different vectors and rows did
+  not share a consistent projection. Results are now independent of row order,
+  concurrent calls, transform instances and worker restart.
+- **Migration**: rebuild previously stored projected vectors from the original
+  embeddings before mixing or comparing old and new results. Indexed vectors and
+  query vectors must use the same method and dimensions. No SQL syntax, options,
+  schemas or checkpoint formats change. `TRUNCATE`, no-reduction paths, existing
+  sparse scaling and Calcite behavior are unchanged.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**

@@ -1559,6 +1559,17 @@ Generic vector dimension reduction function that supports multiple reduction met
 
 **Returns:** VECTOR type with reduced dimensions
 
+The Zeta SQL engine uses a fixed seed for each projection matrix. For the same
+method and source/target dimensions, all rows use the same projection, independent
+of call order, concurrent evaluation, transform instances or worker restart.
+`TRUNCATE` and the existing sparse-projection scaling are unchanged. Projection
+matrices are not retained in a global cache.
+
+Earlier Zeta versions advanced a shared random generator for each call. Rebuild
+stored projected vectors from their original embeddings before comparing or
+mixing them with newly projected vectors. Use the same method and dimensions for
+both indexed vectors and query vectors.
+
 **Example:**
 ```sql
 SELECT id, VECTOR_REDUCE(embedding, 256, 'TRUNCATE') as reduced_embedding FROM table

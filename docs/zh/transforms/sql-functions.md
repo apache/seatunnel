@@ -1551,6 +1551,13 @@ L2_DISTANCE(vector1, vector2)
 
 **返回值:** 降维后的 VECTOR 类型
 
+Zeta SQL 引擎为每个投影矩阵使用固定种子。对于相同的降维方法和输入、输出维度，
+所有行使用相同的投影，不受调用顺序、并发计算、Transform 实例或 Worker 重启影响。
+`TRUNCATE` 和现有稀疏投影的缩放方式保持不变。投影矩阵不会保存在全局缓存中。
+
+早期 Zeta 版本会在每次调用时推进共享随机数生成器。请先从原始 embedding 重建已保存的
+投影向量，再与新生成的投影向量进行比较或混用。索引向量和查询向量必须使用相同的降维方法和维度。
+
 **示例:**
 ```sql
 SELECT id, VECTOR_REDUCE(embedding, 256, 'TRUNCATE') as reduced_embedding FROM table
