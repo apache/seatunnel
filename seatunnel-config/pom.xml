@@ -32,6 +32,7 @@
 
     <modules>
         <module>seatunnel-config-shade</module>
+        <module>seatunnel-config-shade-azure-kv</module>
         <module>seatunnel-config-base</module>
         <module>seatunnel-config-sql</module>
     </modules>
