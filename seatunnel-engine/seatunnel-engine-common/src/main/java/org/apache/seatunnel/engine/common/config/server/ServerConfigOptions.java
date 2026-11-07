@@ -148,7 +148,8 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(60)
                         .withDescription(
-                                "The interval (in seconds) between two consecutive executions of the print execution info task.");
+                                "The interval (in seconds) between two consecutive executions of the print execution info task. "
+                                        + "Also controls coordinator polling of enumerator progress for sources that support CDC progress.");
 
         public static final Option<Integer> PRINT_JOB_METRICS_INFO_INTERVAL =
                 Options.key("print-job-metrics-info-interval")

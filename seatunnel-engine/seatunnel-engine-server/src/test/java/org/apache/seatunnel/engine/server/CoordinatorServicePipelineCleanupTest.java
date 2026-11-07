@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
+import org.apache.seatunnel.api.cdc.CdcProgressValue;
+import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
@@ -26,6 +29,9 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressService;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -44,6 +50,59 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.awaitility.Awaitility.await;
 
 class CoordinatorServicePipelineCleanupTest extends AbstractSeaTunnelServerTest {
+
+    @Test
+    void testMetricsCleanupDoesNotRemoveReplacementCdcScope() {
+        CoordinatorService coordinator = awaitActiveCoordinatorService();
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PipelineLocation pipeline = new PipelineLocation(jobId, 1);
+        CdcProgressService progress = server.getCdcProgressService();
+        CdcProgressService.Generation generation = progress.getGeneration();
+        CdcProgressService.Owner original = progress.newOwner();
+        CdcProgressService.Owner replacement = progress.newOwner();
+        progress.registerPipeline(generation, pipeline, original);
+        progress.removePipeline(generation, pipeline, original);
+        progress.registerPipeline(generation, pipeline, replacement);
+        CdcProgressEnvelope<CdcReaderProgressReport> report =
+                new CdcProgressEnvelope<>(
+                        CdcProgressOwner.READER,
+                        new TaskLocation(new TaskGroupLocation(jobId, 1, 1L), 0, 0),
+                        10L,
+                        100L,
+                        1L,
+                        1000L,
+                        new CdcReaderProgressReport(
+                                "test",
+                                CdcProgressLifecycle.INCREMENTAL,
+                                "replacement",
+                                CdcProgressValue.unavailable(),
+                                CdcProgressValue.unsupported(),
+                                CdcProgressValue.unsupported(),
+                                0L,
+                                null));
+        progress.updateReports(Collections.singletonList(report));
+        upsertMetricsForPipeline(pipeline);
+        IMap<Object, Object> states =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        states.put(pipeline, PipelineStatus.FAILED);
+        IMap<PipelineLocation, PipelineCleanupRecord> pending =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
+        PipelineCleanupRecord record =
+                newPipelineCleanupRecord(pipeline, PipelineStatus.FAILED, false);
+        pending.put(pipeline, record);
+        try {
+            // CDC registration is not serialized by the persistent metrics-cleanup key lock.
+            coordinator.processPendingPipelineCleanup(pipeline, record);
+            Assertions.assertFalse(hasMetricsForPipeline(pipeline));
+            Assertions.assertFalse(pending.containsKey(pipeline));
+            Assertions.assertEquals(
+                    1,
+                    progress.getReaderReports(jobId, 1, 10L).size(),
+                    "metrics cleanup has no authority to close the replacement CDC owner");
+        } finally {
+            progress.removePipeline(generation, pipeline, replacement);
+        }
+    }
 
     @Test
     void testCleanupRemovesMetricsAndRecordWhenNoTaskGroups() {
