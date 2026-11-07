@@ -78,6 +78,9 @@ Canal为变更日志提供了一种统一的格式，以下是一个从MySQL pro
 
 MySQL 的 products 表有 4 列（id、name、description 和 weight）
 上述 JSON 消息是产品表的一个更新变更事件，其中 id = 111 的行的 weight 值从 5.15 变为 5.18
+
+`old` 数组保存本次更新的前镜像，其元素按位置一一对应，即 `old[i]` 是 `data[i]` 的前镜像。`old[i]` 中未出现的列表示没有变更，会使用 `data[i]` 中同一行的值填充；上例中 `old[0]` 只包含 `weight`，因此前镜像的 `id`、`name`、`description` 取自当前行，`weight` 取自 `old[0]`。若列在 `old[i]` 中被显式设置为 JSON `null`，则视为已变更，并保留该 `null` 值。
+
 假设此表的 binlog 的消息已经同步到 Kafka topic，那么我们可以使用下面的 SeaTunnel 示例来消费这个主题并体现变更事件
 
 ```bash
