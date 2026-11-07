@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-> By default, we will use 2pc to guarantee the message is sent to kafka exactly once.
+> By default, `semantics` is `NON`, which does not guarantee that messages are sent to Kafka exactly once. To get exactly-once semantics, set `semantics` to `EXACTLY_ONCE` and enable checkpointing.
 
 ## Description
 
@@ -49,6 +49,8 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | Datasource | Supported Versions | Maven                                                                               |
 |------------|--------------------|-------------------------------------------------------------------------------------|
 | Kafka      | Universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-kafka) |
+
+> Note: `partition` and `partition_key_fields` are mutually exclusive; configuring both fails validation. You can configure only one of them.
 
 ## Sink Options
 

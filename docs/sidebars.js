@@ -230,6 +230,7 @@ const sidebars = {
                 "transforms/define-sink-type",
                 "transforms/dynamic-compile",
                 "transforms/embedding",
+                "transforms/encrypt",
                 "transforms/field-mapper",
                 "transforms/field-rename",
                 "transforms/filter",
