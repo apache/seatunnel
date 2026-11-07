@@ -14,7 +14,15 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 [Qdrant](https://qdrant.tech/) is a high-performance vector search engine and vector database.
 
-The Qdrant source reads points from one existing Qdrant collection. Point payload fields are read as normal SeaTunnel columns, and Qdrant vectors are read as SeaTunnel vector columns.
+The Qdrant source reads points from one existing Qdrant collection. Point payload fields are
+read as normal SeaTunnel columns, and Qdrant vectors are read as SeaTunnel vector columns.
+It is a bounded batch source, so use it for snapshot-style reads (for example, loading a
+collection to seed a vector index or to feed another store); for continuous change-capture,
+pair the source with a CDC source and write the resulting rows into Qdrant through the
+sink connector.
+
+The collection, its vector names, and vector dimensions must already exist before the job
+starts; the source does not create collections or indexes.
 
 ## Key Features
 

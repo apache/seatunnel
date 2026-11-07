@@ -453,6 +453,60 @@ env {
 
 该配置不处理共享故障，例如 source 连接中断、checkpoint 协调失败、插件加载失败或 OOM；这类异常仍会导致整个作业失败。
 
+## 11. 限制与注意事项
+
+### 11.1 当前限制
+
+**并行度共享**：
+- 所有表共享同一并行度
+- 无法为每张表单独设置并行度
+
+**副本数固定**：
+- 所有表使用相同的副本数
+- 高吞吐表和低吞吐表被同等对待
+
+**内存开销**：
+- 每个写入器维护独立的缓冲区
+- 100 张表 × 4 个副本 = 内存中 400 个写入器
+
+### 11.2 应对方法
+
+**高吞吐表**：
+```hocon
+# 方案一：为热点表拆分独立作业
+job-1 { source { table-name = "orders" } } # 独立作业
+
+job-2 { source { table-name = "user_.*|product_.*" } } # 其余表
+```
+
+**内存优化**：
+```hocon
+# 减小每个写入器的缓冲区
+sink {
+  JDBC {
+    batch-size = 500 # 更小的批次
+  }
+}
+```
+
+## 12. 后续增强
+
+### 12.1 动态副本
+
+当前的 `multi_table_sink_replica` 参数不支持按表覆盖副本数（它对所有表生效）。如果需要按表设置副本数，
+还需要额外的 connector/框架能力支持。
+
+### 12.2 自适应副本
+
+```java
+// 根据吞吐量自动调整副本数
+if (table.getWriteRate() > threshold) {
+    increaseReplicas(table);
+} else if (table.getWriteRate() < lowThreshold) {
+    decreaseReplicas(table);
+}
+```
+
 ## 13. 相关资源
 
 - [CatalogTable 和元数据](../api-design/catalog-table.md)
