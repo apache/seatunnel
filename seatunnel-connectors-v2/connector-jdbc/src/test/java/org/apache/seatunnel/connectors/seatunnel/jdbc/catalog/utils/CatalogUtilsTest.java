@@ -26,6 +26,9 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.GenericTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
@@ -36,6 +39,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -619,5 +623,94 @@ public class CatalogUtilsTest {
                         Arrays.asList("dt", "hr"));
 
         Assertions.assertEquals(Arrays.asList("dt", "hr"), catalogTable.getPartitionKeys());
+    }
+
+    /**
+     * Regression for the Generic dialect fallback: a native column type that the real {@link
+     * GenericTypeMapper} cannot convert must surface through the real consumer entry point {@link
+     * CatalogUtils#getCatalogTable(ResultSetMetaData, JdbcDialectTypeMapper, String)} as an
+     * actionable aggregated error naming the offending field and its native type, instead of
+     * silently producing a column without a data type.
+     */
+    @Test
+    void testGetCatalogTableReportsUnsupportedGenericColumnType() throws SQLException {
+        ResultSetMetaData resultSetMetaData = mock(ResultSetMetaData.class);
+        when(resultSetMetaData.getColumnCount()).thenReturn(3);
+
+        // supported column
+        when(resultSetMetaData.getColumnLabel(1)).thenReturn("id");
+        when(resultSetMetaData.getColumnType(1)).thenReturn(Types.INTEGER);
+        when(resultSetMetaData.getColumnTypeName(1)).thenReturn("INT");
+        when(resultSetMetaData.isNullable(1)).thenReturn(ResultSetMetaData.columnNullable);
+        when(resultSetMetaData.getPrecision(1)).thenReturn(10);
+        when(resultSetMetaData.getScale(1)).thenReturn(0);
+
+        // unsupported by the Generic dialect converter, e.g. a PostgreSQL tsvector payload column
+        when(resultSetMetaData.getColumnLabel(2)).thenReturn("payload");
+        when(resultSetMetaData.getColumnType(2)).thenReturn(Types.STRUCT);
+        when(resultSetMetaData.getColumnTypeName(2)).thenReturn("STRUCT");
+        when(resultSetMetaData.isNullable(2)).thenReturn(ResultSetMetaData.columnNullable);
+        when(resultSetMetaData.getPrecision(2)).thenReturn(0);
+        when(resultSetMetaData.getScale(2)).thenReturn(0);
+
+        // supported column
+        when(resultSetMetaData.getColumnLabel(3)).thenReturn("name");
+        when(resultSetMetaData.getColumnType(3)).thenReturn(Types.VARCHAR);
+        when(resultSetMetaData.getColumnTypeName(3)).thenReturn("VARCHAR");
+        when(resultSetMetaData.isNullable(3)).thenReturn(ResultSetMetaData.columnNullable);
+        when(resultSetMetaData.getPrecision(3)).thenReturn(64);
+        when(resultSetMetaData.getScale(3)).thenReturn(0);
+
+        JdbcDialectTypeMapper typeMapper = new GenericTypeMapper();
+        String sqlQuery = "select id, payload, name from test_table";
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                CatalogUtils.getCatalogTable(
+                                        resultSetMetaData, typeMapper, sqlQuery));
+
+        Assertions.assertEquals(
+                CommonErrorCode.GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR,
+                exception.getSeaTunnelErrorCode());
+        Assertions.assertEquals(sqlQuery, exception.getParams().get("tableName"));
+        String unsupportedFields = exception.getParams().get("fieldWithDataTypes");
+        Assertions.assertNotNull(unsupportedFields);
+        Assertions.assertTrue(unsupportedFields.contains("\"payload\""), unsupportedFields);
+        Assertions.assertTrue(unsupportedFields.contains("STRUCT"), unsupportedFields);
+        Assertions.assertFalse(unsupportedFields.contains("\"id\""), unsupportedFields);
+        Assertions.assertFalse(unsupportedFields.contains("\"name\""), unsupportedFields);
+    }
+
+    @Test
+    void testGetCatalogTableMapsSupportedGenericColumnTypes() throws SQLException {
+        ResultSetMetaData resultSetMetaData = mock(ResultSetMetaData.class);
+        when(resultSetMetaData.getColumnCount()).thenReturn(2);
+
+        when(resultSetMetaData.getColumnLabel(1)).thenReturn("id");
+        when(resultSetMetaData.getColumnType(1)).thenReturn(Types.INTEGER);
+        when(resultSetMetaData.getColumnTypeName(1)).thenReturn("INT");
+        when(resultSetMetaData.isNullable(1)).thenReturn(ResultSetMetaData.columnNullable);
+        when(resultSetMetaData.getPrecision(1)).thenReturn(10);
+        when(resultSetMetaData.getScale(1)).thenReturn(0);
+
+        when(resultSetMetaData.getColumnLabel(2)).thenReturn("name");
+        when(resultSetMetaData.getColumnType(2)).thenReturn(Types.VARCHAR);
+        when(resultSetMetaData.getColumnTypeName(2)).thenReturn("VARCHAR");
+        when(resultSetMetaData.isNullable(2)).thenReturn(ResultSetMetaData.columnNullable);
+        when(resultSetMetaData.getPrecision(2)).thenReturn(64);
+        when(resultSetMetaData.getScale(2)).thenReturn(0);
+
+        JdbcDialectTypeMapper typeMapper = new GenericTypeMapper();
+        String sqlQuery = "select id, name from test_table";
+        CatalogTable catalogTable =
+                CatalogUtils.getCatalogTable(resultSetMetaData, typeMapper, sqlQuery);
+
+        List<Column> columns = catalogTable.getTableSchema().getColumns();
+        Assertions.assertEquals(2, columns.size());
+        Assertions.assertEquals("id", columns.get(0).getName());
+        Assertions.assertEquals(BasicType.INT_TYPE, columns.get(0).getDataType());
+        Assertions.assertEquals("name", columns.get(1).getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, columns.get(1).getDataType());
     }
 }
