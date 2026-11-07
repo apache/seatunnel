@@ -69,6 +69,8 @@ token。access token 过期时自动刷新。
 | max_retries        | Integer | 否   | 3       | 单个请求瞬时失败（429/5xx/网络错误）的最大重试次数。                                          |
 | retry_backoff_ms   | Long    | 否   | 1000    | 重试基础退避时间（毫秒），每次翻倍。                                                          |
 | page_size          | Integer | 否   | -       | 搜索请求分页大小，不设置时使用服务端默认值。注意：较新的 API 版本会忽略或拒绝显式分页大小。      |
+| api_endpoint       | String  | 否   | https://googleads.googleapis.com | Google Ads API 基础地址，主要用于测试。                                                      |
+| oauth_endpoint     | String  | 否   | https://oauth2.googleapis.com    | Google OAuth2 令牌端点基础地址，主要用于测试。                                               |
 
 \* `resource`、`query`、`tables_configs` 三者必须且只能提供一个。
 

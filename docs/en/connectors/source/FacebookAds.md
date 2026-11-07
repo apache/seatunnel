@@ -66,6 +66,7 @@ order, so column `i` always corresponds to selected field `i`.
 | max_retries        | Integer | No       | 3                          | Maximum retries for transient HTTP failures (429/5xx/rate limits/network errors) of a single request. |
 | retry_backoff_ms   | Long    | No       | 1000                       | Base backoff in milliseconds between retries; doubled per attempt.                                    |
 | page_size          | Integer | No       | -                          | Page size for each request (the Graph API `limit` parameter). When unset the server default is used.  |
+| api_endpoint       | String  | No       | https://graph.facebook.com | Facebook Graph API base endpoint. Intended for testing.                                              |
 
 \* Exactly one of `resource` or `tables_configs` must be provided.
 

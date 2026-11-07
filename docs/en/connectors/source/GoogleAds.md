@@ -72,6 +72,8 @@ always corresponds to selected field `i`.
 | max_retries        | Integer | No       | 3       | Maximum retries for transient HTTP failures (429/5xx/network errors) of a single request.             |
 | retry_backoff_ms   | Long    | No       | 1000    | Base backoff in milliseconds between retries; doubled per attempt.                                    |
 | page_size          | Integer | No       | -       | Page size for search requests. When unset the server default is used. Note: recent API versions ignore or reject an explicit page size. |
+| api_endpoint       | String  | No       | https://googleads.googleapis.com | Google Ads API base endpoint. Intended for testing.                                           |
+| oauth_endpoint     | String  | No       | https://oauth2.googleapis.com    | Google OAuth2 token endpoint base. Intended for testing.                                      |
 
 \* Exactly one of `resource`, `query` or `tables_configs` must be provided.
 

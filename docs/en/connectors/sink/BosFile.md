@@ -84,6 +84,7 @@ To use this connector you need to put `bos-hdfs-sdk` (>= 1.0.4-community) into `
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                      | Only used when file_format is parquet.                                                                                                                                          |
 | parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                                                                                                          |
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                           |
+| enable_header_write | boolean | no | false | Only used when file_format_type is text, csv. `false`: don't write header, `true`: write header. |
 | common-options                        | object  | no       | -                                          | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                      |
 
 ## Example

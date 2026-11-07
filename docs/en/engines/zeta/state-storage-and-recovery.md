@@ -46,13 +46,21 @@ For a CDC job this includes:
 seatunnel:
   engine:
     checkpoint:
-      interval: 10000                 # milliseconds between checkpoints
-      timeout: 60000                  # checkpoint completion timeout (ms)
+      interval: 10000              # milliseconds between checkpoints (default 300000)
+      timeout: 60000               # checkpoint completion timeout (ms, default 30000)
+      min-pause: -1                # minimum pause (ms) between consecutive checkpoints, -1 disables
+      monitor-history-size: 32     # checkpoint history entries kept per pipeline (default 32)
+      retain-after-job-cancelled: false   # keep checkpoint data after a job is cancelled
       storage:
-        type: hdfs                    # hdfs (also supports S3 / local file via the HDFS API) | localfile (deprecated)
+        type: hdfs                 # checkpoint storage plugin: hdfs | localfile (default localfile,
+                                   # deprecated - use the hdfs plugin instead)
+        max-retained: 20           # maximum number of retained checkpoints (default 20)
         plugin-config:
           namespace: /seatunnel/checkpoint/    # must end with /
-          # For S3:
+          storage.type: hdfs       # backend filesystem of the hdfs plugin:
+                                   # hdfs (default) | local | s3 | oss | cos | gcs
+          fs.defaultFS: hdfs://localhost:9000  # required when storage.type is hdfs
+          # For S3 (storage.type: s3):
           # fs.s3a.endpoint: https://s3.amazonaws.com
           # fs.s3a.access.key: <your-access-key>
           # fs.s3a.secret.key: <your-secret-key>
@@ -63,9 +71,9 @@ seatunnel:
 ### Checkpoint retention and cleanup
 
 - Checkpoints are **not** automatically deleted by `history-job-expire-minutes`. They must be
-  cleaned up manually or via a configurable retention policy.
-- Only the **latest N checkpoints** are retained per pipeline (controlled by Hazelcast in-memory
-  references). Old checkpoint directories may remain on disk if the job was killed unexpectedly.
+  cleaned up manually or via the retention policy below.
+- Only the latest `checkpoint.storage.max-retained` checkpoints (default 20) are kept; older
+  checkpoint data is removed. Directories of jobs killed unexpectedly may remain on disk.
 - By default, canceled jobs still clean up existing checkpoint data. If you want to retain the
   checkpoints generated during job execution for later recovery, set
   `checkpoint.retain-after-job-cancelled: true` in the job `env`, or set
@@ -89,8 +97,9 @@ seatunnel:
 ### Triggering a savepoint
 
 ```bash
-# Stop a running job and create a savepoint
-$SEATUNNEL_HOME/bin/seatunnel.sh --savepoint <job-id>
+# Trigger a savepoint for a running job (the job stops after the savepoint completes)
+$SEATUNNEL_HOME/bin/seatunnel.sh -s <job-id>
+# Long forms: --savepoint <job-id> or --savepoint-job <job-id>
 
 # Or via REST API v2
 curl -X POST http://<master>:8080/stop-job \
@@ -157,6 +166,7 @@ The persistence is configured in `hazelcast.yaml` (see
 [Separated Zeta Cluster Deployment](separated-cluster-deployment.md) for details):
 
 ```yaml
+# hazelcast.yaml
 map:
   engine*:
     map-store:
