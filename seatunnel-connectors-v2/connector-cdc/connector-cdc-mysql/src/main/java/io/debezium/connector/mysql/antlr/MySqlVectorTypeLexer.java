@@ -202,7 +202,14 @@ public class MySqlVectorTypeLexer extends MySqlLexer {
      */
     private static boolean isName(Token token) {
         int tokenType = token.getType();
-        if (tokenType == ID || tokenType == REVERSE_QUOTE_ID) {
+        if (tokenType == ID
+                || tokenType == REVERSE_QUOTE_ID
+                || tokenType == CHARSET_REVERSE_QOUTE_STRING) {
+            return true;
+        }
+        // Debezium's lexer classifies backtick-quoted names as STRING_LITERAL before
+        // REVERSE_QUOTE_ID. Only backticks denote a name here; ordinary string values do not.
+        if (tokenType == STRING_LITERAL && token.getText().startsWith("`")) {
             return true;
         }
         if (NON_NAME_KEYWORDS.contains(tokenType)) {
