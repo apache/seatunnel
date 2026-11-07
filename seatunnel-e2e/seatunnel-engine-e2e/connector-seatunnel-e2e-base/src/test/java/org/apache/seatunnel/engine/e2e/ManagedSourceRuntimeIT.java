@@ -17,7 +17,15 @@
 
 package org.apache.seatunnel.engine.e2e;
 
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
+
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -30,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
 /**
@@ -103,6 +112,9 @@ public class ManagedSourceRuntimeIT extends SeaTunnelEngineContainer {
                 server.getLogs().contains(MANAGED_LANE_LOG),
                 "Streaming FakeSource must also enter the managed lane before the savepoint");
         awaitCompletedCheckpoint(jobId);
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(() -> Assertions.assertTrue(receivedRows(jobId) > 0L));
 
         Container.ExecResult savepointResult = savepointJob(String.valueOf(jobId));
         Assertions.assertEquals(0, savepointResult.getExitCode(), savepointResult.getStderr());
@@ -120,6 +132,19 @@ public class ManagedSourceRuntimeIT extends SeaTunnelEngineContainer {
                         });
 
         awaitJobStatus(jobId, "RUNNING");
+        // A reader restored as DRAINING can report RUNNING without ever polling again. Require
+        // fresh source output and a later checkpoint from the restored execution attempt.
+        long restoredRows = receivedRows(jobId);
+        long restoredCheckpoints = getCompletedCheckpointCount(String.valueOf(jobId));
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(receivedRows(jobId) > Math.max(0L, restoredRows));
+                            Assertions.assertTrue(
+                                    getCompletedCheckpointCount(String.valueOf(jobId))
+                                            > restoredCheckpoints);
+                        });
         // Restoring managed state into the legacy lane, or vice versa, fails closed with these
         // messages rather than silently changing execution semantics.
         Assertions.assertFalse(
@@ -151,5 +176,31 @@ public class ManagedSourceRuntimeIT extends SeaTunnelEngineContainer {
                         () ->
                                 Assertions.assertTrue(
                                         getCompletedCheckpointCount(String.valueOf(jobId)) > 0));
+    }
+
+    /**
+     * Reads the engine's source counter with bounded HTTP calls, rather than inferring progress
+     * from job status or the presence of checkpoint metadata.
+     */
+    private long receivedRows(long jobId) throws Exception {
+        HttpGet request =
+                new HttpGet(
+                        String.format(
+                                "http://%s:%d/job-info/%s",
+                                server.getHost(), server.getMappedPort(8080), jobId));
+        request.setConfig(
+                RequestConfig.custom()
+                        .setConnectTimeout(5000)
+                        .setSocketTimeout(5000)
+                        .setConnectionRequestTimeout(5000)
+                        .build());
+        try (CloseableHttpClient client = HttpClients.createDefault();
+                CloseableHttpResponse response = client.execute(request)) {
+            Assertions.assertEquals(200, response.getStatusLine().getStatusCode());
+            return JsonUtils.stringToJsonNode(EntityUtils.toString(response.getEntity()))
+                    .path("metrics")
+                    .path(SOURCE_RECEIVED_COUNT)
+                    .asLong(-1L);
+        }
     }
 }

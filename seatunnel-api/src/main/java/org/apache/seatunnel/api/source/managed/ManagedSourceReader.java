@@ -63,6 +63,10 @@ public interface ManagedSourceReader<T, SplitT extends SourceSplit>
     /**
      * Interrupts or wakes any connector operation that may delay cancellation beyond its declared
      * hard poll budget.
+     *
+     * <p>Called by the watchdog while it owns the poll-generation lock. Implementations must return
+     * promptly and must not wait for the polling thread to finish or acquire an owner-thread lock;
+     * otherwise poll completion and subsequent turns cannot leave that generation safely.
      */
     void wakeUp();
 }
