@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -469,6 +470,9 @@ public class SourceCheckpointLockHandoffTest {
             Mockito.when(task.getExecutionContext()).thenReturn(execution);
             Mockito.when(task.isObservabilityEnabled()).thenReturn(true);
             Mockito.when(execution.getTaskExecutionService()).thenReturn(service);
+            // The lifecycle reads managed-runtime settings even when this fixture uses the legacy
+            // lane.
+            Mockito.when(service.getSeaTunnelConfig()).thenReturn(new SeaTunnelConfig());
             InvocationFuture<Object> address = Mockito.mock(InvocationFuture.class);
             Mockito.when(address.get()).thenReturn(new Address("localhost", 5801));
             Mockito.doReturn(address).when(execution).sendToMaster(Mockito.any());
