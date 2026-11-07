@@ -17,23 +17,34 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.common.metrics.ThreadSafeCounter;
+import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.task.flow.AbstractFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.flow.TransformFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 
@@ -95,6 +106,52 @@ public class SeaTunnelTaskStateTest {
         doNothing().when(task).reportTaskStatus(any());
         doNothing().when(task).collect();
         doNothing().when(task).close();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2})
+    void transformOpenFailureStopsTaskBeforeReady(int failingPosition) throws Exception {
+        List<SeaTunnelTransform<String>> transforms = new ArrayList<>();
+        RuntimeException failure = new RuntimeException("transform startup failed");
+        for (int i = 0; i < 3; i++) {
+            SeaTunnelTransform<String> transform = mock(SeaTunnelTransform.class);
+            if (i == failingPosition) {
+                Mockito.doThrow(failure).when(transform).open();
+            }
+            transforms.add(transform);
+        }
+        SeaTunnelMetricsContext metrics = mock(SeaTunnelMetricsContext.class);
+        when(metrics.counter(Mockito.anyString()))
+                .thenAnswer(call -> new ThreadSafeCounter(call.getArgument(0)));
+        Mockito.doReturn(metrics).when(task).getMetricsContext();
+        Mockito.doReturn(Collections.emptyMap()).when(task).getEnvOptions();
+        Mockito.doReturn(Collections.emptyMap()).when(task).getJobEnvOptions();
+        TransformChainAction<String> action =
+                new TransformChainAction<>(
+                        1L,
+                        "failed-startup",
+                        Collections.emptySet(),
+                        Collections.emptySet(),
+                        transforms);
+        Collector<Record<?>> collector = mock(Collector.class);
+        TransformFlowLifeCycle<String> flow =
+                new TransformFlowLifeCycle<>(action, task, collector, new CompletableFuture<>());
+        task.allCycles = Arrays.asList(flow, sourceLifeCycle);
+        task.currState = SeaTunnelTaskState.WAITING_RESTORE;
+        task.startCall();
+
+        Assertions.assertSame(
+                failure, Assertions.assertThrows(RuntimeException.class, task::stateProcess));
+        Assertions.assertEquals(SeaTunnelTaskState.WAITING_RESTORE, getState());
+        verify(task, never()).reportTaskStatus(SeaTunnelTaskState.READY_START);
+        verify(task, never()).collect();
+        verify(sourceLifeCycle, never()).open();
+        verify(sourceLifeCycle, never()).hook();
+        Mockito.verifyNoInteractions(collector);
+        for (int i = 0; i < transforms.size(); i++) {
+            verify(transforms.get(i), times(i <= failingPosition ? 1 : 0)).open();
+            verify(transforms.get(i)).close();
+        }
     }
 
     // ==================== State Machine Transition Tests ====================
