@@ -5,6 +5,30 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### SQL transform: LIKE wildcards apply to the whole pattern and literal characters are compared literally
+
+- **Affected jobs**: jobs that use the `Sql` transform with the `ZETA` engine (the default) or the
+  `INTERNAL` engine, which maps to the same implementation, and put a `LIKE` / `NOT LIKE` /
+  `RLIKE` / `REGEXP` predicate in a `where` clause or a `case when` condition.
+- **Behavior change**: a `%` or `_` anywhere in a LIKE pattern now behaves as a wildcard. Before,
+  only a wildcard at the very start or the very end of the pattern was expanded, so a pattern with
+  an interior wildcard matched nothing: `name LIKE 'A%ce'` did not match `Alice` and
+  `name NOT LIKE 'A%ce'` kept every row. Every other character is now compared literally, so
+  `'125' LIKE '1.5'` is `false` (it used to match, because `.` was interpreted as a regular
+  expression metacharacter) and a pattern such as `'a(b%'` is no longer an error. `%` and `_` also
+  match a line break, which they did not before. `RLIKE` / `REGEXP` keep their regular expression
+  semantics, and their pattern is now used verbatim: previously such a pattern was also rewritten
+  at its boundaries, so `name RLIKE '%A.*'` matched `Alice` and now does not.
+- **Impact**: existing jobs can keep more rows, fewer rows, or different rows than before. A job
+  whose filter relied on the previous behaviour, for example one written around the fact that an
+  interior wildcard never matched, will return different data. No configuration, API, data format
+  or checkpoint format changes.
+- **Migration Guide**: review every `LIKE` / `NOT LIKE` / `RLIKE` / `REGEXP` predicate in `Sql`
+  transforms and validate the resulting row counts against the source. Where a regex predicate
+  starts or ends with `%` or `_`, make the intent explicit in the regular expression itself. For a
+  LIKE predicate, be aware that a literal `%` or `_` cannot currently be escaped, because
+  `LIKE ... ESCAPE` is not supported. See [Pattern matching](../../transforms/sql.md#pattern-matching).
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**
