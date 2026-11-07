@@ -210,6 +210,44 @@ transform {
 }
 ```
 
+## FAQ
+
+### How are replication slots managed?
+
+SeaTunnel creates or reuses the replication slot identified by `slot.name` when the job starts.
+Unused replication slots hold WAL segments on disk, which can cause unbounded WAL growth. When a
+CDC job is permanently decommissioned, drop the unused replication slot manually on Opengauss.
+
+When `exactly_once = true` and `startup.mode = initial`, SeaTunnel prepares the configured
+streaming slot before any snapshot reader records its low watermark. Each snapshot reader then uses
+a short-lived backfill slot derived from `slot.name` and the reader subtask id to read the bounded
+WAL range between the snapshot low and high watermarks. The generated backfill slot name is kept
+within the PostgreSQL-compatible 63-byte identifier limit. The snapshot reader explicitly drops its
+backfill slot after a normal completion or handled failure. The backfill slot is persistent on the
+server while the reader is running, so a process crash or node loss can leave an inactive
+`*_st_backfill_*` slot. After confirming that no live reader owns it, drop such an orphaned slot
+manually to release retained WAL.
+
+The snapshot enumerator does not drop the configured streaming slot: an initial job keeps using that
+slot in its incremental phase. To ask Debezium's incremental reader to drop the configured slot on a
+normal shutdown, use the SeaTunnel pass-through syntax below. This setting cannot guarantee cleanup
+after an abrupt process or node failure.
+
+```hocon
+debezium {
+  slot.drop.on.stop = true
+}
+```
+
+During snapshot startup, operators may see both the configured `slot.name` and generated
+`*_st_backfill_*` slots in `pg_replication_slots`.
+
+Because each snapshot reader creates its own backfill slot, an exactly-once initial snapshot with
+source parallelism N transiently needs at least N+1 replication slots (the configured streaming slot
+plus one backfill slot per reader). Size `max_replication_slots` to accommodate at least
+`parallelism + 1` slots, plus any other consumers of replication slots on the same server, or
+snapshot startup fails with `ERROR: all replication slots are in use`.
+
 ## Changelog
 
 <ChangeLog />

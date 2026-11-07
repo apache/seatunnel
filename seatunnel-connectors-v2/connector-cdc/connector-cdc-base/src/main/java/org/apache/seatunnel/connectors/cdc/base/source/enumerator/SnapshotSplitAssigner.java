@@ -148,19 +148,20 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
 
     @Override
     public void open() {
-        chunkSplitter = dialect.createChunkSplitter(sourceConfig);
+        try {
+            dialect.openEnumerator(sourceConfig);
+            chunkSplitter = dialect.createChunkSplitter(sourceConfig);
 
-        // the legacy state didn't snapshot remaining tables, discovery remaining table here
-        if (!isRemainingTablesCheckpointed && !assignerCompleted) {
-            try {
+            // the legacy state didn't snapshot remaining tables, discovery remaining table here
+            if (!isRemainingTablesCheckpointed && !assignerCompleted) {
                 final List<TableId> discoverTables = dialect.discoverDataCollections(sourceConfig);
                 context.getCapturedTables().addAll(discoverTables);
                 discoverTables.removeAll(alreadyProcessedTables);
                 this.remainingTables.addAll(discoverTables);
                 this.isTableIdCaseSensitive = dialect.isDataCollectionIdCaseSensitive(sourceConfig);
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to discover remaining tables to capture", e);
             }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to open snapshot split assigner", e);
         }
     }
 
