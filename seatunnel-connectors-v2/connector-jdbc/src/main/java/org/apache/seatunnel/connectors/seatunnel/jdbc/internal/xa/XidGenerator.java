@@ -24,6 +24,7 @@ import javax.transaction.xa.Xid;
 
 import java.io.Serializable;
 import java.security.SecureRandom;
+import java.util.List;
 
 /** {@link Xid} generator. */
 public interface XidGenerator extends Serializable, AutoCloseable {
@@ -31,6 +32,16 @@ public interface XidGenerator extends Serializable, AutoCloseable {
     Xid generateXid(JobContext context, SinkWriter.Context sinkContext, long checkpointId);
 
     default void open() {}
+
+    /** Restores writer ownership and returns the largest checkpointed transaction sequence. */
+    default long restoreState(List<Xid> checkpointXids) {
+        return Long.MIN_VALUE;
+    }
+
+    /** Whether recovery may roll back this writer's uncheckpointed transaction. */
+    default boolean canRollback(Xid xid, JobContext context, SinkWriter.Context sinkContext) {
+        return belongsToSubtask(xid, context, sinkContext);
+    }
 
     /** @return true if the provided transaction belongs to this subtask */
     boolean belongsToSubtask(Xid xid, JobContext context, SinkWriter.Context sinkContext);

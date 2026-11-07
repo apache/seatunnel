@@ -48,6 +48,7 @@ import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
 
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.stream.Stream;
 
@@ -152,6 +153,46 @@ class XaGroupOpsImplIT {
         Assertions.assertThrows(
                 JdbcConnectorException.class,
                 () -> committer.commit(Collections.singletonList(commitInfo)));
+    }
+
+    /** A later restored table must not roll back its sibling's prepared checkpoint. */
+    @Test
+    void testRestoredSiblingWritersKeepIndependentTransactions() throws Exception {
+        JobContext job = new JobContext(1L);
+        SinkWriter.Context context = new DefaultSinkWriterContext(0, 1);
+        SemanticXidGenerator sibling = new SemanticXidGenerator();
+        sibling.open();
+        Xid saved = xidGenerator.generateXid(job, context, 10);
+        Xid savedSecond = xidGenerator.generateXid(job, context, 11);
+        Xid orphan = xidGenerator.generateXid(job, context, 12);
+        Xid peer = sibling.generateXid(job, context, 13);
+        for (Xid xid : Arrays.asList(saved, savedSecond, orphan, peer)) {
+            xaFacade.start(xid);
+            xaFacade.endAndPrepare(xid);
+        }
+        SemanticXidGenerator restored = new SemanticXidGenerator();
+        restored.open();
+        restored.restoreState(Arrays.asList(saved, savedSecond));
+        xaGroupOps.recoverAndRollback(job, context, restored, saved);
+        Assertions.assertTrue(checkPreparedXid(saved));
+        Assertions.assertTrue(checkPreparedXid(savedSecond));
+        Assertions.assertFalse(checkPreparedXid(orphan));
+        Assertions.assertTrue(checkPreparedXid(peer));
+        // A second failure restores the same checkpoint and must still clean its own orphan.
+        Xid nextAttempt = restored.generateXid(job, context, 14);
+        xaFacade.start(nextAttempt);
+        xaFacade.endAndPrepare(nextAttempt);
+        SemanticXidGenerator restoredAgain = new SemanticXidGenerator();
+        restoredAgain.open();
+        restoredAgain.restoreState(Arrays.asList(saved, savedSecond));
+        xaGroupOps.recoverAndRollback(job, context, restoredAgain, null);
+        Assertions.assertFalse(checkPreparedXid(nextAttempt));
+        Assertions.assertTrue(checkPreparedXid(saved));
+        Assertions.assertTrue(checkPreparedXid(savedSecond));
+        Assertions.assertTrue(checkPreparedXid(peer));
+        for (Xid xid : Arrays.asList(saved, savedSecond, peer)) {
+            xaFacade.commit(xid, false);
+        }
     }
 
     private boolean checkPreparedXid(Xid xidCrr) throws XAException {
