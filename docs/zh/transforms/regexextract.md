@@ -53,13 +53,13 @@ Java 正则表达式，使用 `java.util.regex.Pattern` 编译。它必须为 `o
 
 由于模式写在 HOCON 字符串中，反斜杠必须转义，例如 `regex_pattern = "([^@]+)@([^.]+)\\.(.+)"`。
 
-### output_fields [Array<String>]
+### output_fields [Array&lt;String&gt;]
 
 转换生成的输出字段名称，按捕获组顺序排列：第一个输出字段接收捕获组 1，第二个接收捕获组 2，依此类推。列表不能为空。
 
 新的输出列会追加在已有输入列之后，原输入字段不会被删除。以这种方式追加的每个列都是可为空的 `STRING` 列，长度为 200。如果某个输出字段名已存在于输入表中，该列会被复用并覆盖，而不是追加新列：提取出的值会替换该列的值，但该列会保留其原有的模式元数据——特别是，被复用的列不会自动变为可为空，也不会改变其长度。唯一可能改变的元数据是数据类型：如果该列的数据类型与 `STRING` 不同，该列会被复制为 `STRING` 数据类型，同时保留其其他元数据。
 
-### default_values [Array<String>]
+### default_values [Array&lt;String&gt;]
 
 每个输出字段的兜底值，顺序与 `output_fields` 相同。以下两种情况会使用默认值：
 
@@ -74,7 +74,7 @@ Java 正则表达式，使用 `java.util.regex.Pattern` 编译。它必须为 `o
 
 注意，这里指的是真实的上游表名，而不是 `plugin_output`。
 
-### table_transform [Array<Map>]
+### table_transform [Array&lt;Map&gt;]
 
 针对单表的规则列表。每个条目必须包含 `table_path`，其格式为 `databaseName[.schemaName].tableName`（精确匹配），以及该表的一条完整 RegexExtract 规则，即 `source_field`、`regex_pattern` 和 `output_fields`，需要时还可以包含 `default_values`。
 

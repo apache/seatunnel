@@ -53,13 +53,13 @@ The pattern is applied with `Matcher#find`, which means it is searched anywhere 
 
 Because the pattern is written inside a HOCON string, backslashes must be escaped, for example `regex_pattern = "([^@]+)@([^.]+)\\.(.+)"`.
 
-### output_fields [Array<String>]
+### output_fields [Array&lt;String&gt;]
 
 The names of the fields produced by the transform, in capture group order: the first output field receives capture group 1, the second receives capture group 2, and so on. The list must not be empty.
 
 New output columns are appended after the existing input columns; the input field is not removed. Every column appended this way is a nullable `STRING` column with length 200. If an output field name already exists in the input table, that column is reused and overwritten instead of appended: the extracted value replaces its value, but the column keeps its original schema metadata — in particular, a reused column does not automatically become nullable or change its length. The only metadata that can change is the data type: if it differs from `STRING`, the column is copied with the `STRING` data type while its other metadata is retained.
 
-### default_values [Array<String>]
+### default_values [Array&lt;String&gt;]
 
 The fallback value for each output field, in the same order as `output_fields`. The defaults are used in two cases:
 
@@ -74,7 +74,7 @@ A regular expression matched against the upstream table path. The transform leve
 
 Note that this refers to the real upstream table name, not to `plugin_output`.
 
-### table_transform [Array<Map>]
+### table_transform [Array&lt;Map&gt;]
 
 A list of per-table rules. Each entry must contain `table_path` in the form `databaseName[.schemaName].tableName` (matched exactly) and a complete RegexExtract rule for that table, which means `source_field`, `regex_pattern` and `output_fields`, plus `default_values` when needed.
 
