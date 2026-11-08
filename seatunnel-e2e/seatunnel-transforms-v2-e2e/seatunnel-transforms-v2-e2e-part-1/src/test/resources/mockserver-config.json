@@ -4,6 +4,58 @@
   {
     "httpRequest": {
       "method": "POST",
+      "path": "/llm-diagnostics/OPENAI/http-error"
+    },
+    "httpResponse": {
+      "statusCode": 503,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {"error": {"message": "LLM_HTTP_RESPONSE_SECRET_503"}}
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/llm-diagnostics/CUSTOM/http-error"
+    },
+    "httpResponse": {
+      "statusCode": 503,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {"error": {"message": "LLM_HTTP_RESPONSE_SECRET_503"}}
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/llm-diagnostics/OPENAI/malformed"
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"LLM_PARSE_RESPONSE_SECRET_200\": [}"
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/llm-diagnostics/CUSTOM/malformed"
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"LLM_PARSE_RESPONSE_SECRET_200\": [}"
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
       "path": "/v1/chat/completions"
     },
     "httpResponse": {

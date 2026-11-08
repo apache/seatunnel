@@ -4,6 +4,15 @@
 
 ## dev
 
+### LLM 转换：失败诊断安全处理
+
+`LLMTransform` 初始化/推理及 `Model.inference` 的错误消息和异常原因链不再暴露输入行、
+提示词、提供方原始响应、凭据或不安全的嵌套异常文本，保留安全的 `provider`、
+经过校验的 `model`、`errorType` 以及可用时的
+`httpStatus` 元数据。匹配旧版原始错误文本的监控应改用这些字段。无需迁移配置，
+成功输出和 LLM 调用尝试行为保持不变。此范围不包括 `close()`、调用构造函数前的
+配置校验、请求/响应测试辅助方法，以及配置日志和 HTTP wire 日志。
+
 ### Databend Source：DECIMAL 列按 DECIMAL 读取，而不再是 STRING
 
 - **行为变更：Databend 的 `DECIMAL(p, s)` 列在作业中的类型为 `DECIMAL(p, s)`**

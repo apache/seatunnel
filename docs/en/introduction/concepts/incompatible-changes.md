@@ -5,6 +5,17 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### LLM transform: sanitized failure diagnostics
+
+Error messages and exception causes from `LLMTransform` initialization/inference and
+`Model.inference` no longer expose input rows, prompts, raw provider responses,
+credentials, or unsafe nested exception text. Safe `provider`,
+validated `model`, `errorType`, and available `httpStatus` metadata remain. Monitoring
+that matched the previous raw error text must use these fields instead. No configuration
+migration is required; successful output and LLM invocation attempt behavior are unchanged.
+This scope excludes `close()`, configuration validation before constructor invocation,
+request/response testing helpers, and configuration/HTTP wire logging.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**

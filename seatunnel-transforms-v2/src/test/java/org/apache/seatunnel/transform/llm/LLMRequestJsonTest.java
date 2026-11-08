@@ -27,18 +27,30 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.format.json.RowToJsonConverters;
+import org.apache.seatunnel.transform.nlpmodel.llm.remote.Model;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.custom.CustomModel;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.kimiai.KimiAIModel;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.microsoft.MicrosoftModel;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.openai.OpenAIModel;
 
+import org.apache.http.HttpVersion;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.message.BasicStatusLine;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -49,6 +61,140 @@ import java.util.Map;
 public class LLMRequestJsonTest {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    @Test
+    void closesFailedResponseWithoutRetainingSuppressedCleanupError() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"text"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        try (OpenAIModel model =
+                new OpenAIModel(
+                        rowType,
+                        SqlType.STRING,
+                        null,
+                        "prompt",
+                        "test-model",
+                        "test-key",
+                        "http://localhost/chat")) {
+            Field clientField = OpenAIModel.class.getDeclaredField("client");
+            clientField.setAccessible(true);
+            ((CloseableHttpClient) clientField.get(model)).close();
+            CloseableHttpClient client = Mockito.mock(CloseableHttpClient.class);
+            CloseableHttpResponse response = Mockito.mock(CloseableHttpResponse.class);
+            Mockito.when(response.getStatusLine())
+                    .thenReturn(
+                            new BasicStatusLine(
+                                    HttpVersion.HTTP_1_1, 503, "private-reason-marker"));
+            Mockito.when(client.execute(Mockito.any(HttpUriRequest.class))).thenReturn(response);
+            Mockito.doThrow(new IOException("private-cleanup-marker")).when(response).close();
+            clientField.set(model, client);
+            IOException failure =
+                    Assertions.assertThrows(
+                            IOException.class,
+                            () ->
+                                    model.inference(
+                                            Collections.singletonList(
+                                                    new SeaTunnelRow(
+                                                            new Object[] {"private-row-marker"}))));
+            Assertions.assertTrue(failure.getMessage().contains("httpStatus=503"));
+            Assertions.assertFalse(failure.getMessage().contains("private-"));
+            Assertions.assertEquals(0, failure.getSuppressed().length);
+            Assertions.assertNull(failure.getCause());
+            Mockito.verify(response).close();
+            Mockito.verify(response, Mockito.never()).getEntity();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"OPENAI", "MICROSOFT", "KIMIAI", "CUSTOM"})
+    void directProviderInvocationDoesNotExposeResponseOrRequest(String provider) throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            server.start();
+            SeaTunnelRowType rowType =
+                    new SeaTunnelRowType(
+                            new String[] {"text"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+            String endpoint = server.url("/chat").toString();
+            Model model;
+            switch (provider) {
+                case "MICROSOFT":
+                    model =
+                            new MicrosoftModel(
+                                    rowType,
+                                    SqlType.STRING,
+                                    null,
+                                    "private-prompt-marker",
+                                    "test-model",
+                                    "private-credential-marker",
+                                    endpoint);
+                    break;
+                case "KIMIAI":
+                    model =
+                            new KimiAIModel(
+                                    rowType,
+                                    SqlType.STRING,
+                                    null,
+                                    "private-prompt-marker",
+                                    "test-model",
+                                    "private-credential-marker",
+                                    endpoint);
+                    break;
+                case "CUSTOM":
+                    model =
+                            new CustomModel(
+                                    rowType,
+                                    SqlType.STRING,
+                                    null,
+                                    "private-prompt-marker",
+                                    "test-model",
+                                    endpoint,
+                                    Collections.emptyMap(),
+                                    Collections.singletonMap("input", "${input}"),
+                                    "$.choices[0].message.content");
+                    break;
+                default:
+                    model =
+                            new OpenAIModel(
+                                    rowType,
+                                    SqlType.STRING,
+                                    null,
+                                    "private-prompt-marker",
+                                    "test-model",
+                                    "private-credential-marker",
+                                    endpoint);
+            }
+            try (Model ownedModel = model) {
+                List<SeaTunnelRow> rows =
+                        Collections.singletonList(
+                                new SeaTunnelRow(new Object[] {"private-row-marker"}));
+                for (MockResponse response :
+                        new MockResponse[] {
+                            new MockResponse()
+                                    .setResponseCode(503)
+                                    .setBody("private-response-marker"),
+                            new MockResponse().setBody("{\"private-response-marker\": invalid}")
+                        }) {
+                    server.enqueue(response);
+                    IOException failure =
+                            Assertions.assertThrows(
+                                    IOException.class, () -> ownedModel.inference(rows));
+                    StringWriter stack = new StringWriter();
+                    failure.printStackTrace(new PrintWriter(stack));
+                    for (String marker :
+                            new String[] {
+                                "private-row-marker",
+                                "private-prompt-marker",
+                                "private-credential-marker",
+                                "private-response-marker"
+                            }) {
+                        Assertions.assertFalse(stack.toString().contains(marker), stack.toString());
+                    }
+                    Assertions.assertNull(failure.getCause());
+                    Assertions.assertEquals(0, failure.getSuppressed().length);
+                }
+                Assertions.assertEquals(2, server.getRequestCount());
+            }
+        }
+    }
 
     @Test
     void testOpenAIRequestJson() throws IOException {

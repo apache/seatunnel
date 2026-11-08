@@ -27,6 +27,9 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.transform.nlpmodel.CustomConfigPlaceholder;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationErrorType;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationException;
+import org.apache.seatunnel.transform.nlpmodel.llm.LLMDiagnostics;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.AbstractModel;
 
 import org.apache.groovy.util.Maps;
@@ -88,13 +91,26 @@ public class CustomModel extends AbstractModel {
                                 createJsonNodeFromData(promptWithLimit, rowsJson)),
                         "UTF-8"));
 
-        CloseableHttpResponse response = client.execute(post);
-
-        String responseStr = EntityUtils.toString(response.getEntity());
-
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to get vector from custom, response: " + responseStr);
+        try (CloseableHttpResponse response = client.execute(post)) {
+            int status = response.getStatusLine().getStatusCode();
+            if (status != 200) {
+                throw ModelInvocationException.fromHttpStatus("LLM", "[omitted]", status, null);
+            }
+            try {
+                String responseStr = EntityUtils.toString(response.getEntity());
+                return readResponse(responseStr);
+            } catch (Exception failure) {
+                throw LLMDiagnostics.sanitize(
+                        failure,
+                        "LLM",
+                        null,
+                        ModelInvocationErrorType.RESPONSE_PARSE_ERROR,
+                        status);
+            }
         }
+    }
+
+    private List<String> readResponse(String responseStr) throws IOException {
         Object parsedResponse = parseResponse(responseStr);
         if (parsedResponse instanceof String) {
             String result = (String) parsedResponse;

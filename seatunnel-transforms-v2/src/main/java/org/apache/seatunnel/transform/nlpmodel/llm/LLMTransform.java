@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.transform.common.SingleFieldOutputTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationErrorType;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
 import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.Model;
@@ -42,6 +43,7 @@ import lombok.SneakyThrows;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class LLMTransform extends SingleFieldOutputTransform {
     // Implicit UID at 8bea8c681cacccbd99fa642ca0853718980b9234, before strictBooleanOutput.
@@ -75,6 +77,14 @@ public class LLMTransform extends SingleFieldOutputTransform {
 
     @Override
     public void open() {
+        try {
+            initializeModel();
+        } catch (Exception failure) {
+            throw inferenceFailure(failure, ModelInvocationErrorType.CONFIGURATION_ERROR);
+        }
+    }
+
+    private void initializeModel() {
         ModelProvider provider = config.get(ModelTransformConfig.MODEL_PROVIDER);
         switch (provider) {
             case CUSTOM:
@@ -153,9 +163,9 @@ public class LLMTransform extends SingleFieldOutputTransform {
         try {
             values = model.inference(Collections.singletonList(seaTunnelRow));
         } catch (Exception e) {
-            throw inferenceFailure(seaTunnelRow, e);
+            throw inferenceFailure(e, ModelInvocationErrorType.UNKNOWN_REMOTE_ERROR);
         }
-        // Keep validation outside legacy error wrapping so rejected output does not expose the row.
+        // Preserve the strict-validation error contract independently of provider diagnostics.
         if (strictBooleanOutput && outputDataType.getSqlType() == SqlType.BOOLEAN) {
             return parseStrictBooleanOutput(values);
         }
@@ -176,7 +186,7 @@ public class LLMTransform extends SingleFieldOutputTransform {
                             "Unsupported output data type: " + outputDataType);
             }
         } catch (Exception e) {
-            throw inferenceFailure(seaTunnelRow, e);
+            throw inferenceFailure(e, ModelInvocationErrorType.RESPONSE_PARSE_ERROR);
         }
     }
 
@@ -193,9 +203,55 @@ public class LLMTransform extends SingleFieldOutputTransform {
                         + "for output_data_type=BOOLEAN, without surrounding whitespace");
     }
 
-    private RuntimeException inferenceFailure(SeaTunnelRow row, Exception cause) {
+    private RuntimeException inferenceFailure(
+            Exception failure, ModelInvocationErrorType fallback) {
+        String providerName = "UNKNOWN";
+        String modelName = null;
+        try {
+            ModelProvider provider = config.get(ModelTransformConfig.MODEL_PROVIDER);
+            providerName = provider.name();
+            modelName = config.getOptional(LLMTransformConfig.MODEL).orElse(null);
+            String apiKey = config.getOptional(LLMTransformConfig.API_KEY).orElse(null);
+            if (containsCredential(modelName, apiKey)) {
+                modelName = null;
+            }
+            if (provider == ModelProvider.CUSTOM && modelName != null) {
+                ReadonlyConfig custom =
+                        config.getOptional(ModelTransformConfig.CustomRequestConfig.CUSTOM_CONFIG)
+                                .map(ReadonlyConfig::fromMap)
+                                .orElse(null);
+                if (custom != null) {
+                    Map<String, String> headers =
+                            custom.getOptional(
+                                            ModelTransformConfig.CustomRequestConfig
+                                                    .CUSTOM_REQUEST_HEADERS)
+                                    .orElse(Collections.emptyMap());
+                    for (String value : headers.values()) {
+                        if (value == null) {
+                            continue;
+                        }
+                        for (String part : value.split("\\s+")) {
+                            if (containsCredential(modelName, part)) {
+                                modelName = null;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // Invalid configuration must not escape again while building its diagnostic.
+            modelName = null;
+        }
         return new RuntimeException(
-                String.format("Failed to inference model with row %s", row), cause);
+                "LLM inference failed",
+                LLMDiagnostics.sanitize(failure, providerName, modelName, fallback));
+    }
+
+    private static boolean containsCredential(String modelName, String credential) {
+        return modelName != null
+                && credential != null
+                && !credential.isEmpty()
+                && modelName.contains(credential);
     }
 
     @Override
