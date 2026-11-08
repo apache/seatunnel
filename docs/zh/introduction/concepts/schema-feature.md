@@ -215,7 +215,7 @@ primaryKey {
 constraintKeys = [
       {
          constraintName = "id_index"
-         constraintType = KEY
+         constraintType = INDEX_KEY
          constraintColumns = [
             {
                 columnName = "id"
@@ -229,7 +229,7 @@ constraintKeys = [
 | 字段                | 是否必须 | 默认值 |                                   描述                                   |
 |:------------------|:-----|:----|------------------------------------------------------------------------|
 | constraintName    | 是    | -   | 约束键的名称                                                                 |
-| constraintType    | 否    | KEY | 约束键的类型                                                                 |
+| constraintType    | 是    | -   | 约束键的类型，可选值见[目前支持哪些约束类型](#目前支持哪些约束类型)。                         |
 | constraintColumns | 是    | -   | 约束键中的列。每列必须包含 `columnName`。当 `constraintType` 为 `INDEX_KEY`/`UNIQUE_KEY`/`FOREIGN_KEY` 时，支持 `sortType`（ASC/DESC，默认 ASC）；当 `constraintType` 为 `VECTOR_INDEX_KEY` 时，`indexName` 为可选项；`indexType` 和 `metricType` 在 schema 解析层面为可选项，但需要创建向量索引的 connector（如 Milvus）可能要求必填。 |
 
 #### 目前支持哪些约束类型

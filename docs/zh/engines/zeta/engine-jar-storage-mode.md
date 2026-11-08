@@ -42,7 +42,7 @@ COMMON_ PLUGIN_ JARS 指的是连接器所依赖的第三方 Jar 包， CONNECTO
 |-------------------------------------|--------|-------------------------------------------------------------------------|
 | enable                              | false  | 是否启用上传连接器 Jar 包到引擎。默认启用状态为 false。                                       |
 | connector-jar-storage-mode          | SHARED | 引擎端 Jar 包存储模式选择。有两个可选模式，SHARED（共享）和 ISOLATED（隔离）。默认的 Jar 包存储模式是 SHARED。 |
-| connector-jar-storage-path          | " "    | 用户自定义的 Jar 包存储路径。                                                       |
+| connector-jar-storage-path          | ""     | 用户自定义的 Jar 包存储路径。为空时，引擎会把 Jar 包存储在 SeaTunnel 安装目录（`SEATUNNEL_HOME`）下。          |
 | connector-jar-cleanup-task-interval | 3600s  | 引擎端 Jar 包清理定时任务执行间隔。                                                    |
 | connector-jar-expiry-time           | 600s   | 引擎端 Jar 包存储过期时间。                                                        |
 
