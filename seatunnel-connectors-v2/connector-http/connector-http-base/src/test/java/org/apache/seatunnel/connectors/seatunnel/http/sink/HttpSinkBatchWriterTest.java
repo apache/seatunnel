@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.sink;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -148,6 +151,31 @@ public class HttpSinkBatchWriterTest {
         for (String requestBody : requestBodyCaptor.getAllValues()) {
             assertTrue(requestBody.startsWith("{"));
             assertTrue(requestBody.endsWith("}"));
+        }
+    }
+
+    @Test
+    public void testArrayModeSendsEachRowAsJsonObject() throws Exception {
+        httpParameter.setArrayMode(true);
+        httpParameter.setBatchSize(BATCH_SIZE);
+        sinkWriter = new TestableHttpSinkWriter(rowType, httpParameter);
+
+        for (int i = 1; i <= BATCH_SIZE; i++) {
+            sinkWriter.write(createTestRow(i, "user" + i, 19 + i));
+        }
+
+        verify(httpClientProvider, times(1))
+                .doPost(eq(TEST_URL), any(), requestBodyCaptor.capture());
+        String requestBody = requestBodyCaptor.getValue();
+        JsonNode body = new ObjectMapper().readTree(requestBody);
+        assertTrue(body.isArray(), requestBody);
+        assertEquals(BATCH_SIZE, body.size(), requestBody);
+        for (int i = 1; i <= BATCH_SIZE; i++) {
+            JsonNode row = body.get(i - 1);
+            assertTrue(row.isObject(), requestBody);
+            assertEquals(i, row.get("id").asInt());
+            assertEquals("user" + i, row.get("name").asText());
+            assertEquals(19 + i, row.get("age").asInt());
         }
     }
 

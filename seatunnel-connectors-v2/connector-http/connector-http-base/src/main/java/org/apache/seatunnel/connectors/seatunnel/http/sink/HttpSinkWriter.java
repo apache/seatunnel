@@ -128,7 +128,8 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         ArrayNode arrayNode = mapper.createArrayNode();
         for (SeaTunnelRow row : batchBuffer) {
             byte[] serialize = serializationSchema.serialize(row);
-            arrayNode.add(new String(serialize));
+            // Add each row as a JSON value, not as a string holding its JSON text
+            arrayNode.add(mapper.readTree(serialize));
         }
         String body = mapper.writeValueAsString(arrayNode);
         doHttpRequest(body);
