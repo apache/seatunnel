@@ -308,6 +308,23 @@ public class ZetaSQLType {
         return result;
     }
 
+    private SeaTunnelDataType<?> getIfCommonType(
+            SeaTunnelDataType<?> trueType, SeaTunnelDataType<?> falseType) {
+        if (trueType == null || BasicType.VOID_TYPE.equals(trueType)) {
+            return falseType;
+        }
+        if (falseType == null || BasicType.VOID_TYPE.equals(falseType)) {
+            return trueType;
+        }
+        if (trueType.equals(falseType)) {
+            return trueType;
+        }
+        if (BasicType.STRING_TYPE.equals(trueType) || BasicType.STRING_TYPE.equals(falseType)) {
+            return BasicType.STRING_TYPE;
+        }
+        return getMaxType(trueType, falseType);
+    }
+
     private SeaTunnelDataType<?> getCaseType(CaseExpression caseExpression) {
         final Collection<SeaTunnelDataType<?>> types =
                 caseExpression.getWhenClauses().stream()
@@ -519,6 +536,20 @@ public class ZetaSQLType {
                 resultTypes.add(
                         getExpressionType(multiIfExpressions.get(multiIfExpressions.size() - 1)));
                 return getMaxType(resultTypes);
+            case ZetaSQLFunction.IF:
+                ExpressionList ifExpressionList = function.getParameters();
+                if (ifExpressionList == null
+                        || ifExpressionList.getExpressions() == null
+                        || ifExpressionList.getExpressions().size() != 3) {
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format("IF function requires exactly 3 arguments"));
+                }
+
+                List<Expression> ifExpressions = ifExpressionList.getExpressions();
+                return getIfCommonType(
+                        getExpressionType(ifExpressions.get(1)),
+                        getExpressionType(ifExpressions.get(2)));
             case ZetaSQLFunction.MOD:
                 // Result has the same type as second argument
                 return getExpressionType(function.getParameters().getExpressions().get(1));

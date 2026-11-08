@@ -366,6 +366,70 @@ public class ZetaSQLTypeTest {
         Assertions.assertThrows(
                 TransformException.class, () -> type.getExpressionType(multiIfEvenArgs));
 
+        // IF: numeric branches widen to the wider numeric type
+        Function ifInt = new Function();
+        ifInt.setName(ZetaSQLFunction.IF);
+        ifInt.setParameters(
+                new ExpressionList<>(
+                        Arrays.asList(new LongValue(1), new LongValue(1), new LongValue(2))));
+        Assertions.assertEquals(BasicType.INT_TYPE, type.getExpressionType(ifInt));
+
+        // IF: a string branch widens the result to string
+        Function ifString = new Function();
+        ifString.setName(ZetaSQLFunction.IF);
+        ifString.setParameters(
+                new ExpressionList<>(
+                        Arrays.asList(new LongValue(1), new StringValue("a"), new LongValue(2))));
+        Assertions.assertEquals(BasicType.STRING_TYPE, type.getExpressionType(ifString));
+
+        // IF: a NULL branch is transparent
+        Function ifNull = new Function();
+        ifNull.setName(ZetaSQLFunction.IF);
+        ifNull.setParameters(
+                new ExpressionList<>(
+                        Arrays.asList(new LongValue(1), new NullValue(), new LongValue(2))));
+        Assertions.assertEquals(BasicType.INT_TYPE, type.getExpressionType(ifNull));
+
+        // IF: argument count must be exactly 3
+        Function ifTwoArgs = new Function();
+        ifTwoArgs.setName(ZetaSQLFunction.IF);
+        ifTwoArgs.setParameters(
+                new ExpressionList<>(Arrays.asList(new LongValue(1), new LongValue(1))));
+        Assertions.assertThrows(TransformException.class, () -> type.getExpressionType(ifTwoArgs));
+
+        Function ifFourArgs = new Function();
+        ifFourArgs.setName(ZetaSQLFunction.IF);
+        ifFourArgs.setParameters(
+                new ExpressionList<>(
+                        Arrays.asList(
+                                new LongValue(1),
+                                new LongValue(1),
+                                new LongValue(2),
+                                new LongValue(3))));
+        Assertions.assertThrows(TransformException.class, () -> type.getExpressionType(ifFourArgs));
+
+        // IF: two NULL branches keep the NULL type, like COALESCE over all-null arguments
+        Function ifBothNull = new Function();
+        ifBothNull.setName(ZetaSQLFunction.IF);
+        ifBothNull.setParameters(
+                new ExpressionList<>(
+                        Arrays.asList(new LongValue(1), new NullValue(), new NullValue())));
+        Assertions.assertEquals(BasicType.VOID_TYPE, type.getExpressionType(ifBothNull));
+
+        // IF: branches of incompatible non-numeric types are rejected
+        MapType<String, Integer> ifMapType =
+                new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE);
+        SeaTunnelRowType ifMapRowType =
+                new SeaTunnelRowType(new String[] {"metrics"}, new SeaTunnelDataType[] {ifMapType});
+        Function ifIncompatible = new Function();
+        ifIncompatible.setName(ZetaSQLFunction.IF);
+        ifIncompatible.setParameters(
+                new ExpressionList<>(
+                        Arrays.asList(new LongValue(1), new Column("metrics"), new LongValue(2))));
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> simpleType(ifMapRowType).getExpressionType(ifIncompatible));
+
         Function modFunc = new Function();
         modFunc.setName(ZetaSQLFunction.MOD);
         modFunc.setParameters(

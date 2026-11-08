@@ -1342,6 +1342,17 @@ Example:
 NULLIF(A, B)
 
 
+### IF
+```IF(condition, trueValue, falseValue) -> type(of values)```
+
+Returns `trueValue` if the condition is true, otherwise `falseValue`. A null condition is treated as false, so a null condition returns `falseValue`. A non-boolean condition is an error. Only the selected branch is evaluated.
+
+The two value branches may have different types: the result type is their common type. When one branch is a string, the result is a string and the other branch value is converted following CAST semantics; otherwise the wider numeric type is used. A `NULL` branch keeps the other branch's type.
+
+Example:
+
+IF(A > 1, 'A', 'B')
+
 ### MULTI_IF
 ```MULTI_IF(condition1, value1, condition2, value2,... conditionN, valueN, bValue) -> type(of values)```
 

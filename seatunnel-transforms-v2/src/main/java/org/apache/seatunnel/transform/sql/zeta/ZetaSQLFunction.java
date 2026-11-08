@@ -217,6 +217,7 @@ public class ZetaSQLFunction {
     public static final String IFNULL = "IFNULL";
     public static final String NULLIF = "NULLIF";
     public static final String MULTI_IF = "MULTI_IF";
+    public static final String IF = "IF";
 
     public static final String UUID = "UUID";
 
@@ -400,6 +401,11 @@ public class ZetaSQLFunction {
             // Special handling for MULTI_IF to properly evaluate comparison expressions
             if (MULTI_IF.equalsIgnoreCase(functionName)) {
                 return multiIfFunction(function, inputFields);
+            }
+
+            // Special handling for IF to properly evaluate comparison expressions
+            if (IF.equalsIgnoreCase(functionName)) {
+                return ifFunction(function, inputFields);
             }
 
             // Standard handling for other functions
@@ -1098,6 +1104,42 @@ public class ZetaSQLFunction {
 
         // No condition was true, evaluate and return the default value (last argument)
         return computeForValue(expressions.get(expressions.size() - 1), inputFields);
+    }
+
+    private Object ifFunction(Function function, Object[] inputFields) {
+        ExpressionList<Expression> expressionList =
+                (ExpressionList<Expression>) function.getParameters();
+        if (expressionList == null
+                || expressionList.getExpressions() == null
+                || expressionList.getExpressions().size() != 3) {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    String.format("IF function requires exactly 3 arguments: %s", function));
+        }
+
+        List<Expression> expressions = expressionList.getExpressions();
+        Expression conditionExpr = expressions.get(0);
+        Object conditionResult;
+
+        if (conditionExpr instanceof BinaryExpression
+                && zetaSQLFilter.isConditionExpr(conditionExpr)) {
+            conditionResult = zetaSQLFilter.executeFilter(conditionExpr, inputFields);
+        } else {
+            conditionResult = computeForValue(conditionExpr, inputFields);
+        }
+
+        if (conditionResult != null && !(conditionResult instanceof Boolean)) {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    String.format(
+                            "IF function condition must be boolean, but was %s",
+                            conditionResult.getClass().getSimpleName()));
+        }
+
+        Expression branchExpr =
+                Boolean.TRUE.equals(conditionResult) ? expressions.get(1) : expressions.get(2);
+        Object result = computeForValue(branchExpr, inputFields);
+        return SystemFunction.castAs(result, zetaSQLType.getExpressionType(function));
     }
 
     private Object computeDateTimeLiteralExpression(DateTimeLiteralExpression expression) {
