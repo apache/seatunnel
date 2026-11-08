@@ -66,6 +66,23 @@ public class SQLTransformTest {
                     });
 
     @Test
+    void runtimeOpenReusesSchemaInitializedEngine() throws Exception {
+        SQLTransform transform = new SQLTransform(READONLY_CONFIG, getCatalogTable());
+        try {
+            transform.getProducedCatalogTable();
+            java.lang.reflect.Field field = SQLTransform.class.getDeclaredField("sqlEngine");
+            field.setAccessible(true);
+            Object schemaEngine = field.get(transform);
+            transform.open();
+            transform.open();
+            Assertions.assertSame(schemaEngine, field.get(transform));
+        } finally {
+            transform.close();
+        }
+        Assertions.assertThrows(IllegalStateException.class, transform::open);
+    }
+
+    @Test
     public void testScaleSupport() {
         SQLTransform sqlTransform = new SQLTransform(READONLY_CONFIG, getCatalogTable());
         TableSchema tableSchema = sqlTransform.transformTableSchema();

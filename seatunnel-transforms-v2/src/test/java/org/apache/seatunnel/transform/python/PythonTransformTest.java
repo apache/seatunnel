@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 import org.apache.seatunnel.transform.exception.TransformException;
 
@@ -37,6 +38,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -634,8 +637,9 @@ class PythonTransformTest {
     }
 
     /** Verifies task-thread interruption can terminate a Python open hook that never returns. */
-    @Test
-    void testCloseInterruptsBlockedPythonOpenHook() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testCloseInterruptsBlockedPythonOpenHook(boolean multiTable) throws Exception {
         assumePythonAvailable();
 
         Path markerPath = tempDir.resolve("blocked-python-open-started");
@@ -658,8 +662,16 @@ class PythonTransformTest {
                 new PythonTransform(
                         createCatalogTable(),
                         PythonTransformConfig.of(ReadonlyConfig.fromMap(config)));
-        transform.getProducedCatalogTable();
-        openedTransforms.add(transform);
+        SeaTunnelTransform<SeaTunnelRow> owner = transform;
+        if (multiTable) {
+            PythonMultiCatalogTransform wrapper = createWrapper(createCatalogTable(), config);
+            transform = getOnlyInnerPythonTransform(wrapper);
+            owner = wrapper;
+        } else {
+            transform.getProducedCatalogTable();
+            openedTransforms.add(transform);
+        }
+        final SeaTunnelTransform<SeaTunnelRow> lifecycleOwner = owner;
         ExecutorService executor =
                 Executors.newSingleThreadExecutor(
                         runnable -> {
@@ -674,7 +686,7 @@ class PythonTransformTest {
                     executor.submit(
                             () -> {
                                 try {
-                                    transform.open();
+                                    lifecycleOwner.open();
                                 } finally {
                                     taskStopped.countDown();
                                 }
@@ -696,7 +708,7 @@ class PythonTransformTest {
             Thread stderrCollectorThread =
                     (Thread) readFieldValue(processWorker, "stderrCollectorThread");
             TransformException closeFailure =
-                    Assertions.assertThrows(TransformException.class, transform::close);
+                    Assertions.assertThrows(TransformException.class, lifecycleOwner::close);
             Assertions.assertTrue(
                     closeFailure.getMessage().contains("did not stop cleanly during close"));
             Assertions.assertTrue(
@@ -715,6 +727,7 @@ class PythonTransformTest {
                     Files.exists(inlineSourceCodePath),
                     "inline source script should be deleted after close");
             openedTransforms.remove(transform);
+            openedWrappers.remove(lifecycleOwner);
         } finally {
             executor.shutdownNow();
         }

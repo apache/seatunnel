@@ -32,12 +32,16 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -46,6 +50,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectStreamClass;
+import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,8 +59,15 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 class AbstractMultiCatalogTransformTest {
 
@@ -82,6 +94,423 @@ class AbstractMultiCatalogTransformTest {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Fail if a schema-change event reaches this rule");
+
+    static Stream<Arguments> lifecycleSuccessCases() {
+        return Stream.of(false, true)
+                .flatMap(
+                        flat ->
+                                Stream.of(1, 3)
+                                        .flatMap(
+                                                tables ->
+                                                        Stream.of(1, 2)
+                                                                .map(
+                                                                        rules ->
+                                                                                Arguments.of(
+                                                                                        flat,
+                                                                                        tables,
+                                                                                        rules))));
+    }
+
+    @ParameterizedTest
+    @MethodSource("lifecycleSuccessCases")
+    void multiTableLifecycleOpensAndClosesEachOwnedChildOnce(boolean flat, int tables, int rules) {
+        LifecycleFixture fixture = new LifecycleFixture(flat, tables, rules);
+        fixture.wrapper.open();
+        fixture.wrapper.open();
+        for (LifecycleChild child : fixture.children) {
+            Assertions.assertEquals(1, child.opens);
+            Assertions.assertEquals(1, child.resources);
+        }
+        for (CatalogTable table : fixture.tables) {
+            SeaTunnelRow input = row(tablePath(table));
+            SeaTunnelRow output =
+                    flat
+                            ? ((SeaTunnelFlatMapTransform<SeaTunnelRow>) fixture.wrapper)
+                                    .flatMap(input)
+                                    .get(0)
+                            : ((SeaTunnelMapTransform<SeaTunnelRow>) fixture.wrapper).map(input);
+            Assertions.assertSame(input, output);
+        }
+        fixture.wrapper.close();
+        fixture.wrapper.close();
+        for (LifecycleChild child : fixture.children) {
+            Assertions.assertEquals(1, child.closes);
+            Assertions.assertEquals(0, child.resources);
+        }
+    }
+
+    static Stream<Arguments> lifecycleFailureCases() {
+        return Stream.of(false, true)
+                .flatMap(
+                        flat ->
+                                Stream.of(false, true)
+                                        .flatMap(
+                                                composed ->
+                                                        Stream.of(0, 1, 2)
+                                                                .map(
+                                                                        position ->
+                                                                                Arguments.of(
+                                                                                        flat,
+                                                                                        composed,
+                                                                                        position))));
+    }
+
+    @ParameterizedTest
+    @MethodSource("lifecycleFailureCases")
+    void childOpenFailureStopsInitializationAndCleansOnce(
+            boolean flat, boolean composed, int position) {
+        LifecycleFixture fixture = new LifecycleFixture(flat, composed ? 1 : 3, composed ? 3 : 1);
+        RuntimeException failure = new IllegalStateException("child-open-failed");
+        fixture.children.get(position).openFailure = failure;
+        RuntimeException cleanup = new IllegalStateException("cleanup-failed");
+        fixture.children.get(0).closeFailure = cleanup;
+        Assertions.assertSame(
+                failure, Assertions.assertThrows(RuntimeException.class, fixture.wrapper::open));
+        Assertions.assertSame(cleanup, failure.getSuppressed()[0]);
+        Assertions.assertSame(
+                failure, Assertions.assertThrows(RuntimeException.class, fixture.wrapper::open));
+        Assertions.assertSame(
+                cleanup, Assertions.assertThrows(RuntimeException.class, fixture.wrapper::close));
+        for (int i = 0; i < fixture.children.size(); i++) {
+            LifecycleChild child = fixture.children.get(i);
+            Assertions.assertEquals(i <= position ? 1 : 0, child.opens);
+            Assertions.assertEquals(1, child.closes);
+            Assertions.assertEquals(0, child.resources);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("lifecycleSuccessCases")
+    void closeContinuesAcrossFailuresAndRetainsFirst(boolean flat, int tables, int rules) {
+        LifecycleFixture fixture = new LifecycleFixture(flat, tables, rules);
+        fixture.wrapper.open();
+        RuntimeException first = new IllegalStateException("first-close-failed");
+        fixture.children.get(0).closeFailure = first;
+        if (fixture.children.size() > 1) {
+            fixture.children.get(1).closeFailure = new IllegalStateException("second-close-failed");
+        }
+        Assertions.assertSame(
+                first, Assertions.assertThrows(RuntimeException.class, fixture.wrapper::close));
+        if (fixture.children.size() > 1) {
+            Assertions.assertEquals(1, first.getSuppressed().length);
+        }
+        Assertions.assertSame(
+                first, Assertions.assertThrows(RuntimeException.class, fixture.wrapper::close));
+        for (LifecycleChild child : fixture.children) {
+            Assertions.assertEquals(1, child.closes);
+            Assertions.assertEquals(0, child.resources);
+        }
+    }
+
+    @Test
+    void lifecycleRoundTripKeepsCallbacksAndIdentityChildren() throws Exception {
+        for (boolean flat : new boolean[] {false, true}) {
+            LifecycleFixture fixture = new LifecycleFixture(flat, 3, 2);
+            CatalogTable last = fixture.tables.get(2);
+            fixture.wrapper.transformMap.put(
+                    tablePath(last),
+                    flat ? new IdentityFlatMapTransform(last) : new IdentityMapTransform(last));
+            fixture.children.subList(4, 6).clear();
+            LifecycleFixture copy =
+                    (LifecycleFixture)
+                            SerializationUtils.deserialize(SerializationUtils.serialize(fixture));
+            copy.wrapper.open();
+            copy.wrapper.close();
+            copy.wrapper.close();
+            for (LifecycleChild child : copy.children) {
+                Assertions.assertEquals(1, child.opens);
+                Assertions.assertEquals(1, child.closes);
+            }
+            SeaTunnelRow input = row(tablePath(last));
+            SeaTunnelRow output =
+                    flat
+                            ? ((SeaTunnelFlatMapTransform<SeaTunnelRow>) copy.wrapper)
+                                    .flatMap(input)
+                                    .get(0)
+                            : ((SeaTunnelMapTransform<SeaTunnelRow>) copy.wrapper).map(input);
+            Assertions.assertSame(input, output);
+        }
+    }
+
+    @Test
+    void deserializedWrapperHasFreshRuntimeOwnership() throws Exception {
+        LifecycleFixture fixture = new LifecycleFixture(true, 1, 2);
+        fixture.wrapper.open();
+        fixture.wrapper.close();
+        LifecycleFixture copy =
+                (LifecycleFixture)
+                        SerializationUtils.deserialize(SerializationUtils.serialize(fixture));
+        copy.wrapper.open();
+        copy.wrapper.close();
+        for (LifecycleChild child : copy.children) {
+            Assertions.assertEquals(2, child.opens);
+            Assertions.assertEquals(2, child.closes);
+            Assertions.assertEquals(0, child.resources);
+        }
+    }
+
+    @Test
+    void sharedChildIsOwnedByIdentityRatherThanNumberOfTableEntries() {
+        LifecycleFixture fixture = new LifecycleFixture(false, 3, 1);
+        LifecycleChild child = fixture.children.get(0);
+        fixture.tables.forEach(table -> fixture.wrapper.transformMap.put(tablePath(table), child));
+        fixture.wrapper.open();
+        fixture.wrapper.close();
+        Assertions.assertEquals(1, child.opens);
+        Assertions.assertEquals(1, child.closes);
+    }
+
+    @Test
+    void checkedCleanupExceptionDoesNotSkipSiblingsOrReplaceStartupFailure() {
+        LifecycleFixture fixture = new LifecycleFixture(true, 1, 3);
+        IOException original = new IOException("checked-open-failure");
+        IOException cleanup = new IOException("checked-close-failure");
+        fixture.children.get(1).openFailure = original;
+        fixture.children.get(0).closeFailure = cleanup;
+        Assertions.assertSame(
+                original, Assertions.assertThrows(IOException.class, fixture.wrapper::open));
+        Assertions.assertSame(cleanup, original.getSuppressed()[0]);
+        Assertions.assertSame(
+                cleanup, Assertions.assertThrows(IOException.class, fixture.wrapper::close));
+        fixture.children.forEach(child -> Assertions.assertEquals(1, child.closes));
+    }
+
+    @Test
+    void schemaConstructionFailureClosesPublishedAndUnpublishedChildren() {
+        for (boolean flat : new boolean[] {false, true}) {
+            List<LifecycleChild> created = new ArrayList<>();
+            RuntimeException failure = new IllegalStateException("schema-initialization-failed");
+            java.util.function.Function<CatalogTable, SeaTunnelTransform<SeaTunnelRow>> build =
+                    table -> {
+                        LifecycleChild child = new LifecycleChild(table);
+                        child.resources = 1;
+                        child.closeFailure = new IllegalStateException("cleanup-" + created.size());
+                        created.add(child);
+                        if (created.size() == 2) {
+                            child.schemaFailure = failure;
+                        }
+                        return child;
+                    };
+            List<CatalogTable> tables =
+                    Arrays.asList(
+                            catalogTable(),
+                            CatalogTableUtil.getCatalogTable(
+                                    "catalog",
+                                    "database",
+                                    "schema",
+                                    "second",
+                                    catalogTable().getSeaTunnelRowType()));
+            Assertions.assertSame(
+                    failure,
+                    Assertions.assertThrows(
+                            RuntimeException.class,
+                            () -> {
+                                if (flat) {
+                                    new TestFlatMapMultiCatalogTransform(tables, config()) {
+                                        @Override
+                                        protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
+                                                CatalogTable table, ReadonlyConfig config) {
+                                            return build.apply(table);
+                                        }
+                                    };
+                                } else {
+                                    new TestMapMultiCatalogTransform(tables, config()) {
+                                        @Override
+                                        protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
+                                                CatalogTable table, ReadonlyConfig config) {
+                                            return build.apply(table);
+                                        }
+                                    };
+                                }
+                            }));
+            Assertions.assertEquals(2, created.size());
+            Assertions.assertEquals(2, failure.getSuppressed().length);
+            created.forEach(
+                    child -> {
+                        Assertions.assertEquals(1, child.closes);
+                        Assertions.assertEquals(0, child.resources);
+                    });
+        }
+    }
+
+    @Test
+    void closeBeforeOpenReleasesSchemaInitializedChildren() {
+        LifecycleFixture fixture = new LifecycleFixture(false, 3, 1);
+        fixture.children.forEach(child -> child.resources = 1);
+        fixture.wrapper.close();
+        fixture.wrapper.close();
+        fixture.children.forEach(
+                child -> {
+                    Assertions.assertEquals(0, child.opens);
+                    Assertions.assertEquals(1, child.closes);
+                    Assertions.assertEquals(0, child.resources);
+                });
+    }
+
+    @Test
+    void repeatedCleanupExceptionDoesNotHideFirstFailure() {
+        LifecycleFixture fixture = new LifecycleFixture(true, 1, 3);
+        fixture.wrapper.open();
+        RuntimeException same = new IllegalStateException("shared-close-failure");
+        fixture.children.get(0).closeFailure = same;
+        fixture.children.get(1).closeFailure = same;
+        Assertions.assertSame(
+                same, Assertions.assertThrows(RuntimeException.class, fixture.wrapper::close));
+        fixture.children.forEach(child -> Assertions.assertEquals(1, child.closes));
+    }
+
+    @Test
+    void concurrentCloseCallersAwaitTheSameCleanupFailure() throws Exception {
+        LifecycleFixture fixture = new LifecycleFixture(true, 1, 3);
+        fixture.wrapper.open();
+        LifecycleChild child = fixture.children.get(0);
+        child.closeEntered = new CountDownLatch(1);
+        child.closeRelease = new CountDownLatch(1);
+        RuntimeException failure = new IllegalStateException("shared-close-failure");
+        child.closeFailure = failure;
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Throwable> first =
+                    executor.submit(
+                            () ->
+                                    Assertions.assertThrows(
+                                            RuntimeException.class, fixture.wrapper::close));
+            Assertions.assertTrue(child.closeEntered.await(5, TimeUnit.SECONDS));
+            CountDownLatch secondStarted = new CountDownLatch(1);
+            Future<Throwable> second =
+                    executor.submit(
+                            () -> {
+                                secondStarted.countDown();
+                                return Assertions.assertThrows(
+                                        RuntimeException.class, fixture.wrapper::close);
+                            });
+            Assertions.assertTrue(secondStarted.await(5, TimeUnit.SECONDS));
+            Assertions.assertThrows(
+                    TimeoutException.class, () -> second.get(100, TimeUnit.MILLISECONDS));
+            child.closeRelease.countDown();
+            Assertions.assertSame(failure, first.get(5, TimeUnit.SECONDS));
+            Assertions.assertSame(failure, second.get(5, TimeUnit.SECONDS));
+            fixture.children.forEach(
+                    c -> {
+                        Assertions.assertEquals(1, c.closes);
+                        Assertions.assertEquals(0, c.resources);
+                    });
+        } finally {
+            child.closeRelease.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    private static final class LifecycleFixture implements Serializable {
+        private final List<CatalogTable> tables = new ArrayList<>();
+        private final List<LifecycleChild> children = new ArrayList<>();
+        private final AbstractMultiCatalogTransform wrapper;
+
+        private LifecycleFixture(boolean flat, int tableCount, int rules) {
+            for (int i = 0; i < tableCount; i++) {
+                tables.add(
+                        CatalogTableUtil.getCatalogTable(
+                                "catalog",
+                                "database",
+                                "schema",
+                                "table" + i,
+                                new SeaTunnelRowType(
+                                        new String[] {"id"},
+                                        new SeaTunnelDataType[] {BasicType.INT_TYPE})));
+            }
+            Map<String, Object>[] configs =
+                    tables.stream()
+                            .map(table -> tableRule(tablePath(table), "extra"))
+                            .toArray(Map[]::new);
+            wrapper =
+                    flat
+                            ? new TestFlatMapMultiCatalogTransform(tables, config(configs))
+                            : new TestMapMultiCatalogTransform(tables, config(configs));
+            for (CatalogTable table : tables) {
+                List<SeaTunnelTransform<SeaTunnelRow>> chain = new ArrayList<>();
+                for (int i = 0; i < rules; i++) {
+                    LifecycleChild child = new LifecycleChild(table);
+                    children.add(child);
+                    chain.add(child);
+                }
+                wrapper.transformMap.put(tablePath(table), wrapper.composeTransforms(chain));
+            }
+        }
+    }
+
+    private static final class LifecycleChild
+            implements SeaTunnelMapTransform<SeaTunnelRow>,
+                    SeaTunnelFlatMapTransform<SeaTunnelRow> {
+        private final CatalogTable table;
+        private int opens;
+        private int closes;
+        private transient int resources;
+        private Exception openFailure;
+        private Exception closeFailure;
+        private RuntimeException schemaFailure;
+        private transient CountDownLatch closeEntered;
+        private transient CountDownLatch closeRelease;
+
+        private LifecycleChild(CatalogTable table) {
+            this.table = table;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "LifecycleChild";
+        }
+
+        @Override
+        public CatalogTable getProducedCatalogTable() {
+            if (schemaFailure != null) {
+                throw schemaFailure;
+            }
+            return table;
+        }
+
+        @Override
+        public List<CatalogTable> getProducedCatalogTables() {
+            return Collections.singletonList(table);
+        }
+
+        @Override
+        @lombok.SneakyThrows
+        public void open() {
+            opens++;
+            resources = 1;
+            if (openFailure != null) {
+                throw openFailure;
+            }
+        }
+
+        @Override
+        @lombok.SneakyThrows
+        public void close() {
+            closes++;
+            if (closeEntered != null) {
+                closeEntered.countDown();
+                if (!closeRelease.await(5, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("Timed out awaiting fixture close release");
+                }
+            }
+            resources = 0;
+            if (closeFailure != null) {
+                throw closeFailure;
+            }
+        }
+
+        @Override
+        public SeaTunnelRow map(SeaTunnelRow row) {
+            Assertions.assertEquals(1, opens);
+            Assertions.assertEquals(0, closes);
+            return row;
+        }
+
+        @Override
+        public List<SeaTunnelRow> flatMap(SeaTunnelRow row) {
+            return Collections.singletonList(map(row));
+        }
+    }
 
     @Test
     void defaultModeRejectsDuplicateExactTablePathRules() {

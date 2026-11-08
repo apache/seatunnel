@@ -44,6 +44,8 @@ import java.util.Collections;
 import java.util.List;
 
 public class LLMTransform extends SingleFieldOutputTransform {
+
+    private transient boolean closed;
     // Implicit UID at 8bea8c681cacccbd99fa642ca0853718980b9234, before strictBooleanOutput.
     // Reproduce with serialver as documented in src/test/resources/llm/README.md.
     private static final long serialVersionUID = 4711686225005641485L;
@@ -75,73 +77,84 @@ public class LLMTransform extends SingleFieldOutputTransform {
 
     @Override
     public void open() {
-        ModelProvider provider = config.get(ModelTransformConfig.MODEL_PROVIDER);
-        switch (provider) {
-            case CUSTOM:
-                // load custom_config from the configuration
-                ReadonlyConfig customConfig =
-                        config.getOptional(ModelTransformConfig.CustomRequestConfig.CUSTOM_CONFIG)
-                                .map(ReadonlyConfig::fromMap)
-                                .orElseThrow(
-                                        () ->
-                                                new IllegalArgumentException(
-                                                        "Custom config can't be null"));
-                model =
-                        new CustomModel(
-                                inputCatalogTable.getSeaTunnelRowType(),
-                                outputDataType.getSqlType(),
-                                config.get(LLMTransformConfig.INFERENCE_COLUMNS),
-                                config.get(LLMTransformConfig.PROMPT),
-                                config.get(LLMTransformConfig.MODEL),
-                                provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)),
-                                customConfig.get(
-                                        LLMTransformConfig.CustomRequestConfig
-                                                .CUSTOM_REQUEST_HEADERS),
-                                customConfig.get(
-                                        LLMTransformConfig.CustomRequestConfig.CUSTOM_REQUEST_BODY),
-                                customConfig.get(
-                                        LLMTransformConfig.CustomRequestConfig
-                                                .CUSTOM_RESPONSE_PARSE));
-                break;
-            case MICROSOFT:
-                model =
-                        new MicrosoftModel(
-                                inputCatalogTable.getSeaTunnelRowType(),
-                                outputDataType.getSqlType(),
-                                config.get(LLMTransformConfig.INFERENCE_COLUMNS),
-                                config.get(LLMTransformConfig.PROMPT),
-                                config.get(LLMTransformConfig.MODEL),
-                                config.get(LLMTransformConfig.API_KEY),
-                                provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)));
-                break;
-            case DEEPSEEK:
-            case OPENAI:
-            case DOUBAO:
-            case ZHIPU:
-                model =
-                        new OpenAIModel(
-                                inputCatalogTable.getSeaTunnelRowType(),
-                                outputDataType.getSqlType(),
-                                config.get(LLMTransformConfig.INFERENCE_COLUMNS),
-                                config.get(LLMTransformConfig.PROMPT),
-                                config.get(LLMTransformConfig.MODEL),
-                                config.get(LLMTransformConfig.API_KEY),
-                                provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)));
-                break;
-            case KIMIAI:
-                model =
-                        new KimiAIModel(
-                                inputCatalogTable.getSeaTunnelRowType(),
-                                outputDataType.getSqlType(),
-                                config.get(LLMTransformConfig.INFERENCE_COLUMNS),
-                                config.get(LLMTransformConfig.PROMPT),
-                                config.get(LLMTransformConfig.MODEL),
-                                config.get(LLMTransformConfig.API_KEY),
-                                provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)));
-                break;
-            case QIANFAN:
-            default:
-                throw new IllegalArgumentException("Unsupported model provider: " + provider);
+        synchronized (this) {
+            if (closed) {
+                throw new IllegalStateException("Transform is closed");
+            }
+            // Schema discovery may already have initialized this instance.
+            if (model != null) {
+                return;
+            }
+            ModelProvider provider = config.get(ModelTransformConfig.MODEL_PROVIDER);
+            switch (provider) {
+                case CUSTOM:
+                    // load custom_config from the configuration
+                    ReadonlyConfig customConfig =
+                            config.getOptional(
+                                            ModelTransformConfig.CustomRequestConfig.CUSTOM_CONFIG)
+                                    .map(ReadonlyConfig::fromMap)
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalArgumentException(
+                                                            "Custom config can't be null"));
+                    model =
+                            new CustomModel(
+                                    inputCatalogTable.getSeaTunnelRowType(),
+                                    outputDataType.getSqlType(),
+                                    config.get(LLMTransformConfig.INFERENCE_COLUMNS),
+                                    config.get(LLMTransformConfig.PROMPT),
+                                    config.get(LLMTransformConfig.MODEL),
+                                    provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)),
+                                    customConfig.get(
+                                            LLMTransformConfig.CustomRequestConfig
+                                                    .CUSTOM_REQUEST_HEADERS),
+                                    customConfig.get(
+                                            LLMTransformConfig.CustomRequestConfig
+                                                    .CUSTOM_REQUEST_BODY),
+                                    customConfig.get(
+                                            LLMTransformConfig.CustomRequestConfig
+                                                    .CUSTOM_RESPONSE_PARSE));
+                    break;
+                case MICROSOFT:
+                    model =
+                            new MicrosoftModel(
+                                    inputCatalogTable.getSeaTunnelRowType(),
+                                    outputDataType.getSqlType(),
+                                    config.get(LLMTransformConfig.INFERENCE_COLUMNS),
+                                    config.get(LLMTransformConfig.PROMPT),
+                                    config.get(LLMTransformConfig.MODEL),
+                                    config.get(LLMTransformConfig.API_KEY),
+                                    provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)));
+                    break;
+                case DEEPSEEK:
+                case OPENAI:
+                case DOUBAO:
+                case ZHIPU:
+                    model =
+                            new OpenAIModel(
+                                    inputCatalogTable.getSeaTunnelRowType(),
+                                    outputDataType.getSqlType(),
+                                    config.get(LLMTransformConfig.INFERENCE_COLUMNS),
+                                    config.get(LLMTransformConfig.PROMPT),
+                                    config.get(LLMTransformConfig.MODEL),
+                                    config.get(LLMTransformConfig.API_KEY),
+                                    provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)));
+                    break;
+                case KIMIAI:
+                    model =
+                            new KimiAIModel(
+                                    inputCatalogTable.getSeaTunnelRowType(),
+                                    outputDataType.getSqlType(),
+                                    config.get(LLMTransformConfig.INFERENCE_COLUMNS),
+                                    config.get(LLMTransformConfig.PROMPT),
+                                    config.get(LLMTransformConfig.MODEL),
+                                    config.get(LLMTransformConfig.API_KEY),
+                                    provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)));
+                    break;
+                case QIANFAN:
+                default:
+                    throw new IllegalArgumentException("Unsupported model provider: " + provider);
+            }
         }
     }
 
@@ -214,8 +227,18 @@ public class LLMTransform extends SingleFieldOutputTransform {
     @SneakyThrows
     @Override
     public void close() {
-        if (model != null) {
-            model.close();
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            if (model != null) {
+                try {
+                    model.close();
+                } finally {
+                    model = null;
+                }
+            }
         }
     }
 }

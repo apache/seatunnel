@@ -31,6 +31,8 @@ class ChainedFlatMapTransform implements SeaTunnelFlatMapTransform<SeaTunnelRow>
 
     private final List<SeaTunnelTransform<SeaTunnelRow>> transforms;
 
+    private transient TransformLifecycle lifecycle;
+
     ChainedFlatMapTransform(List<SeaTunnelTransform<SeaTunnelRow>> transforms) {
         this.transforms = transforms;
     }
@@ -42,7 +44,7 @@ class ChainedFlatMapTransform implements SeaTunnelFlatMapTransform<SeaTunnelRow>
 
     @Override
     public void open() {
-        transforms.forEach(SeaTunnelTransform::open);
+        lifecycle().open();
     }
 
     @Override
@@ -100,9 +102,17 @@ class ChainedFlatMapTransform implements SeaTunnelFlatMapTransform<SeaTunnelRow>
         }
     }
 
+    /** Releases composed rules once, continuing after a child cleanup failure. */
     @Override
     public void close() {
-        transforms.forEach(SeaTunnelTransform::close);
+        lifecycle().close();
+    }
+
+    private synchronized TransformLifecycle lifecycle() {
+        if (lifecycle == null) {
+            lifecycle = new TransformLifecycle(transforms);
+        }
+        return lifecycle;
     }
 
     private void setTransformInput(
