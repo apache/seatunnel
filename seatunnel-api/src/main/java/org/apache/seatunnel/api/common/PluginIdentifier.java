@@ -19,6 +19,8 @@ package org.apache.seatunnel.api.common;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import java.util.Locale;
+
 /** Used to identify a plugin. */
 public class PluginIdentifier {
     private final String engineType;
@@ -69,9 +71,13 @@ public class PluginIdentifier {
 
     @Override
     public int hashCode() {
-        int result = engineType != null ? engineType.toLowerCase().hashCode() : 0;
-        result = 31 * result + (pluginType != null ? pluginType.toLowerCase().hashCode() : 0);
-        result = 31 * result + (pluginName != null ? pluginName.toLowerCase().hashCode() : 0);
+        int result = engineType != null ? engineType.toLowerCase(Locale.ROOT).hashCode() : 0;
+        result =
+                31 * result
+                        + (pluginType != null ? pluginType.toLowerCase(Locale.ROOT).hashCode() : 0);
+        result =
+                31 * result
+                        + (pluginName != null ? pluginName.toLowerCase(Locale.ROOT).hashCode() : 0);
         return result;
     }
 

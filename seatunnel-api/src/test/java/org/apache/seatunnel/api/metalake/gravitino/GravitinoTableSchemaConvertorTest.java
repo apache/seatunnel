@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Locale;
 
 public class GravitinoTableSchemaConvertorTest {
 
@@ -962,5 +963,22 @@ public class GravitinoTableSchemaConvertorTest {
         Assertions.assertEquals("public", catalogTable.getTableId().getSchemaName());
         Assertions.assertEquals("all_type", catalogTable.getTableId().getTableName());
         Assertions.assertEquals(tableSchema, catalogTable.getTableSchema());
+    }
+
+    @Test
+    void testTypeMatchingIsIndependentOfDefaultLocale() throws Exception {
+        Locale previous = Locale.getDefault();
+        try {
+            Locale.setDefault(new Locale("tr", "TR"));
+
+            String json =
+                    "{\"columns\":[{\"name\":\"int_col\",\"type\":\"INTEGER\",\"nullable\":true}]}";
+            TableSchema schema = CONVERTOR.convertor(OBJECT_MAPPER.readTree(json));
+            List<Column> columns = schema.getColumns();
+            Assertions.assertEquals(1, columns.size());
+            Assertions.assertEquals(BasicType.INT_TYPE, columns.get(0).getDataType());
+        } finally {
+            Locale.setDefault(previous);
+        }
     }
 }
