@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -103,6 +104,89 @@ public class SQLSystemFunctionsTest {
         Assertions.assertEquals("Minor", results.get(0).getField(0));
         Assertions.assertEquals("Young", results.get(1).getField(0));
         Assertions.assertEquals("Adult", results.get(2).getField(0));
+    }
+
+    @Test
+    public void testIfFunction() {
+        SeaTunnelRowType ageRowType =
+                new SeaTunnelRowType(
+                        new String[] {"age"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+
+        SeaTunnelRow minorRow =
+                runSql(
+                        "select IF(age < 18, 'Minor', 'Adult') as category from dual",
+                        ageRowType,
+                        16);
+        Assertions.assertEquals("Minor", minorRow.getField(0));
+
+        SeaTunnelRow adultRow =
+                runSql(
+                        "select IF(age < 18, 'Minor', 'Adult') as category from dual",
+                        ageRowType,
+                        40);
+        Assertions.assertEquals("Adult", adultRow.getField(0));
+
+        // A string branch widens the result to string, the other branch follows CAST semantics
+        SeaTunnelRow mixedRow =
+                runSql("select IF(age < 18, 'Minor', age) as category from dual", ageRowType, 40);
+        Assertions.assertEquals("40", mixedRow.getField(0));
+
+        // Numeric branches widen to the wider type
+        SeaTunnelRow numericRow =
+                runSql("select IF(age < 18, 1, 2.5) as r from dual", ageRowType, 40);
+        Assertions.assertEquals(2.5, numericRow.getField(0));
+
+        SeaTunnelRowType flagRowType =
+                new SeaTunnelRowType(
+                        new String[] {"flag"}, new SeaTunnelDataType[] {BasicType.BOOLEAN_TYPE});
+
+        // Boolean column condition
+        SeaTunnelRow trueRow =
+                runSql("select IF(flag, 'Yes', 'No') as r from dual", flagRowType, Boolean.TRUE);
+        Assertions.assertEquals("Yes", trueRow.getField(0));
+
+        // Null condition is treated as false
+        SeaTunnelRow nullFlagRow =
+                runSql(
+                        "select IF(flag, 'Yes', 'No') as r from dual",
+                        flagRowType,
+                        new Object[] {null});
+        Assertions.assertEquals("No", nullFlagRow.getField(0));
+
+        // Null branch value stays null
+        SeaTunnelRow nullBranchRow =
+                runSql("select IF(flag, 'Yes', NULL) as r from dual", flagRowType, Boolean.FALSE);
+        Assertions.assertNull(nullBranchRow.getField(0));
+
+        // Both branches NULL keeps the result null
+        SeaTunnelRow bothNullRow =
+                runSql("select IF(flag, NULL, NULL) as r from dual", flagRowType, Boolean.TRUE);
+        Assertions.assertNull(bothNullRow.getField(0));
+
+        // A non-boolean condition is an error
+        SeaTunnelRowType nameRowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> runSql("select IF(name, 'a', 'b') as r from dual", nameRowType, "Alice"));
+
+        // Nested IF: the outer branch is itself an IF, resolved recursively
+        SeaTunnelRow nestedRow =
+                runSql(
+                        "select IF(age < 18, IF(age < 12, 'Child', 'Teenager'), 'Adult') as r"
+                                + " from dual",
+                        ageRowType,
+                        15);
+        Assertions.assertEquals("Teenager", nestedRow.getField(0));
+
+        SeaTunnelRow nestedAdultRow =
+                runSql(
+                        "select IF(age < 18, IF(age < 12, 'Child', 'Teenager'), 'Adult') as r"
+                                + " from dual",
+                        ageRowType,
+                        40);
+        Assertions.assertEquals("Adult", nestedAdultRow.getField(0));
     }
 
     @Test
