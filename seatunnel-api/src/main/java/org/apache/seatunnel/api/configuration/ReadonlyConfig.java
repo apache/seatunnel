@@ -24,6 +24,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
+import org.apache.seatunnel.api.configuration.util.ConfigMapPathUtils;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
@@ -74,7 +76,7 @@ public class ReadonlyConfig implements Serializable {
      */
     @Deprecated
     public Config toConfig() {
-        return ConfigFactory.parseMap(confData);
+        return ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(confData));
     }
 
     public Map<String, String> toMap() {
