@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -118,6 +119,36 @@ public class DorisCatalogIT extends AbstractDorisIT {
     @Test
     void optionRule() {
         Assertions.assertNotNull(factory.optionRule());
+    }
+
+    @Test
+    public void testTruncateTable() {
+
+        if (catalog == null) {
+            return;
+        }
+
+        catalog.createTable(tablePath, catalogTable, false);
+        catalog.executeSql(
+                tablePath, "INSERT INTO " + tablePath.getFullName() + " VALUES (1, 'a', 1.1, 1.1)");
+        Assertions.assertTrue(catalog.isExistsData(tablePath));
+
+        // The truncate must run on an existing table regardless of the ignore flag.
+        catalog.truncateTable(tablePath, true);
+        Assertions.assertFalse(catalog.isExistsData(tablePath));
+
+        catalog.executeSql(
+                tablePath, "INSERT INTO " + tablePath.getFullName() + " VALUES (1, 'a', 1.1, 1.1)");
+        catalog.truncateTable(tablePath, false);
+        Assertions.assertFalse(catalog.isExistsData(tablePath));
+
+        catalog.dropTable(tablePath, false);
+        Assertions.assertFalse(catalog.tableExists(tablePath));
+
+        // A missing table is skipped when the ignore flag is enabled and fails otherwise.
+        Assertions.assertDoesNotThrow(() -> catalog.truncateTable(tablePath, true));
+        Assertions.assertThrows(
+                TableNotExistException.class, () -> catalog.truncateTable(tablePath, false));
     }
 
     @Test
