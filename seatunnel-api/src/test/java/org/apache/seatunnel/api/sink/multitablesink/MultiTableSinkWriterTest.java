@@ -33,10 +33,17 @@ import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.HashUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -47,6 +54,7 @@ import lombok.Data;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -1088,6 +1096,100 @@ public class MultiTableSinkWriterTest {
                         sinks));
     }
 
+    @Test
+    public void testByteArrayPrimaryKeyRoutesEqualKeysToOneWriter() throws IOException {
+        // BINARY/VARBINARY primary keys reach the sink as byte[], whose hashCode() is identity
+        // based. Every row below carries a fresh array with the same content, as a CDC stream
+        // does for one BINARY(16) key, and all of them must land on the same queue so that
+        // UPDATE_BEFORE/UPDATE_AFTER/DELETE for that key stay ordered.
+        int replicaNum = 4;
+        int rows = 32;
+        byte[] key = new byte[] {1, 2, 3};
+        int expectedIndex = HashUtils.bucketIndex(Arrays.hashCode(key), replicaNum);
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter[] writersByIndex = new RecordingSinkWriter[replicaNum];
+        for (int i = 0; i < replicaNum; i++) {
+            SinkIdentifier identifier = SinkIdentifier.of("test.table", i);
+            RecordingSinkWriter writer = new RecordingSinkWriter(false);
+            writersByIndex[i] = writer;
+            sinkWriters.put(identifier, writer);
+            sinkWritersContext.put(identifier, new TestSinkWriterContext());
+        }
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, replicaNum, sinkWritersContext);
+
+        for (int i = 0; i < rows; i++) {
+            SeaTunnelRow row = new SeaTunnelRow(new Object[] {key.clone()});
+            row.setTableId("test.table");
+            multiTableSinkWriter.write(row);
+        }
+        Assertions.assertTrue(multiTableSinkWriter.prepareCommit(1L).isPresent());
+
+        for (int i = 0; i < replicaNum; i++) {
+            Assertions.assertEquals(
+                    i == expectedIndex ? rows : 0,
+                    writersByIndex[i].getWriteCount(),
+                    "rows with the same binary key must all reach writer " + expectedIndex);
+        }
+        multiTableSinkWriter.close();
+    }
+
+    @Test
+    public void testPrimaryKeyIndexIsRefreshedAfterSchemaChange() throws IOException {
+        // A sub-writer that keys on a column position (the JDBC sink does) moves that position
+        // when a column is added in front of the key. The coordinator must re-read primaryKey()
+        // after the schema-change barrier, otherwise rows of one key are hashed on the new
+        // leading column and spread across workers.
+        int replicaNum = 3;
+        int key = 7;
+        int keyIndex = HashUtils.bucketIndex(key, replicaNum);
+        int fillerValue = 0;
+        Assertions.assertNotEquals(keyIndex, HashUtils.bucketIndex(fillerValue, replicaNum));
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        KeyIndexShiftingSinkWriter[] writersByIndex = new KeyIndexShiftingSinkWriter[replicaNum];
+        for (int i = 0; i < replicaNum; i++) {
+            SinkIdentifier identifier = SinkIdentifier.of("test.table", i);
+            KeyIndexShiftingSinkWriter writer = new KeyIndexShiftingSinkWriter();
+            writersByIndex[i] = writer;
+            sinkWriters.put(identifier, writer);
+            sinkWritersContext.put(identifier, new TestSinkWriterContext());
+        }
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, replicaNum, sinkWritersContext);
+
+        multiTableSinkWriter.write(buildRow("test.table", key));
+        Assertions.assertTrue(multiTableSinkWriter.prepareCommit(1L).isPresent());
+        Assertions.assertEquals(1, writersByIndex[keyIndex].getWriteCount());
+
+        multiTableSinkWriter.applySchemaChange(
+                AlterTableAddColumnEvent.addFirst(
+                        TableIdentifier.of("test", TablePath.of("test.table")),
+                        PhysicalColumn.builder()
+                                .name("filler")
+                                .dataType(BasicType.INT_TYPE)
+                                .build()));
+        for (KeyIndexShiftingSinkWriter writer : writersByIndex) {
+            Assertions.assertEquals(Optional.of(1), writer.primaryKey());
+        }
+
+        SeaTunnelRow shiftedRow = new SeaTunnelRow(new Object[] {fillerValue, key});
+        shiftedRow.setTableId("test.table");
+        multiTableSinkWriter.write(shiftedRow);
+        Assertions.assertTrue(multiTableSinkWriter.prepareCommit(2L).isPresent());
+
+        for (int i = 0; i < replicaNum; i++) {
+            Assertions.assertEquals(
+                    i == keyIndex ? 2 : 0,
+                    writersByIndex[i].getWriteCount(),
+                    "both rows of key " + key + " must reach writer " + keyIndex);
+        }
+        multiTableSinkWriter.close();
+    }
+
     private SeaTunnelRow buildRow(String tableId, int value) {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {value});
         row.setTableId(tableId);
@@ -1156,6 +1258,26 @@ public class MultiTableSinkWriterTest {
 
         int getWriteCount() {
             return writeCount.get();
+        }
+    }
+
+    /** Keys on column 0 until a schema change puts a new column in front of the key. */
+    static class KeyIndexShiftingSinkWriter extends RecordingSinkWriter
+            implements SupportSchemaEvolutionSinkWriter {
+        private volatile int keyIndex = 0;
+
+        KeyIndexShiftingSinkWriter() {
+            super(false);
+        }
+
+        @Override
+        public void applySchemaChange(SchemaChangeEvent event) {
+            keyIndex = 1;
+        }
+
+        @Override
+        public Optional<Integer> primaryKey() {
+            return Optional.of(keyIndex);
         }
     }
 

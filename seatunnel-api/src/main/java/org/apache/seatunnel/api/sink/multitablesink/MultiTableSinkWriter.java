@@ -36,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -484,6 +485,7 @@ public class MultiTableSinkWriter
         }
         waitRuntimeTableFailuresHandled();
         subSinkErrorCheck();
+        refreshSinkPrimaryKeys();
     }
 
     /**
@@ -564,9 +566,9 @@ public class MultiTableSinkWriter
      *
      * <ul>
      *   <li>If the table's primary key information is present and the primary key field value is
-     *       non-null, the row is routed by {@link HashUtils#bucketIndex(int, int)} over {@code
-     *       primaryKeyValue.hashCode()} and the queue count, guaranteeing that rows with the same
-     *       primary key always go to the same queue for ordered delivery.
+     *       non-null, the row is routed by {@link HashUtils#bucketIndex(int, int)} over the key's
+     *       content hash (see {@link #routingKeyHash(Object)}) and the queue count, guaranteeing
+     *       that rows with the same primary key always go to the same queue for ordered delivery.
      *   <li>If the table's primary key information is present but the actual field value is {@code
      *       null}, the row is routed to queue 0.
      *   <li>If the table has no primary key or this is a single-table sink, the row is sent to a
@@ -617,9 +619,41 @@ public class MultiTableSinkWriter
             Object object = element.getField(primaryKey.get());
             int index = 0;
             if (object != null) {
-                index = HashUtils.bucketIndex(object.hashCode(), blockingQueues.size());
+                index = HashUtils.bucketIndex(routingKeyHash(object), blockingQueues.size());
             }
             offerRowElement(index, element);
+        }
+    }
+
+    /**
+     * Hashes a primary key value by content. BINARY and VARBINARY keys reach the sink as {@code
+     * byte[]}, whose {@link Object#hashCode()} is identity based, so two rows carrying the same
+     * binary key would otherwise be queued on different workers and applied out of order.
+     */
+    static int routingKeyHash(Object key) {
+        if (key instanceof byte[]) {
+            return Arrays.hashCode((byte[]) key);
+        }
+        return key.hashCode();
+    }
+
+    /**
+     * Re-reads every live sub-writer's primary key index after a schema change. A writer that keys
+     * on a column position (the JDBC sink does) sees that position move when a column is added in
+     * front of the key or dropped ahead of it; rows routed with the stale index would be hashed on
+     * another column and spread across workers.
+     */
+    private void refreshSinkPrimaryKeys() {
+        for (Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writerMap : sinkWritersWithIndex) {
+            for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> entry :
+                    writerMap.entrySet()) {
+                Optional<Integer> primaryKey =
+                        ((SupportMultiTableSinkWriter<?>) entry.getValue()).primaryKey();
+                // Only refresh tables that still have an entry: a table quarantined on another
+                // thread has had its entry removed and must not be resurrected here.
+                sinkPrimaryKeys.computeIfPresent(
+                        entry.getKey().getTableIdentifier(), (tableId, ignored) -> primaryKey);
+            }
         }
     }
 

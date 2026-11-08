@@ -28,6 +28,8 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
@@ -60,7 +62,10 @@ import java.util.Set;
 @Slf4j
 public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager>
         implements SupportRowLevelErrorClassifier<SeaTunnelRow> {
-    private final Integer primaryKeyIndex;
+    // Position of the routing key column in the current table schema. The column name is kept
+    // so the position can follow the column after a schema change moves or renames it.
+    private volatile String primaryKeyColumn;
+    private volatile Integer primaryKeyIndex;
     private final Optional<RowErrorCollector> rowErrorCollector;
     private final int batchSize;
     private final Object batchLock = new Object();
@@ -129,6 +134,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         this.databaseTableSchema = databaseTableSchema;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.primaryKeyIndex = primaryKeyIndex;
+        this.primaryKeyColumn = resolvePrimaryKeyColumn(tableSchema, primaryKeyIndex);
         // Without checkpointing there is no prepareCommit boundary to commit manual-commit
         // connections (for example Oracle, which is forced to manual commit above), so every
         // successful batch flush must carry its own commit or flushed rows stay in one unbounded
@@ -291,6 +297,85 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     @Override
     public Optional<Integer> primaryKey() {
         return primaryKeyIndex != null ? Optional.of(primaryKeyIndex) : Optional.empty();
+    }
+
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        boolean applied = false;
+        try {
+            super.applySchemaChange(event);
+            applied = true;
+        } finally {
+            // The parent assigns the new table schema before it rebuilds the output format, so
+            // the key position is refreshed even when the rebuild fails and the table is retried.
+            if (applied) {
+                followPrimaryKeyRename(event);
+            }
+            refreshPrimaryKeyIndex();
+        }
+    }
+
+    private void followPrimaryKeyRename(SchemaChangeEvent event) {
+        if (primaryKeyColumn == null || !(event instanceof AlterTableChangeColumnEvent)) {
+            return;
+        }
+        AlterTableChangeColumnEvent changeColumnEvent = (AlterTableChangeColumnEvent) event;
+        if (primaryKeyColumn.equals(changeColumnEvent.getOldColumn())
+                && changeColumnEvent.getColumn() != null
+                && changeColumnEvent.getColumn().getName() != null) {
+            primaryKeyColumn = changeColumnEvent.getColumn().getName();
+        }
+    }
+
+    private static String firstPrimaryKeyColumn(TableSchema tableSchema) {
+        if (tableSchema.getPrimaryKey() == null
+                || tableSchema.getPrimaryKey().getColumnNames() == null
+                || tableSchema.getPrimaryKey().getColumnNames().isEmpty()) {
+            return null;
+        }
+        return tableSchema.getPrimaryKey().getColumnNames().get(0);
+    }
+
+    private static String resolvePrimaryKeyColumn(
+            TableSchema tableSchema, Integer primaryKeyIndex) {
+        if (primaryKeyIndex == null || tableSchema == null) {
+            return null;
+        }
+        String[] fieldNames = tableSchema.toPhysicalRowDataType().getFieldNames();
+        return primaryKeyIndex >= 0 && primaryKeyIndex < fieldNames.length
+                ? fieldNames[primaryKeyIndex]
+                : null;
+    }
+
+    /**
+     * Recomputes the routing key position from the schema that a schema change just produced, so
+     * the multi-table coordinator keeps hashing rows on the key column after a column was added in
+     * front of it or dropped ahead of it. A dropped key column leaves the writer unkeyed.
+     */
+    private void refreshPrimaryKeyIndex() {
+        if (primaryKeyColumn == null || tableSchema == null) {
+            return;
+        }
+        int index = tableSchema.toPhysicalRowDataType().indexOf(primaryKeyColumn, false);
+        if (index < 0) {
+            // A restored schema can already carry a renamed key column; its own primary key
+            // metadata is then the authority.
+            String schemaKeyColumn = firstPrimaryKeyColumn(tableSchema);
+            if (schemaKeyColumn != null) {
+                index = tableSchema.toPhysicalRowDataType().indexOf(schemaKeyColumn, false);
+                if (index > -1) {
+                    primaryKeyColumn = schemaKeyColumn;
+                }
+            }
+        }
+        if (index < 0) {
+            log.warn(
+                    "Primary key column {} of table {} is gone after a schema change; rows are no"
+                            + " longer routed by key",
+                    primaryKeyColumn,
+                    sinkTablePath);
+        }
+        primaryKeyIndex = index > -1 ? index : null;
     }
 
     private void tryOpen() throws IOException {
