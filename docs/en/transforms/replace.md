@@ -15,6 +15,9 @@ Examines string value in given fields and replaces substring of the string value
 | replacement   | string  | yes      | -             |
 | is_regex      | boolean | no       | false         |
 | replace_first | boolean | no       | false         |
+| table_match_regex | string  | no       | `.*`          |
+| table_transform | array   | no       | -             |
+| rule_match_mode | string  | no       | `FIRST_MATCH` |
 
 ### replace_fields [array]
 
@@ -23,6 +26,10 @@ The fields you want to replace
 `replace_fields` accepts a list such as `["name"]` or `["name", "title"]`.
 
 For backward compatibility, legacy key `replace_field = "name"` is still supported, but new configurations should use `replace_fields`.
+
+Field names are resolved again when the input schema is refreshed, including checkpoint schema restoration. Adding, removing, or reordering other columns therefore does not change which fields receive replacements. If a configured field is absent from the refreshed schema (for example, it was dropped or renamed), the refresh fails with a missing-field error before subsequent rows are processed. Update `replace_fields` to match the source schema before restarting the job.
+
+This field-binding behavior does not change the engine's schema-evolution support or the existing value-conversion and output-schema behavior of Replace.
 
 ### pattern [string]
 
@@ -39,6 +46,18 @@ Use regex for string match
 ### replace_first [boolean]
 
 Whether replace the first match string. Only used when `is_regex = true`.
+
+### table_match_regex [string]
+
+Regex matched against the upstream table path. The transform level rule (the options above outside of `table_transform`) only applies to tables whose path matches this regex. The default `.*` matches every table.
+
+### table_transform [array]
+
+A list of per-table rules. Each entry must contain `table_path` in the form `databaseName[.schemaName].tableName` (matched exactly) and a complete Replace rule for that table (`replace_fields`, `pattern`, `replacement`). Tables with an entry are not affected by the transform level rule.
+
+### rule_match_mode [string]
+
+Controls what happens when several `table_transform` entries have the same `table_path`: `FIRST_MATCH` applies only the first matching entry, `ALL_MATCH` applies all matching entries in order. If not set, duplicate `table_path` entries are rejected.
 
 ### common options [string]
 
@@ -122,4 +141,3 @@ sink {
 ### new version
 
 - Add Replace Transform Connector
-

@@ -98,7 +98,7 @@ transform {
 
 例如你的上游数据结构是这样：
 
-```hacon
+```hocon
 source {
   FakeSource {
     plugin_output = "fake"
