@@ -24,15 +24,20 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -1065,5 +1070,137 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         postgresCatalog.dropTable(tablePathPgSink, true);
         Assertions.assertFalse(postgresCatalog.tableExists(tablePathPgSink));
         postgresCatalog.close();
+    }
+
+    @Test
+    public void testEnumSinkBindingKeepsQuotedSchemaQualifiedTypes() throws Exception {
+        executeSQL("DROP SCHEMA IF EXISTS enum_bind CASCADE");
+        executeSQL("DROP SCHEMA IF EXISTS enum_bind_other CASCADE");
+        executeSQL("CREATE SCHEMA enum_bind");
+        executeSQL("CREATE SCHEMA enum_bind_other");
+        executeSQL("CREATE TYPE enum_bind.\"ChapterElementType\" AS ENUM ('paragraph', 'heading')");
+        executeSQL("CREATE TYPE enum_bind.\"Order Status\" AS ENUM ('open', 'closed')");
+        executeSQL("CREATE TYPE enum_bind.\"Role\" AS ENUM ('ADMIN', 'reader')");
+        executeSQL("CREATE TYPE enum_bind.\"text\" AS ENUM ('literal', 'other')");
+        executeSQL("CREATE TYPE enum_bind_other.\"Role\" AS ENUM ('reader')");
+        executeSQL(
+                "CREATE TABLE enum_bind.sink ("
+                        + "id INT PRIMARY KEY, "
+                        + "element_type enum_bind.\"ChapterElementType\", "
+                        + "order_status enum_bind.\"Order Status\", "
+                        + "roles enum_bind.\"Role\"[], "
+                        + "text_enum enum_bind.\"text\", "
+                        + "note jsonb)");
+        try {
+            TablePath sinkPath =
+                    TablePath.of(POSTGRESQL_CONTAINER.getDatabaseName(), "enum_bind", "sink");
+            TableSchema databaseTableSchema;
+            try (PostgresCatalog postgresCatalog =
+                    new PostgresCatalog(
+                            DatabaseIdentifier.POSTGRESQL,
+                            POSTGRESQL_CONTAINER.getUsername(),
+                            POSTGRESQL_CONTAINER.getPassword(),
+                            JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
+                            "public",
+                            null)) {
+                postgresCatalog.open();
+                databaseTableSchema = postgresCatalog.getTable(sinkPath).getTableSchema();
+            }
+            String elementType = databaseTableSchema.getColumn("element_type").getSourceType();
+            String orderStatus = databaseTableSchema.getColumn("order_status").getSourceType();
+            String roles = databaseTableSchema.getColumn("roles").getSourceType();
+            String textEnum = databaseTableSchema.getColumn("text_enum").getSourceType();
+            Assertions.assertEquals(
+                    BasicType.STRING_TYPE,
+                    databaseTableSchema.getColumn("element_type").getDataType());
+            Assertions.assertEquals(
+                    ArrayType.STRING_ARRAY_TYPE,
+                    databaseTableSchema.getColumn("roles").getDataType());
+            Assertions.assertTrue(elementType.contains("enum_bind"));
+            Assertions.assertTrue(elementType.contains("ChapterElementType"));
+            Assertions.assertTrue(orderStatus.contains("Order Status"));
+            Assertions.assertTrue(roles.contains("enum_bind") && roles.endsWith("[]"));
+            // format_type leaves a name unquoted when it needs no quotes.
+            Assertions.assertEquals("enum_bind.text", textEnum);
+            Assertions.assertEquals("jsonb", databaseTableSchema.getColumn("note").getSourceType());
+
+            // The input row carries unqualified names. The sink uses the catalog schema, so a
+            // search_path that contains a different Role enum must not win.
+            TableSchema inputSchema =
+                    TableSchema.builder()
+                            .columns(
+                                    Arrays.asList(
+                                            PhysicalColumn.builder()
+                                                    .name("id")
+                                                    .dataType(BasicType.INT_TYPE)
+                                                    .build(),
+                                            PhysicalColumn.builder()
+                                                    .name("element_type")
+                                                    .dataType(BasicType.STRING_TYPE)
+                                                    .sourceType("ChapterElementType")
+                                                    .build(),
+                                            PhysicalColumn.builder()
+                                                    .name("order_status")
+                                                    .dataType(BasicType.STRING_TYPE)
+                                                    .sourceType("\"Order Status\"")
+                                                    .build(),
+                                            PhysicalColumn.builder()
+                                                    .name("roles")
+                                                    .dataType(ArrayType.STRING_ARRAY_TYPE)
+                                                    .sourceType("\"Role\"[]")
+                                                    .build(),
+                                            PhysicalColumn.builder()
+                                                    .name("text_enum")
+                                                    .dataType(BasicType.STRING_TYPE)
+                                                    .sourceType("text")
+                                                    .build(),
+                                            PhysicalColumn.builder()
+                                                    .name("note")
+                                                    .dataType(BasicType.STRING_TYPE)
+                                                    .sourceType("jsonb")
+                                                    .build()))
+                            .build();
+            String jdbcUrl = POSTGRESQL_CONTAINER.getJdbcUrl();
+            String separator = jdbcUrl.contains("?") ? "&" : "?";
+            try (Connection connection =
+                    getJdbcConnection(jdbcUrl + separator + "stringtype=unspecified")) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("SET search_path TO enum_bind_other, public");
+                }
+                SeaTunnelRow row =
+                        new SeaTunnelRow(
+                                new Object[] {
+                                    1,
+                                    "paragraph",
+                                    "open",
+                                    new String[] {"ADMIN"},
+                                    "literal",
+                                    "{\"a\":1}"
+                                });
+                try (PreparedStatement statement =
+                        connection.prepareStatement(
+                                "INSERT INTO enum_bind.sink "
+                                        + "(id, element_type, order_status, roles, text_enum, note) "
+                                        + "VALUES (?,?,?,?,?,?)")) {
+                    new PostgresJdbcRowConverter()
+                            .toExternal(inputSchema, databaseTableSchema, row, statement);
+                    Assertions.assertEquals(1, statement.executeUpdate());
+                }
+            }
+
+            List<List<Object>> written =
+                    querySql(
+                            "SELECT element_type::text, order_status::text, roles[1]::text, "
+                                    + "text_enum::text, (note = '{\"a\":1}'::jsonb) "
+                                    + "FROM enum_bind.sink");
+            Assertions.assertEquals("paragraph", String.valueOf(written.get(0).get(0)));
+            Assertions.assertEquals("open", String.valueOf(written.get(0).get(1)));
+            Assertions.assertEquals("ADMIN", String.valueOf(written.get(0).get(2)));
+            Assertions.assertEquals("literal", String.valueOf(written.get(0).get(3)));
+            Assertions.assertEquals("true", String.valueOf(written.get(0).get(4)));
+        } finally {
+            executeSQL("DROP SCHEMA IF EXISTS enum_bind CASCADE");
+            executeSQL("DROP SCHEMA IF EXISTS enum_bind_other CASCADE");
+        }
     }
 }
