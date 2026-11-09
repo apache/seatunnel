@@ -180,11 +180,14 @@ For a Multi-Table Sink, the Sink registers one aggregated action when at least o
 supports timer flush. Before invoking child actions, the Multi-Table writer waits for its internal
 row queues and in-progress writes to finish. This prevents timer flush from racing with its
 asynchronous writer threads. After the drain, child writers flush in parallel across queues and
-sequentially within each queue. The Sink waits for all queue actions before processing later records.
+sequentially within each queue. On success, the Sink waits for every queue before processing later
+records.
 
-The configured Multi-Table failure policy also applies to timer flush. `FAIL_FAST` propagates a
-child failure after the concurrent queue actions finish. A policy that continues other tables
-isolates the failed table and continues flushing healthy tables.
+The configured Multi-Table failure policy also applies to timer flush. `FAIL_FAST` propagates the
+first reported child failure promptly. A failure that ends the round or a cancellation stops
+the queues from starting further child flush actions. Sink close waits for actions already in
+progress before releasing writer resources. A policy that continues other tables isolates the
+failed table and continues flushing healthy tables.
 
 ## Monitoring
 
