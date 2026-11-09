@@ -318,8 +318,8 @@ source {
 
 ### 心跳动作（Heartbeat action）
 
-当上游长时间没有变更时，可以使用 `debezium.heartbeat.action.query` 选项让捕获变更表保持活跃。
-配合 `debezium.heartbeat.interval.ms` 使用，可以让该语句按固定频率执行。该动作通过源数据库连接执行并刷新
+可以使用 `debezium.heartbeat.action.query` 选项在连接器发出心跳事件时执行一个动作。注意：SQL Server 的轮询循环
+不会自行派发空闲心跳，因此该动作仅在连接器实际发出心跳时执行。该动作通过源数据库连接执行并刷新
 SQL Server CDC 的 LSN 追踪；它不会固定任何消费者的保留窗口，也不能替代正确配置的 CDC 保留期与故障/延迟监控
 （参见 [Microsoft CDC 清理文档](https://learn.microsoft.com/en-us/sql/relational-databases/track-changes/administer-and-monitor-change-data-capture-sql-server#cleanup-job)）。
 
@@ -340,8 +340,9 @@ source {
 }
 ```
 
-心跳表必须存在于**源数据库**中，动作查询是对它执行的 `INSERT` 语句。如果没有心跳，SQL Server 的清理作业
-可能会在无活动时回收变更表数据，一旦检查点所需的变更被清理，可断点续传的流式作业将无法恢复。
+心跳表必须存在于**源数据库**中，动作查询是对它执行的 `INSERT` 语句。心跳并不能阻止变更表清理：无论是否发送
+心跳，SQL Server 的清理作业都会依据保留配置回收变更表行。请将保留窗口设置为足以覆盖故障与延迟期间检查点所需的
+LSN 行，并对清理作业与延迟进行相应监控。
 
 ### Schema change 事件过滤
 

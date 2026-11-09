@@ -323,9 +323,10 @@ source {
 
 ### Heartbeat action
 
-Use the `debezium.heartbeat.action.query` option to keep the captured change tables active when there are no upstream
-changes for a long time. Pair it with `debezium.heartbeat.interval.ms` so the action runs at a regular cadence. The
-action executes through the source database connection and updates the LSN tracking of SQL Server's CDC; it does not
+Use the `debezium.heartbeat.action.query` option to run an action whenever the connector emits a heartbeat event.
+SQL Server's polling loop does not dispatch idle heartbeats on its own, so the action runs only when a heartbeat is
+actually emitted. The action executes through the source database connection and updates the LSN tracking of SQL
+Server's CDC; it does not
 pin any consumer retention window and does not replace correctly configured CDC retention and outage/lag monitoring
 (see [Microsoft's CDC cleanup documentation](https://learn.microsoft.com/en-us/sql/relational-databases/track-changes/administer-and-monitor-change-data-capture-sql-server#cleanup-job)).
 
@@ -347,8 +348,9 @@ source {
 ```
 
 The heartbeat table must exist in the source database, and the action query is an `INSERT` statement to execute
-against it. Without a heartbeat, SQL Server's cleanup job may recycle change-table rows when there is no activity,
-which can break resumable streaming jobs once the changes required by a checkpoint are gone.
+against it. Heartbeats do not prevent change-table cleanup: SQL Server's cleanup job recycles change-table rows based
+on its retention configuration, with or without heartbeats. Size the retention window so the LSN rows required by a
+checkpoint remain available across outages and lag, and monitor cleanup and lag accordingly.
 
 ### Schema change event filtering
 
