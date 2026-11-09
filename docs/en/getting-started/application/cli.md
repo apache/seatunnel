@@ -6,13 +6,13 @@ title: Command Line
 # Application command line
 
 `bin/seatunnel-application.sh` is the only entry point of Application Mode. It exposes three
-operations, all of which target one external resource platform and read the same deployment file,
+operations, all of which target one external resource platform using matching deployment options,
 so `status` and `cancel` see exactly the application `submit` created.
 
 ## Synopsis
 
 ```bash
-bin/seatunnel-application.sh submit -t <target> -a application.config [-c job.conf]
+bin/seatunnel-application.sh submit -t <target> [-a application.config] [-Dkey=value ...] [-c job.conf]
 bin/seatunnel-application.sh status -t <target> --id APPLICATION_ID -a application.config [--wait] \
   [--wait-timeout <ms>] [--wait-interval <ms>]
 bin/seatunnel-application.sh cancel -t <target> --id APPLICATION_ID -a application.config
@@ -57,7 +57,7 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | `submit` / `status` / `cancel` | all | Operation, the first positional argument |
 | `-t`, `--target` | all | Resource platform that runs the application |
 | `-c`, `--config` | submit | SeaTunnel job configuration file; optional when the platform carries the job, such as a mounted `job.conf` |
-| `-a`, `--application-config` | all | Optional deployment file with common and platform options |
+| `-a`, `--application-config` | all | Optional deployment file with common and platform options; options can also be supplied through `-D` |
 | `-Dkey=value` | all | Override one non-sensitive `application.*` or `kubernetes.*` deployment option, for example `-Dapplication.worker-count=4`; repeatable. Job `${...}` variables are resolved inside the Pod, not on the submitting host |
 | `--id` | status, cancel | Platform application ID printed by `submit` |
 | `--wait` | submit, status | Poll until a terminal status |
@@ -71,7 +71,7 @@ Usage: seatunnel-application.sh [options] submit | status | cancel
 | Operation | What it does | Result |
 | --- | --- | --- |
 | `submit` | Localizes the job, creates the application on the platform and starts it | Prints the application ID and the native job ID |
-| `status` | Reads the platform state and maps it to an `ApplicationStatus` | Prints the application ID and status; exits non-zero when the application failed |
+| `status` | Reads the platform state and maps it to an `ApplicationStatus` | Prints the application ID and status; a successful plain query exits `0`; with `--wait`, follows the [waiting exit codes](#status-and-waiting) |
 | `cancel` | Removes the application and the resources it owns | Prints the application ID and the cancellation result |
 
 ## Submit returns immediately
@@ -88,6 +88,10 @@ The job comes from `-c` or from a file the platform mounts inside the applicatio
 `kubernetes.job-config-file`. A submission that provides neither is rejected before the first
 resource is created. Values written as `${VAR}` are resolved inside the running application, never
 on the submitting host, so platform-managed credentials can be injected through the environment.
+
+The deployment file (`-a`) is optional when `-D` supplies the required deployment options.
+When both are given, `-D` overrides file values. Platform validation still applies: omitting
+`-a` does not make incomplete deployment settings valid.
 
 ## Status and waiting
 
@@ -106,14 +110,24 @@ often the status is polled. The platform-independent states are:
 | `CANCELED` | The platform reported a cancellation |
 | `UNKNOWN` | A known application has a platform state that cannot yet be mapped |
 
-`SUCCEEDED`, `FAILED` and `CANCELED` are terminal; `--wait` stops there. `FAILED`, `CANCELED` and
-`UNKNOWN` make `status` exit non-zero, which turns the command into a completion gate for
-schedulers and CI:
+`SUCCEEDED`, `FAILED` and `CANCELED` are terminal; `--wait` stops there. It also stops at
+`UNKNOWN` when the platform cannot determine the application outcome. For both `status --wait`
+and `submit --wait`, `FAILED` exits with code `1`, while `UNKNOWN` exits with code `2`: the result
+is indeterminate, not a confirmed failure or success. `SUCCEEDED` and `CANCELED` still exit `0`.
+A plain `status` prints the snapshot and exits `0`, including for `FAILED` and `UNKNOWN`;
+query errors still exit non-zero. Do not interpret every non-zero exit as a failed application:
 
 ```bash
-if ! bin/seatunnel-application.sh status -t <target> --id "$APP_ID" -a application.config --wait; then
-  echo "application $APP_ID did not succeed"
+if bin/seatunnel-application.sh status -t <target> --id "$APP_ID" -a application.config --wait; then
+  result=0
+else
+  result=$?
 fi
+case "$result" in
+  0) echo "application status reported; inspect the printed status" ;;
+  2) echo "application $APP_ID outcome is unknown" ;;
+  *) echo "application failed or the command could not complete (exit $result)" ;;
+esac
 ```
 
 ## Cancel

@@ -33,6 +33,7 @@
     <modules>
         <module>seatunnel-spark-2-starter</module>
         <module>seatunnel-spark-3-starter</module>
+        <module>seatunnel-spark-3.5-starter</module>
         <module>seatunnel-spark-starter-common</module>
     </modules>
 
@@ -71,11 +72,12 @@
                                     jul-to-slf4j
                                     jcl-over-slf4j
 
-                                Spark(3.x) server lib already include:
+                                Spark(3.x) server lib already include (binding varies by version):
                                     slf4j-api
                                     log4j-api
                                     log4j-core
                                     log4j-slf4j-impl
+                                    log4j-slf4j2-impl
                                     log4j-1.2-api
                                     jul-to-slf4j
                                     jcl-over-slf4j
@@ -96,7 +98,15 @@
                             <exclude>ch.qos.logback:*</exclude>
                             <exclude>org.apache.logging.log4j:log4j-api</exclude>
                             <exclude>org.apache.logging.log4j:log4j-core</exclude>
+                            <!--
+                                These are shade exclusions, not starter/logging includes.
+                                The launcher JVM uses SeaTunnel's SLF4J 1.7 API and
+                                log4j-slf4j-impl from starter/logging. Spark submission
+                                starts a separate JVM using Spark's own logging libraries;
+                                neither binding should be embedded in the starter jar.
+                            -->
                             <exclude>org.apache.logging.log4j:log4j-slf4j-impl</exclude>
+                            <exclude>org.apache.logging.log4j:log4j-slf4j2-impl</exclude>
                             <!-- spark3.x use slf4j + log4j2.x -->
                             <exclude>org.apache.logging.log4j:log4j-to-slf4j</exclude>
                             <exclude>org.apache.seatunnel:seatunnel-shade-hadoop3-uber</exclude>

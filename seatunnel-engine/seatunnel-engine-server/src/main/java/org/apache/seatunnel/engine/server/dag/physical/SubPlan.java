@@ -46,7 +46,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -650,31 +649,46 @@ public class SubPlan {
         if (getPipelineState().ordinal() < PipelineStatus.RUNNING.ordinal()) {
             updatePipelineState(PipelineStatus.CANCELING);
         } else if (PipelineStatus.RUNNING.equals(getPipelineState())) {
-            AtomicBoolean allTaskRunning = new AtomicBoolean(true);
-            getCoordinatorVertexList()
-                    .forEach(
-                            task -> {
-                                if (!task.getExecutionState().equals(ExecutionState.RUNNING)) {
-                                    allTaskRunning.set(false);
-                                    return;
-                                }
-                            });
-
-            getPhysicalVertexList()
-                    .forEach(
-                            task -> {
-                                if (!task.getExecutionState().equals(ExecutionState.RUNNING)) {
-                                    allTaskRunning.set(false);
-                                    return;
-                                }
-                            });
-
             jobMaster
                     .getCheckpointManager()
                     .reportedPipelineRunning(
-                            this.getPipelineLocation().getPipelineId(), allTaskRunning.get());
+                            this.getPipelineLocation().getPipelineId(),
+                            isCheckpointCoordinatorAlreadyStarted());
         }
         startSubPlanStateProcess();
+    }
+
+    /**
+     * Determines whether the checkpoint coordinator was already running before a master switch. An
+     * unbounded source task group can be FINISHED because the coordinator closed an idle reader,
+     * while the remaining reader task groups keep the pipeline running.
+     */
+    @VisibleForTesting
+    boolean isCheckpointCoordinatorAlreadyStarted() {
+        // A finished enumerator/committer is not an idle reader: require every coordinator to run.
+        return getCoordinatorVertexList().stream()
+                        .allMatch(task -> ExecutionState.RUNNING.equals(task.getExecutionState()))
+                && getPhysicalVertexList().stream().allMatch(SubPlan::isRecoverableRunningState);
+    }
+
+    /**
+     * Preserves RUNNING vertices and finished unbounded reader groups only. Failed, unknown,
+     * bounded-source and non-source terminal groups must follow the existing restart path.
+     */
+    @VisibleForTesting
+    static boolean isRecoverableRunningState(PhysicalVertex physicalVertex) {
+        ExecutionState executionState = physicalVertex.getExecutionState();
+        if (ExecutionState.RUNNING.equals(executionState)) {
+            return true;
+        }
+        boolean recoverable =
+                physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore(executionState);
+        if (recoverable) {
+            log.info(
+                    "Preserve finished unbounded reader group {} during running-pipeline master restore",
+                    physicalVertex.getTaskGroupLocation());
+        }
+        return recoverable;
     }
 
     public List<PhysicalVertex> getPhysicalVertexList() {
@@ -787,7 +801,9 @@ public class SubPlan {
                                 task.makeTaskGroupDeploy();
                             }
                         });
-                updatePipelineState(PipelineStatus.RUNNING);
+                if (areAllVerticesRunningOrFinished(coordinatorVertexList, physicalVertexList)) {
+                    updatePipelineState(PipelineStatus.RUNNING);
+                }
                 break;
             case RUNNING:
                 break;
@@ -833,5 +849,16 @@ public class SubPlan {
     public void makePipelineFailing(Throwable e) {
         errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(e));
         updatePipelineState(PipelineStatus.FAILING);
+    }
+
+    static boolean areAllVerticesRunningOrFinished(
+            List<PhysicalVertex> coordinators, List<PhysicalVertex> tasks) {
+        return coordinators.stream().allMatch(SubPlan::isRunningOrFinished)
+                && tasks.stream().allMatch(SubPlan::isRunningOrFinished);
+    }
+
+    private static boolean isRunningOrFinished(PhysicalVertex vertex) {
+        return ExecutionState.RUNNING.equals(vertex.getExecutionState())
+                || ExecutionState.FINISHED.equals(vertex.getExecutionState());
     }
 }
