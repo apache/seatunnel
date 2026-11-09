@@ -32,7 +32,6 @@ import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.common.utils.function.RunnableWithException;
-import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,6 +47,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
