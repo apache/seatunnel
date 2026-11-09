@@ -41,11 +41,11 @@ Converts every field name to uppercase (`UPPER`) or lowercase (`LOWER`). When it
 
 ### prefix [String]
 
-Adds a prefix to every output field name. The prefix is added after `convert_case` and `replacements_with_regex` are applied. Leading and trailing whitespace in the value is ignored.
+Adds a prefix to every output field name. The prefix is added after `convert_case` and `replacements_with_regex` are applied, and is not case-converted itself. Leading and trailing whitespace in the value is ignored.
 
 ### suffix [String]
 
-Adds a suffix to every output field name. The suffix is added after `convert_case` and `replacements_with_regex` are applied. Leading and trailing whitespace in the value is ignored.
+Adds a suffix to every output field name. The suffix is added after `convert_case` and `replacements_with_regex` are applied, and is not case-converted itself. Leading and trailing whitespace in the value is ignored.
 
 ### replacements_with_regex [Array&lt;Map&gt;]
 
@@ -57,7 +57,7 @@ A list of replacement rules. Each entry supports the following fields:
 | replace_to | String | yes | - | The replacement text. Every match of `replace_from` is replaced with this text. |
 | is_regex | Boolean | no | `true` | When `true`, `replace_from` is a regular expression. When `false`, `replace_from` must match the entire field name. |
 
-Every match of `replace_from` in the field name is replaced with `replace_to`. Matching is performed against the original field name, before `convert_case` is applied. If several rules match the same field name, the last matching rule in the list is used. Leading and trailing whitespace in `replace_to` is ignored.
+Every match of `replace_from` in the field name is replaced with `replace_to`. Matching is performed against the original field name, before `convert_case` is applied. The replacement text is spliced in after `convert_case` runs, so it is not case-converted itself: with `convert_case = "UPPER"` and `replace_to = "_x"`, the output keeps the lowercase `_x`. If several rules match the same field name, the last matching rule in the list is used. Leading and trailing whitespace in `replace_to` is ignored.
 
 :::caution
 
@@ -182,7 +182,7 @@ Result schema of each table:
 |-------|--------------|---------------|
 | test.abc | transform level rule (matches `test.a.*`) | F_ID, F_NAME, F_AGE |
 | test.abcd | transform level rule (matches `test.a.*`) | F_ID, F_NAME, F_AGE |
-| test.xyz | `table_transform` entry | id_s, name_s, age_s |
+| test.xyz | `table_transform` entry | id_S, name_S, age_S |
 | test.www | none | id, name, age |
 
 ## Example

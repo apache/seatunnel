@@ -41,11 +41,11 @@ FieldRename 转换用于在不改变表名和行数据的前提下重命名表�
 
 ### prefix [String]
 
-为每个输出字段名添加前缀。前缀在应用 `convert_case` 和 `replacements_with_regex` 之后添加。值首尾的空白会被忽略。
+为每个输出字段名添加前缀。前缀在应用 `convert_case` 和 `replacements_with_regex` 之后添加，本身不参与大小写转换。值首尾的空白会被忽略。
 
 ### suffix [String]
 
-为每个输出字段名添加后缀。后缀在应用 `convert_case` 和 `replacements_with_regex` 之后添加。值首尾的空白会被忽略。
+为每个输出字段名添加后缀。后缀在应用 `convert_case` 和 `replacements_with_regex` 之后添加，本身不参与大小写转换。值首尾的空白会被忽略。
 
 ### replacements_with_regex [Array&lt;Map&gt;]
 
@@ -57,7 +57,7 @@ FieldRename 转换用于在不改变表名和行数据的前提下重命名表�
 | replace_to | String | 是 | - | 替换文本。字段名中每个 `replace_from` 的匹配都会被替换为该文本。 |
 | is_regex | Boolean | 否 | `true` | 为 `true` 时，`replace_from` 按正则表达式处理；为 `false` 时，`replace_from` 必须与完整字段名匹配。 |
 
-字段名中每个 `replace_from` 的匹配都会被替换为 `replace_to`。匹配针对原始字段名进行，`convert_case` 不会影响哪些规则匹配。如果多个规则匹配同一个字段名，使用列表中最后一个匹配的规则。`replace_to` 首尾的空白会被忽略。
+字段名中每个 `replace_from` 的匹配都会被替换为 `replace_to`。匹配针对原始字段名进行，`convert_case` 不会影响哪些规则匹配。替换文本在 `convert_case` 之后拼接，本身不参与大小写转换：例如 `convert_case = "UPPER"`、`replace_to = "_x"` 时，输出中保留小写的 `_x`。如果多个规则匹配同一个字段名，使用列表中最后一个匹配的规则。`replace_to` 首尾的空白会被忽略。
 
 :::caution
 
@@ -182,7 +182,7 @@ sink {
 |----|------------|----------|
 | test.abc | 转换级别规则（匹配 `test.a.*`） | F_ID, F_NAME, F_AGE |
 | test.abcd | 转换级别规则（匹配 `test.a.*`） | F_ID, F_NAME, F_AGE |
-| test.xyz | `table_transform` 条目 | id_s, name_s, age_s |
+| test.xyz | `table_transform` 条目 | id_S, name_S, age_S |
 | test.www | 无 | id, name, age |
 
 ## 示例
