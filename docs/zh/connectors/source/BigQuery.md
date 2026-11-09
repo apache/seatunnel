@@ -65,7 +65,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 1. **自定义查询**：设置 `query` 为 SQL `SELECT` 语句。连接器执行该语句并转换结果。
 2. **表读取**：设置 `dataset_id` 和 `table_id`（不设置 `query`）。连接器自动生成 `SELECT * FROM \`project.dataset.table\``。可选设置 `partition_filter` 添加 `WHERE` 子句进行分区裁剪。
 
-Schema 从查询结果或表元数据中推断。当提供 `dataset_id` 和 `table_id` 时，连接器通过 `BigQueryCatalog.getTable()` 读取表元数据。当仅提供 `query` 时，连接器始终通过零成本 dry-run 在不执行查询的情况下发现 Schema，从 `JobStatistics.QueryStatistics.getSchema()` 提取（BigQuery 仅为 dry-run 作业填充该字段），该规划步骤与 `dry_run` 参数无关。如果 dry-run 响应不包含 Schema（例如使用 BigQuery emulator 时），工厂会降级为 `max_results = 1` 的查询（会执行但最多返回一行，仍可获取 Schema 供下游 transform 使用）。`maximum_bytes_billed` 成本上限在 Schema 发现的两个阶段均生效。
+Schema 从查询结果或表元数据中推断。当提供 `dataset_id` 和 `table_id` 时，连接器通过 SDK 的 `bigQuery.getTable()` 读取表元数据。当仅提供 `query` 时，连接器始终通过零成本 dry-run 在不执行查询的情况下发现 Schema，从 `JobStatistics.QueryStatistics.getSchema()` 提取（BigQuery 仅为 dry-run 作业填充该字段），该规划步骤与 `dry_run` 参数无关。如果 dry-run 响应不包含 Schema 且配置了 `emulator_host`（BigQuery emulator 不会返回 dry-run Schema），工厂会降级为 `max_results = 1` 的查询（会执行但最多返回一行，仍可获取 Schema 供下游 transform 使用）；未配置 `emulator_host` 时，规划阶段会直接报错而不是执行查询。`maximum_bytes_billed` 成本上限作用于降级查询与运行时执行的查询（估算超出上限时 BigQuery 会使作业失败）；规划阶段的 dry-run 仅在估算超出上限时记录 WARN 日志，dry-run 作业本身不产生费用。
 
 ### max_results
 

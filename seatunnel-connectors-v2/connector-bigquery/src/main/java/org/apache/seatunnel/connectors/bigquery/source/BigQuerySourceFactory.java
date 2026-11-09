@@ -238,9 +238,11 @@ public class BigQuerySourceFactory implements TableSourceFactory {
      * schema is extracted from {@link JobStatistics.QueryStatistics#getSchema()} without executing
      * the query or billing any scanned bytes. The {@code dry_run} option does not affect this
      * planning step; it only controls whether the reader executes the query at runtime. If the
-     * dry-run response does not include a schema (e.g. when using the BigQuery emulator), falls
-     * back to a {@code maxResults=1} query that executes but returns at most one row, still
-     * providing the schema for downstream transforms.
+     * dry-run response does not include a schema and {@code emulator_host} is configured (the
+     * BigQuery emulator does not return a dry-run schema), falls back to a {@code maxResults=1}
+     * query that executes but returns at most one row, still providing the schema for downstream
+     * transforms. Without {@code emulator_host}, planning fails fast instead: a missing dry-run
+     * schema must never cause planning to execute the query on real BigQuery.
      *
      * @param config the source configuration
      * @param bigQuery the BigQuery client used for schema discovery
@@ -251,8 +253,20 @@ public class BigQuerySourceFactory implements TableSourceFactory {
 
         Schema schema = discoverSchemaViaDryRun(bigQuery, config, query);
         if (schema == null) {
+            // The fallback executes the query at planning, so it is emulator-only: on real
+            // BigQuery a missing dry-run schema (e.g. multi-statement scripts) must fail
+            // fast instead of letting planning execute and bill the query.
+            if (config.get(BigQuerySourceOptions.EMULATOR_HOST) == null) {
+                throw new BigQueryConnectorException(
+                        BigQueryConnectorErrorCode.READ_FAILED,
+                        "Query schema could not be determined by dry run (BigQuery omits it "
+                                + "for some valid inputs such as multi-statement scripts); the "
+                                + "maxResults=1 fallback would execute the query at planning "
+                                + "and is only supported with emulator_host. Query: "
+                                + query);
+            }
             log.warn(
-                    "Dry run did not return schema (emulator or SDK limitation), "
+                    "Dry run did not return schema and emulator_host is configured, "
                             + "falling back to maxResults=1 query for schema inference");
             try {
                 schema = inferSchemaFromQuery(bigQuery, config, query);
@@ -285,10 +299,10 @@ public class BigQuerySourceFactory implements TableSourceFactory {
 
     /**
      * Executes the query with {@code maxResults=1} and returns the result schema. Used only as the
-     * fallback when a dry run does not return a schema (e.g. the BigQuery emulator): the query is
-     * executed but at most one row is returned. Applies the same {@code maximumBytesBilled}, {@code
-     * defaultDataset}, and {@code location} configuration as the reader's execution path so that
-     * planning and runtime cannot disagree about billing or region.
+     * emulator fallback, gated by {@code emulator_host} in the caller, when a dry run does not
+     * return a schema: the query is executed but at most one row is returned. Applies the same
+     * {@code maximumBytesBilled}, {@code defaultDataset}, and {@code location} configuration as the
+     * reader's execution path so that planning and runtime cannot disagree about billing or region.
      *
      * @param bigQuery the BigQuery client
      * @param config the source configuration

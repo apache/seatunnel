@@ -401,7 +401,8 @@ public class BigQuerySourceFactoryTest {
     @Test
     public void testResolveFromQueryFallsBackToMaxResultsOneWhenNoSchema()
             throws BigQueryException, InterruptedException {
-        // dry_run=true must go through the same unified path: option value cannot change planning
+        // Emulator scenario (emulator_host set; dry_run=true must still go through the same
+        // unified planning path): dry run returns no schema, the maxResults=1 fallback runs.
         Config config =
                 ConfigFactory.parseString(
                         BigQuerySourceOptions.PROJECT_ID.key()
@@ -409,7 +410,9 @@ public class BigQuerySourceFactoryTest {
                                 + BigQuerySourceOptions.QUERY.key()
                                 + " = \"SELECT id FROM `proj.ds.tbl`\"\n"
                                 + BigQuerySourceOptions.DRY_RUN.key()
-                                + " = true\n");
+                                + " = true\n"
+                                + BigQuerySourceOptions.EMULATOR_HOST.key()
+                                + " = \"localhost:9050\"\n");
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
 
         // Emulator scenario: dry run returns no schema
@@ -482,14 +485,17 @@ public class BigQuerySourceFactoryTest {
     @Test
     public void testResolveFromQueryFailsFastWhenNoSchemaAtAnyStage()
             throws BigQueryException, InterruptedException {
-        // Both discovery stages returning no schema must fail planning instead of silently
-        // producing a zero-column catalog table that only breaks far downstream.
+        // Emulator scenario (emulator_host set): both discovery stages returning no schema
+        // must fail planning instead of silently producing a zero-column catalog table that
+        // only breaks far downstream.
         Config config =
                 ConfigFactory.parseString(
                         BigQuerySourceOptions.PROJECT_ID.key()
                                 + " = \"test-project\"\n"
                                 + BigQuerySourceOptions.QUERY.key()
-                                + " = \"SELECT id FROM `proj.ds.tbl`\"\n");
+                                + " = \"SELECT id FROM `proj.ds.tbl`\"\n"
+                                + BigQuerySourceOptions.EMULATOR_HOST.key()
+                                + " = \"localhost:9050\"\n");
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
 
         BigQuery bigQuery = mock(BigQuery.class);
@@ -513,6 +519,40 @@ public class BigQuerySourceFactoryTest {
         // The fallback must have been attempted before failing
         verify(bigQuery).create(any(JobInfo.class));
         verify(bigQuery).query(any(QueryJobConfiguration.class));
+    }
+
+    @Test
+    public void testResolveFromQueryRejectsFallbackWithoutEmulatorHost()
+            throws BigQueryException, InterruptedException {
+        // Without emulator_host the maxResults=1 fallback must not run: on real BigQuery a
+        // missing dry-run schema (e.g. multi-statement scripts) must fail planning instead
+        // of executing the query and billing the scan.
+        Config config =
+                ConfigFactory.parseString(
+                        BigQuerySourceOptions.PROJECT_ID.key()
+                                + " = \"test-project\"\n"
+                                + BigQuerySourceOptions.QUERY.key()
+                                + " = \"SELECT id FROM `proj.ds.tbl`\"\n");
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
+
+        BigQuery bigQuery = mock(BigQuery.class);
+        Job job = mock(Job.class);
+        JobStatistics.QueryStatistics stats = mock(JobStatistics.QueryStatistics.class);
+        when(bigQuery.create(any(JobInfo.class))).thenReturn(job);
+        when(job.getStatistics()).thenReturn(stats);
+        when(stats.getSchema()).thenReturn(null);
+
+        BigQuerySourceFactory factory = new BigQuerySourceFactory();
+        BigQueryConnectorException ex =
+                assertThrows(
+                        BigQueryConnectorException.class,
+                        () -> factory.resolveFromQuery(readonlyConfig, bigQuery));
+
+        assertTrue(ex.getMessage().contains("could not be determined by dry run"));
+        assertTrue(ex.getMessage().contains("emulator_host"));
+        // The dry run happened, but the fallback query must never have been executed
+        verify(bigQuery).create(any(JobInfo.class));
+        verify(bigQuery, never()).query(any(QueryJobConfiguration.class));
     }
 
     @Test
