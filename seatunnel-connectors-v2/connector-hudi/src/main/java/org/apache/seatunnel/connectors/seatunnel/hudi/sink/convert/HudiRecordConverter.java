@@ -1,1 +1,164 @@
-LyoKICogTGljZW5zZWQgdG8gdGhlIEFwYWNoZSBTb2Z0d2FyZSBGb3VuZGF0aW9uIChBU0YpIHVuZGVyIG9uZSBvciBtb3JlCiAqIGNvbnRyaWJ1dG9yIGxpY2Vuc2UgYWdyZWVtZW50cy4gIFNlZSB0aGUgTk9USUNFIGZpbGUgZGlzdHJpYnV0ZWQgd2l0aAogKiB0aGlzIHdvcmsgZm9yIGFkZGl0aW9uYWwgaW5mb3JtYXRpb24gcmVnYXJkaW5nIGNvcHlyaWdodCBvd25lcnNoaXAuCiAqIFRoZSBBU0YgbGljZW5zZXMgdGhpcyBmaWxlIHRvIFlvdSB1bmRlciB0aGUgQXBhY2hlIExpY2Vuc2UsIFZlcnNpb24gMi4wCiAqICh0aGUgIkxpY2Vuc2UiKTsgeW91IG1heSBub3QgdXNlIHRoaXMgZmlsZSBleGNlcHQgaW4gY29tcGxpYW5jZSB3aXRoCiAqIHRoZSBMaWNlbnNlLiAgWW91IG1heSBvYnRhaW4gYSBjb3B5IG9mIHRoZSBMaWNlbnNlIGF0CiAqCiAqICAgIGh0dHA6Ly93d3cuYXBhY2hlLm9yZy9saWNlbnNlcy9MSUNFTlNFLTIuMAogKgogKiBVbmxlc3MgcmVxdWlyZWQgYnkgYXBwbGljYWJsZSBsYXcgb3IgYWdyZWVkIHRvIGluIHdyaXRpbmcsIHNvZnR3YXJlCiAqIGRpc3RyaWJ1dGVkIHVuZGVyIHRoZSBMaWNlbnNlIGlzIGRpc3RyaWJ1dGVkIG9uIGFuICJBUyBJUyIgQkFTSVMsCiAqIFdJVEhPVVQgV0FSUkFOVElFUyBPUiBDT05ESVRJT05TIE9GIEFOWSBLSU5ELCBlaXRoZXIgZXhwcmVzcyBvciBpbXBsaWVkLgogKiBTZWUgdGhlIExpY2Vuc2UgZm9yIHRoZSBzcGVjaWZpYyBsYW5ndWFnZSBnb3Zlcm5pbmcgcGVybWlzc2lvbnMgYW5kCiAqIGxpbWl0YXRpb25zIHVuZGVyIHRoZSBMaWNlbnNlLgogKi8KCnBhY2thZ2Ugb3JnLmFwYWNoZS5zZWF0dW5uZWwuY29ubmVjdG9ycy5zZWF0dW5uZWwuaHVkaS5zaW5rLmNvbnZlcnQ7CgppbXBvcnQgb3JnLmFwYWNoZS5zZWF0dW5uZWwuYXBpLnRhYmxlLnR5cGUuU2VhVHVubmVsUm93OwppbXBvcnQgb3JnLmFwYWNoZS5zZWF0dW5uZWwuYXBpLnRhYmxlLnR5cGUuU2VhVHVubmVsUm93VHlwZTsKaW1wb3J0IG9yZy5hcGFjaGUuc2VhdHVubmVsLmNvbm5lY3RvcnMuc2VhdHVubmVsLmh1ZGkuY29uZmlnLkh1ZGlUYWJsZUNvbmZpZzsKCmltcG9ydCBvcmcuYXBhY2hlLmF2cm8uU2NoZW1hOwppbXBvcnQgb3JnLmFwYWNoZS5hdnJvLmdlbmVyaWMuR2VuZXJpY0RhdGE7CmltcG9ydCBvcmcuYXBhY2hlLmF2cm8uZ2VuZXJpYy5HZW5lcmljUmVjb3JkOwppbXBvcnQgb3JnLmFwYWNoZS5odWRpLmNvbW1vbi5tb2RlbC5Ib29kaWVBdnJvUGF5bG9hZDsKaW1wb3J0IG9yZy5hcGFjaGUuaHVkaS5jb21tb24ubW9kZWwuSG9vZGllQXZyb1JlY29yZDsKaW1wb3J0IG9yZy5hcGFjaGUuaHVkaS5jb21tb24ubW9kZWwuSG9vZGllS2V5OwppbXBvcnQgb3JnLmFwYWNoZS5odWRpLmNvbW1vbi5tb2RlbC5Ib29kaWVSZWNvcmQ7CmltcG9ydCBvcmcuYXBhY2hlLmh1ZGkuY29tbW9uLm1vZGVsLldyaXRlT3BlcmF0aW9uVHlwZTsKaW1wb3J0IG9yZy5hcGFjaGUuaHVkaS5jb21tb24udXRpbC5PcHRpb247CmltcG9ydCBvcmcuYXBhY2hlLmh1ZGkuY29tbW9uLnV0aWwuU3RyaW5nVXRpbHM7CmltcG9ydCBvcmcuYXBhY2hlLmh1ZGkuZXhjZXB0aW9uLkhvb2RpZUtleUV4Y2VwdGlvbjsKCmltcG9ydCBqYXZhLmlvLlNlcmlhbGl6YWJsZTsKaW1wb3J0IGphdmEudXRpbC5BcnJheXM7CmltcG9ydCBqYXZhLnV0aWwuVVVJRDsKaW1wb3J0IGphdmEudXRpbC5zdHJlYW0uQ29sbGVjdG9yczsKCmltcG9ydCBzdGF0aWMgb3JnLmFwYWNoZS5zZWF0dW5uZWwuY29ubmVjdG9ycy5zZWF0dW5uZWwuaHVkaS5zaW5rLmNvbnZlcnQuUm93RGF0YVRvQXZyb0NvbnZlcnRlcnMuY3JlYXRlQ29udmVydGVyOwoKcHVibGljIGNsYXNzIEh1ZGlSZWNvcmRDb252ZXJ0ZXIgaW1wbGVtZW50cyBTZXJpYWxpemFibGUgewoKICAgIHByaXZhdGUgc3RhdGljIGZpbmFsIFN0cmluZyBERUZBVUxUX1BBUlRJVElPTl9QQVRIID0gImRlZmF1bHQiOwoKICAgIHByaXZhdGUgc3RhdGljIGZpbmFsIFN0cmluZyBERUZBVUxUX1BBUlRJVElPTl9QQVRIX1NFUEFSQVRPUiA9ICIvIjsKCiAgICBwcml2YXRlIHN0YXRpYyBmaW5hbCBTdHJpbmcgTlVMTF9SRUNPUkRfS0VZX1BMQUNFSE9MREVSID0gIl9fbnVsbF9fIjsKCiAgICBwcml2YXRlIHN0YXRpYyBmaW5hbCBTdHJpbmcgRU1QVFlfUkVDT1JEX0tFWV9QTEFDRUhPTERFUiA9ICJfX2VtcHR5X18iOwoKICAgIHB1YmxpYyBIb29kaWVSZWNvcmQ8SG9vZGllQXZyb1BheWxvYWQ+IGNvbnZlcnRSb3coCiAgICAgICAgICAgIFNjaGVtYSBzY2hlbWEsCiAgICAgICAgICAgIFNlYVR1bm5lbFJvd1R5cGUgc2VhVHVubmVsUm93VHlwZSwKICAgICAgICAgICAgU2VhVHVubmVsUm93IGVsZW1lbnQsCiAgICAgICAgICAgIEh1ZGlUYWJsZUNvbmZpZyBodWRpVGFibGVDb25maWcpIHsKICAgICAgICBHZW5lcmljUmVjb3JkIHJlYyA9IG5ldyBHZW5lcmljRGF0YS5SZWNvcmQoc2NoZW1hKTsKICAgICAgICBmb3IgKGludCBpID0gMDsgaSA8IHNlYVR1bm5lbFJvd1R5cGUuZ2V0VG90YWxGaWVsZHMoKTsgaSsrKSB7CiAgICAgICAgICAgIFN0cmluZyBmaWVsZE5hbWUgPSBzZWFUdW5uZWxSb3dUeXBlLmdldEZpZWxkTmFtZXMoKVtpXTsKICAgICAgICAgICAgcmVjLnB1dCgKICAgICAgICAgICAgICAgICAgICBmaWVsZE5hbWUsCiAgICAgICAgICAgICAgICAgICAgY3JlYXRlQ29udmVydGVyKHNlYVR1bm5lbFJvd1R5cGUuZ2V0RmllbGRUeXBlKGkpKQogICAgICAgICAgICAgICAgICAgICAgICAgICAgLmNvbnZlcnQoc2NoZW1hLmdldEZpZWxkKGZpZWxkTmFtZSkuc2NoZW1hKCksIGVsZW1lbnQuZ2V0RmllbGQoaSkpKTsKICAgICAgICB9CiAgICAgICAgcmV0dXJuIG5ldyBIb29kaWVBdnJvUmVjb3JkPD4oCiAgICAgICAgICAgICAgICBnZXRIb29kaWVLZXkoZWxlbWVudCwgc2VhVHVubmVsUm93VHlwZSwgaHVkaVRhYmxlQ29uZmlnKSwKICAgICAgICAgICAgICAgIG5ldyBIb29kaWVBdnJvUGF5bG9hZChPcHRpb24ub2YocmVjKSkpOwogICAgfQoKICAgIHB1YmxpYyBIb29kaWVLZXkgZ2V0SG9vZGllS2V5KAogICAgICAgICAgICBTZWFUdW5uZWxSb3cgZWxlbWVudCwKICAgICAgICAgICAgU2VhVHVubmVsUm93VHlwZSBzZWFUdW5uZWxSb3dUeXBlLAogICAgICAgICAgICBIdWRpVGFibGVDb25maWcgaHVkaVRhYmxlQ29uZmlnKSB7CiAgICAgICAgU3RyaW5nIHBhcnRpdGlvblBhdGggPQogICAgICAgICAgICAgICAgaHVkaVRhYmxlQ29uZmlnLmdldFBhcnRpdGlvbkZpZWxkcygpID09IG51bGwKICAgICAgICAgICAgICAgICAgICAgICAgPyAiIgogICAgICAgICAgICAgICAgICAgICAgICA6IGdldFJlY29yZFBhcnRpdGlvblBhdGgoZWxlbWVudCwgc2VhVHVubmVsUm93VHlwZSwgaHVkaVRhYmxlQ29uZmlnKTsKICAgICAgICBTdHJpbmcgcm93S2V5ID0KICAgICAgICAgICAgICAgIGh1ZGlUYWJsZUNvbmZpZy5nZXRSZWNvcmRLZXlGaWVsZHMoKSA9PSBudWxsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgJiYgKGh1ZGlUYWJsZUNvbmZpZy5nZXRPcFR5cGUoKS5lcXVhbHMoV3JpdGVPcGVyYXRpb25UeXBlLklOU0VSVCkKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHx8IGh1ZGlUYWJsZUNvbmZpZwogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAuZ2V0T3BUeXBlKCkKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgLmVxdWFscyhXcml0ZU9wZXJhdGlvblR5cGUuQlVMS19JTlNFUlQpKQogICAgICAgICAgICAgICAgICAgICAgICA/IFVVSUQucmFuZG9tVVVJRCgpLnRvU3RyaW5nKCkKICAgICAgICAgICAgICAgICAgICAgICAgOiBnZXRSZWNvcmRLZXkoZWxlbWVudCwgc2VhVHVubmVsUm93VHlwZSwgaHVkaVRhYmxlQ29uZmlnKTsKICAgICAgICByZXR1cm4gbmV3IEhvb2RpZUtleShyb3dLZXksIHBhcnRpdGlvblBhdGgpOwogICAgfQoKICAgIHB1YmxpYyBTdHJpbmcgZ2V0UmVjb3JkS2V5KAogICAgICAgICAgICBTZWFUdW5uZWxSb3cgZWxlbWVudCwKICAgICAgICAgICAgU2VhVHVubmVsUm93VHlwZSBzZWFUdW5uZWxSb3dUeXBlLAogICAgICAgICAgICBIdWRpVGFibGVDb25maWcgaHVkaVRhYmxlQ29uZmlnKSB7CiAgICAgICAgYm9vbGVhbiBrZXlJc051bGxFbXB0eSA9IHRydWU7CiAgICAgICAgU3RyaW5nQnVpbGRlciByZWNvcmRLZXkgPSBuZXcgU3RyaW5nQnVpbGRlcigpOwogICAgICAgIGZvciAoU3RyaW5nIHJlY29yZEtleUZpZWxkIDogaHVkaVRhYmxlQ29uZmlnLmdldFJlY29yZEtleUZpZWxkcygpLnNwbGl0KCIsIikpIHsKICAgICAgICAgICAgU3RyaW5nIHJlY29yZEtleVZhbHVlID0KICAgICAgICAgICAgICAgICAgICBnZXROZXN0ZWRGaWVsZFZhbEFzU3RyaW5nKGVsZW1lbnQsIHNlYVR1bm5lbFJvd1R5cGUsIHJlY29yZEtleUZpZWxkKTsKICAgICAgICAgICAgcmVjb3JkS2V5RmllbGQgPSByZWNvcmRLZXlGaWVsZC50b0xvd2VyQ2FzZSgpOwogICAgICAgICAgICBpZiAocmVjb3JkS2V5VmFsdWUgPT0gbnVsbCkgewogICAgICAgICAgICAgICAgcmVjb3JkS2V5CiAgICAgICAgICAgICAgICAgICAgICAgIC5hcHBlbmQocmVjb3JkS2V5RmllbGQpCiAgICAgICAgICAgICAgICAgICAgICAgIC5hcHBlbmQoIjoiKQogICAgICAgICAgICAgICAgICAgICAgICAuYXBwZW5kKE5VTExfUkVDT1JEX0tFWV9QTEFDRUhPTERFUikKICAgICAgICAgICAgICAgICAgICAgICAgLmFwcGVuZCgiLCIpOwogICAgICAgICAgICB9IGVsc2UgaWYgKHJlY29yZEtleVZhbHVlLmlzRW1wdHkoKSkgewogICAgICAgICAgICAgICAgcmVjb3JkS2V5CiAgICAgICAgICAgICAgICAgICAgICAgIC5hcHBlbmQocmVjb3JkS2V5RmllbGQpCiAgICAgICAgICAgICAgICAgICAgICAgIC5hcHBlbmQoIjoiKQogICAgICAgICAgICAgICAgICAgICAgICAuYXBwZW5kKEVNUFRZX1JFQ09SRF9LRVlfUExBQ0VIT0xERVIpCiAgICAgICAgICAgICAgICAgICAgICAgIC5hcHBlbmQoIiwiKTsKICAgICAgICAgICAgfSBlbHNlIHsKICAgICAgICAgICAgICAgIHJlY29yZEtleS5hcHBlbmQocmVjb3JkS2V5RmllbGQpLmFwcGVuZCgiOiIpLmFwcGVuZChyZWNvcmRLZXlWYWx1ZSkuYXBwZW5kKCIsIik7CiAgICAgICAgICAgICAgICBrZXlJc051bGxFbXB0eSA9IGZhbHNlOwogICAgICAgICAgICB9CiAgICAgICAgfQogICAgICAgIHJlY29yZEtleS5kZWxldGVDaGFyQXQocmVjb3JkS2V5Lmxlbmd0aCgpIC0gMSk7CiAgICAgICAgaWYgKGtleUlzTnVsbEVtcHR5KSB7CiAgICAgICAgICAgIHRocm93IG5ldyBIb29kaWVLZXlFeGNlcHRpb24oCiAgICAgICAgICAgICAgICAgICAgInJlY29yZEtleSB2YWx1ZXM6IFwiIgogICAgICAgICAgICAgICAgICAgICAgICAgICAgKyByZWNvcmRLZXkKICAgICAgICAgICAgICAgICAgICAgICAgICAgICsgIlwiIGZvciBmaWVsZHM6ICIKICAgICAgICAgICAgICAgICAgICAgICAgICAgICsgaHVkaVRhYmxlQ29uZmlnLmdldFJlY29yZEtleUZpZWxkcygpCiAgICAgICAgICAgICAgICAgICAgICAgICAgICArICIgY2Fubm90IGJlIGVudGlyZWx5IG51bGwgb3IgZW1wdHkuIik7CiAgICAgICAgfQogICAgICAgIHJldHVybiByZWNvcmRLZXkudG9TdHJpbmcoKTsKICAgIH0KCiAgICBwdWJsaWMgU3RyaW5nIGdldFJlY29yZFBhcnRpdGlvblBhdGgoCiAgICAgICAgICAgIFNlYVR1bm5lbFJvdyBlbGVtZW50LAogICAgICAgICAgICBTZWFUdW5uZWxSb3dUeXBlIHNlYVR1bm5lbFJvd1R5cGUsCiAgICAgICAgICAgIEh1ZGlUYWJsZUNvbmZpZyBodWRpVGFibGVDb25maWcpIHsKICAgICAgICBpZiAoaHVkaVRhYmxlQ29uZmlnLmdldFBhcnRpdGlvbkZpZWxkcygpLmlzRW1wdHkoKSkgewogICAgICAgICAgICByZXR1cm4gIiI7CiAgICAgICAgfQoKICAgICAgICBTdHJpbmdCdWlsZGVyIHBhcnRpdGlvblBhdGggPSBuZXcgU3RyaW5nQnVpbGRlcigpOwogICAgICAgIFN0cmluZ1tdIGF2cm9QYXJ0aXRpb25QYXRoRmllbGRzID0gaHVkaVRhYmxlQ29uZmlnLmdldFBhcnRpdGlvbkZpZWxkcygpLnNwbGl0KCIsIik7CiAgICAgICAgZm9yIChTdHJpbmcgcGFydGl0aW9uUGF0aEZpZWxkIDogYXZyb1BhcnRpdGlvblBhdGhGaWVsZHMpIHsKICAgICAgICAgICAgU3RyaW5nIGZpZWxkVmFsID0KICAgICAgICAgICAgICAgICAgICBnZXROZXN0ZWRGaWVsZFZhbEFzU3RyaW5nKGVsZW1lbnQsIHNlYVR1bm5lbFJvd1R5cGUsIHBhcnRpdGlvblBhdGhGaWVsZCk7CiAgICAgICAgICAgIGlmIChmaWVsZFZhbCA9PSBudWxsIHx8IGZpZWxkVmFsLmlzRW1wdHkoKSkgewogICAgICAgICAgICAgICAgcGFydGl0aW9uUGF0aC5hcHBlbmQocGFydGl0aW9uUGF0aEZpZWxkKS5hcHBlbmQoIj0iKS5hcHBlbmQoREVGQVVMVF9QQVJUSVRJT05fUEFUSCk7CiAgICAgICAgICAgIH0gZWxzZSB7CiAgICAgICAgICAgICAgICBwYXJ0aXRpb25QYXRoLmFwcGVuZChwYXJ0aXRpb25QYXRoRmllbGQpLmFwcGVuZCgiPSIpLmFwcGVuZChmaWVsZFZhbCk7CiAgICAgICAgICAgIH0KICAgICAgICAgICAgcGFydGl0aW9uUGF0aC5hcHBlbmQoREVGQVVMVF9QQVJUSVRJT05fUEFUSF9TRVBBUkFUT1IpOwogICAgICAgIH0KICAgICAgICBwYXJ0aXRpb25QYXRoLmRlbGV0ZUNoYXJBdChwYXJ0aXRpb25QYXRoLmxlbmd0aCgpIC0gMSk7CiAgICAgICAgcmV0dXJuIHBhcnRpdGlvblBhdGgudG9TdHJpbmcoKTsKICAgIH0KCiAgICBwdWJsaWMgU3RyaW5nIGdldE5lc3RlZEZpZWxkVmFsQXNTdHJpbmcoCiAgICAgICAgICAgIFNlYVR1bm5lbFJvdyBlbGVtZW50LCBTZWFUdW5uZWxSb3dUeXBlIHNlYVR1bm5lbFJvd1R5cGUsIFN0cmluZyBmaWVsZE5hbWUpIHsKICAgICAgICBPYmplY3QgdmFsdWUgPSBudWxsOwoKICAgICAgICBpZiAoQXJyYXlzLnN0cmVhbShzZWFUdW5uZWxSb3dUeXBlLmdldEZpZWxkTmFtZXMoKSkKICAgICAgICAgICAgICAgIC5jb2xsZWN0KENvbGxlY3RvcnMudG9MaXN0KCkpCiAgICAgICAgICAgICAgICAuY29udGFpbnMoZmllbGROYW1lKSkgewogICAgICAgICAgICB2YWx1ZSA9IGVsZW1lbnQuZ2V0RmllbGQoc2VhVHVubmVsUm93VHlwZS5pbmRleE9mKGZpZWxkTmFtZSkpOwogICAgICAgIH0KICAgICAgICByZXR1cm4gU3RyaW5nVXRpbHMub2JqVG9TdHJpbmcodmFsdWUpOwogICAgfQp9Cg==
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert;
+
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
+
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.hudi.common.model.HoodieAvroPayload;
+import org.apache.hudi.common.model.HoodieAvroRecord;
+import org.apache.hudi.common.model.HoodieKey;
+import org.apache.hudi.common.model.HoodieRecord;
+import org.apache.hudi.common.model.WriteOperationType;
+import org.apache.hudi.common.util.Option;
+import org.apache.hudi.common.util.StringUtils;
+import org.apache.hudi.exception.HoodieKeyException;
+
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.RowDataToAvroConverters.createConverter;
+
+public class HudiRecordConverter implements Serializable {
+
+    private static final String DEFAULT_PARTITION_PATH = "default";
+
+    private static final String DEFAULT_PARTITION_PATH_SEPARATOR = "/";
+
+    private static final String NULL_RECORD_KEY_PLACEHOLDER = "__null__";
+
+    private static final String EMPTY_RECORD_KEY_PLACEHOLDER = "__empty__";
+
+    public HoodieRecord<HoodieAvroPayload> convertRow(
+            Schema schema,
+            SeaTunnelRowType seaTunnelRowType,
+            SeaTunnelRow element,
+            HudiTableConfig hudiTableConfig) {
+        GenericRecord rec = new GenericData.Record(schema);
+        for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+            String fieldName = seaTunnelRowType.getFieldNames()[i];
+            rec.put(
+                    fieldName,
+                    createConverter(seaTunnelRowType.getFieldType(i))
+                            .convert(schema.getField(fieldName).schema(), element.getField(i)));
+        }
+        return new HoodieAvroRecord<>(
+                getHoodieKey(element, seaTunnelRowType, hudiTableConfig),
+                new HoodieAvroPayload(Option.of(rec)));
+    }
+
+    public HoodieKey getHoodieKey(
+            SeaTunnelRow element,
+            SeaTunnelRowType seaTunnelRowType,
+            HudiTableConfig hudiTableConfig) {
+        String partitionPath =
+                hudiTableConfig.getPartitionFields() == null
+                        ? ""
+                        : getRecordPartitionPath(element, seaTunnelRowType, hudiTableConfig);
+        String rowKey =
+                hudiTableConfig.getRecordKeyFields() == null
+                                && (hudiTableConfig.getOpType().equals(WriteOperationType.INSERT)
+                                        || hudiTableConfig
+                                                .getOpType()
+                                                .equals(WriteOperationType.BULK_INSERT))
+                        ? UUID.randomUUID().toString()
+                        : getRecordKey(element, seaTunnelRowType, hudiTableConfig);
+        return new HoodieKey(rowKey, partitionPath);
+    }
+
+    public String getRecordKey(
+            SeaTunnelRow element,
+            SeaTunnelRowType seaTunnelRowType,
+            HudiTableConfig hudiTableConfig) {
+        boolean keyIsNullEmpty = true;
+        StringBuilder recordKey = new StringBuilder();
+        for (String recordKeyField : hudiTableConfig.getRecordKeyFields().split(",")) {
+            String recordKeyValue =
+                    getNestedFieldValAsString(element, seaTunnelRowType, recordKeyField);
+            recordKeyField = recordKeyField.toLowerCase();
+            if (recordKeyValue == null) {
+                recordKey
+                        .append(recordKeyField)
+                        .append(":")
+                        .append(NULL_RECORD_KEY_PLACEHOLDER)
+                        .append(",");
+            } else if (recordKeyValue.isEmpty()) {
+                recordKey
+                        .append(recordKeyField)
+                        .append(":")
+                        .append(EMPTY_RECORD_KEY_PLACEHOLDER)
+                        .append(",");
+            } else {
+                recordKey.append(recordKeyField).append(":").append(recordKeyValue).append(",");
+                keyIsNullEmpty = false;
+            }
+        }
+        recordKey.deleteCharAt(recordKey.length() - 1);
+        if (keyIsNullEmpty) {
+            throw new HoodieKeyException(
+                    "recordKey values: \""
+                            + recordKey
+                            + "\" for fields: "
+                            + hudiTableConfig.getRecordKeyFields()
+                            + " cannot be entirely null or empty.");
+        }
+        return recordKey.toString();
+    }
+
+    public String getRecordPartitionPath(
+            SeaTunnelRow element,
+            SeaTunnelRowType seaTunnelRowType,
+            HudiTableConfig hudiTableConfig) {
+        if (hudiTableConfig.getPartitionFields().isEmpty()) {
+            return "";
+        }
+
+        StringBuilder partitionPath = new StringBuilder();
+        String[] avroPartitionPathFields = hudiTableConfig.getPartitionFields().split(",");
+        for (String partitionPathField : avroPartitionPathFields) {
+            String fieldVal =
+                    getNestedFieldValAsString(element, seaTunnelRowType, partitionPathField);
+            if (fieldVal == null || fieldVal.isEmpty()) {
+                partitionPath.append(partitionPathField).append("=").append(DEFAULT_PARTITION_PATH);
+            } else {
+                partitionPath.append(partitionPathField).append("=").append(fieldVal);
+            }
+            partitionPath.append(DEFAULT_PARTITION_PATH_SEPARATOR);
+        }
+        partitionPath.deleteCharAt(partitionPath.length() - 1);
+        return partitionPath.toString();
+    }
+
+    public String getNestedFieldValAsString(
+            SeaTunnelRow element, SeaTunnelRowType seaTunnelRowType, String fieldName) {
+        Object value = null;
+
+        if (Arrays.stream(seaTunnelRowType.getFieldNames())
+                .collect(Collectors.toList())
+                .contains(fieldName)) {
+            value = element.getField(seaTunnelRowType.indexOf(fieldName));
+        }
+        return StringUtils.objToString(value);
+    }
+}
