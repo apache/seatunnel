@@ -36,6 +36,9 @@ env:
   # GitHub-hosted runners are ephemeral, so CI does not need Ryuk to reap containers after tests.
   # Disabling it avoids transient Docker Hub pulls for testcontainers/ryuk that can fail unrelated PRs.
   TESTCONTAINERS_RYUK_DISABLED: 'true'
+  # Pinned so the k3s installer does not look up the "stable" channel on update.k3s.io; a failed
+  # lookup there fails the install.
+  INSTALL_K3S_VERSION: v1.36.5+k3s1
   # The JDK 9+ module-opens flags Hazelcast and this project's reflective helpers need (see
   # config/jvm_options) no longer live here. Surefire/Failsafe-forked test JVMs get them from the
   # surefire.module.args property in the root pom.xml (appended to the argLine next to
@@ -1192,15 +1195,29 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 45
     steps:
+      # Check out first so the "Upload test reports" step can find its local action even when
+      # the k3s install fails.
+      - uses: actions/checkout@v4
       - name: install k8s
         run: |
-          curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE=777 sh -s - --docker
+          # pipefail makes a failed download fail the attempt instead of running an empty script.
+          set -o pipefail
+          for attempt in 1 2 3; do
+            if curl -sSfL https://get.k3s.io | K3S_KUBECONFIG_MODE=777 sh -s - --docker; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "k3s install failed after $attempt attempts" >&2
+              exit 1
+            fi
+            echo "k3s install failed (attempt $attempt), retrying" >&2
+            sleep $((attempt * 15))
+          done
           cat /etc/rancher/k3s/k3s.yaml
           mkdir -p ~/.kube
           cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
         env:
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-      - uses: actions/checkout@v4
       - name: free disk space
         run: tools/github/free_disk_space.sh
       - name: Set up JDK ${{ matrix.java }}

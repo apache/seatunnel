@@ -345,8 +345,6 @@ LocalFile {
     file_format_type="excel"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
-    schema_save_mode=RECREATE_SCHEMA
-    data_save_mode=DROP_DATA
   }
 
 ```
