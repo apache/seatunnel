@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -53,7 +54,7 @@ class DorisCatalogTest {
         statement = mock(Statement.class);
         when(connection.createStatement()).thenReturn(statement);
         // Inject the mocked JDBC connection into the catalog using reflection
-        java.lang.reflect.Field connField = DorisCatalog.class.getDeclaredField("conn");
+        Field connField = DorisCatalog.class.getDeclaredField("conn");
         connField.setAccessible(true);
         connField.set(catalog, connection);
     }

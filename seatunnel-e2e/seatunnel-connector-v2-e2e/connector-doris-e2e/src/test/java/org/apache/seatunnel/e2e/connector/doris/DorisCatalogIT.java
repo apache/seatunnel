@@ -128,21 +128,27 @@ public class DorisCatalogIT extends AbstractDorisIT {
             return;
         }
 
-        catalog.createTable(tablePath, catalogTable, false);
-        catalog.executeSql(
-                tablePath, "INSERT INTO " + tablePath.getFullName() + " VALUES (1, 'a', 1.1, 1.1)");
-        Assertions.assertTrue(catalog.isExistsData(tablePath));
+        try {
+            catalog.createTable(tablePath, catalogTable, false);
+            catalog.executeSql(
+                    tablePath,
+                    "INSERT INTO " + tablePath.getFullName() + " VALUES (1, 'a', 1.1, 1.1)");
+            Assertions.assertTrue(catalog.isExistsData(tablePath));
 
-        // The truncate must run on an existing table regardless of the ignore flag.
-        catalog.truncateTable(tablePath, true);
-        Assertions.assertFalse(catalog.isExistsData(tablePath));
+            // The truncate must run on an existing table regardless of the ignore flag.
+            catalog.truncateTable(tablePath, true);
+            Assertions.assertFalse(catalog.isExistsData(tablePath));
 
-        catalog.executeSql(
-                tablePath, "INSERT INTO " + tablePath.getFullName() + " VALUES (1, 'a', 1.1, 1.1)");
-        catalog.truncateTable(tablePath, false);
-        Assertions.assertFalse(catalog.isExistsData(tablePath));
-
-        catalog.dropTable(tablePath, false);
+            catalog.executeSql(
+                    tablePath,
+                    "INSERT INTO " + tablePath.getFullName() + " VALUES (1, 'a', 1.1, 1.1)");
+            catalog.truncateTable(tablePath, false);
+            Assertions.assertFalse(catalog.isExistsData(tablePath));
+        } finally {
+            // Runs even when an assertion fails, so the shared table is not left
+            // behind for testCatalog, which asserts it does not exist.
+            catalog.dropTable(tablePath, true);
+        }
         Assertions.assertFalse(catalog.tableExists(tablePath));
 
         // A missing table is skipped when the ignore flag is enabled and fails otherwise.
