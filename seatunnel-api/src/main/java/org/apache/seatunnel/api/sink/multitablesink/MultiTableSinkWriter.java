@@ -250,7 +250,8 @@ public class MultiTableSinkWriter
                             failurePolicy.continueOtherTables(),
                             this::handleRuntimeTableFailure,
                             this.tableRetryTimes,
-                            this.tableRetryIntervalSeconds);
+                            this.tableRetryIntervalSeconds,
+                            queueSize > 1);
             runnable.add(r);
         }
         log.info("init multi table sink writer, queue size: {}", queueSize);
