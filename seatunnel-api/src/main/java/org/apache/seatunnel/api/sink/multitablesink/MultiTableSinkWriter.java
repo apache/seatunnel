@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.HashUtils;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,8 +47,10 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -66,10 +69,9 @@ import java.util.stream.Collectors;
  * appropriate sub-writer. Routing is based on the row's primary key hash for ordered delivery, or
  * random selection when no primary key exists.
  *
- * <p>Thread pool sizing is {@code queueSize * 2}: half for queue consumer threads, half for
- * parallel {@link #prepareCommit(long)} tasks. Synchronization between the consumer threads and
- * checkpoint/commit operations is coordinated through locks on each {@link
- * MultiTableWriterRunnable} instance.
+ * <p>Thread pool sizing is {@code queueSize * 2}, with half for queue consumer threads and half for
+ * parallel timer flush and {@link #prepareCommit(long)} tasks. These operations synchronize with
+ * the consumer threads through locks on each {@link MultiTableWriterRunnable} instance.
  */
 @Slf4j
 public class MultiTableSinkWriter
@@ -204,9 +206,7 @@ public class MultiTableSinkWriter
         executorService =
                 MDCTracer.tracing(
                         Executors.newFixedThreadPool(
-                                // we use it in `MultiTableWriterRunnable` and `prepare commit
-                                // task`, so it
-                                // should be double.
+                                // Reserve one thread per queue for flush and prepare commit tasks.
                                 queueSize * 2,
                                 runnable -> {
                                     Thread thread = new Thread(runnable);
@@ -947,37 +947,76 @@ public class MultiTableSinkWriter
     }
 
     /**
-     * Aggregated flush triggered by the engine timer. Drains all blocking queues first, then calls
-     * each sub-writer's flush action under the corresponding {@link MultiTableWriterRunnable} lock
-     * to prevent concurrent writes.
+     * Aggregated flush triggered by the engine timer. Drains all blocking queues first, then
+     * flushes queues in parallel and waits for all of them to finish. Child writers in each queue
+     * flush sequentially under the corresponding {@link MultiTableWriterRunnable} lock.
      *
      * @param proxyContexts map from sink identifier to its {@link SinkContextProxy}
      */
     void aggregatedFlush(Map<SinkIdentifier, SinkContextProxy> proxyContexts) throws Exception {
         checkQueueRemain();
         subSinkErrorCheck();
+        if (sinkWritersWithIndex.size() == 1) {
+            flushQueue(0, proxyContexts);
+            return;
+        }
+
+        List<Callable<Void>> flushTasks = new ArrayList<>(sinkWritersWithIndex.size());
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
-            synchronized (runnable.get(i)) {
-                for (SinkIdentifier id : sinkWritersWithIndex.get(i).keySet()) {
-                    SinkContextProxy proxy = proxyContexts.get(id);
-                    if (proxy != null && proxy.getFlushAction() != null) {
-                        try {
-                            proxy.getFlushAction().run();
-                        } catch (InterruptedException error) {
-                            Thread.currentThread().interrupt();
-                            throw error;
-                        } catch (Exception error) {
-                            if (failurePolicy.continueOtherTables()) {
-                                handleTableFailure(
-                                        id.getTableIdentifier(),
-                                        MultiTableFailurePhase.TIMER_FLUSH,
-                                        error);
-                                continue;
-                            }
-                            throw error;
-                        }
+            int queueIndex = i;
+            flushTasks.add(
+                    () -> {
+                        flushQueue(queueIndex, proxyContexts);
+                        return null;
+                    });
+        }
+        try {
+            for (Future<Void> future : executorService.invokeAll(flushTasks)) {
+                future.get();
+            }
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw error;
+        } catch (ExecutionException error) {
+            Throwable cause = error.getCause();
+            if (cause instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            if (cause instanceof Exception) {
+                throw (Exception) cause;
+            }
+            if (cause instanceof Error) {
+                throw (Error) cause;
+            }
+            throw error;
+        }
+    }
+
+    private void flushQueue(int queueIndex, Map<SinkIdentifier, SinkContextProxy> proxyContexts)
+            throws Exception {
+        MultiTableWriterRunnable writerRunnable = runnable.get(queueIndex);
+        for (SinkIdentifier id : sinkWritersWithIndex.get(queueIndex).keySet()) {
+            SinkContextProxy proxy = proxyContexts.get(id);
+            RunnableWithException flushAction = proxy == null ? null : proxy.getFlushAction();
+            if (flushAction == null) {
+                continue;
+            }
+            try {
+                synchronized (writerRunnable) {
+                    if (!isTableFailed(id.getTableIdentifier())) {
+                        flushAction.run();
                     }
                 }
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                throw error;
+            } catch (Exception error) {
+                if (!failurePolicy.continueOtherTables()) {
+                    throw error;
+                }
+                // Table isolation acquires other queue locks.
+                handleTableFailure(
+                        id.getTableIdentifier(), MultiTableFailurePhase.TIMER_FLUSH, error);
             }
         }
     }

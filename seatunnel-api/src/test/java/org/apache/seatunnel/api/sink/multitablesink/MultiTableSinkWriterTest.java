@@ -47,6 +47,7 @@ import lombok.Data;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -570,28 +571,35 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
-    public void testAggregatedFlushIsolatesFailedTableAndFlushesHealthyTable() {
+    public void testAggregatedFlushIsolatesConcurrentFailuresAndFlushesHealthyTable() {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
-        SinkIdentifier failedIdentifier = SinkIdentifier.of("test.failed", 0);
-        SinkIdentifier healthyIdentifier = SinkIdentifier.of("test.healthy", 1);
-        sinkWriters.put(failedIdentifier, new TestSinkWriter());
+        SinkIdentifier healthyIdentifier = SinkIdentifier.of("test.healthy", 2);
         sinkWriters.put(healthyIdentifier, new TestSinkWriter());
-        sinkWritersContext.put(failedIdentifier, new TestSinkWriterContext());
         sinkWritersContext.put(healthyIdentifier, new TestSinkWriterContext());
 
         AtomicInteger failedFlushCount = new AtomicInteger();
-        SinkContextProxy failedProxy = new SinkContextProxy(0, 2, new TestSinkWriterContext());
-        failedProxy.registerFlushAction(
-                () -> {
-                    failedFlushCount.incrementAndGet();
-                    throw new IOException("intentional flush failure");
-                });
+        CountDownLatch failedFlushesStarted = new CountDownLatch(2);
+        for (int queueIndex = 0; queueIndex < 2; queueIndex++) {
+            SinkIdentifier failedIdentifier =
+                    SinkIdentifier.of("test.failed" + queueIndex, queueIndex);
+            sinkWriters.put(failedIdentifier, new TestSinkWriter());
+            sinkWritersContext.put(failedIdentifier, new TestSinkWriterContext());
+            SinkContextProxy failedProxy =
+                    new SinkContextProxy(queueIndex, 2, new TestSinkWriterContext());
+            failedProxy.registerFlushAction(
+                    () -> {
+                        failedFlushCount.incrementAndGet();
+                        failedFlushesStarted.countDown();
+                        Assertions.assertTrue(failedFlushesStarted.await(5, TimeUnit.SECONDS));
+                        throw new IOException("intentional flush failure");
+                    });
+            proxyContexts.put(failedIdentifier, failedProxy);
+        }
         AtomicInteger healthyFlushCount = new AtomicInteger();
-        SinkContextProxy healthyProxy = new SinkContextProxy(1, 2, new TestSinkWriterContext());
+        SinkContextProxy healthyProxy = new SinkContextProxy(2, 2, new TestSinkWriterContext());
         healthyProxy.registerFlushAction(healthyFlushCount::incrementAndGet);
-        proxyContexts.put(failedIdentifier, failedProxy);
         proxyContexts.put(healthyIdentifier, healthyProxy);
 
         MultiTableSinkWriter multiTableSinkWriter =
@@ -602,22 +610,24 @@ public class MultiTableSinkWriterTest {
                         MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
                         JobMode.BATCH);
 
-        Assertions.assertDoesNotThrow(() -> multiTableSinkWriter.aggregatedFlush(proxyContexts));
-        Assertions.assertEquals(1, failedFlushCount.get());
+        Assertions.assertTimeoutPreemptively(
+                Duration.ofSeconds(10), () -> multiTableSinkWriter.aggregatedFlush(proxyContexts));
+        Assertions.assertEquals(2, failedFlushCount.get());
         Assertions.assertEquals(1, healthyFlushCount.get());
 
         Assertions.assertDoesNotThrow(() -> multiTableSinkWriter.aggregatedFlush(proxyContexts));
-        Assertions.assertEquals(1, failedFlushCount.get());
+        Assertions.assertEquals(2, failedFlushCount.get());
         Assertions.assertEquals(2, healthyFlushCount.get());
 
         IOException closeException =
                 Assertions.assertThrows(IOException.class, multiTableSinkWriter::close);
-        Assertions.assertTrue(closeException.getMessage().contains("test.failed"));
+        Assertions.assertTrue(closeException.getMessage().contains("test.failed0"));
+        Assertions.assertTrue(closeException.getMessage().contains("test.failed1"));
         Assertions.assertTrue(closeException.getMessage().contains("phase=timer_flush"));
     }
 
     @Test
-    public void testAggregatedFlushFailFastStopsAtFirstFailure() {
+    public void testAggregatedFlushPropagatesFailureAfterParallelQueuesFinish() throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
@@ -629,15 +639,23 @@ public class MultiTableSinkWriterTest {
         sinkWritersContext.put(healthyIdentifier, new TestSinkWriterContext());
 
         AtomicInteger failedFlushCount = new AtomicInteger();
+        CountDownLatch flushesStarted = new CountDownLatch(2);
         SinkContextProxy failedProxy = new SinkContextProxy(0, 2, new TestSinkWriterContext());
         failedProxy.registerFlushAction(
                 () -> {
                     failedFlushCount.incrementAndGet();
+                    flushesStarted.countDown();
+                    Assertions.assertTrue(flushesStarted.await(5, TimeUnit.SECONDS));
                     throw new IOException("intentional flush failure");
                 });
         AtomicInteger healthyFlushCount = new AtomicInteger();
         SinkContextProxy healthyProxy = new SinkContextProxy(1, 2, new TestSinkWriterContext());
-        healthyProxy.registerFlushAction(healthyFlushCount::incrementAndGet);
+        healthyProxy.registerFlushAction(
+                () -> {
+                    flushesStarted.countDown();
+                    Assertions.assertTrue(flushesStarted.await(5, TimeUnit.SECONDS));
+                    healthyFlushCount.incrementAndGet();
+                });
         proxyContexts.put(failedIdentifier, failedProxy);
         proxyContexts.put(healthyIdentifier, healthyProxy);
 
@@ -648,15 +666,18 @@ public class MultiTableSinkWriterTest {
                         sinkWritersContext,
                         MultiTableFailurePolicy.FAIL_FAST,
                         JobMode.BATCH);
-
-        IOException flushException =
-                Assertions.assertThrows(
-                        IOException.class,
-                        () -> multiTableSinkWriter.aggregatedFlush(proxyContexts));
-        Assertions.assertEquals("intentional flush failure", flushException.getMessage());
-        Assertions.assertEquals(1, failedFlushCount.get());
-        Assertions.assertEquals(0, healthyFlushCount.get());
-        Assertions.assertDoesNotThrow(multiTableSinkWriter::close);
+        try {
+            multiTableSinkWriter.write(buildRow("test.failed", 0));
+            IOException flushException =
+                    Assertions.assertThrows(
+                            IOException.class,
+                            () -> multiTableSinkWriter.aggregatedFlush(proxyContexts));
+            Assertions.assertEquals("intentional flush failure", flushException.getMessage());
+            Assertions.assertEquals(1, failedFlushCount.get());
+            Assertions.assertEquals(1, healthyFlushCount.get());
+        } finally {
+            multiTableSinkWriter.close();
+        }
     }
 
     @Test
