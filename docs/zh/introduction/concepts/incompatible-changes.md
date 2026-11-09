@@ -4,6 +4,16 @@
 
 ## dev
 
+### Zeta：Transform 初始化失败会使任务启动失败
+
+如果 Transform 的 `open()` 方法抛出异常，现在会使任务启动失败，而不再仅记录异常后继续运行。
+此前，作业可能在 Transform 未正确初始化的情况下继续运行，甚至在 Source 没有输出记录时成功结束。
+现在会将原始初始化异常作为失败原因向上传递。
+
+升级前，请修复受影响作业中的 Transform 初始化错误，例如无效配置或启动时依赖不可用。
+`LOG` 和 `ROUTE` 行级错误处理策略无法恢复初始化失败，因为此时尚未处理任何记录。
+初始化成功时的行为、配置项和 checkpoint 格式保持不变。
+
 ### Databend Source：DECIMAL 列按 DECIMAL 读取，而不再是 STRING
 
 - **行为变更：Databend 的 `DECIMAL(p, s)` 列在作业中的类型为 `DECIMAL(p, s)`**

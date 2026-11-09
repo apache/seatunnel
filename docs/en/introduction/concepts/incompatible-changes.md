@@ -5,6 +5,18 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta: transform initialization failures fail task startup
+
+A transform whose `open()` method throws an exception now fails task startup instead of logging the
+exception and continuing. Previously, such a job could keep running with an uninitialized transform,
+or even finish successfully when the source produced no records. The original initialization
+exception is now propagated as the failure cause.
+
+Before upgrading, fix transform initialization errors in affected jobs, such as invalid configuration
+or unavailable startup dependencies. The `LOG` and `ROUTE` row-error handling strategies cannot
+recover from initialization failures because no row is being processed. Successful initialization,
+configuration options and checkpoint formats are unchanged.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**
