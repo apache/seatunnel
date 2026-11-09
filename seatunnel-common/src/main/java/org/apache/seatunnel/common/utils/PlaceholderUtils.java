@@ -167,6 +167,8 @@ public class PlaceholderUtils {
             }
 
             if (isSystemPlaceholder.test(key)) {
+                result.append(input.substring(keyStart, closePos + 1));
+                cursor = closePos + 1;
                 continue;
             }
 
@@ -276,6 +278,13 @@ public class PlaceholderUtils {
         return -1;
     }
 
+    /**
+     * check user input value of config option has only one placeholder without any extra
+     * concatenation
+     *
+     * @param input user input value of config option
+     * @return true if user input value has only one placeholder without any extra concatenation
+     */
     public static boolean hasOnlyOnePlaceholder(String input) {
         String trimmedInput = input.trim();
         if (!trimmedInput.startsWith(PLACEHOLDER_STARTER)) {
@@ -286,8 +295,8 @@ public class PlaceholderUtils {
     }
 
     /**
-     * check placeholder with default value contains placeholder, returns true if it contains
-     * placeholder without quotes wrapped.
+     * check placeholder with default value contains placeholder, throws ConfigException.BadValue
+     * Exception if it contains placeholder without quotes wrapped.
      *
      * @param key the key part of placeholder: {@code ${key:defaultValue}}
      * @param defaultValue the default value part inside placeholder
