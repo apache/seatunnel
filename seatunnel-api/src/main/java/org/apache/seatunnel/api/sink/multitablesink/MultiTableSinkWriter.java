@@ -886,7 +886,17 @@ public class MultiTableSinkWriter
         executorService.shutdownNow();
         if (failurePolicy.continueOtherTables()) {
             synchronized (this) {
-                // Wait for in-progress table isolation before closing any child writer.
+                // When a timer flush round is cancelled, a worker may already be isolating
+                // a failed table. That isolation can continue after shutdownNow() returns
+                // while the worker closes and removes the table's writers across queues.
+                //
+                // Queue locks serialize individual close calls. If shutdown closes a writer
+                // first, the writer is still in the map and isolation could close it again.
+                //
+                // handleTableFailure() holds this monitor. A flush worker checks the round's
+                // stop signal under the same monitor before starting isolation. Since close()
+                // has already signaled the round to stop, acquiring this monitor waits for any
+                // isolation in progress. Release it before acquiring the queue locks below.
             }
         }
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
