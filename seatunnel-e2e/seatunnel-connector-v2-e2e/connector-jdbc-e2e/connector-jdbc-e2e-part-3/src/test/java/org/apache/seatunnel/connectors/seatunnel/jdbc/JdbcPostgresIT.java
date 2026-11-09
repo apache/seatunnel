@@ -59,8 +59,6 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -95,7 +93,6 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
-    private static final Logger LOG = LoggerFactory.getLogger(JdbcPostgresIT.class);
 
     private static final String PG_IMAGE = "postgis/postgis";
 
@@ -435,7 +432,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             try {
                 executeSQL("DROP TABLE IF EXISTS jdbc_deadlock_retry_test");
             } catch (Exception cleanupFailure) {
-                LOG.warn("Failed to drop the deadlock retry test table", cleanupFailure);
+                log.warn("Failed to drop the deadlock retry test table", cleanupFailure);
             }
         }
     }
@@ -451,7 +448,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         try {
             output.close();
         } catch (Exception cleanupFailure) {
-            LOG.warn("Failed to close the {}", name, cleanupFailure);
+            log.warn("Failed to close the {}", name, cleanupFailure);
         }
     }
 
@@ -634,7 +631,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                 executeSQL("DROP TABLE IF EXISTS " + auditTable);
                 executeSQL("DROP FUNCTION IF EXISTS jdbc_deadlock_real_upsert_audit_fn()");
             } catch (Exception cleanupFailure) {
-                LOG.warn(
+                log.warn(
                         "Failed to clean up the real-upsert deadlock test resources",
                         cleanupFailure);
             }
