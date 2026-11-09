@@ -47,7 +47,8 @@ public class GraphQLSinkParameter implements Serializable {
                     GraphQLSinkOptions.VARIABLES.key(),
                     pluginConfig.get(GraphQLSinkOptions.VARIABLES));
         } else {
-            bodymap.put(GraphQLSinkOptions.VARIABLES.key(), "{}");
+            // GraphQL servers expect variables as a JSON object, never as a string.
+            bodymap.put(GraphQLSinkOptions.VARIABLES.key(), new HashMap<>());
         }
         bodymap.put(GraphQLSinkOptions.QUERY.key(), query);
         this.httpParameter.setBody(JsonUtils.toJsonString(bodymap));

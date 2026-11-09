@@ -35,7 +35,10 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
@@ -43,6 +46,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -93,6 +97,17 @@ public class GraphQLIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)));
         Startables.deepStart(Stream.of(genericContainer)).join();
+        // Hasura serves only tracked tables. Without this, every query and mutation of this
+        // test is rejected with HTTP 200 and an errors array.
+        given().ignoreExceptions()
+                .await()
+                .pollInterval(1, TimeUnit.SECONDS)
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> {
+                            trackTable("source");
+                            trackTable("sink");
+                        });
     }
 
     public void checkTableData() {
@@ -166,9 +181,97 @@ public class GraphQLIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         checkTableData();
         Container.ExecResult execResult1 = container.executeJob("/graphql_to_assert.conf");
-        Assertions.assertEquals(0, execResult1.getExitCode());
+        Assertions.assertEquals(0, execResult1.getExitCode(), execResult1.getStderr());
+        executeSql("TRUNCATE sink");
         Container.ExecResult execResult = container.executeJob("/fake_to_graphql.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        Assertions.assertEquals(
+                Arrays.asList(
+                        "1|true|NEW|6.3|2020-02-02 02:02:02.0",
+                        "2|true|NEW|6.3|2020-02-02 02:02:02.0"),
+                querySinkRows());
+    }
+
+    @TestTemplate
+    public void testRejectedMutationFailsTheJob(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/fake_to_graphql_rejected.conf");
+        Assertions.assertNotEquals(0, execResult.getExitCode());
+        String output = execResult.getStdout() + execResult.getStderr();
+        Assertions.assertTrue(output.contains("The GraphQL server returned errors"));
+        Assertions.assertTrue(output.contains("'insert_missing_table' not found"));
+    }
+
+    @TestTemplate
+    public void testRejectedQueryFailsTheJob(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/graphql_rejected_query_to_assert.conf");
+        Assertions.assertNotEquals(0, execResult.getExitCode());
+        String output = execResult.getStdout() + execResult.getStderr();
+        Assertions.assertTrue(output.contains("The GraphQL server returned errors"));
+        // This job sets no variables, so it also checks that they are sent as an object.
+        Assertions.assertTrue(output.contains("'missing_table' not found"));
+    }
+
+    private void trackTable(String table) throws IOException {
+        URL url =
+                new URL(
+                        "http://"
+                                + genericContainer.getHost()
+                                + ":"
+                                + genericContainer.getMappedPort(8080)
+                                + "/v1/metadata");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("POST");
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setDoOutput(true);
+        String body =
+                "{\"type\":\"pg_track_table\",\"args\":{\"source\":\"default\","
+                        + "\"table\":{\"schema\":\"public\",\"name\":\""
+                        + table
+                        + "\"}}}";
+        try (OutputStream out = connection.getOutputStream()) {
+            out.write(body.getBytes(StandardCharsets.UTF_8));
+        }
+        int code = connection.getResponseCode();
+        connection.disconnect();
+        Assertions.assertEquals(200, code, "tracking table " + table);
+    }
+
+    private void executeSql(String sql) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to execute " + sql, e);
+        }
+    }
+
+    private List<String> querySinkRows() {
+        List<String> rows = new ArrayList<>();
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT id, val_bool, val_string, val_decimal,"
+                                        + " val_unixtime_micros FROM sink ORDER BY id")) {
+            while (resultSet.next()) {
+                rows.add(
+                        resultSet.getInt(1)
+                                + "|"
+                                + resultSet.getBoolean(2)
+                                + "|"
+                                + resultSet.getString(3)
+                                + "|"
+                                + resultSet.getBigDecimal(4)
+                                + "|"
+                                + resultSet.getTimestamp(5));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to read the sink table", e);
+        }
+        return rows;
     }
 
     private Connection getJdbcConnection() throws SQLException {

@@ -68,6 +68,8 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 - When `schema.fields` is configured, set `format = "json"` and point `content_field` to the array or object that should become SeaTunnel rows.
 - For streaming query mode over HTTP, configure `poll_interval_millis` to control how often SeaTunnel sends the same query again.
 - For WebSocket subscription mode, `max_retries` and `retry_delay_ms` only control reconnect behavior after a subscription connection fails.
+- In HTTP query mode, the read fails when the response contains a non-empty `errors` array, even with HTTP 200 and partial `data`. Subscription messages are not checked.
+- When `variables` is not set, the request sends an empty `variables` object.
 
 ## Task Example
 

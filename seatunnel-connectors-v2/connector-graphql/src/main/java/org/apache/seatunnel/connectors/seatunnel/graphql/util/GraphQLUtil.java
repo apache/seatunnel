@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.graphql.util;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -156,6 +158,34 @@ public class GraphQLUtil {
                 String dataJson = JsonUtils.toJsonString(data);
                 deserializationCollector.collect(dataJson.getBytes(), output);
             }
+        }
+    }
+
+    /**
+     * Fails when a GraphQL response reports errors. GraphQL servers usually answer a rejected query
+     * or mutation with HTTP 200 and a non-empty {@code errors} array, so the status code alone does
+     * not show that the request failed. A body that is not a JSON object is left to the caller.
+     *
+     * @param content the response body
+     * @param errorCode the error code to fail with
+     */
+    public static void checkNoErrors(String content, GraphQLConnectorErrorCode errorCode) {
+        if (content == null || content.isEmpty()) {
+            return;
+        }
+        JsonNode response;
+        try {
+            response = JsonUtils.stringToJsonNode(content);
+        } catch (Exception e) {
+            return;
+        }
+        if (response == null || !response.isObject()) {
+            return;
+        }
+        JsonNode errors = response.get("errors");
+        if (errors != null && errors.isArray() && errors.size() > 0) {
+            throw new GraphQLConnectorException(
+                    errorCode, "The GraphQL server returned errors: " + errors);
         }
     }
 }

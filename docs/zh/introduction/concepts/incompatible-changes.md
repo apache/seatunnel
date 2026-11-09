@@ -4,6 +4,13 @@
 
 ## dev
 
+### GraphQL 连接器：响应中带有 GraphQL errors 时作业会失败
+
+- **行为变更：服务端报告错误时，GraphQL Sink 和 GraphQL Source 的 HTTP 查询模式会失败**
+  - **描述**：GraphQL 服务通常用 HTTP 200 加 `errors` 数组来表示查询或 mutation 被拒绝。Sink 此前只检查状态码，状态码不是 200 时也只记录日志，因此被拒绝的 mutation 会被丢弃，作业照常结束。Source 会把这样的响应当作数据读取，因此被拒绝的查询不会产生任何行。现在两者都会失败，并在错误信息中带上服务端返回的错误；状态码不是 200 时 Sink 也会失败。日期和时间字段现在以 ISO 8601 字符串发送；此前在 Java 11 上会被发送为嵌套的 JSON 对象，在 Java 17 上写入会失败。未配置 `variables` 时，现在发送空对象，而不是服务端会拒绝的字符串 `"{}"`；此前未配置 `variables` 的 Sink 每一行都会失败。
+  - **影响**：请求被服务端拒绝的作业现在会失败，而不是在缺少数据的情况下正常结束。订阅模式不受影响。
+  - **迁移指南**：无需修改配置。如果作业开始失败，请根据错误信息查看服务端拒绝的内容，并修正查询、mutation 或变量类型。例如，对于 PostgreSQL 的 `double precision` 列，Hasura 期望的类型是 `float8` 而不是 `Float`。
+
 ### Databend Source：DECIMAL 列按 DECIMAL 读取，而不再是 STRING
 
 - **行为变更：Databend 的 `DECIMAL(p, s)` 列在作业中的类型为 `DECIMAL(p, s)`**

@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### GraphQL connector: a response with GraphQL errors fails the job
+
+- **Behavior change: the GraphQL sink and the HTTP query mode of the GraphQL source fail when the server reports errors**
+  - **Description**: GraphQL servers usually answer a rejected query or mutation with HTTP 200 and an `errors` array. The sink only checked the status code, and for a status other than 200 it only logged the response, so a rejected mutation was dropped and the job finished. The source read such a response as if it were data, so a rejected query produced no rows. Both now fail with the server's errors in the message, and the sink also fails on a status other than 200. Date and time fields are now sent as ISO 8601 strings; before, they were sent as nested JSON objects on Java 11 and the write failed on Java 17. When `variables` is not set, an empty object is now sent instead of the string `"{}"`, which servers reject; before, a sink without `variables` failed on every row.
+  - **Impact**: A job whose requests the server rejects now fails instead of finishing with missing rows. Subscription mode is unchanged.
+  - **Migration Guide**: No configuration change is needed. If a job starts failing, the error message shows what the server rejected. Fix the query, the mutation or the variable types; for example, Hasura expects `float8` for a PostgreSQL `double precision` column, not `Float`.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**
