@@ -5,12 +5,12 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
-### JDBC source: rows with a NULL split column value are no longer skipped
+### Lance sink: BIGINT columns are created as int64
 
-- **Behavior change: the JDBC source reads the rows whose split column is NULL**
-  - **Description**: Split conditions are ranges or hashes of the split column, and none of them matches NULL. When a nullable split column (a `partition_column`, or a unique index column chosen automatically for a table without a primary key) was read by more than one split, rows with NULL in it were read by no split and the job finished without an error. SeaTunnel now adds one split that reads these rows when there are any.
-  - **Impact**: Affected jobs read more rows than before: the rows that were silently skipped. Jobs whose split column is declared `NOT NULL`, such as a primary key, or has no NULL values get the same splits as before. A job restored from a checkpoint keeps its pending splits, so the change applies when the table is split again.
-  - **Migration Guide**: No configuration change is needed. If a downstream table was loaded by an affected job, reload it to get the missing rows.
+- **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**
+  - **Description**: When the Lance sink created a dataset, it declared `BIGINT` columns as Arrow `int32` and wrote each value with `Number.intValue()`, so a value outside the signed 32-bit range was silently wrapped. For example, `3000000000` was stored as `-1294967296`, and the epoch millisecond `1739586083123` as `124328243`. The sink, and the catalog's `createTable`, now declare `BIGINT` as `int64` and store the value unchanged.
+  - **Impact**: A dataset created by this version has an `int64` column where an earlier version created `int32`. A dataset that already exists keeps its column types, because the sink writes to the schema it finds, so its `int32` column still wraps large values.
+  - **Migration Guide**: No configuration change is needed. If a consumer expects `int32` for these columns, update it to read `int64`. To store large values in a dataset created by an earlier version, recreate the dataset and write the rows again from the source.
 
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
@@ -18,6 +18,13 @@ You need to check this document before you upgrade to related version.
   - **Description**: The Databend source takes every column type from `DatabendCatalog`. The catalog compared the type name the driver reports, such as `decimal(10, 2)`, with the bare name `DECIMAL`, so every decimal column fell back to `STRING` and its values were read as text. It now maps the column to `DECIMAL` with the column's own precision and scale. On a worker whose default locale is Turkish or Azerbaijani, `TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `TIMESTAMP` and `BINARY` columns also fell back to `STRING`; they now get their mapped types there too.
   - **Impact**: A job that reads a Databend `DECIMAL` column now emits decimal values. A sink table that SeaTunnel creates through `schema_save_mode` gets a decimal column instead of a string column, and a transform or sink that expected a string now receives a decimal.
   - **Migration Guide**: No configuration change is needed. If a downstream step needs text, convert the column explicitly, for example `CAST(price AS STRING)` in the SQL transform. A sink table that an earlier run already created with a string column keeps that type.
+
+### JDBC source: rows with a NULL split column value are no longer skipped
+
+- **Behavior change: the JDBC source reads the rows whose split column is NULL**
+  - **Description**: Split conditions are ranges or hashes of the split column, and none of them matches NULL. When a nullable split column (a `partition_column`, or a unique index column chosen automatically for a table without a primary key) was read by more than one split, rows with NULL in it were read by no split and the job finished without an error. SeaTunnel now adds one split that reads these rows when there are any.
+  - **Impact**: Affected jobs read more rows than before: the rows that were silently skipped. Jobs whose split column is declared `NOT NULL`, such as a primary key, or has no NULL values get the same splits as before. A job restored from a checkpoint keeps its pending splits, so the change applies when the table is split again.
+  - **Migration Guide**: No configuration change is needed. If a downstream table was loaded by an affected job, reload it to get the missing rows.
 
 ### JDBC Sink: fail safely after losing uncommitted work
 

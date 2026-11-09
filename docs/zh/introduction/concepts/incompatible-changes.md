@@ -4,12 +4,12 @@
 
 ## dev
 
-### JDBC Source：分片列为 NULL 的行不再被跳过
+### Lance Sink：BIGINT 列创建为 int64
 
-- **行为变化：JDBC Source 会读取分片列为 NULL 的行**
-  - **描述**：分片条件是对分片列的范围或哈希判断，都不会匹配 NULL。当可空的分片列（`partition_column`，或在没有主键的表上自动选择的唯一索引列）被拆分为多个分片时，该列为 NULL 的行不会被任何分片读取，作业也不会报错。现在如果存在这样的行，SeaTunnel 会额外增加一个分片读取这些行。
-  - **影响**：受影响的作业会比之前多读取被静默跳过的行。分片列声明为 `NOT NULL`（例如主键）或没有 NULL 值的作业，分片与之前相同。从 checkpoint 恢复的作业会保留尚未读取的分片，因此在表重新分片后才会生效。
-  - **迁移指南**：无需修改配置。如果下游表由受影响的作业写入，请重新加载以补齐缺失的行。
+- **行为变更：Lance Sink 创建的数据集中，`BIGINT` 列为 Arrow `int64`**
+  - **描述**：Lance Sink 创建数据集时，会把 `BIGINT` 列声明为 Arrow `int32`，并用 `Number.intValue()` 写入每个值，因此超出有符号 32 位范围的值会被静默回绕。例如 `3000000000` 被存为 `-1294967296`，毫秒时间戳 `1739586083123` 被存为 `124328243`。现在 Sink 以及 Catalog 的 `createTable` 都把 `BIGINT` 声明为 `int64`，值按原样存储。
+  - **影响**：本版本创建的数据集中该列为 `int64`，而早期版本创建的是 `int32`。已经存在的数据集保留原有的列类型，因为 Sink 会按已有的 schema 写入，所以其中的 `int32` 列仍会回绕较大的值。
+  - **迁移指南**：无需修改配置。如果下游按 `int32` 读取这些列，请改为读取 `int64`。若要在早期版本创建的数据集中存储较大的值，请重新创建数据集，并从数据源重新写入数据。
 
 ### Databend Source：DECIMAL 列按 DECIMAL 读取，而不再是 STRING
 
@@ -17,6 +17,13 @@
   - **描述**：Databend Source 的所有列类型都来自 `DatabendCatalog`。Catalog 此前用驱动上报的类型名（例如 `decimal(10, 2)`）与不带参数的 `DECIMAL` 比较，因此所有 decimal 列都回退为 `STRING`，其值按文本读取。现在该列会按其自身的 precision 和 scale 映射为 `DECIMAL`。在默认语言环境为土耳其语或阿塞拜疆语的工作节点上，`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`TIMESTAMP` 和 `BINARY` 列此前也会回退为 `STRING`，现在同样得到对应的映射类型。
   - **影响**：读取 Databend `DECIMAL` 列的作业现在输出 decimal 值。SeaTunnel 通过 `schema_save_mode` 创建的 Sink 表会得到 decimal 列而不是字符串列，原本期望字符串的 Transform 或 Sink 现在会收到 decimal。
   - **迁移指南**：无需修改配置。如果下游步骤需要文本，请显式转换该列，例如在 SQL Transform 中使用 `CAST(price AS STRING)`。早期运行中已创建为字符串列的 Sink 表会保留原有类型。
+
+### JDBC Source：分片列为 NULL 的行不再被跳过
+
+- **行为变化：JDBC Source 会读取分片列为 NULL 的行**
+  - **描述**：分片条件是对分片列的范围或哈希判断，都不会匹配 NULL。当可空的分片列（`partition_column`，或在没有主键的表上自动选择的唯一索引列）被拆分为多个分片时，该列为 NULL 的行不会被任何分片读取，作业也不会报错。现在如果存在这样的行，SeaTunnel 会额外增加一个分片读取这些行。
+  - **影响**：受影响的作业会比之前多读取被静默跳过的行。分片列声明为 `NOT NULL`（例如主键）或没有 NULL 值的作业，分片与之前相同。从 checkpoint 恢复的作业会保留尚未读取的分片，因此在表重新分片后才会生效。
+  - **迁移指南**：无需修改配置。如果下游表由受影响的作业写入，请重新加载以补齐缺失的行。
 
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
