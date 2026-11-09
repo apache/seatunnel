@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -41,6 +42,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -177,6 +179,30 @@ public class HttpSinkBatchWriterTest {
             assertEquals("user" + i, row.get("name").asText());
             assertEquals(19 + i, row.get("age").asInt());
         }
+    }
+
+    @Test
+    public void testArrayModeKeepsExactDecimalText() throws Exception {
+        SeaTunnelRowType decimalRowType =
+                new SeaTunnelRowType(
+                        new String[] {"amount"},
+                        new SeaTunnelDataType<?>[] {new DecimalType(38, 9)});
+        httpParameter.setArrayMode(true);
+        httpParameter.setBatchSize(BATCH_SIZE);
+        sinkWriter = new TestableHttpSinkWriter(decimalRowType, httpParameter);
+
+        for (String amount :
+                new String[] {"12345678901234567890.123456789", "12345678.12", "100.00"}) {
+            sinkWriter.write(new SeaTunnelRow(new Object[] {new BigDecimal(amount)}));
+        }
+
+        verify(httpClientProvider, times(1))
+                .doPost(eq(TEST_URL), any(), requestBodyCaptor.capture());
+        assertEquals(
+                "[{\"amount\":12345678901234567890.123456789},"
+                        + "{\"amount\":12345678.12},"
+                        + "{\"amount\":100.00}]",
+                requestBodyCaptor.getValue());
     }
 
     @Test
