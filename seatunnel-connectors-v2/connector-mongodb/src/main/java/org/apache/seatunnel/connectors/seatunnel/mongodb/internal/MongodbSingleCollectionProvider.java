@@ -22,7 +22,6 @@ import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.bson.BsonDocument;
 
 import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +35,9 @@ public class MongodbSingleCollectionProvider implements MongodbClientProvider {
 
     private final String defaultCollection;
 
+    /** Optional PEM CA bundle; {@code null} creates the client from the connection string only. */
+    private final String tlsCaFile;
+
     private MongoClient client;
 
     private MongoDatabase database;
@@ -44,19 +46,28 @@ public class MongodbSingleCollectionProvider implements MongodbClientProvider {
 
     public MongodbSingleCollectionProvider(
             String connectionString, String defaultDatabase, String defaultCollection) {
+        this(connectionString, defaultDatabase, defaultCollection, null);
+    }
+
+    public MongodbSingleCollectionProvider(
+            String connectionString,
+            String defaultDatabase,
+            String defaultCollection,
+            String tlsCaFile) {
         Preconditions.checkNotNull(connectionString);
         Preconditions.checkNotNull(defaultDatabase);
         Preconditions.checkNotNull(defaultCollection);
         this.connectionString = connectionString;
         this.defaultDatabase = defaultDatabase;
         this.defaultCollection = defaultCollection;
+        this.tlsCaFile = tlsCaFile;
     }
 
     @Override
     public MongoClient getClient() {
         synchronized (this) {
             if (client == null) {
-                client = MongoClients.create(connectionString);
+                client = MongodbClientSettingsFactory.createClient(connectionString, tlsCaFile);
             }
         }
         return client;

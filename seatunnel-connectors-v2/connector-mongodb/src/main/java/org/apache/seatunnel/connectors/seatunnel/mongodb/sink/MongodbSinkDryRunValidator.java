@@ -19,10 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientSettingsFactory;
 
 import org.bson.Document;
 
-import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoInterruptedException;
 import com.mongodb.MongoSecurityException;
@@ -48,7 +49,11 @@ final class MongodbSinkDryRunValidator {
             throw new IllegalStateException("MongoDB sink dry-run was interrupted.");
         }
         try (MongoClient client =
-                MongoClients.create(settings(options.get(MongodbSinkOptions.URI)))) {
+                MongoClients.create(
+                        settings(
+                                options.get(MongodbSinkOptions.URI),
+                                options.getOptional(MongodbSinkOptions.TLS_CA_FILE)
+                                        .orElse(null)))) {
             // Writes select the primary regardless of the URI's read preference.
             client.getDatabase(options.get(MongodbSinkOptions.DATABASE))
                     .runCommand(new Document("ping", 1), ReadPreference.primary());
@@ -59,6 +64,10 @@ final class MongodbSinkDryRunValidator {
             throw new IllegalStateException("MongoDB sink dry-run authentication failed.");
         } catch (MongoTimeoutException e) {
             throw new IllegalStateException("MongoDB sink dry-run connection timed out.");
+        } catch (MongodbConnectorException e) {
+            // Raised for an invalid tls_ca_file; the message names the file, never the URI.
+            throw new IllegalStateException(
+                    "MongoDB sink dry-run TLS configuration is invalid: " + e.getMessage());
         } catch (RuntimeException e) {
             // Driver messages, causes and suppressed close failures can contain URI credentials.
             throw new IllegalStateException(
@@ -66,12 +75,13 @@ final class MongodbSinkDryRunValidator {
         }
     }
 
-    /** Preserves URI settings, but bounds individual waits; this is not a total deadline. */
-    private static MongoClientSettings settings(String uri) {
+    /**
+     * Uses the same client settings as the sink writer, including the optional CA file, but bounds
+     * individual waits; this is not a total deadline.
+     */
+    private static MongoClientSettings settings(String uri, String tlsCaFile) {
         MongoClientSettings configured =
-                MongoClientSettings.builder()
-                        .applyConnectionString(new ConnectionString(uri))
-                        .build();
+                MongodbClientSettingsFactory.createSettings(uri, tlsCaFile);
         long selectionTimeout =
                 bounded(
                         configured
