@@ -197,7 +197,7 @@ public class GraphQLIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/fake_to_graphql_rejected.conf");
         Assertions.assertNotEquals(0, execResult.getExitCode());
-        String output = execResult.getStdout() + execResult.getStderr();
+        String output = jobOutputAndServerLogs(container, execResult);
         Assertions.assertTrue(output.contains("The GraphQL server returned errors"));
         Assertions.assertTrue(output.contains("'insert_missing_table' not found"));
     }
@@ -208,10 +208,20 @@ public class GraphQLIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/graphql_rejected_query_to_assert.conf");
         Assertions.assertNotEquals(0, execResult.getExitCode());
-        String output = execResult.getStdout() + execResult.getStderr();
+        String output = jobOutputAndServerLogs(container, execResult);
         Assertions.assertTrue(output.contains("The GraphQL server returned errors"));
         // This job sets no variables, so it also checks that they are sent as an object.
         Assertions.assertTrue(output.contains("'missing_table' not found"));
+    }
+
+    /**
+     * On Flink the client prints only one failure cause, and when the failed task also loses an
+     * operator event, that one can be reported instead of the connector error. The connector error
+     * is always in the server logs.
+     */
+    private static String jobOutputAndServerLogs(
+            TestContainer container, Container.ExecResult execResult) {
+        return execResult.getStdout() + execResult.getStderr() + container.getServerLogs();
     }
 
     private void trackTable(String table) throws IOException {
