@@ -630,27 +630,46 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
-    public void testAggregatedFlushReportsFailureWhileAnotherQueueIsFlushing() throws Exception {
+    public void testAggregatedFlushReportsFailureAndClosesQueuesIndependently() throws Exception {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
-        SinkIdentifier slowIdentifier = SinkIdentifier.of("test.slow", 0);
-        SinkIdentifier failedIdentifier = SinkIdentifier.of("test.failed", 1);
-        sinkWriters.put(slowIdentifier, new TestSinkWriter());
-        sinkWriters.put(failedIdentifier, new TestSinkWriter());
+        SinkIdentifier failedIdentifier = SinkIdentifier.of("test.failed", 0);
+        SinkIdentifier slowIdentifier = SinkIdentifier.of("test.slow", 1);
+        CountDownLatch failedWriterClosed = new CountDownLatch(1);
+        AtomicBoolean slowFlushFinished = new AtomicBoolean();
+        AtomicBoolean slowWriterClosed = new AtomicBoolean();
+        sinkWriters.put(
+                failedIdentifier,
+                new TestSinkWriter() {
+                    @Override
+                    public void close() {
+                        failedWriterClosed.countDown();
+                    }
+                });
+        sinkWriters.put(
+                slowIdentifier,
+                new TestSinkWriter() {
+                    @Override
+                    public void close() {
+                        Assertions.assertTrue(slowFlushFinished.get());
+                        slowWriterClosed.set(true);
+                    }
+                });
         sinkWritersContext.put(slowIdentifier, new TestSinkWriterContext());
         sinkWritersContext.put(failedIdentifier, new TestSinkWriterContext());
 
         CountDownLatch slowFlushStarted = new CountDownLatch(1);
         CompletableFuture<Void> releaseSlowFlush = new CompletableFuture<>();
         IOException expectedFailure = new IOException("intentional flush failure");
-        SinkContextProxy slowProxy = new SinkContextProxy(0, 2, new TestSinkWriterContext());
+        SinkContextProxy slowProxy = new SinkContextProxy(1, 2, new TestSinkWriterContext());
         slowProxy.registerFlushAction(
                 () -> {
                     slowFlushStarted.countDown();
                     releaseSlowFlush.join();
+                    slowFlushFinished.set(true);
                 });
-        SinkContextProxy failedProxy = new SinkContextProxy(1, 2, new TestSinkWriterContext());
+        SinkContextProxy failedProxy = new SinkContextProxy(0, 2, new TestSinkWriterContext());
         failedProxy.registerFlushAction(
                 () -> {
                     Assertions.assertTrue(slowFlushStarted.await(5, TimeUnit.SECONDS));
@@ -669,18 +688,34 @@ public class MultiTableSinkWriterTest {
                         });
         Thread dispatcher = new Thread(flush);
         dispatcher.setDaemon(true);
+        FutureTask<Void> close =
+                new FutureTask<>(
+                        () -> {
+                            multiTableSinkWriter.close();
+                            return null;
+                        });
+        Thread closer = new Thread(close);
+        closer.setDaemon(true);
         try {
-            multiTableSinkWriter.write(buildRow("test.slow", 0));
+            multiTableSinkWriter.write(buildRow("test.failed", 0));
             dispatcher.start();
             ExecutionException error =
                     Assertions.assertThrows(
                             ExecutionException.class, () -> flush.get(5, TimeUnit.SECONDS));
             Assertions.assertSame(expectedFailure, error.getCause());
+
+            closer.start();
+            Assertions.assertTrue(failedWriterClosed.await(5, TimeUnit.SECONDS));
+            Assertions.assertFalse(slowWriterClosed.get());
         } finally {
             releaseSlowFlush.complete(null);
             dispatcher.join(5000);
-            multiTableSinkWriter.close();
+            if (closer.getState() == Thread.State.NEW) {
+                closer.start();
+            }
+            close.get(5, TimeUnit.SECONDS);
         }
+        Assertions.assertTrue(slowWriterClosed.get());
     }
 
     @Test

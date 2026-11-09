@@ -55,11 +55,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -98,7 +97,6 @@ public class MultiTableSinkWriter
     private final ExecutorService executorService;
     private final AtomicReference<CompletableFuture<Throwable>> activeTimerFlush =
             new AtomicReference<>();
-    private final ReentrantReadWriteLock timerFlushLifecycle = new ReentrantReadWriteLock();
     private final MultiTableFailurePolicy failurePolicy;
     private final JobMode jobMode;
     private final int tableRetryTimes;
@@ -886,10 +884,11 @@ public class MultiTableSinkWriter
             firstE[0] = e;
         }
         executorService.shutdownNow();
-        // A cancelled future can complete while connector code or table isolation is still running.
-        Lock flushCloseLock = timerFlushLifecycle.writeLock();
-        flushCloseLock.lock();
-        flushCloseLock.unlock();
+        if (failurePolicy.continueOtherTables()) {
+            synchronized (this) {
+                // Wait for in-progress table isolation before closing any child writer.
+            }
+        }
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
                 Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkIdentifierSinkWriterMap =
@@ -983,7 +982,12 @@ public class MultiTableSinkWriter
                 flushQueue(0, proxyContexts, completion);
                 completion.complete(null);
             } else {
-                submitQueueFlushes(proxyContexts, completion, flushTasks);
+                try {
+                    submitQueueFlushes(proxyContexts, completion, flushTasks);
+                } catch (RejectedExecutionException error) {
+                    // Closing can shut down the executor after the submit loop checks completion.
+                    completion.complete(error);
+                }
             }
             Throwable failure = completion.get();
             if (failure instanceof Exception) {
@@ -1036,43 +1040,39 @@ public class MultiTableSinkWriter
             Map<SinkIdentifier, SinkContextProxy> proxyContexts,
             CompletableFuture<Throwable> completion)
             throws Exception {
-        Lock flushLock = timerFlushLifecycle.readLock();
-        flushLock.lockInterruptibly();
-        try {
-            MultiTableWriterRunnable writerRunnable = runnable.get(queueIndex);
-            for (SinkIdentifier id : sinkWritersWithIndex.get(queueIndex).keySet()) {
-                try {
-                    synchronized (writerRunnable) {
-                        if (completion.isDone()) {
-                            return;
-                        }
-                        if (isTableFailed(id.getTableIdentifier())) {
-                            continue;
-                        }
-                        SinkContextProxy proxy = proxyContexts.get(id);
-                        RunnableWithException flushAction =
-                                proxy == null ? null : proxy.getFlushAction();
-                        if (flushAction != null) {
-                            flushAction.run();
-                        }
-                    }
-                } catch (InterruptedException error) {
-                    Thread.currentThread().interrupt();
-                    throw error;
-                } catch (Exception error) {
-                    if (!failurePolicy.continueOtherTables()) {
-                        throw error;
-                    }
+        MultiTableWriterRunnable writerRunnable = runnable.get(queueIndex);
+        for (SinkIdentifier id : sinkWritersWithIndex.get(queueIndex).keySet()) {
+            try {
+                synchronized (writerRunnable) {
                     if (completion.isDone()) {
                         return;
                     }
-                    // Table isolation acquires other queue locks.
+                    if (isTableFailed(id.getTableIdentifier())) {
+                        continue;
+                    }
+                    SinkContextProxy proxy = proxyContexts.get(id);
+                    RunnableWithException flushAction =
+                            proxy == null ? null : proxy.getFlushAction();
+                    if (flushAction != null) {
+                        flushAction.run();
+                    }
+                }
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                throw error;
+            } catch (Exception error) {
+                if (!failurePolicy.continueOtherTables()) {
+                    throw error;
+                }
+                // Table isolation acquires other queue locks. Coordinate with close outside ours.
+                synchronized (this) {
+                    if (completion.isDone()) {
+                        return;
+                    }
                     handleTableFailure(
                             id.getTableIdentifier(), MultiTableFailurePhase.TIMER_FLUSH, error);
                 }
             }
-        } finally {
-            flushLock.unlock();
         }
     }
 

@@ -185,9 +185,9 @@ records.
 
 The configured Multi-Table failure policy also applies to timer flush. `FAIL_FAST` propagates the
 first reported child failure promptly. A failure that ends the round or a cancellation stops
-the queues from starting further child flush actions. Sink close waits for actions already in
-progress before releasing writer resources. A policy that continues other tables isolates the
-failed table and continues flushing healthy tables.
+the queues from starting further child flush actions. During shutdown, each queue's writers close
+after its in-flight flush exits. Shared resources are released after all writers close. A policy
+that continues other tables isolates the failed table and continues flushing healthy tables.
 
 ## Monitoring
 
