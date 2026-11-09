@@ -30,7 +30,12 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-/** A {@link java.util.concurrent.CompletableFuture} with own executor. */
+/**
+ * A {@link java.util.concurrent.CompletableFuture} with its own executor.
+ *
+ * <p>Lives in {@code seatunnel-common} so the API and engine can share it. The original package
+ * name keeps existing callers compatible.
+ */
 public class CompletableFuture<T> extends java.util.concurrent.CompletableFuture<T> {
 
     public static final Executor EXECUTOR =
