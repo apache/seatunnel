@@ -46,6 +46,7 @@ import static org.apache.seatunnel.connectors.seatunnel.amplitude.AmplitudeSourc
 import static org.apache.seatunnel.connectors.seatunnel.amplitude.AmplitudeSourceOptions.SECRET_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.amplitude.AmplitudeSourceOptions.START;
 
+/** Discovers and creates the Amplitude raw-event export source. */
 @AutoService(Factory.class)
 public class AmplitudeSourceFactory implements TableSourceFactory {
     @Override

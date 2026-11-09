@@ -54,6 +54,7 @@ import static org.apache.seatunnel.connectors.seatunnel.amplitude.AmplitudeSourc
 import static org.apache.seatunnel.connectors.seatunnel.amplitude.AmplitudeSourceOptions.SECRET_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.amplitude.AmplitudeSourceOptions.START;
 
+/** Validates the export window, endpoint, credentials and bounded archive settings. */
 final class AmplitudeSourceConfig implements Serializable {
     private static final DateTimeFormatter HOUR =
             DateTimeFormatter.ofPattern("uuuuMMdd'T'HH").withResolverStyle(ResolverStyle.STRICT);

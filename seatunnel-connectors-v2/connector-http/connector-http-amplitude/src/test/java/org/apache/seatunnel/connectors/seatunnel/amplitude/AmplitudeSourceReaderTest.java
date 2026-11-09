@@ -52,6 +52,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -64,6 +65,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -144,7 +146,7 @@ class AmplitudeSourceReaderTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         do {
             reader.pollNext(output);
-            if (org.mockito.Mockito.mockingDetails(context).getInvocations().stream()
+            if (mockingDetails(context).getInvocations().stream()
                     .anyMatch(call -> call.getMethod().getName().equals("signalNoMoreElement"))) {
                 return;
             }
@@ -711,14 +713,11 @@ class AmplitudeSourceReaderTest {
         AmplitudeSourceReader reader = reader();
         Collector<SeaTunnelRow> output = collector(new ArrayList<>());
         Object checkpointLock = output.getCheckpointLock();
-        AtomicInteger checkpointLookups = new AtomicInteger();
         CountDownLatch acquiring = new CountDownLatch(1), allowAcquire = new CountDownLatch(1);
         doAnswer(
                         call -> {
-                            if (checkpointLookups.incrementAndGet() > 1) {
-                                acquiring.countDown();
-                                assertTrue(allowAcquire.await(5, TimeUnit.SECONDS));
-                            }
+                            acquiring.countDown();
+                            assertTrue(allowAcquire.await(5, TimeUnit.SECONDS));
                             return checkpointLock;
                         })
                 .when(output)
@@ -741,6 +740,80 @@ class AmplitudeSourceReaderTest {
         }
         verify(context, never()).signalNoMoreElement();
         assertThrows(IOException.class, reader::open);
+    }
+
+    @Test
+    void cancellationStopsAnEmptyHandoffWait() throws Exception {
+        stopWhileWaitingForFirstRow(false);
+    }
+
+    @Test
+    void interruptionStopsAnEmptyHandoffWait() throws Exception {
+        stopWhileWaitingForFirstRow(true);
+    }
+
+    private void stopWhileWaitingForFirstRow(boolean interrupt) throws Exception {
+        CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
+        server.createContext(
+                "/api/2/export",
+                exchange -> {
+                    entered.countDown();
+                    try {
+                        release.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    } finally {
+                        exchange.close();
+                    }
+                });
+        options.put("read_timeout_ms", 30000);
+        AmplitudeSourceReader reader = reader();
+        Collector<SeaTunnelRow> output = collector(new ArrayList<>());
+        AtomicReference<Exception> failure = new AtomicReference<>();
+        Thread polling =
+                new Thread(
+                        () -> {
+                            try {
+                                while (true) {
+                                    reader.pollNext(output);
+                                }
+                            } catch (Exception e) {
+                                failure.set(e);
+                            }
+                        });
+        polling.start();
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            Thread.State observed;
+            do {
+                observed = polling.getState();
+                if (observed == Thread.State.TIMED_WAITING) {
+                    break;
+                }
+                Thread.sleep(1);
+            } while (System.nanoTime() < deadline);
+            assertEquals(Thread.State.TIMED_WAITING, observed);
+            synchronized (output.getCheckpointLock()) {
+                assertEquals(1, reader.snapshotState(1).size());
+                if (interrupt) {
+                    polling.interrupt();
+                } else {
+                    reader.cancel();
+                }
+            }
+            polling.join(1000);
+            assertFalse(polling.isAlive(), "an idle poll must not delay stop");
+            assertTrue(
+                    failure.get() instanceof IOException
+                            || (interrupt && failure.get() instanceof InterruptedException));
+            verify(context, never()).signalNoMoreElement();
+        } finally {
+            reader.cancel();
+            polling.interrupt();
+            polling.join(5000);
+            release.countDown();
+        }
     }
 
     @Test
@@ -773,7 +846,7 @@ class AmplitudeSourceReaderTest {
 
     @Test
     void emissionReturnsBetweenBoundedCheckpointAtomicBatches() throws Exception {
-        serve(zip(gzip(String.join("", java.util.Collections.nCopies(300, EVENT)))));
+        serve(zip(gzip(String.join("", Collections.nCopies(300, EVENT)))));
         List<SeaTunnelRow> rows = new ArrayList<>();
         Collector<SeaTunnelRow> output = collector(rows);
         Thread pollingThread = Thread.currentThread();
@@ -801,14 +874,43 @@ class AmplitudeSourceReaderTest {
     }
 
     @Test
+    void readsRepresentativeExportWithEngineIdleCadence() throws Exception {
+        int expected = 20000;
+        StringBuilder events = new StringBuilder();
+        for (int i = 0; i < expected; i++) {
+            events.append(EVENT.replace("one", Integer.toString(i)));
+        }
+        serve(zip(gzip(events.toString())));
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        Collector<SeaTunnelRow> output = collector(rows);
+        AmplitudeSourceReader reader = reader();
+        long started = System.nanoTime();
+        long deadline = started + TimeUnit.SECONDS.toNanos(10);
+        int idle = 100;
+        while (rows.size() < expected && System.nanoTime() < deadline) {
+            int before = rows.size();
+            reader.pollNext(output);
+            assertTrue(rows.size() - before <= 128);
+            if (rows.size() == before) {
+                Thread.sleep(idle);
+            }
+        }
+        assertEquals(
+                expected, rows.size(), "engine idle sleeps must not throttle each decoded row");
+        for (int i = 0; i < expected; i++) {
+            assertEquals(Integer.toString(i), rows.get(i).getField(1));
+        }
+        pollToEnd(reader, output);
+        verify(context).signalNoMoreElement();
+    }
+
+    @Test
     void rejectsOversizedHttpHeaderLines() throws Exception {
         server.createContext(
                 "/api/2/export",
                 exchange -> {
                     exchange.getResponseHeaders()
-                            .add(
-                                    "X-Untrusted",
-                                    String.join("", java.util.Collections.nCopies(10000, "a")));
+                            .add("X-Untrusted", String.join("", Collections.nCopies(10000, "a")));
                     respond(exchange, 200, zip(gzip(EVENT)));
                 });
         List<SeaTunnelRow> rows = new ArrayList<>();

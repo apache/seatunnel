@@ -155,23 +155,24 @@ final class AmplitudeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
         }
         checkCancelled();
         try {
-            synchronized (output.getCheckpointLock()) {
-                synchronized (lifecycle) {
-                    checkCancelled();
-                    if (downloads == null) {
-                        throw new ExportFailure("Amplitude reader is not open");
-                    }
-                    if (prepared == null) {
-                        prepared = downloads.submit(this::prepareArchive);
-                    }
+            synchronized (lifecycle) {
+                checkCancelled();
+                if (downloads == null) {
+                    throw new ExportFailure("Amplitude reader is not open");
                 }
-                for (int count = 0; count < 128; count++) {
-                    SeaTunnelRow row = readyRows.poll();
-                    if (row == null) {
-                        break;
-                    }
+                if (prepared == null) {
+                    prepared = downloads.submit(this::prepareArchive);
+                }
+            }
+            // A transiently empty handoff must not trigger the engine's 100 ms idle sleep
+            // between decoded rows. Keep this short wait outside both local monitors.
+            SeaTunnelRow row = readyRows.poll(50, TimeUnit.MILLISECONDS);
+            synchronized (output.getCheckpointLock()) {
+                checkCancelled();
+                for (int count = 0; count < 128 && row != null; count++) {
                     checkCancelled();
                     output.collect(row);
+                    row = count < 127 ? readyRows.poll() : null;
                 }
                 if (!prepared.isDone() || !readyRows.isEmpty()) {
                     // Do not wait for I/O or parsing: the engine must regain control for

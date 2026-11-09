@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+/** Bounded raw-event exports with whole-window replay on checkpoint restore. */
 public class AmplitudeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private final AmplitudeSourceConfig config;
     private final CatalogTable table;

@@ -57,6 +57,7 @@ public class AmplitudeIT extends TestSuiteBase implements TestResource {
     private HttpServer fixture;
     private int port;
     private final AtomicInteger requests = new AtomicInteger();
+    private volatile int eventCount = 3;
     private volatile boolean corrupt;
     private volatile boolean blockDownload;
     private volatile CountDownLatch bodyStarted;
@@ -122,18 +123,20 @@ public class AmplitudeIT extends TestSuiteBase implements TestResource {
         fixture.start();
     }
 
-    private static byte[] archive() throws IOException {
+    private byte[] archive() throws IOException {
         ByteArrayOutputStream zipBytes = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(zipBytes)) {
             // Multiple gzip entries exercise both archive layers.
             for (int i = 1; i <= 3; i++) {
                 ByteArrayOutputStream gzipBytes = new ByteArrayOutputStream();
                 try (GZIPOutputStream gzip = new GZIPOutputStream(gzipBytes)) {
-                    gzip.write(
-                            ("{\"event_type\":\"purchase\",\"uuid\":\""
-                                            + i
-                                            + "\",\"event_properties\":{\"amount\":42}}\n")
-                                    .getBytes(StandardCharsets.UTF_8));
+                    for (int row = i; row <= eventCount; row += 3) {
+                        gzip.write(
+                                ("{\"event_type\":\"purchase\",\"uuid\":\""
+                                                + row
+                                                + "\",\"event_properties\":{\"amount\":42}}\n")
+                                        .getBytes(StandardCharsets.UTF_8));
+                    }
                 }
                 zip.putNextEntry(new ZipEntry(i + ".json.gz"));
                 zip.write(gzipBytes.toByteArray());
@@ -161,6 +164,19 @@ public class AmplitudeIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void retriesThenReadsAllGzipEntries(TestContainer container) throws Exception {
         reset(false, false);
+        String jobId = Long.toString(System.currentTimeMillis());
+        Container.ExecResult result = execute(container, jobId);
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        if (container.identifier() == TestContainerId.SEATUNNEL) {
+            Assertions.assertEquals("FINISHED", container.getJobStatus(jobId));
+        }
+        Assertions.assertEquals(3, requests.get());
+    }
+
+    @TestTemplate
+    public void readsRepresentativeExport(TestContainer container) throws Exception {
+        reset(false, false);
+        eventCount = 20000;
         String jobId = Long.toString(System.currentTimeMillis());
         Container.ExecResult result = execute(container, jobId);
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
@@ -243,11 +259,15 @@ public class AmplitudeIT extends TestSuiteBase implements TestResource {
     }
 
     private String[] variables() {
-        return variables(3);
+        return variables(eventCount);
     }
 
     private String[] variables(int minimum) {
-        return new String[] {"amplitude.test.port=" + port, "amplitude.test.min_rows=" + minimum};
+        return new String[] {
+            "amplitude.test.port=" + port,
+            "amplitude.test.min_rows=" + minimum,
+            "amplitude.test.max_rows=" + eventCount
+        };
     }
 
     private Container.ExecResult execute(TestContainer container, String jobId)
@@ -260,6 +280,7 @@ public class AmplitudeIT extends TestSuiteBase implements TestResource {
 
     private void reset(boolean invalid, boolean blocked) {
         requests.set(0);
+        eventCount = 3;
         corrupt = invalid;
         blockDownload = blocked;
         bodyStarted = new CountDownLatch(1);

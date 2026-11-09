@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.Map;
 
+/** Options for bounded Amplitude export windows, mapping and resource limits. */
 public final class AmplitudeSourceOptions {
     public static final Option<String> API_KEY =
             Options.key("api_key")

@@ -139,7 +139,8 @@ HTTP dates. A delay above `max_retry_backoff_ms` fails instead of retrying earli
 Other statuses, invalid archives and decoding failures are not silently retried by the connector.
 Checkpoint locks cover only row collection and local terminal state, never network/validation waits.
 One connector-owned worker downloads, validates and parses the archive into a single-slot handoff.
-Each poll collects at most 128 available rows without waiting for the worker, then returns to the
+Before collecting, each poll waits at most 50 ms for the first decoded row outside the checkpoint
+lock. It then collects at most 128 available rows without waiting under that lock and returns to the
 engine so savepoint/stop can close the reader. Rows are emitted on the polling thread, not from that
 worker. Close aborts I/O, stops and joins the worker, and removes the temporary file.
 Cancellation aborts active HTTP I/O and wakes retry waits.
