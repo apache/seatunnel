@@ -20,6 +20,8 @@ package org.apache.seatunnel.api.metalake;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.constants.MetaLakeType;
 
 import org.junit.jupiter.api.Assertions;
@@ -61,7 +63,16 @@ public class MetalakeLocaleTest {
             // Turkish locale, which is not a MetaLakeType constant.
             Locale.setDefault(Locale.forLanguageTag("tr-TR"));
             Config config = ConfigFactory.parseString(JOB_CONFIG);
-            Assertions.assertNotNull(MetalakeConfigUtils.getMetalakeConfig(config));
+            Config metalakeConfig = MetalakeConfigUtils.getMetalakeConfig(config);
+            Assertions.assertNotNull(metalakeConfig);
+            // The env block must survive the conversion untouched.
+            Config envConfig = metalakeConfig.getConfig(Constants.ENV);
+            Assertions.assertTrue(envConfig.getBoolean(EnvCommonOptions.METALAKE_ENABLED.key()));
+            Assertions.assertEquals(
+                    "gravitino", envConfig.getString(EnvCommonOptions.METALAKE_TYPE.key()));
+            Assertions.assertEquals(
+                    "http://localhost:8090/api/metalakes/test/",
+                    envConfig.getString(EnvCommonOptions.METALAKE_URL.key()));
         } finally {
             Locale.setDefault(defaultLocale);
         }

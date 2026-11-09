@@ -969,9 +969,9 @@ public class GravitinoTableSchemaConvertorTest {
     void testConvertTypeIsIndependentOfDefaultLocale() throws Exception {
         Locale defaultLocale = Locale.getDefault();
         try {
-            // In a Turkish or Azerbaijani locale a lower-case "i" is upper-cased to
-            // a dotted "I", so a locale dependent conversion would not match the
-            // type name below.
+            // In a Turkish or Azerbaijani locale an upper-case "I" is lower-cased to
+            // a dotless "i" (U+0131), so a locale dependent conversion would not match
+            // the type name below.
             Locale.setDefault(Locale.forLanguageTag("tr-TR"));
             String json =
                     "{\"columns\":[{\"name\":\"int_col\",\"type\":\"INTEGER\",\"nullable\":true}]}";
