@@ -39,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,6 +47,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -65,6 +67,8 @@ public class ConfigBuilder {
     private static final String CONFIG_PATH_SEPARATOR = ".";
     // Treat common option separators as equivalent when matching config paths in logs.
     private static final Pattern CONFIG_OPTION_SEPARATOR_PATTERN = Pattern.compile("[._-]+");
+
+    private static final String PLACEHOLDER_REGEX = "\\$\\{([^:{}]+)(?::[^}]*)?\\}";
 
     private ConfigBuilder() {
         // utility class and cannot be instantiated
@@ -443,6 +447,19 @@ public class ConfigBuilder {
             }
             parentMap.put(variableKey, variableValue);
         }
+    }
+
+    @Deprecated
+    public static List<String> extractPlaceholder(String input) {
+        Pattern pattern = Pattern.compile(PLACEHOLDER_REGEX);
+        Matcher matcher = pattern.matcher(input);
+        List<String> placeholders = new ArrayList<>();
+
+        while (matcher.find()) {
+            placeholders.add(matcher.group(1));
+        }
+
+        return placeholders;
     }
 
     public static String mapToString(Map<String, Object> configMap) {
