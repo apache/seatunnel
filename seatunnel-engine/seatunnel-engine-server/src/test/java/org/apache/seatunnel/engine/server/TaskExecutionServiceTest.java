@@ -20,12 +20,17 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.BlockTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.StopTimeTestTask;
@@ -41,6 +46,8 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TestTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -52,6 +59,7 @@ import org.mockito.Mockito;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
 import java.io.File;
@@ -69,6 +77,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -1074,6 +1083,127 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                 timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
         executionContexts.remove(location, context);
         timerFlushFutures.remove(context);
+    }
+
+    /**
+     * A pipeline restore resets the task group state to CREATED and deploys a new task group at the
+     * same location. A barrier that found no task group must not reach that new deployment: it
+     * belongs to the failed attempt, and the restored checkpoint coordinator never completes it.
+     */
+    @Test
+    public void testBarrierForAMissingTaskGroupDoesNotReachTheNextDeployment() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation groupLocation =
+                new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId());
+        TaskLocation taskLocation = new TaskLocation(groupLocation, 0, 0);
+        BarrierRecordingTask task = new BarrierRecordingTask(taskLocation.getTaskID());
+        nodeEngine
+                .getHazelcastInstance()
+                .getMap(Constant.IMAP_RUNNING_JOB_STATE)
+                .put(groupLocation, ExecutionState.CREATED);
+
+        InvocationFuture<Object> barrierFuture = sendFinalBarrier(taskLocation);
+        Thread.sleep(1000);
+        PassiveCompletableFuture<TaskExecutionState> deployment =
+                deployLocalTask(
+                        taskExecutionService,
+                        new TaskGroupDefaultImpl(groupLocation, "ts", Lists.newArrayList(task)));
+        try {
+            // Longer than two retry intervals of the operation before this fix.
+            await().pollDelay(5, TimeUnit.SECONDS)
+                    .atMost(6, TimeUnit.SECONDS)
+                    .untilAsserted(() -> assertEquals(0, task.barriers.size()));
+            ExecutionException e =
+                    Assertions.assertThrows(
+                            ExecutionException.class, () -> barrierFuture.get(1, TimeUnit.SECONDS));
+            assertTrue(rootCause(e) instanceof TaskGroupContextNotFoundException, e.toString());
+        } finally {
+            taskExecutionService.cancelTaskGroup(groupLocation);
+            await().atMost(10, TimeUnit.SECONDS).until(deployment::isDone);
+        }
+    }
+
+    @Test
+    public void testBarrierReachesARunningTaskGroup() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation groupLocation =
+                new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId());
+        TaskLocation taskLocation = new TaskLocation(groupLocation, 0, 0);
+        BarrierRecordingTask task = new BarrierRecordingTask(taskLocation.getTaskID());
+        PassiveCompletableFuture<TaskExecutionState> deployment =
+                deployLocalTask(
+                        taskExecutionService,
+                        new TaskGroupDefaultImpl(groupLocation, "ts", Lists.newArrayList(task)));
+        try {
+            await().atMost(10, TimeUnit.SECONDS).until(() -> task.context != null);
+            sendFinalBarrier(taskLocation).get(10, TimeUnit.SECONDS);
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    assertEquals(
+                                            Collections.singletonList(Long.MAX_VALUE),
+                                            task.barriers));
+        } finally {
+            taskExecutionService.cancelTaskGroup(groupLocation);
+            await().atMost(10, TimeUnit.SECONDS).until(deployment::isDone);
+        }
+    }
+
+    private InvocationFuture<Object> sendFinalBarrier(TaskLocation taskLocation) {
+        CheckpointBarrier barrier =
+                new CheckpointBarrier(
+                        Long.MAX_VALUE,
+                        System.currentTimeMillis(),
+                        CheckpointType.COMPLETED_POINT_TYPE);
+        return NodeEngineUtil.sendOperationToMemberNode(
+                nodeEngine,
+                new CheckpointBarrierTriggerOperation(barrier, taskLocation),
+                nodeEngine.getThisAddress());
+    }
+
+    private static Throwable rootCause(Throwable throwable) {
+        Throwable cause = throwable;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        return cause;
+    }
+
+    /** Runs until it is cancelled and records the id of every barrier it receives. */
+    private static class BarrierRecordingTask implements Task {
+        private final long taskId;
+        private final List<Long> barriers = new CopyOnWriteArrayList<>();
+        private volatile TaskExecutionContext context;
+
+        BarrierRecordingTask(long taskId) {
+            this.taskId = taskId;
+        }
+
+        @NonNull @Override
+        public ProgressState call() throws Exception {
+            Thread.sleep(50);
+            return ProgressState.MADE_PROGRESS;
+        }
+
+        @NonNull @Override
+        public Long getTaskID() {
+            return taskId;
+        }
+
+        @Override
+        public void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
+            this.context = taskExecutionContext;
+        }
+
+        @Override
+        public TaskExecutionContext getExecutionContext() {
+            return context;
+        }
+
+        @Override
+        public void triggerBarrier(Barrier barrier) {
+            barriers.add(barrier.getId());
+        }
     }
 
     private static class ContextInitializationFailureTask implements Task {
