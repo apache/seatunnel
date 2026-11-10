@@ -44,6 +44,8 @@ Markdown 预览也有同样行为——`/#/overview` 于是变成 `/%23/overview
 Apache SeaTunnel 的 Web UI 是 SeaTunnel Engine 的可视化巡检控制台。它可以帮助运维人员查看集群概览、运行中和已完成作业、作业详情页、日志、实时 DAG 指标，以及 worker 和 master 节点状态。
 
 Web UI 在可视化巡检之外，也提供常用运维操作：可以提交和恢复作业，并为运行中作业提供需要确认的 cancel、stop 和 savepoint 控件。自动化场景或 UI 未暴露的工作流仍请使用 REST API 或命令行。
+
+**访问控制。** 会改变状态的控件（提交、恢复、stop、savepoint、cancel、Worker tag 更新）调用的是与命令行相同的 REST 接口，仅受节点上配置的 REST 认证保护。安装包自带的 `config/seatunnel.yaml` 默认开启 HTTP 且未启用认证，因此任何能访问 REST 端口的人都可以在浏览器中触发这些操作。在把 Web UI 暴露到可信网络之外之前，请按照 [安全](./security.md) 启用 `enable-basic-auth` 和 HTTPS（可选客户端证书）。
 ![overview.png](../../../images/ui/overview.png)
 
 ## 能力总览

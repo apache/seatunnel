@@ -25,7 +25,6 @@ import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -67,14 +66,15 @@ public class UpdateTagsService extends BaseService {
 
     private JsonObject updateTags(Map<String, Object> tagParams, MemberImpl localMember) {
         Map<String, String> tags = toStringTags(tagParams);
-        // Read before the change, because updateAttribute replaces the whole tag set: without this
-        // copy the tags a job was scheduled against are gone with no record of what they were.
-        Map<String, String> previousTags = new HashMap<>(localMember.getAttributes());
+        // updateAttribute replaces the whole tag set, so the previous size is read first. Only
+        // counts are logged on purpose: tag keys and values are arbitrary operator input and may
+        // carry secrets, so their content must never reach the server log.
+        int previousTagCount = localMember.getAttributes().size();
         localMember.updateAttribute(tags);
         log.info(
                 "Node tags updated: node={}, previousTags={}, tags={}",
                 localMember.getAddress(),
-                summarizeTagsForAudit(previousTags),
+                summarizeTagCountForAudit(previousTagCount),
                 summarizeTagsForAudit(tags));
         return new JsonObject().add("status", "success").add("message", "update node tags done.");
     }
@@ -142,6 +142,10 @@ public class UpdateTagsService extends BaseService {
      * @return the number of tags without any tag content.
      */
     static String summarizeTagsForAudit(Map<String, String> tags) {
-        return tags.size() + " tag(s)";
+        return summarizeTagCountForAudit(tags.size());
+    }
+
+    private static String summarizeTagCountForAudit(int tagCount) {
+        return tagCount + " tag(s)";
     }
 }

@@ -46,6 +46,8 @@ part of the redirect target.
 The Web UI of Apache SeaTunnel is a visual inspection console for SeaTunnel Engine. It helps operators view cluster overview data, running and finished jobs, job detail pages, logs, realtime DAG metrics, and the status of worker and master nodes.
 
 The Web UI combines visual inspection with common operational actions. It supports job submission and restore flows, plus confirmed cancel, stop, and savepoint controls for running jobs. Use the REST API or CLI for automation and workflows not exposed by the UI.
+
+**Access control.** The state-changing controls (submit, restore, stop, savepoint, cancel, worker tag updates) call the same REST endpoints as the CLI and are protected only by the REST authentication configured on the node. The packaged `config/seatunnel.yaml` enables HTTP without authentication, so anyone who can reach the REST port can trigger these actions from a browser. Enable `enable-basic-auth` and HTTPS (optionally with client certificates) as described in [Security](./security.md) before exposing the Web UI beyond a trusted network.
 ![overview.png](../../../images/ui/overview.png)
 
 ## Capability Summary

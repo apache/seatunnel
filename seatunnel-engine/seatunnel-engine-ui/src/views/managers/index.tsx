@@ -231,7 +231,11 @@ export default defineComponent({
           tags
         })
         if (clear) {
+          // The worker now has no tags, so nothing is unrepresentable any more and new lines
+          // typed into the empty editor must be parseable and savable without re-selecting.
           tagContent.value = ''
+          existingTagLines = new Map()
+          tagEditBlocked.value = false
         }
         tagMessage.value = t('managers.tagEditor.success')
         await refreshAfterTagUpdate()

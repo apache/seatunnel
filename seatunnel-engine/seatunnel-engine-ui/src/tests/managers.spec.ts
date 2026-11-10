@@ -284,6 +284,22 @@ describe('managers', () => {
     await onPositiveClick(new MouseEvent('click'))
     await flushPromises()
     expect(managerService.updateTags).not.toHaveBeenCalled()
+    // Clear Tags is the explicit way out: after it succeeds the block must be lifted so newly
+    // typed tags can be saved without selecting the worker again.
+    const onClearClick = wrapper.findAllComponents(NPopconfirm)[0].props('onPositiveClick') as (
+      event: MouseEvent
+    ) => Promise<void>
+    await onClearClick(new MouseEvent('click'))
+    await flushPromises()
+    expect(managerService.updateTags).toHaveBeenLastCalledWith({ uuid: 'worker-1', tags: {} })
+    await wrapper.find('textarea').setValue('zone=prod')
+    expect(updateButton.props('disabled')).toBe(false)
+    await onPositiveClick(new MouseEvent('click'))
+    await flushPromises()
+    expect(managerService.updateTags).toHaveBeenLastCalledWith({
+      uuid: 'worker-1',
+      tags: { zone: 'prod' }
+    })
   })
   test('rejects duplicate tag keys before calling the server', async () => {
     vi.mocked(managerService.getMonitors).mockResolvedValue([
