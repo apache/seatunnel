@@ -20,6 +20,7 @@ package org.apache.seatunnel.format.json.debezium;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -45,6 +46,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -572,6 +574,136 @@ public class DebeziumJsonSerDeSchemaTest {
         Assertions.assertEquals("2024-12-17T15:23:38.790", row.getField(11).toString());
         Assertions.assertEquals("2024-12-17T15:23:40.280", row.getField(12).toString());
         Assertions.assertEquals("2024-12-17T15:23:42.119", row.getField(13).toString());
+    }
+
+    @Test
+    public void testDeserializationForSchemaLessMillisecondTime() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"time_millis"}, new SeaTunnelDataType[] {LOCAL_TIME_TYPE});
+        DebeziumJsonDeserializationSchema deserializationSchema =
+                new DebeziumJsonDeserializationSchema(
+                        CatalogTableUtil.getCatalogTable("default", rowType), false, false);
+        SimpleCollector collector = new SimpleCollector();
+
+        deserializationSchema.deserialize(
+                "{\"before\":null,\"after\":{\"time_millis\":60000},\"op\":\"c\"}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+
+        SeaTunnelRow row = collector.getList().get(0);
+        Assertions.assertEquals(LocalTime.of(0, 1), row.getField(0));
+    }
+
+    @Test
+    public void testDeserializationForSchemaLessTextualMillisecondTimeRejected() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"time_millis"}, new SeaTunnelDataType[] {LOCAL_TIME_TYPE});
+        DebeziumJsonDeserializationSchema deserializationSchema =
+                new DebeziumJsonDeserializationSchema(
+                        CatalogTableUtil.getCatalogTable("default", rowType), false, false);
+        SimpleCollector collector = new SimpleCollector();
+
+        assertThrows(
+                SeaTunnelRuntimeException.class,
+                () ->
+                        deserializationSchema.deserialize(
+                                "{\"before\":null,\"after\":{\"time_millis\":\"60000\"},\"op\":\"c\"}"
+                                        .getBytes(StandardCharsets.UTF_8),
+                                collector));
+    }
+
+    @Test
+    public void testDeserializationForDebeziumTimeUnitsWithSchema() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"time_millis", "time_micros", "time_nanos"},
+                        new SeaTunnelDataType[] {
+                            LOCAL_TIME_TYPE, LOCAL_TIME_TYPE, LOCAL_TIME_TYPE
+                        });
+        DebeziumJsonDeserializationSchema deserializationSchema =
+                new DebeziumJsonDeserializationSchema(
+                        CatalogTableUtil.getCatalogTable("default", rowType), false, true);
+        String message =
+                "{\"schema\":{\"type\":\"struct\",\"fields\":["
+                        + "{\"type\":\"struct\",\"fields\":["
+                        + "{\"type\":\"int32\",\"name\":\"io.debezium.time.Time\","
+                        + "\"field\":\"time_millis\"},"
+                        + "{\"type\":\"int64\",\"name\":\"io.debezium.time.MicroTime\","
+                        + "\"field\":\"time_micros\"},"
+                        + "{\"type\":\"int64\",\"name\":\"io.debezium.time.NanoTime\","
+                        + "\"field\":\"time_nanos\"}],\"field\":\"before\"},"
+                        + "{\"type\":\"struct\",\"fields\":["
+                        + "{\"type\":\"int32\",\"name\":\"io.debezium.time.Time\","
+                        + "\"field\":\"time_millis\"},"
+                        + "{\"type\":\"int64\",\"name\":\"io.debezium.time.MicroTime\","
+                        + "\"field\":\"time_micros\"},"
+                        + "{\"type\":\"int64\",\"name\":\"io.debezium.time.NanoTime\","
+                        + "\"field\":\"time_nanos\"}],\"field\":\"after\"}]},"
+                        + "\"payload\":{\"before\":null,\"after\":{\"time_millis\":60000,"
+                        + "\"time_micros\":60000000,\"time_nanos\":60000000000},"
+                        + "\"op\":\"c\"}}";
+
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode root = (ObjectNode) mapper.readTree(message);
+        ObjectNode payload = mapper.createObjectNode();
+        // Unused nested objects still have to be skipped without losing subsequent CDC fields.
+        payload.putObject("source")
+                .putObject("unused")
+                .put("large", String.join("", Collections.nCopies(4096, "x")));
+        payload.setAll((ObjectNode) root.get("payload"));
+        root.set("payload", payload);
+        for (boolean payloadFirst : new boolean[] {false, true}) {
+            String envelope =
+                    payloadFirst
+                            ? "{\"payload\":" + payload + ",\"schema\":" + root.get("schema") + "}"
+                            : root.toString();
+            SimpleCollector collector = new SimpleCollector();
+            deserializationSchema.deserialize(envelope.getBytes(StandardCharsets.UTF_8), collector);
+
+            Assertions.assertEquals(1, collector.getList().size());
+            SeaTunnelRow row = collector.getList().get(0);
+            Assertions.assertEquals(RowKind.INSERT, row.getRowKind());
+            Assertions.assertEquals(LocalTime.of(0, 1), row.getField(0));
+            Assertions.assertEquals(LocalTime.of(0, 1), row.getField(1));
+            Assertions.assertEquals(LocalTime.of(0, 1), row.getField(2));
+        }
+
+        // UPDATE must use the logical names for each envelope side, in either top-level order.
+        payload.set("before", payload.get("after"));
+        ObjectNode after = ((ObjectNode) payload.get("after")).deepCopy();
+        after.put("time_millis", 120000);
+        after.put("time_micros", 120000000L);
+        after.put("time_nanos", 120000000000L);
+        payload.set("after", after);
+        ObjectNode beforeValues = (ObjectNode) payload.get("before");
+        beforeValues.put("time_millis", 60000000L);
+        beforeValues.put("time_micros", 60000000000L);
+        beforeValues.put("time_nanos", 60000);
+        JsonNode beforeFields = root.get("schema").get("fields").get(0).get("fields");
+        ((ObjectNode) beforeFields.get(0)).put("name", "io.debezium.time.MicroTime");
+        ((ObjectNode) beforeFields.get(1)).put("name", "io.debezium.time.NanoTime");
+        ((ObjectNode) beforeFields.get(2)).put("name", "io.debezium.time.Time");
+        payload.put("op", "u");
+        for (boolean payloadFirst : new boolean[] {false, true}) {
+            String envelope =
+                    payloadFirst
+                            ? "{\"payload\":" + payload + ",\"schema\":" + root.get("schema") + "}"
+                            : root.toString();
+            SimpleCollector collector = new SimpleCollector();
+            deserializationSchema.deserialize(envelope.getBytes(StandardCharsets.UTF_8), collector);
+
+            Assertions.assertEquals(2, collector.getList().size());
+            SeaTunnelRow before = collector.getList().get(0);
+            SeaTunnelRow updated = collector.getList().get(1);
+            Assertions.assertEquals(RowKind.UPDATE_BEFORE, before.getRowKind());
+            Assertions.assertEquals(RowKind.UPDATE_AFTER, updated.getRowKind());
+            for (int i = 0; i < 3; i++) {
+                Assertions.assertEquals(LocalTime.of(0, 1), before.getField(i));
+                Assertions.assertEquals(LocalTime.of(0, 2), updated.getField(i));
+            }
+        }
     }
 
     /**
