@@ -751,12 +751,15 @@ public class MultiTableSinkWriter
         subSinkErrorCheck();
         MultiTableCommitInfo multiTableCommitInfo =
                 new MultiTableCommitInfo(new ConcurrentHashMap<>());
+        ConcurrentMap<String, Throwable> checkpointFailures = new ConcurrentHashMap<>();
         List<Future<?>> futures = new ArrayList<>();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             int subWriterIndex = i;
             futures.add(
                     executorService.submit(
                             () -> {
+                                String fatalFailureTable = null;
+                                Throwable fatalFailure = null;
                                 synchronized (runnable.get(subWriterIndex)) {
                                     for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>
                                             sinkWriterEntry :
@@ -764,15 +767,19 @@ public class MultiTableSinkWriter
                                                             sinkWritersWithIndex
                                                                     .get(subWriterIndex)
                                                                     .entrySet())) {
+                                        SinkIdentifier sinkIdentifier = sinkWriterEntry.getKey();
+                                        String tableId = sinkIdentifier.getTableIdentifier();
+                                        if (isTableFailed(tableId)
+                                                || checkpointFailures.containsKey(tableId)) {
+                                            continue;
+                                        }
                                         Optional<?> commit;
                                         try {
                                             SinkWriter<SeaTunnelRow, ?, ?> sinkWriter =
                                                     sinkWriterEntry.getValue();
                                             commit =
                                                     executeWithTableRetry(
-                                                            sinkWriterEntry
-                                                                    .getKey()
-                                                                    .getTableIdentifier(),
+                                                            tableId,
                                                             MultiTableFailurePhase.CHECKPOINT,
                                                             () ->
                                                                     sinkWriter.prepareCommit(
@@ -781,23 +788,29 @@ public class MultiTableSinkWriter
                                             Thread.currentThread().interrupt();
                                             throw new RuntimeException(error);
                                         } catch (Throwable error) {
-                                            if (failurePolicy.continueOtherTables()) {
-                                                handleTableFailure(
-                                                        sinkWriterEntry
-                                                                .getKey()
-                                                                .getTableIdentifier(),
-                                                        MultiTableFailurePhase.CHECKPOINT,
-                                                        error);
-                                                continue;
+                                            if (!failurePolicy.continueOtherTables()) {
+                                                throw new RuntimeException(error);
                                             }
-                                            throw new RuntimeException(error);
+                                            if (containsFatalRowErrorHandlingFailure(error)) {
+                                                fatalFailureTable = tableId;
+                                                fatalFailure = error;
+                                                break;
+                                            }
+                                            checkpointFailures.putIfAbsent(tableId, error);
+                                            continue;
                                         }
                                         commit.ifPresent(
                                                 o ->
                                                         multiTableCommitInfo
                                                                 .getCommitInfo()
-                                                                .put(sinkWriterEntry.getKey(), o));
+                                                                .put(sinkIdentifier, o));
                                     }
+                                }
+                                if (fatalFailure != null) {
+                                    handleTableFailure(
+                                            fatalFailureTable,
+                                            MultiTableFailurePhase.CHECKPOINT,
+                                            fatalFailure);
                                 }
                             }));
         }
@@ -808,6 +821,10 @@ public class MultiTableSinkWriter
                 throw new RuntimeException(e);
             }
         }
+        // Table isolation acquires other queue locks. Run it after the prepare tasks finish.
+        checkpointFailures.forEach(
+                (tableId, error) ->
+                        handleTableFailure(tableId, MultiTableFailurePhase.CHECKPOINT, error));
         waitRuntimeTableFailuresHandled();
         subSinkErrorCheck();
         if (multiTableCommitInfo.getCommitInfo().isEmpty()) {

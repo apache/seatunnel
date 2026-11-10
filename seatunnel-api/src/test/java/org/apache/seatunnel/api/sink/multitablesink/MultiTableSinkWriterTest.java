@@ -493,6 +493,61 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testPrepareCommitIsolatesConcurrentFailures() {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        SinkIdentifier healthyIdentifier = SinkIdentifier.of("test.healthy", 2);
+        sinkWriters.put(healthyIdentifier, new TestSinkWriter());
+        sinkWritersContext.put(healthyIdentifier, new TestSinkWriterContext());
+
+        CountDownLatch preparesStarted = new CountDownLatch(2);
+        AtomicInteger failedPrepares = new AtomicInteger();
+        for (int queueIndex = 0; queueIndex < 2; queueIndex++) {
+            SinkIdentifier failedIdentifier =
+                    SinkIdentifier.of("test.failed" + queueIndex, queueIndex);
+            sinkWriters.put(
+                    failedIdentifier,
+                    new TestSinkWriter() {
+                        @Override
+                        public Optional<TestSinkState> prepareCommit(long checkpointId)
+                                throws IOException {
+                            preparesStarted.countDown();
+                            try {
+                                Assertions.assertTrue(preparesStarted.await(5, TimeUnit.SECONDS));
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                throw new IOException(e);
+                            }
+                            failedPrepares.incrementAndGet();
+                            throw new IOException("intentional prepare failure");
+                        }
+                    });
+            sinkWritersContext.put(failedIdentifier, new TestSinkWriterContext());
+        }
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        2,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.BATCH);
+        MultiTableCommitInfo commitInfo =
+                Assertions.assertTimeoutPreemptively(
+                        Duration.ofSeconds(10),
+                        () -> multiTableSinkWriter.prepareCommit(1L).orElseThrow());
+        Assertions.assertEquals(2, failedPrepares.get());
+        Assertions.assertEquals(
+                Collections.singleton(healthyIdentifier), commitInfo.getCommitInfo().keySet());
+
+        IOException closeException =
+                Assertions.assertThrows(IOException.class, multiTableSinkWriter::close);
+        Assertions.assertTrue(closeException.getMessage().contains("test.failed0"));
+        Assertions.assertTrue(closeException.getMessage().contains("test.failed1"));
+        Assertions.assertTrue(closeException.getMessage().contains("phase=checkpoint"));
+    }
+
+    @Test
     public void testPrepareCommitFatalRowErrorHandlingFailureFailsFast() {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
