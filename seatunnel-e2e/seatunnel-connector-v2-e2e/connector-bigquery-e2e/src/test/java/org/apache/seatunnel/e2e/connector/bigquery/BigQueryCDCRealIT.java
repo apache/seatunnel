@@ -25,6 +25,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -60,11 +61,15 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -73,10 +78,12 @@ import java.util.stream.StreamSupport;
 import static org.awaitility.Awaitility.await;
 
 /**
- * Runs BigQuery CDC and ADD COLUMN schema evolution against the real BigQuery service.
+ * Runs BigQuery CDC and ADD COLUMN schema evolution, and the batch-mode restore from a checkpoint,
+ * against the real BigQuery service.
  *
  * <p>This test is opt-in because it requires GCP credentials, creates billable BigQuery jobs, and
- * cannot be verified correctly by goccy/bigquery-emulator.
+ * cannot be verified correctly by goccy/bigquery-emulator. The emulator ignores append offsets and
+ * inserts the buffered rows again on every FlushRows call.
  *
  * <p>Set {@code BIGQUERY_E2E_REAL=true}, {@code BIGQUERY_E2E_PROJECT_ID}, {@code
  * BIGQUERY_E2E_DATASET_ID}, and {@code GOOGLE_APPLICATION_CREDENTIALS}. The dataset must already
@@ -106,6 +113,20 @@ public class BigQueryCDCRealIT extends TestSuiteBase {
             Pattern.compile("[a-z][a-z0-9-]{4,28}[a-z0-9]");
     private static final Pattern DATASET_ID_PATTERN = Pattern.compile("[A-Za-z0-9_]+");
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
+    private static final String BATCH_RESTORE_CONF = "/fake_to_bigquery_batch_real_restore.conf";
+    private static final long BATCH_RESTORE_ROW_COUNT = 60L;
+    private static final int BATCH_RESTORE_TIMEOUT_SECONDS = 300;
+    private static final long BATCH_RESTORE_CHECKPOINT_INTERVAL_MILLIS = 10_000L;
+    // Long enough that no later checkpoint completes before the cancel takes effect, and short
+    // enough that the source is still emitting rows after the first checkpoint.
+    private static final long CANCELLED_JOB_CHECKPOINT_INTERVAL_MILLIS = 20_000L;
+    // Longer than a restored job runs, so that job never completes a checkpoint of its own.
+    private static final long NO_CHECKPOINT_INTERVAL_MILLIS = 3_600_000L;
+    private static final Pattern FLUSHED_STREAM_PATTERN =
+            Pattern.compile(
+                    "Successfully flushed BigQuery buffered stream (\\S+) to offset (\\d+)");
+    private static final Pattern FINALIZED_STREAM_PATTERN =
+            Pattern.compile("Finalized restored Buffered write stream (\\S+) with (\\d+) rows");
 
     private String projectId;
     private String datasetId;
@@ -323,6 +344,304 @@ public class BigQueryCDCRealIT extends TestSuiteBase {
                             rethrowJobFailure(jobFuture);
                             Assertions.assertEquals(evolvedRows, queryRows(true));
                         });
+    }
+
+    /**
+     * Cancels a batch-mode job after rows were appended past its last completed checkpoint, then
+     * restores the job from that checkpoint. The rows left unflushed in the old buffered stream
+     * must stay invisible, and the replay must make every remaining row visible exactly once.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "Cancelling and restoring a job are only implemented by the SeaTunnel test container")
+    public void testBatchModeRestoreAfterUncheckpointedAppends(TestContainer container)
+            throws Exception {
+        createBatchRestoreTable();
+        String jobId = runBatchRestoreJobUntilCancelled(container);
+
+        assertRestoredJobWritesEveryRowOnce(container, jobId);
+    }
+
+    /**
+     * Restores one checkpoint twice. The first restored job finalizes the buffered stream recorded
+     * in that checkpoint and is cancelled without completing a checkpoint of its own. The second
+     * restored job retires the same stream again, so FlushRows and FinalizeWriteStream reach a
+     * stream that is already finalized. The real service must answer in a way the sink accepts, and
+     * every row must still become visible exactly once.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "Cancelling and restoring a job are only implemented by the SeaTunnel test container")
+    public void testBatchModeRestoreOfAlreadyFinalizedStream(TestContainer container)
+            throws Exception {
+        createBatchRestoreTable();
+        String jobId = runBatchRestoreJobUntilCancelled(container);
+
+        String firstRestoredJobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> firstRestoredRun =
+                restoreBatchJob(
+                        container, jobId, firstRestoredJobId, NO_CHECKPOINT_INTERVAL_MILLIS);
+        try {
+            await().atMost(BATCH_RESTORE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .until(
+                            () ->
+                                    countStreamRetirements(container) >= 1
+                                            && "RUNNING"
+                                                    .equals(
+                                                            container.getJobStatus(
+                                                                    firstRestoredJobId)));
+            Assertions.assertEquals(
+                    0L,
+                    container.getCompletedCheckpointCount(firstRestoredJobId),
+                    "The first restored job must not commit rows of its own");
+        } finally {
+            cancelBatchJob(container, firstRestoredJobId, firstRestoredRun);
+        }
+
+        assertRestoredJobWritesEveryRowOnce(container, jobId);
+
+        long retirements = countStreamRetirements(container);
+        Assertions.assertTrue(
+                retirements >= 2,
+                "The second restored job must retire the finalized stream again, but "
+                        + retirements
+                        + " retirements were logged");
+    }
+
+    /**
+     * Runs the batch restore job until the server logs show rows appended past its committed
+     * checkpoint, then cancels it. A later checkpoint can still cover those rows before the cancel
+     * takes effect, so {@link #assertRetiredStreamHeldUncheckpointedRows} checks the restored
+     * checkpoint afterwards.
+     *
+     * @return the id of the cancelled job
+     */
+    private String runBatchRestoreJobUntilCancelled(TestContainer container) throws Exception {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String[] variables =
+                batchRestoreVariables(CANCELLED_JOB_CHECKPOINT_INTERVAL_MILLIS)
+                        .toArray(new String[0]);
+
+        CompletableFuture<Container.ExecResult> firstRun =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(BATCH_RESTORE_CONF, jobId, variables);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        try {
+            await().atMost(INITIAL_SNAPSHOT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .until(() -> container.getCompletedCheckpointCount(jobId) > 0);
+            await("rows appended past the committed checkpoint")
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .until(() -> hasUncheckpointedRows(container, jobId));
+        } finally {
+            cancelBatchJob(container, jobId, firstRun);
+        }
+
+        long rowsBeforeRestore = countRows();
+        Assertions.assertTrue(
+                rowsBeforeRestore > 0 && rowsBeforeRestore < BATCH_RESTORE_ROW_COUNT,
+                "The job must be cancelled after the first commit and before every row is written,"
+                        + " but "
+                        + rowsBeforeRestore
+                        + " rows were visible");
+        return jobId;
+    }
+
+    private void assertRestoredJobWritesEveryRowOnce(TestContainer container, String sourceJobId)
+            throws Exception {
+        List<Long> idsBeforeRestore = readRowIds();
+        // A job restored from a checkpoint runs under a new job id.
+        String restoredJobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> restoredRun =
+                restoreBatchJob(
+                        container,
+                        sourceJobId,
+                        restoredJobId,
+                        BATCH_RESTORE_CHECKPOINT_INTERVAL_MILLIS);
+        try {
+            await().atMost(BATCH_RESTORE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertEquals(BATCH_RESTORE_ROW_COUNT, countRows()));
+
+            // Later checkpoints flush the same offsets again, which must not add rows.
+            long checkpointsAtFullCount = container.getCompletedCheckpointCount(restoredJobId);
+            await().atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .until(
+                            () ->
+                                    container.getCompletedCheckpointCount(restoredJobId)
+                                            > checkpointsAtFullCount);
+
+            // FakeSource draws a new random id for every row, replayed rows included, so ids can
+            // only show that committed rows survive and that no row became visible twice.
+            List<Long> idsAfterRestore = readRowIds();
+            Assertions.assertEquals(BATCH_RESTORE_ROW_COUNT, idsAfterRestore.size());
+            Assertions.assertEquals(
+                    BATCH_RESTORE_ROW_COUNT,
+                    new HashSet<>(idsAfterRestore).size(),
+                    "A row became visible more than once");
+            Assertions.assertTrue(
+                    idsAfterRestore.containsAll(idsBeforeRestore),
+                    "A row committed before the restore disappeared");
+            assertRetiredStreamHeldUncheckpointedRows(container);
+        } finally {
+            container.cancelJob(restoredJobId);
+            restoredRun.get(2, TimeUnit.MINUTES);
+        }
+    }
+
+    /**
+     * Proves that the restore ran inside the failure window: the retired stream held more rows than
+     * the restored checkpoint flushed. BigQuery reports the row count of a stream only when it is
+     * first finalized, so this can only be checked after the restore.
+     */
+    private void assertRetiredStreamHeldUncheckpointedRows(TestContainer container) {
+        Map<String, Long> finalizedRows =
+                maxLoggedValuePerStream(container, FINALIZED_STREAM_PATTERN);
+        Assertions.assertEquals(1, finalizedRows.size(), "Exactly one stream must be retired");
+
+        Map.Entry<String, Long> retiredStream = finalizedRows.entrySet().iterator().next();
+        long flushedRows =
+                maxLoggedValuePerStream(container, FLUSHED_STREAM_PATTERN)
+                                .get(retiredStream.getKey())
+                        + 1;
+        Assertions.assertTrue(
+                retiredStream.getValue() > flushedRows,
+                "The cancelled job must leave rows past its checkpoint, but the stream held "
+                        + retiredStream.getValue()
+                        + " rows and the checkpoint covered "
+                        + flushedRows);
+    }
+
+    private CompletableFuture<Container.ExecResult> restoreBatchJob(
+            TestContainer container,
+            String sourceJobId,
+            String restoredJobId,
+            long checkpointIntervalMillis) {
+        List<String> variables = batchRestoreVariables(checkpointIntervalMillis);
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.restoreJobWithCheckpoint(
+                                BATCH_RESTORE_CONF, sourceJobId, restoredJobId, variables);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    private void cancelBatchJob(
+            TestContainer container, String jobId, CompletableFuture<Container.ExecResult> run)
+            throws Exception {
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+        await().atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .until(() -> "CANCELED".equals(container.getJobStatus(jobId)));
+        run.get(2, TimeUnit.MINUTES);
+    }
+
+    private List<String> batchRestoreVariables(long checkpointIntervalMillis) {
+        return Arrays.asList(
+                "bigquery_project_id=" + projectId,
+                "bigquery_dataset_id=" + datasetId,
+                "bigquery_table_id=" + tableId.getTable(),
+                "checkpoint_interval=" + checkpointIntervalMillis);
+    }
+
+    /** Tells whether a job appended more rows than its committed checkpoint made visible. */
+    private boolean hasUncheckpointedRows(TestContainer container, String jobId) {
+        long appendedRows = countAppendedRows(container, jobId);
+        return maxLoggedValuePerStream(container, FLUSHED_STREAM_PATTERN).values().stream()
+                .anyMatch(flushedOffset -> appendedRows > flushedOffset + 1);
+    }
+
+    /** Counts the rows a job appended. The restore config appends one row per call. */
+    private long countAppendedRows(TestContainer container, String jobId) {
+        String jobLogPrefix = "[" + jobId + "]";
+        return Arrays.stream(container.getServerLogs().split("\n"))
+                .filter(line -> line.contains(jobLogPrefix))
+                .filter(line -> line.contains("Successfully appended 1 rows."))
+                .count();
+    }
+
+    /** Collects the largest value the pattern logged for each stream of the current table. */
+    private Map<String, Long> maxLoggedValuePerStream(TestContainer container, Pattern pattern) {
+        String streamsOfTable = "/tables/" + tableId.getTable() + "/streams/";
+        Map<String, Long> values = new HashMap<>();
+        Matcher matcher = pattern.matcher(container.getServerLogs());
+        while (matcher.find()) {
+            String stream = matcher.group(1);
+            if (stream.contains(streamsOfTable)) {
+                values.merge(stream, Long.parseLong(matcher.group(2)), Math::max);
+            }
+        }
+        return values;
+    }
+
+    /** Counts how often a stream of the current table was retired, whatever BigQuery answered. */
+    private long countStreamRetirements(TestContainer container) {
+        String streamsOfTable = "/tables/" + tableId.getTable() + "/streams/";
+        return Arrays.stream(container.getServerLogs().split("\n"))
+                .filter(line -> line.contains(streamsOfTable))
+                .filter(
+                        line ->
+                                line.contains("Finalized restored Buffered write stream")
+                                        || line.contains("was already finalized"))
+                .count();
+    }
+
+    private void createBatchRestoreTable() throws InterruptedException {
+        tableId =
+                TableId.of(
+                        projectId,
+                        datasetId,
+                        "seatunnel_batch_restore_" + UUID.randomUUID().toString().replace("-", ""));
+        String sql =
+                String.format(
+                        "CREATE TABLE `%s.%s.%s` (id INT64, name STRING) OPTIONS ("
+                                + "expiration_timestamp = "
+                                + "TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)"
+                                + ")",
+                        projectId, datasetId, tableId.getTable());
+        bigQuery.query(QueryJobConfiguration.of(sql));
+    }
+
+    private long countRows() throws InterruptedException {
+        String query =
+                String.format(
+                        "SELECT COUNT(*) FROM `%s.%s.%s`",
+                        projectId, datasetId, tableId.getTable());
+        TableResult result =
+                bigQuery.query(
+                        QueryJobConfiguration.newBuilder(query).setUseQueryCache(false).build());
+        return result.iterateAll().iterator().next().get(0).getLongValue();
+    }
+
+    private List<Long> readRowIds() throws InterruptedException {
+        String query =
+                String.format(
+                        "SELECT id FROM `%s.%s.%s`", projectId, datasetId, tableId.getTable());
+        TableResult result =
+                bigQuery.query(
+                        QueryJobConfiguration.newBuilder(query).setUseQueryCache(false).build());
+        return StreamSupport.stream(result.iterateAll().spliterator(), false)
+                .map(row -> row.get(0).getLongValue())
+                .collect(Collectors.toList());
     }
 
     private void createBigQueryTable() throws InterruptedException {
