@@ -45,6 +45,7 @@ on:
           - 'IMapJobStorageBenchmark'
           - 'IMapDagStorageBenchmark'
           - 'IMapWalStorageBenchmark'
+          - 'JdbcRowConverterBenchmark'
         default: 'benchmarks_core'
       custom_benchmarks:
         description: 'Exact JMH selector; overrides the choice. .* may exceed 240 minutes.'

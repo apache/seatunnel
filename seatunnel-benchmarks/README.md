@@ -64,6 +64,18 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
   -rff seatunnel-benchmarks/target/benchmark-result.json
 ```
 
+Run the JDBC row converter benchmark with an in-memory result set and parameter recorder.
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar JdbcRowConverterBenchmark \
+  -p columns=20 -w 500ms -r 500ms -prof gc
+```
+
+The benchmark measures conversion of the current result-set row and binding of a prepared
+statement as separate operations. The fixture validates the decoded row and bound parameters
+before measurement. The default widths are 5, 10, 15, and 20 columns, with the same mix of types
+and null values.
+
 ## Run Zeta full-pipeline benchmarks
 
 ```bash
