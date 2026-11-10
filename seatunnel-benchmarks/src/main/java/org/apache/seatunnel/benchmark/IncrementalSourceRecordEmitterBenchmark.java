@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.benchmark;
 
-import org.apache.seatunnel.connectors.cdc.base.source.reader.external.IncrementalSourceRecordEmitterFixture;
+import org.apache.seatunnel.benchmark.cdc.IncrementalSourceRecordEmitterFixture;
 
+import org.openjdk.jmh.Main;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Level;
@@ -29,6 +30,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 /** Measures the incremental CDC stream filter and record emitter with prepared events. */
@@ -56,6 +58,13 @@ public class IncrementalSourceRecordEmitterBenchmark extends BenchmarkBase {
     private boolean exactlyOnce;
 
     private IncrementalSourceRecordEmitterFixture fixture;
+
+    public static void main(String[] args) throws IOException {
+        String[] options = new String[args.length + 1];
+        options[0] = IncrementalSourceRecordEmitterBenchmark.class.getCanonicalName();
+        System.arraycopy(args, 0, options, 1, args.length);
+        Main.main(options);
+    }
 
     @Setup(Level.Trial)
     public void setUp() throws Exception {
