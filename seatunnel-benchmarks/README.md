@@ -47,6 +47,12 @@ Run only the `ProtoStuffSerializer` benchmarks:
 java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark
 ```
 
+Run only the `IncrementalSourceRecordEmitter` benchmark.
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar IncrementalSourceRecordEmitterBenchmark
+```
+
 Run the `MultiTableSink` record handoff benchmark without starting an engine or database:
 
 ```bash
@@ -55,18 +61,6 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar MultiTableSinkBenchmark -p 
 
 The score measures bounded record handoff throughput with per-writer sequence checks; final
 draining and count verification run outside the timed iteration.
-
-Run the incremental CDC record filtering and emission benchmark with in-memory binlog events:
-
-```bash
-java -jar seatunnel-benchmarks/target/benchmarks.jar IncrementalSourceRecordEmitterBenchmark \
-  -p columns=20 -w 500ms -r 500ms -prof gc
-```
-
-The timed path runs the stream filter and `IncrementalSourceRecordEmitter`. The fixture uses
-MySQL-style binlog events and covers INSERT and UPDATE with both values of `exactly_once`. The
-default column counts are 5, 10, 15, and 20. Throughput and allocation are measured per input
-event. An UPDATE emits two rows.
 
 Write JSON results:
 
