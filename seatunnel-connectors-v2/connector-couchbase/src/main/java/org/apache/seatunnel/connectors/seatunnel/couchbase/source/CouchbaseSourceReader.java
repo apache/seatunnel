@@ -65,8 +65,9 @@ public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     private final SingleSplitReaderContext context;
     private final JsonDeserializationSchema deserializer;
     private volatile boolean closed;
-    private volatile Cluster cluster;
-    private volatile Stream<byte[]> rows;
+    private final Object lifecycleLock = new Object();
+    private Cluster cluster;
+    private Stream<byte[]> rows;
     private final Sinks.Empty<Void> cancellation = Sinks.empty();
 
     CouchbaseSourceReader(
@@ -88,13 +89,16 @@ public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
                         config.get(CouchbaseSourceOptions.CONNECTION_STRING),
                         config.get(CouchbaseSourceOptions.USERNAME),
                         config.get(CouchbaseSourceOptions.PASSWORD));
-        synchronized (this) {
-            if (closed) {
-                connected.disconnect();
-                throw new CancellationException(
-                        "Couchbase source reader was cancelled while opening");
+        boolean rejected;
+        synchronized (lifecycleLock) {
+            rejected = closed;
+            if (!rejected) {
+                cluster = connected;
             }
-            cluster = connected;
+        }
+        if (rejected) {
+            connected.disconnect();
+            throw new CancellationException("Couchbase source reader was cancelled while opening");
         }
         try {
             connected
@@ -114,9 +118,12 @@ public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     /** Consume a backpressured query without buffering the entire collection. */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        Cluster connected = cluster;
-        if (closed || noMoreSplits) {
-            return;
+        Cluster connected;
+        synchronized (lifecycleLock) {
+            if (closed || noMoreSplits) {
+                return;
+            }
+            connected = cluster;
         }
         try {
             Stream<byte[]> stream =
@@ -136,14 +143,18 @@ public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
                             .flatMapMany(result -> result.rowsAs(byte[].class))
                             .takeUntilOther(cancellation.asMono())
                             .toStream(1);
-            synchronized (this) {
-                if (closed) {
-                    stream.close();
-                    return;
+            boolean rejected;
+            synchronized (lifecycleLock) {
+                rejected = closed;
+                if (!rejected) {
+                    rows = stream;
                 }
-                rows = stream;
             }
-            try (Stream<byte[]> ignored = stream) {
+            if (rejected) {
+                stream.close();
+                return;
+            }
+            try (AutoCloseable ignored = () -> closeRows(stream)) {
                 Iterator<byte[]> iterator = stream.iterator();
                 while (!closed && iterator.hasNext()) {
                     SeaTunnelRow row = convertDocument(iterator.next());
@@ -159,8 +170,6 @@ public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
                     noMoreSplits = true;
                     context.signalNoMoreElement();
                 }
-            } finally {
-                rows = null;
             }
         } catch (Exception failure) {
             if (closed) {
@@ -205,8 +214,10 @@ public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     private void closeAfterFailure(Exception failure) {
         try {
             close();
-        } catch (RuntimeException closeFailure) {
-            failure.addSuppressed(closeFailure);
+        } catch (RuntimeException | Error closeFailure) {
+            if (failure != closeFailure) {
+                failure.addSuppressed(closeFailure);
+            }
         }
     }
 
@@ -224,29 +235,76 @@ public class CouchbaseSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
         return "`" + identifier.replace("`", "``") + "`";
     }
 
+    /** Detach the query only if this polling invocation still owns it. */
+    private void closeRows(Stream<byte[]> stream) {
+        boolean owned;
+        synchronized (lifecycleLock) {
+            owned = rows == stream;
+            if (owned) {
+                rows = null;
+            }
+        }
+        if (owned) {
+            stream.close();
+        }
+    }
+
     /** Cancel any in-flight query before closing its owned SDK connection. */
     @Override
     public void cancel() {
-        closed = true;
+        synchronized (lifecycleLock) {
+            closed = true;
+        }
         cancellation.tryEmitEmpty();
     }
 
-    /** Release the query subscription and SDK connection after cancellation. */
+    /** Detach owned resources before invoking SDK cleanup, which may block or call back. */
     @Override
-    public synchronized void close() {
-        cancel();
+    public void close() {
+        Stream<byte[]> current;
+        Cluster connected;
+        synchronized (lifecycleLock) {
+            closed = true;
+            current = rows;
+            rows = null;
+            connected = cluster;
+            cluster = null;
+        }
+        Throwable failure = null;
         try {
-            if (rows != null) {
-                Stream<byte[]> current = rows;
-                rows = null;
+            cancellation.tryEmitEmpty();
+        } catch (RuntimeException | Error signalFailure) {
+            failure = signalFailure;
+        }
+        try {
+            if (current != null) {
                 current.close();
             }
-        } finally {
-            if (cluster != null) {
-                Cluster connected = cluster;
-                cluster = null;
+        } catch (RuntimeException | Error streamFailure) {
+            failure = appendFailure(failure, streamFailure);
+        }
+        try {
+            if (connected != null) {
                 connected.disconnect();
             }
+        } catch (RuntimeException | Error disconnectFailure) {
+            failure = appendFailure(failure, disconnectFailure);
         }
+        if (failure instanceof Error) {
+            throw (Error) failure;
+        }
+        if (failure != null) {
+            throw (RuntimeException) failure;
+        }
+    }
+
+    private static Throwable appendFailure(Throwable first, Throwable next) {
+        if (first == null) {
+            return next;
+        }
+        if (first != next) {
+            first.addSuppressed(next);
+        }
+        return first;
     }
 }

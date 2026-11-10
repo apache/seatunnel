@@ -64,6 +64,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -580,15 +584,118 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /** Cancels a real query during collection, closes twice, and restores the full split. */
+    @Test
+    @Timeout(value = 3, unit = TimeUnit.MINUTES)
+    public void testCouchbaseSourceConcurrentCloseAndReplay() throws Exception {
+        String collectionName = "source_cancel";
+        String path = "`test_bucket`.`source_scope`.`" + collectionName + "`";
+        Awaitility.given()
+                .ignoreExceptions()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(() -> cluster.query("CREATE COLLECTION " + path));
+        Awaitility.given()
+                .ignoreExceptions()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(() -> cluster.query("CREATE PRIMARY INDEX ON " + path));
+        Collection collection =
+                cluster.bucket(COUCHBASE_BUCKET)
+                        .scope(COUCHBASE_SOURCE_SCOPE)
+                        .collection(collectionName);
+        collection.upsert("one", JsonObject.create().put("id", 1));
+        collection.upsert("two", JsonObject.create().put("id", 2));
+        CountDownLatch collectedFirst = new CountDownLatch(1);
+        CountDownLatch continueCollecting = new CountDownLatch(1);
+        SourceReader.Context context = mock(SourceReader.Context.class);
+        List<Integer> partial = new ArrayList<>();
+        List<SingleSplit> state;
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try (SourceReader<SeaTunnelRow, SingleSplit> reader =
+                sourceReader(collectionName, 60, context)) {
+            reader.addSplits(Collections.singletonList(new SingleSplit(null)));
+            reader.open();
+            Future<?> polling =
+                    executor.submit(
+                            () -> {
+                                try {
+                                    reader.pollNext(
+                                            new Collector<SeaTunnelRow>() {
+                                                private final Object lock = new Object();
+
+                                                @Override
+                                                public void collect(SeaTunnelRow row) {
+                                                    partial.add((Integer) row.getField(0));
+                                                    collectedFirst.countDown();
+                                                    try {
+                                                        Assertions.assertTrue(
+                                                                continueCollecting.await(
+                                                                        30, TimeUnit.SECONDS));
+                                                    } catch (InterruptedException e) {
+                                                        Thread.currentThread().interrupt();
+                                                        throw new IllegalStateException(e);
+                                                    }
+                                                }
+
+                                                @Override
+                                                public Object getCheckpointLock() {
+                                                    return lock;
+                                                }
+                                            });
+                                } catch (Exception e) {
+                                    throw new IllegalStateException(e);
+                                }
+                            });
+            try {
+                Assertions.assertTrue(collectedFirst.await(30, TimeUnit.SECONDS));
+                executor.submit(
+                                () -> {
+                                    try {
+                                        reader.close();
+                                    } catch (Exception e) {
+                                        throw new IllegalStateException(e);
+                                    }
+                                })
+                        .get(15, TimeUnit.SECONDS);
+                reader.close();
+            } finally {
+                continueCollecting.countDown();
+                polling.get(15, TimeUnit.SECONDS);
+            }
+            Assertions.assertEquals(1, partial.size());
+            verify(context, never()).signalNoMoreElement();
+            state = reader.snapshotState(1);
+        } finally {
+            continueCollecting.countDown();
+            executor.shutdownNow();
+        }
+        SourceReader.Context restoredContext = mock(SourceReader.Context.class);
+        List<Integer> replay = new ArrayList<>();
+        try (SourceReader<SeaTunnelRow, SingleSplit> reader =
+                sourceReader(collectionName, 60, restoredContext)) {
+            reader.addSplits(state);
+            reader.open();
+            reader.pollNext(collectorWithInitialDelay(replay, 0));
+            Assertions.assertEquals(2, replay.size());
+            Assertions.assertEquals(Set.of(1, 2), new HashSet<>(replay));
+            verify(restoredContext).signalNoMoreElement();
+        }
+    }
+
     private SourceReader<SeaTunnelRow, SingleSplit> timeoutReader(
             int timeoutSeconds, SourceReader.Context context) throws Exception {
+        return sourceReader(COUCHBASE_TIMEOUT_COLLECTION, timeoutSeconds, context);
+    }
+
+    private SourceReader<SeaTunnelRow, SingleSplit> sourceReader(
+            String collectionName, int timeoutSeconds, SourceReader.Context context)
+            throws Exception {
         Map<String, Object> options = new HashMap<>();
         options.put("connection.string", couchbaseContainer.getConnectionString());
         options.put("username", COUCHBASE_USERNAME);
         options.put("password", COUCHBASE_PASSWORD);
         options.put("bucket", COUCHBASE_BUCKET);
         options.put("scope", COUCHBASE_SOURCE_SCOPE);
-        options.put("collection", COUCHBASE_TIMEOUT_COLLECTION);
+        options.put("collection", collectionName);
         options.put("query.timeout", timeoutSeconds);
         options.put(
                 "schema",

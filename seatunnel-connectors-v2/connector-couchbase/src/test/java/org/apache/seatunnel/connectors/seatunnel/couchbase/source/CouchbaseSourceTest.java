@@ -46,6 +46,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -63,11 +64,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -211,6 +214,173 @@ class CouchbaseSourceTest {
         } finally {
             reader.close();
         }
+    }
+
+    @Test
+    void concurrentCloseDoesNotWaitForSdkDisconnect() throws Exception {
+        withReader(
+                Flux.never(),
+                (reader, context, cluster) -> {
+                    CountDownLatch disconnecting = new CountDownLatch(1);
+                    CountDownLatch releaseDisconnect = new CountDownLatch(1);
+                    doAnswer(
+                                    call -> {
+                                        disconnecting.countDown();
+                                        assertTrue(releaseDisconnect.await(10, TimeUnit.SECONDS));
+                                        return null;
+                                    })
+                            .when(cluster)
+                            .disconnect();
+                    ExecutorService executor = Executors.newFixedThreadPool(2);
+                    Future<?> closing = executor.submit(reader::close);
+                    try {
+                        assertTrue(disconnecting.await(5, TimeUnit.SECONDS));
+                        // The first caller owns the detached SDK client. Another lifecycle caller
+                        // must not wait for that external cleanup while holding the lifecycle lock.
+                        executor.submit(reader::close).get(5, TimeUnit.SECONDS);
+                    } finally {
+                        releaseDisconnect.countDown();
+                        closing.get(5, TimeUnit.SECONDS);
+                        executor.shutdownNow();
+                    }
+                    verify(context, never()).signalNoMoreElement();
+                });
+    }
+
+    @Test
+    void sdkDisconnectCanWaitForAnotherLifecycleCaller() throws Exception {
+        withReader(
+                Flux.never(),
+                (reader, context, cluster) -> {
+                    ExecutorService executor = Executors.newSingleThreadExecutor();
+                    try {
+                        doAnswer(
+                                        call -> {
+                                            executor.submit(reader::close).get(5, TimeUnit.SECONDS);
+                                            return null;
+                                        })
+                                .when(cluster)
+                                .disconnect();
+                        reader.close();
+                    } finally {
+                        executor.shutdownNow();
+                    }
+                });
+    }
+
+    @Test
+    void rejectedConnectionIsClosedOutsideLifecycleLock() throws Exception {
+        CouchbaseSourceReader reader =
+                (CouchbaseSourceReader)
+                        source(options()).createReader(mock(SourceReader.Context.class));
+        Cluster cluster = mock(Cluster.class);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try (MockedStatic<Cluster> connection = Mockito.mockStatic(Cluster.class)) {
+            connection
+                    .when(() -> Cluster.connect("couchbase://localhost", "user", "pass"))
+                    .thenAnswer(
+                            call -> {
+                                reader.cancel();
+                                return cluster;
+                            });
+            doAnswer(
+                            call -> {
+                                executor.submit(reader::close).get(5, TimeUnit.SECONDS);
+                                return null;
+                            })
+                    .when(cluster)
+                    .disconnect();
+            assertThrows(CancellationException.class, reader::open);
+            reader.close();
+            verify(cluster, times(1)).disconnect();
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void streamCloseFailureStillDisconnectsClientAndKeepsBothFailures() throws Exception {
+        withReader(
+                Flux.never(),
+                (reader, context, cluster) -> {
+                    IllegalStateException streamFailure = new IllegalStateException("stream close");
+                    IllegalStateException disconnectFailure =
+                            new IllegalStateException("client disconnect");
+                    Stream<byte[]> stream =
+                            Stream.<byte[]>empty()
+                                    .onClose(
+                                            () -> {
+                                                throw streamFailure;
+                                            });
+                    // Inject a throwing query stream to cover the SDK resource boundary directly.
+                    Field field = CouchbaseSourceReader.class.getDeclaredField("rows");
+                    field.setAccessible(true);
+                    field.set(reader, stream);
+                    doThrow(disconnectFailure).when(cluster).disconnect();
+                    assertSame(
+                            streamFailure,
+                            assertThrows(IllegalStateException.class, reader::close));
+                    assertArrayEquals(
+                            new Throwable[] {disconnectFailure}, streamFailure.getSuppressed());
+                    reader.close();
+                });
+    }
+
+    @Test
+    void cancellationFailureDoesNotSkipEitherResourceCleanup() throws Exception {
+        withReader(
+                Flux.never(),
+                (reader, context, cluster) -> {
+                    IllegalStateException signalFailure =
+                            new IllegalStateException("cancel signal");
+                    IllegalStateException streamFailure = new IllegalStateException("stream close");
+                    LinkageError disconnectFailure = new LinkageError("client disconnect");
+                    Sinks.Empty<Void> cancellation = mock(Sinks.Empty.class);
+                    when(cancellation.tryEmitEmpty()).thenThrow(signalFailure);
+                    Field cancellationField =
+                            CouchbaseSourceReader.class.getDeclaredField("cancellation");
+                    cancellationField.setAccessible(true);
+                    cancellationField.set(reader, cancellation);
+                    Stream<byte[]> stream =
+                            Stream.<byte[]>empty()
+                                    .onClose(
+                                            () -> {
+                                                throw streamFailure;
+                                            });
+                    Field rowsField = CouchbaseSourceReader.class.getDeclaredField("rows");
+                    rowsField.setAccessible(true);
+                    rowsField.set(reader, stream);
+                    doThrow(disconnectFailure).when(cluster).disconnect();
+                    assertSame(
+                            signalFailure,
+                            assertThrows(IllegalStateException.class, reader::close));
+                    assertArrayEquals(
+                            new Throwable[] {streamFailure, disconnectFailure},
+                            signalFailure.getSuppressed());
+                    // Make the helper's repeated close harmless after all resources were detached.
+                    Mockito.doReturn(Sinks.EmitResult.FAIL_TERMINATED)
+                            .when(cancellation)
+                            .tryEmitEmpty();
+                });
+    }
+
+    @Test
+    void queryFailureIsPreservedWhenClientCleanupFails() throws Exception {
+        IllegalStateException queryFailure = new IllegalStateException("query failed");
+        withReader(
+                Flux.error(queryFailure),
+                (reader, context, cluster) -> {
+                    LinkageError disconnectFailure = new LinkageError("client disconnect");
+                    doThrow(disconnectFailure).when(cluster).disconnect();
+                    assertSame(
+                            queryFailure,
+                            assertThrows(
+                                    IllegalStateException.class,
+                                    () -> reader.pollNext(collector(new ArrayList<>()))));
+                    assertArrayEquals(
+                            new Throwable[] {disconnectFailure}, queryFailure.getSuppressed());
+                    verify(context, never()).signalNoMoreElement();
+                });
     }
 
     @Test
