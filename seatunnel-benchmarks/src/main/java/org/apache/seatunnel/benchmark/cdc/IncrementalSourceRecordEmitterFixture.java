@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceRecordEmitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.IncrementalSourceStreamFetcher;
+import org.apache.seatunnel.connectors.cdc.base.source.reader.external.IncrementalSourceStreamFetcherBridge;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
@@ -58,10 +59,6 @@ import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
 import io.debezium.util.LoggingContext;
 
-import java.lang.invoke.LambdaMetafactory;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -71,7 +68,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Predicate;
 
 /** Supplies in-memory binlog events to the package-private stream filter and record emitter. */
 public final class IncrementalSourceRecordEmitterFixture implements AutoCloseable {
@@ -100,7 +96,6 @@ public final class IncrementalSourceRecordEmitterFixture implements AutoCloseabl
     private final RowCollector output;
 
     private IncrementalSourceStreamFetcher fetcher;
-    private Predicate<SourceRecord> recordFilter;
     private IncrementalSourceRecordEmitter<SeaTunnelRow> emitter;
     private IncrementalSplitState splitState;
     private Offset expectedLastOffset;
@@ -175,8 +170,8 @@ public final class IncrementalSourceRecordEmitterFixture implements AutoCloseabl
                 new IncrementalSourceStreamFetcher(new InMemoryFetchContext(exactlyOnce), 0, null);
         try {
             fetcher.submitTask(new PreparedFetchTask(split));
-            recordFilter = bindRecordFilter(fetcher);
-            if (recordFilter.test(precedingRecord) || !recordFilter.test(records.get(0))) {
+            if (IncrementalSourceStreamFetcherBridge.shouldEmit(fetcher, precedingRecord)
+                    || !IncrementalSourceStreamFetcherBridge.shouldEmit(fetcher, records.get(0))) {
                 throw new IllegalStateException(
                         "Unexpected filtering at the starting binlog offset");
             }
@@ -189,33 +184,6 @@ public final class IncrementalSourceRecordEmitterFixture implements AutoCloseabl
         } catch (Exception | Error failure) {
             close();
             throw failure;
-        }
-    }
-
-    /** Links the package-private filter during setup for direct calls from the record loop. */
-    @SuppressWarnings("unchecked")
-    private static Predicate<SourceRecord> bindRecordFilter(IncrementalSourceStreamFetcher fetcher)
-            throws Exception {
-        Class<IncrementalSourceStreamFetcher> fetcherType = IncrementalSourceStreamFetcher.class;
-        MethodHandles.Lookup lookup =
-                MethodHandles.privateLookupIn(fetcherType, MethodHandles.lookup());
-        MethodType recordTest = MethodType.methodType(boolean.class, SourceRecord.class);
-        MethodHandle shouldEmit = lookup.findVirtual(fetcherType, "shouldEmit", recordTest);
-        MethodHandle predicateFactory =
-                LambdaMetafactory.metafactory(
-                                lookup,
-                                "test",
-                                MethodType.methodType(Predicate.class, fetcherType),
-                                MethodType.methodType(boolean.class, Object.class),
-                                shouldEmit,
-                                recordTest)
-                        .getTarget();
-        try {
-            return (Predicate<SourceRecord>) predicateFactory.invokeExact(fetcher);
-        } catch (Exception | Error failure) {
-            throw failure;
-        } catch (Throwable failure) {
-            throw new IllegalStateException("Unable to bind the CDC record filter", failure);
         }
     }
 
@@ -317,7 +285,7 @@ public final class IncrementalSourceRecordEmitterFixture implements AutoCloseabl
         refreshTimestampsIfNeeded();
         List<SourceRecord> accepted = new ArrayList<>(BATCH_EVENTS);
         for (SourceRecord record : records) {
-            if (recordFilter.test(record)) {
+            if (IncrementalSourceStreamFetcherBridge.shouldEmit(fetcher, record)) {
                 accepted.add(record);
             }
         }
@@ -365,7 +333,6 @@ public final class IncrementalSourceRecordEmitterFixture implements AutoCloseabl
         if (fetcher != null) {
             fetcher.close();
             fetcher = null;
-            recordFilter = null;
         }
     }
 
