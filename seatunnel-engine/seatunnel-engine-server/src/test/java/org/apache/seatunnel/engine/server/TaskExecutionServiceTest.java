@@ -1120,6 +1120,10 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         } finally {
             taskExecutionService.cancelTaskGroup(groupLocation);
             await().atMost(10, TimeUnit.SECONDS).until(deployment::isDone);
+            nodeEngine
+                    .getHazelcastInstance()
+                    .getMap(Constant.IMAP_RUNNING_JOB_STATE)
+                    .remove(groupLocation);
         }
     }
 
