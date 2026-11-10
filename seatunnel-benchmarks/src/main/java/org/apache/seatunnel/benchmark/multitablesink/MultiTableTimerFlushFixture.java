@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.benchmark.sink;
+package org.apache.seatunnel.benchmark.multitablesink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;

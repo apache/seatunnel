@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.benchmark;
 
-import org.apache.seatunnel.benchmark.sink.MultiTableSinkFixture;
-import org.apache.seatunnel.benchmark.sink.MultiTableTimerFlushFixture;
+import org.apache.seatunnel.benchmark.multitablesink.MultiTableSinkFixture;
+import org.apache.seatunnel.benchmark.multitablesink.MultiTableTimerFlushFixture;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
