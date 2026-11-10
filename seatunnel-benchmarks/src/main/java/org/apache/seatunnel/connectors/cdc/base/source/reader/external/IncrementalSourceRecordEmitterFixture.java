@@ -66,8 +66,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/** Supplies prepared records to the package-private stream filter and the production emitter. */
-public final class MySqlCdcRecordFixture implements AutoCloseable {
+/** Supplies in-memory binlog events to the package-private stream filter and record emitter. */
+public final class IncrementalSourceRecordEmitterFixture implements AutoCloseable {
 
     public enum Operation {
         INSERT,
@@ -98,7 +98,8 @@ public final class MySqlCdcRecordFixture implements AutoCloseable {
     private Offset expectedLastOffset;
     private long refreshTimestampsAt;
 
-    public MySqlCdcRecordFixture(int columns, Operation operation, boolean exactlyOnce) {
+    public IncrementalSourceRecordEmitterFixture(
+            int columns, Operation operation, boolean exactlyOnce) {
         if (columns < 2) {
             throw new IllegalArgumentException("Expected an ID and at least one data column");
         }

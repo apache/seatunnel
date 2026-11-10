@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.benchmark;
 
-import org.apache.seatunnel.connectors.cdc.base.source.reader.external.MySqlCdcRecordFixture;
+import org.apache.seatunnel.connectors.cdc.base.source.reader.external.IncrementalSourceRecordEmitterFixture;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
@@ -31,7 +31,7 @@ import org.openjdk.jmh.annotations.Threads;
 
 import java.util.concurrent.TimeUnit;
 
-/** Measures steady MySQL CDC filtering and emission with in-memory binlog events. */
+/** Measures the incremental CDC stream filter and record emitter with prepared events. */
 @Threads(1)
 @Fork(
         value = 3,
@@ -44,28 +44,28 @@ import java.util.concurrent.TimeUnit;
             "-XX:ActiveProcessorCount=4",
             "-Djava.net.preferIPv4Stack=true"
         })
-public class MySqlCdcRecordBenchmark extends BenchmarkBase {
+public class IncrementalSourceRecordEmitterBenchmark extends BenchmarkBase {
 
     @Param({"5", "10", "15", "20"})
     private int columns;
 
     @Param({"INSERT", "UPDATE"})
-    private MySqlCdcRecordFixture.Operation operation;
+    private IncrementalSourceRecordEmitterFixture.Operation operation;
 
     @Param({"false", "true"})
     private boolean exactlyOnce;
 
-    private MySqlCdcRecordFixture fixture;
+    private IncrementalSourceRecordEmitterFixture fixture;
 
     @Setup(Level.Trial)
     public void setUp() throws Exception {
-        fixture = new MySqlCdcRecordFixture(columns, operation, exactlyOnce);
+        fixture = new IncrementalSourceRecordEmitterFixture(columns, operation, exactlyOnce);
         fixture.setUp();
     }
 
     @Benchmark
     @OutputTimeUnit(TimeUnit.SECONDS)
-    @OperationsPerInvocation(MySqlCdcRecordFixture.BATCH_EVENTS)
+    @OperationsPerInvocation(IncrementalSourceRecordEmitterFixture.BATCH_EVENTS)
     public int filterAndEmit() throws Exception {
         return fixture.filterAndEmit();
     }
