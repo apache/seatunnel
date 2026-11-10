@@ -75,6 +75,8 @@ OceanBase Binlog Service 提供增量订阅能力。
 - 首批版本只支持显式配置的表，即通过 `table-names`、`table-pattern`、
   `table-names-config` 指定采集范围。
 - 启动模式、checkpoint / restore 语义、模式演进行为与 `MySQL-CDC` 保持一致。
+- `startup.mode = "snapshot-only"` 继承自 `MySQL-CDC`，配置限制相同，详见
+  [仅快照（一次性引导）](./MySQL-CDC.md#仅快照一次性引导)。
 
 ## 任务示例
 

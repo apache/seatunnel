@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lance.utils;
 
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -27,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.lance.exception.LanceConnectorException;
 
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.TimeStampMicroTZVector;
 import org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.arrow.vector.VarCharVector;
@@ -288,6 +291,60 @@ class FragmentConverterTest {
             ListVector list = (ListVector) root.getVector("c_millis_list");
             Assertions.assertEquals(expected, ((TimeStampMilliVector) list.getDataVector()).get(0));
         }
+    }
+
+    @Test
+    void shouldKeepEveryBitOfABigint() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_bigint"},
+                        new SeaTunnelDataType<?>[] {BasicType.LONG_TYPE});
+        // Every value is outside the int32 range. The third is an epoch in milliseconds.
+        long[] values = {
+            3_000_000_000L, -3_000_000_000L, 1_739_586_083_123L, Long.MAX_VALUE, Long.MIN_VALUE
+        };
+        List<SeaTunnelRow> rows =
+                Arrays.asList(
+                        new SeaTunnelRow(new Object[] {values[0]}),
+                        new SeaTunnelRow(new Object[] {values[1]}),
+                        new SeaTunnelRow(new Object[] {values[2]}),
+                        new SeaTunnelRow(new Object[] {values[3]}),
+                        new SeaTunnelRow(new Object[] {values[4]}));
+        // The schema the sink declares when it creates the dataset itself.
+        Schema schema = SchemaUtils.convertSchema(rows.get(0), rowType);
+        Assertions.assertEquals(new ArrowType.Int(64, true), schema.getFields().get(0).getType());
+
+        try (RootAllocator allocator = new RootAllocator();
+                VectorSchemaRoot root =
+                        FragmentConverter.convertToVectorSchemaRoot(
+                                rows, rowType, schema, allocator)) {
+            BigIntVector vector = (BigIntVector) root.getVector("c_bigint");
+            for (int i = 0; i < values.length; i++) {
+                Assertions.assertEquals(values[i], vector.get(i));
+            }
+        }
+    }
+
+    @Test
+    void shouldDeclareABigintColumnAsInt64InTheCatalogSchema() {
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "c_bigint",
+                                        BasicType.LONG_TYPE,
+                                        (Long) null,
+                                        true,
+                                        null,
+                                        null))
+                        .build();
+        Assertions.assertEquals(
+                "int64",
+                SchemaUtils.convertJsonArrowSchema(tableSchema)
+                        .getFields()
+                        .get(0)
+                        .getType()
+                        .getType());
     }
 
     private static long epochMicros(LocalDateTime value) {

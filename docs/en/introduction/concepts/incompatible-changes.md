@@ -5,12 +5,12 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
-### GraphQL connector: a response with GraphQL errors fails the job
+### Lance sink: BIGINT columns are created as int64
 
-- **Behavior change: the GraphQL sink and the HTTP query mode of the GraphQL source fail when the server reports errors**
-  - **Description**: GraphQL servers usually answer a rejected query or mutation with HTTP 200 and an `errors` array. The sink only checked the status code, and for a status other than 200 it only logged the response, so a rejected mutation was dropped and the job finished. The source read such a response as if it were data, so a rejected query produced no rows. Both now fail with the server's errors in the message, and the sink also fails on a status other than 200. Date and time fields are now sent as ISO 8601 strings; before, they were sent as nested JSON objects on Java 11 and the write failed on Java 17. When `variables` is not set, an empty object is now sent instead of the string `"{}"`, which servers reject; before, a sink without `variables` failed on every row.
-  - **Impact**: A job whose requests the server rejects now fails instead of finishing with missing rows. Subscription mode is unchanged.
-  - **Migration Guide**: No configuration change is needed. If a job starts failing, the error message shows what the server rejected. Fix the query, the mutation or the variable types; for example, Hasura expects `float8` for a PostgreSQL `double precision` column, not `Float`.
+- **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**
+  - **Description**: When the Lance sink created a dataset, it declared `BIGINT` columns as Arrow `int32` and wrote each value with `Number.intValue()`, so a value outside the signed 32-bit range was silently wrapped. For example, `3000000000` was stored as `-1294967296`, and the epoch millisecond `1739586083123` as `124328243`. The sink, and the catalog's `createTable`, now declare `BIGINT` as `int64` and store the value unchanged.
+  - **Impact**: A dataset created by this version has an `int64` column where an earlier version created `int32`. A dataset that already exists keeps its column types, because the sink writes to the schema it finds, so its `int32` column still wraps large values.
+  - **Migration Guide**: No configuration change is needed. If a consumer expects `int32` for these columns, update it to read `int64`. To store large values in a dataset created by an earlier version, recreate the dataset and write the rows again from the source.
 
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
@@ -34,6 +34,13 @@ You need to check this document before you upgrade to related version.
 - **Migration**: no configuration or checkpoint-format migration is required. Affected jobs may
   restart instead of retrying a batch locally or continuing after a row error. Auto-commit connections,
   jobs without checkpointing, and XA writers retain their existing behavior.
+
+### GraphQL connector: a response with GraphQL errors fails the job
+
+- **Behavior change: the GraphQL sink and the HTTP query mode of the GraphQL source fail when the server reports errors**
+  - **Description**: GraphQL servers usually answer a rejected query or mutation with HTTP 200 and an `errors` array. The sink only checked the status code, and for a status other than 200 it only logged the response, so a rejected mutation was dropped and the job finished. The source read such a response as if it were data, so a rejected query produced no rows. Both now fail with the server's errors in the message, and the sink also fails on a status other than 200. Date and time fields are now sent as ISO 8601 strings; before, they were sent as nested JSON objects on Java 11 and the write failed on Java 17. When `variables` is not set, an empty object is now sent instead of the string `"{}"`, which servers reject; before, a sink without `variables` failed on every row.
+  - **Impact**: A job whose requests the server rejects now fails instead of finishing with missing rows. Subscription mode is unchanged.
+  - **Migration Guide**: No configuration change is needed. If a job starts failing, the error message shows what the server rejected. Fix the query, the mutation or the variable types; for example, Hasura expects `float8` for a PostgreSQL `double precision` column, not `Float`.
 
 ### Lance sink: TIMESTAMP values keep their microseconds
 
