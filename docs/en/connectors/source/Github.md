@@ -28,7 +28,6 @@ The Github source connector reads data from the GitHub REST API. It is built on 
 | params                      | Map     | No       | -             |
 | body                        | String  | No       | -             |
 | format                      | String  | No       | text          |
-| binary_chunk_size           | long    | No       | 10485760      |
 | schema                      | Config  | No       | -             |
 | schema.fields               | Config  | No       | -             |
 | json_field                  | Config  | No       | -             |
@@ -81,10 +80,6 @@ HTTP request body. This is only useful for API endpoints that accept a request b
 
 Response format. Supports `json` and `text`. Use `json` with `schema` when you want SeaTunnel rows with named fields.
 
-### binary_chunk_size [long]
-
-Chunk size in bytes when `format = "binary"`. Large responses are split into multiple rows. Only effective in BATCH mode.
-
 ### schema [Config]
 
 Defines the output row structure when `format = "json"`. For details, see [Schema Feature](../../introduction/concepts/schema-feature.md).
@@ -99,7 +94,7 @@ JSONPath expression used to select a JSON fragment before schema parsing, for ex
 
 ### pageing [Config]
 
-Pagination settings inherited from the HTTP connector. All pagination options must be configured inside this `pageing` block; pagination keys set at the top level of the source are ignored. Set `pageing.page_type = "Cursor"` for cursor-based pagination when needed.
+Pagination settings inherited from the HTTP connector option rule. **These options are not applied by this connector**: `GithubSource` builds its reader without a pagination context, so the source always reads a single page regardless of `pageing` settings, and the job still succeeds. Do not rely on `pageing` here; passing more data requires connector support to be added.
 
 ### pageing.page_type [String]
 
@@ -232,13 +227,7 @@ source {
     method = "GET"
     params = {
       per_page = "100"
-      page = "${page}"
-    }
-    pageing = {
-      page_field = "page"
-      total_page_size = 5
-      start_page_number = 1
-      use_placeholder_replacement = true
+      page = "1"
     }
     format = "json"
     schema = {

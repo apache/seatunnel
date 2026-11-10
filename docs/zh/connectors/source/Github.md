@@ -28,7 +28,6 @@ Github 源连接器用于读取 GitHub REST API 数据。它基于 HTTP 源连�
 | params                      | Map     | 否   | -      |
 | body                        | String  | 否   | -      |
 | format                      | String  | 否   | text   |
-| binary_chunk_size           | long    | 否   | 10485760 |
 | schema                      | Config  | 否   | -      |
 | schema.fields               | Config  | 否   | -      |
 | json_field                  | Config  | 否   | -      |
@@ -79,11 +78,7 @@ HTTP 请求体。只有目标 API 接口支持请求体时才需要配置。
 
 ### format [String]
 
-响应数据格式，支持 `json`、`text` 和 `binary`。`binary` 模式下响应体按原始字节返回，并以 `binary_chunk_size` 切分（仅批处理模式生效）。如果希望输出带字段名的数据行，请使用 `json` 并配置 `schema`。
-
-### binary_chunk_size [long]
-
-`format = "binary"` 时按字节切分响应的大小。较大的响应会被拆分为多行。仅批处理模式生效。
+响应数据格式，支持 `json` 和 `text`。如果希望输出带字段名的数据行，请使用 `json` 并配置 `schema`。
 
 ### schema [Config]
 
@@ -99,7 +94,7 @@ HTTP 请求体。只有目标 API 接口支持请求体时才需要配置。
 
 ### pageing [Config]
 
-继承自 HTTP 连接器的分页配置。所有分页参数必须配置在该 `pageing` 块内，写在 source 顶层的分页参数会被忽略。必要时可设置 `pageing.page_type = "Cursor"` 使用游标分页。
+继承自 HTTP 连接器选项规则的分页设置。**这些选项不会被本连接器应用**：`GithubSource` 构建读取器时未传入分页上下文，因此无论如何配置 `pageing`，本连接器都只会读取单页数据，作业仍会正常结束。请不要依赖 `pageing`；读取更多数据需要等待连接器支持后再启用。
 
 ### pageing.page_type [String]
 
@@ -232,13 +227,7 @@ source {
     method = "GET"
     params = {
       per_page = "100"
-      page = "${page}"
-    }
-    pageing = {
-      page_field = "page"
-      total_page_size = 5
-      start_page_number = 1
-      use_placeholder_replacement = true
+      page = "1"
     }
     format = "json"
     schema = {
