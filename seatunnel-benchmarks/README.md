@@ -57,17 +57,11 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar 'MultiTableSinkBenchmark.re
 The score measures bounded record handoff throughput with per-writer sequence checks; final
 draining and count verification run outside the timed iteration.
 
-Run the timer flush benchmark with two logical tables and 1, 5, or 10 writer queues:
+Run the `MultiTableSink` timer flush benchmark.
 
 ```bash
-java -jar seatunnel-benchmarks/target/benchmarks.jar 'MultiTableSinkBenchmark.timerFlush$' \
-  -p flushIntervalMillis=100,500,1000 -p flushQueueCount=1,5,10 -p writerFlushMillis=5
+java -jar seatunnel-benchmarks/target/benchmarks.jar 'MultiTableSinkBenchmark.timerFlush$'
 ```
-
-The score is the elapsed time of the registered MultiTableSink flush callback in ms/round.
-Each child writer simulates one buffered batch with a 5 ms write wait. JMH waits for the next
-trigger and verifies every child writer outside the measured callback. Select `MultiTableSinkBenchmark`
-in the Benchmarks workflow to run both methods, or enter the method selector under `custom_benchmarks`.
 
 Write JSON results:
 
