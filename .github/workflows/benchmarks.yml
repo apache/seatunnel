@@ -37,6 +37,7 @@ on:
           - 'SeaTunnelRowBenchmark'
           - 'IntermediateQueueBenchmark'
           - 'DebeziumJsonFormatBenchmark'
+          - 'MySqlCdcRecordBenchmark'
           - 'ProtoStuffSerializerBenchmark'
           - 'SeaTunnelPipelineBenchmark'
           - 'CheckpointingTimeBenchmark'

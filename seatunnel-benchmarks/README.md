@@ -56,6 +56,17 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar MultiTableSinkBenchmark -p 
 The score measures bounded record handoff throughput with per-writer sequence checks; final
 draining and count verification run outside the timed iteration.
 
+Run the MySQL CDC record filtering and emission benchmark with in-memory binlog events:
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar MySqlCdcRecordBenchmark \
+  -p columns=20 -w 500ms -r 500ms -prof gc
+```
+
+The benchmark covers INSERT and UPDATE with both values of `exactly_once`. The default column
+counts are 5, 10, 15, and 20. Throughput and allocation are measured per input event. An UPDATE
+emits two rows.
+
 Write JSON results:
 
 ```bash
