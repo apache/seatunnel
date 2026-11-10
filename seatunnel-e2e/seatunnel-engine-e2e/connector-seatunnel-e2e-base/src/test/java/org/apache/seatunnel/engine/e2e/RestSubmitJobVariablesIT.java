@@ -118,6 +118,18 @@ public class RestSubmitJobVariablesIT {
     }
 
     @Test
+    void testVariablesPreserveLiteralSchemaKeys() {
+        String config = JSON_JOB.replace("\"name\": \"string\"", "\"^t_nova_.*$\": \"string\"");
+        String jobId =
+                submit(
+                        "/submit-job?format=json",
+                        "run=literal_keys,rows=5,database=shop,table=literal_keys",
+                        config);
+
+        assertFinished(jobId, "rest_variables_literal_keys", 5, "shop.literal_keys");
+    }
+
+    @Test
     void testSubmitJobsWithVariablesPerJob() {
         String body =
                 "["

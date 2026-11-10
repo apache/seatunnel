@@ -4,6 +4,13 @@
 
 ## dev
 
+### Lance Sink：BIGINT 列创建为 int64
+
+- **行为变更：Lance Sink 创建的数据集中，`BIGINT` 列为 Arrow `int64`**
+  - **描述**：Lance Sink 创建数据集时，会把 `BIGINT` 列声明为 Arrow `int32`，并用 `Number.intValue()` 写入每个值，因此超出有符号 32 位范围的值会被静默回绕。例如 `3000000000` 被存为 `-1294967296`，毫秒时间戳 `1739586083123` 被存为 `124328243`。现在 Sink 以及 Catalog 的 `createTable` 都把 `BIGINT` 声明为 `int64`，值按原样存储。
+  - **影响**：本版本创建的数据集中该列为 `int64`，而早期版本创建的是 `int32`。已经存在的数据集保留原有的列类型，因为 Sink 会按已有的 schema 写入，所以其中的 `int32` 列仍会回绕较大的值。
+  - **迁移指南**：无需修改配置。如果下游按 `int32` 读取这些列，请改为读取 `int64`。若要在早期版本创建的数据集中存储较大的值，请重新创建数据集，并从数据源重新写入数据。
+
 ### REST 作业提交：JSON 请求体中的 `variables` 保留字段
 
 JSON 格式的 `/submit-job` 请求体顶层字段 `variables`，以及 `/submit-jobs` 每个作业项的
@@ -276,6 +283,22 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   并使用 `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` 保留该表结构。不要对手动定义的目标表使用
   `RECREATE_SCHEMA`。任意指定索引前缀长度可能拒绝前缀相同但完整值不同的源主键，因此无法保持原有主键语义。
 
+### JsonPath 转换
+
+- 已识别的目标类型转换失败现在遵循现有的列级和行级错误策略。列级 `SKIP` 产生 null
+  字段；列级 `SKIP_ROW` 或未被列级策略覆盖的行级 `SKIP` 丢弃整行。显式列级 `FAIL`
+  仍优先，默认策略仍为 `FAIL`。
+- 在 `FAIL` 策略下，已识别的转换错误现在以 `ErrorDataTransformException` 和
+  `JSONPATH_ERROR_CODE-07` 报告，不再直接报告原始转换器异常或其 `COMMON-*` 错误码。
+  这些诊断及跳过日志会有意省略源记录、提取值和原始异常原因。请更新依赖旧异常文本或错误码
+  的告警和运维手册。不支持的转换和意外失败保留现有行为；本变更不增加
+  `ROUTE_TO_TABLE` 支持，也不改变检查点格式。
+- 路径读取错误的处理策略不变。`ErrorDataTransformException` 现在附加经过净化的
+  `JsonPathException` cause，而不是原始异常，因为原始消息或堆栈可能包含源数据或私有路径字面量；
+  此前该异常没有 cause。诊断仅保留安全的字段标识符和原始异常类型，不包含源 JSON、配置路径或
+  原始异常文本。cause 链仍存在，但不保留原始 cause 的子类型和堆栈细节。请更新原先假设不存在
+  嵌套 cause 或依赖旧异常文本的堆栈解析器和告警。
+
 ### Replace 转换的模式刷新
 
 - **行为变更**：模式变更或检查点恢复后，Replace 会根据刷新的输入模式重新解析 `replace_fields`。此前，列位置变化后，缓存的位置可能导致替换无关列或漏掉配置的字段。
@@ -345,6 +368,22 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **变更说明**：`AES_ENCRYPT(value, key[, iv])` 与 `AES_DECRYPT(value, key[, iv])` 现为内置 Zeta SQL 函数，且分发顺序在用户注册的 `ZetaUDF` 之前。使用 `AES/CBC/PKCS5Padding`，输出 Base64；未显式提供 IV 时生成随机 IV 并拼接到密文头部，故 `AES_DECRYPT` 无需显式 IV 即可恢复。
   - **影响**：若作业此前注册了名为 `AES_ENCRYPT` 或 `AES_DECRYPT` 的自定义 `ZetaUDF`（此前缺少内置函数时的变通做法），升级后将静默改用此内置实现而非 UDF。若该 UDF 使用了不同的密钥派生、IV 处理或输出编码，则已由 UDF 写入的密文可能无法解密（或在 CBC 填充校验以约 1/256 概率碰巧通过时解出垃圾）。
   - **迁移指南**：重命名已有 UDF，或迁移到内置函数。如需与 `FieldEncrypt` 的 `AesCbcEncryptor` 保持线兼容，请使用带 `base64:` 前缀的密钥（裸密钥会按口令经 SHA-256 派生，**不**与 `FieldEncrypt` 互通）。完整契约见 [SQL 函数](../../transforms/sql-functions.md)。
+
+### Zeta SQL Transform：内置 UNIX_TIMESTAMP
+
+- **行为变更：UNIX_TIMESTAMP 现为内置函数**
+  - **影响范围**：`seatunnel-transforms-v2`（Zeta SQL transform）。
+  - **变更说明**：`UNIX_TIMESTAMP()` / `UNIX_TIMESTAMP(string[, pattern])` / `UNIX_TIMESTAMP(dateTime)` 现为内置 Zeta SQL 函数，分发顺序在用户注册的 `ZetaUDF` 之前，输出类型解析为 `BIGINT`（`BasicType.LONG_TYPE`）。
+  - **影响**：若作业此前注册了名为 `UNIX_TIMESTAMP` 的自定义 `ZetaUDF`（此前缺少内置函数时的变通做法），升级后将静默改用此内置实现而非 UDF。声明的输出类型现在被强制为 `BIGINT`，无视该 UDF 的 `resultType` 返回值，若 UDF 返回不同类型，可能破坏下游 sink 的 schema。
+  - **迁移指南**：重命名已有 UDF，或迁移到内置函数。完整契约见 [SQL 函数](../../transforms/sql-functions.md)。
+
+### Zeta SQL Transform：FROM_UNIXTIME 与 UNIX_TIMESTAMP 文本 pattern 使用英语 locale
+
+- **行为变更：文本 pattern 字母现在按英语解释，不受 worker JVM locale 影响**
+  - **影响范围**：`seatunnel-transforms-v2`（Zeta SQL transform）。
+  - **变更说明**：`getFormatter` 是 `FROM_UNIXTIME`（格式化路径）和 `UNIX_TIMESTAMP`（解析路径）共用的 `DateTimeFormatter` 工厂，现在向 `DateTimeFormatter.ofPattern` 传入 `Locale.ENGLISH`。此前捕获的是 JVM 默认 FORMAT locale，导致文本 pattern 字母（如 `MMM` 月份名、`EEE` 星期、`a` 上下午）按 worker 语言渲染或解析。
+  - **影响**：在非英语 worker 上（如 `de-DE`），`FROM_UNIXTIME(epoch, 'dd MMM yyyy')` 此前输出 `23 Okt 2026`，现在输出 `23 Oct 2026`；`UNIX_TIMESTAMP('23 Oct 2026', 'dd MMM yyyy')` 此前返回 `NULL`（解析失败），现在返回正确的 epoch 值。英语 locale 的 worker 不受影响。此变更与 `DAYNAME` 和 `MONTHNAME` 一致，后者已通过 `DateFormatSymbols.getInstance(Locale.ENGLISH)` 固定英语。
+  - **迁移指南**：无需操作即可保证正确性——文本 pattern 按英语解释始终是预期行为。若下游消费方依赖 `FROM_UNIXTIME` 输出中的本地化月份或星期名称，需更新为预期英语名称。完整 pattern 参考见 [SQL 函数](../../transforms/sql-functions.md)。
 
 ### RabbitMQ Connector
 
@@ -446,6 +485,12 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
   - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`RowToJsonConverters`）--影响所有以 JSON 格式序列化行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Sink）。
   - **变更说明**：以前，目录 Schema 中声明为数值类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE`、`DECIMAL`）的字段，序列化时会把运行时值强制转换为声明类型对应的 Java 类型（例如 `BIGINT` 直接 `(long) value`）。在多表作业（例如多表 CDC 作业写 JSON 到 RabbitMQ/Kafka）中，多张表共享同一份目录 Schema 但物理列类型不一致时，`String` 或 `BigDecimal` 运行时值会抛出原始 `ClassCastException` 并导致作业失败。现在数值字段按运行时实际类型序列化：任意数值包装类型（`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`、`BigInteger`、`BigDecimal`）输出为对应的 JSON 数字；可解析为数字的字符串会解析成 JSON 数字，无法解析的文本则输出为 JSON 字符串；声明为 `DECIMAL` 的字段遇到 `Float`/`Double` 运行时值时，通过 `BigDecimal.valueOf` 序列化以避免浮点表示误差。
   - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
+
+- **行为变更：JSON 反序列化保留嵌套在数组中的 `DECIMAL` 精度**
+  - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`JsonDeserializationSchema`）--影响所有以 JSON 格式读取行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Source）。
+  - **变更说明**：判断是否需要把文档中的数字按 `BigDecimal` 解析时，此前不会发现声明在 `ARRAY` 中的 `DECIMAL`（例如 `ARRAY<DECIMAL>`、`ARRAY<ARRAY<DECIMAL>>` 或 `ARRAY<ROW<DECIMAL>>`），因为数组不是复合类型。其元素会先按 `double` 解析，随后才转换为 `DECIMAL`，因此会丢失 `double` 精度之外的各位数字，而同一 Schema 中的标量 `DECIMAL` 列却能保留。现在嵌套在数组中的 `DECIMAL` 与标量 `DECIMAL` 一样保留数值精度。选项、默认值和行结构均未变化。
+  - **影响**：声明为 `DECIMAL` 的数组元素不再被舍入到约 17 位有效数字。由于底层的 mapper 设置作用于整个文档，在声明了数组内 `DECIMAL` 的 Schema 中，赋给 `STRING` 字段的裸数字现在会保留全部数位（`3.14159265358979323846`，此前为 `3.141592653589793`）。作为文本赋给 `STRING` 字段的 JSON 对象或数组同理：容器会按十进制值重新生成文本，其中的浮点数可能保留更多位数或改用指数表示（`1e-10` 会变为 `1E-10`），而同一对象或数组内以引号包裹的数字仍保持原始文本。带引号的 JSON 字符串以及不含任何 `DECIMAL` 的 Schema 不受影响。 (#12871)
+  - **迁移指南**：如果下游环节会比较这类数值的文本，请按精确数位重新评估这些比较逻辑，或让来源为承载裸数字的 `STRING` 列提供带引号的 JSON 字符串。存放在 `STRING` 列中的 JSON 对象或数组也属于同一类：请先核对它们序列化后的文本（数位与指数写法）再依赖该文本，或让来源以带引号的 JSON 字符串提供这些值。`DECIMAL` 列无需修改配置即可保留声明的数值精度。
 
 ### 引擎行为变更
 

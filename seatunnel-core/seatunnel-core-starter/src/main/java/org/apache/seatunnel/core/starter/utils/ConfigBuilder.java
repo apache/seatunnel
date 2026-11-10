@@ -33,6 +33,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
+import org.apache.seatunnel.api.configuration.util.ConfigMapPathUtils;
 import org.apache.seatunnel.api.sink.TablePlaceholder;
 import org.apache.seatunnel.common.utils.ConfigValueUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -125,7 +126,7 @@ public class ConfigBuilder {
     public static Config of(@NonNull Map<String, Object> objectMap) {
         log.info("Loading config file from objectMap");
         Config config =
-                ConfigFactory.parseMap(objectMap)
+                ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(objectMap))
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
@@ -256,7 +257,8 @@ public class ConfigBuilder {
         log.info("With config adapter spi {}", configAdapter.getClass().getName());
         try {
             Map<String, Object> flattenedMap = configAdapter.loadConfig(filePath);
-            Config config = ConfigFactory.parseMap(flattenedMap);
+            Config config =
+                    ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(flattenedMap));
             return ConfigShadeUtils.decryptConfig(backfillUserVariables(config, variables));
         } catch (ParserException | IllegalArgumentException e) {
             throw e;
@@ -282,7 +284,8 @@ public class ConfigBuilder {
                                 ? userConfigMap.get(placeholder)
                                 : System.getProperty(placeholder));
 
-        return ConfigFactory.parseMap(resolvedConfigMap);
+        // unwrapped() drops the quoting of literal keys, so re-quote before parsing the map.
+        return ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(resolvedConfigMap));
     }
 
     /**
@@ -311,7 +314,8 @@ public class ConfigBuilder {
             resolvedConfigMap =
                     config.resolve(SUBMITTED_CONFIG_RESOLVE_OPTIONS)
                             .resolveWith(
-                                    ConfigFactory.parseMap(userValues),
+                                    ConfigFactory.parseMap(
+                                            ConfigMapPathUtils.quoteInvalidPathKeys(userValues)),
                                     SUBMITTED_CONFIG_RESOLVE_OPTIONS)
                             .root()
                             .unwrapped();
@@ -331,7 +335,7 @@ public class ConfigBuilder {
                 placeholder -> !TablePlaceholder.isSystemPlaceholder(placeholder),
                 variables::get);
 
-        return ConfigFactory.parseMap(resolvedConfigMap);
+        return ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(resolvedConfigMap));
     }
 
     private static Object parseSubmittedValue(String key, String value) {
@@ -345,16 +349,16 @@ public class ConfigBuilder {
 
     public static Config substituteUserConfig(
             Config originalConfig, Map<String, String> userConfigMap) {
+        Map<String, Object> userVariableMap =
+                userConfigMap.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry ->
+                                                ConfigValueUtils.parseValue(entry.getValue())
+                                                        .unwrapped()));
         Config userConfig =
-                ConfigFactory.parseMap(
-                        userConfigMap.entrySet().stream()
-                                .collect(
-                                        Collectors.toMap(
-                                                Map.Entry::getKey,
-                                                entry ->
-                                                        ConfigValueUtils.parseValue(
-                                                                        entry.getValue())
-                                                                .unwrapped())));
+                ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(userVariableMap));
 
         Config systemConfig =
                 Parseable.newProperties(
@@ -367,7 +371,8 @@ public class ConfigBuilder {
         // Priority: userConfig > systemProperties
         Map<String, Object> mergedMap = new LinkedHashMap<>(systemConfig.root().unwrapped());
         mergedMap.putAll(userConfig.root().unwrapped());
-        Config sourceConfig = ConfigFactory.parseMap(mergedMap);
+        Config sourceConfig =
+                ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(mergedMap));
 
         return originalConfig.resolveWith(
                 sourceConfig, ConfigResolveOptions.defaults().setAllowUnresolved(true));

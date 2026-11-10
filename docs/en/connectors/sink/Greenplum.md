@@ -46,6 +46,30 @@ Greenplum sink does not support exactly-once semantics because XA transaction is
 | Greenplum by PostgreSQL driver | `org.postgresql.Driver` | `jdbc:postgresql://localhost:5432/testdb` | [Download](https://mvnrepository.com/artifact/org.postgresql/postgresql) |
 | Greenplum native driver | `com.pivotal.jdbc.GreenplumDriver` | `jdbc:pivotal:greenplum://localhost:5432;DatabaseName=testdb` | Download from Greenplum |
 
+## Data Type Mapping
+
+Greenplum reuses the PostgreSQL JDBC driver mapping. The table below lists the commonly used types:
+
+| SeaTunnel Data Type | Greenplum Data Type |
+|---------------------|---------------------|
+| BOOLEAN | BOOLEAN |
+| TINYINT / SMALLINT | SMALLINT |
+| INT | INTEGER |
+| BIGINT | BIGINT |
+| FLOAT | REAL |
+| DOUBLE | DOUBLE PRECISION |
+| DECIMAL(p, s) | NUMERIC(p, s) |
+| STRING | TEXT (VARCHAR(n) when a column length is set) |
+| DATE | DATE |
+| TIME | TIME(p) |
+| TIMESTAMP | TIMESTAMP(p) |
+| TIMESTAMP_TZ | TIMESTAMPTZ(p) |
+| BYTES | BYTEA |
+
+The table above lists the sink direction (`PostgresTypeConverter.reconvert`). A `DECIMAL` column is
+written as `NUMERIC(p, s)`; the `MONEY` type is only produced when the column's source type was
+already `money`, so a plain `DECIMAL(30,2)` column lands as `NUMERIC(30,2)`, not `MONEY`.
+
 ## Options
 
 Only Greenplum-specific commonly used options are listed here. Other JDBC sink options, such as `batch_size`, `max_retries`, `generate_sink_sql`, `database`, `table`, `primary_keys`, and `properties`, are inherited from [Jdbc Sink](Jdbc.md).

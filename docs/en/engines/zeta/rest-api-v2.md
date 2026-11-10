@@ -265,7 +265,7 @@ The [OpenAPI 3.1 contract for the read-only REST v2 subset](openapi-v2.yaml) cur
 ```
 
 **Notes:**
-- If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`. when you set it to fix slot number, it will return the correct total and unassigned slot number
+- If you use `dynamic-slot`, the `unassignedSlot` is always `0` because dynamic slots are created on demand and never pre-registered; `totalSlot` reflects the number of slots currently assigned to jobs. When you set `dynamic-slot: false` with a fixed slot number, it will return the correct total and unassigned slot number
 - If the url has tag filter, the `workers`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
 
 </details>
@@ -539,7 +539,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 
 - **queueSummary** – overview of the entire pending queue.
   - `size`: number of jobs currently pending.
-  - `scheduleStrategy`: strategy in use (e.g. `WAIT`, `FAIL_FAST`) that dictates what happens when resources are insufficient.
+  - `scheduleStrategy`: strategy in use (e.g. `WAIT`, `REJECT`) that dictates what happens when resources are insufficient.
   - `oldestEnqueueTimestamp` / `newestEnqueueTimestamp`: timestamps (ms) of the oldest/latest job in the queue.
   - `lackingTaskGroups`: total TaskGroup count still waiting for slots. **Note**: This value reflects only the jobs included in the current response (i.e., the subset limited by the `limit` parameter or filtered by `jobId`), not the entire pending queue. To view the complete statistics for all pending jobs, call this API without the `limit` parameter.
 - **clusterSnapshot** – cluster resource snapshot (can be filtered by tags).
@@ -962,6 +962,8 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 #### Body
 
 You can choose json, hocon or sql to pass request body.
+For JSON submissions, every key is parsed as a SeaTunnel config path expression: `a->b` creates nested config, while a dot such as in `job.mode` is not a path separator. Keys whose path expression cannot be parsed (for example regex field names such as `^t_nova_.*$`, or keys containing reserved characters such as `$`, `:` or `${...}`) are kept as literal keys instead of failing the request. Parsable keys keep the existing semantics: quotes are removed and surrounding unquoted whitespace is trimmed. The same rule applies to batch submissions.
+For HOCON submissions the body is parsed by the HOCON parser first, so a key containing a reserved character must be quoted in the body: write `"$systemId" = "string"` instead of `$systemId = "string"`. Quoting a key in HOCON does not override the path semantics used during decryption. Keys rejected by the path parser are kept literal; valid expressions such as `a->b` are parsed as paths.
 The json format example:
 ``` json
 {

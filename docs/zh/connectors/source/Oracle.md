@@ -74,7 +74,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | password | String | 否 | - | 连接实例密码 |
 | query | String | 否 | - | 查询语句。当未配置 `table_path` 和 `table_list` 时必填。 |
 | connection_check_timeout_sec | Int | 否 | 30 | 等待用于验证连接的数据库操作完成的时间（秒） |
-| partition_column | String | 否 | - | 用于并行性分割的列名，仅支持数值类型，仅支持数值类型主键，只能配置一列。 |
+| partition_column | String | 否 | - | 用于并行分割的列名。支持数值和字符串类型的列；Oracle 的 `DATE` 和 `TIMESTAMP` 列会被读取为 `TIMESTAMP`，不能作为分割列。只能配置一列。 |
 | partition_lower_bound | String | 否 | - | partition_column 的最小值用于扫描，如果未设置，SeaTunnel 将查询数据库获取最小值。 |
 | partition_upper_bound | String | 否 | - | partition_column 的最大值用于扫描，如果未设置，SeaTunnel 将查询数据库获取最大值。 |
 | partition_num | Int | 否 | 10 | 分割数量，仅支持正整数。默认值是 10。 |
@@ -127,7 +127,8 @@ JDBC Source 连接器支持并行读取表数据。SeaTunnel 会按一定规则�
 **支持的分片数据类型：**
 - String
 - Number（int、bigint、decimal 等）
-- Date
+
+Oracle 的 `DATE` 和 `TIMESTAMP` 列会映射为 SeaTunnel `TIMESTAMP`（见上方类型映射），该类型不在支持的分片数据类型中。
 
 ### 与分片相关的选项
 
@@ -333,7 +334,7 @@ sink {
 
 ### 流式增量 ID 区间读取
 
-Oracle Source 本质上是一个批连接器。设置 `job.mode = "STREAMING"` 只用于开启 checkpoint 以便在失败时恢复作业；source 本身仍然是有界的，每次作业只会读取一次配置好的 `[partition_lower_bound, partition_upper_bound)` 区间。如需周期性地拉取新增数据，必须在外部重新提交作业（例如按计划滑动区间窗口），或改用 Oracle-CDC 做持续变更捕获。
+Oracle Source 本质上是一个批连接器。设置 `job.mode = "STREAMING"` 只用于开启 checkpoint 以便在失败时恢复作业；source 本身仍然是有界的，每次作业只会读取一次配置好的 `[partition_lower_bound, partition_upper_bound]` 区间。如需周期性地拉取新增数据，必须在外部重新提交作业（例如按计划滑动区间窗口），或改用 Oracle-CDC 做持续变更捕获。
 
 ```hocon
 env {
@@ -348,7 +349,7 @@ source {
     driver = "oracle.jdbc.OracleDriver"
     username = "root"
     password = "123456"
-    query = "SELECT * FROM ORDERS WHERE ORDER_ID >= ? AND ORDER_ID < ?"
+    query = "SELECT * FROM ORDERS"
     partition_column = "ORDER_ID"
     partition_lower_bound = 1
     partition_upper_bound = 1000000

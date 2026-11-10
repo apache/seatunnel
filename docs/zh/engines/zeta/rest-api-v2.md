@@ -260,7 +260,7 @@ seatunnel:
 ```
 
 **注意:**
-- 当你使用`dynamic-slot`时, 返回结果中的`totalSlot`和`unassignedSlot`将始终为0. 设置为固定的slot值后, 将正确返回集群中总共的slot数量以及未分配的slot数量.
+- 当你使用`dynamic-slot`时, 返回结果中的`unassignedSlot`将始终为0, 因为动态slot是按需创建的, 不会预先注册; `totalSlot`反映的是当前已被任务占用的slot数量. 设置`dynamic-slot: false`使用固定slot后, 将正确返回集群中总共的slot数量以及未分配的slot数量.
 - 当添加标签过滤后, `workers`, `totalSlot`, `unassignedSlot`将返回满足条件的节点的相关指标. 注意`runningJobs`等job相关指标为集群级别结果, 无法根据标签进行过滤.
 
 </details>
@@ -948,6 +948,8 @@ seatunnel:
 #### 请求体
 
 你可以选择用json、hocon或者sql的方式来传递请求体。
+JSON 请求中，每个键都会按 SeaTunnel 配置路径表达式解析：`a->b` 会生成嵌套配置，而 `job.mode` 中的点号不是路径分隔符。无法解析为路径表达式的键（例如正则字段名 `^t_nova_.*$`，或包含 `$`、`:`、`${...}` 等保留字符的键）会作为字面键保留，而不会导致请求失败；能够解析的键仍遵循原有语义：引号会被去除，未加引号的首尾空白会被裁剪。批量提交也遵循同一规则。
+HOCON 请求体会先由 HOCON 解析器解析，因此包含保留字符的键必须在请求体中加引号：应写 `"$systemId" = "string"`，而不是 `$systemId = "string"`。HOCON 中的引号不会覆盖解密时的路径语义。路径解析器拒绝的键会保持为字面键；`a->b` 等合法表达式仍按路径解析。
 Json请求示例：
 ```json
 {
