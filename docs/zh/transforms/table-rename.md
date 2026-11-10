@@ -14,6 +14,9 @@ TableRename 转换插件用于重命名表名。
 |         prefix          | string | 否   |        | 追加到表名前的前缀                                                                                      |
 |         suffix          | string | 否   |        | 追加到表名后的后缀                                                                                      |
 | replacements_with_regex | array  | 否   |        | 正则替换规则数组，元素为包含 `replace_from`、`replace_to` 的映射，用于批量替换表名                      |
+|    table_match_regex    | string | 否   | `.*`  | 与上游表路径进行匹配的正则表达式，转换级别规则只应用于匹配的表 |
+|     table_transform     | array  | 否   | -      | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。 |
+|     rule_match_mode     | string | 否   | `FIRST_MATCH` | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
 
 ## 示例
 

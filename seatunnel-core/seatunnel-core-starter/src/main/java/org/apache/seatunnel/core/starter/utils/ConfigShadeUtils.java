@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import org.apache.seatunnel.api.configuration.ConfigShade;
+import org.apache.seatunnel.api.configuration.util.ConfigMapPathUtils;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -62,7 +63,9 @@ public final class ConfigShadeUtils {
                 "security_token",
                 "connection_string",
                 "dlf.access-key-id",
-                "dlf.access-key-secret"
+                "dlf.access-key-secret",
+                "consumer_key",
+                "consumer_secret"
             };
 
     private static final Map<String, ConfigShade> CONFIG_SHADES = new HashMap<>();
@@ -227,7 +230,7 @@ public final class ConfigShadeUtils {
             configMap.put(Constants.SOURCE, sources);
             configMap.put(Constants.SINK, sinks);
             configMap.put(Constants.TRANSFORM, transforms);
-            return ConfigFactory.parseMap(configMap);
+            return ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(configMap));
         } catch (Exception e) {
             // Log desensitized error information
             log.error(
