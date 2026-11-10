@@ -855,18 +855,17 @@ public class MultiTableSinkWriter
     /**
      * Closes this writer and releases all resources.
      *
-     * <p>Drains remaining queues, then calls {@link ExecutorService#shutdownNow()} to interrupt all
-     * consumer threads. Each sub-writer is closed under its respective {@link
-     * MultiTableWriterRunnable} lock to avoid concurrent access. Finally, the shared {@link
+     * <p>Signals any active timer flush round to stop, drains pending writes, and interrupts the
+     * executor threads. After any in-progress table isolation finishes, each sub-writer is closed
+     * under its queue lock, which also protects any in-flight flush. Finally, the shared {@link
      * MultiTableResourceManager} is closed and this method waits for the executor threads to stop.
      *
      * <p>Uses first-exception-wins error handling: if multiple sub-writers throw during close, only
      * the first exception is propagated. Resource manager close errors are logged but not
      * propagated.
      *
-     * @throws RuntimeException wrapping the first {@link Throwable} caught from any sub-writer;
-     *     note that the method signature declares {@code throws IOException} (inherited from the
-     *     interface), but the current implementation always wraps in {@code RuntimeException}
+     * @throws IOException if shutdown reports failed tables for a batch job
+     * @throws RuntimeException if shutdown fails without a batch failed-table report
      */
     @Override
     public void close() throws IOException {
@@ -1039,7 +1038,12 @@ public class MultiTableSinkWriter
                                         completion.complete(null);
                                     }
                                 } catch (Throwable error) {
-                                    completion.complete(error);
+                                    if (!completion.complete(error)) {
+                                        log.warn(
+                                                "Timer flush task for queue {} failed after the round ended",
+                                                queueIndex,
+                                                error);
+                                    }
                                 }
                             }));
         }
@@ -1048,8 +1052,7 @@ public class MultiTableSinkWriter
     private void flushQueue(
             int queueIndex,
             Map<SinkIdentifier, SinkContextProxy> proxyContexts,
-            CompletableFuture<Throwable> completion)
-            throws Exception {
+            CompletableFuture<Throwable> completion) {
         MultiTableWriterRunnable writerRunnable = runnable.get(queueIndex);
         for (SinkIdentifier id : sinkWritersWithIndex.get(queueIndex).keySet()) {
             try {
@@ -1067,21 +1070,30 @@ public class MultiTableSinkWriter
                         flushAction.run();
                     }
                 }
-            } catch (InterruptedException error) {
-                Thread.currentThread().interrupt();
-                throw error;
-            } catch (Exception error) {
-                if (!failurePolicy.continueOtherTables()) {
-                    throw error;
-                }
-                // Table isolation acquires other queue locks. Coordinate with close outside ours.
-                synchronized (this) {
-                    if (completion.isDone()) {
-                        return;
+            } catch (Throwable error) {
+                if (error instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                } else if (error instanceof Exception && failurePolicy.continueOtherTables()) {
+                    // Table isolation acquires other queue locks. Coordinate with close outside
+                    // ours.
+                    synchronized (this) {
+                        if (!completion.isDone()) {
+                            handleTableFailure(
+                                    id.getTableIdentifier(),
+                                    MultiTableFailurePhase.TIMER_FLUSH,
+                                    error);
+                            continue;
+                        }
                     }
-                    handleTableFailure(
-                            id.getTableIdentifier(), MultiTableFailurePhase.TIMER_FLUSH, error);
                 }
+                if (!completion.complete(error)) {
+                    log.warn(
+                            "Timer flush failed for table {} in queue {} after the round ended",
+                            id.getTableIdentifier(),
+                            queueIndex,
+                            error);
+                }
+                return;
             }
         }
     }
