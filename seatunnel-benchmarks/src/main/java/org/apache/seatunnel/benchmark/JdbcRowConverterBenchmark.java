@@ -27,7 +27,6 @@ import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 
 import java.io.IOException;
@@ -53,6 +52,9 @@ public class JdbcRowConverterBenchmark extends BenchmarkBase {
     @Param({"5", "10", "15", "20"})
     private int columns;
 
+    @Param({"INTEGRAL", "DECIMAL_AND_BINARY", "TEMPORAL"})
+    private JdbcRowConverterFixture.TypeProfile typeProfile;
+
     private JdbcRowConverterFixture fixture;
 
     public static void main(String[] args) throws IOException {
@@ -64,7 +66,7 @@ public class JdbcRowConverterBenchmark extends BenchmarkBase {
 
     @Setup(Level.Trial)
     public void setUp() throws SQLException {
-        fixture = new JdbcRowConverterFixture(columns);
+        fixture = new JdbcRowConverterFixture(columns, typeProfile);
     }
 
     @Benchmark
@@ -77,12 +79,5 @@ public class JdbcRowConverterBenchmark extends BenchmarkBase {
     @OutputTimeUnit(TimeUnit.SECONDS)
     public PreparedStatement toExternal() throws SQLException {
         return fixture.bindRow();
-    }
-
-    @TearDown(Level.Trial)
-    public void tearDown() throws SQLException {
-        if (fixture != null) {
-            fixture.close();
-        }
     }
 }
