@@ -98,7 +98,7 @@ Pagination settings inherited from the HTTP connector option rule. **These optio
 
 ### pageing.page_type [String]
 
-Pagination type. Supported values are `PageNumber` (default) and `Cursor`. When `Cursor` is used, the next cursor is read from the response body via `pageing.cursor_response_field`; HTTP response headers are not read.
+Pagination type. Supported values are `PageNumber` (default) and `Cursor`. These options describe how pagination *would* be configured, but as noted above they are **not applied by this connector**, so the source reads a single page regardless of this setting.
 
 ### pageing.cursor_field [String]
 
@@ -174,8 +174,7 @@ Source plugin common parameters. See [Source Common Options](../common-options/s
 - The connector always adds an `Authorization: Bearer <access_token>` header from `access_token`. Put other custom headers in `headers`.
 - Set `format = "json"` and define `schema` when you want typed SeaTunnel rows.
 - Use `content_field` when the GitHub response wraps records in a nested array such as `$.items[*]`.
-- For traditional page-number pagination, keep `pageing.page_type = "PageNumber"` (the default) and use `params` with `page` / `per_page`. Pagination options must be nested inside the `pageing` block.
-- For cursor-based endpoints, set `pageing.page_type = "Cursor"` and configure `pageing.cursor_field` / `pageing.cursor_response_field` inside the `pageing` block. The next cursor is read from the response body via `pageing.cursor_response_field`.
+- This connector currently reads a single page only: the `pageing` options are accepted by the option rule but not applied by the reader (see the `pageing` section). Do not configure `params` with `page` / `per_page` expecting the connector to walk pages.
 
 ## Task Examples
 
@@ -212,7 +211,7 @@ sink {
 }
 ```
 
-### Read Paged GitHub API Results
+### Read GitHub API Results (Single Page)
 
 ```hocon
 env {

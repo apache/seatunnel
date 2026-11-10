@@ -98,7 +98,7 @@ HTTP 请求体。只有目标 API 接口支持请求体时才需要配置。
 
 ### pageing.page_type [String]
 
-分页类型，支持 `PageNumber`（默认）和 `Cursor`。使用 `Cursor` 时，下一个游标值会通过 `pageing.cursor_response_field` 从响应体中读取；连接器不会读取 HTTP 响应头。
+分页类型，支持 `PageNumber`（默认）和 `Cursor`。这些选项描述的是分页"应当如何配置"，但如上所述**不会被本连接器应用**，无论取值如何本连接器都只读取单页数据。
 
 ### pageing.cursor_field [String]
 
@@ -174,8 +174,7 @@ HTTP 套接字超时时间（毫秒），默认 60000ms。
 - 连接器始终会根据 `access_token` 添加 `Authorization: Bearer <access_token>` 请求头，请把其他自定义请求头放在 `headers` 中。
 - 需要按字段读取时，把 `format` 设置为 `json` 并配置 `schema`。
 - 当 GitHub 把记录嵌套在数组中时，使用 `content_field` 抽取数组元素。
-- 使用页码分页时，保持 `pageing.page_type = "PageNumber"`（默认值），并通过 `params` 配置 `page` / `per_page`。分页参数必须嵌套在 `pageing` 块内。
-- 对于游标分页接口，请设置 `pageing.page_type = "Cursor"`，并在 `pageing` 块内配置 `pageing.cursor_field` 与 `pageing.cursor_response_field`。下一个游标值通过 `pageing.cursor_response_field` 从响应体中读取。
+- 本连接器目前只读取单页数据：`pageing` 选项虽被选项规则接受，但读取器并不会应用它们（见 `pageing` 小节说明）。请不要配置 `params` 中的 `page` / `per_page` 来期望连接器自动翻页。
 
 ## 任务示例
 
@@ -212,7 +211,7 @@ sink {
 }
 ```
 
-### 读取分页的 GitHub API 结果
+### 读取 GitHub API 结果（单页）
 
 ```hocon
 env {
