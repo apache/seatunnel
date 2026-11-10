@@ -43,6 +43,8 @@ Socket Source 会把每一行输入读取为字符串。
 |--------|------|------|--------|------|
 | host | String | 是 | - | socket 服务器主机 |
 | port | Integer | 是 | - | socket 服务器端口 |
+| connect_timeout_ms | Integer | 否 | 10000 | 连接超时（毫秒）。`0` 表示不设应用层超时、由操作系统默认值决定，这也是本连接器此前的固定行为。 |
+| read_timeout_ms | Integer | 否 | 0 | 读取的 `SO_TIMEOUT`（毫秒）。默认 `0` 表示不设读超时，保持长连接 source 依赖的阻塞读取行为。 |
 | common-options | | 否 | - | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。 |
 
 :::tip

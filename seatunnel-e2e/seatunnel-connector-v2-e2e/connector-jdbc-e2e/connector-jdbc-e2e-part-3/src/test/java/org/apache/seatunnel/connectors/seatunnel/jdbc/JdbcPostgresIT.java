@@ -491,30 +491,39 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                             .build());
         }
         TableSchema schema = schemaBuilder.build();
-        JdbcDialect dialect =
-                JdbcDialectLoader.load(
-                        POSTGRESQL_CONTAINER.getJdbcUrl(), "postgres", null, "", null);
-        try (Connection connection = getJdbcConnection();
-                PreparedStatement statement =
-                        connection.prepareStatement(
-                                "SELECT pg_typeof(?)::text, pg_typeof(?)::text, pg_typeof(?)::text")) {
-            dialect.getRowConverter()
-                    .toExternal(
-                            schema,
-                            schema,
-                            new SeaTunnelRow(
-                                    new Object[] {
-                                        "{\"key\":\"value\"}",
-                                        "{\"key\":\"value\"}",
-                                        "123e4567-e89b-12d3-a456-426614174000"
-                                    }),
-                            statement);
-            try (ResultSet result = statement.executeQuery()) {
-                Assertions.assertTrue(result.next());
-                for (int i = 0; i < types.length; i++) {
-                    Assertions.assertEquals(types[i], result.getString(i + 1));
+        // Both paths use the real PostgreSQL driver here; the Greenplum URL selects its converter.
+        for (String url :
+                new String[] {
+                    POSTGRESQL_CONTAINER.getJdbcUrl(),
+                    "jdbc:pivotal:greenplum://localhost:5432;DatabaseName=test"
+                }) {
+            JdbcDialect dialect = JdbcDialectLoader.load(url, "postgres", null, "", null);
+            try (Connection connection = getJdbcConnection();
+                    PreparedStatement statement =
+                            connection.prepareStatement(
+                                    "SELECT pg_typeof(?)::text, pg_typeof(?)::text, pg_typeof(?)::text")) {
+                dialect.getRowConverter()
+                        .toExternal(
+                                schema,
+                                schema,
+                                new SeaTunnelRow(
+                                        new Object[] {
+                                            "{\"key\":\"value\"}",
+                                            "{\"key\":\"value\"}",
+                                            "123e4567-e89b-12d3-a456-426614174000"
+                                        }),
+                                statement);
+                try (ResultSet result = statement.executeQuery()) {
+                    Assertions.assertTrue(result.next());
+                    for (int i = 0; i < types.length; i++) {
+                        Assertions.assertEquals(
+                                url.equals(POSTGRESQL_CONTAINER.getJdbcUrl())
+                                        ? types[i]
+                                        : "character varying",
+                                result.getString(i + 1));
+                    }
+                    Assertions.assertFalse(result.next());
                 }
-                Assertions.assertFalse(result.next());
             }
         }
     }
@@ -572,8 +581,10 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
 
     /**
      * Verifies that the numeric special values are also read as null when the driver uses the
-     * binary transfer protocol, where the driver fails with a ClassCastException instead of a
-     * PSQLException.
+     * binary transfer protocol, where the driver fails with a ClassCastException for NaN and an
+     * IllegalArgumentException for Infinity and -Infinity instead of a PSQLException. The driver
+     * only switches to binary results for server-prepared statements, so the job sets
+     * prepareThreshold=-1 to prepare the statement before its first execution.
      */
     @TestTemplate
     public void testNumericSpecialValueAsNullWithBinaryTransfer(TestContainer container)
