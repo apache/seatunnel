@@ -32,9 +32,11 @@ import com.hazelcast.map.MapLoaderLifecycleSupport;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
 
@@ -50,6 +52,13 @@ import java.util.Properties;
 public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecycleSupport {
 
     private IMapStorage mapStorage;
+
+    private final Object initialLoadLock = new Object();
+
+    /** Live entries read for the initial load; guarded by {@link #initialLoadLock}. */
+    private Map<Object, ExpirableValue> initialLoadEntries;
+
+    private volatile boolean initialLoadFinished;
 
     @Override
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
@@ -84,16 +93,19 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
 
     @Override
     public void destroy() {
+        finishInitialLoad();
         mapStorage.destroy(false);
     }
 
     @Override
     public void store(Object key, MetadataAwareValue<Object> value) {
+        finishInitialLoad();
         mapStorage.store(key, value.getValue(), value.getExpirationTime());
     }
 
     @Override
     public void storeAll(Map<Object, MetadataAwareValue<Object>> map) {
+        finishInitialLoad();
         Map<Object, ExpirableValue> values = new HashMap<>(map.size());
         map.forEach(
                 (key, value) ->
@@ -105,11 +117,13 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
 
     @Override
     public void delete(Object key) {
+        finishInitialLoad();
         mapStorage.delete(key);
     }
 
     @Override
     public void deleteAll(Collection<Object> keys) {
+        finishInitialLoad();
         mapStorage.deleteAll(keys);
     }
 
@@ -127,12 +141,14 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
     @SneakyThrows
     @Override
     public Map<Object, MetadataAwareValue<Object>> loadAll(Collection<Object> keys) {
-        Map<Object, ExpirableValue> allMap = mapStorage.loadAllWithExpirationTime();
+        Map<Object, ExpirableValue> allMap = loadLiveEntries();
+        long now = System.currentTimeMillis();
         Map<Object, MetadataAwareValue<Object>> retMap = new HashMap<>();
         keys.forEach(
                 key -> {
                     ExpirableValue value = allMap.get(key);
-                    if (value != null) {
+                    // The entries may have been read a while ago during the initial load.
+                    if (value != null && value.getExpirationTime() > now) {
                         retMap.put(
                                 key,
                                 new MetadataAwareValue<>(
@@ -143,9 +159,52 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
         return Collections.unmodifiableMap(retMap);
     }
 
+    @SneakyThrows
     @Override
     public Iterable<Object> loadAllKeys() {
-        return mapStorage.loadAllKeys();
+        if (initialLoadFinished) {
+            return mapStorage.loadAllKeys();
+        }
+        return new HashSet<>(loadLiveEntries().keySet());
+    }
+
+    /**
+     * Returns the latest live entries of the IMap storage.
+     *
+     * <p>Hazelcast loads a map by calling {@link #loadAllKeys()} once and then {@link
+     * #loadAll(Collection)} once for every partition that holds keys, from several threads at the
+     * same time. A read of the storage always returns every entry, so the entries read by the first
+     * call are kept and shared by the others until the initial load finishes. Later calls read the
+     * storage again.
+     */
+    private Map<Object, ExpirableValue> loadLiveEntries() throws IOException {
+        if (!initialLoadFinished) {
+            synchronized (initialLoadLock) {
+                if (!initialLoadFinished) {
+                    if (initialLoadEntries == null) {
+                        initialLoadEntries = mapStorage.loadAllWithExpirationTime();
+                    }
+                    return initialLoadEntries;
+                }
+            }
+        }
+        return mapStorage.loadAllWithExpirationTime();
+    }
+
+    /**
+     * Ends the initial load before the map store is first written to or destroyed, so that no later
+     * load is answered with entries read before the write.
+     *
+     * <p>Hazelcast does not write loaded entries back to the map store, and EAGER loading blocks
+     * map operations until the map is loaded, so the first write comes after the initial load.
+     */
+    private void finishInitialLoad() {
+        if (!initialLoadFinished) {
+            synchronized (initialLoadLock) {
+                initialLoadFinished = true;
+                initialLoadEntries = null;
+            }
+        }
     }
 
     private static final class NoOpMapStorage implements IMapStorage {
