@@ -49,12 +49,16 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 :::
 
+## Checkpoint recovery
+
+For bounded Zeta jobs, restore resumes pending file splits after readers register and skips files already completed in the checkpoint. Keep input files unchanged and accessible at the same paths while restoring. Sink delivery guarantees still depend on the selected sink and its checkpoint support.
+
 ## Options
 
 | name                       | type    | required | default value                        |
 |----------------------------|---------|----------|--------------------------------------|
 | path                       | string  | yes      | -                                    |
-| file_format_type           | string  | yes      | -                                    |
+| file_format_type           | string  | conditionally yes | -                         |
 | read_columns               | list    | no       | -                                    |
 | read_partitions | list | no | - |
 | delimiter/field_delimiter  | string  | no       | \001                                 |
@@ -64,7 +68,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss                  |
 | time_format                | string  | no       | HH:mm:ss                             |
 | skip_header_row_number     | long    | no       | 0                                    |
-| schema                     | config  | no       | -                                    |
+| schema                     | config  | conditionally yes | -                               |
 | sheet_name                 | string  | no       | -                                    |
 | excel_engine               | string  | no       | POI                                  |
 | excel_use_header_line      | boolean | no       | false                                |
@@ -80,6 +84,8 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | null_format                | string  | no       | -                                    |
 | binary_chunk_size          | int     | no       | 1024                                 |
 | binary_complete_file_mode  | boolean | no       | false                                |
+| markdown_rag_metadata_enabled | boolean | no    | false                                |
+| pdf_rag_metadata_enabled   | boolean | no       | false                                |
 | discovery_mode             | string  | no       | once                                 |
 | scan_interval              | string  | no       | 10S |
 | start_mode                 | string  | no       | earliest                             |
@@ -117,6 +123,8 @@ File type, supported as the following file types:
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
+
+Required when reading a single table with `path`. When reading multiple tables with `tables_configs`, the top-level option is not needed because each table entry defines its own `file_format_type`.
 
 For example:
 
@@ -157,23 +165,11 @@ connector will generate data as the following:
 |------|-------------|---------|
 | 200  | get success | true    |
 
-If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
+If you assign file type to `parquet` or `orc`, the schema option is not required because the connector can read the schema from the file metadata.
 
-If you assign file type to `text` `csv`, you can choose to specify the schema information or not.
+If you assign file type to `json`, `excel`, or `xml`, you must specify the schema because these formats do not provide the field types required by SeaTunnel.
 
-For example, upstream data is the following:
-
-```text
-
-tyrantlucifer#26#male
-
-```
-
-If you do not assign data schema connector will treat the upstream data as the following:
-
-|        content        |
-|-----------------------|
-| tyrantlucifer#26#male |
+For `text` and `csv`, the schema is optional. Without a schema, the connector reads each input line into a single `content` field of type string; `read_columns` is not supported in this mode. Configure a schema when you need typed fields or column mapping.
 
 If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
 
@@ -213,7 +209,7 @@ Each extracted element is converted to a document-element row with the following
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids` (`ARRAY<STRING>`): Direct child element IDs; an empty array for a leaf element.
 
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
@@ -256,6 +252,10 @@ Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column
 ### read_columns [list]
 
 The read column list of the data source, user can use it to implement field projection.
+
+For Parquet files, the reader also skips unselected top-level column data. Selected nested fields
+are read in full, and output column order is unchanged. Explicit Hadoop Parquet projections, reader
+schemas and record filters retain their existing behavior and disable automatic column pruning.
 
 ### delimiter/field_delimiter [string]
 
@@ -323,9 +323,15 @@ For example, set like following:
 
 then SeaTunnel will skip the first 2 lines from source files
 
+For CSV files read with `enable_file_split = false`, these are physical lines,
+skipped before CSV parsing. If `csv_use_header_line = true`, the first CSV record
+after the skipped lines is used as the header. Do not include that header in
+`skip_header_row_number`; use this option for preamble lines before it. With no
+preamble, leave the value at `0`.
+
 ### schema [config]
 
-Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
+Required when `file_format_type` is `json`, `excel`, or `xml`. Optional for `text` and `csv`; when omitted, each input line is read into a single `content` field of type string and `read_columns` is not supported.
 
 #### fields [Config]
 
@@ -391,7 +397,7 @@ For security reasons (XXE hardening), XML files (`file_format_type = xml`) conta
 
 ### csv_use_header_line [boolean]
 
-Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180
+When enabled, the connector consumes the first RFC 4180 CSV record as the header and maps its column names to the fields in the configured `schema`. This option does not infer the schema or field types. Do not also use `skip_header_row_number` to skip the same header row.
 
 ### file_filter_pattern [string]
 
@@ -481,8 +487,9 @@ The encoding of the file to read. This param will be parsed by `Charset.forName(
 
 ### null_format [string]
 
-Only used when file_format_type is text.
-null_format to define which strings can be represented as null.
+Used when `file_format_type` is `text` or `csv`. Defines which field value represents null.
+For CSV with a configured `schema.columns[].defaultValue`, a matching `null_format` value or a column absent from the file header uses that default. An empty CSV field still produces null unless it matches `null_format`; columns without a default keep their existing behavior.
+CSV defaults are validated when the reader is created. DATE and TIMESTAMP defaults may use a different supported format from the file data.
 
 e.g: `\N`
 
@@ -648,6 +655,10 @@ Whether to sort files by modification time in descending order. Default is `fals
 When enabled, files will be sorted by their modification time (newest first). This is useful when:
 - Reading files with evolving schemas and you want schema inference to use the latest file
 - You need to process files in chronological order
+
+### metalake_type [string]
+
+The type of metalake service, currently supports `gravitino`.
 
 ### common options
 

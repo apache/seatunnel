@@ -12,7 +12,10 @@ The DataValidator transform validates field values according to configured rules
 |-----------------|--------|----------|---------------|
 | row_error_handle_way| enum   | no       | FAIL          |
 | row_error_handle_way.error_table     | string | no       |               |
-| field_rules     | array  | no       |               |
+| field_rules     | array  | yes (single-table mode) |               |
+| table_match_regex | string | no       | `.*`          |
+| table_transform | array  | no       | -             |
+| rule_match_mode | string | no       | `FIRST_MATCH` |
 
 ### row_error_handle_way [enum]
 
@@ -61,6 +64,8 @@ Array of field validation rules. Each rule defines validation criteria for a spe
 
 A single-table config must set `field_rules`. With `table_transform`, every entry declares its own `field_rules`; the transform level one is optional.
 
+The `table_match_regex` option selects the tables the transform level rule applies to (default `.*`), `table_transform` holds complete per-table rules (`table_path` plus `field_rules`), and `rule_match_mode` (`FIRST_MATCH` or `ALL_MATCH`) controls how duplicate `table_path` entries are evaluated. See [Multi-Table Transform](transform-multi-table.md).
+
 #### Field Rule Structure
 
 Each field rule contains:
@@ -89,6 +94,11 @@ Parameters:
 
 ##### LENGTH
 Validates the length of string, array, or collection values.
+
+Array length is the number of elements, including null elements. Nested arrays
+are measured by their outer length, and binary values by their number of bytes.
+String length uses Java UTF-16 code units; collection length uses its size.
+Null values pass this rule; combine it with `NOT_NULL` to reject nulls.
 
 Parameters:
 - `rule_type`: "LENGTH"

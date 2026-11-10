@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.common;
 import org.apache.seatunnel.e2e.common.container.ContainerTcpProxy;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainersFactory;
+import org.apache.seatunnel.e2e.common.junit.ContainerSelectionCondition;
 import org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension;
 import org.apache.seatunnel.e2e.common.junit.TestCaseInvocationContextProvider;
 import org.apache.seatunnel.e2e.common.junit.TestContainers;
@@ -41,6 +42,7 @@ import java.util.Arrays;
 import java.util.List;
 
 @ExtendWith({
+    ContainerSelectionCondition.class,
     ContainerTestingExtension.class,
     TestLoggerExtension.class,
     TestCaseInvocationContextProvider.class,

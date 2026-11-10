@@ -56,7 +56,9 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -65,8 +67,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -350,6 +354,93 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     }
 
     private JdbcUrlUtil.UrlInfo mysqlUrlInfo;
+
+    @Test
+    public void testFixedDateSplitsReadEveryRow() throws Exception {
+        String tableName = "split_date_review";
+        TablePath tablePath = TablePath.of(MYSQL_DATABASE, tableName);
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+        configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+        configMap.put("user", MYSQL_USERNAME);
+        configMap.put("password", MYSQL_PASSWORD);
+        configMap.put("query", "SELECT * FROM " + tableName);
+        configMap.put("partition_column", "created_on");
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                mysqlUrlInfo.getUrlWithDatabase().get(),
+                                MYSQL_USERNAME,
+                                MYSQL_PASSWORD);
+                Statement statement = connection.createStatement();
+                MySqlCatalog catalog =
+                        new MySqlCatalog(
+                                "mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null)) {
+            statement.execute(
+                    "CREATE TABLE " + tableName + " (id INT PRIMARY KEY, created_on DATE)");
+            try {
+                try (PreparedStatement insert =
+                        connection.prepareStatement(
+                                "INSERT INTO " + tableName + " VALUES (?, ?)")) {
+                    for (int id = 0; id <= 11; id++) {
+                        insert.setInt(1, id);
+                        insert.setDate(2, Date.valueOf(LocalDate.of(2024, 1, 1).plusDays(id - 1)));
+                        insert.addBatch();
+                    }
+                    insert.executeBatch();
+                }
+                catalog.open();
+                CatalogTable catalogTable = catalog.getTable(tablePath);
+                for (String[] bounds :
+                        new String[][] {
+                            {null, null}, {"2024-01-01", "2024-01-10"}, {"19723", "19732"}
+                        }) {
+                    for (int partitions : new int[] {3, 20}) {
+                        JdbcSourceTable sourceTable =
+                                JdbcSourceTable.builder()
+                                        .tablePath(tablePath)
+                                        .catalogTable(catalogTable)
+                                        .query("SELECT * FROM " + tableName)
+                                        .partitionColumn("created_on")
+                                        .partitionNumber(partitions)
+                                        .partitionStart(bounds[0])
+                                        .partitionEnd(bounds[1])
+                                        .build();
+                        try (FixedChunkSplitter splitter = getFixedChunkSplitter(configMap)) {
+                            Collection<JdbcSourceSplit> splits =
+                                    splitter.generateSplits(sourceTable);
+                            int firstId = bounds[0] == null ? 0 : 1;
+                            int lastId = bounds[1] == null ? 11 : 10;
+                            Assertions.assertEquals(
+                                    Math.min(partitions, lastId - firstId + 1), splits.size());
+                            Set<Integer> ids = new HashSet<>();
+                            for (JdbcSourceSplit split : splits) {
+                                try (PreparedStatement query =
+                                                splitter.generateSplitStatement(
+                                                        split, catalogTable.getTableSchema());
+                                        ResultSet rows = query.executeQuery()) {
+                                    while (rows.next()) {
+                                        Assertions.assertTrue(
+                                                ids.add(rows.getInt("id")), "Split rows overlap");
+                                        Assertions.assertEquals(
+                                                LocalDate.of(2024, 1, 1)
+                                                        .plusDays(rows.getInt("id") - 1),
+                                                rows.getDate("created_on").toLocalDate());
+                                    }
+                                }
+                            }
+                            Set<Integer> expected = new HashSet<>();
+                            for (int id = firstId; id <= lastId; id++) {
+                                expected.add(id);
+                            }
+                            Assertions.assertEquals(expected, ids);
+                        }
+                    }
+                }
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS " + tableName);
+            }
+        }
+    }
 
     @Test
     public void testSplit() throws Exception {
@@ -788,6 +879,84 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
             if (i > 0 && i < splitArray.length - 1) {
                 Assertions.assertNotNull(start, "Middle split should have non-null start");
                 Assertions.assertNotNull(end, "Middle split should have non-null end");
+            }
+        }
+    }
+
+    @Test
+    public void testFixedNumericSplitsReadAllRows() throws Exception {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE "
+                            + MYSQL_DATABASE
+                            + ".fixed_numeric_uneven (id BIGINT PRIMARY KEY)");
+            try {
+                try (PreparedStatement insert =
+                        connection.prepareStatement(
+                                "INSERT INTO "
+                                        + MYSQL_DATABASE
+                                        + ".fixed_numeric_uneven (id) VALUES (?)")) {
+                    for (int id = 0; id <= 2002; id++) {
+                        insert.setLong(1, id);
+                        insert.addBatch();
+                    }
+                    insert.executeBatch();
+                }
+
+                Map<String, Object> configMap = new HashMap<>();
+                configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+                configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+                configMap.put("username", MYSQL_USERNAME);
+                configMap.put("password", MYSQL_PASSWORD);
+                configMap.put(
+                        "query", "SELECT id FROM " + MYSQL_DATABASE + ".fixed_numeric_uneven");
+                configMap.put("partition_column", "id");
+
+                TablePath tablePath = TablePath.of(MYSQL_DATABASE, "fixed_numeric_uneven");
+                try (MySqlCatalog mySqlCatalog =
+                                new MySqlCatalog(
+                                        "mysql",
+                                        MYSQL_USERNAME,
+                                        MYSQL_PASSWORD,
+                                        mysqlUrlInfo,
+                                        null);
+                        FixedChunkSplitter splitter = getFixedChunkSplitter(configMap)) {
+                    mySqlCatalog.open();
+                    CatalogTable table = mySqlCatalog.getTable(tablePath);
+                    JdbcSourceTable jdbcSourceTable =
+                            JdbcSourceTable.builder()
+                                    .tablePath(tablePath)
+                                    .catalogTable(table)
+                                    .query(
+                                            "SELECT id FROM "
+                                                    + MYSQL_DATABASE
+                                                    + ".fixed_numeric_uneven")
+                                    .partitionColumn("id")
+                                    .partitionNumber(1000)
+                                    .partitionStart("1")
+                                    .partitionEnd("2001")
+                                    .build();
+
+                    Set<Long> uniqueIds = new HashSet<>();
+                    for (JdbcSourceSplit split : splitter.generateSplits(jdbcSourceTable)) {
+                        try (PreparedStatement splitStatement =
+                                        splitter.generateSplitStatement(
+                                                split, table.getTableSchema());
+                                ResultSet resultSet = splitStatement.executeQuery()) {
+                            while (resultSet.next()) {
+                                long id = resultSet.getLong(1);
+                                Assertions.assertTrue(
+                                        id >= 1 && id <= 2001, "id out of range: " + id);
+                                Assertions.assertTrue(uniqueIds.add(id), "duplicated id: " + id);
+                            }
+                        }
+                    }
+                    Assertions.assertEquals(2001, uniqueIds.size());
+                }
+            } finally {
+                statement.execute(
+                        "DROP TABLE IF EXISTS " + MYSQL_DATABASE + ".fixed_numeric_uneven");
             }
         }
     }

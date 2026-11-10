@@ -71,9 +71,9 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 
 ### data_format 选项说明
 
-- **map**: 将所有非主键字段作为一个 map 存到 `bin_name`
-- **string**: 将所有非主键字段作为 JSON 字符串存到 `bin_name`
-- **kv**: 每个非主键字段存储为独立的 bin，此时不使用 `bin_name`
+- **map**: 将选中的字段作为一个 map 存到 `bin_name`
+- **string**: 将选中的字段作为 JSON 字符串存到 `bin_name`
+- **kv**: 每个选中的字段存储为独立的 bin，此时不使用 `bin_name`
 
 当 `data_format` 为 `map` 或 `string` 时，必须配置 `bin_name`，否则写入器无法判断打包后的整行数据应该写入哪个 Aerospike bin。
 `key` 指定的字段必须存在于输入 schema 中，因为每次写入都会用它作为 Aerospike 记录主键。
@@ -148,6 +148,46 @@ sink {
         c_name = "STRING"
         c_money = "DOUBLE"
         c_birth = "LONG"
+      }
+    }
+  }
+}
+```
+
+### 使用 `kv` 格式将 CDC 记录写入 Aerospike
+
+对于流式作业（例如 MySQL CDC），使用 `data_format = "kv"` 将每个配置的字段作为独立的 Aerospike bin 写入。这样每个字段单独存储，而不是打包进单个 JSON 或 map bin，可以让下游查询更高效。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.user"]
+  }
+}
+
+sink {
+  Aerospike {
+    host = "aerospike-host"
+    port = 3000
+    namespace = "test"
+    set = "user"
+    key = "id"
+    data_format = "kv"
+    write_timeout = 500
+    schema {
+      field {
+        id = "INTEGER"
+        name = "STRING"
+        email = "STRING"
       }
     }
   }

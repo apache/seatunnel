@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.persistence;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
@@ -26,12 +27,22 @@ import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.hazelcast.config.Config;
+import com.hazelcast.config.JoinConfig;
+import com.hazelcast.config.MapConfig;
+import com.hazelcast.config.MapStoreConfig;
+import com.hazelcast.core.EntryView;
+import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.map.EntryLoader.MetadataAwareValue;
+import com.hazelcast.map.IMap;
 
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -116,10 +127,73 @@ public class FileMapStoreTest {
                                 props,
                                 EngineStateStoreNames.RUNNING_JOB_METRICS));
         Assertions.assertEquals(Collections.emptySet(), store.loadAllKeys());
-        Assertions.assertDoesNotThrow(() -> store.store("k", "v"));
+        Assertions.assertDoesNotThrow(() -> store.store("k", new MetadataAwareValue<>("v")));
         Assertions.assertDoesNotThrow(() -> store.delete("k"));
 
         store.destroy();
+    }
+
+    /**
+     * Hazelcast does not delete an entry from the map store when its TTL expires. Verifies that
+     * after a restart an expired entry is not loaded again, and an entry put with a TTL keeps its
+     * expiration time instead of never expiring.
+     */
+    @Test
+    public void testEntriesKeepExpirationTimeAcrossRestart() {
+        String clusterName = "file-map-store-expiration-" + System.nanoTime();
+        String mapName = Constant.IMAP_FINISHED_JOB_STATE;
+        long expirationTimeBeforeRestart;
+
+        HazelcastInstance writer = Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName));
+        try {
+            IMap<Long, String> map = writer.getMap(mapName);
+            map.put(1L, "expired", 1, TimeUnit.SECONDS);
+            map.put(2L, "expiring", 10, TimeUnit.MINUTES);
+            map.put(3L, "never-expiring");
+            expirationTimeBeforeRestart = map.getEntryView(2L).getExpirationTime();
+            await().atMost(10, TimeUnit.SECONDS).until(() -> !map.containsKey(1L));
+        } finally {
+            writer.shutdown();
+        }
+
+        HazelcastInstance restarted = Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName));
+        try {
+            IMap<Long, String> map = restarted.getMap(mapName);
+
+            Assertions.assertNull(map.getEntryView(1L));
+            Assertions.assertEquals(2, map.size());
+
+            EntryView<Long, String> expiring = map.getEntryView(2L);
+            Assertions.assertEquals("expiring", expiring.getValue());
+            // Hazelcast keeps record times at second granularity.
+            long drift = Math.abs(expiring.getExpirationTime() - expirationTimeBeforeRestart);
+            Assertions.assertTrue(
+                    drift <= TimeUnit.SECONDS.toMillis(2),
+                    "expiration time moved by " + drift + " ms across the restart");
+
+            EntryView<Long, String> neverExpiring = map.getEntryView(3L);
+            Assertions.assertEquals("never-expiring", neverExpiring.getValue());
+            Assertions.assertEquals(Long.MAX_VALUE, neverExpiring.getExpirationTime());
+        } finally {
+            restarted.shutdown();
+        }
+    }
+
+    private Config hazelcastConfig(String clusterName) {
+        MapStoreConfig mapStoreConfig =
+                new MapStoreConfig()
+                        .setEnabled(true)
+                        .setInitialLoadMode(MapStoreConfig.InitialLoadMode.EAGER)
+                        .setFactoryClassName(FileMapStoreFactory.class.getName())
+                        .setProperties(buildLocalFsProperties(tempDir.toString()));
+
+        Config config = new Config();
+        config.setClusterName(clusterName);
+        JoinConfig join = config.getNetworkConfig().getJoin();
+        join.getMulticastConfig().setEnabled(false);
+        join.getAutoDetectionConfig().setEnabled(false);
+        config.addMapConfig(new MapConfig("engine*").setMapStoreConfig(mapStoreConfig));
+        return config;
     }
 
     private Properties buildLocalFsProperties(String namespace) {
