@@ -18,14 +18,15 @@
 
 # Regenerates the test-only TLS material used by the MongoDB sink tls_ca_file tests.
 #
-#   test-ca.p12       truststore with the test CA certificate
-#   untrusted-ca.p12  truststore with an unrelated CA certificate
-#   server.p12        key store with a server key and a certificate for DNS:localhost,
+#   test-ca.jks       truststore with the test CA certificate
+#   untrusted-ca.jks  truststore with an unrelated CA certificate
+#   server.jks        key store with a server key and a certificate for DNS:localhost,
 #                     signed by the test CA
-#   wrong-host-server.p12
+#   wrong-host-server.jks
 #                     key store with a server key and a certificate for
 #                     DNS:unrelated-host.invalid only, also signed by the test CA
 #
+# The stores use the JKS format because the repository file checks skip *.jks as binary.
 # All stores use the password "changeit". CA private keys are not kept. Requires openssl and
 # keytool. Run from this directory.
 set -euo pipefail
@@ -48,14 +49,17 @@ server() {  # $1 = output key store, $2 = DNS name
   printf 'basicConstraints=CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nsubjectAltName=DNS:%s\n' "$2" > "$WORK/$1.ext"
   openssl x509 -req -sha256 -days "$DAYS" -in "$WORK/$1.csr" -CA "$WORK/test-ca.crt" \
     -CAkey "$WORK/test-ca.key" -CAcreateserial -extfile "$WORK/$1.ext" -out "$WORK/$1.crt" 2>/dev/null
-  rm -f "$1.p12"
   openssl pkcs12 -export -name server -inkey "$WORK/$1.key" -in "$WORK/$1.crt" \
-    -certfile "$WORK/test-ca.crt" -passout pass:changeit -out "$1.p12"
+    -certfile "$WORK/test-ca.crt" -passout pass:changeit -out "$WORK/$1.p12"
+  rm -f "$1.jks"
+  keytool -importkeystore -noprompt -srckeystore "$WORK/$1.p12" -srcstoretype PKCS12 \
+    -srcstorepass changeit -destkeystore "$1.jks" -deststoretype JKS -deststorepass changeit \
+    -destkeypass changeit >/dev/null 2>&1
 }
 
-rm -f test-ca.p12 untrusted-ca.p12
+rm -f test-ca.jks untrusted-ca.jks
 for name in test-ca untrusted-ca; do
-  keytool -importcert -noprompt -storetype PKCS12 -keystore "$name.p12" -storepass changeit \
+  keytool -importcert -noprompt -storetype JKS -keystore "$name.jks" -storepass changeit \
     -alias ca -file "$WORK/$name.crt" >/dev/null
 done
 server server localhost

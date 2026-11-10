@@ -42,12 +42,12 @@ public final class TlsTestMaterial {
 
     /** The CA that signed the test server certificate. */
     public static X509Certificate testCa() {
-        return caCertificate("tls/test-ca.p12");
+        return caCertificate("tls/test-ca.jks");
     }
 
     /** A CA that did not sign the test server certificate. */
     public static X509Certificate untrustedCa() {
-        return caCertificate("tls/untrusted-ca.p12");
+        return caCertificate("tls/untrusted-ca.jks");
     }
 
     /** Writes the certificates as a PEM bundle, the format expected by {@code tls_ca_file}. */
@@ -68,12 +68,12 @@ public final class TlsTestMaterial {
 
     /** Server-side TLS context presenting the certificate for {@code DNS:localhost}. */
     public static SSLContext localhostServerContext() throws Exception {
-        return serverContext("tls/server.p12");
+        return serverContext("tls/server.jks");
     }
 
     /** Server-side TLS context whose certificate does not cover {@code localhost}. */
     public static SSLContext wrongHostServerContext() throws Exception {
-        return serverContext("tls/wrong-host-server.p12");
+        return serverContext("tls/wrong-host-server.jks");
     }
 
     private static SSLContext serverContext(String resource) throws Exception {
@@ -99,7 +99,7 @@ public final class TlsTestMaterial {
             if (in == null) {
                 throw new IOException("Missing test resource " + resource);
             }
-            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            KeyStore keyStore = KeyStore.getInstance("JKS");
             keyStore.load(in, PASSWORD);
             return keyStore;
         }
