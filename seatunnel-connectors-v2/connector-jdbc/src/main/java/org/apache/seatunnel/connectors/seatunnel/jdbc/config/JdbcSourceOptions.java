@@ -185,4 +185,11 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                             "Whether to enable concurrent read with split during snapshot phase. "
                                     + "When set to false, the source reads the table as a single split "
                                     + "without any split analysis, which is useful for tables without indexes.");
+
+    public static final Option<Boolean> NUMERIC_SPECIAL_VALUE_AS_NULL =
+            Options.key("numeric_special_value_as_null")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "numeric special value as null, if true, the numeric special values (NaN, Infinity, -Infinity) which cannot be represented as BigDecimal will be read as null. Only support for PostgreSQL at now.");
 }
