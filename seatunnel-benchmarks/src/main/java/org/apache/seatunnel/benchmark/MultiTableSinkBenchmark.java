@@ -18,9 +18,12 @@
 package org.apache.seatunnel.benchmark;
 
 import org.apache.seatunnel.benchmark.sink.MultiTableSinkFixture;
+import org.apache.seatunnel.benchmark.sink.MultiTableTimerFlushFixture;
 
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Level;
+import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
@@ -34,7 +37,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.util.concurrent.TimeUnit;
 
-/** Measures bounded, asynchronous MultiTableSink handoff without starting an engine or database. */
+/** Measures MultiTableSink record handoff and timer flush using in-memory writers. */
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Threads(1)
 public class MultiTableSinkBenchmark extends BenchmarkBase {
@@ -50,6 +53,13 @@ public class MultiTableSinkBenchmark extends BenchmarkBase {
     @Benchmark
     public long recordHandoff(SinkState state) throws Exception {
         return state.fixture.publish();
+    }
+
+    @Benchmark
+    @BenchmarkMode(Mode.AverageTime)
+    @OutputTimeUnit(TimeUnit.MILLISECONDS)
+    public void timerFlush(TimerFlushSinkState state) throws Exception {
+        state.fixture.flush();
     }
 
     @State(Scope.Thread)
@@ -91,6 +101,51 @@ public class MultiTableSinkBenchmark extends BenchmarkBase {
         @TearDown(Level.Iteration)
         public void verifyIteration() throws Exception {
             fixture.drainAndVerify();
+        }
+
+        @TearDown(Level.Trial)
+        public void tearDown() throws Exception {
+            if (fixture != null) {
+                fixture.close();
+            }
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class TimerFlushSinkState {
+
+        @Param({"1", "5", "10"})
+        private int flushQueueCount;
+
+        @Param({"100", "500", "1000"})
+        private long flushIntervalMillis;
+
+        @Param({"5"})
+        private long writerFlushMillis;
+
+        private MultiTableTimerFlushFixture fixture;
+        private long intervalNanos;
+        private long nextFlushNanos;
+
+        @Setup(Level.Trial)
+        public void setUp() throws Exception {
+            if (flushIntervalMillis <= 0) {
+                throw new IllegalArgumentException("flushIntervalMillis must be positive");
+            }
+            fixture = new MultiTableTimerFlushFixture(flushQueueCount, writerFlushMillis);
+            intervalNanos = TimeUnit.MILLISECONDS.toNanos(flushIntervalMillis);
+            nextFlushNanos = System.nanoTime();
+        }
+
+        @Setup(Level.Invocation)
+        public void awaitFlushSignal() throws InterruptedException {
+            TimeUnit.NANOSECONDS.sleep(nextFlushNanos - System.nanoTime());
+            nextFlushNanos = System.nanoTime() + intervalNanos;
+        }
+
+        @TearDown(Level.Invocation)
+        public void verifyRound() {
+            fixture.verifyRound();
         }
 
         @TearDown(Level.Trial)
