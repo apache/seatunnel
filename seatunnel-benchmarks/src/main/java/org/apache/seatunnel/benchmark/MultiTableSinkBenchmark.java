@@ -22,6 +22,7 @@ import org.apache.seatunnel.benchmark.sink.MultiTableTimerFlushFixture;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
@@ -38,8 +39,18 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import java.util.concurrent.TimeUnit;
 
 /** Measures MultiTableSink record handoff and timer flush using in-memory writers. */
-@OutputTimeUnit(TimeUnit.SECONDS)
 @Threads(1)
+@Fork(
+        value = 3,
+        jvmArgsAppend = {
+            "-Xms4g",
+            "-Xmx4g",
+            "-XX:+UseG1GC",
+            "-XX:+AlwaysPreTouch",
+            "-XX:+DisableExplicitGC",
+            "-XX:ActiveProcessorCount=4",
+            "-Djava.net.preferIPv4Stack=true"
+        })
 public class MultiTableSinkBenchmark extends BenchmarkBase {
 
     public static void main(String[] args) throws RunnerException {
@@ -51,6 +62,7 @@ public class MultiTableSinkBenchmark extends BenchmarkBase {
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.SECONDS)
     public long recordHandoff(SinkState state) throws Exception {
         return state.fixture.publish();
     }
