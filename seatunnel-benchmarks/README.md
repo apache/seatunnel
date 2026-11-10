@@ -64,23 +64,11 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
   -rff seatunnel-benchmarks/target/benchmark-result.json
 ```
 
-Run the JDBC row converter benchmark with an in-memory result set and parameter recorder.
+Run only the `JdbcRowConverter` benchmarks.
 
 ```bash
-java -jar seatunnel-benchmarks/target/benchmarks.jar JdbcRowConverterBenchmark \
-  -p columns=20 -p typeProfile=TEMPORAL -w 500ms -r 500ms -prof gc
+java -jar seatunnel-benchmarks/target/benchmarks.jar JdbcRowConverterBenchmark
 ```
-
-The benchmark measures conversion of the current result-set row and binding of a prepared
-statement as separate operations. The fixture validates the decoded row and bound parameters
-before measurement. Each type profile repeats a five-column pattern to keep the mix fixed at
-5, 10, 15, and 20 columns.
-
-| Type profile | Five-column pattern |
-| --- | --- |
-| `INTEGRAL` | Boolean, tinyint, smallint, integer, bigint |
-| `DECIMAL_AND_BINARY` | Float, double, decimal, varchar, varbinary |
-| `TEMPORAL` | Date, time, timestamp, timestamp with time zone, null varchar |
 
 ## Run Zeta full-pipeline benchmarks
 
