@@ -23,6 +23,9 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
@@ -34,6 +37,8 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.factory.FactoryException;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -1022,70 +1027,96 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
-    public void testReplicaNumBelowOneIsRejectedWithTheOptionNamed() {
-        // multi_table_sink_replica has no lower bound at the option layer, so 0 and negative
-        // values reach MultiTableSink. replicaNum becomes the queue count and the thread-pool
-        // size in MultiTableSinkWriter, where Executors.newFixedThreadPool(queueSize * 2)
-        // rejects them with an IllegalArgumentException carrying no message at all. The
-        // exception type is unchanged; what is asserted here is that it now names the option
-        // and the offending value, and that it is raised before any writer is created.
+    public void testOptionRuleRejectsReplicaNumBelowOne() {
+        // The lower bound now lives in MultiTableSinkFactory#optionRule(), so ConfigValidator
+        // rejects 0 and negative values before the sink is ever constructed. The thrown
+        // OptionValidationException names the option whose value is out of range.
+        OptionRule optionRule = new MultiTableSinkFactory().optionRule();
         for (int replicaNum : new int[] {0, -1}) {
-            IllegalArgumentException exception =
+            OptionValidationException exception =
                     Assertions.assertThrows(
-                            IllegalArgumentException.class, () -> buildMultiTableSink(replicaNum));
-            Assertions.assertNotNull(exception.getMessage());
+                            OptionValidationException.class,
+                            () ->
+                                    ConfigValidator.of(replicaConfig(replicaNum))
+                                            .validate(optionRule));
             Assertions.assertTrue(
                     exception
                             .getMessage()
                             .contains(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key()),
                     "message must name the option, but was: " + exception.getMessage());
-            Assertions.assertTrue(
-                    exception.getMessage().contains(String.valueOf(replicaNum)),
-                    "message must name the rejected value, but was: " + exception.getMessage());
         }
     }
 
     @Test
-    public void testReplicaNumOfOneAndAboveStillBuilds() {
-        // Guards the lower bound against being set too high: the smallest legal value and a
-        // larger one must both still construct, so the check above cannot regress into
-        // rejecting valid configuration.
-        Assertions.assertDoesNotThrow(() -> buildMultiTableSink(1));
-        Assertions.assertDoesNotThrow(() -> buildMultiTableSink(4));
+    public void testCreateMultiTableSinkRejectsReplicaNumBelowOne() {
+        // FactoryUtil#createMultiTableSink runs ConfigValidator against the factory option rule
+        // before constructing the sink, and wraps any failure in a FactoryException. 0 and
+        // negative values must fail there, with the OptionValidationException naming the option.
+        for (int replicaNum : new int[] {0, -1}) {
+            FactoryException exception =
+                    Assertions.assertThrows(
+                            FactoryException.class,
+                            () ->
+                                    FactoryUtil.createMultiTableSink(
+                                            singleSink(),
+                                            replicaConfig(replicaNum),
+                                            Thread.currentThread().getContextClassLoader()));
+            Assertions.assertInstanceOf(
+                    OptionValidationException.class,
+                    exception.getCause(),
+                    "validation must fail before sink construction, but cause was: "
+                            + exception.getCause());
+            Assertions.assertTrue(
+                    exception
+                            .getCause()
+                            .getMessage()
+                            .contains(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key()),
+                    "message must name the option, but was: " + exception.getCause().getMessage());
+        }
     }
 
     @Test
-    public void testReplicaNumDefaultsToOneWhenUnset() {
-        // The default must remain a legal value, otherwise the new check would reject every
-        // job that does not set the option explicitly.
+    public void testCreateMultiTableSinkAcceptsValidReplicaNum() {
+        // Guards the lower bound against being set too high: the smallest legal value and a
+        // larger one must both pass validation and construct the sink.
+        for (int replicaNum : new int[] {1, 4}) {
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            FactoryUtil.createMultiTableSink(
+                                    singleSink(),
+                                    replicaConfig(replicaNum),
+                                    Thread.currentThread().getContextClassLoader()));
+        }
+    }
+
+    @Test
+    public void testCreateMultiTableSinkUsesDefaultReplicaNumWhenUnset() {
+        // The default (1) must remain a legal value, otherwise the rule would reject every job
+        // that does not set the option explicitly.
         Map<String, Object> options = new HashMap<>();
         options.put(EnvCommonOptions.JOB_RETRY_TIMES.key(), 0);
         options.put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
-        Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
-        sinks.put(
-                TablePath.of("test.table"), new TestSeaTunnelSink(new RecordingSinkWriter(false)));
         Assertions.assertDoesNotThrow(
                 () ->
-                        new MultiTableSink(
-                                new MultiTableFactoryContext(
-                                        ReadonlyConfig.fromMap(options),
-                                        Thread.currentThread().getContextClassLoader(),
-                                        sinks)));
+                        FactoryUtil.createMultiTableSink(
+                                singleSink(),
+                                ReadonlyConfig.fromMap(options),
+                                Thread.currentThread().getContextClassLoader()));
     }
 
-    private MultiTableSink buildMultiTableSink(int replicaNum) {
+    private ReadonlyConfig replicaConfig(int replicaNum) {
         Map<String, Object> options = new HashMap<>();
         options.put(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), replicaNum);
         options.put(EnvCommonOptions.JOB_RETRY_TIMES.key(), 0);
         options.put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
+        return ReadonlyConfig.fromMap(options);
+    }
+
+    private Map<TablePath, SeaTunnelSink> singleSink() {
         Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
         sinks.put(
                 TablePath.of("test.table"), new TestSeaTunnelSink(new RecordingSinkWriter(false)));
-        return new MultiTableSink(
-                new MultiTableFactoryContext(
-                        ReadonlyConfig.fromMap(options),
-                        Thread.currentThread().getContextClassLoader(),
-                        sinks));
+        return sinks;
     }
 
     private SeaTunnelRow buildRow(String tableId, int value) {
