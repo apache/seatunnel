@@ -208,13 +208,13 @@ public class HudiUtil {
                                         // the LAZY policy relies on. The commit of a checkpointed
                                         // instant then no longer depends on the heartbeat of the
                                         // writer that produced it, so the restore path works no
-                                        // matter how long the pipeline was down, and a long running
-                                        // job does not accumulate one heartbeat timer thread and
-                                        // one
-                                        // heartbeat file per checkpoint. The instants of a
-                                        // checkpoint that never completed are rolled back by the
-                                        // connector itself, see HudiSinkAggregatedCommitter#abort
-                                        // and HudiRecordWriter#close.
+                                        // matter how long the pipeline was down, and a long
+                                        // running job does not accumulate one heartbeat timer
+                                        // thread and one heartbeat file per checkpoint. The
+                                        // instants of a checkpoint that never completed are rolled
+                                        // back by the connector itself, see
+                                        // HudiSinkAggregatedCommitter#abort, #restoreCommit and
+                                        // HudiRecordWriter#close.
                                         .withFailedWritesCleaningPolicy(
                                                 hudiSinkConfig.isExactlyOnce()
                                                         ? HoodieFailedWritesCleaningPolicy.NEVER
