@@ -279,6 +279,7 @@ sink {
       bucket = "s3a://mybucket"
       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
     }
+  }
 }
 ```
 
@@ -518,7 +519,7 @@ sink {
 }
 ```
 
-### example 2
+### example 3
 
 We have multiple source table like this:
 

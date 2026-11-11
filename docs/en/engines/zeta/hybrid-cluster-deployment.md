@@ -338,10 +338,12 @@ map:
            fs.defaultFS: file:///
 ```
 
-Note: `engine_runningJobMetrics` stores high-frequency runtime metrics snapshots and is
-intentionally excluded from persistent IMAP storage even when `map.engine*` uses `map-store`. This
-avoids excessive WAL growth for observability-only state. After an engine restart, running-job
-metrics are rebuilt from subsequent reports instead of continuing from the pre-restart snapshot.
+Note: `engine_runningJobMetrics` stores high-frequency runtime metrics snapshots and
+`engine_checkpoint_monitor` stores the checkpoint overview and history served by the REST API.
+Both are intentionally excluded from persistent IMAP storage even when `map.engine*` uses
+`map-store`. This avoids excessive WAL growth for observability-only state. After an engine
+restart, running-job metrics are rebuilt from subsequent reports and the checkpoint overview and
+history start again from the next checkpoint, instead of continuing from the pre-restart state.
 
 If using OSS, you can configure it as follows:
 
@@ -494,7 +496,7 @@ mkdir -p $SEATUNNEL_HOME/logs
 ./bin/seatunnel-cluster.sh -d
 ```
 
-The logs will be written to `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`
+The logs will be written to `$SEATUNNEL_HOME/logs/` — for the default master-and-worker deployment this is `seatunnel-engine-server.log`
 
 ## 8. Submit And Manage Jobs
 
