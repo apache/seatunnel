@@ -380,7 +380,6 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
      * for that callback; the behaviour under test is reached through the real method below.
      */
     @SuppressWarnings("unchecked")
-    @SuppressWarnings("unchecked")
     private static void setErrorByPhysicalVertex(SubPlan subPlan, String message) throws Exception {
         Field field = SubPlan.class.getDeclaredField("errorByPhysicalVertex");
         field.setAccessible(true);
