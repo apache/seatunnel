@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
@@ -30,13 +32,19 @@ import org.junit.jupiter.api.Test;
 
 import com.hazelcast.map.IMap;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -313,21 +321,37 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
 
     @Test
     void shouldCaptureTheRealErrorWhenARestoreIsPrepared() throws Exception {
-        // The tests above exercise retainRestoreCause directly, which proves the retention works
-        // but not that anything calls it. This drives prepareRestorePipeline, so deleting the
-        // capture line or moving it after reset()/initStateFuture() turns this red.
+        // The tests above call retainRestoreCause directly, which proves the retention works but
+        // not that anything calls it. This drives prepareRestorePipeline instead.
+        //
+        // The mocked plan forwards addPipelineEndCallback to initStateFuture the way PhysicalPlan
+        // does, because that is the call which replaces errorByPhysicalVertex. With a plain mock
+        // the callback does nothing, so moving the capture below it would still pass here while
+        // in production every entry would become the placeholder. Wiring it up means this covers
+        // the reordering as well as the deletion.
         CheckpointManager checkpointManager = mock(CheckpointManager.class);
         PhysicalPlan physicalPlan = mock(PhysicalPlan.class);
         JobMaster jobMaster = mock(JobMaster.class);
         when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
         when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
+        doAnswer(
+                        invocation -> {
+                            ((SubPlan) invocation.getArgument(0)).initStateFuture();
+                            return null;
+                        })
+                .when(physicalPlan)
+                .addPipelineEndCallback(any(SubPlan.class));
+
+        PhysicalVertex vertex = mockPhysicalVertex(ExecutionState.FAILED);
+        when(vertex.initStateFuture())
+                .thenReturn(new PassiveCompletableFuture<>(new CompletableFuture<>()));
 
         ExecutorService executorService = Executors.newSingleThreadExecutor();
         try {
             SubPlan subPlan =
                     newSubPlan(
                             executorService,
-                            Collections.singletonList(mockPhysicalVertex(ExecutionState.FAILED)),
+                            Collections.singletonList(vertex),
                             Collections.emptyList());
             subPlan.setJobMaster(jobMaster);
             subPlan.setCurrPipelineStatus(PipelineStatus.FAILED);
@@ -335,7 +359,10 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
             String failure = "java.sql.SQLException: Access denied for user 'etl'@'10.0.1.7'";
             setErrorByPhysicalVertex(subPlan, failure);
 
-            invokePrepareRestorePipeline(subPlan);
+            // A false return means reset() threw and the catch branch ran, which would let a
+            // broken restore path look like a successful capture.
+            Assertions.assertTrue(
+                    invokePrepareRestorePipeline(subPlan), "prepareRestorePipeline failed");
 
             List<String> causes = subPlan.getRestoreCauses();
             Assertions.assertEquals(1, causes.size(), "the restore cause was not captured");
@@ -353,16 +380,17 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
      * for that callback; the behaviour under test is reached through the real method below.
      */
     @SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked")
     private static void setErrorByPhysicalVertex(SubPlan subPlan, String message) throws Exception {
-        java.lang.reflect.Field field = SubPlan.class.getDeclaredField("errorByPhysicalVertex");
+        Field field = SubPlan.class.getDeclaredField("errorByPhysicalVertex");
         field.setAccessible(true);
-        ((java.util.concurrent.atomic.AtomicReference<String>) field.get(subPlan)).set(message);
+        ((AtomicReference<String>) field.get(subPlan)).set(message);
     }
 
-    private static void invokePrepareRestorePipeline(SubPlan subPlan) throws Exception {
-        java.lang.reflect.Method method = SubPlan.class.getDeclaredMethod("prepareRestorePipeline");
+    private static boolean invokePrepareRestorePipeline(SubPlan subPlan) throws Exception {
+        Method method = SubPlan.class.getDeclaredMethod("prepareRestorePipeline");
         method.setAccessible(true);
-        method.invoke(subPlan);
+        return (Boolean) method.invoke(subPlan);
     }
 
     private SubPlan newSubPlan(
@@ -371,6 +399,10 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
             List<PhysicalVertex> coordinatorVertexList) {
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("test");
+        // prepareRestorePipeline really sleeps for job.retry.interval.seconds, which defaults to
+        // 3. Only the restore test reaches that sleep, but the whole class shares this factory and
+        // no unit test should spend seconds waiting.
+        jobConfig.getEnvOptions().put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
 
         JobImmutableInformation jobImmutableInformation = mock(JobImmutableInformation.class);
         when(jobImmutableInformation.getJobId()).thenReturn(1L);
