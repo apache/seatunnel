@@ -106,7 +106,7 @@ enforce_gtid_consistency = on
 3. Restart MySQL Server
 
 ```shell
-/etc/inint.d/mysqld restart
+/etc/init.d/mysqld restart
 ```
 
 4. Confirm your changes by checking the binlog status once more:
@@ -180,7 +180,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 | DATE                                                                                           | DATE                |
 | TIME(s)                                                                                        | TIME(s)             |
 | DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)        |
-| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES               |
+| BINARY<br/>VARBINARY<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES               |
 
 ## Source Options
 
