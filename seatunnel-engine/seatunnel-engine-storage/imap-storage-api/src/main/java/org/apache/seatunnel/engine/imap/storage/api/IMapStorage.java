@@ -22,6 +22,7 @@ package org.apache.seatunnel.engine.imap.storage.api;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -48,6 +49,36 @@ public interface IMapStorage {
     public Set<Object> storeAll(Map<Object, Object> map);
 
     /**
+     * Store a key-value pair that expires at the given time.
+     *
+     * <p>Storages that do not persist expiration times store the pair without it, so the entry
+     * never expires after it is loaded again.
+     *
+     * @param key storage key
+     * @param value storage value
+     * @param expirationTime epoch milliseconds at which the entry expires, or {@link
+     *     ExpirableValue#NO_EXPIRATION_TIME}
+     * @return storage status, true is success, false is fail
+     */
+    default boolean store(Object key, Object value, long expirationTime) {
+        return store(key, value);
+    }
+
+    /**
+     * Store key-value pairs together with the times at which they expire.
+     *
+     * @param map storage key to value and expiration time
+     * @return if some key-value pair is not stored, return this keys; if all key-value pair is
+     *     stored, return empty set.
+     * @see #store(Object, Object, long)
+     */
+    default Set<Object> storeAllWithExpirationTime(Map<Object, ExpirableValue> map) {
+        Map<Object, Object> values = new HashMap<>(map.size());
+        map.forEach((key, value) -> values.put(key, value.getValue()));
+        return storeAll(values);
+    }
+
+    /**
      * Delete a key in the map storage.
      *
      * @param key storage key
@@ -65,6 +96,22 @@ public interface IMapStorage {
     public Set<Object> deleteAll(Collection<Object> keys);
 
     public Map<Object, Object> loadAll() throws IOException;
+
+    /**
+     * Load all entries together with the times at which they expire. Entries that have already
+     * expired are not returned.
+     *
+     * <p>Storages that do not persist expiration times return every entry with {@link
+     * ExpirableValue#NO_EXPIRATION_TIME}.
+     *
+     * @return storage key to value and expiration time
+     */
+    default Map<Object, ExpirableValue> loadAllWithExpirationTime() throws IOException {
+        Map<Object, Object> values = loadAll();
+        Map<Object, ExpirableValue> result = new HashMap<>(values.size());
+        values.forEach((key, value) -> result.put(key, new ExpirableValue(value)));
+        return result;
+    }
 
     public Set<Object> loadAllKeys();
 

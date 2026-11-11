@@ -5,6 +5,160 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Lance sink: BIGINT columns are created as int64
+
+- **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**
+  - **Description**: When the Lance sink created a dataset, it declared `BIGINT` columns as Arrow `int32` and wrote each value with `Number.intValue()`, so a value outside the signed 32-bit range was silently wrapped. For example, `3000000000` was stored as `-1294967296`, and the epoch millisecond `1739586083123` as `124328243`. The sink, and the catalog's `createTable`, now declare `BIGINT` as `int64` and store the value unchanged.
+  - **Impact**: A dataset created by this version has an `int64` column where an earlier version created `int32`. A dataset that already exists keeps its column types, because the sink writes to the schema it finds, so its `int32` column still wraps large values.
+  - **Migration Guide**: No configuration change is needed. If a consumer expects `int32` for these columns, update it to read `int64`. To store large values in a dataset created by an earlier version, recreate the dataset and write the rows again from the source.
+
+### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
+
+- **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**
+  - **Description**: The Databend source takes every column type from `DatabendCatalog`. The catalog compared the type name the driver reports, such as `decimal(10, 2)`, with the bare name `DECIMAL`, so every decimal column fell back to `STRING` and its values were read as text. It now maps the column to `DECIMAL` with the column's own precision and scale. On a worker whose default locale is Turkish or Azerbaijani, `TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `TIMESTAMP` and `BINARY` columns also fell back to `STRING`; they now get their mapped types there too.
+  - **Impact**: A job that reads a Databend `DECIMAL` column now emits decimal values. A sink table that SeaTunnel creates through `schema_save_mode` gets a decimal column instead of a string column, and a transform or sink that expected a string now receives a decimal.
+  - **Migration Guide**: No configuration change is needed. If a downstream step needs text, convert the column explicitly, for example `CAST(price AS STRING)` in the SQL transform. A sink table that an earlier run already created with a string column keeps that type.
+
+### JDBC Sink: fail safely after losing uncommitted work
+
+- **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection
+  (`auto_commit = false`, or Oracle, which always uses manual commit).
+- **Behavior change**: if flushed but uncommitted work is lost through connection replacement or
+  transaction rollback, the sink refuses the commit so the job can recover from the last successful
+  checkpoint. A failed flush is not retried while earlier flushed work is pending. In multi-table
+  row-error handling, a rollback that discards another table's work also prevents further commits.
+  A commit exception also prevents further commits by the failed writer and, when flushed work is
+  pending, by all writers sharing its transaction. Commit exceptions remain system errors even with
+  SQLState class `22` or `23`; retrying only the commit cannot replay a rolled-back transaction.
+  Previously, these paths could complete a checkpoint with records missing.
+- **Migration**: no configuration or checkpoint-format migration is required. Affected jobs may
+  restart instead of retrying a batch locally or continuing after a row error. Auto-commit connections,
+  jobs without checkpointing, and XA writers retain their existing behavior.
+
+### Lance sink: TIMESTAMP values keep their microseconds
+
+- **Behavior change: a `TIMESTAMP` written by the Lance sink keeps the digits below the millisecond**
+  - **Description**: The Lance sink declares a `TIMESTAMP` column with microsecond precision, as documented, but `BaseTypeWriter.convertToEpochMicro` converted `LocalDateTime` and `java.sql.Timestamp` values through milliseconds, so every stored value ended in `000` microseconds. Values are now converted from the instant directly.
+  - **Impact**: For the same input, a newly written value can differ from one written by an earlier version in its last three microsecond digits. Rows already in a dataset are not rewritten, so one dataset can hold both. Millisecond columns, and values with no digits below the millisecond, are unchanged.
+  - **Migration Guide**: No configuration change is needed. If a consumer compares or deduplicates new rows against rows written by an earlier version, compare at millisecond precision, or rewrite the older rows from the source.
+
+### JDBC MySQL: DATETIME writes preserve local date/time fields
+
+The MySQL JDBC sink now binds SeaTunnel `TIMESTAMP` (`LocalDateTime`) directly instead of converting it through `java.sql.Timestamp`. With different worker JVM and JDBC connection time zones, affected versions could shift `DATETIME` values or reject valid boundary values. Writes now preserve the local fields and the fractional seconds supported by the target column. The `DATETIME` source mapping and `TIMESTAMP_TZ` handling are unchanged.
+
+Remove any manual offset used to compensate for this defect. Existing stored values are not changed automatically; verify them against the original source before correcting or reloading them. No new configuration is required.
+
+### Doris and StarRocks sources: a null MAP or ROW column no longer reads as an empty map or fails the job
+
+- **Behavior change: a null complex cell from an Arrow stream now reads as `null`**
+  - **Description**: `ArrowToSeatunnelRowReader`, which the Doris and StarRocks sources read with, sends a MAP column to `MapConverter` and a ROW column to `StructConverter`. Neither checked the Arrow validity bit in the path that converts element types, so a null MAP cell was returned as an empty map and a null ROW cell ended the read with `NullPointerException: Cannot invoke "java.util.Map.entrySet()" because "valueMap" is null`. Both now return `null`, the same as `ListConverter`, `LargeListConverter` and `FixedSizeListConverter`, which have guarded this since the Arrow reader was added.
+  - **Impact**: A nullable MAP column now yields `null` for a row that holds no map, where it previously yielded an empty map. A row that holds a genuinely empty map still yields an empty map, so absent and empty are no longer the same value. A nullable ROW column is now read instead of failing the whole split.
+  - **Migration Guide**: Consumers that treated the previous empty map as "no value" need no change. A consumer that assumed every row carries a non-null map must handle `null` for that column.
+
+### ORC sink: a decimal that does not fit the target column now fails instead of being written as NULL
+
+- **Behavior change: an out-of-range `DECIMAL` fails the write rather than silently becoming `NULL`**
+  - **Affected component**: `seatunnel-connectors-v2`, `connector-file-base`, `OrcWriteStrategy`
+  - **Description**: The ORC sink converted a `BigDecimal` with
+    `decimalColumnVector.set(row, HiveDecimal.create(value))`. Both halves of that return `null`
+    rather than reporting an error: `HiveDecimal.create` returns `null` above ORC's maximum
+    precision of 38, and `DecimalColumnVector.set` internally calls `enforcePrecisionScale`, which
+    returns `null` when the value does not fit the precision and scale the column actually
+    declares. Neither result was checked, so the row was written with the value replaced by
+    `NULL`, with no exception, no warning and no log line. The conversion now reports a failure
+    naming the value and the target column.
+  - **Impact**: A job that silently dropped values now fails at the offending row. The reachable
+    case is a value merely wider than its declared column, which arises from a narrow or inferred
+    JDBC precision, a sampled schema, a schema-less source, or a SQL transform that multiplies
+    decimals. In-range values are unaffected and are written exactly as before.
+  - **Consistency with the Parquet sink**: the Parquet sink in the same module already refused the
+    same overflow loudly, with `AvroTypeException: Cannot encode decimal with precision 39 as max
+    precision 38`. The two sinks no longer disagree about whether losing a value is acceptable.
+  - **Unchanged**: a declared precision above 38 was already rejected when the schema was built,
+    so this entry is about VALUES rather than DECLARATIONS. No option, schema or file layout
+    changes.
+  - **Still rounded, not failed**: `enforcePrecisionScale` rounds fractional digits beyond the
+    declared scale rather than rejecting them, so `1.239` written into a `decimal(10,2)` column is
+    still stored as `1.24` (HALF_UP), exactly as before this change. Only an integer part that does
+    not fit the declared precision, or a value above ORC's maximum precision of 38, now fails.
+  - **Migration Guide**: Widen the declared precision or scale so the value fits, or round the
+    value before it reaches the sink. To find affected rows before upgrading, compare the written
+    ORC data against the source for unexpected `NULL` decimals.
+
+### Doris sink: `TIMESTAMP_TZ` converts to the Doris session timezone
+
+- **Behavior change: Doris sink stores `TIMESTAMP_TZ` as timezone-adjusted wall-clock `DATETIME`**
+  - **Affected component**: `seatunnel-connectors-v2/connector-doris`
+  - **Description**: `TIMESTAMP_TZ` values are converted to the effective Doris target timezone before being stored as `DATETIME`. Set `sink.datetime-timezone` to choose that target timezone explicitly; if it is unset, SeaTunnel uses the JVM default timezone. For example, with `sink.datetime-timezone = "Asia/Shanghai"`, `2024-01-01T03:00:00+09:00` is stored as `2024-01-01 02:00:00`.
+  - **Impact**: Before this change, the Doris sink followed the v3.0.0 downgrade contract and dropped the timezone offset while keeping the wall-clock digits unchanged. Stored `DATETIME` values for the same `TIMESTAMP_TZ` input can differ when the JVM default zone differs from the Doris session zone, or when `sink.datetime-timezone` is set explicitly. When the option is unset and the table has `TIMESTAMP_TZ` columns, the writer logs a warning.
+  - **Migration Guide**: Set `sink.datetime-timezone` to the Doris session zone. Verify existing stored data if the JVM default zone and Doris session zone differed. (#11524)
+
+### Socket connector: connections now have a 10-second connect timeout by default
+
+- **Behavior change: `connect_timeout_ms` defaults to 10000 instead of leaving the wait to the operating system**
+  - **Description**: The Socket source and sink used to establish a TCP connection with no application-level timeout (`connect(address, 0)` for the source, `new Socket(host, port)` for the sink). A peer that was unreachable, stopped responding, or silently dropped the SYN blocked the connector thread until the OS TCP timeout expired. Both now default to a 10-second connect bound.
+  - **Impact**: Jobs whose target took longer than 10 seconds to accept a connection now fail at startup or on reconnect where they previously succeeded after a longer OS-managed wait. This applies to existing configurations that do not set the option. The source's blocking read behaviour is unchanged: `read_timeout_ms` defaults to `0`, so an idle stream is not treated as a failure.
+  - **Migration Guide**: Set `connect_timeout_ms = 0` on the source or sink to restore the previous OS-governed behaviour, or raise the value above 10000 for a legitimately slow peer. `read_timeout_ms` is source-only; it has no effect on the sink, which never reads from its socket.
+
+### Zeta: runtime metric counters restart from zero after a pipeline failover restore
+
+- **Behavior change: runtime counters no longer accumulate values from a failed pipeline attempt**
+  - **Description**: When the Zeta engine restores a pipeline after a worker failover (or retries it after a failure), the new attempt's runtime counters (`SourceReceivedCount`, `SinkWriteCount`, queue metrics) now start from zero. Previously the replacement attempt continued from the failed attempt's values, because task locations are stable across retries and the new attempt's counters were seeded from the shared metrics store, so finished-job metrics could include work already done and canceled by earlier attempts.
+  - **Impact**: For batch jobs this removes over-counted finished-job metrics. For streaming jobs resumed after a failover, reported totals now restart at the new attempt's values instead of continuing the pre-failure totals; external dashboards or alerts that aggregate these counters must not read the reset as data loss. The reset is best effort: a worker report already in flight during the restore can still carry a stale value for at most a millisecond-scale window.
+  - **Migration Guide**: No action is required for correctness. If you need lifetime totals that survive failovers, accumulate them outside the running job, for example from the stored metrics of finished jobs in the job history.
+
+### JSON format: `ARRAY` and `MAP` columns reject values of the wrong container type
+
+When a field is declared as `ARRAY`, a JSON value that is not an array (a string, a number, a boolean or an object) previously produced an empty array `[]`, or an array holding `null` for every member of the object, without any warning. When a field is declared as `MAP`, a JSON value that is not an object silently produced an empty map `{}`. Both happened with `ignore-parse-errors` disabled as well as enabled.
+
+Such a value now causes a parse error that identifies the field and the expected container type; with `ignore-parse-errors = true` only that container value is set to `null`, and every other value of the row is kept. The same holds for a wrong container type nested inside an array or a map: only the offending nested value becomes `null` while its siblings and the enclosing container are retained, and empty arrays and objects of the declared container type, `null` and missing values, and the conversion of elements and keys are unchanged. To migrate, provide an actual JSON array for an `ARRAY` field and an actual JSON object for a `MAP` field, or set `ignore-parse-errors = true` so that malformed container values become `null` instead of failing the job.
+
+The same strictness applies wherever the shared JSON-to-row conversion is used without ignoring parse errors: the `JsonPath` transform (column `dest_type`), the `Python` transform (declared output columns and their declared types) and the Assert sink's `equals_to` check for `ARRAY` and `MAP` values. These callers do not consult the JSON format's `ignore-parse-errors` option, so that switch does not apply to them: a value that does not match the declared `ARRAY` or `MAP` type still fails there, while the existing plugin-specific error-handling behavior of those transforms is unchanged.
+
+### JDBC Dameng: NVARCHAR and NVARCHAR2 report their declared length
+
+- **Schema change: the Dameng catalog reports `NVARCHAR(n)` and `NVARCHAR2(n)` with length n instead of the byte length**
+  - **Description**: `NVARCHAR(n)` and `NVARCHAR2(n)` hold n characters, but the catalog took the length from `ALL_TAB_COLUMNS.DATA_LENGTH`, which counts bytes: 2n on a GB18030 database and 4n on a UTF-8 database, whatever `LENGTH_IN_CHAR` is set to. `NVARCHAR(10)` was therefore reported as `NVARCHAR(20)` or `NVARCHAR(40)`. The length now comes from `SYS.SYSCOLUMNS.LENGTH$`, the declared length.
+  - **Impact**: The source type of these columns changes, for example from `NVARCHAR(20)` to `NVARCHAR(10)`, and the column length used for sink auto-create is halved (GB18030) or quartered (UTF-8), for example a MySQL sink gets `VARCHAR(40)` instead of `VARCHAR(80)` for `NVARCHAR(10)`. Each new column still holds every value of the source column, because the length is counted in characters. Tables that already exist downstream are not altered. `CHAR`, `VARCHAR`, `VARCHAR2` and `NCHAR` columns are not affected.
+  - **Migration Guide**: No change is needed. Jobs that rely on the wider auto-created columns, for example to write longer values from another source into the same table, should create the sink table themselves.
+
+### File sink: XML applies `date_format`, `datetime_format` and `time_format`
+
+- **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
+  - **Description**: With `file_format_type = "xml"`, DATE, TIME and TIMESTAMP values were written with Java `toString()`, ignoring `date_format`, `datetime_format` and `time_format`. Timestamps came out as `2026-01-02T10:13:45.123`, and as `2026-01-02T10:13` when the seconds were zero, so a file could mix several layouts and could not be read back with a single `datetime_format`. They are now formatted with the configured options, like the CSV, Text and Excel writers.
+  - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
+  - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
+
+### Native CLI help exit code
+
+`seatunnel.sh -h` now exits with `0` instead of `234`.
+Update scripts that recognize native help by exit code `234`. The Spark/Flink Java launcher
+protocol still uses `234`; its wrapper scripts continue to translate help to exit `0`.
+
+### CDC: nullable columns are no longer used as the snapshot split column
+
+- **Behavior change: JDBC-based CDC sources (MySQL, PostgreSQL, Oracle, SQL Server, DB2) no longer split the snapshot on a nullable column**
+  - **Description**: For a table without a primary key, the snapshot split column was taken from a unique key even when that column was nullable. Rows with NULL in it matched no snapshot chunk and were silently skipped. A nullable column is now skipped, whether it comes from a unique key, from `snapshotSplitColumn` or from a primary key configured in `table-names-config.primaryKeys`; if no non-nullable key column remains, the table is read as a single split. Nullability is read from the database metadata.
+  - **Impact**: Such tables are now read completely, but with one snapshot split instead of several. With `exactly_once = true`, a table whose only key is a nullable unique key, or a nullable column configured in `table-names-config.primaryKeys`, now fails at startup with `Exactly once is enabled, but not found non-nullable primary key or unique key for table ...` instead of running and losing rows. This also applies to an existing job whose configured `primaryKeys` column is nullable in the database but holds no NULLs.
+  - **Migration Guide**: Declare a NOT NULL unique column, or configure `table-names-config.primaryKeys` / `snapshotSplitColumn` with a non-nullable column, to keep parallel snapshot reading. For `exactly_once = true`, add a primary key or a non-nullable unique key to the table, or make the configured `primaryKeys` column NOT NULL in the database.
+
+### PostgreSQL CDC pgoutput Schema
+
+- **Behavior change**: For streaming jobs using `decoding.plugin.name = "pgoutput"`, columns not published by the PostgreSQL publication are excluded from the source schema. This includes generated columns before PostgreSQL 18, virtual generated columns, and columns omitted by a publication column list. Snapshot-only jobs and other decoding plugins are unchanged.
+- **Impact**: On the next job start or restore, snapshots and auto-created sink tables no longer include unpublished non-key columns. Existing sinks and downstream consumers that expect them may need schema or mapping changes; previously, streamed updates could write NULL into those columns or fail on a schema mismatch. If a required primary key column is unpublished, including in an INSERT-only publication, startup now fails instead of retaining the column and streaming NULL keys.
+- **Migration Guide**: Check the publication and downstream schema before upgrading. On PostgreSQL 18, a publication with `publish_generated_columns = stored` can retain stored generated columns; virtual generated columns remain unpublished. For a column-list publication, include every required primary key column (including configured `table-names-config.primaryKeys`) and all other required columns. PostgreSQL also requires replica identity columns when publishing UPDATE/DELETE. Update sink schemas and downstream mappings to omit other unpublished columns; publications without an explicit column list still follow the generated-column rules.
+
+### Markdown file source `child_ids` array
+
+The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a `String[]` for every row. Previously, it declared `STRING`, emitted comma-separated IDs for parents, and used `null` for leaves. Update downstream schemas and consumers to read an array; leaves now contain an empty array. The element IDs, types, page numbers, and position indexes retain their existing formats.
+
+### FTP connector: control connection replies are now bounded by a 60 second timeout
+
+- **Behavior change: the FTP source and sink stop waiting for a control-connection reply after 60 seconds**
+  - **Description**: The FTP file system created its client and called `connect(host, port)` without setting a read timeout. The underlying client's read timeout defaults to `0`, which means wait indefinitely, so a server that accepted the TCP connection but never sent a reply — a stalled server, or a connection accepted by a firewall or load balancer that is silently dropping traffic — left the calling thread blocked forever. The new `control_timeout` option bounds every reply read on the control connection, including the greeting, the login exchange and the per-command replies that precede a transfer, and defaults to 60000 ms. It applies to both the source and the sink.
+  - **Impact**: Jobs against a server that is reachable but does not answer the control channel now fail with a timeout instead of hanging. A job that previously stayed in `RUNNING` with no progress and no error now fails with the `SocketTimeoutException` raised by the underlying client, which reports the read that timed out but not the FTP host and port. Connections that answer within 60 seconds are unaffected. This option bounds control-channel replies only: the TCP connect is not covered, and neither is the data connection, so a host that silently drops the initial SYN, or a transfer that stalls after it has started, is not bounded by this option.
+  - **Migration Guide**: No action is required. If a server legitimately needs more than 60 seconds to answer a control command, for example on a slow link, raise `control_timeout` on the connector. Set it to `0` to restore the previous wait-indefinitely behavior. Note that the upper bound applies per reply, so a sink that uploads a large file and whose server post-processes it can wait longer than 60 seconds for the final `226 Transfer complete`; raise `control_timeout` for such servers.
+
 ### Runtime Requirements
 
 - **Breaking Change: Minimum Java runtime raised from Java 8 to Java 11**
@@ -22,9 +176,123 @@ You need to check this document before you upgrade to related version.
     4. If you customized `${SEATUNNEL_HOME}/config/jvm_options` (or the client, master and worker variants), check your additions for flags that Java 11 removed, such as `-XX:+UseConcMarkSweepGC` or `-XX:MaxPermSize`, because the JVM refuses to start on an unrecognized flag. The options shipped by default are already Java 11 compatible.
     5. You do not have to copy the new JDK module flags into a preserved config directory. `seatunnel.sh` and `seatunnel-cluster.sh` append the mandatory `--add-opens`/`--add-exports` flags (`java.base/java.lang`, `java.net`, `java.nio`, `java.util`, `sun.nio.ch`, and `java.security.jgss/sun.security.krb5`) themselves and skip any your `jvm_*_options` already carries, so an in-place upgrade that keeps an old `config/` directory (a mounted Docker volume or a Kubernetes ConfigMap) still starts with them. The same scripts stop with an explicit `SeaTunnel requires Java 11 or newer` message when the detected JVM is older, instead of the raw `Unrecognized option` error a Java 8 launcher would print.
 
+### Application Mode internal API changes
+
+- `ResourceManagerFactory` is now a single concrete class. Its no-argument constructor selects the
+  standalone manager, while the four-argument constructor creates an `ApplicationResourceManager`
+  for application mode. Platform-specific resource-manager subclasses and factory SPI are removed.
+- `ResourceManagerDriver` initialization receives a `ResourceEventHandler`, main-thread executor, IO
+  executor, and master-address supplier instead of a `ResourceManagerContext`. Drivers now publish the
+  terminal outcome through `finish(...)` and release their platform clients in `close()`.
+- `AbstractResourceManager.close()` is now the `final`, idempotent lifecycle entry point, so it can no
+  longer be overridden. Move deployment-specific cleanup into `closeResourceManager()`, which `close()`
+  invokes exactly once; subclasses that overrode `close()` no longer compile and must migrate.
+
+### User Variables(`-i` variables)
+
+- **`-i` values are no longer visible via `System.getProperties()`**
+
+  - Previously, `-i` parameters were injected into `System.getProperties()` and accessible via `System.getProperty()`. Starting from this version, `-i` parameters are resolved through `Config.resolveWith()` and are no longer visible via `System.getProperties()`.
+
+- **Duplicate keys via `-i` are no longer supported**
+  - Duplicate keys passed via `-i` are now rejected with an error.
+    Previously, duplicate keys were silently overridden, which could cause unexpected data sync errors due to mistakes such as copy-paste typo.
+  - If your code generation or CLI produces duplicated keys, please remove the unused ones.
+
+- **Double-quoted `-i` values are now unwrapped**
+  - For example, `-i k="v"` is now equivalent to `-i k=v` (quotes are stripped). Double quotes are mainly intended for string values that contain structural delimiters such as commas (`,`), curly braces (`{}`), and square brackets (`[]`). Plain values without such characters do not need double quotes.
+
+- **Unbalanced `{}` or `[]` are partially parsed into maps and lists**
+
+  - In `-i k=[a,b],c]`, `[a,b]` is parsed as an array, and `c]` is ignored because it has no = (it is not kept as a string).
+  - Balanced values that start with `{` or `[` but are not valid HOCON/JSON now fail with a `BadValue` error at parse time. This includes previously working unquoted values such as `-i pattern={a,b}`. To keep them as plain strings, wrap the value in escaped double quotes:
+    `-i pattern=\"{a,b}\"`
+
+- **`-i` keys and values are now trimmed, and empty keys are rejected**
+  - `-i 'k1= , k2=v2'` now explicitly removes whitespace: `k1` becomes an empty string, and the key of the second pair becomes `k2` instead of ` k2`.
+  - `-i ' =v1 , k2=v2'` now reports an error, because the key for `v1` is empty after trimming.
+  - `-i`: Meaningful leading and trailing whitespace is silently removed.
+
 ### SQL TINYINT array schema
 
 The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, matching the Byte values it emits. The previous `ARRAY<STRING>` declaration could fail in schema-dependent row consumers. Update downstream declarations that assumed STRING elements; cast the SQL values to STRING explicitly when that schema is required. Restart affected jobs with the corrected schema rather than restoring state that relies on the old declaration.
+
+### Zeta SQL Transform: CAST to INT rejects out-of-range numeric values
+
+- **Behavior change: `CAST` to `INT` from a numeric source now fails instead of silently wrapping**
+  - **Affected component**: `seatunnel-transforms-v2`, `SystemFunction.castAs` (Zeta SQL transform)
+  - **Description**: Converting a numeric value to `INT` | `INTEGER` went through
+    `Number.intValue()`, which keeps only the low-order 32 bits, so `CAST(bigint_col AS INT)` on
+    `3000000000` returned `-1294967296` and a value just below `Integer.MIN_VALUE` came back as
+    `2147483647`, flipping sign. A string source already went through `Integer.parseInt` and
+    reported the overflow, so the same expression either failed or corrupted the value depending
+    only on the source column type. The numeric path now reports it too. `TINYINT`, `SMALLINT` and
+    `BYTE` are unchanged, because they convert with `Byte.parseByte` and `Short.parseShort`, which
+    already rejected an out-of-range value. Planner acceptance is unchanged: the set of source
+    types allowed for each target is exactly what it was.
+  - **Impact**: A job that relied on the wraparound, deliberately or not, now fails at the row that
+    overflows rather than writing a wrong number. In-range values, widening casts and identity casts
+    are unaffected. `FLOAT` and `DOUBLE` are out of scope for this change and still return
+    `Infinity` for values they cannot represent.
+  - **Also affects `COALESCE` and `IFNULL`**: these reach the same conversion boundary, and their
+    result type is inferred from the first non-null argument rather than the widest one. So
+    `COALESCE(int_col, bigint_col)` targets `INT`, and an out-of-range value taken from the
+    `BIGINT` argument was silently truncated in the same way. It now fails too. `CASE` expressions
+    are not affected, because their type is inferred as the widest branch, so no narrowing occurs.
+  - **Covers wide and non-finite numeric sources**: the range check runs per numeric family rather
+    than after a single widening step, because `Number.longValue()` is itself lossy for some of
+    them. A `DECIMAL` beyond 64 bits (reachable as `COALESCE(int_col, decimal_col)`), a
+    `BigInteger`, and `NaN` or an infinity from a `DOUBLE` are each rejected now instead of
+    arriving as a truncated value.
+  - **Fractional sources are unchanged**: reached through `COALESCE` or `IFNULL`, a value such as
+    `5.7` is still truncated towards zero rather than rejected, which is what this conversion has
+    always done. Only the range behaviour changes. A floating-point source written as an explicit
+    `CAST` to an integral target is rejected while the statement is prepared, both before and after
+    this change. Note the truncating path still differs from a string source, where
+    `Integer.parseInt("5.7")` fails; aligning those is a separate decision.
+  - **`BIGINT` is covered by a separate change**: it kept its existing conversion when this entry
+    was written; the range check for it is described below and was tracked in #12612.
+  - **Migration Guide**: Use `TRY_CAST` to get `NULL` instead of an error for values the target
+    cannot hold, or widen the target type so the value fits. To keep a truncating conversion,
+    compute it explicitly rather than relying on `CAST`.
+
+### Zeta SQL Transform: CAST to BIGINT rejects out-of-range numeric values
+
+- **Behavior change: converting a numeric value to `BIGINT` now fails instead of silently wrapping**
+  - **Affected component**: `seatunnel-transforms-v2`, `SystemFunction.castAs` (Zeta SQL transform)
+  - **Description**: The `BIGINT` | `LONG` numeric branch converted with `Number.longValue()`, which
+    keeps only the low-order 64 bits of a `DECIMAL` or a `BigInteger`, maps `NaN` to `0`, and
+    saturates an out-of-range `DOUBLE` at `Long.MAX_VALUE`. Measured on `dev`: `18446744073709551621`
+    (2^64+5) arrived as `5`, `18446744073709551616` (2^64) as `0`, `NaN` as `0`, and `1e30` as
+    `9223372036854775807`. None of it was reported, so the row was written with a wrong number. The
+    conversion is now range-checked against `Long.MIN_VALUE`..`Long.MAX_VALUE`, reusing the same
+    per-family check added for `INT`.
+  - **Impact**: A job that relied on the wraparound, deliberately or not, now fails at the row that
+    overflows rather than writing a wrong number. In-range values, the exact integral wrappers,
+    widening casts and identity casts are unaffected.
+  - **The reachable route is `COALESCE` and `IFNULL`, not `CAST`**: an explicit `CAST(... AS BIGINT)`
+    could never produce this, because the planner admits only `TINYINT`, `SMALLINT`, `INT`, `BIGINT`
+    and `STRING` as sources for a `BIGINT` target; the four integral families widen to a long
+    exactly, and a `STRING` already reported its own overflow through `Long.parseLong`. A `DECIMAL`
+    or `DOUBLE` reaches the target through `COALESCE` and `IFNULL`, whose result type is inferred
+    from the first non-null argument rather than the widest, so `COALESCE(bigint_col, decimal_col)`
+    targets `BIGINT` and narrowed the decimal silently.
+  - **`TRY_CAST` cannot turn these into `NULL`**: for the same reason. `TRY_CAST(decimal_col AS
+    BIGINT)` and `TRY_CAST(double_col AS BIGINT)` are rejected while the statement is prepared, with
+    `Unsupported CAST FROM ... AS type: BIGINT`, so the per-row path where `TRY_CAST` catches a
+    failure is never reached. `TRY_CAST` does return `NULL` for an overflowing `STRING` source, which
+    is the one route that reaches the conversion as a cast.
+  - **Fractional sources are unchanged**: a value such as `5.7` reaching `BIGINT` through `COALESCE`
+    or `IFNULL` is still truncated towards zero rather than rejected. Only the range behaviour
+    changes.
+  - **Migration Guide**: Use `TRY_CAST` to get `NULL` instead of an error where the source is a
+    string, widen the target type so the value fits, or compute a truncating conversion explicitly
+    rather than relying on the inferred narrowing in `COALESCE` and `IFNULL`. To keep the widest
+    type rather than the type of the first argument, write the cast yourself:
+    `COALESCE(CAST(int_col AS BIGINT), bigint_col)`.
+    That works for an integral source only: a `DECIMAL` or `DOUBLE` has no cast to `BIGINT`, so
+    put it first instead, as in `COALESCE(decimal_col, bigint_col)`. Reordering is not a drop-in
+    change though: it also changes which argument wins when both are non-null.
 
 ### DuckDB BIT and ENUM automatic DDL
 
@@ -62,6 +330,68 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
     after upgrading so the new configuration is applied.
 
+### JsonPath Transform
+
+- Recognized destination-type conversion failures now honor the existing column
+  and row error policies. Column `SKIP` yields a null field; column `SKIP_ROW` or
+  row `SKIP` (without a column override) drops the row. Explicit column `FAIL`
+  still takes precedence; the default remains `FAIL`.
+- Under `FAIL`, recognized conversion errors now surface as
+  `ErrorDataTransformException` with `JSONPATH_ERROR_CODE-07`, rather than the raw
+  converter exception or its `COMMON-*` code. Source records, extracted values
+  and raw causes are intentionally omitted from these diagnostics and skip logs.
+  Update alerts/runbooks keyed on the old exception text or code. Unsupported
+  conversions and unexpected failures retain their existing behavior; this does
+  not add `ROUTE_TO_TABLE` support or change checkpoint formats.
+- Path-reading error policies are unchanged. `ErrorDataTransformException` now
+  attaches a sanitized `JsonPathException` cause, rather than the original
+  exception, because its message or stack trace may contain source data or a
+  private path literal. Previously there was no cause. Diagnostics retain only
+  safe field identifiers and the original exception type; they omit source JSON,
+  configured paths and raw exception text. The cause chain remains available,
+  but the original cause subtype and stack detail are intentionally lost. Update
+  stack-trace parsers and alerts that assumed no nested cause or relied on the
+  previous message text.
+
+### Replace Transform Schema Refresh
+
+- **Behavior change**: Replace resolves `replace_fields` against the refreshed input schema after schema changes and checkpoint restoration. Previously cached positions could replace an unrelated column or leave the configured field unchanged after column positions shifted.
+- **Impact and migration**: If a configured field was dropped or renamed, schema refresh now fails with the existing missing-field error instead of processing subsequent rows with stale positions. Update `replace_fields` to match the source schema before restarting. No option, default, API, or checkpoint format changes are introduced.
+
+### SQL and Calcite Vector Arithmetic
+
+- **Behavior correction**: `VECTOR_NORM`, `INNER_PRODUCT`, `COSINE_DISTANCE`,
+  `L1_DISTANCE`, `L2_DISTANCE` and `VECTOR_NORMALIZE` now widen float elements before
+  intermediate multiplication or subtraction. Finite inputs no longer produce
+  incorrect infinity, NaN or zero merely because an intermediate float operation
+  overflows or underflows. Results can also differ in their low-order digits.
+- **Migration**: Review thresholds and previously computed vector metrics or normalized
+  embeddings before replaying data. No options, types, schemas or state formats change.
+  Null inputs and actual zero vectors retain their handling. No non-finite input
+  validation or sanitization is added; corrected finite intermediates can also
+  affect results when mixed with non-finite elements. Normalized output elements
+  remain float, and random-projection arithmetic is unaffected.
+
+### SQL ARRAY_MAX and ARRAY_MIN Precision
+
+- **Behavior correction: exact integral and DECIMAL array extrema**
+  - **Affected component**: `seatunnel-transforms-v2`, `Sql` transform with
+    `engine = ZETA` (default) or `INTERNAL`, on Zeta, Flink and Spark execution engines.
+  - **Description**: Arrays containing only Byte, Short, Integer, Long and BigDecimal
+    values are compared exactly, including mixtures of integral and DECIMAL values.
+    For example, `ARRAY_MAX` over BIGINT values `[9007199254740992, 9007199254740993]`
+    now selects `9007199254740993`. A Long `1` and BigDecimal
+    `1.00000000000000000001` no longer compare equal. If any Float, Double or other
+    Number subtype (including BigInteger) is present, the whole array retains
+    legacy double-based ordering and its possible precision loss.
+  - **Impact**: Jobs relying on rounded comparisons may select different values.
+    The selected original element retains its type and DECIMAL scale, so a different
+    result may also have a different original scale. Equal values retain the first
+    element. Declared output types, input coercion, null handling and floating-point
+    ordering are unchanged.
+  - **Migration Guide**: No configuration or state migration is required. Review
+    downstream expectations that depended on the previous rounded results.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
@@ -92,6 +422,30 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     prefix (a bare key is derived as a passphrase via SHA-256 and is **not** interchangeable with
     `FieldEncrypt`). See [SQL Functions](../../transforms/sql-functions.md) for the full contract.
 
+### Zeta SQL Transform: built-in UNIX_TIMESTAMP
+
+- **Behavior change: UNIX_TIMESTAMP is now a built-in function**
+  - **Affected component**: `seatunnel-transforms-v2` (Zeta SQL transform).
+  - **Description**: `UNIX_TIMESTAMP()` / `UNIX_TIMESTAMP(string[, pattern])` /
+    `UNIX_TIMESTAMP(dateTime)` is now a built-in Zeta SQL function, dispatched before
+    user-registered `ZetaUDF`s, and its output type is resolved as `BIGINT`
+    (`BasicType.LONG_TYPE`).
+  - **Impact**: A job that registered a custom `ZetaUDF` named `UNIX_TIMESTAMP` (the
+    previous workaround for the missing built-in) will, after upgrading, silently start
+    using this built-in implementation instead of the UDF. The declared output type is
+    now forced to `BIGINT` regardless of what the UDF's `resultType` returned, which may
+    break the downstream sink schema if the UDF returned a different type.
+  - **Migration Guide**: Rename the existing UDF, or switch to the built-in function.
+    See [SQL Functions](../../transforms/sql-functions.md) for the full contract.
+
+### Zeta SQL Transform: FROM_UNIXTIME and UNIX_TIMESTAMP text patterns use English locale
+
+- **Behavior change: text pattern letters are now interpreted in English regardless of the worker JVM locale**
+  - **Affected component**: `seatunnel-transforms-v2` (Zeta SQL transform).
+  - **Description**: `getFormatter`, the shared `DateTimeFormatter` factory used by `FROM_UNIXTIME` (format path) and `UNIX_TIMESTAMP` (parse path), now passes `Locale.ENGLISH` to `DateTimeFormatter.ofPattern`. Previously the JVM default FORMAT locale was captured, so text pattern letters such as `MMM` (month name), `EEE` (weekday), or `a` (AM/PM) rendered or parsed in the worker's language.
+  - **Impact**: On a non-English worker (for example `de-DE`), `FROM_UNIXTIME(epoch, 'dd MMM yyyy')` previously produced `23 Okt 2026` and now produces `23 Oct 2026`; `UNIX_TIMESTAMP('23 Oct 2026', 'dd MMM yyyy')` previously returned `NULL` (parse failure) and now returns the correct epoch. English-locale workers are unaffected. This is consistent with `DAYNAME` and `MONTHNAME`, which already pin English via `DateFormatSymbols.getInstance(Locale.ENGLISH)`.
+  - **Migration Guide**: No action is needed for correctness — English was always the intended locale for text patterns. If a downstream consumer relied on localized month or weekday names in `FROM_UNIXTIME` output, update it to expect English names. See [SQL Functions](../../transforms/sql-functions.md) for the full pattern reference.
+
 ### RabbitMQ Connector
 
 - **Breaking Change: `amqps://` connections now verify broker certificates**
@@ -117,6 +471,41 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   values and previously ran successfully will now fail fast at startup with a validation
   error.
 
+### SQL Numeric Predicate Precision
+
+- **Behavior change: exact numeric operands no longer compare through `double`**
+  - **Affected component**: `seatunnel-transforms-v2`, `Sql` transform (`ZETA` and `INTERNAL`).
+  - **Description**: Comparisons and `IN`/`NOT IN` checks preserve precision when both
+    evaluated operands are integral or `DECIMAL`, including comparisons in searched
+    and simple `CASE` expressions. For example, `BIGINT` `9007199254740993` no longer
+    equals the integer literal `9007199254740992`.
+  - **Impact**: Filters can select different rows, and `CASE` expressions can choose
+    different branches. Comparisons involving `FLOAT` or `DOUBLE` retain their existing
+    behavior. Literals containing a decimal point still evaluate as `DOUBLE`. Unary minus
+    preserves `DECIMAL` precision for both `-decimal_col` and
+    `-CAST('...' AS DECIMAL(p, s))`. Each `IN` element independently selects the
+    exact or floating path, so mixing exact and floating operands can still match
+    distinct large values and does not guarantee transitive equality.
+  - **Migration Guide**: Review affected predicates and `CASE` expressions, and reconcile
+    previously written data that relied on rounded comparison results. For exact decimal
+    constants, use quoted strings with sufficient scale, such as
+    `CAST('-123456789012345678.99' AS DECIMAL(38, 2))` or
+    `-CAST('123456789012345678.99' AS DECIMAL(38, 2))`. Existing CAST rounding is unchanged:
+    string/`DECIMAL` inputs use
+    `CEILING` when reducing scale, so negation before or after CAST can produce different results.
+    `FLOAT`/`DOUBLE` inputs use `HALF_UP` and cannot recover
+    precision already lost to floating-point evaluation. See [Numeric comparisons](../../transforms/sql.md#numeric-comparisons)
+    for examples and limits. No configuration, output schema or state format changes are required.
+
+### DataValidator Array Length
+
+The `LENGTH` rule now counts array elements rather than characters in the
+array's Java identity string. This can change which array-valued rows pass
+validation. Review array length limits that were adjusted to the previous
+behavior, and check previously skipped or routed data before replaying it.
+String, collection, binary and null handling remain unchanged. No configuration
+or state format migration is required.
+
 ### Zeta REST Pagination Parameter Validation
 
 - **Behavior change: `page` and `rows` are validated on paginated endpoints**
@@ -132,6 +521,104 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     message naming the offending parameter. Callers passing valid positive values are unaffected.
     The response shape, the `{"data": [...], "total": n}` envelope, and the behaviour of a page
     starting exactly at `total`, which still returns an empty page, are all unchanged.
+
+### MySQL-CDC: NULL in a nullable unique key column is emitted as NULL
+
+- **Behavior change: MySQL-CDC emits NULL instead of the type default for nullable unique key columns of tables without a primary key**
+  - **Affected component**: `seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql`
+  - **Description**: For a table without a primary key, the MySQL DDL parser (Debezium 1.9.8) promoted the first unique key to the primary key and marked its columns NOT NULL, although the database allows NULL in them. NULL values in these columns were emitted as the type default (for example `0`, `''` or the epoch) in the snapshot and binlog phases, including after a binlog DDL such as `ALTER TABLE ... ADD UNIQUE KEY` or `CREATE UNIQUE INDEX`. These columns now keep their declared nullability and NULL is emitted as NULL. Real primary key columns are unchanged. This relies on nullable columns no longer being used as the snapshot split column (see "CDC: nullable columns are no longer used as the snapshot split column"): with `exactly_once = true`, a NULL in the split column would otherwise fail the split range check.
+  - **Impact**: Sinks now receive NULL where they previously received the type default. A sink column declared `NOT NULL`, or a sink `primary_keys` that includes such a column, can reject these rows.
+  - **Migration Guide**: Make the affected sink columns nullable, and do not use a nullable column as the sink primary key. A job restored from a checkpoint that already holds the schema of such a table (saved after a binlog DDL on it) keeps the old behavior for that table until it is started without that checkpoint.
+
+### Connector Changes
+
+- **Breaking Change: Doris Source option key `doris.request.retriesdoris.deserialize.queue.size` renamed to `doris.deserialize.queue.size`**
+  - **Affected component**: `seatunnel-connectors-v2/connector-doris` (`DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE`)
+  - **Description**: The option key for the asynchronous Arrow deserialization queue size has been a typo since it was introduced in #7895: the key was accidentally concatenated as `doris.request.retriesdoris.deserialize.queue.size`, gluing the preceding option's name (`doris.request.retries`) onto the intended key (`doris.deserialize.queue.size`). The option key is now the intended `doris.deserialize.queue.size`. The default value (`64`) and the option behavior are unchanged.
+  - **Impact**: Configurations that explicitly set the old malformed key `doris.request.retriesdoris.deserialize.queue.size` will no longer be picked up; the connector will fall back to the default queue size of `64`. The old key was a concatenation artifact and could only be discovered by copying it from the docs, so most users are unaffected.
+  - **Migration Guide**: If you explicitly tuned this option, rename the key to `doris.deserialize.queue.size` in your source configuration.
+
+- **Behavior change: HTTP sink write failures now fail the task instead of being silently dropped**
+  - **Affected component**: `seatunnel-connectors-v2/connector-http/connector-http-base`
+  - **Description**: Previously, `HttpSinkWriter.doHttpRequest` handled both a non-200 HTTP response and any request exception (network error, timeout, serialization error) by logging at `error` level and returning normally, so the failed row/batch was silently dropped while the job kept running and checkpoints completed. The writer now throws `HttpConnectorException` (`REQUEST_FAILED`) for both cases, so the failure propagates to the engine and fails the task/job.
+  - **Impact**: Jobs whose downstream HTTP endpoint occasionally returns non-200 or is occasionally unreachable used to keep running with silent data loss; after this change they fail loudly at the first failed write. The connector still has no built-in retry or dead-letter mechanism, so re-submitting a failed job may deliver rows that succeeded before the failure again — make sure the receiver tolerates duplicate delivery on retry/restart.
+  - **Migration Guide**: No configuration change is required. If your endpoint is expected to return non-200 responses as part of normal operation, handle them upstream of the sink or add an external retry mechanism before upgrading.
+
+### Transform Changes
+
+- **Behavior change: every `table_transform` entry is validated at submission time**
+  - **Affected component**: all transforms that support `table_transform`: `Copy`, `Calcite`, `DataValidator`, `DefineSinkType`, `DynamicCompile`, `FieldEncrypt`, `FieldMapper`, `Filter`, `FilterRowKind`, `JsonPath`, `Metadata`, `Python`, `RegexExtract`, `Replace`, `Sql`, `Split`, `TableMerge` and `TextChunk`.
+  - **Description**: An entry without a non-blank `table_path` used to be filtered out silently, so the entry was ignored and the job ran anyway; entries were not checked against the per-table rule until a row was processed. Entries are now validated before the job starts: each one has to select its table with a non-blank `table_path` and to be a complete single-table rule of that transform, and the transform-level rule has to be either absent or complete.
+  - **Impact**: A config that still carries a stale entry - for example `table_transform = [{ field_rules = [...] }]` without `table_path` - was accepted before and now fails at submission with `Each 'table_transform' entry must select its table with a non-blank 'table_path'`, or with `Invalid 'table_transform' entry for table [...]` when a mandatory option of the entry is missing. Single-table jobs (without `table_transform`) are not affected.
+  - **Migration Guide**: Add `table_path` to every entry and complete it like a single-table config of the same transform. Entries that are no longer needed can also be removed, because a `table_transform`-only config is valid.
+- **[BREAKING]** Assert sink: `sink_type` in `column_rule` is now checked against the actual column type. It was ignored before, so a mismatching declaration fails the job while an omitted one stays unchecked; remove the key or set the actual type when upgrading.
+
+### Format Changes
+
+- **CSV source defaults for missing and configured null fields**: When a CSV source declares
+  `schema.columns[].defaultValue`, a column absent from the file header or a field matching
+  `null_format` now receives that default instead of null. Jobs without configured defaults are
+  unchanged, and an empty field remains null unless it matches `null_format`. If downstream logic
+  intentionally relied on null despite a configured default, remove that default from the source
+  schema before upgrading.
+  Configured defaults are now converted to the column type when the CSV reader is created.
+  A default that cannot be converted, such as `CURRENT_TIMESTAMP` for a TIMESTAMP column, now
+  fails the job at reader creation instead of being ignored, even if no field needs the default.
+  Defaults must be literal values, not SQL expressions. Fix or remove invalid defaults before upgrading.
+
+- **Breaking Change: JSON serialization of numeric fields now follows the runtime value type**
+  - **Affected component**: `seatunnel-formats/seatunnel-format-json` (`RowToJsonConverters`) - affects every connector that serializes rows with the JSON format (for example Kafka, RabbitMQ, Pulsar, and file JSON sinks)
+  - **Description**: Previously, a field declared as a numeric type in the catalog (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `FLOAT`, `DOUBLE`, `DECIMAL`) was serialized by blindly casting the runtime value to the Java type implied by the declared type (for example `(long) value` for `BIGINT`). In multi-table jobs (for example CDC jobs writing JSON to RabbitMQ/Kafka) where several tables share one catalog schema but carry different physical column types, a `String` or `BigDecimal` runtime value in such a field threw a raw `ClassCastException` and killed the job. Now numeric fields are serialized according to their runtime type: any numeric wrapper (`Byte`, `Short`, `Integer`, `Long`, `Float`, `Double`, `BigInteger`, `BigDecimal`) becomes the corresponding JSON number; numeric character sequences are parsed into JSON numbers, while non-numeric text is emitted as a JSON string; `Float`/`Double` values in a field declared as `DECIMAL` are serialized via `BigDecimal.valueOf` to avoid floating-point representation artifacts.
+  - **Impact**: Heterogeneous numeric values that previously crashed the job with `ClassCastException` now serialize successfully, and the emitted JSON numeric shape follows the runtime value rather than the declared column type (a `String` or `BigDecimal` value in a `BIGINT` column keeps its exact numeric value). Runtime values that can neither be represented as a number nor parsed from text (for example `byte[]`, `Map`, `LocalDateTime`) now fail fast with a typed `SeaTunnelJsonFormatException` (`UNSUPPORTED_DATA_TYPE`) instead of a raw `ClassCastException`. Downstream consumers that assume the JSON numeric shape always matches the declared column type should be reviewed. (#11415)
+
+- **Behavior change: JSON deserialization keeps the precision of `DECIMAL` values nested in arrays**
+  - **Affected component**: `seatunnel-formats/seatunnel-format-json` (`JsonDeserializationSchema`) - affects every connector that reads rows with the JSON format (for example Kafka, RabbitMQ, Pulsar, and file JSON sources)
+  - **Description**: A `DECIMAL` declared inside an `ARRAY` (for example `ARRAY<DECIMAL>`, `ARRAY<ARRAY<DECIMAL>>` or `ARRAY<ROW<DECIMAL>>`) was not found when deciding whether the numbers of a document must be parsed as `BigDecimal`, because an array is not a composite type. Its elements were parsed as `double` first and converted to `DECIMAL` afterwards, so they lost every digit beyond `double` precision, while a scalar `DECIMAL` column of the same schema kept them. A `DECIMAL` nested in an array now retains its numeric precision exactly like a scalar `DECIMAL`. No option, default value or row shape changed.
+  - **Impact**: Elements of a declared `DECIMAL` array are no longer rounded to about 17 significant digits. Since the underlying mapper setting applies to the whole document, in a schema that declares a `DECIMAL` inside an array a bare number assigned to a `STRING` field now keeps all of its digits (`3.14159265358979323846` instead of `3.141592653589793`). The same happens to floating-point numbers nested inside a JSON object or array that a `STRING` field captures as text: the object or array is re-rendered from the decimal values, so those numbers can keep more digits or switch to exponent notation (`1e-10` becomes `1E-10`), while numbers quoted as JSON strings inside the same object or array keep their original text. Quoted JSON strings, and schemas without any `DECIMAL`, are unaffected. (#12871)
+  - **Migration Guide**: If a downstream step compares the text of such numeric values, review those comparisons against the exact digits, or make the source provide quoted JSON strings for `STRING` columns that carry bare numbers. JSON objects or arrays stored in a `STRING` column belong to the same category: compare their serialized text (digits and exponent notation) before relying on it, or have the source send those values as quoted JSON strings. `DECIMAL` columns require no configuration change to retain their declared numeric precision.
+
+### Engine Behavior Changes
+
+- **File-based IMap storage: legacy job model class names in WAL files are remapped on startup**
+  - **Affected component**: `seatunnel-engine/seatunnel-engine-storage/imap-storage-plugins/imap-storage-file`
+  - **Description**: SeaTunnel 3.0 relocated the job status model classes (`JobStatus`, `JobResult`, `JobStatusData`) from `org.apache.seatunnel.engine.core.job.*` to `org.apache.seatunnel.engine.common.job.*` (#9689). WAL files written by releases before that relocation still record the old fully-qualified class names, so replaying them on a current distribution fails with `ClassNotFoundException`. The file-based IMap storage now transparently rewrites these three legacy names to their current locations while reading WAL entries. No configuration change is needed.
+  - **Impact**: Clusters using file-based IMap persistence can upgrade and restart across the #9689 relocation without manual WAL surgery. Writing is unaffected: new WAL entries always record the current class names. Note that the rewrite is one-directional: WAL files written by a current distribution contain class names that older releases cannot resolve, so downgrading a cluster after it has written new WAL entries requires deleting or manually rewriting the persisted WAL data. (#11781)
+
+- **Behavior change: the REST log-content endpoints return at most 64 MB by default**
+  - **Affected component**: `seatunnel-engine-server`, REST v2 endpoints `GET /logs/:file` and
+    `GET /log/:file` and their REST v1 equivalents `GET /hazelcast/rest/maps/logs/:file` and
+    `GET /hazelcast/rest/maps/log/:file`.
+  - **Description**: These endpoints read the requested log file whole, which materialises it on the
+    heap twice, so a single request for the log of a long-running streaming job could exhaust a
+    node's memory. The new `seatunnel.engine.http.log-response-max-size-mb` option caps how much is
+    read and defaults to `64`. A larger file is represented by its last `log-response-max-size-mb`
+    of UTF-8 content, aligned to a complete line when possible (or a partial tail of an oversized
+    line). The response notice names the actual retained bytes and the file-size snapshot.
+  - **Impact**: A cluster upgraded without editing `seatunnel.yaml` starts receiving the tail rather
+    than the whole of any log file above 64 MB, with status `200` as before. Anything that archives
+    logs through these endpoints - `curl .../logs/<job-id> > job.log`, or the log-analysis flow in
+    `docs/en/engines/zeta/log-analysis-with-ai.md` - keeps a partial file unless the limit is
+    raised. The truncation notice on the first line makes a partial response recognisable.
+  - **Migration Guide**: Set `log-response-max-size-mb: 0` under
+    `seatunnel.engine.http` to restore the previous unlimited reads, or raise it to a value that
+    covers the log sizes you collect. Leaving it at the default is recommended, since an unlimited
+    read of a multi-gigabyte log has to fit in the node's heap.
+
+- **Behavior change: part of the engine startup log output changes**
+  - **Affected component**: `seatunnel-engine-server` (`SeaTunnelServer`,
+    `AbstractResourceManager`, `StandaloneResourceManager`); only log-based monitoring is affected.
+  - **Description**: The `SeaTunnel server start...`, `Init ResourceManager` and `initWorker... `
+    lines are no longer written. Worker synchronisation now logs
+    `Synchronizing existing worker profiles`, and the standalone resource manager logs
+    `Init standalone ResourceManager`.
+  - **Impact**: Alerting or log parsing that matches the old text stops matching; runtime behaviour
+    and the cluster lifecycle are unchanged.
+  - **Migration Guide**: Match the new messages, or key on the surrounding lifecycle events instead
+    of the exact text.
+
+### Dependency Upgrades
+
+## 3.0.0
 
 ### MySQL CDC Schema-Change Parsing
 
@@ -164,36 +651,11 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     - **CDC (Debezium-based, TiDB)**: CDC connectors now correctly handle `TIMESTAMP_TZ` type in the Debezium deserialization layer. Previously, `TIMESTAMP_TZ` was unsupported and would throw `UnsupportedOperationException`. Users who were previously unable to use timezone-aware columns in CDC pipelines can now do so.
     - **Iceberg (existing tables)**: Before this PR, SeaTunnel's `TIMESTAMP` type was incorrectly written to Iceberg as `timestamp` with timezone (`withZone()`). After this PR, `TIMESTAMP` is written as `timestamp` without timezone (`withoutZone()`), and Iceberg `withZone()` columns are read back as `TIMESTAMP_TZ`. **Upgrade impact**: If you have existing Iceberg tables where timestamp columns were created by an older SeaTunnel version, those columns are stored as `withZone()`. After upgrading, SeaTunnel will read them as `TIMESTAMP_TZ` instead of `TIMESTAMP`. Downstream sinks or transforms that expected `TIMESTAMP` may encounter type mismatch errors. **Migration**: Re-create the affected Iceberg table with the new schema, or use a SQL Transform to cast `TIMESTAMP_TZ` back to `TIMESTAMP` in your pipeline configuration.
     - **TIMESTAMP_TZ downgrade contract**: SeaTunnel applies a two-tier serialization contract for `TIMESTAMP_TZ` depending on what the sink format can represent:
-      - **Doris Sink**: `TIMESTAMP_TZ` values are converted to the effective Doris target timezone before being stored as `DATETIME`. Set `sink.datetime-timezone` to choose that target timezone explicitly; if it is unset, SeaTunnel uses the JVM default timezone. For example, with `sink.datetime-timezone = "Asia/Shanghai"`, `2024-01-01T03:00:00+09:00` is stored as `2024-01-01 02:00:00`.
-      - **Other DB column-typed sinks without native timezone support (StarRocks, Xugu)**: The timezone offset is dropped and the wall-clock value (local datetime) is stored. For example, `2024-01-01T03:00:00+09:00` is stored as `2024-01-01 03:00:00`. This is a lossy operation — the original UTC instant cannot be recovered from the stored value alone.
+      - **DB column-typed sinks without native timezone support (Doris, StarRocks, Xugu)**: The timezone offset is dropped and the wall-clock value (local datetime) is stored. For example, `2024-01-01T03:00:00+09:00` is stored as `2024-01-01 03:00:00`. This is a lossy operation — the original UTC instant cannot be recovered from the stored value alone.
       - **String/text-based sinks (Text file, Kafka, Pulsar, RocketMQ, RabbitMQ, Redis, etc.)**: The full ISO 8601 offset is preserved (e.g., `"2024-01-01T03:00:00+09:00"`). These formats can represent timezone offsets as strings, so no information is lost. If you need wall-clock behavior for a string sink, use a SQL Transform to cast `TIMESTAMP_TZ` to `TIMESTAMP` before writing.
     - **Xugu TIMESTAMP_TZ (lossy)**: Xugu `TIMESTAMP WITH TIME ZONE` columns are exposed as `TIMESTAMP_TZ` at the type layer, but the actual write path drops the timezone offset and stores only the wall-clock value due to a Xugu JDBC driver batch limitation (bug [E19138]). A warning is logged on the first write.
 
 ### API Changes
-
-- **Breaking Change: Engine REST table metrics key format**
-  - **Affected component**: SeaTunnel Engine REST API (job metrics in `/job-info`)
-  - **Description**: To support multiple Sources/Sinks/Transforms processing the same table, the key format of table-level metrics has changed from `{tableName}` to `{VertexIdentifier}.{tableName}` (for example, `Sink[0].fake.user_table`).
-  - **Impact**: Existing Grafana dashboards, Prometheus alert rules, and custom monitoring integrations that reference the old keys must be updated.
-
-  **Before**
-  ```json
-  {
-    "TableSinkWriteCount": {
-      "fake.user_table": "15"
-    }
-  }
-  ```
-
-  **After**
-  ```json
-  {
-    "TableSinkWriteCount": {
-      "Sink[0].fake.user_table": "10",
-      "Sink[1].fake.user_table": "5"
-    }
-  }
-  ```
 
 - **Breaking Change: An unknown log level is rejected by the runtime log level endpoint**
   - **Affected component**: SeaTunnel Engine REST API — `POST /hazelcast/rest/maps/log-level`
@@ -243,20 +705,7 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   - **Impact**: Catalog factories whose `optionRule()` declares options as `required` that are not always present in the config passed to `createOptionalCatalog()` will now throw `OptionValidationException`. This primarily affects the JDBC connector path via `JdbcCatalogUtils.findCatalog()`.
   - **Migration Guide**: If you have a custom `CatalogFactory` implementation, ensure that its `optionRule()` accurately reflects which options are truly mandatory vs optional in the config that reaches it at runtime.
 
-
 ### Connector Changes
-
-- **Breaking Change: Doris Source option key `doris.request.retriesdoris.deserialize.queue.size` renamed to `doris.deserialize.queue.size`**
-  - **Affected component**: `seatunnel-connectors-v2/connector-doris` (`DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE`)
-  - **Description**: The option key for the asynchronous Arrow deserialization queue size has been a typo since it was introduced in #7895: the key was accidentally concatenated as `doris.request.retriesdoris.deserialize.queue.size`, gluing the preceding option's name (`doris.request.retries`) onto the intended key (`doris.deserialize.queue.size`). The option key is now the intended `doris.deserialize.queue.size`. The default value (`64`) and the option behavior are unchanged.
-  - **Impact**: Configurations that explicitly set the old malformed key `doris.request.retriesdoris.deserialize.queue.size` will no longer be picked up; the connector will fall back to the default queue size of `64`. The old key was a concatenation artifact and could only be discovered by copying it from the docs, so most users are unaffected.
-  - **Migration Guide**: If you explicitly tuned this option, rename the key to `doris.deserialize.queue.size` in your source configuration.
-
-- **Behavior change: HTTP sink write failures now fail the task instead of being silently dropped**
-  - **Affected component**: `seatunnel-connectors-v2/connector-http/connector-http-base`
-  - **Description**: Previously, `HttpSinkWriter.doHttpRequest` handled both a non-200 HTTP response and any request exception (network error, timeout, serialization error) by logging at `error` level and returning normally, so the failed row/batch was silently dropped while the job kept running and checkpoints completed. The writer now throws `HttpConnectorException` (`REQUEST_FAILED`) for both cases, so the failure propagates to the engine and fails the task/job.
-  - **Impact**: Jobs whose downstream HTTP endpoint occasionally returns non-200 or is occasionally unreachable used to keep running with silent data loss; after this change they fail loudly at the first failed write. The connector still has no built-in retry or dead-letter mechanism, so re-submitting a failed job may deliver rows that succeeded before the failure again — make sure the receiver tolerates duplicate delivery on retry/restart.
-  - **Migration Guide**: No configuration change is required. If your endpoint is expected to return non-200 responses as part of normal operation, handle them upstream of the sink or add an external retry mechanism before upgrading.
 
 - **Breaking Change: BigQuery Sink Connector — default schema save mode introduces automatic table creation**
   - **Affected component**: `seatunnel-connectors-v2/connector-bigquery`
@@ -340,7 +789,6 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   **Exception Type Change**: Invalid datetime format patterns now throw `SeaTunnelRuntimeException` instead of `TransformException`. If you have error handling or monitoring systems that catch `TransformException` for datetime parsing errors, you will need to update them to handle `SeaTunnelRuntimeException`.
 
   **Migration Guide**: If you are using custom datetime format patterns in `PARSEDATETIME`, `TO_DATE`, or `IS_DATE` functions, you must update your queries to use one of the supported patterns above. If your data uses a different format, you may need to preprocess the input data to match a supported format, or use string manipulation functions to transform the format before parsing.
-- DataValidator transform: In `row_error_handle_way = ROUTE_TO_TABLE` mode, the routed error row `table_id` now includes the upstream database/schema prefix (for example, `db1.ffp` / `db1.schema1.ffp` instead of `ffp`).
 - **[BREAKING]** Several transform plugins now perform stricter submission-time config validation via declarative `OptionRule`. Configs that previously passed submission but failed at runtime will now be rejected at submission time with a descriptive `OptionValidationException`:
 
   | Transform | Newly Rejected Config | Previous Behavior | Migration |
@@ -352,9 +800,6 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   | `DynamicCompile` | `compile_pattern = ABSOLUTE_PATH` without a non-blank `absolute_path` | Runtime file-read failure | Provide `absolute_path` when using `ABSOLUTE_PATH` pattern |
 
   **Migration Guide**: Review your transform configs against the table above. If any of your existing configs match a "Newly Rejected" pattern, update them before upgrading. The error messages at submission time now clearly identify which option is invalid and why.
-- Adjusted SQL Transform date & time functions:
-  - `DATEDIFF(<start>, <end>, 'MONTH')` now returns the total number of months between the two dates across years (for example, from `2023-01-01` to `2024-03-01` returns `14` instead of `15`).
-  - `WEEK(<datetime>)` now returns the ISO week number directly (previous behavior added an extra `+1` to the ISO week value).
 - **[BREAKING]** SQL Transform `CEIL` / `CEILING`, `FLOOR` and `TRUNC` / `TRUNCATE` now return the data type of their
   argument, as their documentation has always specified. Previously `CEIL` and `FLOOR` declared `INT` and `TRUNC`
   declared `DOUBLE` regardless of the input type, which silently produced wrong values:
@@ -431,33 +876,37 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
   — or filter the offending rows out upstream. Queries that worked around the `ABS` / `SIGN` rejection by casting
   (`ABS(CAST(tiny_col AS INT))`) continue to work unchanged and can be simplified at your convenience.
 
-### Format Changes
+## 2.3.13
 
-- **Breaking Change: JSON serialization of numeric fields now follows the runtime value type**
-  - **Affected component**: `seatunnel-formats/seatunnel-format-json` (`RowToJsonConverters`) - affects every connector that serializes rows with the JSON format (for example Kafka, RabbitMQ, Pulsar, and file JSON sinks)
-  - **Description**: Previously, a field declared as a numeric type in the catalog (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `FLOAT`, `DOUBLE`, `DECIMAL`) was serialized by blindly casting the runtime value to the Java type implied by the declared type (for example `(long) value` for `BIGINT`). In multi-table jobs (for example CDC jobs writing JSON to RabbitMQ/Kafka) where several tables share one catalog schema but carry different physical column types, a `String` or `BigDecimal` runtime value in such a field threw a raw `ClassCastException` and killed the job. Now numeric fields are serialized according to their runtime type: any numeric wrapper (`Byte`, `Short`, `Integer`, `Long`, `Float`, `Double`, `BigInteger`, `BigDecimal`) becomes the corresponding JSON number; numeric character sequences are parsed into JSON numbers, while non-numeric text is emitted as a JSON string; `Float`/`Double` values in a field declared as `DECIMAL` are serialized via `BigDecimal.valueOf` to avoid floating-point representation artifacts.
-  - **Impact**: Heterogeneous numeric values that previously crashed the job with `ClassCastException` now serialize successfully, and the emitted JSON numeric shape follows the runtime value rather than the declared column type (a `String` or `BigDecimal` value in a `BIGINT` column keeps its exact numeric value). Runtime values that can neither be represented as a number nor parsed from text (for example `byte[]`, `Map`, `LocalDateTime`) now fail fast with a typed `SeaTunnelJsonFormatException` (`UNSUPPORTED_DATA_TYPE`) instead of a raw `ClassCastException`. Downstream consumers that assume the JSON numeric shape always matches the declared column type should be reviewed. (#11415)
+### API Changes
 
-### Engine Behavior Changes
+- **Breaking Change: Engine REST table metrics key format**
+  - **Affected component**: SeaTunnel Engine REST API (job metrics in `/job-info`)
+  - **Description**: To support multiple Sources/Sinks/Transforms processing the same table, the key format of table-level metrics has changed from `{tableName}` to `{VertexIdentifier}.{tableName}` (for example, `Sink[0].fake.user_table`).
+  - **Impact**: Existing Grafana dashboards, Prometheus alert rules, and custom monitoring integrations that reference the old keys must be updated.
 
-- **Behavior change: the REST log-content endpoints return at most 64 MB by default**
-  - **Affected component**: `seatunnel-engine-server`, REST v2 endpoints `GET /logs/:file` and
-    `GET /log/:file` and their REST v1 equivalents `GET /hazelcast/rest/maps/logs/:file` and
-    `GET /hazelcast/rest/maps/log/:file`.
-  - **Description**: These endpoints read the requested log file whole, which materialises it on the
-    heap twice, so a single request for the log of a long-running streaming job could exhaust a
-    node's memory. The new `seatunnel.engine.http.log-response-max-size-mb` option caps how much is
-    read and defaults to `64`. A larger file is represented by its last `log-response-max-size-mb`
-    of UTF-8 content, aligned to a complete line when possible (or a partial tail of an oversized
-    line). The response notice names the actual retained bytes and the file-size snapshot.
-  - **Impact**: A cluster upgraded without editing `seatunnel.yaml` starts receiving the tail rather
-    than the whole of any log file above 64 MB, with status `200` as before. Anything that archives
-    logs through these endpoints - `curl .../logs/<job-id> > job.log`, or the log-analysis flow in
-    `docs/en/engines/zeta/log-analysis-with-ai.md` - keeps a partial file unless the limit is
-    raised. The truncation notice on the first line makes a partial response recognisable.
-  - **Migration Guide**: Set `log-response-max-size-mb: 0` under
-    `seatunnel.engine.http` to restore the previous unlimited reads, or raise it to a value that
-    covers the log sizes you collect. Leaving it at the default is recommended, since an unlimited
-    read of a multi-gigabyte log has to fit in the node's heap.
+  **Before**
+  ```json
+  {
+    "TableSinkWriteCount": {
+      "fake.user_table": "15"
+    }
+  }
+  ```
 
-### Dependency Upgrades
+  **After**
+  ```json
+  {
+    "TableSinkWriteCount": {
+      "Sink[0].fake.user_table": "10",
+      "Sink[1].fake.user_table": "5"
+    }
+  }
+  ```
+
+### Transform Changes
+
+- DataValidator transform: In `row_error_handle_way = ROUTE_TO_TABLE` mode, the routed error row `table_id` now includes the upstream database/schema prefix (for example, `db1.ffp` / `db1.schema1.ffp` instead of `ffp`).
+- Adjusted SQL Transform date & time functions:
+  - `DATEDIFF(<start>, <end>, 'MONTH')` now returns the total number of months between the two dates across years (for example, from `2023-01-01` to `2024-03-01` returns `14` instead of `15`).
+  - `WEEK(<datetime>)` now returns the ISO week number directly (previous behavior added an extra `+1` to the ISO week value).

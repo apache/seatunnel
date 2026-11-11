@@ -44,6 +44,15 @@ public class FilterFieldMultiCatalogTransform extends AbstractMultiCatalogMapTra
         return new FilterFieldTransform(config, inputCatalogTable);
     }
 
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
+    @Override
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(
+                config,
+                FilterFieldTransformConfig.INCLUDE_FIELDS,
+                FilterFieldTransformConfig.EXCLUDE_FIELDS);
+    }
+
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
         return new IdentityMapTransform(catalogTable);

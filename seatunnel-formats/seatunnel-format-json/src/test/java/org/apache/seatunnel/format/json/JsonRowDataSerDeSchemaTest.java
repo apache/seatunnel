@@ -26,6 +26,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -57,6 +58,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
 
+import static org.apache.seatunnel.api.table.type.ArrayType.DOUBLE_ARRAY_TYPE;
 import static org.apache.seatunnel.api.table.type.ArrayType.INT_ARRAY_TYPE;
 import static org.apache.seatunnel.api.table.type.ArrayType.STRING_ARRAY_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.BOOLEAN_TYPE;
@@ -75,6 +77,81 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonRowDataSerDeSchemaTest {
+
+    /**
+     * A literal with 20 fraction digits, i.e. more digits than a {@code double} can represent. It
+     * only survives the JSON parse intact when the mapper parses floats as {@link BigDecimal}.
+     */
+    private static final String HIGH_PRECISION_DECIMAL_LITERAL = "3.14159265358979323846";
+
+    private static final SeaTunnelRowType CONTAINER_ARRAY_ROW_TYPE =
+            new SeaTunnelRowType(
+                    new String[] {"id", "arr"},
+                    new SeaTunnelDataType<?>[] {INT_TYPE, INT_ARRAY_TYPE});
+
+    private static final SeaTunnelRowType CONTAINER_MAP_ROW_TYPE =
+            new SeaTunnelRowType(
+                    new String[] {"id", "m"},
+                    new SeaTunnelDataType<?>[] {INT_TYPE, new MapType<>(STRING_TYPE, INT_TYPE)});
+
+    private static final ArrayType<Map<String, Integer>[], Map<String, Integer>> MAP_ARRAY_TYPE =
+            ArrayType.of(new MapType<>(STRING_TYPE, INT_TYPE));
+
+    private static final MapType<String, Integer[]> ARRAY_MAP_TYPE =
+            new MapType<>(STRING_TYPE, INT_ARRAY_TYPE);
+
+    private static final SeaTunnelRowType NESTED_CONTAINER_ROW_TYPE =
+            new SeaTunnelRowType(
+                    new String[] {"id", "outer", "nested"},
+                    new SeaTunnelDataType<?>[] {INT_TYPE, MAP_ARRAY_TYPE, ARRAY_MAP_TYPE});
+
+    @Test
+    void testNullableMapArrayAccountingAfterDeserialization() throws Exception {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"items"},
+                        new SeaTunnelDataType<?>[] {
+                            new ArrayType<>(Map[].class, new MapType<>(STRING_TYPE, INT_TYPE))
+                        });
+        JsonDeserializationSchema deserializer =
+                new JsonDeserializationSchema(
+                        CatalogTableUtil.getCatalogTable("", "", "", "test", schema), false, false);
+        byte[] json = "{\"items\":[null,{\"a\":1}]}".getBytes(StandardCharsets.UTF_8);
+
+        SeaTunnelRow row = deserializer.deserialize(json);
+        Map<?, ?>[] items = (Map<?, ?>[]) row.getField(0);
+        assertNull(items[0]);
+        assertEquals(1, items[1].get("a"));
+        assertEquals(5, row.getBytesSize(schema));
+        assertEquals(5, row.getBytesSize());
+        assertEquals(5, deserializer.deserialize(json).getBytesSize());
+    }
+
+    @Test
+    void testRowArrayAccountingAfterDeserialization() throws Exception {
+        SeaTunnelRowType elementType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType<?>[] {STRING_TYPE});
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"id", "items"},
+                        new SeaTunnelDataType<?>[] {
+                            INT_TYPE, new ArrayType<>(SeaTunnelRow[].class, elementType)
+                        });
+        JsonDeserializationSchema deserializer =
+                new JsonDeserializationSchema(
+                        CatalogTableUtil.getCatalogTable("", "", "", "test", schema), false, false);
+        byte[] json =
+                "{\"id\":7,\"items\":[null,{\"value\":\"abcd\"}]}".getBytes(StandardCharsets.UTF_8);
+
+        SeaTunnelRow row = deserializer.deserialize(json);
+        SeaTunnelRow[] items = (SeaTunnelRow[]) row.getField(1);
+        assertNull(items[0]);
+        assertEquals("abcd", items[1].getField(0));
+        assertEquals(8, row.getBytesSize(schema));
+        assertEquals(8, row.getBytesSize());
+        assertEquals(8, deserializer.deserialize(json).getBytesSize());
+    }
 
     @Test
     public void testTimestampTzSerializedAsSessionWallClock() {
@@ -905,5 +982,606 @@ public class JsonRowDataSerDeSchemaTest {
         assertEquals(
                 LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123_000_000),
                 fractionalPrecisionRow.getField(0));
+    }
+
+    @Test
+    public void testDeserializeHighPrecisionScalarDecimalKeepsExactValue() throws IOException {
+        // Scalar and nested DECIMAL values must preserve the same fractional digits.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"amount"},
+                        new SeaTunnelDataType<?>[] {new DecimalType(38, 20)});
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        ("{\"amount\":" + HIGH_PRECISION_DECIMAL_LITERAL + "}")
+                                .getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(
+                0,
+                new BigDecimal(HIGH_PRECISION_DECIMAL_LITERAL)
+                        .compareTo((BigDecimal) row.getField(0)),
+                "scalar DECIMAL must keep the exact input precision");
+    }
+
+    @Test
+    public void testDeserializeHighPrecisionDecimalArrayKeepsExactValue() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"amounts"},
+                        new SeaTunnelDataType<?>[] {
+                            ArrayType.of(new DecimalType(38, 20)),
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        ("{\"amounts\":[" + HIGH_PRECISION_DECIMAL_LITERAL + "]}")
+                                .getBytes(StandardCharsets.UTF_8));
+
+        BigDecimal[] amounts = (BigDecimal[]) row.getField(0);
+        assertEquals(
+                0,
+                new BigDecimal(HIGH_PRECISION_DECIMAL_LITERAL).compareTo(amounts[0]),
+                "DECIMAL element of ARRAY<DECIMAL> must keep the exact input precision");
+    }
+
+    @Test
+    public void testDeserializeHighPrecisionDecimalNestedArrayKeepsExactValue() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"matrix"},
+                        new SeaTunnelDataType<?>[] {
+                            ArrayType.of(ArrayType.of(new DecimalType(38, 20))),
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        "{\"matrix\":[[1.23456789012345678901]]}".getBytes(StandardCharsets.UTF_8));
+
+        BigDecimal[][] matrix = (BigDecimal[][]) row.getField(0);
+        assertEquals(
+                0,
+                new BigDecimal("1.23456789012345678901").compareTo(matrix[0][0]),
+                "DECIMAL element of ARRAY<ARRAY<DECIMAL>> must keep the exact input precision");
+    }
+
+    @Test
+    public void testDeserializeHighPrecisionDecimalRowInArrayKeepsExactValue() throws IOException {
+        SeaTunnelRowType elementRowType =
+                new SeaTunnelRowType(
+                        new String[] {"amount"},
+                        new SeaTunnelDataType<?>[] {new DecimalType(38, 20)});
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"entries"},
+                        new SeaTunnelDataType<?>[] {ArrayType.of(elementRowType)});
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        "{\"entries\":[{\"amount\":9.87654321098765432109}]}"
+                                .getBytes(StandardCharsets.UTF_8));
+
+        SeaTunnelRow[] entries = (SeaTunnelRow[]) row.getField(0);
+        assertEquals(
+                0,
+                new BigDecimal("9.87654321098765432109")
+                        .compareTo((BigDecimal) entries[0].getField(0)),
+                "DECIMAL field of ROW inside ARRAY<ROW<DECIMAL>> must keep the exact precision");
+    }
+
+    @Test
+    public void testDeserializeHighPrecisionDecimalArrayWithScalarDecimalSibling()
+            throws IOException {
+        // Adding a scalar DECIMAL sibling must not change the precision of array elements.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"amount", "amounts"},
+                        new SeaTunnelDataType<?>[] {
+                            new DecimalType(38, 20), ArrayType.of(new DecimalType(38, 20)),
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        ("{\"amount\":"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + ",\"amounts\":["
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "]}")
+                                .getBytes(StandardCharsets.UTF_8));
+
+        BigDecimal expected = new BigDecimal(HIGH_PRECISION_DECIMAL_LITERAL);
+        assertEquals(0, expected.compareTo((BigDecimal) row.getField(0)));
+        assertEquals(0, expected.compareTo(((BigDecimal[]) row.getField(1))[0]));
+    }
+
+    @Test
+    public void testDeserializeNonDecimalArraysControl() throws IOException {
+        // Control: without any DECIMAL column the mapper keeps its default configuration and the
+        // non decimal array values must be unchanged.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ints", "doubles", "labels"},
+                        new SeaTunnelDataType<?>[] {
+                            INT_ARRAY_TYPE, DOUBLE_ARRAY_TYPE, STRING_ARRAY_TYPE,
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        "{\"ints\":[1,2,3],\"doubles\":[1.5,2.25],\"labels\":[\"a\",\"b\"]}"
+                                .getBytes(StandardCharsets.UTF_8));
+
+        assertArrayEquals(new Integer[] {1, 2, 3}, (Integer[]) row.getField(0));
+        assertArrayEquals(new Double[] {1.5, 2.25}, (Double[]) row.getField(1));
+        assertArrayEquals(new String[] {"a", "b"}, (String[]) row.getField(2));
+    }
+
+    @Test
+    public void testStringFieldAlongsideScalarDecimalUsesExactNumericText() throws IOException {
+        // Documents the global nature of USE_BIG_DECIMAL_FOR_FLOATS: once any DECIMAL enables it, a
+        // STRING field that carries a bare numeric token is rendered from the BigDecimal node.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"amount", "label"},
+                        new SeaTunnelDataType<?>[] {new DecimalType(38, 20), STRING_TYPE});
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        ("{\"amount\":"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + ",\"label\":"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "}")
+                                .getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(HIGH_PRECISION_DECIMAL_LITERAL, row.getField(1));
+    }
+
+    @Test
+    public void testStringFieldAlongsideDecimalArrayKeepsExactNumericText() throws IOException {
+        // The document-wide decimal parser also formats numeric STRING fields;
+        // quoted strings retain their original text.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"amounts", "label"},
+                        new SeaTunnelDataType<?>[] {
+                            ArrayType.of(new DecimalType(38, 20)), STRING_TYPE,
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow bareNumberRow =
+                deserializationSchema.deserialize(
+                        ("{\"amounts\":[1.5],\"label\":" + HIGH_PRECISION_DECIMAL_LITERAL + "}")
+                                .getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(
+                0,
+                new BigDecimal("1.5").compareTo(((BigDecimal[]) bareNumberRow.getField(0))[0]),
+                "the DECIMAL element keeps its exact value");
+        assertEquals(
+                HIGH_PRECISION_DECIMAL_LITERAL,
+                bareNumberRow.getField(1),
+                "a bare number in a STRING sibling keeps the exact numeric text");
+
+        // A quoted string is never re-rendered from a numeric node, so it stays untouched.
+        SeaTunnelRow quotedRow =
+                deserializationSchema.deserialize(
+                        ("{\"amounts\":[1.5],\"label\":\"" + HIGH_PRECISION_DECIMAL_LITERAL + "\"}")
+                                .getBytes(StandardCharsets.UTF_8));
+        assertEquals(HIGH_PRECISION_DECIMAL_LITERAL, quotedRow.getField(1));
+
+        // Control: a schema without any DECIMAL keeps the default mapper configuration.
+        JsonDeserializationSchema noDecimalSchema =
+                new JsonDeserializationSchema(
+                        false,
+                        false,
+                        new SeaTunnelRowType(
+                                new String[] {"label"}, new SeaTunnelDataType<?>[] {STRING_TYPE}));
+        assertEquals(
+                "1.5",
+                noDecimalSchema
+                        .deserialize("{\"label\":1.5}".getBytes(StandardCharsets.UTF_8))
+                        .getField(0));
+    }
+
+    @Test
+    public void testStringObjectAlongsideDecimalArrayKeepsNestedDigits() throws IOException {
+        // A JSON object captured as STRING is rendered from its nodes, so the document-wide decimal
+        // parser also keeps every digit of the numbers nested in it, both in nested objects and in
+        // nested arrays.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"amounts", "raw"},
+                        new SeaTunnelDataType<?>[] {
+                            ArrayType.of(new DecimalType(38, 20)), STRING_TYPE,
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        ("{\"amounts\":["
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "],\"raw\":{\"pi\":"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + ",\"history\":["
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "],\"quoted\":\"1e-10\"}}")
+                                .getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(
+                0,
+                new BigDecimal(HIGH_PRECISION_DECIMAL_LITERAL)
+                        .compareTo(((BigDecimal[]) row.getField(0))[0]),
+                "the DECIMAL element keeps its exact value");
+        assertEquals(
+                "{\"pi\":"
+                        + HIGH_PRECISION_DECIMAL_LITERAL
+                        + ",\"history\":["
+                        + HIGH_PRECISION_DECIMAL_LITERAL
+                        + "],\"quoted\":\"1e-10\"}",
+                row.getField(1),
+                "an object captured as STRING keeps every digit of its nested numbers");
+    }
+
+    @Test
+    public void testStringArrayAlongsideDecimalArrayKeepsNestedDigits() throws IOException {
+        // A JSON array captured as STRING is rendered from its nodes as well. Small exponents are
+        // re-rendered in exponent notation: the decimal value of 1e-10 is written as 1E-10, whereas
+        // the double parser would write 1.0E-10.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"amounts", "raw"},
+                        new SeaTunnelDataType<?>[] {
+                            ArrayType.of(new DecimalType(38, 20)), STRING_TYPE,
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        ("{\"amounts\":[1e-10,"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "],\"raw\":[1e-10,{\"pi\":"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "},\"1e-10\"]}")
+                                .getBytes(StandardCharsets.UTF_8));
+
+        BigDecimal[] amounts = (BigDecimal[]) row.getField(0);
+        assertEquals(
+                0,
+                new BigDecimal("1e-10").compareTo(amounts[0]),
+                "the small exponent keeps its exact decimal value");
+        assertEquals(
+                0,
+                new BigDecimal(HIGH_PRECISION_DECIMAL_LITERAL).compareTo(amounts[1]),
+                "the high precision element keeps every digit");
+        assertEquals(
+                "[1E-10,{\"pi\":" + HIGH_PRECISION_DECIMAL_LITERAL + "},\"1e-10\"]",
+                row.getField(1),
+                "an array captured as STRING keeps the decimal rendering of its numbers");
+    }
+
+    @Test
+    public void testStringContainersWithoutDecimalKeepDoubleRendering() throws IOException {
+        // Control: without any DECIMAL column the mapper keeps parsing floats as double, so a JSON
+        // object or array captured as STRING keeps the double rendering it had before this fix.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"doubles", "raw_object", "raw_array"},
+                        new SeaTunnelDataType<?>[] {
+                            DOUBLE_ARRAY_TYPE, STRING_TYPE, STRING_TYPE,
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        ("{\"doubles\":[1.5,2.25],\"raw_object\":{\"pi\":"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "},\"raw_array\":[1e-10]}")
+                                .getBytes(StandardCharsets.UTF_8));
+
+        assertArrayEquals(new Double[] {1.5, 2.25}, (Double[]) row.getField(0));
+        assertEquals(
+                "{\"pi\":3.141592653589793}",
+                row.getField(1),
+                "without DECIMAL a nested number keeps the double rendering");
+        assertEquals(
+                "[1.0E-10]",
+                row.getField(2),
+                "without DECIMAL a nested small exponent keeps the double rendering");
+    }
+
+    @Test
+    public void testStringObjectAlongsideScalarDecimalKeepsNestedDigits() throws IOException {
+        // A scalar DECIMAL already enabled the document-wide decimal parser before this array fix,
+        // so this container rendering predates it and must stay identical.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"amount", "raw"},
+                        new SeaTunnelDataType<?>[] {new DecimalType(38, 20), STRING_TYPE});
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        ("{\"amount\":"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + ",\"raw\":{\"pi\":"
+                                        + HIGH_PRECISION_DECIMAL_LITERAL
+                                        + "}}")
+                                .getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(
+                0,
+                new BigDecimal(HIGH_PRECISION_DECIMAL_LITERAL)
+                        .compareTo((BigDecimal) row.getField(0)),
+                "the scalar DECIMAL keeps its exact value");
+        assertEquals(
+                "{\"pi\":" + HIGH_PRECISION_DECIMAL_LITERAL + "}",
+                row.getField(1),
+                "a scalar DECIMAL renders the nested number exactly like an array DECIMAL does");
+    }
+
+    @Test
+    public void testArrayFieldRejectsNonArrayNodeInStrictMode() {
+        JsonDeserializationSchema schema =
+                new JsonDeserializationSchema(false, false, CONTAINER_ARRAY_ROW_TYPE);
+        final String[] payloads = {
+            "{\"id\":7,\"arr\":\"abc\"}",
+            "{\"id\":7,\"arr\":42}",
+            "{\"id\":7,\"arr\":true}",
+            "{\"id\":7,\"arr\":{\"k\":1}}"
+        };
+        Assertions.assertAll(
+                "ARRAY field must reject non-array JSON nodes in strict mode",
+                () ->
+                        assertContainerTypeRejectedInStrictMode(
+                                schema, payloads[0], "'arr'", "ARRAY"),
+                () ->
+                        assertContainerTypeRejectedInStrictMode(
+                                schema, payloads[1], "'arr'", "ARRAY"),
+                () ->
+                        assertContainerTypeRejectedInStrictMode(
+                                schema, payloads[2], "'arr'", "ARRAY"),
+                () ->
+                        assertContainerTypeRejectedInStrictMode(
+                                schema, payloads[3], "'arr'", "ARRAY"));
+    }
+
+    @Test
+    public void testArrayFieldRejectsNonArrayNodeInLenientMode() throws Exception {
+        JsonDeserializationSchema schema =
+                new JsonDeserializationSchema(false, true, CONTAINER_ARRAY_ROW_TYPE);
+        final String[] payloads = {
+            "{\"id\":7,\"arr\":\"abc\"}",
+            "{\"id\":7,\"arr\":42}",
+            "{\"id\":7,\"arr\":true}",
+            "{\"id\":7,\"arr\":{\"k\":1}}"
+        };
+        Assertions.assertAll(
+                "ARRAY field must be null for non-array JSON nodes in lenient mode",
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[0]),
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[1]),
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[2]),
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[3]));
+    }
+
+    @Test
+    public void testArrayFieldAcceptsArrayNodeInBothModes() throws Exception {
+        String[] payloads = {
+            "{\"id\":7,\"arr\":[]}",
+            "{\"id\":\"7\",\"arr\":[1,2]}",
+            "{\"id\":7,\"arr\":[1,null]}",
+            "{\"id\":7,\"arr\":null}"
+        };
+        Object[] expected = {new Integer[0], new Integer[] {1, 2}, new Integer[] {1, null}, null};
+        for (boolean ignoreErrors : new boolean[] {false, true}) {
+            JsonDeserializationSchema schema =
+                    new JsonDeserializationSchema(false, ignoreErrors, CONTAINER_ARRAY_ROW_TYPE);
+            for (int i = 0; i < payloads.length; i++) {
+                String payload = payloads[i];
+                String message = payload + " (ignoreErrors=" + ignoreErrors + ")";
+                SeaTunnelRow rowFromBytes =
+                        schema.deserialize(payload.getBytes(StandardCharsets.UTF_8));
+                SeaTunnelRow rowFromString = schema.deserialize(payload);
+                Assertions.assertNotNull(rowFromBytes, message);
+                Assertions.assertNotNull(rowFromString, message);
+                assertEquals(7, rowFromBytes.getField(0), message);
+                assertEquals(rowFromBytes.getField(0), rowFromString.getField(0), message);
+                if (expected[i] == null) {
+                    assertNull(rowFromBytes.getField(1), message);
+                    assertNull(rowFromString.getField(1), message);
+                } else {
+                    assertArrayEquals(
+                            (Integer[]) expected[i], (Integer[]) rowFromBytes.getField(1), message);
+                    assertArrayEquals(
+                            (Integer[]) expected[i],
+                            (Integer[]) rowFromString.getField(1),
+                            message);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testMapFieldRejectsNonObjectNodeInStrictMode() {
+        JsonDeserializationSchema schema =
+                new JsonDeserializationSchema(false, false, CONTAINER_MAP_ROW_TYPE);
+        final String[] payloads = {
+            "{\"id\":7,\"m\":\"abc\"}",
+            "{\"id\":7,\"m\":42}",
+            "{\"id\":7,\"m\":true}",
+            "{\"id\":7,\"m\":[1,2]}"
+        };
+        Assertions.assertAll(
+                "MAP field must reject non-object JSON nodes in strict mode",
+                () -> assertContainerTypeRejectedInStrictMode(schema, payloads[0], "'m'", "MAP"),
+                () -> assertContainerTypeRejectedInStrictMode(schema, payloads[1], "'m'", "MAP"),
+                () -> assertContainerTypeRejectedInStrictMode(schema, payloads[2], "'m'", "MAP"),
+                () -> assertContainerTypeRejectedInStrictMode(schema, payloads[3], "'m'", "MAP"));
+    }
+
+    @Test
+    public void testMapFieldRejectsNonObjectNodeInLenientMode() throws Exception {
+        JsonDeserializationSchema schema =
+                new JsonDeserializationSchema(false, true, CONTAINER_MAP_ROW_TYPE);
+        final String[] payloads = {
+            "{\"id\":7,\"m\":\"abc\"}",
+            "{\"id\":7,\"m\":42}",
+            "{\"id\":7,\"m\":true}",
+            "{\"id\":7,\"m\":[1,2]}"
+        };
+        Assertions.assertAll(
+                "MAP field must be null for non-object JSON nodes in lenient mode",
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[0]),
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[1]),
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[2]),
+                () -> assertContainerFieldNullInLenientMode(schema, payloads[3]));
+    }
+
+    @Test
+    public void testMapFieldAcceptsObjectNodeInBothModes() throws Exception {
+        Map<Object, Object> oneEntry = new HashMap<>();
+        oneEntry.put("a", 1);
+        oneEntry.put("b", null);
+        String[] payloads = {
+            "{\"id\":7,\"m\":{}}", "{\"id\":7,\"m\":{\"a\":1,\"b\":null}}", "{\"id\":7,\"m\":null}"
+        };
+        Object[] expected = {new HashMap<Object, Object>(), oneEntry, null};
+        for (boolean ignoreErrors : new boolean[] {false, true}) {
+            JsonDeserializationSchema schema =
+                    new JsonDeserializationSchema(false, ignoreErrors, CONTAINER_MAP_ROW_TYPE);
+            for (int i = 0; i < payloads.length; i++) {
+                String payload = payloads[i];
+                String message = payload + " (ignoreErrors=" + ignoreErrors + ")";
+                SeaTunnelRow rowFromBytes =
+                        schema.deserialize(payload.getBytes(StandardCharsets.UTF_8));
+                SeaTunnelRow rowFromString = schema.deserialize(payload);
+                Assertions.assertNotNull(rowFromBytes, message);
+                Assertions.assertNotNull(rowFromString, message);
+                assertEquals(7, rowFromBytes.getField(0), message);
+                assertEquals(rowFromBytes.getField(0), rowFromString.getField(0), message);
+                if (expected[i] == null) {
+                    assertNull(rowFromBytes.getField(1), message);
+                    assertNull(rowFromString.getField(1), message);
+                } else {
+                    assertEquals(expected[i], rowFromBytes.getField(1), message);
+                    assertEquals(rowFromBytes.getField(1), rowFromString.getField(1), message);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testNestedContainerMismatchKeepsEnclosingContainerInLenientMode() throws Exception {
+        JsonDeserializationSchema lenientSchema =
+                new JsonDeserializationSchema(false, true, NESTED_CONTAINER_ROW_TYPE);
+        JsonDeserializationSchema strictSchema =
+                new JsonDeserializationSchema(false, false, NESTED_CONTAINER_ROW_TYPE);
+
+        Map<Object, Object> firstElement = new HashMap<>();
+        firstElement.put("a", 1);
+        Map<Object, Object> secondElement = new HashMap<>();
+        secondElement.put("b", 2);
+        String outerPayload = "{\"id\":7,\"outer\":[{\"a\":1},42,{\"b\":2}]}";
+        SeaTunnelRow[] outerRows = {
+            lenientSchema.deserialize(outerPayload.getBytes(StandardCharsets.UTF_8)),
+            lenientSchema.deserialize(outerPayload)
+        };
+        for (SeaTunnelRow row : outerRows) {
+            Assertions.assertNotNull(row, outerPayload);
+            assertEquals(7, row.getField(0), outerPayload);
+            Object[] outer = (Object[]) row.getField(1);
+            Assertions.assertNotNull(outer, outerPayload);
+            assertEquals(3, outer.length, outerPayload);
+            assertEquals(firstElement, outer[0], outerPayload);
+            assertNull(outer[1], outerPayload);
+            assertEquals(secondElement, outer[2], outerPayload);
+        }
+
+        String nestedPayload = "{\"id\":7,\"nested\":{\"good\":[1,null],\"bad\":true}}";
+        SeaTunnelRow[] nestedRows = {
+            lenientSchema.deserialize(nestedPayload.getBytes(StandardCharsets.UTF_8)),
+            lenientSchema.deserialize(nestedPayload)
+        };
+        for (SeaTunnelRow row : nestedRows) {
+            Assertions.assertNotNull(row, nestedPayload);
+            assertEquals(7, row.getField(0), nestedPayload);
+            @SuppressWarnings("unchecked")
+            Map<Object, Object> nested = (Map<Object, Object>) row.getField(2);
+            Assertions.assertNotNull(nested, nestedPayload);
+            assertEquals(2, nested.size(), nestedPayload);
+            assertArrayEquals(
+                    new Integer[] {1, null}, (Integer[]) nested.get("good"), nestedPayload);
+            assertTrue(nested.containsKey("bad"), nestedPayload);
+            assertNull(nested.get("bad"), nestedPayload);
+        }
+
+        assertContainerTypeRejectedInStrictMode(strictSchema, outerPayload, "'outer'", "MAP");
+        assertContainerTypeRejectedInStrictMode(strictSchema, nestedPayload, "nested", "ARRAY");
+    }
+
+    private static void assertContainerFieldNullInLenientMode(
+            JsonDeserializationSchema schema, String payload) throws Exception {
+        SeaTunnelRow rowFromBytes = schema.deserialize(payload.getBytes(StandardCharsets.UTF_8));
+        SeaTunnelRow rowFromString = schema.deserialize(payload);
+        Assertions.assertNotNull(rowFromBytes, payload);
+        Assertions.assertNotNull(rowFromString, payload);
+        assertEquals(7, rowFromBytes.getField(0), payload);
+        assertEquals(7, rowFromString.getField(0), payload);
+        assertNull(rowFromBytes.getField(1), payload);
+        assertNull(rowFromString.getField(1), payload);
+    }
+
+    private static void assertContainerTypeRejectedInStrictMode(
+            JsonDeserializationSchema schema, String payload, String fieldName, String typeToken) {
+        SeaTunnelRuntimeException fromBytes =
+                assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> schema.deserialize(payload.getBytes(StandardCharsets.UTF_8)),
+                        payload);
+        SeaTunnelRuntimeException fromString =
+                assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> schema.deserialize(payload),
+                        payload);
+        assertCauseChainMentions(fromBytes, fieldName, typeToken, payload);
+        assertCauseChainMentions(fromString, fieldName, typeToken, payload);
+    }
+
+    private static void assertCauseChainMentions(
+            Throwable failure, String fieldName, String typeToken, String payload) {
+        Throwable current = failure;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && message.contains(fieldName) && message.contains(typeToken)) {
+                return;
+            }
+            current = current.getCause();
+        }
+        throw new AssertionError(
+                payload
+                        + " must fail with a cause mentioning "
+                        + fieldName
+                        + " and "
+                        + typeToken
+                        + ", but was: "
+                        + failure);
     }
 }

@@ -44,6 +44,16 @@ public class ReplaceMultiCatalogTransform extends AbstractMultiCatalogMapTransfo
         return new ReplaceTransform(config, inputCatalogTable);
     }
 
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
+    @Override
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(
+                config,
+                ReplaceTransformConfig.KEY_REPLACE_FIELDS,
+                ReplaceTransformConfig.KEY_PATTERN,
+                ReplaceTransformConfig.KEY_REPLACEMENT);
+    }
+
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
         return new IdentityMapTransform(catalogTable);

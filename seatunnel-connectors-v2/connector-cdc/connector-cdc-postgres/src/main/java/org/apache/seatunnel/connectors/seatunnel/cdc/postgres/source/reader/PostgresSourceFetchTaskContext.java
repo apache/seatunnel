@@ -51,6 +51,7 @@ import io.debezium.connector.postgresql.RelationAwarePostgresSchema;
 import io.debezium.connector.postgresql.TypeRegistry;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
+import io.debezium.connector.postgresql.spi.OffsetState;
 import io.debezium.connector.postgresql.spi.SlotState;
 import io.debezium.connector.postgresql.spi.Snapshotter;
 import io.debezium.data.Envelope;
@@ -76,6 +77,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static io.debezium.connector.AbstractSourceInfo.SCHEMA_NAME_KEY;
 import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
@@ -185,31 +187,15 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         LoggingContext.PreviousContext previousContext =
                 taskContext.configureLoggingContext(CONTEXT_NAME);
         try {
-            // Print out the server information
-            SlotState slotInfo = null;
-            try {
-                if (log.isInfoEnabled()) {
-                    log.info(dataConnection.serverInfo().toString());
-                }
-                PostgresConnectorConfig.LogicalDecoder logicalDecoder =
-                        PostgresConnectorConfig.LogicalDecoder.parse(
-                                connectorConfig.getConfig().getString(PLUGIN_NAME));
-                slotInfo =
-                        dataConnection.getReplicationSlotState(
-                                connectorConfig.getConfig().getString(SLOT_NAME),
-                                logicalDecoder.getPostgresPluginName());
-            } catch (SQLException e) {
-                log.warn(
-                        "unable to load info of replication slot, Debezium will try to create the slot");
-            }
+            OffsetState offsetState = null;
             if (offsetContext == null) {
                 log.info("No previous offset found");
-                // if we have no initial offset, indicate that to Snapshotter by passing null
-                snapshotter.init(connectorConfig, null, slotInfo);
             } else {
                 log.info("Found previous offset {}", offsetContext);
-                snapshotter.init(connectorConfig, offsetContext.asOffsetState(), slotInfo);
+                offsetState = offsetContext.asOffsetState();
             }
+            final SlotState slotInfo =
+                    initSnapshotter(snapshotter, connectorConfig, offsetState, dataConnection);
 
             if (snapshotter.shouldStream()) {
                 // we need to create the slot before we start streaming if it doesn't exist
@@ -305,6 +291,74 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             this.errorHandler = new PostgresErrorHandler(connectorConfig, queue);
         } finally {
             previousContext.restore();
+        }
+    }
+
+    /**
+     * Reads the replication slot state and initializes the snapshotter with it. An invalidated slot
+     * can never stream again, and reading its state would make Debezium retry for up to 30 minutes,
+     * so its state is not read. Whether the job streams is only asked after {@code init}, because a
+     * custom snapshotter may decide that from the state it is given.
+     */
+    static SlotState initSnapshotter(
+            Snapshotter snapshotter,
+            PostgresConnectorConfig connectorConfig,
+            OffsetState offsetState,
+            PostgresConnection dataConnection) {
+        final String slotName = connectorConfig.getConfig().getString(SLOT_NAME);
+        final Optional<String> invalidationReason =
+                findSlotInvalidationReason(dataConnection, slotName);
+
+        // Print out the server information
+        SlotState slotInfo = null;
+        try {
+            if (log.isInfoEnabled()) {
+                log.info(dataConnection.serverInfo().toString());
+            }
+            if (invalidationReason.isPresent()) {
+                log.warn(
+                        "Replication slot '{}' has been invalidated (reason: {})",
+                        slotName,
+                        invalidationReason.get());
+            } else {
+                PostgresConnectorConfig.LogicalDecoder logicalDecoder =
+                        PostgresConnectorConfig.LogicalDecoder.parse(
+                                connectorConfig.getConfig().getString(PLUGIN_NAME));
+                slotInfo =
+                        dataConnection.getReplicationSlotState(
+                                slotName, logicalDecoder.getPostgresPluginName());
+            }
+        } catch (SQLException e) {
+            log.warn(
+                    "unable to load info of replication slot, Debezium will try to create the slot");
+        }
+        // if we have no initial offset, indicate that to Snapshotter by passing null
+        snapshotter.init(connectorConfig, offsetState, slotInfo);
+
+        if (invalidationReason.isPresent() && snapshotter.shouldStream()) {
+            throw PostgresUtils.replicationSlotInvalidated(slotName, invalidationReason.get());
+        }
+        return slotInfo;
+    }
+
+    /** Returns the invalidation reason, or empty if the slot is usable or the check failed. */
+    private static Optional<String> findSlotInvalidationReason(
+            PostgresConnection dataConnection, String slotName) {
+        try {
+            return PostgresUtils.getReplicationSlotInvalidationReason(
+                    dataConnection.connection(), slotName);
+        } catch (SQLException e) {
+            log.warn(
+                    "Unable to check whether replication slot '{}' has been invalidated",
+                    slotName,
+                    e);
+            try {
+                // keep the connection usable for the slot state queries that follow
+                dataConnection.rollback();
+            } catch (SQLException rollbackException) {
+                log.warn("Failed to roll back the slot check transaction", rollbackException);
+            }
+            return Optional.empty();
         }
     }
 

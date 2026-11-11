@@ -156,6 +156,98 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
     }
 
     @TestTemplate
+    public void testNullableKeyRowsAreNotReduced(TestContainer container) throws Exception {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE default.sink_nullable_key (code Nullable(Int32), marker String)"
+                            + " ENGINE = MergeTree ORDER BY code SETTINGS allow_nullable_key = 1");
+            try {
+                Container.ExecResult result =
+                        container.executeJob("/fake_to_clickhouse_nullable_key.conf");
+                Assertions.assertEquals(0, result.getExitCode());
+
+                Set<String> markers = new HashSet<>();
+                int rowCount = 0;
+                try (ResultSet rows =
+                        statement.executeQuery("SELECT marker FROM default.sink_nullable_key")) {
+                    while (rows.next()) {
+                        markers.add(rows.getString(1));
+                        rowCount++;
+                    }
+                }
+                Assertions.assertEquals(3, rowCount);
+                Assertions.assertEquals(
+                        new HashSet<>(Arrays.asList("first", "second", "new")), markers);
+            } finally {
+                statement.execute("DROP TABLE default.sink_nullable_key");
+            }
+        }
+    }
+
+    @TestTemplate
+    public void testNullableCompositeKeyRowsAreNotReduced(TestContainer container)
+            throws Exception {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE default.sink_nullable_composite_key"
+                            + " (code Nullable(Int32), region String, marker String)"
+                            + " ENGINE = MergeTree ORDER BY (code, region)"
+                            + " SETTINGS allow_nullable_key = 1");
+            try {
+                Container.ExecResult result =
+                        container.executeJob("/fake_to_clickhouse_nullable_composite_key.conf");
+                Assertions.assertEquals(0, result.getExitCode());
+
+                Set<String> markers = new HashSet<>();
+                int rowCount = 0;
+                try (ResultSet rows =
+                        statement.executeQuery(
+                                "SELECT marker FROM default.sink_nullable_composite_key")) {
+                    while (rows.next()) {
+                        markers.add(rows.getString(1));
+                        rowCount++;
+                    }
+                }
+                Assertions.assertEquals(2, rowCount);
+                Assertions.assertEquals(new HashSet<>(Arrays.asList("first", "second")), markers);
+            } finally {
+                statement.execute("DROP TABLE default.sink_nullable_composite_key");
+            }
+        }
+    }
+
+    @TestTemplate
+    public void testNullableKeyUpdateAfterRowsAreNotReduced(TestContainer container)
+            throws Exception {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE default.sink_nullable_update_key"
+                            + " (code Nullable(Int32), marker String)"
+                            + " ENGINE = MergeTree ORDER BY code SETTINGS allow_nullable_key = 1");
+            try {
+                Container.ExecResult result =
+                        container.executeJob("/fake_to_clickhouse_nullable_update_key.conf");
+                Assertions.assertEquals(0, result.getExitCode());
+
+                Set<String> markers = new HashSet<>();
+                int rowCount = 0;
+                try (ResultSet rows =
+                        statement.executeQuery(
+                                "SELECT marker FROM default.sink_nullable_update_key")) {
+                    while (rows.next()) {
+                        markers.add(rows.getString(1));
+                        rowCount++;
+                    }
+                }
+                Assertions.assertEquals(2, rowCount);
+                Assertions.assertEquals(new HashSet<>(Arrays.asList("first", "second")), markers);
+            } finally {
+                statement.execute("DROP TABLE default.sink_nullable_update_key");
+            }
+        }
+    }
+
+    @TestTemplate
     public void testClickhouseLogEngineTable(TestContainer container) throws Exception {
         initializeClickhouseLogEngineTable();
 

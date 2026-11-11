@@ -465,7 +465,6 @@ class PythonSourceTest {
         BlockingCollector collector = new BlockingCollector();
         AtomicReference<Throwable> pollFailure = new AtomicReference<>();
         AtomicReference<Throwable> closeFailure = new AtomicReference<>();
-        CountDownLatch closeStarted = new CountDownLatch(1);
 
         Thread pollThread =
                 new Thread(
@@ -477,13 +476,9 @@ class PythonSourceTest {
                             }
                         },
                         "python-source-buffered-poll-test");
-        pollThread.start();
-        Assertions.assertTrue(collector.collectEntered.await(5, TimeUnit.SECONDS));
-
         Thread closeThread =
                 new Thread(
                         () -> {
-                            closeStarted.countDown();
                             try {
                                 reader.close();
                             } catch (Throwable e) {
@@ -491,18 +486,39 @@ class PythonSourceTest {
                             }
                         },
                         "python-source-buffered-close-test");
-        closeThread.start();
-        Assertions.assertTrue(closeStarted.await(5, TimeUnit.SECONDS));
-        Thread.sleep(50L);
-        collector.releaseCollect.countDown();
+        pollThread.start();
+        try {
+            Assertions.assertTrue(collector.collectEntered.await(5, TimeUnit.SECONDS));
+            closeThread.start();
+            // close() publishes its cancellation flag before waiting for this blocked poll.
+            // Starting the thread alone does not guarantee it has reached that point.
+            long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (closeThread.getState() != Thread.State.WAITING
+                    && closeThread.isAlive()
+                    && System.nanoTime() < deadlineNanos) {
+                Thread.sleep(10L);
+            }
+            Assertions.assertEquals(
+                    Thread.State.WAITING,
+                    closeThread.getState(),
+                    "close must be waiting for the blocked collector before it is released");
+            collector.releaseCollect.countDown();
 
-        pollThread.join(TimeUnit.SECONDS.toMillis(5));
-        closeThread.join(TimeUnit.SECONDS.toMillis(5));
-        Assertions.assertFalse(pollThread.isAlive());
-        Assertions.assertFalse(closeThread.isAlive());
-        Assertions.assertNull(pollFailure.get());
-        Assertions.assertNull(closeFailure.get());
-        Assertions.assertEquals(1, collector.rows.size());
+            pollThread.join(TimeUnit.SECONDS.toMillis(5));
+            closeThread.join(TimeUnit.SECONDS.toMillis(5));
+            Assertions.assertFalse(pollThread.isAlive());
+            Assertions.assertFalse(closeThread.isAlive());
+            Assertions.assertNull(pollFailure.get());
+            Assertions.assertNull(closeFailure.get());
+            Assertions.assertEquals(1, collector.rows.size());
+        } finally {
+            collector.releaseCollect.countDown();
+            pollThread.interrupt();
+            closeThread.interrupt();
+            pollThread.join(TimeUnit.SECONDS.toMillis(5));
+            closeThread.join(TimeUnit.SECONDS.toMillis(5));
+            reader.close();
+        }
     }
 
     @Test

@@ -11,6 +11,10 @@ Seatunnel supports to interpret MaxWell JSON messages as INSERT/UPDATE/DELETE me
 
 Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel as MaxWell JSON messages, and emit to storage like Kafka. However, currently Seatunnel can’t combine UPDATE_BEFORE and UPDATE_AFTER into a single UPDATE message. Therefore, Seatunnel encodes UPDATE_BEFORE and UPDATE_AFTER as DELETE and INSERT MaxWell messages.
 
+## Limitations
+
+UPDATE messages must contain a complete row image; partial updates containing only changed fields are not supported.
+
 # Format Options
 
 |              Option              | Default | Required |                                                                                                 Description                                                                                                  |

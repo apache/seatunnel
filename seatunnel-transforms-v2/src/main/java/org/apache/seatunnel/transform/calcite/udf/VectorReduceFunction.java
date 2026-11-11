@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.utils.VectorUtils;
 import com.google.auto.service.AutoService;
 
 import java.nio.ByteBuffer;
+import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -57,7 +58,7 @@ public class VectorReduceFunction implements CalciteUdf {
         }
 
         Float[] result;
-        switch (method.toUpperCase()) {
+        switch (method.toUpperCase(Locale.ROOT)) {
             case "TRUNCATE":
                 result = new Float[targetDimension];
                 System.arraycopy(source, 0, result, 0, targetDimension);

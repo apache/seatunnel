@@ -51,6 +51,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | connection_mode                       | string  | no       | active_local                               | The target ftp connection mode                                                                                                                                         |
 | remote_verification_enabled           | boolean | no       | true                                       | Whether to enable remote host verification for FTP data channels                                                                                                       |
 | control_encoding                      | string  | no       | UTF-8                                      | Character encoding for the FTP control connection, useful for paths with spaces or non-ASCII characters                                                               |
+| control_timeout                       | int     | no       | 60000                                      | Timeout in milliseconds for reading a reply from the FTP server on the control connection; 0 waits indefinitely                                                       |
 | custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                                   |
 | file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                 |
 | filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                 |
@@ -410,27 +411,9 @@ FtpFile {
 
 ```
 
-### Writing via SFTP
+### Writing to an SFTP server
 
-The `FtpFile` sink supports `sftp://` URIs alongside `ftp://`. Authentication and host-key trust are configured the same way as for the source — SSH key or password plus a `known_hosts` file (the connector does not auto-trust unknown hosts).
-
-```hocon
-sink {
-  FtpFile {
-    fs.defaultFS = "sftp://sftp.example.example.com:22"
-    path = "/upload/landing/"
-    user = "seatunnel"
-    file_format_type = "parquet"
-    ftp_properties = {
-      "fs.sftp.user."      = "seatunnel"
-      "fs.sftp.keyfile"    = "/etc/seatunnel/id_rsa"
-      "fs.sftp.host"       = "sftp.example.example.com"
-      "fs.sftp.port"       = "22"
-      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
-    }
-  }
-}
-```
+The `FtpFile` sink only speaks the plain FTP protocol — its connection is always built as `ftp://<host>:<port>` from the `host`/`port` options, and options such as `fs.defaultFS`, `ftp_properties`, or `known_hosts` are not supported. To write files over SFTP (SSH File Transfer), use the [SftpFile](SftpFile.md) sink instead.
 
 
 ## Changelog

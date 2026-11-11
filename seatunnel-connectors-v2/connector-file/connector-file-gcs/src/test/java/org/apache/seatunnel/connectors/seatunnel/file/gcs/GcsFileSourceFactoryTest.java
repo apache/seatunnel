@@ -73,6 +73,34 @@ class GcsFileSourceFactoryTest {
         assertTrue(optionRuleContains(optionRule, FileBaseSourceOptions.FILE_SPLIT_SIZE));
     }
 
+    @Test
+    void consumedOptionsAreDeclared() {
+        OptionRule optionRule = new GcsFileSourceFactory().optionRule();
+        assertTrue(optionRule.getOptionalOptions().contains(FileBaseSourceOptions.READ_PARTITIONS));
+        assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.CSV_USE_HEADER_LINE));
+        assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.BINARY_CHUNK_SIZE));
+        assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE));
+        assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.FILE_FILTER_MODIFIED_START));
+        assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.FILE_FILTER_MODIFIED_END));
+        assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME));
+    }
+
     private static Map<String, Object> sourceConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put(GcsFileSourceOptions.FILE_PATH.key(), "/source");

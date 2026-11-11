@@ -8,7 +8,7 @@ StainTrace 是 SeaTunnel 的数据血缘与端到端性能追踪系统，用于�
 
 - **框架级实现**：所有 Connector 自动支持，无需修改连接器代码
 - **6 个基础阶段**：SOURCE_EMIT、QUEUE_IN、QUEUE_OUT、TRANSFORM_IN、TRANSFORM_OUT、SINK_WRITE_DONE（已全部落点；实际出现顺序取决于流水线拓扑）
-- **扩展阶段**：40+ 个细粒度阶段代码已定义，用于未来精细化性能分析（**当前尚未落点，不会出现在追踪文件中**）
+- **扩展阶段**：34 个细粒度阶段代码已定义，用于未来精细化性能分析（**当前尚未落点，不会出现在追踪文件中**）
 - **本地文件存储**：零依赖，OTLP JSON Lines 格式
 - **性能优化**：合理采样配置下开销 < 2%
 
@@ -69,8 +69,8 @@ StainTrace 是 SeaTunnel 的数据血缘与端到端性能追踪系统，用于�
 seatunnel:
   engine:
     stain-trace-enabled: true
-    stain-trace-sample-interval: 100000  # 每 10 万条采样 1 条
-    stain-trace-file-base-path: /data/seatunnel/traces  # 本地追踪文件目录，必须显式配置，默认不启用
+    stain-trace-sample-rate: 100000  # 每 10 万条采样 1 条
+    stain-trace-file-base-path: /tmp/seatunnel/traces  # 本地追踪文件目录，必须显式配置，默认不启用
 ```
 
 ### 2. 启用任务级开关
@@ -117,7 +117,7 @@ open report.html
 | 参数 | 类型 | 默认值 | 说明 |
 |-----|------|--------|------|
 | stain-trace-enabled | boolean | false | 启用追踪的主开关 |
-| stain-trace-sample-interval | int | 100000 | 每 N 条记录采样 1 条 |
+| stain-trace-sample-rate | int | 100000 | 每 N 条记录采样 1 条。旧名称 `stain-trace-sample-interval` 仍作为兼容别名被接受 |
 | stain-trace-max-traces-per-second-per-worker | int | 50 | 每个 Worker 每秒最大追踪数 |
 | stain-trace-max-entries-per-trace | int | 32 | 每条追踪最大阶段条目数 |
 | stain-trace-propagate-to-all-splits | boolean | false | 是否传播到所有分裂输出 |

@@ -44,6 +44,16 @@ public class RegexExtractMultiCatalogTransform extends AbstractMultiCatalogMapTr
         return new RegexExtractTransform(RegexExtractTransformConfig.of(config), inputCatalogTable);
     }
 
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
+    @Override
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(
+                config,
+                RegexExtractTransformConfig.KEY_SOURCE_FIELD,
+                RegexExtractTransformConfig.KEY_REGEX_PATTERN,
+                RegexExtractTransformConfig.KEY_OUTPUT_FIELDS);
+    }
+
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
         return new IdentityMapTransform(catalogTable);

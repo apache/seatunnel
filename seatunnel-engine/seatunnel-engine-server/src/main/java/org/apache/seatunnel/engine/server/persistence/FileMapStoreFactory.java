@@ -17,14 +17,16 @@
 
 package org.apache.seatunnel.engine.server.persistence;
 
+import com.hazelcast.map.EntryLoader.MetadataAwareValue;
 import com.hazelcast.map.MapLoader;
 import com.hazelcast.map.MapStoreFactory;
 
 import java.util.Properties;
 
-public class FileMapStoreFactory implements MapStoreFactory<Object, Object> {
+public class FileMapStoreFactory implements MapStoreFactory<Object, MetadataAwareValue<Object>> {
     @Override
-    public MapLoader<Object, Object> newMapStore(String mapName, Properties properties) {
+    public MapLoader<Object, MetadataAwareValue<Object>> newMapStore(
+            String mapName, Properties properties) {
         properties.setProperty("businessName", mapName);
         return new FileMapStore();
     }

@@ -53,6 +53,7 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.format.PulsarCana
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader.PulsarSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
 import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
+import org.apache.seatunnel.format.avro.AvroFormatOptions;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
@@ -275,7 +276,13 @@ public class PulsarSource
                                 .setIgnoreParseErrors(true)
                                 .build());
             case "AVRO":
-                return new AvroDeserializationSchema(catalogTable);
+                // Pulsar has no writer schema option, so the reader schema is always derived from
+                // the row type and must follow the writer's ROW layout.
+                return new AvroDeserializationSchema(
+                        catalogTable,
+                        null,
+                        false,
+                        tableConfig.getSchemaConfig().get(AvroFormatOptions.AVRO_ROW_NULLABLE));
             case "TEXT":
                 return TextDeserializationSchema.builder()
                         .seaTunnelRowType(catalogTable.getSeaTunnelRowType())

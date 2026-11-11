@@ -6,21 +6,20 @@ import ChangeLog from '../changelog/connector-hudi.md';
 
 ## 描述
 
-用于将数据写入 Hudi。
+Hudi Sink 连接器把 SeaTunnel 的行写入到 Apache Hudi 表中，表可以放在 HDFS 或兼容 S3 的文件系统上。
+它既支持单表作业，也支持多表作业，并提供 CDC 变更日志持久化、可配置的 commit 清理策略以及
+可插拔的索引。
+
+当需要把 SeaTunnel 的 CDC 输入（例如 MySQL-CDC、PostgreSQL-CDC）或批处理源落到 copy-on-write 或
+merge-on-read 的 Hudi 表时，可以使用该连接器。它会写入 Hudi 数据文件以及 `.hoodie` 元数据，并允许通过
+`op_type` 在 `INSERT`、`UPSERT`、`BULK_INSERT` 三种写入模式之间选择。
 
 ## 主要特性
 
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
-
-:::tip 精确一次语义
-
-精确一次是可选能力，需要设置 `semantics = EXACTLY_ONCE` 并开启 checkpoint。默认的 `AT_LEAST_ONCE`
-语义下，作业重试可能把失败尝试的记录重复提交一次，详见[精确一次语义](#精确一次语义)。
-
-:::
 
 :::caution Hive Metastore 同步
 
@@ -32,38 +31,37 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 
 基础配置:
 
-| 名称                       | 类型   | 是否必填 | 默认值                       |
-|----------------------------|--------|----------|------------------------------|
-| table_dfs_path             | string | 是      | -                            |
-| conf_files_path            | string | 否      | -                            |
-| table_list                 | array  | 否      | -                            |
-| schema_save_mode           | enum   | 否      | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode             | enum   | 否      | APPEND_DATA                  |
-| multi_table_sink_replica   | int    | 否      | 1                            |
-| semantics                  | enum   | 否      | AT_LEAST_ONCE                |
-| common-options             | config | 否      | -                            |
+| 名称                       | 类型   | 是否必填 | 默认值                       | 描述                                                                            |
+|----------------------------|--------|----------|------------------------------|---------------------------------------------------------------------------------|
+| table_dfs_path             | string | 是        | -                            | Hudi 表数据和元数据的根路径。 |
+| conf_files_path            | string | 否        | -                            | HDFS 客户端配置文件的本地路径，多个路径用分号分隔。 |
+| table_list                 | array  | 否        | -                            | 多表作业中每张表的配置。 |
+| schema_save_mode           | enum   | 否        | CREATE_SCHEMA_WHEN_NOT_EXIST | 作业启动前如何处理目标 schema。 |
+| data_save_mode             | enum   | 否        | APPEND_DATA                  | 作业启动前如何处理已存在的表数据。 |
+| multi_table_sink_replica   | int    | 否        | 1                            | 多表写入模式下每张表写入器的副本数。 |
+| common-options             | config | 否        | -                            | [Sink 插件通用参数](../common-options/sink-common-options.md)。 |
 
 表清单配置:
 
-| 名称                       | 类型    | 是否必填 | 默认值         |
-|----------------------------|--------|----------|---------------|
-| table_name                 | string | 是       | -             |
-| database                   | string | 否       | default       |
-| table_type                 | enum   | 否       | COPY_ON_WRITE |
-| op_type                    | enum   | 否       | INSERT        |
-| record_key_fields          | string | 否       | -             |
-| partition_fields           | string | 否       | -             |
-| precombine_field           | string | 否       | -             |
-| batch_interval_ms          | int    | 否       | 1000          |
-| batch_size                 | int    | 否       | 1000          |
-| insert_shuffle_parallelism | int    | 否       | 2             |
-| upsert_shuffle_parallelism | int    | 否       | 2             |
-| min_commits_to_keep        | int    | 否       | 20            |
-| max_commits_to_keep        | int    | 否       | 30            |
-| index_type                 | enum   | 否       | BLOOM         |
-| index_class_name           | string | 否       | -             |
-| record_byte_size           | int    | 否       | 1024          |
-| cdc_enabled                | boolean| 否       | false         |
+| 名称                       | 类型    | 是否必填 | 默认值         | 描述                                                                            |
+|----------------------------|---------|----------|----------------|----------------------------------------------------------------------------------|
+| table_name                 | string  | 是        | -              | 目标 Hudi 表名。 |
+| database                   | string  | 否        | default        | 目标 Hudi 数据库名。 |
+| table_type                 | enum    | 否        | COPY_ON_WRITE  | Hudi 表类型：`COPY_ON_WRITE` 或 `MERGE_ON_READ`。 |
+| op_type                    | enum    | 否        | INSERT         | 写入操作类型：`INSERT`、`UPSERT` 或 `BULK_INSERT`。 |
+| record_key_fields          | string  | 否        | -              | 用于构建 Hudi record key 的字段；`UPSERT` 时必填。 |
+| partition_fields           | string  | 否        | -              | 用于构建分区路径的字段。 |
+| precombine_field           | string  | 否        | -              | 用于合并同一记录多次更新的字段。 |
+| batch_interval_ms          | int     | 否        | 1000           | 当前未使用；刷写仅由 `batch_size` 或 checkpoint 触发。 |
+| batch_size                 | int     | 否        | 1000           | 刷写前最多缓存的行数。 |
+| insert_shuffle_parallelism | int     | 否        | 2              | insert 操作的 shuffle 并行度。 |
+| upsert_shuffle_parallelism | int     | 否        | 2              | upsert 操作的 shuffle 并行度。 |
+| min_commits_to_keep        | int     | 否        | 20             | 清理期间保留的最小提交数。 |
+| max_commits_to_keep        | int     | 否        | 30             | 清理期间保留的最大提交数。 |
+| index_type                 | enum    | 否        | BLOOM          | Hudi 索引类型：`BLOOM`、`SIMPLE` 或 `GLOBAL_BLOOM`。 |
+| index_class_name           | string  | 否        | -              | 自定义 Hudi 索引类的全限定名。 |
+| record_byte_size           | int     | 否        | 1024           | 以字节为单位的平均记录大小估计值。 |
+| cdc_enabled                | boolean | 否        | false          | 启用后持久化 Hudi CDC 变更日志数据。 |
 
 注意：写入单表时，可以把 `table_list` 中的表配置项平铺到外层。多表作业中，表级配置需放在各自的 `table_list` 条目内；`table_dfs_path`、`conf_files_path`、`schema_save_mode` 和 `data_save_mode` 保持在 sink 层级。
 
@@ -97,7 +95,7 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 
 `precombine_field` Hudi 表的预合并字段,它用于在写入前进行预合并.
 
-### index_type [string]
+### index_type [enum]
 
 `index_type` Hudi 表的索引类型。当前支持 `BLOOM`、`SIMPLE`、`GLOBAL_BLOOM`。
 
@@ -115,7 +113,7 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 
 ### op_type [enum]
 
-`op_type` Hudi 表的操作类型。值可以是 `insert`、`upsert` 或 `bulk_insert`。
+`op_type` Hudi 表的操作类型。值可以是 `INSERT`、`UPSERT` 或 `BULK_INSERT`。
 
 ### batch_interval_ms [Int]
 
@@ -162,13 +160,6 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 `APPEND_DATA`：保留表结构和已有数据<br/>
 `ERROR_WHEN_DATA_EXISTS`：当已有数据存在时报错<br/>
 
-### semantics [Enum]
-
-`semantics` 控制 Sink 以哪种语义把记录提交到 Hudi 表：
-
-- `AT_LEAST_ONCE`：默认值。每个刷新批次由 Hudi 客户端立即提交，数据一刷新即可见，但作业重试时可能把失败尝试的记录再次提交。
-- `EXACTLY_ONCE`：记录先写入一个 Hudi instant，只有包含它的 checkpoint 完成后才提交该 instant，从而提供精确一次语义。该语义要求开启 checkpoint，并且数据只在 checkpoint 完成后才可见，详见[精确一次语义](#精确一次语义)。
-
 ### 通用选项
 
 Sink插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详细信息。
@@ -185,68 +176,9 @@ env {
 }
 ```
 
-Hudi 定时刷新复用连接器现有的同步批量刷新。默认的 `AT_LEAST_ONCE` 语义下，Hudi 客户端会立即提交每个刷新批次，
-因此定时刷新提供的是至少一次语义，重试可能产生额外的 commit。当 `semantics = EXACTLY_ONCE` 时，定时刷新只会把
-记录写入当前 checkpoint 对应的 instant，这些记录会在该 checkpoint 完成后才可见。
-
-## 精确一次语义
-
-设置 `semantics = EXACTLY_ONCE` 后，Sink 会使用引擎的两阶段提交协议写入：
-
-```hocon
-env {
-  checkpoint.interval = 10000
-}
-
-sink {
-  Hudi {
-    table_dfs_path = "/tmp/seatunnel_mnt/hudi"
-    table_name = "st_test"
-    semantics = "EXACTLY_ONCE"
-    op_type = "UPSERT"
-    record_key_fields = "c_bigint"
-  }
-}
-```
-
-工作流程：
-
-1. 作业运行期间，写入器只把记录写入一个 Hudi instant，不会提交它；同一个 checkpoint 的所有批次共用同一个 instant。
-2. checkpoint 完成后，聚合提交器（aggregated committer）才提交该 checkpoint 对应的 instant。提交之后文件才对读取方可见。
-3. checkpoint 的提交信息会作为 checkpoint 状态保存。如果提交丢失（例如作业在 checkpoint 完成之后、提交之前失败），
-   作业从该 checkpoint 恢复后会重新提交同一个 instant；已经提交过的 instant 会被跳过，因此记录不会重复发布。
-4. 未完成的 checkpoint 的记录不会被提交：流水线重启后由 source 重放这些记录，失败尝试留下的 instant 由连接器自己回滚
-   （写入器关闭时回滚，或在调用 `abort` 的引擎上由聚合提交器回滚）。
-
-`EXACTLY_ONCE` 会把 Hudi 客户端的失败写入清理策略设置为 `NEVER`：Hudi 既不会回滚等待 checkpoint 的 instant，也不会启动
-`LAZY` 策略依赖的“每个 instant 一个写入器心跳”。这样做有两个关键效果：
-
-* 已 checkpoint 的 instant 的提交不再依赖产生它的写入器心跳，因此无论流水线停机多久，恢复提交都能成功。若使用 `LAZY`
-  策略，写入器消失超过 `hoodie.client.heartbeat.interval_in_ms * hoodie.client.heartbeat.tolerable.misses`（默认
-  60s * 2）后，提交会抛出 `Heartbeat ... has expired`，或者表的清理动作会把这个 instant 回滚掉。
-* 长时间运行的作业不会每个 checkpoint 累积一个心跳定时器线程和一个心跳文件，因为根本不会创建心跳。
-
-`NEVER` 策略下 Hudi 不会自动清理失败写入：未完成 checkpoint 的 instant 由连接器回滚，已完成 checkpoint 的 instant 会在
-作业恢复时提交；如果流水线被强制杀掉导致两者都没发生，该 instant 会一直留在 active timeline 上，需要手动回滚（例如使用
-Hudi 的 `HoodieWriteClient#rollback` 或 `hoodie-cli`）。
-
-约束与取舍：
-
-* 必须开启 checkpoint，否则不会提交任何 instant，数据也不会可见。没有 checkpoint 的批处理作业或需要“刷新即可见”的
-  作业请使用 `AT_LEAST_ONCE`。
-* 数据只在 checkpoint 完成后可见，因此可见性延迟至少是一个 checkpoint 间隔。
-* 被 Hudi 拒绝的记录（例如 payload 或 schema 转换失败）会让本次 checkpoint 失败，而不是被静默丢弃——因为已完成的
-  checkpoint 不会再被重放。
-* 待提交的 instant 会在聚合提交器的 checkpoint 状态与内存中保留到对应 checkpoint 完成，因此 checkpoint 间隔很长时，
-  这段时间的 write status 会占用堆内存。
-* 不要在运行中把 `EXACTLY_ONCE` 改回 `AT_LEAST_ONCE`：该模式下聚合提交器的 checkpoint 状态会被丢弃，最近几个 checkpoint
-  的待提交 instant 将永远不会被提交。请用一次 `EXACTLY_ONCE` 运行把它们提交完，或手动回滚。
-* instant 由聚合提交器在引擎完成 checkpoint（Zeta、Flink）或微批（Spark）后提交，因此需要使用会提交成功
-  checkpoint 对应 commit info 的引擎。
-* 并行写入仍然遵循 Hudi 的单写入者并发控制，两个作业（或两个写入器）更新同一个 file group 时可能互相覆盖。请保证
-  同一张表只有一个写入者，或让写入器处理互不相交的 key 和分区。
-* 如果提交时 instant 已经不在 active timeline 上（例如被手工回滚或被同一张表的其他写入器回滚），作业会以明确的错误
-  失败，而不是静默发布不完整的数据。
+Hudi 定时刷新复用连接器现有的同步批量刷新和 Hudi 客户端 auto-commit 行为。Hudi Sink 没有 2PC 精确一次
+写入器，因此定时刷新提供的是至少一次语义，重试可能产生额外的 commit。使用 `INSERT` 时，自动生成的
+record key 还可能在恢复后产生重复行；使用具有稳定 `record_key_fields` 的 `UPSERT` 可以减少逻辑记录重复。
 
 ## 示例
 

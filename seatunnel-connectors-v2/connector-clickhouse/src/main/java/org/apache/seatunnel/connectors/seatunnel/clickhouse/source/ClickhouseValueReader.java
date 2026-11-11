@@ -514,13 +514,19 @@ public class ClickhouseValueReader implements Serializable {
                             return true;
                         }
                     } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
                         throw new ClickhouseConnectorException(
                                 ClickhouseConnectorErrorCode.ROW_BATCH_GET_FAILED, e);
                     }
                 } else {
                     try {
                         Thread.sleep(10);
-                    } catch (InterruptedException ignored) {
+                    } catch (InterruptedException e) {
+                        // Report the interrupt instead of swallowing it: clearing the flag here
+                        // would drop the cancellation signal and keep polling for a batch forever.
+                        Thread.currentThread().interrupt();
+                        throw new ClickhouseConnectorException(
+                                ClickhouseConnectorErrorCode.ROW_BATCH_GET_FAILED, e);
                     }
                 }
             }

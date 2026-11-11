@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TableTransformRuleValidator;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -54,22 +55,41 @@ public class PythonTransformFactory implements TableTransformFactory {
      */
     @Override
     public OptionRule optionRule() {
+        // The rule of a single table: the output columns of the python script plus the script
+        // configuration (source code, script path, interpreter and script arguments).
+        OptionRule tableRule =
+                OptionRule.builder()
+                        .required(
+                                PythonTransformConfig.COLUMNS,
+                                Conditions.notEmpty(PythonTransformConfig.COLUMNS)
+                                        .and(
+                                                Conditions.extension(
+                                                        PythonTransformConfig.COLUMNS,
+                                                        new ColumnsValidator())))
+                        .optional(PythonTransformConfig.SOURCE_CODE)
+                        .optional(PythonTransformConfig.SOURCE_CODE_PATH)
+                        .optional(PythonTransformConfig.PYTHON_EXECUTABLE)
+                        .optional(PythonTransformConfig.SCRIPT_CONFIG)
+                        .build();
         return OptionRule.builder()
-                .required(
+                .optional(
                         PythonTransformConfig.COLUMNS,
-                        Conditions.notEmpty(PythonTransformConfig.COLUMNS)
-                                .and(
-                                        Conditions.extension(
-                                                PythonTransformConfig.COLUMNS,
-                                                new ColumnsValidator())))
-                .optional(PythonTransformConfig.SOURCE_CODE)
-                .optional(PythonTransformConfig.SOURCE_CODE_PATH)
-                .optional(PythonTransformConfig.PYTHON_EXECUTABLE)
-                .optional(PythonTransformConfig.SCRIPT_CONFIG)
-                .optional(TransformCommonOptions.MULTI_TABLES)
+                        PythonTransformConfig.SOURCE_CODE,
+                        PythonTransformConfig.SOURCE_CODE_PATH,
+                        PythonTransformConfig.PYTHON_EXECUTABLE,
+                        PythonTransformConfig.SCRIPT_CONFIG)
+                .optional(
+                        TransformCommonOptions.MULTI_TABLES,
+                        Conditions.extension(
+                                TransformCommonOptions.MULTI_TABLES,
+                                new TableTransformRuleValidator(tableRule)))
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .optional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
+                .conditionalRule(
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.MULTI_TABLES.defaultValue(),
+                        tableRule)
                 .build();
     }
 

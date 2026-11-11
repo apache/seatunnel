@@ -281,6 +281,10 @@ public class DorisStreamLoad implements Serializable {
         this.loading = true;
     }
 
+    public String getLabel() {
+        return label;
+    }
+
     private void startStreamLoad() {
         HttpPutBuilder putBuilder = new HttpPutBuilder();
         log.info("stream load started for {}", label);

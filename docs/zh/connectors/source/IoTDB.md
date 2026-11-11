@@ -61,13 +61,13 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | node_urls                  | string  | 是    | -   | IoTDB 集群地址，格式为 `"host1:port"` 或 `"host1:port,host2:port"`                        |
 | username                   | string  | 是    | -   | IoTDB 用户名                                                                        |
 | password                   | string  | 是    | -   | IoTDB 用户密码                                                                       |
-| sql                        | string  | 条件必填 | - | 未配置 `tables_configs` 时，必须与 `schema` 一起配置。 |
+| sql                        | string  | 条件必填 | - | 未配置 `tables_configs` 时，必须与 `schema` 一起配置；根级别的 `sql` 不能为纯空白内容。 |
 | tables_configs             | array   | 否    | -   | 非空表配置列表。每项包含 `sql` 和 `schema`，且 `schema.table` 必须非空、唯一。 |
 | schema                     | config  | 条件必填 | - | 根级别 `sql` 配置需要此项；使用 `tables_configs` 时放在每项内。参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 | fetch_size                 | int     | 否    | -   | 单次获取数据量：查询时每次从 IoTDB 获取的数据量                                                      |
 | lower_bound                | long    | 否    | -   | 时间范围下界（通过时间列进行数据分片时使用）                                                           |
 | upper_bound                | long    | 否    | -   | 时间范围上界（通过时间列进行数据分片时使用）                                                           |
-| num_partitions             | int     | 否    | -   | 分区数量（通过时间列进行数据分片时使用）：<br/> - 1 个分区：使用完整时间范围 <br/> - 若分区数 < (上界 -下界)，则使用差值作为实际分区数 |
+| num_partitions             | int     | 否    | -   | 分区数量（通过时间列进行数据分片时使用）：<br/> - 1 个分区：使用完整时间范围 <br/> - 若 (上界 - 下界) < 分区数，则使用差值作为实际分区数 |
 | thrift_default_buffer_size | int     | 否    | -   | Thrift 协议缓冲区大小                                                                   |
 | thrift_max_frame_size      | int     | 否    | -   | Thrift 最大帧尺寸                                                                     |
 | enable_cache_leader        | boolean | 否    | -   | 是否启用 Leader 节点缓存                                                                 |
@@ -278,7 +278,7 @@ IoTDB> SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_strin
 
 拆分规则：
 
-- 如果 `num_partitions = 1`，则整个范围 `[lower_bound, upper_bound)` 作为一个分片。
+- 如果 `num_partitions = 1`，则整个范围 `[lower_bound, upper_bound]` 作为一个分片。
 - 否则把范围等分成 `num_partitions` 个分片。如果 `upper_bound - lower_bound < num_partitions`，则回退为 `upper_bound - lower_bound` 个分片。
 
 例如 `lower_bound = 1`、`upper_bound = 10`、`num_partitions = 2`，SQL 为 `select * from test where age > 0 and age < 10`，会生成：

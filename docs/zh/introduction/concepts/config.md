@@ -141,6 +141,10 @@ sink {
 
 如果只是单一 source 的简单链路，很多时候可以省略它们，因为 SeaTunnel 会按默认约定自动把上一个模块的输出继续往下传递。
 
+### 配置键与路径表达式
+
+SeaTunnel 的配置路径分隔符是 `->`，因此 `a->b = 1` 表示嵌套的 `a.b`，而 `job.mode` 中的点号属于键名本身；加载配置文件时所有键都会经过该路径解析器，包括通过配置适配器读取的配置，以及为 `-i` 变量替换服务的内部重新解析（即使没有传入任何 `-i` 值也会执行）。合法的路径表达式仍会按路径解析（引号会被去除、未加引号的首尾空白会被裁剪），因此加引号的 `"a->b" = 1` 会被存为嵌套的 `a.b`；解析器拒绝的键则会作为单个字面键保留，而不会导致加载失败，例如正则字段名 `^t_nova_.*$`，或包含 `$`、`:`、`${...}` 的键。HOCON 本身也会把其中部分字符当作语法，因此这类键必须在文件中加引号：应写 `"$systemId" = "string"`，而不是 `$systemId = "string"`。REST 提交遵循同一规则，详见 [REST API V2](../../engines/zeta/rest-api-v2.md)。
+
 ## 多行文本支持
 
 `hocon`支持多行字符串，这样就可以包含较长的文本段落，而不必担心换行符或特殊格式。这可以通过将文本括在三层引号 **`"""`** 中来实现。例如:
@@ -206,7 +210,7 @@ sql = """ select * from "table" """
 
 在配置文件中，我们可以定义一些变量并在运行时替换它们。但请注意，目前仅支持 HOCON 格式的文件。
 
-变量使用方法：
+### 变量使用方法：
  - `${varName}`，如果变量未传值，则抛出异常。
  - `${varName:default}`，如果变量未传值，则使用默认值。如果设置默认值则变量需要写在双引号中。
  - `${varName:}`，如果变量未传值，则使用空字符串。
@@ -220,7 +224,7 @@ export varName="value with space"
 
 如果您在配置文件中设置了没有默认值的变量，但在执行过程中未传递该变量，则会保留该变量值，系统不会抛出异常。但请您需要确保其他流程能够正确解析该变量值。例如，ElasticSearch的索引需要支持`${xxx}`这样的格式来动态指定索引。若其他流程不支持，程序可能无法正常运行。
 
-具体样例：
+### 示例：
 ```hocon
 env {
   job.mode = "BATCH"
@@ -306,7 +310,7 @@ transform {
     sql {
       plugin_input = "fake_test_table"
       plugin_output = "sql"
-      query = "select * from dual where name = 'abc' "
+      query = "select * from fake_test_table where name = 'abc' "
     }
 
 }
@@ -321,9 +325,22 @@ sink {
 
 ```
 
-一些注意事项:
-
+### 注意事项:
+- 为了避免非预期的数据同步错误，`-i` 传参不能出现重复的key。
+- 如果值包含逗号，需要用`\"`包裹起来，如 `-i read_cols=\"id,name\"`，但list和map类型不需要用`\"`包裹，如`-i include_fields=[id,name]`。
 - 如果值包含特殊字符，如`(`，请使用`'`引号将其括起来。
+- 如果值是map类型，可以使用json传参，参数值支持任意深度的数组和json嵌套。参数值使用单引号包裹标准json，如下：
+
+  `-i mysql_properties='{"connectTimeout":"5000","connectionTimeZone":"UTC","serverTimezone":"UTC","useSSL":"false","allowPublicKeyRetrieval":"true"}'`
+- json参数值兼容hocon语法，可以用等号(`=`)代替冒号(`:`), 如 `a='{"k1"="v1","k2"="v2"}'` 与`a='{"k1":"v1","k2":"v2"}'` 等效，但仍然建议用冒号。
+
+- 如果值是array中包含map类型，json参数需要用单引号(`\'`)包裹：
+
+  `-i table_list=['{"table_path":"movie_lens.tags_test"}','{"table_path":"movie_lens.ml_*","use_regex":"true"}']`
+- 如果值是map中包含array类型，json内部的array参数格式需要遵循json格式规范，key要带上双引号，array中的元素可以带引号也可以不带，会自动解析：
+
+  `-i table_filter='{"plugin_input":"mysql_source","plugin_output":"filter","include_fields":["movie_id","unix_time"]}'`
+- 参数值的json内容中的占位符不会被解析，会作为内容的一部分原样保留。
 - 如果替换变量包含`"`或`'`(如`"resName"`和`"nameVal"`)，需要添加`"`。
 - 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。 你可以使用环境变量传递带有空格的值。 
 - 如果要使用动态参数,可以使用以下格式: `-i date=$(date +"%Y%m%d")`。
