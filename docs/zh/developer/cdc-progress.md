@@ -93,9 +93,31 @@ Reader 的已消费位置是其最近观测到的位置，不是已完成 checkp
 活动 split 明细最多保留 `CdcEnumeratorProgressReport.MAX_ACTIVE_SPLITS` 条；`activeSplitsTruncated`
 表示是否有明细被省略，聚合计数仍描述完整状态。
 
+## Zeta 中的运行时采集
+
+Zeta 按 `print-execution-info-interval` 的监控周期采集报告，并在活动 Coordinator 上只保留每个
+Reader 和 Enumerator 的最新报告：
+
+- Reader 报告由各 Worker 上的 `TaskExecutionService` 采样，按 Worker 合并后通过一次操作发送到
+  Coordinator。每个 Worker 最多存在一个未完成请求。
+- Enumerator 报告使用 Coordinator 所有的采集路径。Coordinator 根据作业计划和 slot 分配确定
+  Enumerator Task Group 所在的成员（可能是自身），并向其请求报告。未实现 `SupportCdcProgress` 的
+  Source 不会被轮询。
+- 每个被接受的报告都包含 Task 标识、Source Vertex、执行 attempt、attempt 内序列号和观测时间。
+  对于相同 owner 和 Task，更低的 attempt 或同一 attempt 内不递增的序列号会被忽略。
+- 所属 Pipeline 清理时（包括 savepoint 之后）报告会被删除。只有已注册的活动 Pipeline 接受报告，
+  延迟报告不能重新创建已删除的作用域；Master 清理会使 Coordinator generation 失效，旧 generation
+  捕获的回调不能向新 generation 发布报告。
+- 单个 Provider 失败不影响其他 Task，单次采集失败也不会停止后续监控周期。不识别采集操作的成员会
+  拒绝请求；对应的 Worker 请求记录 WARN 日志，后续周期重试。
+- 线路编码按名称编码枚举，并将帧限制为 100,000 条报告和每个原生位置 1,024 个字段。超限或格式
+  错误的帧会被拒绝，不影响 Source、checkpoint 或 savepoint 状态。
+
+本切片不会通过 REST、CLI 或 metrics 暴露存储的报告。
+
 ## 当前限制
 
 - 该契约和报告类型仍为实验性，Connector 验证期间可能变化。
 - Reader 报告不包含 checkpoint 位置和恢复位置。
 - 没有统一的数值型延迟；消费者按位置类型比较原生位置。
-- 本文不描述引擎如何采集或暴露报告。
+- Coordinator 存储不保留历史，也不跨并行 Reader 聚合。

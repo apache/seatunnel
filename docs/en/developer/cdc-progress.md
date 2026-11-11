@@ -106,9 +106,35 @@ counts are non-negative; `assigned == completed + running` is enforced only when
 `activeSplitsTruncated` says whether details were dropped, while the counts still describe the
 complete state.
 
+## Runtime collection in Zeta
+
+Zeta collects reports on the `print-execution-info-interval` monitor cadence and keeps only the
+latest report per reader and enumerator on the active coordinator:
+
+- Reader reports are sampled on each worker by `TaskExecutionService`, batched per worker and sent
+  to the coordinator in one operation. At most one request per worker is outstanding.
+- Enumerator reports use a coordinator-owned path. The coordinator finds the enumerator's task group
+  from the job plan and slot assignments and asks the hosting member, which may be itself, for the
+  report. Sources that do not implement `SupportCdcProgress` are not polled.
+- Every accepted report carries task identity, source vertex, execution attempt, an attempt-local
+  sequence and the observation time. For the same owner and task, a lower attempt or a
+  non-increasing sequence within an attempt is ignored.
+- Reports are removed when the owning pipeline is cleaned up, including after a savepoint. Only
+  registered live pipelines accept reports; a late report cannot reopen a removed scope, and master
+  cleanup invalidates the coordinator generation so callbacks captured by an old generation cannot
+  publish into the new one.
+- A failing provider is isolated from other tasks, and a failed collection does not stop later
+  monitor ticks. A member that does not recognise the collection operation rejects the request;
+  the worker request logs a warning and later ticks retry.
+- The wire codec encodes enums by name and bounds frames to 100,000 report entries and 1,024
+  fields per native position. Oversized or malformed frames are rejected without touching source,
+  checkpoint or savepoint state.
+
+Nothing in this slice exposes the stored reports through REST, the CLI or metrics.
+
 ## Current limitations
 
 - The contract and report types are experimental and may change while connectors validate them.
 - Checkpoint and restore positions are not part of the reader report.
 - There is no universal numeric lag value; consumers compare native positions per family.
-- This document does not cover how an engine collects or exposes reports.
+- The coordinator store keeps no history and does not aggregate across parallel readers.
