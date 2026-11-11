@@ -90,7 +90,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | encoding                              | string  | 否    | "UTF-8"                                    | 仅在 file_format_type 为 json,text,csv,xml 时使用                    |
 | schema_save_mode                      | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                       |
 | data_save_mode                        | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                       |
-| merge_update_event                    | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.      |
+| merge_update_event                    | boolean | 否    | false                                      | 仅当 file_format_type 为 canal_json、debezium_json 或 maxwell_json 时使用。设为 true 时，UPDATE_AFTER 和 UPDATE_BEFORE 事件会合并为 UPDATE 事件数据 |
 | schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 
 ### path [string]
