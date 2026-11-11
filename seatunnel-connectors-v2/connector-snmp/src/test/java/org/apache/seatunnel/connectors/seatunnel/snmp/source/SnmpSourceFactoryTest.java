@@ -18,13 +18,19 @@
 package org.apache.seatunnel.connectors.seatunnel.snmp.source;
 
 import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.snmp.config.SnmpSourceOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 class SnmpSourceFactoryTest {
@@ -49,5 +55,80 @@ class SnmpSourceFactoryTest {
         Assertions.assertTrue(rule.getOptionalOptions().contains(SnmpSourceOptions.RETRIES));
         Assertions.assertTrue(
                 rule.getOptionalOptions().contains(SnmpSourceOptions.POLL_INTERVAL_MILLIS));
+    }
+
+    @Test
+    void testOptionRuleAcceptsDefaultsAndNumericBoundaries() {
+        validate(baseConfig());
+        Map<String, Object> values = baseConfig();
+        values.put("port", 1);
+        values.put("timeout_millis", 1L);
+        values.put("retries", 0);
+        values.put("poll_interval_millis", 1L);
+        validate(values);
+        values.put("port", 65535);
+        values.put("timeout_millis", Long.MAX_VALUE);
+        values.put("retries", Integer.MAX_VALUE);
+        values.put("poll_interval_millis", Long.MAX_VALUE);
+        validate(values);
+    }
+
+    @Test
+    void testOptionRuleRejectsMissingRequiredOptions() {
+        for (String key : new String[] {"host", "community", "oids"}) {
+            Map<String, Object> values = baseConfig();
+            values.remove(key);
+            Assertions.assertThrows(OptionValidationException.class, () -> validate(values), key);
+        }
+    }
+
+    @Test
+    void testOptionRuleRejectsBlankStrings() {
+        for (String key : new String[] {"host", "community"}) {
+            assertInvalidOption(key, "");
+            assertInvalidOption(key, " \t\n");
+        }
+    }
+
+    @Test
+    void testOptionRuleRejectsInvalidNumericValuesWithoutDisclosingCommunity() {
+        assertInvalidOption("port", 0);
+        assertInvalidOption("port", 65536);
+        assertInvalidOption("timeout_millis", 0L);
+        assertInvalidOption("timeout_millis", -1L);
+        assertInvalidOption("retries", -1);
+        assertInvalidOption("poll_interval_millis", 0L);
+    }
+
+    @Test
+    void testOptionRulePreservesWhitespaceForRuntimeNormalization() {
+        Map<String, Object> values = baseConfig();
+        values.put("host", " 127.0.0.1 ");
+        values.put("community", " monitoring-community ");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(values);
+        ConfigValidator.of(config).validate(new SnmpSourceFactory().optionRule());
+        Assertions.assertEquals(" monitoring-community ", config.get(SnmpSourceOptions.COMMUNITY));
+    }
+
+    private static void assertInvalidOption(String key, Object value) {
+        Map<String, Object> values = baseConfig();
+        values.put(key, value);
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(values));
+        Assertions.assertTrue(exception.getMessage().contains(key));
+        Assertions.assertFalse(exception.getMessage().contains("monitoring-community"));
+    }
+
+    private static void validate(Map<String, Object> values) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(values))
+                .validate(new SnmpSourceFactory().optionRule());
+    }
+
+    private static Map<String, Object> baseConfig() {
+        Map<String, Object> values = new HashMap<>();
+        values.put("host", "127.0.0.1");
+        values.put("community", "monitoring-community");
+        values.put("oids", Arrays.asList(".1.3.6.1.2.1.1.3.0", "1.3.6.1.2.1.1.5.0"));
+        return values;
     }
 }

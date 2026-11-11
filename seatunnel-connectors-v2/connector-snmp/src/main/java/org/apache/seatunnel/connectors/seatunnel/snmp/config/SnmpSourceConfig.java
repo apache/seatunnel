@@ -44,43 +44,23 @@ public final class SnmpSourceConfig implements Serializable, SnmpTargetConfig {
     private final int retries;
     private final long pollIntervalMillis;
 
-    /** Creates an SNMP source configuration from connector options. */
+    /**
+     * Creates an SNMP source configuration from connector options.
+     *
+     * <p>The host/community non-blank and the port, timeout, retries and poll-interval range
+     * constraints are declared in {@link
+     * org.apache.seatunnel.connectors.seatunnel.snmp.source.SnmpSourceFactory#optionRule()} and
+     * enforced by {@code ConfigValidator} before this constructor runs. OID parsing stays here
+     * because it is semantic validation that declarative rules cannot express.
+     */
     public SnmpSourceConfig(ReadonlyConfig config) {
-        String configuredHost = config.get(SnmpSourceOptions.HOST);
-        if (isBlank(configuredHost)) {
-            throw new IllegalArgumentException("SNMP source host must not be blank");
-        }
-        this.host = configuredHost.trim();
+        this.host = config.get(SnmpSourceOptions.HOST).trim();
         this.port = config.get(SnmpSourceOptions.PORT);
         this.community = config.get(SnmpSourceOptions.COMMUNITY);
         this.oids = parseOids(config.get(SnmpSourceOptions.OIDS));
         this.timeoutMillis = config.get(SnmpSourceOptions.TIMEOUT_MILLIS);
         this.retries = config.get(SnmpSourceOptions.RETRIES);
         this.pollIntervalMillis = config.get(SnmpSourceOptions.POLL_INTERVAL_MILLIS);
-        validate();
-    }
-
-    private void validate() {
-        if (port < 1 || port > 65535) {
-            throw new IllegalArgumentException("SNMP source port must be between 1 and 65535");
-        }
-        if (isBlank(community)) {
-            throw new IllegalArgumentException("SNMP source community must not be blank");
-        }
-        if (timeoutMillis <= 0) {
-            throw new IllegalArgumentException("SNMP source timeout_millis must be greater than 0");
-        }
-        if (retries < 0) {
-            throw new IllegalArgumentException("SNMP source retries must not be negative");
-        }
-        if (pollIntervalMillis <= 0) {
-            throw new IllegalArgumentException(
-                    "SNMP source poll_interval_millis must be greater than 0");
-        }
-    }
-
-    private static boolean isBlank(String value) {
-        return value == null || value.trim().isEmpty();
     }
 
     @Override
