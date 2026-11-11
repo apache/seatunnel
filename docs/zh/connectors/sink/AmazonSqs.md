@@ -52,13 +52,13 @@ Amazon SQS 写入连接器用于把每条输入的 SeaTunnel 行数据写入一�
 
 连接器按以下顺序解析 AWS 凭证：
 
-1. 当 `access_key_id` 和 `secret_access_key` 都已配置时，使用这对静态凭证。
-2. 否则，使用 AWS 默认凭证提供链（环境变量、实例角色等）。
+1. 如果 `access_key_id` 和 `secret_access_key` 都已配置，则使用这对静态凭证。
+2. 否则，使用 AWS 默认凭证提供链（环境变量、实例 profile 等）。
 
-如果要在本地对 LocalStack、ElasticMQ 等 SQS 兼容服务做测试，可以把 `url` 指向本地
-服务地址（例如 `http://sqs-host:4566/...`），并配置任意非空的
-`access_key_id` / `secret_access_key`。这类 SQS 兼容测试服务通常不校验请求的
-SigV4 签名，因此任意静态凭证对都会被接受。
+如果要在 LocalStack 或 ElasticMQ 等 SQS 兼容服务上进行本地测试，把 `url` 指向本地
+endpoint（例如 `http://sqs-host:4566/...`），并提供任意非空的
+`access_key_id` / `secret_access_key` 即可。SQS 兼容测试服务通常不会校验请求的
+SigV4 签名，因此任意静态凭证对都可以被接受。
 
 ## 任务示例
 

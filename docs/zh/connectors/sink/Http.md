@@ -81,7 +81,7 @@ Http {
 }
 ```
 
-### 多表
+### 多表模式
 
 #### 示例 1
 
@@ -97,7 +97,7 @@ source {
     url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
-    
+
     table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
   }
 }

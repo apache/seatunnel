@@ -157,10 +157,10 @@ sink {
 }
 ```
 
-### 以流式模式向 GraphQL 服务发送 Mutation
+### 向 GraphQL 服务流式发送 Mutation
 
-在流式模式下持续执行同一条 mutation。Sink 会为每一行数据发送一次 mutation 请求，
-并通过 `retry` 与指数退避来吸收短暂的 HTTP 故障。
+在流式模式下持续执行同一个 mutation。sink 会为每一行发送一次 mutation，并通过
+`retry` 加指数退避来吸收瞬时的 HTTP 失败。
 
 ```hocon
 env {
@@ -192,7 +192,6 @@ sink {
     headers = {
       Authorization = "Bearer ${secret}"
     }
-    variables = {}
     query = """
       mutation MyMutation($id: Int!, $val_string: String!) {
         insert_event(objects: {id: $id, val_string: $val_string}) {
