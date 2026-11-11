@@ -21,6 +21,17 @@ seatunnel:
 
 ## Metrics
 
+> [!NOTE]
+> The metrics endpoints are served through the Hazelcast REST API, which is **disabled by default** in the shipped
+> `config/hazelcast.yaml`. Before scraping, enable it in `hazelcast.yaml` on every node:
+>
+> ```yaml
+> hazelcast:
+>   network:
+>     rest-api:
+>       enabled: true
+> ```
+
 The metric text of prometheus can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`.
 
 The metric text of openMetrics can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
@@ -146,7 +157,7 @@ These metrics are exported by the active master only; scraping a worker node's e
 | job_thread_pool_queueTaskCount      | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The queueTaskCount of seatunnel coordinator job's executor cached thread pool  |
 | job_thread_pool_completedTask_total | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The completedTask of seatunnel coordinator job's executor cached thread pool   |
 | job_thread_pool_task_total          | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The taskCount of seatunnel coordinator job's executor cached thread pool       |
-| job_thread_pool_rejection_total     | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The rejectionCount of seatunnel coordinator job's executor cached thread pool  |                                                                        |
+| job_thread_pool_rejection_total     | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The rejectionCount of seatunnel coordinator job's executor cached thread pool  |
 
 ### Report Metrics Operation
 

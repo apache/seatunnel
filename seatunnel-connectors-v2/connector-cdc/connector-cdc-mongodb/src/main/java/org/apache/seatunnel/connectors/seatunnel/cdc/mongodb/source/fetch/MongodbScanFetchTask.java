@@ -129,27 +129,40 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
                                     WatermarkKind.HIGH,
                                     highWatermark)));
 
-            log.info(
-                    "Snapshot step 4 - Back fill stream split for snapshot split {}",
-                    snapshotSplit);
-            final IncrementalSplit dataBackfillSplit =
-                    createBackfillStreamSplit(lowWatermark, highWatermark);
-            final boolean streamBackfillRequired =
-                    dataBackfillSplit.getStopOffset().isAfter(dataBackfillSplit.getStartupOffset());
+            if (taskContext.isExactlyOnce()) {
+                log.info(
+                        "Snapshot step 4 - Back fill stream split for snapshot split {}",
+                        snapshotSplit);
+                final IncrementalSplit dataBackfillSplit =
+                        createBackfillStreamSplit(lowWatermark, highWatermark);
+                final boolean streamBackfillRequired =
+                        dataBackfillSplit
+                                .getStopOffset()
+                                .isAfter(dataBackfillSplit.getStartupOffset());
 
-            if (!streamBackfillRequired) {
-                changeEventQueue.enqueue(
-                        new DataChangeEvent(
-                                WatermarkEvent.create(
-                                        createWatermarkPartitionMap(collectionId.identifier()),
-                                        "__mongodb_watermarks",
-                                        dataBackfillSplit.splitId(),
-                                        WatermarkKind.END,
-                                        dataBackfillSplit.getStopOffset())));
+                if (!streamBackfillRequired) {
+                    changeEventQueue.enqueue(
+                            new DataChangeEvent(
+                                    WatermarkEvent.create(
+                                            createWatermarkPartitionMap(collectionId.identifier()),
+                                            "__mongodb_watermarks",
+                                            dataBackfillSplit.splitId(),
+                                            WatermarkKind.END,
+                                            dataBackfillSplit.getStopOffset())));
+                } else {
+                    MongodbStreamFetchTask dataBackfillTask =
+                            new MongodbStreamFetchTask(dataBackfillSplit);
+                    dataBackfillTask.execute(taskContext);
+                }
             } else {
-                MongodbStreamFetchTask dataBackfillTask =
-                        new MongodbStreamFetchTask(dataBackfillSplit);
-                dataBackfillTask.execute(taskContext);
+                // For non-exactly-once mode, the consumer stops reading after HIGH watermark,
+                // so backfill events would fill up the queue and cause a deadlock.
+                // Skip backfill entirely — the END watermark is not required here
+                // because pollSplitRecordsIfNotExactlyOnce() only watches for HIGH,
+                // and the stream split already starts at the low watermark.
+                log.info(
+                        "Snapshot step 4 - Skipping backfill for non-exactly-once mode, split {}",
+                        snapshotSplit);
             }
         } catch (Exception e) {
             throw new MongodbConnectorException(

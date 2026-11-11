@@ -42,7 +42,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -169,6 +173,70 @@ public class JdbcMysqlTimestampIT extends TestSuiteBase implements TestResource 
                         + result.getStderr());
     }
 
+    /** Checks stored values independently of JDBC temporal deserialization. */
+    @TestTemplate
+    public void testMysqlDatetimeRoundTrip(TestContainer container) throws Exception {
+        for (String connectionZone : Arrays.asList("UTC", "Asia/Shanghai")) {
+            for (boolean serverPrepared : Arrays.asList(false, true)) {
+                try (Connection connection = mysqlConnection();
+                        Statement statement = connection.createStatement()) {
+                    statement.execute("TRUNCATE TABLE datetime_sink");
+                }
+                Container.ExecResult result =
+                        container.executeJob(
+                                "/jdbc_mysql_datetime_round_trip.conf",
+                                Arrays.asList(
+                                        "connection_zone=" + connectionZone,
+                                        "server_prepared=" + serverPrepared));
+                Assertions.assertEquals(
+                        0,
+                        result.getExitCode(),
+                        "DATETIME round trip failed: "
+                                + connectionZone
+                                + ", serverPrepared="
+                                + serverPrepared
+                                + "\n"
+                                + result.getStderr());
+                Assertions.assertEquals(
+                        storedTemporalValues("datetime_source"),
+                        storedTemporalValues("datetime_sink"),
+                        "Stored temporal values changed: "
+                                + connectionZone
+                                + ", serverPrepared="
+                                + serverPrepared);
+            }
+        }
+    }
+
+    private Connection mysqlConnection() throws Exception {
+        return DriverManager.getConnection(
+                String.format(
+                        "jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+                        mysqlContainer.getHost(),
+                        mysqlContainer.getFirstMappedPort(),
+                        MYSQL_DATABASE),
+                MYSQL_USER,
+                MYSQL_PASSWORD);
+    }
+
+    private List<String> storedTemporalValues(String table) throws Exception {
+        List<String> values = new ArrayList<>();
+        try (Connection connection = mysqlConnection();
+                Statement statement = connection.createStatement();
+                ResultSet result =
+                        statement.executeQuery(
+                                "SELECT id, DATE_FORMAT(dt_col, '%Y-%m-%d %H:%i:%s.%f'), "
+                                        + "UNIX_TIMESTAMP(ts_col) FROM "
+                                        + table
+                                        + " ORDER BY id")) {
+            while (result.next()) {
+                values.add(
+                        result.getInt(1) + ":" + result.getString(2) + ":" + result.getString(3));
+            }
+        }
+        return values;
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
@@ -188,6 +256,30 @@ public class JdbcMysqlTimestampIT extends TestSuiteBase implements TestResource 
                             + "  dt_col   DATETIME,"
                             + "  ts_col   TIMESTAMP NULL"
                             + ")");
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS datetime_source ("
+                            + "id INT PRIMARY KEY, dt_col DATETIME(6), ts_col TIMESTAMP(6) NULL)");
+            stmt.execute("CREATE TABLE IF NOT EXISTS datetime_sink LIKE datetime_source");
+            stmt.execute("TRUNCATE TABLE datetime_source");
+            List<String> datetimes =
+                    Arrays.asList(
+                            "2026-01-01 12:34:56.123456",
+                            "2025-12-31 23:59:59.999999",
+                            "2026-01-01 00:00:00.000001",
+                            "1969-12-31 23:59:59.123456",
+                            "2026-03-08 02:30:00.123456",
+                            "2026-11-01 01:30:00.654321",
+                            "1000-01-01 00:00:00.000000",
+                            "9999-12-31 23:59:59.999999");
+            for (int i = 0; i < datetimes.size(); i++) {
+                stmt.execute(
+                        "INSERT INTO datetime_source VALUES ("
+                                + i
+                                + ", '"
+                                + datetimes.get(i)
+                                + "', '2026-01-01 12:34:56.123456')");
+            }
+            stmt.execute("INSERT INTO datetime_source VALUES (8, NULL, NULL)");
             // Insert a fixed wall-clock value: 2026-01-01 00:00:00
             // DATETIME stores it as-is (NTZ); TIMESTAMP stores UTC and displays in session TZ.
             stmt.execute(

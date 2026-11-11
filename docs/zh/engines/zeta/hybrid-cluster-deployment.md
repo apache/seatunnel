@@ -334,10 +334,11 @@ map:
            fs.defaultFS: file:///
 ```
 
-说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照。即使通过 `map.engine*`
-配置了 `map-store`，它也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致
-WAL 持续膨胀。Engine 重启后，running-job metrics 不会延续重启前的 snapshot，而是由后续
-report 重新构建。
+说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照，`engine_checkpoint_monitor`
+保存的是 REST API 使用的 checkpoint overview/history。即使通过 `map.engine*` 配置了
+`map-store`，它们也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致 WAL
+持续膨胀。Engine 重启后，running-job metrics 由后续 report 重新构建，checkpoint
+overview/history 从下一次 checkpoint 开始重新记录，而不会延续重启前的状态。
 
 如果您使用 OSS，可以像这样配置：
 
@@ -360,14 +361,24 @@ map:
            fs.oss.endpoint: OSS endpoint
 ```
 
+如果要通过环境变量提供 OSS 凭据，请删除 `fs.oss.accessKeyId` 和
+`fs.oss.accessKeySecret`，并增加：
+
+```yaml
+           fs.oss.credentials.provider: com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider
+```
+
+该 Provider 读取 `OSS_ACCESS_KEY_ID` 和 `OSS_ACCESS_KEY_SECRET`，临时凭据还可使用
+`OSS_SESSION_TOKEN`。
+
 注意：使用OSS 时，确保 lib目录下有这几个jar。
 
 其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
 
 ```
-aliyun-sdk-oss-3.13.2.jar
-hadoop-aliyun-3.3.6.jar
-jdom2-2.0.6.jar
+aliyun-sdk-oss-3.4.1.jar
+hadoop-aliyun-3.1.4.jar
+jdom-1.1.jar
 netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
 seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
@@ -434,7 +445,7 @@ mkdir -p $SEATUNNEL_HOME/logs
 ./bin/seatunnel-cluster.sh -d
 ```
 
-日志将写入 `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`
+日志将写入 `$SEATUNNEL_HOME/logs/` 目录——默认的 master-and-worker 部署写入 `seatunnel-engine-server.log`
 
 ## 8. 提交作业和管理作业
 

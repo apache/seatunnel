@@ -180,20 +180,12 @@ MapStore 使用 `FileMapStoreFactory`。其中 `type: hdfs` 是 IMap 文件存�
 
 ### Checkpoint Monitor MapStore
 
-如果不希望持久化 checkpoint monitor 数据，可以为 `engine_checkpoint_monitor` 添加显式覆盖：
-
-```yaml
-hazelcast:
-  map:
-    engine_checkpoint_monitor:
-      map-store:
-        enabled: false
-```
+即使 `engine*` 启用了 MapStore，`engine_checkpoint_monitor` 也不会写入 MapStore，因此无需为它添加覆盖。
 
 :::info 说明
 这个 IMap 存储的是 REST API 和 UI 观测使用的 checkpoint overview/history 数据，并不是用于恢复的权威 checkpoint 状态。真正的 checkpoint 恢复状态由 `seatunnel.engine.checkpoint.storage` 写入 HDFS、S3、OSS 或其他已配置的 checkpoint 存储后端。
 
-这个覆盖是可选的。需要避免持久化仅用于观测的数据、减少 MapStore/WAL 写放大时可以使用；如果希望 checkpoint monitor 的 overview/history 与其他 `engine*` IMap 使用相同的 MapStore 配置，可以不添加该覆盖。
+与 `engine_runningJobMetrics` 一样，它被排除在 MapStore 持久化之外，以避免 MapStore/WAL 写放大。所有节点重启后，checkpoint overview/history 会从下一次 checkpoint 开始重新记录。已有的 `enabled: false` 的 `engine_checkpoint_monitor` 覆盖不再需要，可以删除。
 :::
 
 ### HDFS
@@ -283,7 +275,20 @@ properties:
 
 阿里云 OSS 使用 Hadoop OSS 配置，并通过 `oss.bucket` 指定目标 bucket。`fs.oss.endpoint` 需要按 bucket 所在地域、专有云或兼容 OSS 服务的实际地址填写。
 
-Hadoop Aliyun OSS 的默认凭据 provider 读取 `fs.oss.accessKeyId`、`fs.oss.accessKeySecret`，临时凭据可额外配置 `fs.oss.securityToken`。它没有像 Hadoop S3A 一样的默认环境变量认证链，因此 Kubernetes Secret 注入成环境变量后不会自动生效。
+Hadoop Aliyun OSS 的默认凭据 provider 读取 `fs.oss.accessKeyId`、`fs.oss.accessKeySecret`，临时凭据可额外配置 `fs.oss.securityToken`。如果要从环境变量读取凭据并且不把凭据渲染到 ConfigMap 中，可以选择 OSS SDK 的环境变量 provider：
+
+```yaml
+properties:
+  type: hdfs
+  namespace: /seatunnel/imap
+  clusterName: seatunnel-cluster
+  storage.type: oss
+  oss.bucket: oss://seatunnel-bucket
+  fs.oss.endpoint: https://oss-<region>.aliyuncs.com
+  fs.oss.credentials.provider: com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider
+```
+
+该 provider 固定读取环境变量 `OSS_ACCESS_KEY_ID` 和 `OSS_ACCESS_KEY_SECRET`，使用临时凭据时还会读取 `OSS_SESSION_TOKEN`。请将这些变量注入每个 Master 和 Worker Pod。
 
 ```yaml
 hazelcast:
@@ -304,12 +309,59 @@ hazelcast:
           fs.oss.accessKeySecret: YOUR_ACCESS_KEY_SECRET
 ```
 
-如果不希望把 OSS 凭据渲染到最终 ConfigMap，可以使用 Hadoop credential provider 存储 `fs.oss.accessKeyId`、`fs.oss.accessKeySecret`，或通过 `fs.oss.credentials.provider` 指定自定义 provider。自定义 provider 需要实现 Aliyun OSS SDK 的 `com.aliyun.oss.common.auth.CredentialsProvider`，并在 SeaTunnel 镜像中可被加载。
+如果不希望把 OSS 凭据渲染到最终 ConfigMap，可以使用上面的环境变量 provider、Hadoop credential provider，或通过 `fs.oss.credentials.provider` 指定自定义 provider。自定义 provider 需要实现 Aliyun OSS SDK 的 `com.aliyun.oss.common.auth.CredentialsProvider`，并在 SeaTunnel 镜像中可被加载。
+
+#### 从 Kubernetes Secret 注入凭据
+
+Kubernetes 会在 Pod 启动时将 Secret 的值注入容器进程的环境变量。凭据不会写入 Docker 镜像，也不需要配置 Dockerfile 的 `ENV`。需要为所有可能访问检查点或 IMap 存储的 Master 和 Worker 容器注入凭据。
+
+如果 Secret 的 key 已经使用固定的环境变量名，可以直接使用 `envFrom`：
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: seatunnel-oss-credentials
+type: Opaque
+stringData:
+  OSS_ACCESS_KEY_ID: your-access-key
+  OSS_ACCESS_KEY_SECRET: your-secret-key
+  OSS_SESSION_TOKEN: your-session-token # 永久凭据不需要这一项
+---
+spec:
+  template:
+    spec:
+      containers:
+        - name: seatunnel
+          envFrom:
+            - secretRef:
+                name: seatunnel-oss-credentials
+```
+
+如果 Secret 使用了其他 key 名称，需要显式映射为 Provider 要求的固定变量名：
+
+```yaml
+containers:
+  - name: seatunnel
+    env:
+      - name: OSS_ACCESS_KEY_ID
+        valueFrom:
+          secretKeyRef:
+            name: seatunnel-oss-credentials
+            key: access-key
+      - name: OSS_ACCESS_KEY_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: seatunnel-oss-credentials
+            key: secret-key
+```
+
+不要给 `envFrom` 设置 `prefix`，因为 Provider 只会读取上面列出的固定变量名。Secret 更新后，运行中容器的环境变量不会自动变化；轮换凭据后需要重启或触发 StatefulSet 滚动更新。
 
 `backup-count: 1` 时，Master 至少需要 2 个副本，才能保存 IMap 备份副本。
 
 :::caution 注意
-不要把真实 access key、secret key 直接提交到 ConfigMap 或 Git 仓库。Kubernetes 不会在 ConfigMap 文件内容中解析 `secretKeyRef`，SeaTunnel/Hazelcast 读取到的必须是最终可用的 YAML 配置。生产环境建议通过 Helm、Kustomize、External Secrets、CI/CD 或镜像构建流程生成最终 ConfigMap，或者使用 Hadoop credential provider、AWS SDK 环境变量 provider、云厂商凭据链、挂载凭据文件等底层文件系统真正支持的凭据方式，并确保所有 Master Pod 具有相同的对象存储读写权限。
+不要把真实 access key、secret key 直接提交到 ConfigMap 或 Git 仓库。Kubernetes 不会在 ConfigMap 文件内容中解析 `secretKeyRef`，SeaTunnel/Hazelcast 读取到的必须是最终可用的 YAML 配置。生产环境建议通过 Helm、Kustomize、External Secrets、CI/CD 或镜像构建流程生成最终 ConfigMap，或者使用 Hadoop credential provider、AWS SDK 环境变量 provider、云厂商凭据链、挂载凭据文件等底层文件系统真正支持的凭据方式，并确保所有 Master 和 Worker Pod 具有相同的对象存储读写权限。
 :::
 
 如果使用 S3 或 OSS，SeaTunnel 镜像中还需要包含对应 Hadoop 文件系统实现及其依赖，例如 Hadoop AWS/AWS SDK 或 Hadoop Aliyun/OSS SDK。Checkpoint 存储和 IMap MapStore 可以使用同一个对象存储服务，但建议使用不同的 `namespace` 前缀，例如 `/seatunnel/checkpoint/` 和 `/seatunnel/imap`。

@@ -18,7 +18,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行性](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
 
@@ -33,7 +33,9 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | Kudu 数据类型 | SeaTunnel 数据类型 |
 |-------------|------------------|
 | BOOL | BOOLEAN |
-| INT8<br/>INT16<br/>INT32 | INT |
+| INT8 | TINYINT |
+| INT16 | SMALLINT |
+| INT32 | INT |
 | INT64 | BIGINT |
 | DECIMAL | DECIMAL |
 | FLOAT | FLOAT |
