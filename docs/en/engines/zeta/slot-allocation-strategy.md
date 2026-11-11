@@ -1,3 +1,7 @@
+---
+sidebar_position: 15
+---
+
 # Slot Allocation Strategy
 
 Slot allocation strategy is an important part of SeaTunnel Engine, which determines how SeaTunnel Engine allocates tasks to different slots. The slot allocation strategy is a configurable component, and users can configure the slot allocation strategy according to their needs.

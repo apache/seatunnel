@@ -19,6 +19,8 @@ chunk text and its 0-based sequence index within the source document.
 | overlap_size      | int    | no       | 0             |
 | separators        | array  | no       | ["\n\n", "\n", "。", "！", "？", ". ", " "] |
 | skip_empty_text   | boolean| no       | true          |
+| table_match_regex | string | no       | `.*`          |
+| table_transform   | array  | no       | -             |
 
 ### text_field [string]
 
@@ -71,6 +73,18 @@ on. If the list is left empty, the transform falls back to fixed-size splitting.
 Controls how a row whose `text_field` is `null` or empty is handled. When `true` the row is dropped;
 when `false` the row is passed through (`output_field` set to `null`, `chunk_index_field` set to `0`).
 Defaults to `true`.
+
+### table_match_regex [string]
+
+Regex matched against the upstream table path. The transform level rule only applies to matching
+tables. Defaults to `.*` (every table).
+
+### table_transform [array]
+
+A list of per-table rules, used when the upstream source outputs several tables. Each entry contains
+`table_path` in the form `databaseName[.schemaName].tableName` plus a complete TextChunk rule for
+that table (`text_field` and the optional chunking options). Tables with an entry are not affected
+by the transform level rule. See [Multi-Table Transform](transform-multi-table.md).
 
 ### common options [string]
 

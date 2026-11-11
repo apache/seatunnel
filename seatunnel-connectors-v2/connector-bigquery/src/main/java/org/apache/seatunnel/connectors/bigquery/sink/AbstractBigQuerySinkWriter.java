@@ -63,11 +63,14 @@ public abstract class AbstractBigQuerySinkWriter
 
     protected final ReadonlyConfig config;
     protected BigQuerySerializer serializer;
-    // Mutable: assigned eagerly by the constructor, or lazily by setMultiTableResourceManager()
-    // once the shared client is injected by the multi-table sink runtime.
+    // Mutable: assigned by the constructor, by setMultiTableResourceManager() when the multi-table
+    // sink runtime injects the shared client, or by ensureStreamWriter() on first use otherwise.
     protected BigQueryWriteClient client;
     protected BigQueryWriter streamWriter;
     protected TableSchema tableSchema;
+    // True only for a client created by ensureStreamWriter(), which close() must release. A client
+    // injected by the multi-table runtime is shared with sibling writers and must stay open.
+    private boolean ownsClient;
 
     protected final int batchSize;
     protected JSONArray buffer = new JSONArray();
@@ -106,8 +109,36 @@ public abstract class AbstractBigQuerySinkWriter
         return new BigQueryMultiTableResourceManager(BigQueryClientFactory.getWriteClient(config));
     }
 
+    @Override
+    public void setMultiTableResourceManager(
+            MultiTableResourceManager<BigQueryWriteClient> manager, int queueIndex) {
+        log.info("Injecting shared client and initializing BigQuery stream writer...");
+        this.client = manager.getSharedResource().get();
+        ensureStreamWriter();
+    }
+
+    /**
+     * Prepares the stream writer if it does not exist yet. A sink with several inputs is not
+     * wrapped in the multi-table sink, so {@link #setMultiTableResourceManager} is never called and
+     * the writer has to open its own client on first use.
+     */
+    protected void ensureStreamWriter() {
+        if (streamWriter != null) {
+            return;
+        }
+        if (client == null) {
+            client = BigQueryClientFactory.getWriteClient(config);
+            ownsClient = true;
+        }
+        streamWriter = openStreamWriter();
+    }
+
+    /** Opens the stream this writer appends to, using {@link #client}. */
+    protected abstract BigQueryWriter openStreamWriter();
+
     protected void flush() {
-        if (streamWriter == null || buffer.length() == 0) return;
+        if (buffer.length() == 0) return;
+        ensureStreamWriter();
 
         JSONArray dataToSend = buffer;
         buffer = new JSONArray();
@@ -257,6 +288,7 @@ public abstract class AbstractBigQuerySinkWriter
         BigQuerySerializer evolvedSerializer =
                 new BigQuerySerializer(evolvedTableSchema.toPhysicalRowDataType(), config);
 
+        ensureStreamWriter();
         flush();
         getSchemaChangeManager().applySchemaChange(event);
         BigQueryWriter evolvedWriter = streamWriter.refreshSchema(client, config);
@@ -291,6 +323,13 @@ public abstract class AbstractBigQuerySinkWriter
             // The shared BigQueryWriteClient is owned by BigQueryMultiTableResourceManager and is
             // closed once for the whole multi-table sink writer group; closing it per-writer here
             // would break sibling replica writers still using it.
+            if (ownsClient) {
+                try {
+                    client.close();
+                } catch (Exception e) {
+                    log.warn("Failed to close BigQueryWriteClient", e);
+                }
+            }
         }
     }
 }
