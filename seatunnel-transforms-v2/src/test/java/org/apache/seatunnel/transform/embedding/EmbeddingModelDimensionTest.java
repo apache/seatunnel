@@ -41,6 +41,7 @@ import org.apache.http.util.EntityUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -63,15 +64,37 @@ import java.util.concurrent.atomic.AtomicLong;
 public class EmbeddingModelDimensionTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"OPENAI", "CUSTOM", "ZHIPU", "QIANFAN", "DOUBAO", "DOUBAO_MULTIMODAL"})
-    void testHttpProvidersPropagateRetryAfterAndStopAtCap(String provider) throws IOException {
+    @CsvSource({
+        "OPENAI, false, 0",
+        "CUSTOM, false, 0",
+        "ZHIPU, false, 0",
+        "QIANFAN, false, 0",
+        "DOUBAO, false, 0",
+        "DOUBAO_MULTIMODAL, false, 0",
+        "OPENAI, true, 0",
+        "OPENAI, false, 3000"
+    })
+    void testHttpProvidersPropagateRetryAfterAndStopAtCap(
+            String provider, boolean largeRequest, long responseDelayMs) throws IOException {
         AtomicInteger requests = new AtomicInteger();
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext(
                 "/embeddings",
                 exchange -> {
                     try {
-                        requests.incrementAndGet();
+                        int request = requests.incrementAndGet();
+                        byte[] requestBuffer = new byte[8192];
+                        while (exchange.getRequestBody().read(requestBuffer) != -1) {
+                            // Consume the POST before replying to avoid transport retries on close.
+                        }
+                        if (request == 1 && responseDelayMs > 0) {
+                            try {
+                                Thread.sleep(responseDelayMs);
+                            } catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
+                                throw new IOException(interrupted);
+                            }
+                        }
                         exchange.getResponseHeaders().set("Retry-After", "2");
                         byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
                         exchange.sendResponseHeaders(429, body.length);
@@ -82,7 +105,9 @@ public class EmbeddingModelDimensionTest {
                 });
         server.start();
         String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/embeddings";
-        ModelInvocationOptions options = new ModelInvocationOptions(3, 0, 1000, 2000);
+        // Keep socket I/O headroom separate from the retry cap being tested.
+        ModelInvocationOptions options = new ModelInvocationOptions(3, 0, 1000, 10_000);
+        String document = largeRequest ? "x".repeat(8 * 1024 * 1024) : "document";
         try (Model model = httpModel(provider, endpoint, options)) {
             ModelInvocationException exception =
                     Assertions.assertThrows(
@@ -91,7 +116,7 @@ public class EmbeddingModelDimensionTest {
                                 if ("DOUBAO_MULTIMODAL".equals(provider)) {
                                     model.dimension();
                                 } else {
-                                    model.vectorization(new Object[] {"document"});
+                                    model.vectorization(new Object[] {document});
                                 }
                             });
             Assertions.assertEquals(2000L, exception.getRetryAfterMs());
