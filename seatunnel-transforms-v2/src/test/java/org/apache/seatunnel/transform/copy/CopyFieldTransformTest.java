@@ -29,14 +29,13 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.VectorUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -59,6 +58,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -73,7 +73,6 @@ public class CopyFieldTransformTest {
     private static final String SOURCE_FIELD = "source_field";
     private static final String COPIED_FIELD = "copied_field";
     private static final String NESTED_TABLE_ID = "nested_table";
-    private static final String UNKNOWN_TABLE_ID = "unknown_table";
 
     @ParameterizedTest
     @MethodSource("basicTypes")
@@ -155,9 +154,56 @@ public class CopyFieldTransformTest {
 
         ByteBuffer copiedBuffer = (ByteBuffer) result.getField(1);
         assertNotSame(sourceBuffer, copiedBuffer);
-        assertTrue(copiedBuffer.isDirect());
+        assertFalse(copiedBuffer.isDirect());
+        assertTrue(copiedBuffer.hasArray());
         assertEquals(ByteOrder.LITTLE_ENDIAN, copiedBuffer.order());
         assertArrayEquals(createSampleBytes(), toBytes(copiedBuffer));
+    }
+
+    @Test
+    void testFloatVectorCloneReadableByVectorUtils() {
+        Float[] values = new Float[] {1.5f, -2f, 3.25f};
+        ByteBuffer sourceBuffer = VectorUtils.toByteBuffer(values);
+
+        ByteBuffer copiedBuffer = copyVector(VectorType.VECTOR_FLOAT_TYPE, sourceBuffer);
+
+        assertArrayEquals(values, VectorUtils.toFloatArray(copiedBuffer));
+        assertEquals(0, sourceBuffer.position());
+    }
+
+    @Test
+    void testFloat16VectorCloneReadableByVectorUtils() {
+        Short[] values = new Short[] {1, -2, 300};
+        ByteBuffer sourceBuffer = VectorUtils.toByteBuffer(values);
+
+        ByteBuffer copiedBuffer = copyVector(VectorType.VECTOR_FLOAT16_TYPE, sourceBuffer);
+
+        assertArrayEquals(values, VectorUtils.toShortArray(copiedBuffer));
+    }
+
+    @Test
+    void testBinaryVectorCloneExposesBackingArray() {
+        byte[] bytes = createSampleBytes();
+
+        ByteBuffer copiedBuffer = copyVector(VectorType.VECTOR_BINARY_TYPE, ByteBuffer.wrap(bytes));
+
+        assertTrue(copiedBuffer.hasArray());
+        assertArrayEquals(createSampleBytes(), copiedBuffer.array());
+    }
+
+    @Test
+    void testDenseVectorCloneCopiesWholeBufferFromNonZeroPosition() {
+        Float[] values = new Float[] {1.5f, -2f, 3.25f};
+        ByteBuffer sourceBuffer = VectorUtils.toByteBuffer(values);
+        sourceBuffer.getFloat();
+
+        ByteBuffer copiedBuffer = copyVector(VectorType.VECTOR_FLOAT_TYPE, sourceBuffer);
+
+        assertEquals(0, copiedBuffer.position());
+        assertEquals(12, copiedBuffer.limit());
+        assertEquals(12, copiedBuffer.capacity());
+        assertArrayEquals(values, VectorUtils.toFloatArray(copiedBuffer));
+        assertEquals(4, sourceBuffer.position());
     }
 
     @Test
@@ -279,37 +325,6 @@ public class CopyFieldTransformTest {
     }
 
     @Test
-    void testMultipleRowClone() {
-        String tableId = NESTED_TABLE_ID;
-        Integer[] sourceValues = new Integer[] {1, 2, 3};
-        SeaTunnelRow nestedRow = createNestedRow(sourceValues, tableId);
-
-        CatalogTable catalogTable = createCatalogTable(createMultipleRowType(tableId));
-        CopyFieldTransform transform = buildTransform(catalogTable);
-        Column[] outputColumns = transform.getOutputColumns();
-        assertEquals(1, outputColumns.length);
-        assertEquals(COPIED_FIELD, outputColumns[0].getName());
-        assertEquals(SqlType.MULTIPLE_ROW, outputColumns[0].getDataType().getSqlType());
-        MultipleRowType outputType = (MultipleRowType) outputColumns[0].getDataType();
-        assertArrayEquals(new String[] {tableId}, outputType.getTableIds());
-        assertEquals(createSimpleNestedRowType(), outputType.getRowType(tableId));
-
-        transform.getProducedCatalogTable();
-
-        SeaTunnelRow result = transform.transform(new SeaTunnelRow(new Object[] {nestedRow}));
-
-        SeaTunnelRow copiedNestedRow = (SeaTunnelRow) result.getField(1);
-        Integer[] copiedValues = (Integer[]) copiedNestedRow.getField(0);
-        assertNotSame(sourceValues, copiedValues);
-        assertArrayEquals(new Integer[] {1, 2, 3}, copiedValues);
-        assertEquals(tableId, copiedNestedRow.getTableId());
-        assertEquals(nestedRow.getRowKind(), copiedNestedRow.getRowKind());
-
-        sourceValues[0] = 8;
-        assertArrayEquals(new Integer[] {1, 2, 3}, copiedValues);
-    }
-
-    @Test
     void testNullClone() {
         CatalogTable catalogTable = createCatalogTable(BasicType.STRING_TYPE);
         CopyFieldTransform transform = buildTransform(catalogTable);
@@ -326,56 +341,36 @@ public class CopyFieldTransformTest {
     }
 
     @Test
-    void multipleRowCloneShouldFailWithoutTableId() {
-        SeaTunnelRow nestedRow = createNestedRow(new Integer[] {1, 2, 3}, "");
-
-        CatalogTable catalogTable = createCatalogTable(createMultipleRowType(NESTED_TABLE_ID));
-        CopyFieldTransform transform = buildTransform(catalogTable);
-        Column[] outputColumns = transform.getOutputColumns();
-        assertEquals(1, outputColumns.length);
-        assertEquals(COPIED_FIELD, outputColumns[0].getName());
-        assertEquals(SqlType.MULTIPLE_ROW, outputColumns[0].getDataType().getSqlType());
-
-        MultipleRowType outputType = (MultipleRowType) outputColumns[0].getDataType();
-        assertArrayEquals(new String[] {NESTED_TABLE_ID}, outputType.getTableIds());
-        assertEquals(createSimpleNestedRowType(), outputType.getRowType(NESTED_TABLE_ID));
-
+    void denseVectorCloneShouldFailForNonByteBufferValue() {
+        CopyFieldTransform transform =
+                buildTransform(createCatalogTable(VectorType.VECTOR_FLOAT_TYPE));
         transform.getProducedCatalogTable();
 
         SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
                         SeaTunnelRuntimeException.class,
-                        () -> transform.transform(new SeaTunnelRow(new Object[] {nestedRow})));
+                        () ->
+                                transform.transform(
+                                        new SeaTunnelRow(new Object[] {createSampleBytes()})));
 
         assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:['Copy' unsupported data type 'MULTIPLE_ROW' of 'tableId']",
+                "ErrorCode:[COMMON-07], ErrorDescription:['Copy' unsupported data type 'FLOAT_VECTOR' of 'copied_field']",
                 exception.getMessage());
     }
 
     @Test
-    void multipleRowCloneShouldFailWithUnknownTableId() {
-        SeaTunnelRow nestedRow = createNestedRow(new Integer[] {1, 2, 3}, UNKNOWN_TABLE_ID);
-
-        CatalogTable catalogTable = createCatalogTable(createMultipleRowType(NESTED_TABLE_ID));
-        CopyFieldTransform transform = buildTransform(catalogTable);
-        Column[] outputColumns = transform.getOutputColumns();
-        assertEquals(1, outputColumns.length);
-        assertEquals(COPIED_FIELD, outputColumns[0].getName());
-        assertEquals(SqlType.MULTIPLE_ROW, outputColumns[0].getDataType().getSqlType());
-
-        MultipleRowType outputType = (MultipleRowType) outputColumns[0].getDataType();
-        assertArrayEquals(new String[] {NESTED_TABLE_ID}, outputType.getTableIds());
-        assertEquals(createSimpleNestedRowType(), outputType.getRowType(NESTED_TABLE_ID));
-
+    void sparseVectorCloneShouldFailForNonMapValue() {
+        CopyFieldTransform transform =
+                buildTransform(createCatalogTable(VectorType.VECTOR_SPARSE_FLOAT_TYPE));
         transform.getProducedCatalogTable();
 
         SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
                         SeaTunnelRuntimeException.class,
-                        () -> transform.transform(new SeaTunnelRow(new Object[] {nestedRow})));
+                        () -> transform.transform(new SeaTunnelRow(new Object[] {"not a map"})));
 
         assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:['Copy' unsupported data type 'MULTIPLE_ROW' of 'unknown_table']",
+                "ErrorCode:[COMMON-07], ErrorDescription:['Copy' unsupported data type 'SPARSE_FLOAT_VECTOR' of 'copied_field']",
                 exception.getMessage());
     }
 
@@ -431,11 +426,6 @@ public class CopyFieldTransformTest {
                 new String[] {"nested_values"}, new SeaTunnelDataType[] {ArrayType.INT_ARRAY_TYPE});
     }
 
-    private static MultipleRowType createMultipleRowType(String tableId) {
-        SeaTunnelRowType nestedRowType = createSimpleNestedRowType();
-        return new MultipleRowType(new String[] {tableId}, new SeaTunnelRowType[] {nestedRowType});
-    }
-
     private static SeaTunnelRowType createRecursiveRowType() {
         return new SeaTunnelRowType(
                 new String[] {"nested_array", "nested_map"},
@@ -443,6 +433,13 @@ public class CopyFieldTransformTest {
                     ArrayType.INT_ARRAY_TYPE,
                     new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
                 });
+    }
+
+    private static ByteBuffer copyVector(SeaTunnelDataType<?> dataType, ByteBuffer sourceBuffer) {
+        CopyFieldTransform transform = buildTransform(createCatalogTable(dataType));
+        transform.getProducedCatalogTable();
+        SeaTunnelRow result = transform.transform(new SeaTunnelRow(new Object[] {sourceBuffer}));
+        return (ByteBuffer) result.getField(1);
     }
 
     private static byte[] toBytes(ByteBuffer buffer) {

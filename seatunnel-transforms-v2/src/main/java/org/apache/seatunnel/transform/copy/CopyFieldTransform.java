@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
@@ -155,8 +154,16 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
             case FLOAT_VECTOR:
             case FLOAT16_VECTOR:
             case BFLOAT16_VECTOR:
+                if (!(value instanceof ByteBuffer)) {
+                    throw CommonError.unsupportedDataType(
+                            getPluginName(), dataType.getSqlType().toString(), field);
+                }
                 return cloneByteBuffer((ByteBuffer) value);
             case SPARSE_FLOAT_VECTOR:
+                if (!(value instanceof Map)) {
+                    throw CommonError.unsupportedDataType(
+                            getPluginName(), dataType.getSqlType().toString(), field);
+                }
                 return new HashMap<>((Map<?, ?>) value);
             case ARRAY:
                 ArrayType arrayType = (ArrayType) dataType;
@@ -179,8 +186,6 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
                 return newMap;
             case ROW:
                 return cloneRow((SeaTunnelRowType) dataType, (SeaTunnelRow) value);
-            case MULTIPLE_ROW:
-                return cloneMultipleRow((MultipleRowType) dataType, (SeaTunnelRow) value);
             case NULL:
                 return null;
             default:
@@ -190,15 +195,13 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
     }
 
     /**
-     * Copies the remaining readable bytes into independent storage while preserving byte order and
-     * direct allocation. Duplicating the source leaves its position and limit unchanged.
+     * Copies all bytes up to capacity, regardless of position and limit, into a new heap buffer
+     * positioned at 0, keeping the byte order. The source buffer is not modified.
      */
     private ByteBuffer cloneByteBuffer(ByteBuffer value) {
         ByteBuffer source = value.duplicate();
-        ByteBuffer clone =
-                value.isDirect()
-                        ? ByteBuffer.allocateDirect(source.remaining())
-                        : ByteBuffer.allocate(source.remaining());
+        ((Buffer) source).clear();
+        ByteBuffer clone = ByteBuffer.allocate(source.capacity());
         clone.order(value.order());
         clone.put(source);
         ((Buffer) clone).flip();
@@ -206,8 +209,8 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
     }
 
     /**
-     * Recursively copies fields using the selected schema and retains the row kind and table ID.
-     * The new field array isolates mutable values according to their declared SeaTunnel types.
+     * Recursively copies fields using the row schema and retains the row kind and table ID. The new
+     * field array isolates mutable values according to their declared SeaTunnel types.
      */
     private SeaTunnelRow cloneRow(SeaTunnelRowType rowType, SeaTunnelRow row) {
         Object[] newFields = new Object[rowType.getTotalFields()];
@@ -217,27 +220,6 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
         SeaTunnelRow newRow = new SeaTunnelRow(newFields);
         newRow.setRowKind(row.getRowKind());
         newRow.setTableId(row.getTableId());
-        return newRow;
-    }
-
-    /**
-     * Selects the registered nested schema from the row's table ID before copying its fields and
-     * metadata. Missing, empty or unknown table IDs are rejected instead of using a fallback
-     * schema.
-     */
-    private SeaTunnelRow cloneMultipleRow(MultipleRowType multipleRowType, SeaTunnelRow row) {
-        String tableId = row.getTableId();
-        if (tableId == null || tableId.isEmpty()) {
-            throw CommonError.unsupportedDataType(
-                    getPluginName(), multipleRowType.getSqlType().toString(), "tableId");
-        }
-        SeaTunnelRowType rowType = multipleRowType.getRowType(tableId);
-        if (rowType == null) {
-            throw CommonError.unsupportedDataType(
-                    getPluginName(), multipleRowType.getSqlType().toString(), tableId);
-        }
-        SeaTunnelRow newRow = cloneRow(rowType, row);
-        newRow.setTableId(tableId);
         return newRow;
     }
 }
