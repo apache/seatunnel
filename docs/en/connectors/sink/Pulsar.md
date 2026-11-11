@@ -208,7 +208,7 @@ sink {
   Pulsar {
     client.service-url = "pulsar://localhost:6650"
     admin.service-url = "http://localhost:8080"
-    multi_table_sink_replica = 2
+    multi_table_sink_replica = 1
     format = json
   }
 }

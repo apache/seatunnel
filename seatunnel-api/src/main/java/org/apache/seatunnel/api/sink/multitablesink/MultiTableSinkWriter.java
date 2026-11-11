@@ -22,7 +22,9 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.MultiTableSinkReplicaMode;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
@@ -40,11 +42,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -63,8 +67,9 @@ import java.util.stream.Collectors;
  *
  * <p>Incoming rows are routed to one of {@code queueSize} {@link BlockingQueue}s. Each queue is
  * consumed by a dedicated {@link MultiTableWriterRunnable} thread that dispatches rows to the
- * appropriate sub-writer. Routing is based on the row's primary key hash for ordered delivery, or
- * random selection when no primary key exists.
+ * appropriate sub-writer. Routing follows the {@link MultiTableSinkReplicaMode} each writer
+ * declares: a hash of the key for ordered delivery, or random selection when the writer allows it.
+ * With several replicas, a writer that declares neither is rejected when this writer is created.
  *
  * <p>Thread pool sizing is {@code queueSize * 2}: half for queue consumer threads, half for
  * parallel {@link #prepareCommit(long)} tasks. Synchronization between the consumer threads and
@@ -78,10 +83,21 @@ public class MultiTableSinkWriter
 
     private static final long EXECUTOR_CLOSE_TIMEOUT_SECONDS = 60L;
 
+    /** Keeps the replica error readable for jobs with many tables. */
+    private static final int MAX_TABLES_IN_REPLICA_ERROR = 10;
+
     private final Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters;
     private final Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext;
     private final ConcurrentMap<String, Optional<Integer>> sinkPrimaryKeys =
             new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, MultiTableSinkReplicaMode> sinkReplicaModes =
+            new ConcurrentHashMap<>();
+    /**
+     * Whether this writer was built for one table. Like the single-writer fallback of {@link
+     * MultiTableWriterRunnable}, a row whose table id does not name a table then belongs to it.
+     */
+    private final boolean singleTable;
+
     private final List<ConcurrentMap<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>>
             sinkWritersWithIndex;
     private final List<MultiTableWriterRunnable> runnable = new ArrayList<>();
@@ -194,6 +210,47 @@ public class MultiTableSinkWriter
             Collection<MultiTableFailedTable> initialFailedTables,
             int tableRetryTimes,
             int tableRetryIntervalSeconds) {
+        this(
+                sinkWriters,
+                queueSize,
+                sinkWritersContext,
+                failurePolicy,
+                jobMode,
+                initialFailedTables,
+                tableRetryTimes,
+                tableRetryIntervalSeconds,
+                Collections.emptyMap());
+    }
+
+    /**
+     * Creates the writer and checks the replica mode of every sub-writer before any queue or worker
+     * exists. If the check or a later initialization step fails, the sub-writers are closed before
+     * the failure is thrown.
+     *
+     * @param connectorNames connector name of each table identifier, used in error messages
+     */
+    MultiTableSinkWriter(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters,
+            int queueSize,
+            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext,
+            MultiTableFailurePolicy failurePolicy,
+            JobMode jobMode,
+            Collection<MultiTableFailedTable> initialFailedTables,
+            int tableRetryTimes,
+            int tableRetryIntervalSeconds,
+            Map<String, String> connectorNames) {
+        try {
+            validateReplicaRouting(sinkWriters, queueSize, connectorNames);
+        } catch (RuntimeException e) {
+            closeWritersAfterInitFailure(sinkWriters.values(), e);
+            throw e;
+        }
+        this.singleTable =
+                sinkWriters.keySet().stream()
+                                .map(SinkIdentifier::getTableIdentifier)
+                                .distinct()
+                                .count()
+                        == 1;
         this.sinkWriters = sinkWriters;
         this.sinkWritersContext = sinkWritersContext;
         this.failurePolicy = failurePolicy;
@@ -255,8 +312,156 @@ public class MultiTableSinkWriter
             runnable.add(r);
         }
         log.info("init multi table sink writer, queue size: {}", queueSize);
-        initResourceManager(queueSize);
-        registerInitialFailedTables(initialFailedTables);
+        try {
+            initResourceManager(queueSize);
+            registerInitialFailedTables(initialFailedTables);
+        } catch (RuntimeException | Error e) {
+            executorService.shutdownNow();
+            closeWritersAfterInitFailure(sinkWriters.values(), e);
+            if (resourceManager != null) {
+                try {
+                    resourceManager.close();
+                } catch (Throwable closeError) {
+                    e.addSuppressed(closeError);
+                }
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Checks that the sub-writers can run with {@code replicaNum} writers of each table in one
+     * subtask. With one replica every mode is accepted. With more, each table needs {@link
+     * MultiTableSinkReplicaMode#KEYED} with a present, non-negative {@code primaryKey()}, or {@link
+     * MultiTableSinkReplicaMode#RANDOM}, and all writers of a table must declare the same mode and,
+     * for {@code KEYED}, the same key index.
+     *
+     * <p>It runs before any queue worker starts, for created and restored writers alike. A path
+     * that adds writers after construction must call it for the new writers before it registers
+     * them, so a table cannot start routing without a valid declaration.
+     *
+     * @param writers the sub-writers, keyed by table identifier and replica index
+     * @param replicaNum the value of {@code multi_table_sink_replica}
+     * @param connectorNames connector name of each table identifier, used in error messages
+     * @throws IllegalArgumentException if a table cannot run with {@code replicaNum} replicas; the
+     *     message names every such table, its connector and writer class
+     */
+    static void validateReplicaRouting(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers,
+            int replicaNum,
+            Map<String, String> connectorNames) {
+        if (replicaNum <= 1) {
+            return;
+        }
+        Map<String, List<SinkWriter<SeaTunnelRow, ?, ?>>> writersByTable = new TreeMap<>();
+        writers.forEach(
+                (identifier, writer) ->
+                        writersByTable
+                                .computeIfAbsent(
+                                        identifier.getTableIdentifier(), key -> new ArrayList<>())
+                                .add(writer));
+        List<String> rejected = new ArrayList<>();
+        for (Map.Entry<String, List<SinkWriter<SeaTunnelRow, ?, ?>>> table :
+                writersByTable.entrySet()) {
+            MultiTableSinkReplicaMode mode = null;
+            Optional<Integer> key = Optional.empty();
+            String problem = null;
+            for (SinkWriter<SeaTunnelRow, ?, ?> writer : table.getValue()) {
+                MultiTableSinkReplicaMode writerMode = replicaModeOf(writer);
+                Optional<Integer> writerKey =
+                        writerMode == MultiTableSinkReplicaMode.KEYED
+                                ? primaryKeyOf(writer)
+                                : Optional.empty();
+                if (mode == null) {
+                    mode = writerMode;
+                    key = writerKey;
+                } else if (mode != writerMode || !key.equals(writerKey)) {
+                    problem =
+                            String.format(
+                                    "its writers do not agree: one declares %s, another %s",
+                                    describeMode(mode, key), describeMode(writerMode, writerKey));
+                    break;
+                }
+            }
+            if (problem == null && mode == MultiTableSinkReplicaMode.UNSUPPORTED) {
+                problem = "its writer declares neither KEYED nor RANDOM";
+            } else if (problem == null
+                    && mode == MultiTableSinkReplicaMode.KEYED
+                    && (!key.isPresent() || key.get() < 0)) {
+                problem =
+                        "its writer declares KEYED, but primaryKey() returns "
+                                + (key.isPresent() ? "index " + key.get() : "no key");
+            }
+            if (problem != null) {
+                String connector = connectorNames.get(table.getKey());
+                rejected.add(
+                        String.format(
+                                "table '%s' (%swriter %s): %s",
+                                table.getKey(),
+                                connector == null ? "" : "connector '" + connector + "', ",
+                                table.getValue().get(0).getClass().getName(),
+                                problem));
+            }
+        }
+        if (!rejected.isEmpty()) {
+            String option = SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key();
+            String tables =
+                    rejected.size() <= MAX_TABLES_IN_REPLICA_ERROR
+                            ? String.join("; ", rejected)
+                            : String.join("; ", rejected.subList(0, MAX_TABLES_IN_REPLICA_ERROR))
+                                    + "; and "
+                                    + (rejected.size() - MAX_TABLES_IN_REPLICA_ERROR)
+                                    + " more tables";
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Option '%s' is %d, so each table gets %d writers in one subtask, "
+                                    + "but %s: %s. Set '%s' = 1. A connector supports more than "
+                                    + "one writer per table only when its writer declares KEYED "
+                                    + "with a valid primaryKey(), or RANDOM.",
+                            option,
+                            replicaNum,
+                            replicaNum,
+                            rejected.size() == 1
+                                    ? "this table does not support that"
+                                    : "these tables do not support that",
+                            tables,
+                            option));
+        }
+    }
+
+    private static MultiTableSinkReplicaMode replicaModeOf(SinkWriter<SeaTunnelRow, ?, ?> writer) {
+        if (!(writer instanceof SupportMultiTableSinkWriter)) {
+            return MultiTableSinkReplicaMode.UNSUPPORTED;
+        }
+        MultiTableSinkReplicaMode mode = ((SupportMultiTableSinkWriter<?>) writer).replicaMode();
+        return mode == null ? MultiTableSinkReplicaMode.UNSUPPORTED : mode;
+    }
+
+    private static Optional<Integer> primaryKeyOf(SinkWriter<SeaTunnelRow, ?, ?> writer) {
+        Optional<Integer> key = ((SupportMultiTableSinkWriter<?>) writer).primaryKey();
+        return key == null ? Optional.empty() : key;
+    }
+
+    private static String describeMode(MultiTableSinkReplicaMode mode, Optional<Integer> key) {
+        return mode == MultiTableSinkReplicaMode.KEYED
+                ? "KEYED with " + (key.isPresent() ? "key index " + key.get() : "no key")
+                : mode.name();
+    }
+
+    /**
+     * Closes sub-writers when the multi-table writer cannot be initialized, so that connections or
+     * transactions they opened are released. Close failures are added to {@code failure} as
+     * suppressed exceptions instead of hiding it.
+     */
+    static void closeWritersAfterInitFailure(
+            Collection<SinkWriter<SeaTunnelRow, ?, ?>> writers, Throwable failure) {
+        for (SinkWriter<SeaTunnelRow, ?, ?> writer : writers) {
+            try {
+                writer.close();
+            } catch (Throwable closeError) {
+                failure.addSuppressed(closeError);
+            }
+        }
     }
 
     public void setRowErrorHandler(MultiTableRowErrorHandler rowErrorHandler) {
@@ -279,8 +484,9 @@ public class MultiTableSinkWriter
      * <p>This is a one-shot initialization: the resource manager is created by the first writer via
      * {@link SupportMultiTableSinkWriter#initMultiTableResourceManager}, then distributed to every
      * writer through {@link SupportMultiTableSinkWriter#setMultiTableResourceManager}. Also
-     * populates the {@link #sinkPrimaryKeys} map used for hash-based row routing in {@link
-     * #write(SeaTunnelRow)}.
+     * populates the {@link #sinkPrimaryKeys} and {@link #sinkReplicaModes} maps used for row
+     * routing in {@link #write(SeaTunnelRow)}. The declarations were checked by {@link
+     * #validateReplicaRouting} before, so the writers of one table agree on what is cached.
      *
      * @param queueSize the number of queues, passed to the resource manager for sizing
      */
@@ -301,7 +507,9 @@ public class MultiTableSinkWriter
                 SupportMultiTableSinkWriter<?> sink =
                         ((SupportMultiTableSinkWriter<?>) entry.getValue());
                 sink.setMultiTableResourceManager(resourceManager, i);
-                sinkPrimaryKeys.put(entry.getKey().getTableIdentifier(), sink.primaryKey());
+                String tableId = entry.getKey().getTableIdentifier();
+                sinkPrimaryKeys.put(tableId, primaryKeyOf(entry.getValue()));
+                sinkReplicaModes.put(tableId, replicaModeOf(entry.getValue()));
             }
         }
     }
@@ -564,17 +772,22 @@ public class MultiTableSinkWriter
      * <p>Row routing strategy:
      *
      * <ul>
-     *   <li>If the table's primary key information is present and the primary key field value is
-     *       non-null, the row is routed by {@link HashUtils#bucketIndex(int, int)} over {@code
-     *       primaryKeyValue.hashCode()} and the queue count, guaranteeing that rows with the same
-     *       primary key always go to the same queue for ordered delivery.
-     *   <li>If the table's primary key information is present but the actual field value is {@code
-     *       null}, the row is routed to queue 0.
-     *   <li>If the table has no primary key or this is a single-table sink, the row is sent to a
-     *       randomly selected queue for load balancing.
-     *   <li>If the table's primary key metadata is missing (not initialized) in multi-table mode, a
-     *       {@link RuntimeException} is thrown.
+     *   <li>The target table is the table the row's id names. In a writer built for one table, a
+     *       row whose id is missing or names no table belongs to that table and uses its mode and
+     *       key; a missing id never makes the row random.
+     *   <li>With one replica, the row goes to queue 0.
+     *   <li>For a {@link MultiTableSinkReplicaMode#KEYED} table, a row with a non-null key value is
+     *       routed by {@link HashUtils#bucketIndex(int, int)} over {@code keyValue.hashCode()} and
+     *       the queue count, so rows with the same key always go to the same queue in order. A row
+     *       whose key value is {@code null} goes to queue 0.
+     *   <li>For a {@link MultiTableSinkReplicaMode#RANDOM} table, the row goes to a random queue,
+     *       even when the writer also has a key. Other modes are rejected when the writer is
+     *       created.
+     *   <li>A row whose table cannot be resolved fails the table under the failure policy, or
+     *       throws a {@link RuntimeException}.
      * </ul>
+     *
+     * <p>Each accepted row is offered to exactly one queue.
      *
      * <p>If the target queue is full, blocks with 500ms timeout retries, checking for sub-sink
      * errors between attempts.
@@ -599,12 +812,12 @@ public class MultiTableSinkWriter
             log.debug("Skip row for quarantined table {}", tableId);
             return;
         }
-        Optional<Integer> primaryKey = tableId == null ? null : sinkPrimaryKeys.get(tableId);
-        if ((primaryKey == null && sinkPrimaryKeys.size() == 1)
-                || (primaryKey != null && !primaryKey.isPresent())) {
-            int index = random.nextInt(blockingQueues.size());
-            offerRowElement(index, element);
-        } else if (primaryKey == null) {
+        String targetTableId = resolveTargetTableId(tableId);
+        MultiTableSinkReplicaMode replicaMode =
+                targetTableId == null ? null : sinkReplicaModes.get(targetTableId);
+        Optional<Integer> primaryKey =
+                targetTableId == null ? null : sinkPrimaryKeys.get(targetTableId);
+        if (replicaMode == null || primaryKey == null) {
             if (failurePolicy.continueOtherTables()) {
                 handleTableFailure(
                         tableId,
@@ -614,13 +827,69 @@ public class MultiTableSinkWriter
                 return;
             }
             throw new RuntimeException("multi table sink can not write table: " + tableId);
-        } else {
-            Object object = element.getField(primaryKey.get());
-            int index = 0;
-            if (object != null) {
-                index = HashUtils.bucketIndex(object.hashCode(), blockingQueues.size());
-            }
-            offerRowElement(index, element);
+        }
+        int index = selectQueueIndex(targetTableId, replicaMode, primaryKey, element);
+        offerRowElement(index, element);
+    }
+
+    /**
+     * Returns the table whose routing a row follows: the table its id names, or, in a writer built
+     * for one table, that table when the id is missing or names no table. The queue worker falls
+     * back to the same single writer, so such a row keeps the routing of the table it is written
+     * to. Returns {@code null} when the table cannot be resolved.
+     */
+    private String resolveTargetTableId(String tableId) {
+        if (tableId != null && sinkReplicaModes.containsKey(tableId)) {
+            return tableId;
+        }
+        if (!singleTable || sinkReplicaModes.size() != 1) {
+            return null;
+        }
+        Iterator<String> tables = sinkReplicaModes.keySet().iterator();
+        return tables.hasNext() ? tables.next() : null;
+    }
+
+    /**
+     * Selects the queue of a row: queue 0 with one replica, the hash of the key for {@link
+     * MultiTableSinkReplicaMode#KEYED}, and a random queue for {@link
+     * MultiTableSinkReplicaMode#RANDOM}, even when the writer also has a key. {@link
+     * MultiTableSinkReplicaMode#UNSUPPORTED} with several replicas is rejected when the writer is
+     * created, and again here.
+     */
+    private int selectQueueIndex(
+            String tableId,
+            MultiTableSinkReplicaMode replicaMode,
+            Optional<Integer> primaryKey,
+            SeaTunnelRow element) {
+        int queueCount = blockingQueues.size();
+        if (queueCount == 1) {
+            return 0;
+        }
+        switch (replicaMode) {
+            case KEYED:
+                if (!primaryKey.isPresent()) {
+                    throw new IllegalStateException(
+                            String.format(
+                                    "Table '%s' declares KEYED, but has no key to route by.",
+                                    tableId));
+                }
+                int keyIndex = primaryKey.get();
+                if (keyIndex < 0 || keyIndex >= element.getArity()) {
+                    throw new IllegalStateException(
+                            String.format(
+                                    "Cannot route a row of table '%s' by key index %d: the row "
+                                            + "has %d fields.",
+                                    tableId, keyIndex, element.getArity()));
+                }
+                Object key = element.getField(keyIndex);
+                return key == null ? 0 : HashUtils.bucketIndex(key.hashCode(), queueCount);
+            case RANDOM:
+                return random.nextInt(queueCount);
+            default:
+                throw new IllegalStateException(
+                        String.format(
+                                "Table '%s' declares %s, which does not support %d replicas.",
+                                tableId, replicaMode, queueCount));
         }
     }
 
@@ -1215,6 +1484,7 @@ public class MultiTableSinkWriter
             sinkWriters.remove(sinkIdentifier);
         }
         sinkPrimaryKeys.remove(tableId);
+        sinkReplicaModes.remove(tableId);
     }
 
     @FunctionalInterface

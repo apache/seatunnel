@@ -128,7 +128,7 @@ MultiTableSink 是一个“按表路由 + 可多副本并行写入”的 Sink:
 
 写入器的关键流程:
 1. 从输入记录中读取 tableId（`SeaTunnelRow.getTableId()`）
-2. 依据该表登记的主键字段信息选择一个队列下标（即副本下标 replicaIndex）
+2. 依据该表 writer 声明的副本模式选择一个队列下标（即副本下标 replicaIndex）
 3. 将记录投递到对应的 `blockingQueues`，由 `MultiTableWriterRunnable` 工作线程消费并调用底层 writer 写入
 
 注意：记录并非在 `write()` 中同步写入底层 writer，而是先入队、再由工作线程异步写出。队列下标即副本下标。
@@ -137,10 +137,13 @@ MultiTableSink 是一个“按表路由 + 可多副本并行写入”的 Sink:
 - **顺序性/一致落点**: 对同一主键（或唯一键）相关的记录尽量路由到同一副本，降低乱序与写入冲突风险
 - **吞吐量**: 在不破坏顺序性要求的前提下，尽量分散写入压力
 
-在当前 MultiTableSinkWriter 的实现中，副本选择分为三个分支：
-- **有主键**：对主键字段值做哈希，稳定映射到某个队列
-- **无主键**：使用随机策略（`Random.nextInt`）在队列间分配
+在当前 MultiTableSinkWriter 的实现中，先确定目标表，再选择一个队列下标，每条记录只投递一次：
+- **只有一个副本**：使用队列 0
+- **KEYED**：对 `primaryKey()` 指定的字段值做哈希，稳定映射到某个队列
+- **RANDOM**：使用随机策略（`Random.nextInt`）在队列间分配，即使 writer 同时提供了主键
 - **该表未登记 writer**：按 `MultiTableFailurePolicy` 处理——或隔离该表并继续写入其他表，或直接抛出异常终止作业
+
+只服务一张表的 writer 中，没有 tableId（或 tableId 未登记）的记录归属唯一那张表，并按该表的模式和键路由，不会因此被随机分配。
 
 这意味着“是否按 rowKind（INSERT/UPDATE/DELETE）切换策略”不是该实现的默认行为；如果需要按 rowKind 细分策略，应以 connector/实现代码为准。
 
@@ -182,16 +185,30 @@ sink {
 
     # 多表配置
     multi_table_sink_replica = 4 # 写入器副本数（对所有表生效）
+    # Jdbc 按主键路由副本，因此每张表都需要主键（来自表结构或 primary_keys）
   }
 }
 ```
+
+只有当每张表的 writer 都通过 `SupportMultiTableSinkWriter.replicaMode()` 声明了记录如何在副本间分配时，
+才允许大于 1 的取值；否则作业会在写入任何记录之前失败：
+
+| 副本模式 | 多个副本时的路由 | 声明方 |
+|----------|------------------|--------|
+| `KEYED` | 按 `primaryKey()` 指定的字段哈希，同一键的所有变更按顺序到达同一副本；没有键时拒绝 | Jdbc（`is_exactly_once` 除外）；表结构和 `primary_keys` 中都没有主键的表会被拒绝 |
+| `RANDOM` | 记录随机分配到副本，只适用于写入结果与写入顺序无关的 writer | 暂无连接器 |
+| `UNSUPPORTED`（默认） | 创建或恢复 writer 时拒绝该作业 | 其他所有 writer |
+
+错误信息会给出该选项、取值，以及每张被拒绝的表及其连接器和 writer 类。此类 sink 请设置
+`multi_table_sink_replica = 1`。只有一个副本（默认值）时不做检查，行为不变。各连接器在
+[#13223](https://github.com/apache/seatunnel/issues/13223) 中逐个验证并声明。
 
 ### 5.3 副本选择策略
 
 两种策略都在 `[0, blockingQueues.size())` 范围内选择队列下标，完整分支结构参见
 `MultiTableSinkWriter.write(SeaTunnelRow)`。
 
-**基于主键哈希（稳定路由）**:
+**基于键哈希（`KEYED`，稳定路由）**:
 
 要点:
 - 以主键（或业务唯一键）做哈希，将同一键稳定映射到同一副本
@@ -207,10 +224,10 @@ sink {
 
 :::
 
-**随机（无主键兜底）**:
+**随机（`RANDOM`）**:
 
 要点:
-- 当记录缺少主键字段信息时，无法提供稳定落点
+- 只用于声明了 `RANDOM` 的 writer，无法提供稳定落点；只有一个副本时直接使用队列 0
 - 使用 `Random.nextInt(blockingQueues.size())` 在副本间扩散压力，但不保证同一键的顺序性
 - 不使用 `System.nanoTime() % replicaNum` 之类的写法：`nanoTime()` 可能为负，会产生负下标，原因与上面哈希需要掩码相同
 

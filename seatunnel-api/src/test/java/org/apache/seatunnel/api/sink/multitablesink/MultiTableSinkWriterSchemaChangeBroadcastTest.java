@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.event.EventType;
+import org.apache.seatunnel.api.sink.MultiTableSinkReplicaMode;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
@@ -572,6 +573,11 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
         @Override
         public Optional<String> getPhysicalSinkTableIdentifier() {
             return Optional.of(physicalSinkIdentifier);
+        }
+
+        @Override
+        public MultiTableSinkReplicaMode replicaMode() {
+            return MultiTableSinkReplicaMode.RANDOM;
         }
 
         /** Returns the number of schema-change invocations received by this writer. */
