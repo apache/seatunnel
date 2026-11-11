@@ -323,8 +323,11 @@ source {
 
 ### Heartbeat action
 
-Use the `debezium.heartbeat.action.query` option to keep the CDC slot active when there are no upstream changes for a
-long time. Pair it with `debezium.heartbeat.interval.ms` so the action runs at a regular cadence.
+Use the `debezium.heartbeat.action.query` option to keep offsets and change events flowing during idle periods when
+there are no upstream changes for a long time. Pair it with `debezium.heartbeat.interval.ms` so the action runs at a
+regular cadence. SQL Server CDC has no replication slot for a heartbeat to keep alive, and heartbeat writes do not pin
+the LSN range a consumer needs; the heartbeat does not replace a suitable change-table retention setting and lag
+monitoring.
 
 ```hocon
 source {
@@ -343,8 +346,10 @@ source {
 }
 ```
 
-The heartbeat table and insert statement must exist on the target database. Without a heartbeat, the LSN window may be
-recycled by SQL Server when there is no activity, which can break resumable streaming jobs.
+The heartbeat query runs on the source database connection, so the heartbeat table and the INSERT permission for it
+must exist on the source database. Heartbeat writes do not delay change-table cleanup, which is retention based;
+without adequate retention, SQL Server may recycle the LSN window when there is no activity, which can break resumable
+streaming jobs.
 
 ### Schema change event filtering
 
