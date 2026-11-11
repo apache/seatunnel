@@ -149,7 +149,6 @@ public class IcebergSinkWithBranchIT extends TestSuiteBase {
     @Test
     public void testHardResetPersistsBranchAndFirstCheckpoint(@TempDir Path warehouse)
             throws Exception {
-        ClassLoader previousLoader = Thread.currentThread().getContextClassLoader();
         try (HadoopCatalog initial = openSaveModeCatalog(warehouse)) {
             ReadonlyConfig appendConfig = saveModeConfig(warehouse, null, false);
             Table original = createSaveModeTable(initial);
@@ -213,8 +212,6 @@ public class IcebergSinkWithBranchIT extends TestSuiteBase {
                         Collections.singletonList(Arrays.asList(2, "new")),
                         readRows(restored, commitBranch));
             }
-        } finally {
-            Thread.currentThread().setContextClassLoader(previousLoader);
         }
     }
 
@@ -228,7 +225,6 @@ public class IcebergSinkWithBranchIT extends TestSuiteBase {
     @Test
     public void testDefaultDeleteCommitCreatesMissingBranch(@TempDir Path warehouse)
             throws Exception {
-        ClassLoader previousLoader = Thread.currentThread().getContextClassLoader();
         try (HadoopCatalog initial = openSaveModeCatalog(warehouse)) {
             Table original = createSaveModeTable(initial);
             commitRow(createSink(saveModeConfig(warehouse, null, false), original), 201L, 1, "old");
@@ -275,8 +271,6 @@ public class IcebergSinkWithBranchIT extends TestSuiteBase {
                         (name, ref) -> Assertions.assertEquals(ref, written.refs().get(name)));
                 Assertions.assertTrue(snapshotIds(written).containsAll(oldSnapshots));
             }
-        } finally {
-            Thread.currentThread().setContextClassLoader(previousLoader);
         }
     }
 
