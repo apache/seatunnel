@@ -21,7 +21,9 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.Condition;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -44,6 +46,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import io.debezium.config.Configuration;
 
@@ -52,6 +57,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.mockito.Mockito.mock;
 
@@ -60,6 +66,99 @@ import static org.mockito.Mockito.mock;
  * factory/source wiring stays compatible.
  */
 public class OpengaussIncrementalSourceFactoryTest {
+
+    private static final String VALID_URL = "jdbc:postgresql://localhost:5432/opengauss_cdc";
+
+    private final OptionRule optionRule = new OpengaussIncrementalSourceFactory().optionRule();
+
+    @ParameterizedTest
+    @MethodSource("nonblankUrls")
+    void testNonblankUrlAcceptedWithoutChangingValue(String key, String value) {
+        Map<String, Object> config = validConfig();
+        config.remove("url");
+        config.put(key, value);
+
+        ReadonlyConfig readonlyConfig = Assertions.assertDoesNotThrow(() -> validate(config));
+
+        // Validation does not trim a supplied URL or check whether it can connect.
+        Assertions.assertEquals(value, readonlyConfig.get(JdbcCommonOptions.URL));
+    }
+
+    private static Stream<Arguments> nonblankUrls() {
+        return Stream.of("url", "base-url")
+                .flatMap(
+                        key ->
+                                Stream.of(VALID_URL, " \t" + VALID_URL + " \r\n")
+                                        .map(value -> Arguments.of(key, value)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("blankUrls")
+    void testBlankUrlRejected(String key, String value) {
+        Map<String, Object> config = validConfig();
+        config.remove("url");
+        config.put(key, value);
+
+        assertInvalidUrl(config);
+    }
+
+    private static Stream<Arguments> blankUrls() {
+        return Stream.of("url", "base-url")
+                .flatMap(
+                        key ->
+                                Stream.of("", " ", "\t", "\n", " \t\r\n ")
+                                        .map(value -> Arguments.of(key, value)));
+    }
+
+    @Test
+    void testMissingUrlRejected() {
+        Map<String, Object> config = validConfig();
+        config.remove("url");
+
+        assertInvalidUrl(config);
+    }
+
+    @Test
+    void testCanonicalUrlTakesPrecedenceOverFallback() {
+        Map<String, Object> config = validConfig();
+        config.put("base-url", " ");
+
+        ReadonlyConfig readonlyConfig = Assertions.assertDoesNotThrow(() -> validate(config));
+
+        Assertions.assertEquals(VALID_URL, readonlyConfig.get(JdbcCommonOptions.URL));
+    }
+
+    @Test
+    void testBlankCanonicalUrlDoesNotUseValidFallback() {
+        Map<String, Object> config = validConfig();
+        config.put("url", " \t ");
+        config.put("base-url", VALID_URL);
+
+        assertInvalidUrl(config);
+    }
+
+    private Map<String, Object> validConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("url", VALID_URL);
+        config.put("username", "test-user");
+        config.put("password", "test-password");
+        config.put("table-names", Collections.singletonList("opengauss_cdc.public.orders"));
+        return config;
+    }
+
+    private ReadonlyConfig validate(Map<String, Object> config) {
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
+        ConfigValidator.validateUnknownKeys(readonlyConfig, optionRule, "Opengauss-CDC");
+        ConfigValidator.of(readonlyConfig).validate(optionRule);
+        return readonlyConfig;
+    }
+
+    private void assertInvalidUrl(Map<String, Object> config) {
+        OptionValidationException error =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+
+        Assertions.assertTrue(error.getMessage().contains("url"), error.getMessage());
+    }
 
     @Test
     public void testGetSourceClassUsesDedicatedOpengaussSource() {
