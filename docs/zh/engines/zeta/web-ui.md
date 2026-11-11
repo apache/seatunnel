@@ -30,6 +30,15 @@ http://<host>:8080/#/overview
 http://<host>:8080/<context-path>/#/overview
 ```
 
+路由存放在 URL fragment 中，正常情况下只保留在客户端。但有些客户端会对整条 URL 做百分号编码，
+把 fragment 当作路径的一部分发送——Safari 重新请求 hash 路由时就是这样，聊天工具、wiki 页面和
+Markdown 预览也有同样行为——`/#/overview` 于是变成 `/%23/overview`。对于这类 `GET` 或 `HEAD`
+请求，SeaTunnel 会返回 `302` 以及 `Location: <context-path>/#<route>`，Web UI 依然可以正常打开。
+不带 fragment 的路径走的是 REST API，例如 `GET /overview` 返回的是集群 JSON 而不是 UI。
+
+重定向地址是根据配置的 `context-path` 生成的，因此当 Web UI 通过某个前缀对外暴露时，请配置
+`context-path`；反向代理在转发前剥掉的前缀不会体现在重定向地址里。
+
 ## 概述
 
 Apache SeaTunnel 的 Web UI 是 SeaTunnel Engine 的可视化巡检控制台。它可以帮助运维人员查看集群概览、运行中和已完成作业、作业详情页、日志、实时 DAG 指标，以及 worker 和 master 节点状态。

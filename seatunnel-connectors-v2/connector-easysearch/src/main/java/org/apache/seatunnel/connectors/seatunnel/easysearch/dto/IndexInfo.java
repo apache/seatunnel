@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.easysearch.dto;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.config.EasysearchSinkCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.config.EasysearchSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.config.KeyEncoding;
 
 import lombok.Data;
 
@@ -30,6 +31,7 @@ public class IndexInfo {
     private String index;
     private String[] primaryKeys;
     private String keyDelimiter;
+    private KeyEncoding keyEncoding;
 
     public IndexInfo(ReadonlyConfig pluginConfig) {
         index = pluginConfig.get(EasysearchSinkCommonOptions.INDEX);
@@ -38,5 +40,6 @@ public class IndexInfo {
                     pluginConfig.get(EasysearchSinkOptions.PRIMARY_KEYS).toArray(new String[0]);
         }
         keyDelimiter = pluginConfig.get(EasysearchSinkOptions.KEY_DELIMITER);
+        keyEncoding = pluginConfig.get(EasysearchSinkOptions.KEY_ENCODING);
     }
 }

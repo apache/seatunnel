@@ -17,7 +17,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md) 
   > IoTDB 通过 SQL 查询支持列投影功能。
@@ -62,7 +62,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | fetch_size                 | Integer | 否    | -    | 单次请求从 IoTDB 获取的行数。                                                               |
 | lower_bound                | Long    | 否    | -    | 时间范围下界（通过时间列进行数据分片时使用）                                                           |
 | upper_bound                | Long    | 否    | -    | 时间范围上界（通过时间列进行数据分片时使用）                                                           |
-| num_partitions             | Integer | 否    | -    | 分区数量（通过时间列进行数据分片时使用）：<br/> - 1 个分区：使用完整时间范围 <br/> - 若分区数 < (上界 -下界)，则使用差值作为实际分区数 |
+| num_partitions             | Integer | 否    | -    | 分区数量（通过时间列进行数据分片时使用）：<br/> - 1 个分区：使用完整时间范围 <br/> - 若 (上界 - 下界) < 分区数，则使用差值作为实际分区数 |
 | default_thrift_buffer_size | Integer | 否    | -    | IoTDB 客户端使用的默认 Thrift 缓冲区大小。                                                     |
 | max_thrift_frame_size      | Integer | 否    | -    | Thrift 最大帧尺寸                                                                     |
 | enable_cache_leader        | Boolean | 否    | -    | 是否在 IoTDB 客户端启用 Leader 节点缓存。                                                     |
@@ -86,7 +86,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
      将时间范围分割成 numPartitions 个分区
      
      若 numPartitions = 1，使用完整的时间范围
-     若 numPartitions < (upper_bound - lower_bound)，使用 (upper_bound - lower_bound) 个分区
+     若 (upper_bound - lower_bound) < numPartitions，使用 (upper_bound - lower_bound) 个分区
      
      例：lower_bound = 1, upper_bound = 10, numPartitions = 2
          sql = "select * from test where age > 0 and age < 10"

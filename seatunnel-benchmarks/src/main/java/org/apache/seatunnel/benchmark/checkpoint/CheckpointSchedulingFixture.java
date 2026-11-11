@@ -41,6 +41,7 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
@@ -127,9 +128,14 @@ public final class CheckpointSchedulingFixture {
     private static final long EXECUTOR_KEEP_ALIVE_SECONDS = 60L;
     private static final long SHUTDOWN_TIMEOUT_SECONDS = 30L;
 
+    private static final long WARMUP_POLL_NANOS = TimeUnit.MILLISECONDS.toNanos(10);
+
     private final int pipelineNum;
     private final long intervalMillis;
     private final long intervalNanos;
+    private final long warmupTriggers;
+    private final long minWarmupNanos;
+    private final AtomicLong triggeredCheckpoints = new AtomicLong();
     private int probeStride;
     private Set<Thread> preexistingSchedulerThreads = Collections.emptySet();
 
@@ -154,15 +160,29 @@ public final class CheckpointSchedulingFixture {
      * @param intervalMillis checkpoint interval of every job
      */
     public CheckpointSchedulingFixture(int pipelineNum, long intervalMillis) {
+        this(pipelineNum, intervalMillis, 0L, 0L);
+    }
+
+    /**
+     * @param pipelineNum number of jobs, each with one single-task pipeline
+     * @param intervalMillis checkpoint interval of every job
+     * @param warmupTriggers checkpoints the coordinators trigger before setup returns, 0 for none
+     * @param minWarmupMillis least time the coordinators run before setup returns, 0 for none
+     */
+    public CheckpointSchedulingFixture(
+            int pipelineNum, long intervalMillis, long warmupTriggers, long minWarmupMillis) {
         this.pipelineNum = pipelineNum;
         this.intervalMillis = intervalMillis;
         this.intervalNanos = TimeUnit.MILLISECONDS.toNanos(intervalMillis);
+        this.warmupTriggers = warmupTriggers;
+        this.minWarmupNanos = TimeUnit.MILLISECONDS.toNanos(minWarmupMillis);
     }
 
     /**
      * Starts the member, creates the coordinators and starts their pipelines staggered across one
-     * interval, so due triggers arrive as a steady stream rather than a burst. Returns once every
-     * coordinator's trigger phase is known.
+     * interval, so due triggers arrive as a steady stream rather than a burst. Then lets them
+     * trigger {@code warmupTriggers} checkpoints for at least {@code minWarmupMillis}, and returns
+     * once every coordinator's trigger phase is known.
      */
     public void setUp() throws Exception {
         validateParameters();
@@ -175,9 +195,42 @@ public final class CheckpointSchedulingFixture {
         coordinatorExecutor = createCoordinatorExecutor(engineConfig);
         createManagers(server, engineConfig.getCheckpointConfig());
         startStaggered();
+        awaitWarmupTriggers();
         // Every coordinator, not only the probes: once each has triggered, each has armed its
         // scheduler, so countSchedulerThreads() sees the full thread cost of pipelineNum pipelines.
         resync(1);
+    }
+
+    /**
+     * Waits until the coordinators have triggered {@code warmupTriggers} checkpoints. The JIT
+     * compiles the trigger path by how often it runs, not by how long the fork has been running, so
+     * a warmup counted in triggers gives every pipeline count the same compiled code to measure,
+     * where a warmup counted in seconds gives the lowest trigger rates the least. Nothing is
+     * measured meanwhile, and the coordinators are the measured ones, so no code path is exercised
+     * that the measurement does not also take. The minimum time covers the rest of the member,
+     * whose compilation goes on for a while after the trigger path settles at the higher rates.
+     */
+    private void awaitWarmupTriggers() {
+        long start = System.nanoTime();
+        long target = triggeredCheckpoints.get() + warmupTriggers;
+        long earliestEnd = start + minWarmupNanos;
+        // Twice the time the triggers take at the configured rate, plus the pending re-arms.
+        long deadline =
+                Math.max(earliestEnd, start + 2 * warmupTriggers * intervalNanos / pipelineNum)
+                        + RESYNC_INTERVALS * intervalNanos
+                        + PENDING_REARM_NANOS;
+        while (triggeredCheckpoints.get() < target || System.nanoTime() < earliestEnd) {
+            checkFailure();
+            if (System.nanoTime() > deadline) {
+                throw new IllegalStateException(
+                        String.format(
+                                "%d pipelines triggered %d of %d warm-up checkpoints in time",
+                                pipelineNum,
+                                warmupTriggers - (target - triggeredCheckpoints.get()),
+                                warmupTriggers));
+            }
+            parkUntil(System.nanoTime() + WARMUP_POLL_NANOS);
+        }
     }
 
     /** Resynchronises the coordinators that were taken out of the rotation, then resets counts. */
@@ -345,6 +398,10 @@ public final class CheckpointSchedulingFixture {
         return sampled;
     }
 
+    long getTriggeredCheckpoints() {
+        return triggeredCheckpoints.get();
+    }
+
     /**
      * Counts this fixture's live checkpoint scheduler threads. This is the cost a shared scheduler
      * exists to remove, so it is reported rather than derived.
@@ -393,7 +450,8 @@ public final class CheckpointSchedulingFixture {
                             runningJobState,
                             server.getEngineContext(),
                             server.getCheckpointMonitorService(),
-                            failure);
+                            failure,
+                            triggeredCheckpoints);
             managers.add(manager);
             pendingCounters[i] = readPendingCounter(manager.getCheckpointCoordinator(PIPELINE_ID));
             lastTriggerNanos[i] = NOT_SYNCED;

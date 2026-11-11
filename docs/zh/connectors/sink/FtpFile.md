@@ -52,6 +52,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | connection_mode                       | string  | 否    | active_local                               | 目标FTP连接模式                                                                 |
 | remote_verification_enabled           | boolean | 否    | true                                       | 是否启用FTP数据通道的远程主机验证                                                        |
 | control_encoding                      | string  | 否    | UTF-8                                      | FTP 控制连接的字符编码，路径包含空格或非 ASCII 字符时很有用                                      |
+| control_timeout                       | int     | 否    | 60000                                      | 读取 FTP 服务端控制连接应答的超时时间（毫秒），0 表示无限等待                                            |
 | custom_filename                       | boolean | 否    | false                                      | 是否需要自定义文件名                                                                |
 | file_name_expression                  | string  | 否    | "${transactionId}"                         | 仅在 `custom_filename` 为 `true` 时使用                                         |
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在 `custom_filename` 为 `true` 时使用                                         |
@@ -414,27 +415,9 @@ FtpFile {
 
 ```
 
-### 通过 SFTP 写入
+### 写入 SFTP 服务器
 
-`FtpFile` Sink 同时支持 `ftp://` 和 `sftp://` URI。认证方式与 source 一致：SSH 密钥或密码外加 `known_hosts` 文件——连接器不会自动信任未知 host。
-
-```hocon
-sink {
-  FtpFile {
-    fs.defaultFS = "sftp://sftp.example.example.com:22"
-    path = "/upload/landing/"
-    user = "seatunnel"
-    file_format_type = "parquet"
-    ftp_properties = {
-      "fs.sftp.user."      = "seatunnel"
-      "fs.sftp.keyfile"    = "/etc/seatunnel/id_rsa"
-      "fs.sftp.host"       = "sftp.example.example.com"
-      "fs.sftp.port"       = "22"
-      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
-    }
-  }
-}
-```
+`FtpFile` Sink 仅支持标准 FTP 协议——连接始终由 `host`/`port` 选项拼接为 `ftp://<host>:<port>`，不支持 `fs.defaultFS`、`ftp_properties`、`known_hosts` 等选项。如需通过 SFTP（SSH 文件传输协议）写入文件，请改用 [SftpFile](SftpFile.md) Sink。
 
 
 ## 变更日志

@@ -63,11 +63,10 @@ public class FakeResourceManagerForExternalExceptionTest extends AbstractResourc
     @Override
     protected <E> CompletableFuture<E> sendToMember(Operation operation, Address address) {
         if (operation instanceof RequestSlotOperation) {
-            return (CompletableFuture<E>)
-                    CompletableFuture.supplyAsync(
-                            () -> {
-                                throw new IllegalStateException("boom");
-                            });
+            return CompletableFuture.supplyAsync(
+                    () -> {
+                        throw new IllegalStateException("boom");
+                    });
         }
         return super.sendToMember(operation, address);
     }

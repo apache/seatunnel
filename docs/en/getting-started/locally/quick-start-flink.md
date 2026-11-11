@@ -92,6 +92,13 @@ cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-flink-15-connector-v2.sh --config ./config/v2.streaming.conf.template
 ```
 
+Flink version `1.20.x`
+
+```shell
+cd "apache-seatunnel-${version}"
+./bin/start-seatunnel-flink-20-connector-v2.sh --config ./config/v2.streaming.conf.template
+```
+
 **See The Output**: When you run the command, you can see its output in your console. This
 is a sign to determine whether the command ran successfully or not.
 

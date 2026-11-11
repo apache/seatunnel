@@ -92,6 +92,13 @@ cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-flink-15-connector-v2.sh --config ./config/v2.streaming.conf.template
 ```
 
+Flink版本`1.20.x`
+
+```shell
+cd "apache-seatunnel-${version}"
+./bin/start-seatunnel-flink-20-connector-v2.sh --config ./config/v2.streaming.conf.template
+```
+
 **查看输出**: 当您运行该命令时，您可以在控制台中看到它的输出。您可以认为这是命令运行成功或失败的标志。
 
 SeaTunnel控制台将会打印一些如下日志信息:

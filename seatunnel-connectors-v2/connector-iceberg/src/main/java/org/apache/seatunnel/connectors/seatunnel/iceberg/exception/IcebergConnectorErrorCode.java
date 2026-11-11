@@ -21,7 +21,10 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum IcebergConnectorErrorCode implements SeaTunnelErrorCode {
     FILE_SCAN_SPLIT_FAILED("ICEBERG-01", "File Scan Split failed"),
-    INVALID_STARTING_RECORD_OFFSET("ICEBERG-02", "Invalid starting record offset");
+    INVALID_STARTING_RECORD_OFFSET("ICEBERG-02", "Invalid starting record offset"),
+    UNSUPPORTED_TABLE_FORMAT_VERSION("ICEBERG-03", "Unsupported Iceberg table format version"),
+    UNSUPPORTED_WRITE_FOR_TABLE_FORMAT_VERSION(
+            "ICEBERG-04", "Unsupported write mode for the Iceberg table format version");
 
     private final String code;
     private final String description;

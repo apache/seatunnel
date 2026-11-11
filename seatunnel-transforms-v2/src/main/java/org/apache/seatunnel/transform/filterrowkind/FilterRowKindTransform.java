@@ -66,6 +66,8 @@ public class FilterRowKindTransform extends FilterRowTransform {
         if (!this.includeKinds.isEmpty()) {
             return this.includeKinds.contains(inputRow.getRowKind()) ? inputRow : null;
         }
+        // An empty rule cannot pass the option rule, so this only happens when the transform is
+        // built without validation: fail closed and keep the previous behaviour.
         throw new SeaTunnelRuntimeException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 "Transform config error! Either excludeKinds or includeKinds must be configured");
