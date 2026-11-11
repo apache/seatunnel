@@ -173,13 +173,6 @@ Choose how to handle existing data before the synchronization task starts.
 
 `ERROR_WHEN_DATA_EXISTS`: Throw an error when data already exists.
 
-### semantics [Enum]
-
-`semantics` How the sink commits the records to the Hudi table:
-
-- `AT_LEAST_ONCE`: The default. Every flushed batch is committed by the Hudi client immediately, so the records are visible as soon as they are flushed, but a retried job can commit the records of a failed attempt again.
-- `EXACTLY_ONCE`: The records are written into a Hudi instant and the instant is committed only after the checkpoint that contains it completes, which gives exactly-once semantics. The checkpoint must be enabled, and the records are visible only after a checkpoint completes. See [Exactly-once semantics](#exactly-once-semantics).
-
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
@@ -234,8 +227,9 @@ How it works:
    committed is skipped, so the records are never published twice.
 4. The records of a checkpoint that never completed are not committed. The source replays them after
    the pipeline restarts, and the instant that the failed attempt left behind is rolled back by the
-   connector itself, either by the writer when it closes or by the committer on the engines that call
-   `abort`.
+   connector itself: by the writer when it closes, by the committer on the engines that call
+   `abort`, and on restore, where every commit instant of the table that the restored checkpoint
+   state does not reference is rolled back before the restored instants are committed.
 
 With `EXACTLY_ONCE` the failed writes cleaning policy of the Hudi client is set to `NEVER`. Hudi
 therefore neither rolls back an instant that waits for its checkpoint, nor starts the per instant
@@ -250,11 +244,20 @@ writer heartbeat that the `LAZY` policy relies on. Two consequences matter:
 * A long running job does not accumulate one heartbeat timer thread and one heartbeat file per
   checkpoint, because no heartbeat is started at all.
 
-Hudi does not clean up failed writes of an exactly-once table by itself. The connector rolls back the
-instant of a checkpoint that never completed, and the instants of a checkpoint that did complete are
-committed when the job restores. If the pipeline is killed so hard that neither happens, the instant
-stays on the active timeline until it is rolled back manually, for example with Hudi's
-`HoodieWriteClient#rollback` or `hoodie-cli`.
+Hudi does not clean up failed writes of an exactly-once table by itself. The connector reclaims the
+instants of a failed attempt in three places: the writer rolls back the instant it still owns when it
+closes, `abort` rolls back the instants of an aborted checkpoint on the engines that call it, and a
+job that restores from a checkpoint rolls back every commit instant that the restored checkpoint
+state does not reference. The last case is what keeps a job that restarts regularly from
+accumulating orphaned instants and their files, including the instant of a checkpoint that handed
+its records over but never completed.
+
+Two cases are left to the operator: an instant left by a job that never completed a checkpoint, so
+that there is no restored state to compare against, and an instant of a pipeline that is started
+again from scratch instead of restored. Those instants stay on the active timeline until they are
+rolled back manually, for example with Hudi's `HoodieWriteClient#rollback` or `hoodie-cli`. Because
+the reclaim assumes that the restored job is the only writer of the table, do not run two
+exactly-once jobs against the same table.
 
 Requirements and trade-offs:
 
@@ -278,9 +281,9 @@ Requirements and trade-offs:
 * Parallel writers still follow the Hudi single writer concurrency control, so two jobs (or two
   writers) that update the same file group can overwrite each other. Keep a single writer per table,
   or make sure the writers work on disjoint keys and partitions.
-* A commit whose instant is not on the active timeline anymore, for example because the heartbeat
-  of the writer expired before the commit, fails the job with an explicit error instead of
-  silently publishing incomplete data.
+* A commit whose instant is not on the active timeline anymore, for example because an operator
+  or another writer of the same table rolled it back, fails the job with an explicit error instead
+  of silently publishing incomplete data.
 
 ## Examples
 

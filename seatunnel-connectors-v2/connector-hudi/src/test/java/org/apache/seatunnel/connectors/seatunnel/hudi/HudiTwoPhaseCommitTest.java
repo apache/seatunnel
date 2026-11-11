@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSemantics;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.client.HudiWriteClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.commit.HudiSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiAggregatedCommitInfo;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.HudiRecordWriter;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hudi.client.WriteStatus;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.common.model.HoodieCommitMetadata;
 import org.apache.hudi.common.model.HoodieTableType;
@@ -292,6 +294,126 @@ class HudiTwoPhaseCommitTest {
         } finally {
             committer.close();
         }
+    }
+
+    @Test
+    void shouldReclaimTheInstantOfACheckpointThatNeverCompleted() throws Exception {
+        HudiSinkConfig sinkConfig = sinkConfig(HudiSemantics.EXACTLY_ONCE);
+        HoodieTableMetaClient metaClient = metaClient(createTable(sinkConfig));
+
+        HudiRecordWriter writer = newWriter(sinkConfig);
+        HudiCommitInfo restoredCommitInfo;
+        HudiCommitInfo abandonedCommitInfo;
+        try {
+            // checkpoint 1 completes and is part of the restored state
+            writeRecords(writer, BATCH_SIZE);
+            restoredCommitInfo = writer.prepareCommit(1L).get();
+            // checkpoint 2 hands its instant over but never completes, so its state is discarded
+            writeRecords(writer, BATCH_SIZE);
+            abandonedCommitInfo = writer.prepareCommit(2L).get();
+        } finally {
+            writer.close();
+        }
+        String abandonedInstant = abandonedCommitInfo.getInstantTime();
+        Assertions.assertTrue(
+                metaClient.reloadActiveTimeline().containsInstant(abandonedInstant),
+                "the instant of the never completed checkpoint must still be on the timeline");
+
+        // the job restarts from checkpoint 1, which does not reference the instant of checkpoint 2
+        HudiSinkAggregatedCommitter restartedCommitter = newCommitter(sinkConfig);
+        try {
+            Assertions.assertTrue(
+                    restartedCommitter
+                            .restoreCommit(
+                                    Collections.singletonList(
+                                            restartedCommitter.combine(
+                                                    Collections.singletonList(restoredCommitInfo))))
+                            .isEmpty());
+
+            HoodieTimeline timeline = metaClient.reloadActiveTimeline();
+            Assertions.assertTrue(
+                    timeline.filterCompletedInstants()
+                            .containsInstant(restoredCommitInfo.getInstantTime()),
+                    "the restored checkpoint must be committed");
+            Assertions.assertFalse(
+                    timeline.containsInstant(abandonedInstant),
+                    "the instant of the never completed checkpoint must be reclaimed on restore");
+            Assertions.assertEquals(
+                    BATCH_SIZE,
+                    totalRecords(timeline),
+                    "only the records of the restored checkpoint must be committed");
+        } finally {
+            restartedCommitter.close();
+        }
+    }
+
+    @Test
+    void shouldRollbackTheInstantWhenTheWriterClosesWithoutCheckpoint() throws Exception {
+        HudiSinkConfig sinkConfig = sinkConfig(HudiSemantics.EXACTLY_ONCE);
+        HoodieTableMetaClient metaClient = metaClient(createTable(sinkConfig));
+
+        HudiRecordWriter writer = newWriter(sinkConfig);
+        String instantTime;
+        try {
+            writeRecords(writer, RECORD_COUNT);
+            HoodieTimeline pendingTimeline = metaClient.reloadActiveTimeline();
+            Assertions.assertEquals(
+                    1,
+                    pendingTimeline.filterInflightsAndRequested().countInstants(),
+                    "the flushed batch must be written into one pending instant");
+            instantTime =
+                    pendingTimeline
+                            .filterInflightsAndRequested()
+                            .getInstants()
+                            .get(0)
+                            .getTimestamp();
+        } finally {
+            writer.close();
+        }
+
+        Assertions.assertFalse(
+                metaClient.reloadActiveTimeline().containsInstant(instantTime),
+                "a writer that closes without a completed checkpoint must roll its instant back");
+        Assertions.assertEquals(
+                Collections.emptyList(),
+                commitTimestamps(metaClient.reloadActiveTimeline()),
+                "no record of a writer that never prepared a checkpoint may become visible");
+    }
+
+    @Test
+    void shouldFailTheCheckpointWhenHudiRejectsARecord() throws Exception {
+        HudiSinkConfig sinkConfig = sinkConfig(HudiSemantics.EXACTLY_ONCE);
+        HoodieTableMetaClient metaClient = metaClient(createTable(sinkConfig));
+
+        HudiRecordWriter writer = newWriter(sinkConfig);
+        String instantTime;
+        try {
+            writeRecords(writer, BATCH_SIZE);
+            java.lang.reflect.Field statusesField =
+                    HudiRecordWriter.class.getDeclaredField("pendingWriteStatuses");
+            statusesField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            List<WriteStatus> statuses = (List<WriteStatus>) statusesField.get(writer);
+            Assertions.assertFalse(statuses.isEmpty());
+            instantTime = metaClient.reloadActiveTimeline().getInstants().get(0).getTimestamp();
+            WriteStatus rejectedStatus = new WriteStatus(false, 0.0);
+            rejectedStatus.setGlobalError(new IllegalStateException("rejected by the test"));
+            statuses.add(rejectedStatus);
+
+            HudiConnectorException exception =
+                    Assertions.assertThrows(
+                            HudiConnectorException.class, () -> writer.prepareCommit(1L));
+            Assertions.assertEquals(
+                    HudiErrorCode.WRITE_RECORDS_FAILED.getCode(),
+                    exception.getSeaTunnelErrorCode().getCode(),
+                    "a rejected record must fail the checkpoint instead of being dropped");
+        } finally {
+            writer.close();
+        }
+
+        Assertions.assertFalse(
+                metaClient.reloadActiveTimeline().containsInstant(instantTime),
+                "the rejected checkpoint must not leave its instant behind");
     }
 
     @Test

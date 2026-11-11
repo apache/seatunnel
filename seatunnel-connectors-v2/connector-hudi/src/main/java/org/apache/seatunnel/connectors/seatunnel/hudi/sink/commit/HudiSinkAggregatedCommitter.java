@@ -33,6 +33,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.hadoop.fs.HadoopFSUtils;
@@ -61,6 +62,15 @@ import static org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiCatalogUti
  * skipped, so a commit that was lost by a failure is simply applied again when the job restores
  * from the checkpoint. The commit infos are part of the checkpoint state of the committer, which is
  * how the engine hands the pending instants back to it after a restart.
+ *
+ * <p>Because the exactly-once semantics uses the {@code NEVER} failed writes cleaning policy, Hudi
+ * never rolls a pending instant back by itself. The connector therefore reclaims the instants of
+ * the attempts that failed: the writer rolls back the instant that it still owns when it closes,
+ * {@link #abort} rolls back the instants of an aborted checkpoint on the engines that call it, and
+ * {@link #restoreCommit} rolls back every commit instant on the active timeline that the restored
+ * checkpoint state does not reference. The last case covers the failures in which neither the
+ * writer nor {@code abort} runs, for example a killed task or a checkpoint that never completed
+ * after its instants were handed over.
  */
 @Slf4j
 public class HudiSinkAggregatedCommitter
@@ -156,6 +166,14 @@ public class HudiSinkAggregatedCommitter
      * <p>This is the recovery path of a commit that was lost by a failure between the checkpoint
      * completion and the commit. It is safe to run again, because the instants that are already
      * completed are skipped.
+     *
+     * <p>The instants of the failed attempt that are not part of the restored state are rolled back
+     * before the restored instants are committed. At this point the pipeline has not started its
+     * writers yet, so every commit instant on the active timeline that the restored checkpoint
+     * state does not reference belongs to a checkpoint that never completed and can never be
+     * committed anymore. Rolling it back here is what keeps a job that restarts regularly from
+     * accumulating orphaned instants and their files, because with the {@code NEVER} cleaning
+     * policy Hudi does not do it.
      */
     @Override
     public List<HudiAggregatedCommitInfo> restoreCommit(
@@ -164,6 +182,7 @@ public class HudiSinkAggregatedCommitter
                 "Restore commit for hudi table [{}], commit info size [{}].",
                 tableConfig.getTableName(),
                 aggregatedCommitInfos.size());
+        reclaimOrphanedInstants(flatten(aggregatedCommitInfos));
         return commit(aggregatedCommitInfos);
     }
 
@@ -215,6 +234,72 @@ public class HudiSinkAggregatedCommitter
                 .filter(Objects::nonNull)
                 .filter(commitInfo -> commitInfo.getInstantTime() != null)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Rolls back the commit instants that the restored checkpoint state does not reference.
+     *
+     * <p>Only the commit and delta commit actions are reclaimed; the timeline can also hold the
+     * requested or inflight instants of the Hudi table services (for example a compaction), which
+     * do not belong to this connector and must not be touched.
+     *
+     * <p>Without restored state there is no reference point that tells the instants of a failed
+     * attempt from the instants of a concurrent writer, so nothing is reclaimed and the operator
+     * has to roll the leftovers back manually. The exactly-once semantics already requires a single
+     * writer per table, so a concurrent writer is an unsupported configuration.
+     *
+     * @param restoredCommitInfos the commit infos restored from the checkpoint state
+     */
+    private void reclaimOrphanedInstants(List<HudiCommitInfo> restoredCommitInfos) {
+        Set<String> restoredInstants =
+                restoredCommitInfos.stream()
+                        .map(HudiCommitInfo::getInstantTime)
+                        .collect(Collectors.toSet());
+        List<HoodieInstant> orphanedInstants =
+                reloadActiveTimeline().filterInflightsAndRequested().getInstants().stream()
+                        .filter(
+                                instant ->
+                                        HoodieTimeline.COMMIT_ACTION.equals(instant.getAction())
+                                                || HoodieTimeline.DELTA_COMMIT_ACTION.equals(
+                                                        instant.getAction()))
+                        .filter(instant -> !restoredInstants.contains(instant.getTimestamp()))
+                        .collect(Collectors.toList());
+        if (orphanedInstants.isEmpty()) {
+            return;
+        }
+        if (restoredCommitInfos.isEmpty()) {
+            log.warn(
+                    "Found {} inflight hudi instant(s) of table [{}] but no checkpoint state was restored: {}. "
+                            + "Roll them back manually if this job left them behind.",
+                    orphanedInstants.size(),
+                    tableConfig.getTableName(),
+                    orphanedInstants.stream()
+                            .map(HoodieInstant::getTimestamp)
+                            .collect(Collectors.toList()));
+            return;
+        }
+        log.warn(
+                "Roll back {} hudi instant(s) of table [{}] that no restored checkpoint references: {}.",
+                orphanedInstants.size(),
+                tableConfig.getTableName(),
+                orphanedInstants.stream()
+                        .map(HoodieInstant::getTimestamp)
+                        .collect(Collectors.toList()));
+        for (HoodieInstant orphanedInstant : orphanedInstants) {
+            String instantTime = orphanedInstant.getTimestamp();
+            try {
+                writeClientProvider.getOrCreateClient().rollback(instantTime);
+                pendingInstants.remove(instantTime);
+            } catch (Exception e) {
+                // the records of the checkpoint are replayed by the source, so a failed cleanup
+                // does not lose data, but the instant has to be rolled back manually
+                log.error(
+                        "Roll back the orphaned hudi instant [{}] of table [{}] failed, please roll it back manually.",
+                        instantTime,
+                        tableConfig.getTableName(),
+                        e);
+            }
+        }
     }
 
     private void commitInstant(HudiCommitInfo commitInfo, HoodieTimeline activeTimeline) {
