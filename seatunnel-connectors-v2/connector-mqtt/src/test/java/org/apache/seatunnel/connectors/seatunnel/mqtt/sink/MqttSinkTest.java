@@ -20,11 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.mqtt.sink;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 
 import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
@@ -76,26 +79,34 @@ class MqttSinkTest {
     }
 
     @Test
-    void testSinkConfigValuesSurviveJavaSerialization() {
-        // qos 2 is not a legal MQTT QoS for this connector and MqttSinkWriter rejects it, but
-        // MqttSink itself does not validate, so the sink builds fine and only a writer surfaces
-        // it. That makes it an observable, non-default value: MqttSinkOptions.QOS defaults to 1,
-        // so a pluginConfig that came back empty would yield a legal qos and the writer would
-        // build without complaint. The rejection below only happens if the 2 travelled.
+    void testSinkConfigValuesSurviveJavaSerialization() throws Exception {
+        // MqttSinkOptions.QOS defaults to 1, so a pluginConfig that came back empty after
+        // serialization would still yield a legal qos and hide the lost field. Setting qos to 0,
+        // a legal but non-default value, makes the round trip observable: MqttSinkWriter stamps
+        // every published message with the configured qos, so the published message carries 0
+        // only if the value travelled.
         Map<String, Object> config = baseConfig();
-        config.put("qos", 2);
+        config.put("qos", 0);
         MqttSink sink = newSink(config);
 
         MqttSink restored = SerializationUtils.deserialize(SerializationUtils.serialize(sink));
 
-        try (MockedConstruction<MqttClient> ignored = Mockito.mockConstruction(MqttClient.class)) {
-            IllegalArgumentException exception =
-                    Assertions.assertThrows(
-                            IllegalArgumentException.class,
-                            () -> restored.createWriter(Mockito.mock(SinkWriter.Context.class)));
-            Assertions.assertTrue(
-                    exception.getMessage().contains("got: 2"),
-                    "expected the restored qos in the message, got: " + exception.getMessage());
+        try (MockedConstruction<MqttClient> mocked =
+                Mockito.mockConstruction(
+                        MqttClient.class,
+                        (mock, ctx) -> Mockito.when(mock.isConnected()).thenReturn(true))) {
+            SinkWriter<SeaTunnelRow, Void, Void> writer =
+                    restored.createWriter(Mockito.mock(SinkWriter.Context.class));
+            // batch_size defaults to 1, so a single write flushes immediately and publishes.
+            writer.write(Mockito.mock(SeaTunnelRow.class));
+
+            MqttClient client = mocked.constructed().get(0);
+            ArgumentCaptor<MqttMessage> messageCaptor = ArgumentCaptor.forClass(MqttMessage.class);
+            Mockito.verify(client).publish(Mockito.eq("users"), messageCaptor.capture());
+            Assertions.assertEquals(
+                    0,
+                    messageCaptor.getValue().getQos(),
+                    "the restored qos must reach the published message");
         }
     }
 
