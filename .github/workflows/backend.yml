@@ -2284,7 +2284,12 @@ jobs:
       matrix:
         java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    # A green run of this job takes 99-117 minutes on ubuntu-latest depending on the runner, so
+    # the previous 120 minute budget left ordinary runner variance no room and cancelled the
+    # job before the last test classes finished. A job that runs out of its budget is reported
+    # as "cancelled" rather than "failure", so it showed up as a red job on runs that were
+    # otherwise green.
+    timeout-minutes: 210
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
