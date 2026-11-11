@@ -53,7 +53,9 @@ STUCK_SECONDS = 120
 
 # Restarting once is normal operation -- a transient connection drop costs one
 # restore and the job carries on. The signal is repetition, so the crash-loop
-# rule only fires from the second restore.
+# rule only fires from the second restore. The exhausted-budget finding is the
+# exception: it does not need repetition, because a spent budget means the next
+# failure is terminal whether that took one restore or ten.
 CRASH_LOOP_RESTORES = 2
 
 # ``restoreCount`` counts restores since submission, so on its own it says
@@ -210,11 +212,22 @@ def _crash_loop_findings(pipelines: list, now_ms: int) -> list[Finding]:
         if not isinstance(pipeline, dict):
             continue
         restores = as_int(pipeline.get("restoreCount"))
-        if restores is None or restores < CRASH_LOOP_RESTORES:
+        # Nothing to say about a pipeline that has never restored. Subsumed by
+        # the gate below, but kept so that case is explicit rather than an
+        # accident of how `exhausted` evaluates at zero.
+        if restores is None or restores < 1:
             continue
         pipeline_id = pipeline.get("pipelineId", "?")
         limit = as_int(pipeline.get("maxRestoreCount"))
         exhausted = limit is not None and limit > 0 and restores >= limit
+
+        # A spent restore budget is worth reporting however small the budget
+        # was: with `job.retry.times = 1` a pipeline reaches its limit on the
+        # first restore, and gating on CRASH_LOOP_RESTORES first made that
+        # case produce no finding at all. Below the limit, one restore is
+        # still ordinary recovery and stays silent.
+        if not exhausted and restores < CRASH_LOOP_RESTORES:
+            continue
 
         status = pipeline.get("pipelineStatus")
         status = status.strip().upper() if isinstance(status, str) and status.strip() else None
@@ -247,6 +260,23 @@ def _crash_loop_findings(pipelines: list, now_ms: int) -> list[Finding]:
                 )
             continue
 
+        # Shutting down. Whatever the restores were, they are not what is
+        # happening now, and the stop may well have been requested. Checked
+        # before the exhausted branch: a pipeline that is being torn down has
+        # no "next failure" to warn about, which is the same ordering mistake
+        # the end-state check above avoids.
+        if status in _PIPELINE_TEARING_DOWN:
+            findings.append(
+                Finding(
+                    "info",
+                    "pipeline_restored_before",
+                    f"Pipeline {pipeline_id} restarted {restores} times since it was "
+                    f"submitted and is now {status}.",
+                    evidence,
+                )
+            )
+            continue
+
         # Budget gone while the pipeline is still live: the engine will not
         # restore again, so the next failure is terminal.
         if exhausted:
@@ -256,20 +286,6 @@ def _crash_loop_findings(pipelines: list, now_ms: int) -> list[Finding]:
                     "pipeline_restore_exhausted",
                     f"Pipeline {pipeline_id} has restarted {restores} times, which is "
                     f"its limit: the next failure ends the job.",
-                    evidence,
-                )
-            )
-            continue
-
-        # Shutting down. Whatever the restores were, they are not what is
-        # happening now, and the stop may well have been requested.
-        if status in _PIPELINE_TEARING_DOWN:
-            findings.append(
-                Finding(
-                    "info",
-                    "pipeline_restored_before",
-                    f"Pipeline {pipeline_id} restarted {restores} times since it was "
-                    f"submitted and is now {status}.",
                     evidence,
                 )
             )

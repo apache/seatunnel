@@ -20,8 +20,8 @@ SeaTunnel 的 Multi-Table Transform 支持在上游插件输出多个表时，�
 |----------------------------|--------|----------|---------|--------------------------------------------------------------------------------------------------|
 | table_match_regex          | String | No       | .*      | 表名的正则表达式，通过正则表达式来匹配需要进行转换的表，默认匹配所有的表。注意这个表名是上游的真正表名，不是`plugin_output`。                           |
 | table_transform            | List   | No       | -       | 可以通过table_transform列表来指定部分表的规则，当在table_transform中配置某个表的转换规则后，外层针对当前表的规则不会生效，以table_transform中的为准 |
-| table_transform.table_path | String | No       | -       | 当在table_transform中配置某个表的转换规则后，需要使用table_path字段指定表名，表名需要包含`databaseName[.schemaName].tableName`，并且按完整表路径精确匹配。  |
-| rule_match_mode            | String | No       | -       | 控制多个 `table_transform` 配置使用相同精确 `table_path` 时的执行方式，支持 `FIRST_MATCH` 和 `ALL_MATCH`。 |
+| table_transform.table_path | String | Yes      | -       | 当在table_transform中配置某个表的转换规则后，需要使用table_path字段指定表名，表名需要包含`databaseName[.schemaName].tableName`，并且按完整表路径精确匹配，不能为空。 |
+| rule_match_mode            | String | No       | `FIRST_MATCH` | 控制多个 `table_transform` 配置使用相同精确 `table_path` 时的执行方式，支持 `FIRST_MATCH` 和 `ALL_MATCH`。 |
 
 ## 匹配逻辑
 
@@ -62,6 +62,16 @@ transform {
 这样我们就可以通过一个transform完成对多个表的转换操作。
 
 对于每个表来说，配置的优先级是：`table_transform` > `table_match_regex`。如果所有的规则都没有匹配到，那么该表将不会进行任何转换操作。
+
+当每张表都由 `table_transform` 条目选中时，外层规则可以不配置，因此只配置 `table_transform` 是合法的。每个条目都是该转换的完整单表规则，会在提交时单独校验：必须用非空的 `table_path` 选中目标表，并满足与该转换单表配置相同的规则；如果配置了外层规则，外层规则同样必须完整。对每张上游表，生效规则的解析顺序如下：
+
+| 上游表 | 生效规则 |
+|--------|----------|
+| 命中了 `table_transform` 条目 | 该条目的规则（外层规则不生效） |
+| 未命中条目，但被 `table_match_regex` 匹配且配置了外层规则 | 外层规则 |
+| 未命中条目，且没有生效的外层规则 | 该表不做任何转换，原样透传 |
+
+**DataValidator 例外**：外层的 `row_error_handle_way` 和 `row_error_handle_way.error_table` 也会作用于 entry 选中的表，条目自己配置时以条目为准；其他外层选项不作用于 entry 表。
 
 `table_transform.table_path` 使用精确表路径匹配。`rule_match_mode` 只控制多个 `table_transform` 配置使用相同精确 `table_path` 的场景：
 

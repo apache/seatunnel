@@ -52,8 +52,12 @@
         <module>connector-cassandra-e2e</module>
         <module>connector-neo4j-e2e</module>
         <module>connector-asana-e2e</module>
+        <module>connector-intercom-e2e</module>
+        <module>connector-typeform-e2e</module>
+        <module>connector-mailchimp-e2e</module>
         <module>connector-http-e2e</module>
         <module>connector-paypal-e2e</module>
+        <module>connector-woocommerce-e2e</module>
         <module>connector-tiktok-ads-e2e</module>
         <module>connector-rabbitmq-e2e</module>
         <module>connector-kafka-e2e</module>
@@ -224,6 +228,12 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-spark-3-starter</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-spark-3.5-starter</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

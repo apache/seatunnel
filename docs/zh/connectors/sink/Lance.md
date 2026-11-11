@@ -122,7 +122,7 @@ lance.write.storage.options = {
 
 ## 数据类型映射
 
-Lance 使用 Apache Arrow 类型系统。sink 会根据上游 SeaTunnel 表结构创建 Lance schema。当前映射会把所有整数类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`）一律收窄为 Arrow `int32`，因此超出有符号 32 位范围的 `BIGINT` 值会被截断。
+Lance 使用 Apache Arrow 类型系统。sink 会根据上游 SeaTunnel 表结构创建 Lance schema。`TINYINT`、`SMALLINT` 和 `INT` 写为 Arrow `int32`，`BIGINT` 写为 Arrow `int64`。如果数据集已经存在，sink 会按已有列的类型写入，因此早期版本创建为 `int32` 的 `BIGINT` 列，仍会截断超出有符号 32 位范围的值。
 
 | SeaTunnel 数据类型 | Lance / Arrow 数据类型 |
 |--------------------|------------------------|
@@ -130,7 +130,7 @@ Lance 使用 Apache Arrow 类型系统。sink 会根据上游 SeaTunnel 表结�
 | TINYINT            | int32                  |
 | SMALLINT           | int32                  |
 | INT                | int32                  |
-| BIGINT             | int32（超出有符号 32 位范围的值会被截断） |
+| BIGINT             | int64                  |
 | FLOAT              | float32                |
 | DOUBLE             | float64                |
 | DECIMAL            | decimal128             |
@@ -141,7 +141,8 @@ Lance 使用 Apache Arrow 类型系统。sink 会根据上游 SeaTunnel 表结�
 | TIMESTAMP          | timestamp（微秒精度，Asia/Shanghai 时区） |
 | STRING             | utf8                   |
 | ARRAY              | list                   |
-| MAP                | map                    |
+
+暂不支持 Map 列。Lance 原生格式会拒绝 Arrow Map 值，因此 sink 在构建 schema 时会直接报错。请在写入 Lance 之前将 Map 序列化为字符串，或展开成多个列。
 
 :::tip
 

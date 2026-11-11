@@ -1,0 +1,74 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Minimal deployment file, runnable on its own: the enclosed ConfigMap carries a demo job, so the
+# first submission only needs -a:
+#   bin/seatunnel-application.sh submit -t kubernetes -a kubernetes.conf
+# Replace the demo job with your own, or keep the job in a separate file and pass it with -c.
+# Secret, ConfigMap, environment and runtime-file options are documented in
+# docs/en/getting-started/application/kubernetes/configuration.md.
+application {
+  name = "example-batch"
+  # The demo job below runs two source tasks plus the split enumerator.
+  worker-count = 2
+  worker.memory-mb = 1024
+  worker.cpu-cores = 1
+  # Slots per worker; worker-count * worker.slots must cover parallelism plus the enumerator.
+  worker.slots = 2
+  master.memory-mb = 1024
+  master.cpu-cores = 1
+}
+
+kubernetes {
+  namespace = "seatunnel-apps"
+  image = "your-registry/seatunnel-application:<version>"
+  # Namespace, ServiceAccount and RBAC as created by the Kubernetes quick start.
+  service-account = "seatunnel-application"
+  # The demo job is mounted at <seatunnel-home>/config/job.conf from a ConfigMap SeaTunnel
+  # creates for this application.
+  job-config-file = job.conf
+  configmap.job-conf {
+    # data.<key> is the ConfigMap key, mount.<key> its absolute container path.
+    data.job.conf = """
+      env {
+        job.mode = "BATCH"
+        parallelism = 2
+      }
+
+      source {
+        FakeSource {
+          row.num = 10
+          split.num = 2
+          schema {
+            fields {
+              id = int
+              name = string
+            }
+          }
+        }
+      }
+
+      sink {
+        Console {}
+      }
+    """
+    mount.job.conf = /opt/seatunnel/config/job.conf
+  }
+  # Optional: tolerate tainted node pools. Entries are key[=value][:Effect] separated by ';'.
+  # master.tolerations = "dedicated=seatunnel:NoSchedule"
+  # worker.tolerations = "dedicated=seatunnel:NoSchedule"
+}

@@ -27,6 +27,10 @@ Some PostgreSQL-compatible databases (for example HighGo) return the same physic
 once from `information_schema.tables`. The connector deduplicates discovered tables by their fully
 qualified `catalog.schema.table` id, so these repeated rows are ignored and the job starts normally.
 
+On a type-name cache miss, an unqualified name shared by multiple schemas resolves to the type
+visible on the source connection's `search_path`. This does not change cached names or add source
+type namespaces to downstream `ADD COLUMN` statements.
+
 ## Supported DataSource Info
 
 | Datasource |                     Supported versions                     |        Driver         |                  Url                  |                                  Maven                                   |
@@ -98,6 +102,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | username                                  | String   | Yes      | -        | Name of the database to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | password                                  | String   | Yes      | -        | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | No       | -        | Database names to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| schema-name                               | List     | No       | -        | Schema names of the database to monitor, for example: `["inventory"]`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | table-names                               | List     | Yes, if `table-pattern` is not used | -        | Tables to monitor. Use the fully qualified `database.schema.table` format, for example: `postgres_cdc.inventory.orders`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | table-pattern                             | String   | Yes, if `table-names` is not used | -        | Regular expression for tables to monitor. Use the fully qualified table name in the pattern, for example: `postgres_cdc\\.inventory\\..*`. `table-names` and `table-pattern` are mutually exclusive.                                                                                                                                                                                                                                                                                                                                                                                                            |
 | table-names-config                        | List     | No       | -       | Per-table config list. Example: `[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`. Use `primaryKeys` for tables without a physical primary key. `snapshotSplitColumn` must be a unique key; otherwise SeaTunnel ignores it and selects a split column internally.                                                                                                                                                                                                                                                                                                                                                                          |
@@ -107,8 +112,8 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | snapshot.fetch.size                       | Integer  | No       | 1024     | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | slot.name                                 | String   | No       | seatunnel | The PostgreSQL logical decoding slot name. Use a different slot name for each CDC job that reads from the same PostgreSQL instance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | decoding.plugin.name                      | String   | No       | pgoutput | The name of the Postgres logical decoding plug-in installed on the server,Supported values are decoderbufs, wal2json, wal2json_rds, wal2json_streaming,wal2json_rds_streaming and pgoutput.                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| server-time-zone                          | String   | No       | UTC      | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| connect.timeout.ms                        | Duration | No       | 30000    | The maximum time that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| server-time-zone                          | String   | No       | -        | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| connect.timeout.ms                        | Long     | No       | 30000    | The maximum time that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | No       | 3        | The max retry times that the connector should retry to build database server connection.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | No       | 20       | The jdbc connection pool size.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | chunk-key.even-distribution.factor.upper-bound | Double   | No       | 100      | The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0. |
@@ -137,7 +142,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 5000
   read_limit.bytes_per_second=7000000
@@ -236,7 +241,7 @@ source {
     username = "postgres"
     password = "postgres"
     database-names = ["postgres_cdc"]
-    schema-names = ["inventory"]
+    schema-name = ["inventory"]
     table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     decoding.plugin.name = "decoderbufs"
@@ -265,7 +270,7 @@ source {
     username = "postgres"
     password = "postgres"
     database-names = ["postgres_cdc"]
-    schema-names = ["inventory"]
+    schema-name = ["inventory"]
     table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     decoding.plugin.name = "decoderbufs"
@@ -290,6 +295,8 @@ sink {
 
 In `snapshot-only` mode, the connector skips WAL streaming entirely; configure `slot.name` if you need a dedicated slot for the snapshot read.
 
+When a `snapshot-only` job is restored from a checkpoint or savepoint, it reads exactly the tables recorded in the checkpoint: tables created or added to `table-names` after the checkpoint are not read, and a restore fails with an error naming the tables when a checkpointed table that still has unread snapshot data is no longer configured or no longer exists. A checkpointed table matches a configured table only when the database, schema and table names are identical, including letter case. Switching between `snapshot-only` and another startup mode across a restore is rejected as well. Submit a new job to change the captured tables or the startup mode.
+
 ### Read tables without a primary key
 
 Pick the path that matches what the source table guarantees:
@@ -308,7 +315,7 @@ source {
     username = "postgres"
     password = "postgres"
     database-names = ["postgres_cdc"]
-    schema-names = ["inventory"]
+    schema-name = ["inventory"]
     table-names = ["postgres_cdc.inventory.full_types_no_primary_key"]
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     decoding.plugin.name = "decoderbufs"
@@ -379,6 +386,16 @@ PostgreSQL logical replication slots must be created and consumed on the primary
 
 By default, PostgreSQL CDC requires primary keys. You can specify a custom primary key via `table-names-config` with the `primaryKeys` field if the table has a unique column that can serve as an identifier.
 
+### How are generated columns handled?
+
+The publication-column filter uses the effective decoding plugin: `debezium { "plugin.name" = "..." }` takes precedence over `decoding.plugin.name`. Other plugins and snapshot-only jobs bypass this filter.
+
+With `pgoutput`, only the columns that the publication publishes are captured. Generated columns are not published before PostgreSQL 18, and virtual generated columns are never published. An explicit publication column list can omit columns, but must include the replica identity columns when publishing UPDATE or DELETE operations. Unpublished non-key columns are excluded from the table schema, so they are neither read in the snapshot nor created in an auto-created sink table. Publications without an explicit column list, including `FOR ALL TABLES` and `FOR TABLES IN SCHEMA`, still follow the generated-column rules. On PostgreSQL 18, stored generated columns are captured when the publication is created with `publish_generated_columns = stored`.
+
+SeaTunnel requires every primary key column in the CDC schema (including keys configured with `table-names-config.primaryKeys`) to be published. If a required key is unpublished, the job fails at startup with the publication, table and missing key columns, rather than streaming NULL keys. This also applies to INSERT-only publications, even though PostgreSQL permits them to omit replica identity columns. Include all required primary key columns in the publication column list before starting or restoring the job.
+
+If SeaTunnel cannot read the publication metadata at job startup, it logs an error with the failure type and keeps all columns in the schema. In that fallback, unpublished columns may be written as NULL during streaming, or a schema-change error may stop the job. Check publication access and JDBC connectivity before relying on the captured data.
+
 ### How are replication slots managed?
 
 SeaTunnel creates or reuses the replication slot identified by `slot.name` when the job starts.
@@ -408,6 +425,20 @@ may replay a row at an ambiguous boundary to avoid losing it.
 ### Why does PostgreSQL CDC fall behind?
 
 Replication lag can occur when the logical decoding plugin is slow or when the WAL sender is under load. Monitor `pg_replication_slots` for `confirmed_flush_lsn` drift. Ensure the CDC job consumes events continuously and that network latency between SeaTunnel and PostgreSQL is low.
+
+### Can PostgreSQL CDC run on the Spark engine?
+
+It can, but it is not covered by end-to-end tests. The Spark engine runs CDC sources as one Spark
+task that holds the split enumerator and all readers, for both `BATCH` and `STREAMING` jobs. Spark
+does not checkpoint the source, so:
+
+- A job cannot be restored from a checkpoint. A restarted job starts again from `startup.mode`.
+- SeaTunnel never confirms a processed LSN to the replication slot, so the slot's `restart_lsn` does
+  not move and PostgreSQL keeps all WAL from it for as long as the slot exists. Watch the WAL size,
+  and advance or drop the slot when the job stops.
+- A sink that only writes on checkpoints or full batches can hold rows back, for example the JDBC
+  sink with its default `batch_size`.
+- Reading the source with Spark micro-batch streaming (`readStream`) is not supported.
 
 ## See Also
 

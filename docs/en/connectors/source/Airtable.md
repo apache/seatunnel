@@ -13,7 +13,7 @@ Used to read data from Airtable.
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
@@ -52,6 +52,10 @@ Used to read data from Airtable.
 | enable_multi_lines          | boolean | No       | false                  | When `true`, multiple JSON objects separated by newlines in the response body are treated as separate records. |
 | connect_timeout_ms          | int     | No       | 12000                  | HTTP connection timeout in milliseconds. Default 12000ms. |
 | socket_timeout_ms           | int     | No       | 60000                  | HTTP socket timeout in milliseconds. Default 60000ms. |
+| retry                       | int     | No       | -                      | Maximum retry count when the request throws `IOException`. |
+| retry_backoff_multiplier_ms | int     | No       | 100                    | Retry backoff multiplier in milliseconds. |
+| retry_backoff_max_ms        | int     | No       | 10000                  | Maximum retry backoff in milliseconds. |
+| poll_interval_millis        | int     | No       | -                      | Request interval in milliseconds for streaming jobs. |
 | common-options              | config  | No       | -                      | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md). |
 
 ## Usage Notes

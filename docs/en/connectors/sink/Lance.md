@@ -130,7 +130,7 @@ replica becomes a bottleneck. See [Sink Common Options](../common-options/sink-c
 
 ## Data Type Mapping
 
-Lance uses the Apache Arrow type system. The sink creates the Lance schema from the incoming SeaTunnel schema. The current mapping narrows every integer SeaTunnel type (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`) to Arrow `int32`, so `BIGINT` values outside the signed 32-bit range are truncated.
+Lance uses the Apache Arrow type system. The sink creates the Lance schema from the incoming SeaTunnel schema. `TINYINT`, `SMALLINT` and `INT` are written as Arrow `int32`, and `BIGINT` as Arrow `int64`. When the dataset already exists, the sink writes to its existing column types, so a `BIGINT` column that an earlier version created as `int32` still truncates values outside the signed 32-bit range.
 
 | SeaTunnel Data Type | Lance / Arrow Data Type |
 |---------------------|-------------------------|
@@ -138,7 +138,7 @@ Lance uses the Apache Arrow type system. The sink creates the Lance schema from 
 | TINYINT             | int32                   |
 | SMALLINT            | int32                   |
 | INT                 | int32                   |
-| BIGINT              | int32 (values outside the signed 32-bit range are truncated) |
+| BIGINT              | int64                   |
 | FLOAT               | float32                 |
 | DOUBLE              | float64                 |
 | DECIMAL             | decimal128              |
@@ -149,7 +149,8 @@ Lance uses the Apache Arrow type system. The sink creates the Lance schema from 
 | TIMESTAMP           | timestamp (microsecond, Asia/Shanghai timezone) |
 | STRING              | utf8                    |
 | ARRAY               | list                    |
-| MAP                 | map                     |
+
+Map columns are not supported. Lance's native format rejects Arrow Map values, so the sink fails during schema creation. Serialize the Map to a string or flatten it into columns before writing to Lance.
 
 :::tip
 

@@ -45,4 +45,11 @@ public class TestRowKindExtractorTransformIT extends TestSuiteBase {
                 container.executeJob("/rowkind_extractor_transform_case1_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testOriginalRowKindPreservedAcrossBranches(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/rowkind_extractor_fanout.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

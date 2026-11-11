@@ -19,24 +19,24 @@ Used to read data from Persistiq.
 
 ## Options
 
-|            name             |  type   | required | default value |
-|-----------------------------|---------|----------|---------------|
-| url                         | String  | Yes      | -             |
-| password                    | String  | Yes      | -             |
-| method                      | String  | No       | get           |
-| schema                      | Config  | No       | -             |
-| schema.fields               | Config  | No       | -             |
-| format                      | String  | No       | json          |
-| params                      | Map     | No       | -             |
-| body                        | String  | No       | -             |
-| json_field                  | Config  | No       | -             |
-| content_field               | String  | No       | -             |
-| poll_interval_millis        | int     | No       | -             |
-| retry                       | int     | No       | -             |
-| retry_backoff_multiplier_ms | int     | No       | 100           |
-| retry_backoff_max_ms        | int     | No       | 10000         |
-| enable_multi_lines          | boolean | No       | false         |
-| common-options              | config  | No       | -             |
+|            name             |  type   | required | default value | Description |
+|-----------------------------|---------|----------|---------------|-------------|
+| url                         | String  | Yes      | -             | HTTP request URL |
+| password                    | String  | Yes      | -             | Persistiq API key used for login |
+| method                      | String  | No       | get           | HTTP request method, only supports `GET` and `POST` |
+| schema                      | Config  | No       | -             | HTTP and SeaTunnel data structure mapping. For more details, see [Schema Feature](../../introduction/concepts/schema-feature.md). |
+| schema.fields               | Config  | No       | -             | The schema fields of upstream data |
+| format                      | String  | No       | json          | The format of upstream data, now supports `json` and `text`, default `json` |
+| params                      | Map     | No       | -             | HTTP request parameters |
+| body                        | String  | No       | -             | HTTP request body |
+| json_field                  | Config  | No       | -             | JSON field configuration for extracting fields from the response |
+| content_field               | String  | No       | -             | JSONPath expression to extract part of the JSON response before schema parsing |
+| poll_interval_millis        | int     | No       | -             | Request HTTP API interval (millis) in stream mode |
+| retry                       | int     | No       | -             | The max retry times if request HTTP returns `IOException` |
+| retry_backoff_multiplier_ms | int     | No       | 100           | The retry-backoff multiplier (millis) if request HTTP failed |
+| retry_backoff_max_ms        | int     | No       | 10000         | The maximum retry-backoff time (millis) if request HTTP failed |
+| enable_multi_lines          | boolean | No       | false         | Whether to enable multi-line mode |
+| common-options              | config  | No       | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
 
 ### url [String]
 

@@ -42,15 +42,16 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |----------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
 | BOOL                                         | BOOLEAN                                                                                                                                           |
 | INT2                                         | SHORT                                                                                                                                             |
-| SMALLSERIAL <br/>SERIAL <br/>INT4            | INT                                                                                                                                               |
+| SMALLSERIAL                                  | SMALLINT                                                                                                                                          |
+| SERIAL <br/>INT4                             | INT                                                                                                                                               |
 | INT8 <br/>BIGSERIAL                          | BIGINT                                                                                                                                            |
 | FLOAT4                                       | FLOAT                                                                                                                                             |
 | FLOAT8                                       | DOUBLE                                                                                                                                            |
 | NUMERIC                                      | DECIMAL((获取指定列的指定列大小),<br/>(获取指定列小数点右边的位数。))) |
 | BPCHAR <br/>CHARACTER <br/>VARCHAR <br/>TEXT | STRING                                                                                                                                            |
-| TIMESTAMP                                    | LOCALDATETIME                                                                                                                                     |
-| TIME                                         | LOCALTIME                                                                                                                                         |
-| DATE                                         | LOCALDATE                                                                                                                                         |
+| TIMESTAMP                                    | TIMESTAMP                                                                                                                                         |
+| TIME                                         | TIME                                                                                                                                              |
+| DATE                                         | DATE                                                                                                                                              |
 | 其他数据类型                              | 暂不支持                                                                                                                                 |
 
 ## Sink 选项

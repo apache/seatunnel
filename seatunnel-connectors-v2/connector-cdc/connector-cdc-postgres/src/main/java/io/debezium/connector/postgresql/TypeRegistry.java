@@ -90,7 +90,12 @@ public class TypeRegistry {
                     + ") e ON (t.oid = e.id) "
                     + "WHERE n.nspname != 'pg_toast' and t.typtypmod != 0";
 
-    private static final String SQL_NAME_LOOKUP = SQL_TYPES + " AND t.typname = ?";
+    // Match PostgreSQL's unqualified type lookup when duplicate names exist across schemas.
+    // The OID tie-breaker keeps the fallback deterministic when no candidate is visible.
+    private static final String SQL_NAME_LOOKUP =
+            SQL_TYPES
+                    + " AND t.typname = ?"
+                    + " ORDER BY pg_catalog.pg_type_is_visible(t.oid) DESC, t.oid";
 
     private static final String SQL_OID_LOOKUP = SQL_TYPES + " AND t.oid = ?";
 

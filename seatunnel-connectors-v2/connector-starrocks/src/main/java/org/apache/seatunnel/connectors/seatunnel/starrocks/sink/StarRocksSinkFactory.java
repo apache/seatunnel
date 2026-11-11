@@ -72,6 +72,9 @@ public class StarRocksSinkFactory implements TableSinkFactory {
                         StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE,
                         StarRocksSinkOptions.HTTP_SOCKET_TIMEOUT_MS)
                 .optional(
+                        StarRocksSinkOptions.LABEL_STATE_TIMEOUT_MS,
+                        Conditions.greaterThan(StarRocksSinkOptions.LABEL_STATE_TIMEOUT_MS, 0L))
+                .optional(
                         SinkConnectorCommonOptions.TABLE_OPTIONS,
                         Conditions.extension(
                                 SinkConnectorCommonOptions.TABLE_OPTIONS,

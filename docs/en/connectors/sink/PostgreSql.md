@@ -12,8 +12,15 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Description
 
-Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
-semantics (using XA transaction guarantee).
+The PostgreSQL Sink connector writes rows to a PostgreSQL database through the JDBC driver.
+It supports both batch and streaming jobs, concurrent sink writers controlled by the
+job or pipeline parallelism, and exactly-once semantics through XA transactions.
+
+Use this connector when the upstream data lands in a relational store and the target table
+follows the standard PostgreSQL type system described in the data type mapping section below.
+The connector can write to a fixed `database.table` pair, generate `INSERT` statements from
+the schema automatically, or apply a custom `query` template, so it covers both CDC and
+plain bulk-loading workloads.
 
 ## Using Dependency
 
@@ -27,13 +34,16 @@ semantics (using XA transaction guarantee).
 
 ## Key Features
 
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-> Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
+Exactly-once requires XA transaction support in the target database. Set
+`is_exactly_once=true`, `max_retries=0`, and the matching `xa_data_source_class_name`.
+
 
 ## Supported DataSource Info
 
@@ -55,8 +65,9 @@ semantics (using XA transaction guarantee).
 | BOOL<br/>                                                                                        | BOOLEAN                                                                                                                                        |
 | _BOOL<br/>                                                                                       | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |
 | BYTEA<br/>                                                                                       | BYTES                                                                                                                                          |
-| _BYTEA<br/>                                                                                      | ARRAY&LT;TINYINT&GT;                                                                                                                           |
-| INT2<br/>SMALLSERIAL<br/>INT4<br/>SERIAL<br/>                                                    | INT                                                                                                                                            |
+| _BYTEA<br/>                                                                                      | NOT SUPPORTED YET                                                                                                                              |
+| INT2<br/>SMALLSERIAL<br/>                                                                        | SMALLINT                                                                                                                                       |
+| INT4<br/>SERIAL<br/>                                                                             | INT                                                                                                                                            |
 | _INT2<br/>_INT4<br/>                                                                             | ARRAY&LT;INT&GT;                                                                                                                               |
 | INT8<br/>BIGSERIAL<br/>                                                                          | BIGINT                                                                                                                                         |
 | _INT8<br/>                                                                                       | ARRAY&LT;BIGINT&GT;                                                                                                                            |
@@ -88,6 +99,7 @@ semantics (using XA transaction guarantee).
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit failed (executeBatch)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | batch_size                                | Int     | No       | 1000                         | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                                                                                                                                                                                                                                                                                                                                                              |
+| batch_interval_ms                         | Long    | No       | 0                            | Write-triggered flush interval in milliseconds. `0` disables time-based flushing. When greater than 0, the writer checks elapsed time on each record and flushes synchronously when the interval is reached.                                    |
 | is_exactly_once                           | Boolean | No       | false                        | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | generate_sink_sql                         | Boolean | No       | false                        | Generate sql statements based on the database table you want to write to.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | xa_data_source_class_name                 | String  | No       | -                            | The xa data source class name of the database Driver, for example, PostgreSQL is `org.postgresql.xa.PGXADataSource`, and<br/>please refer to appendix for other data sources                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -102,6 +114,7 @@ semantics (using XA transaction guarantee).
 | custom_sql                                | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                                                                                                                                                                                                                                                                                                                                        |
 | enable_upsert                             | Boolean | No       | true                         | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | use_copy_statement                        | Boolean | No       | false                        | Use PostgreSQL `COPY <table> (...) FROM STDIN WITH CSV` for bulk import. This option takes precedence over the regular INSERT / UPSERT path, requires a JDBC driver connection that exposes `getCopyAPI()`, and does not support `MAP`, `ARRAY`, or `ROW` types.                                                                                                                                                                                                                                                                                                                |
+| multi_table_sink_replica                  | Int     | No       | 1                            | The number of sink writer replicas used when writing multiple tables.                                                                                                                                                                          |
 
 ### table [string]
 
@@ -140,7 +153,8 @@ When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> Sink concurrency follows the job or pipeline parallelism. `partition_column` is a JDBC
+> source option for splitting reads; it does not control how the sink distributes writes.
 
 ## Task Example
 

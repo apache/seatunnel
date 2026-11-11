@@ -53,7 +53,7 @@ Write data to OceanBase through JDBC. The sink supports batch and streaming jobs
 | DATE                                                                                                                              | DATE                                                                                                                                                |
 | TIME                                                                                                                              | TIME                                                                                                                                                |
 | DATETIME<br/>TIMESTAMP                                                                                                            | TIMESTAMP                                                                                                                                           |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
 | GEOMETRY<br/>UNKNOWN                                                                                                              | Not supported yet                                                                                                                                   |
 
 ### Oracle Mode
@@ -282,7 +282,7 @@ sink {
     table = "sink_table"
     primary_keys = ["id"]
     is_exactly_once = true
-    xa_data_source_class_name = "com.oceanbase.jdbc.OceanBaseXADataSource"
+    xa_data_source_class_name = "com.oceanbase.jdbc.OceanBaseDataSource"
     max_retries = 0
     batch_size = 1000
   }

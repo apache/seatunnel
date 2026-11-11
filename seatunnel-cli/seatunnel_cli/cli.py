@@ -870,16 +870,9 @@ class SeaTunnelCLI:
                 self._handle_command(user_input)
                 continue
 
-            # If previous turn was a clarification question, merge the
-            # original request with the user's answer so the planner and
-            # slot-checker see the full context.
-            if self._pending_request:
-                user_input = (
-                    f"{self._pending_request}\n\n"
-                    f"Additional details from user: {user_input}"
-                )
-                self._pending_request = None
-
+            # The Orchestrator merges a clarification reply with the request it
+            # answers; it owns `pending_question`, so doing it here as well
+            # would prepend the requirement twice.
             # Process natural language request
             self._process_request(user_input)
 
@@ -1582,7 +1575,9 @@ _SEVERITY_STYLE = {"error": "error", "warning": "warning", "info": "info"}
 # typo or a mangled copy-paste. Catching it here turns "1/2" -- which would
 # otherwise be sent as the URL path `/job-info/1/2` and come back as a 404 --
 # into a message that names the actual problem.
-_JOB_ID_RE = re.compile(r"-?\d+$")
+# `\Z`, not `$`: `$` also matches just before a trailing newline, so a job
+# id pasted with the newline still got interpolated into the URL path.
+_JOB_ID_RE = re.compile(r"-?\d+\Z")
 
 # An engine error body is bounded only by rest.MAX_RESPONSE_BYTES (8 MiB).
 # That is the right limit for a response being parsed; it is the wrong amount

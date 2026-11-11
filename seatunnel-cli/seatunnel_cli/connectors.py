@@ -61,7 +61,9 @@ logger = logging.getLogger(__name__)
 #
 # In local mode (-m local): REST API is NOT available.
 # Users can override with SEATUNNEL_API_BASE env var — needed when
-# enable-dynamic-port moves the listener off 8080, or for a remote cluster.
+# enable-dynamic-port moves the listener off 8080, when a non-empty
+# seatunnel.engine.http.context-path mounts every servlet under a prefix
+# (the code default is empty), or for a remote cluster.
 _ENGINE_API_BASE = os.environ.get("SEATUNNEL_API_BASE", "http://localhost:8080")
 _API_CACHE: dict[str, dict] = {}  # memory cache: "source:Jdbc" → parsed response
 _ENGINE_AVAILABLE: bool | None = None  # None = not checked yet

@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.Timeout;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.ToxiproxyContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.couchbase.BucketDefinition;
 import org.testcontainers.couchbase.CouchbaseContainer;
@@ -53,6 +54,8 @@ import com.couchbase.client.java.json.JsonObject;
 import com.couchbase.client.java.query.QueryOptions;
 import com.couchbase.client.java.query.QueryResult;
 import com.couchbase.client.java.query.QueryScanConsistency;
+import eu.rekawek.toxiproxy.model.ToxicDirection;
+import eu.rekawek.toxiproxy.model.toxic.Bandwidth;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -108,6 +111,8 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
     private static final int EXPECTED_ROW_COUNT = 100;
 
     private CouchbaseContainer couchbaseContainer;
+    private ToxiproxyContainer queryProxyContainer;
+    private ToxiproxyContainer.ContainerProxy queryProxy;
     private Cluster cluster;
 
     @BeforeAll
@@ -118,9 +123,20 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
         // the same name as threads from any other Reactor-based connector. The exemption must only
         // fire while this test is running to avoid masking leaks in unrelated connectors.
         SeaTunnelContainer.enableCouchbaseParallelThreadExemption();
+        queryProxyContainer =
+                new ToxiproxyContainer("ghcr.io/shopify/toxiproxy:2.4.0").withNetwork(NETWORK);
+        queryProxyContainer.start();
+        queryProxy = queryProxyContainer.getProxy(COUCHBASE_CONTAINER_HOST, 8093);
         couchbaseContainer =
-                new CouchbaseContainer(DockerImageName.parse(COUCHBASE_IMAGE))
-                        .withNetwork(NETWORK)
+                new CouchbaseContainer(DockerImageName.parse(COUCHBASE_IMAGE)) {
+                    @Override
+                    public Integer getMappedPort(int originalPort) {
+                        // Both containers share the Docker host, including with remote Docker.
+                        return originalPort == 8093
+                                ? queryProxy.getProxyPort()
+                                : super.getMappedPort(originalPort);
+                    }
+                }.withNetwork(NETWORK)
                         .withNetworkAliases(COUCHBASE_CONTAINER_HOST)
                         .withCredentials(COUCHBASE_USERNAME, COUCHBASE_PASSWORD)
                         .withBucket(
@@ -332,13 +348,20 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
             if (cluster != null) {
                 cluster.disconnect();
             }
-            if (couchbaseContainer != null) {
-                couchbaseContainer.stop();
-            }
         } finally {
-            // Always clear the flag so that parallel-N threads are no longer exempt after
-            // this test class finishes, regardless of whether teardown succeeded.
-            SeaTunnelContainer.disableCouchbaseParallelThreadExemption();
+            try {
+                if (couchbaseContainer != null) {
+                    couchbaseContainer.stop();
+                }
+            } finally {
+                try {
+                    if (queryProxyContainer != null) {
+                        queryProxyContainer.stop();
+                    }
+                } finally {
+                    SeaTunnelContainer.disableCouchbaseParallelThreadExemption();
+                }
+            }
         }
     }
 
@@ -509,9 +532,9 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                 cluster.bucket(COUCHBASE_BUCKET)
                         .scope(COUCHBASE_SOURCE_SCOPE)
                         .collection(COUCHBASE_TIMEOUT_COLLECTION);
-        // 64 MiB of results prevents SDK prefetch and socket buffers from hiding backpressure.
-        // Sleeping on a tiny, already-buffered response would not exercise a server timeout.
-        String payload = "x".repeat(128 * 1024);
+        // Bound Query-service traffic before the SDK can buffer the complete response.
+        // Collector delays alone do not guarantee backpressure reaches a fast server.
+        String payload = "x".repeat(32 * 1024);
         for (int id = 0; id < TIMEOUT_ROW_COUNT; id++) {
             collection.upsert(
                     "timeout-" + id, JsonObject.create().put("id", id).put("payload", payload));
@@ -549,8 +572,9 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
         SourceReader.Context failedContext = mock(SourceReader.Context.class);
         List<Integer> partial = new ArrayList<>();
         List<SingleSplit> state;
-        try (SourceReader<SeaTunnelRow, SingleSplit> reader =
-                timeoutReader(SMALL_QUERY_TIMEOUT_SECONDS, failedContext)) {
+        try (QueryBandwidth bandwidth = limitQueryBandwidth();
+                SourceReader<SeaTunnelRow, SingleSplit> reader =
+                        timeoutReader(SMALL_QUERY_TIMEOUT_SECONDS, failedContext)) {
             reader.addSplits(Collections.singletonList(new SingleSplit(null)));
             reader.open();
             UnambiguousTimeoutException failure =
@@ -572,10 +596,12 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
 
         SourceReader.Context restoredContext = mock(SourceReader.Context.class);
         List<Integer> completed = new ArrayList<>();
-        try (SourceReader<SeaTunnelRow, SingleSplit> reader = timeoutReader(60, restoredContext)) {
+        try (QueryBandwidth bandwidth = limitQueryBandwidth();
+                SourceReader<SeaTunnelRow, SingleSplit> reader =
+                        timeoutReader(60, restoredContext)) {
             reader.addSplits(state);
             reader.open();
-            // Same fixture and slow collector; only the query budget changes.
+            // Same bandwidth and collector delay; only the query budget changes.
             reader.pollNext(collectorWithInitialDelay(completed, SLOW_COLLECTOR_DELAY_SECONDS));
             Assertions.assertEquals(TIMEOUT_ROW_COUNT, completed.size());
             Assertions.assertEquals(expectedIds, new HashSet<>(completed));
@@ -782,6 +808,33 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
             if (!jobFuture.isDone()) {
                 Container.ExecResult cancelResult = container.cancelJob(jobId);
                 Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+            }
+        }
+    }
+
+    private QueryBandwidth limitQueryBandwidth() throws IOException {
+        return new QueryBandwidth(
+                queryProxy.toxics().bandwidth("query-response", ToxicDirection.DOWNSTREAM, 1024));
+    }
+
+    /** Remove the traffic limit after the reader closes, including failed test paths. */
+    private static final class QueryBandwidth implements AutoCloseable {
+        private final Bandwidth toxic;
+        private final long started = System.nanoTime();
+        private boolean released;
+
+        private QueryBandwidth(Bandwidth toxic) {
+            this.toxic = toxic;
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (!released) {
+                toxic.remove();
+                released = true;
+                log.info(
+                        "Query response limited to 1024 KB/s for {} ms",
+                        TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started));
             }
         }
     }
