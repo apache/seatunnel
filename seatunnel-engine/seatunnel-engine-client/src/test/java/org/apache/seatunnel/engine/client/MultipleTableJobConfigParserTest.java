@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -39,6 +40,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
@@ -50,6 +52,7 @@ import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
 import org.junit.jupiter.api.Assertions;
@@ -524,6 +527,55 @@ public class MultipleTableJobConfigParserTest {
         Assertions.assertEquals("test_db.test_schema.table2", failedTable.getTablePath());
         Assertions.assertEquals(MultiTableFailurePhase.DISCOVERY, failedTable.getPhase());
         Assertions.assertTrue(failedTable.getMessageSummary().contains("metadata read failed"));
+    }
+
+    @Test
+    public void testEnvOptionsReachTransformFactory() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        ParserEnvProbeTransformFactory.reset();
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fake_to_parser_env_transform.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
+                        .parse(null);
+
+        TransformAction transformAction =
+                parsed.getLeft().stream()
+                        .flatMap(action -> action.getUpstream().stream())
+                        .filter(TransformAction.class::isInstance)
+                        .map(TransformAction.class::cast)
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("No transform action was created"));
+        SeaTunnelTransform<?> transform = transformAction.getTransform();
+        Assertions.assertEquals(
+                ParserEnvProbeTransformFactory.IDENTIFIER, transform.getPluginName());
+        assertEnv(ParserEnvProbeTransformFactory.capturedEnvOptions());
+    }
+
+    @Test
+    public void testEnvOptionsReachSinkFactory() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        ParserEnvProbeSinkFactory.reset();
+        String filePath = ContentFormatUtilTest.getResource("/batch_fake_to_parser_env_sink.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
+                        .parse(null);
+
+        Assertions.assertFalse(parsed.getLeft().isEmpty());
+        Assertions.assertInstanceOf(SinkAction.class, parsed.getLeft().get(0));
+        assertEnv(ParserEnvProbeSinkFactory.capturedEnvOptions());
+    }
+
+    private static void assertEnv(ReadonlyConfig envOptions) {
+        Assertions.assertNotNull(envOptions);
+        Assertions.assertEquals(
+                "env-value", envOptions.get(EnvCommonOptions.CUSTOM_PARAMETERS).get("probe"));
     }
 
     private CatalogTable mockCatalogTable(String tableName) {

@@ -85,6 +85,25 @@ public final class FactoryUtil {
                     Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource,
                     TableSourceFactory factory,
                     MetadataConfig metaDataConfig) {
+        return createAndPrepareSource(
+                options,
+                classLoader,
+                factoryIdentifier,
+                fallbackCreateSource,
+                factory,
+                metaDataConfig,
+                TableFactoryContext.EMPTY_ENV_OPTIONS);
+    }
+
+    public static <T, SplitT extends SourceSplit, StateT extends Serializable>
+            Tuple2<SeaTunnelSource<T, SplitT, StateT>, List<CatalogTable>> createAndPrepareSource(
+                    ReadonlyConfig options,
+                    ClassLoader classLoader,
+                    String factoryIdentifier,
+                    Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource,
+                    TableSourceFactory factory,
+                    MetadataConfig metaDataConfig,
+                    ReadonlyConfig envOptions) {
         return restoreAndPrepareSource(
                 options,
                 classLoader,
@@ -92,7 +111,8 @@ public final class FactoryUtil {
                 null,
                 fallbackCreateSource,
                 factory,
-                metaDataConfig);
+                metaDataConfig,
+                envOptions);
     }
 
     public static <T, SplitT extends SourceSplit, StateT extends Serializable>
@@ -104,6 +124,27 @@ public final class FactoryUtil {
                     Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource,
                     TableSourceFactory factory,
                     MetadataConfig metaDataConfig) {
+        return restoreAndPrepareSource(
+                options,
+                classLoader,
+                factoryIdentifier,
+                checkpoint,
+                fallbackCreateSource,
+                factory,
+                metaDataConfig,
+                TableFactoryContext.EMPTY_ENV_OPTIONS);
+    }
+
+    public static <T, SplitT extends SourceSplit, StateT extends Serializable>
+            Tuple2<SeaTunnelSource<T, SplitT, StateT>, List<CatalogTable>> restoreAndPrepareSource(
+                    ReadonlyConfig options,
+                    ClassLoader classLoader,
+                    String factoryIdentifier,
+                    ChangeStreamTableSourceCheckpoint checkpoint,
+                    Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource,
+                    TableSourceFactory factory,
+                    MetadataConfig metaDataConfig,
+                    ReadonlyConfig envOptions) {
 
         try {
 
@@ -140,9 +181,15 @@ public final class FactoryUtil {
                             changeStreamTableSourceFactory.deserializeTableSourceState(checkpoint);
                     source =
                             restoreAndPrepareSource(
-                                    changeStreamTableSourceFactory, options, classLoader, state);
+                                    changeStreamTableSourceFactory,
+                                    options,
+                                    classLoader,
+                                    state,
+                                    envOptions);
                 } else {
-                    source = createAndPrepareSource(factory, options, classLoader, metaDataConfig);
+                    source =
+                            createAndPrepareSource(
+                                    factory, options, classLoader, metaDataConfig, envOptions);
                 }
             }
             List<CatalogTable> catalogTables;
@@ -185,9 +232,10 @@ public final class FactoryUtil {
                     TableSourceFactory factory,
                     ReadonlyConfig options,
                     ClassLoader classLoader,
-                    MetadataConfig metaDataConfig) {
+                    MetadataConfig metaDataConfig,
+                    ReadonlyConfig envOptions) {
         TableSourceFactoryContext context =
-                new TableSourceFactoryContext(options, classLoader, metaDataConfig);
+                new TableSourceFactoryContext(options, classLoader, metaDataConfig, envOptions);
         ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
         TableSource<T, SplitT, StateT> tableSource = factory.createSource(context);
         return tableSource.createSource();
@@ -198,8 +246,10 @@ public final class FactoryUtil {
                     ChangeStreamTableSourceFactory factory,
                     ReadonlyConfig options,
                     ClassLoader classLoader,
-                    ChangeStreamTableSourceState state) {
-        TableSourceFactoryContext context = new TableSourceFactoryContext(options, classLoader);
+                    ChangeStreamTableSourceState state,
+                    ReadonlyConfig envOptions) {
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(options, classLoader, null, envOptions);
         ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
         LOG.info("Restore create source from checkpoint state: {}", state);
         TableSource<T, SplitT, StateT> tableSource = factory.restoreSource(context, state);
@@ -215,6 +265,26 @@ public final class FactoryUtil {
                     Function<PluginIdentifier, SeaTunnelSink> fallbackCreateSink,
                     TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
                             tableSinkFactory) {
+        return createAndPrepareSink(
+                catalogTable,
+                config,
+                classLoader,
+                factoryIdentifier,
+                fallbackCreateSink,
+                tableSinkFactory,
+                TableFactoryContext.EMPTY_ENV_OPTIONS);
+    }
+
+    public static <IN, StateT, CommitInfoT, AggregatedCommitInfoT>
+            SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createAndPrepareSink(
+                    CatalogTable catalogTable,
+                    ReadonlyConfig config,
+                    ClassLoader classLoader,
+                    String factoryIdentifier,
+                    Function<PluginIdentifier, SeaTunnelSink> fallbackCreateSink,
+                    TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
+                            tableSinkFactory,
+                    ReadonlyConfig envOptions) {
         try {
             final String factoryId = config.get(PLUGIN_NAME);
 
@@ -248,7 +318,8 @@ public final class FactoryUtil {
                             catalogTable,
                             config,
                             classLoader,
-                            tableSinkFactory.excludeTablePlaceholderReplaceKeys());
+                            tableSinkFactory.excludeTablePlaceholderReplaceKeys(),
+                            envOptions);
             ConfigValidator.of(context.getOptions()).validate(tableSinkFactory.optionRule());
 
             LOG.info(
@@ -271,11 +342,21 @@ public final class FactoryUtil {
                     Map<TablePath, SeaTunnelSink> sinks,
                     ReadonlyConfig options,
                     ClassLoader classLoader) {
+        return createMultiTableSink(
+                sinks, options, classLoader, TableFactoryContext.EMPTY_ENV_OPTIONS);
+    }
+
+    public static <IN, StateT, CommitInfoT, AggregatedCommitInfoT>
+            SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createMultiTableSink(
+                    Map<TablePath, SeaTunnelSink> sinks,
+                    ReadonlyConfig options,
+                    ClassLoader classLoader,
+                    ReadonlyConfig envOptions) {
         try {
             TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> factory =
                     new MultiTableSinkFactory();
             MultiTableFactoryContext context =
-                    new MultiTableFactoryContext(options, classLoader, sinks);
+                    new MultiTableFactoryContext(options, classLoader, sinks, envOptions);
             ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
             return factory.createSink(context).createSink();
         } catch (Throwable t) {
@@ -454,10 +535,24 @@ public final class FactoryUtil {
             ReadonlyConfig options,
             ClassLoader classLoader,
             String factoryIdentifier) {
+        return createAndPrepareMultiTableTransform(
+                catalogTables,
+                options,
+                classLoader,
+                factoryIdentifier,
+                TableFactoryContext.EMPTY_ENV_OPTIONS);
+    }
+
+    public static SeaTunnelTransform<?> createAndPrepareMultiTableTransform(
+            List<CatalogTable> catalogTables,
+            ReadonlyConfig options,
+            ClassLoader classLoader,
+            String factoryIdentifier,
+            ReadonlyConfig envOptions) {
         final TableTransformFactory factory =
                 discoverFactory(classLoader, TableTransformFactory.class, factoryIdentifier);
         TableTransformFactoryContext context =
-                new TableTransformFactoryContext(catalogTables, options, classLoader);
+                new TableTransformFactoryContext(catalogTables, options, classLoader, envOptions);
         ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
         return factory.createTransform(context).createTransform();
     }

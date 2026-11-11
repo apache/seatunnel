@@ -453,10 +453,17 @@ public class MultipleTableJobConfigParser {
                     checkpoint,
                     fallbackCreateSource,
                     null,
-                    metaDataConfig);
+                    metaDataConfig,
+                    envOptions);
         }
         return FactoryUtil.createAndPrepareSource(
-                readonlyConfig, classLoader, factoryId, fallbackCreateSource, null, metaDataConfig);
+                readonlyConfig,
+                classLoader,
+                factoryId,
+                fallbackCreateSource,
+                null,
+                metaDataConfig,
+                envOptions);
     }
 
     public void parseTransforms(
@@ -528,7 +535,11 @@ public class MultipleTableJobConfigParser {
                                 .orElse(spareParallelism);
         SeaTunnelTransform<?> transform =
                 FactoryUtil.createAndPrepareMultiTableTransform(
-                        new ArrayList<>(catalogTables), readonlyConfig, classLoader, factoryId);
+                        new ArrayList<>(catalogTables),
+                        readonlyConfig,
+                        classLoader,
+                        factoryId,
+                        envOptions);
 
         transform.setJobContext(jobConfig.getJobContext());
         long id = idGenerator.getNextId();
@@ -745,7 +756,8 @@ public class MultipleTableJobConfigParser {
                         MultiTableFailureHelper.withFailedTables(
                                 MultiTableFailureHelper.mergeOptions(options, envOptions),
                                 skippedTables),
-                        classLoader);
+                        classLoader,
+                        envOptions);
         String actionName =
                 JobConfigParser.createSinkActionName(configIndex, factoryId, "MultiTableSink");
         SinkAction<?, ?, ?, ?> multiTableAction =
@@ -818,7 +830,8 @@ public class MultipleTableJobConfigParser {
                             classLoader,
                             factoryId,
                             fallbackCreateSink,
-                            null);
+                            null,
+                            envOptions);
         } catch (Exception error) {
             return handleCreateSinkFailure(
                     catalogTable, factoryId, MultiTableFailurePhase.SINK_INIT, error);

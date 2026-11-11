@@ -179,7 +179,8 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                                 transformConfigs,
                                 sinkConfigs,
                                 sourceAndTransformClassLoader,
-                                sinkClassLoader)
+                                sinkClassLoader,
+                                envReadonly)
                         .validate();
             }
 

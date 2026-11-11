@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.starter.seatunnel.command;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
@@ -473,6 +474,10 @@ public class SeaTunnelConfValidateCommandTest {
 
     private List<DryRunConnectValidator.PluginResult> runConnectValidator(Config config) {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        ReadonlyConfig envOptions =
+                config.hasPath("env")
+                        ? ReadonlyConfig.fromConfig(config.getConfig("env"))
+                        : ReadonlyConfig.fromMap(Collections.emptyMap());
         DryRunConnectValidator validator =
                 new DryRunConnectValidator(
                         config.getConfigList("source"),
@@ -481,7 +486,8 @@ public class SeaTunnelConfValidateCommandTest {
                                 : Collections.emptyList(),
                         config.getConfigList("sink"),
                         classLoader,
-                        classLoader);
+                        classLoader,
+                        envOptions);
         return validator.validate();
     }
 
