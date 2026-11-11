@@ -94,6 +94,34 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | sort_files_by_modification_time | boolean | 否   | false                       |
 | common-options             |         | 否   | -                           |
 
+### path [string]
+
+桶下的源文件路径。
+
+### bucket [string]
+
+BOS 桶地址，例如 `bos://my-bucket`。
+
+### access_key [string]
+
+百度云 BOS 的 access key。
+
+### secret_key [string]
+
+百度云 BOS 的 secret key。
+
+### endpoint [string]
+
+BOS 的 endpoint，例如 `http://bj.bcebos.com`。
+
+### file_format_type [string]
+
+支持的文件类型：`text`、`csv`、`parquet`、`orc`、`json`、`excel`、`xml`、`binary`、`markdown`、`pdf`。
+
+### common-options
+
+Source 插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md)。
+
 ## 示例
 
 ```hocon
@@ -120,6 +148,7 @@ source {
     access_key = "your-access-key"
     secret_key = "your-secret-key"
     endpoint = "http://bj.bcebos.com"
+    binary_chunk_size = 2048
   }
 }
 
@@ -131,6 +160,28 @@ sink {
     access_key = "your-access-key"
     secret_key = "your-secret-key"
     endpoint = "http://bj.bcebos.com"
+  }
+}
+```
+
+### 文件过滤
+
+```hocon
+source {
+  BosFile {
+    bucket = "bos://source-bucket"
+    path = "/read/data/"
+    file_format_type = "text"
+    access_key = "your-access-key"
+    secret_key = "your-secret-key"
+    endpoint = "http://bj.bcebos.com"
+    file_filter_pattern = "abc[DX]*.*"
+    schema {
+      fields {
+        id = int
+        name = string
+      }
+    }
   }
 }
 ```
