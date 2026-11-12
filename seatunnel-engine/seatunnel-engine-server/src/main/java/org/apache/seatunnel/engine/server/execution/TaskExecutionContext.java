@@ -62,10 +62,13 @@ public class TaskExecutionContext {
     }
 
     public SeaTunnelMetricsContext getOrCreateMetricsContext(TaskLocation taskLocation) {
-        return engineContext
-                .getStateStores()
-                .metricsSnapshotStore()
-                .getOrDefault(taskLocation, new SeaTunnelMetricsContext());
+        SeaTunnelMetricsContext metricsContext =
+                engineContext
+                        .getStateStores()
+                        .metricsSnapshotStore()
+                        .getOrDefault(taskLocation, new SeaTunnelMetricsContext());
+        metricsContext.cleanIntermediateQueueMetrics();
+        return metricsContext;
     }
 
     public EngineStateStores getStateStores() {
