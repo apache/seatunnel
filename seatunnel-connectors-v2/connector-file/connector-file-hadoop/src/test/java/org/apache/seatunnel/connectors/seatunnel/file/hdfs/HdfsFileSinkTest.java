@@ -362,15 +362,15 @@ public class HdfsFileSinkTest {
         return identifier(config, new HadoopConf(fileSystemName), table);
     }
 
-    private String identifier(Map<String, Object> config, HadoopConf hadoopConf, CatalogTable table) {
+    private String identifier(
+            Map<String, Object> config, HadoopConf hadoopConf, CatalogTable table) {
         return new HdfsFileSink(hadoopConf, ReadonlyConfig.fromMap(config), table)
                 .getPhysicalDestinationIdentifier()
                 .orElseThrow(
                         () -> new AssertionError("expected a physical destination identifier"));
     }
 
-    private HadoopConf hadoopConfWith(
-            String fileSystemName, String... extraOptionPairs) {
+    private HadoopConf hadoopConfWith(String fileSystemName, String... extraOptionPairs) {
         HadoopConf hadoopConf =
                 new HadoopConf(fileSystemName) {
                     {
