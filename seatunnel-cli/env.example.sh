@@ -30,6 +30,7 @@
 #                                    #   (GPT-5.6 Terra/Sol; needs ".[bedrock-mantle]" extra;
 #                                    #    model via OPENAI_MODEL, e.g. openai.gpt-5.6-terra)
 # export AI_PROVIDER=orcarouter   # Option D: OrcaRouter AI gateway (needs ".[openai]" extra)
+# export AI_PROVIDER=uberllm      # Option E: UberLLM gateway (needs ".[openai]" extra)
 
 # ─── Option A: Anthropic API (AI_PROVIDER=anthropic) ───
 # export ANTHROPIC_API_KEY=sk-ant-...
@@ -59,6 +60,15 @@
 # export ORCAROUTER_MODEL=orcarouter/auto                  # optional override
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto       # optional override
 # export ORCAROUTER_ECHO_REASONING_CONTENT=true            # optional: keep true to replay reasoning_content for reasoning models
+
+# ─── Option E: UberLLM gateway (AI_PROVIDER=uberllm) ───
+# OpenAI-compatible gateway: one prepaid key for many chat models, model IDs use a
+# vendor/model namespace (e.g. anthropic/claude-sonnet-4.6, deepseek/deepseek-v4-pro).
+# Requires: pip install -e ".[openai]"
+# export UBERLLM_API_KEY=ull_...
+# export UBERLLM_MODEL=deepseek/deepseek-v4-pro                # optional override
+# export UBERLLM_SMALL_FAST_MODEL=deepseek/deepseek-v4.1-flash # optional override
+# export UBERLLM_ECHO_REASONING_CONTENT=true                   # optional: keep true to replay reasoning_content for reasoning models
 
 # ─── SeaTunnel Engine (optional) ───
 # export SEATUNNEL_HOME=/path/to/seatunnel

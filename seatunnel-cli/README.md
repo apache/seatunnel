@@ -7,7 +7,7 @@ Describe your data synchronization task in English or Chinese, and the CLI gener
 ## Features
 
 - **Natural Language to Config** -- Describe what you want in plain English or Chinese, get a valid SeaTunnel config
-- **Multi-Provider LLM** -- AWS Bedrock, Anthropic API, OpenAI (and compatible APIs like Azure OpenAI), OrcaRouter AI gateway
+- **Multi-Provider LLM** -- AWS Bedrock, Anthropic API, OpenAI (and compatible APIs like Azure OpenAI), OrcaRouter AI gateway, UberLLM gateway
 - **Multi-Agent Pipeline** -- Planner -> Generator -> Validator -> Auto-fix, up to 3 correction rounds
 - **100+ Connectors** -- Full coverage of SeaTunnel's connector ecosystem with runtime metadata reflection
 - **Transform Metadata** -- Source, sink, and transform plugins use full option rules and value constraints during generation
@@ -28,6 +28,7 @@ Describe your data synchronization task in English or Chinese, and the CLI gener
   - **Anthropic API** -- requires `ANTHROPIC_API_KEY` and `anthropic` package
   - **OpenAI API** -- requires `OPENAI_API_KEY` and `openai` package
   - **OrcaRouter** -- requires `ORCAROUTER_API_KEY` and `openai` package
+  - **UberLLM** -- requires `UBERLLM_API_KEY` and `openai` package
 - (Optional) Running Apache SeaTunnel engine for live metadata and job execution
 
 > **Note:** When launched via `bin/seatunnel-ai.sh`, Python dependencies are installed automatically on first run. No manual `pip install` needed.
@@ -69,7 +70,7 @@ seatunnel --init
 ```bash
 pip install -e ".[bedrock]"    # AWS Bedrock
 pip install -e ".[anthropic]"  # Anthropic API
-pip install -e ".[openai]"     # OpenAI API / OrcaRouter
+pip install -e ".[openai]"     # OpenAI API / OrcaRouter / UberLLM
 pip install -e ".[all]"        # All providers
 pip install -e ".[dev]"        # Development (all providers + pytest, ruff)
 ```
@@ -191,6 +192,29 @@ selects the best model per request. The OrcaRouter provider speaks the OpenAI
 Chat Completions protocol, so it inherits the same reasoning-content replay,
 streaming and tool-calling support as the `openai` provider.
 
+#### Option E: UberLLM Gateway
+
+```bash
+export AI_PROVIDER=uberllm
+export UBERLLM_API_KEY=ull_...
+
+# Model overrides (optional) — UberLLM model IDs use a vendor/model namespace,
+# e.g. anthropic/claude-sonnet-4.6, openai/gpt-5.4-mini, deepseek/deepseek-v4-pro.
+# export UBERLLM_MODEL=deepseek/deepseek-v4-pro
+# export UBERLLM_SMALL_FAST_MODEL=deepseek/deepseek-v4.1-flash
+# export UBERLLM_ECHO_REASONING_CONTENT=true   # optional: replay reasoning_content for reasoning models
+```
+
+Requires: `pip install -e ".[openai]"` (the `openai` package).
+
+[UberLLM](https://uberllm.dev) is an OpenAI-compatible gateway with one prepaid
+key for many chat models — including Claude, GPT, Gemini, DeepSeek and Qwen —
+behind a single endpoint (`https://api.uberllm.dev/v1`). `GET /v1/models` lists
+the model IDs without a key; per-model prices are at https://uberllm.dev/models.
+The UberLLM provider speaks the OpenAI Chat Completions protocol, so it inherits
+the same reasoning-content replay, streaming and tool-calling support as the
+`openai` provider.
+
 ### SEATUNNEL_HOME
 
 `SEATUNNEL_HOME` is the path to your Apache SeaTunnel engine installation. The CLI uses it to:
@@ -233,13 +257,14 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `bedrock-mantle`, `anthropic`, `openai`, or `orcarouter` |
+| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `bedrock-mantle`, `anthropic`, `openai`, `orcarouter`, or `uberllm` |
 | `AWS_REGION` | Bedrock | `us-east-1` | AWS region for Bedrock |
 | `ANTHROPIC_API_KEY` | Anthropic | -- | Anthropic API key |
 | `OPENAI_API_KEY` | OpenAI | -- | OpenAI API key |
 | `OPENAI_BASE_URL` | No | -- | Custom endpoint for OpenAI-compatible APIs |
 | `OPENAI_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models such as DeepSeek or GLM thinking mode |
 | `ORCAROUTER_API_KEY` | OrcaRouter | -- | OrcaRouter API key |
+| `UBERLLM_API_KEY` | UberLLM | -- | UberLLM API key. If `AI_PROVIDER` is unset, auto-detect prefers it over `OPENAI_API_KEY` |
 | `ANTHROPIC_MODEL` | No | Provider default | Override primary model ID |
 | `ANTHROPIC_SMALL_FAST_MODEL` | No | Provider default | Override fast model ID |
 | `OPENAI_MODEL` | No | `gpt-4o` | Primary model for OpenAI provider |
@@ -247,6 +272,9 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 | `ORCAROUTER_MODEL` | No | `orcarouter/auto` | Primary model for OrcaRouter provider (provider/model namespace) |
 | `ORCAROUTER_SMALL_FAST_MODEL` | No | `orcarouter/auto` | Fast model for OrcaRouter provider |
 | `ORCAROUTER_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models (parity with `OPENAI_ECHO_REASONING_CONTENT`) |
+| `UBERLLM_MODEL` | No | `deepseek/deepseek-v4-pro` | Primary model for UberLLM provider (vendor/model namespace). Falls back to `OPENAI_MODEL` |
+| `UBERLLM_SMALL_FAST_MODEL` | No | `deepseek/deepseek-v4.1-flash` | Fast model for UberLLM provider |
+| `UBERLLM_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models (parity with `OPENAI_ECHO_REASONING_CONTENT`) |
 | `SEATUNNEL_HOME` | No | Auto-detect | SeaTunnel installation directory. Auto-detected in distribution tarball; set manually for source install |
 | `SEATUNNEL_API_BASE` | No | `http://localhost:8080` | SeaTunnel REST API endpoint (the engine's Jetty HTTP port, not the 5801 member port) |
 | `SEATUNNEL_CLI_DATA` | No | `<cli-package>/.data/` | Override CLI data directory (sessions, memory, config) |
@@ -376,7 +404,7 @@ Positional:
 
 Options:
   -o, --output PATH        Save generated config to file
-  --provider PROVIDER      LLM provider: bedrock | bedrock-mantle | anthropic | openai | orcarouter
+  --provider PROVIDER      LLM provider: bedrock | bedrock-mantle | anthropic | openai | orcarouter | uberllm
   --model MODEL            Override primary model ID
   --fast-model MODEL       Override fast model ID
   --diagnose JOB_ID        Explain a job's current state and exit (read-only, no LLM)
