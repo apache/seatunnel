@@ -37,8 +37,6 @@ sidebar_position: 4
 - `UNSUPPORTED`（默认）：创建或恢复 writer 时作业失败，错误信息会给出表、连接器和 writer 类。此类
   Sink 请将该选项设置为 1。
 
-各连接器在 [#13223](https://github.com/apache/seatunnel/issues/13223) 中逐个验证并声明。
-
 ### plugin_input [list]
 
 当不指定 `plugin_input` 时，当前插件处理配置文件中上一个插件输出的数据集 `dataset`。

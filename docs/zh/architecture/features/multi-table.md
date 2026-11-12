@@ -193,15 +193,14 @@ sink {
 只有当每张表的 writer 都通过 `SupportMultiTableSinkWriter.replicaMode()` 声明了记录如何在副本间分配时，
 才允许大于 1 的取值；否则作业会在写入任何记录之前失败：
 
-| 副本模式 | 多个副本时的路由 | 声明方 |
-|----------|------------------|--------|
-| `KEYED` | 按 `primaryKey()` 指定的字段哈希，同一键的所有变更按顺序到达同一副本；没有键时拒绝 | Jdbc（`is_exactly_once` 除外）；表结构和 `primary_keys` 中都没有主键的表会被拒绝 |
-| `RANDOM` | 记录随机分配到副本，只适用于写入结果与写入顺序无关的 writer | 暂无连接器 |
-| `UNSUPPORTED`（默认） | 创建或恢复 writer 时拒绝该作业 | 其他所有 writer |
+| 副本模式 | 多个副本时的路由 |
+|----------|------------------|
+| `KEYED` | 按 `primaryKey()` 指定的字段哈希，同一键的所有变更按顺序到达同一副本；没有键时拒绝 |
+| `RANDOM` | 记录随机分配到副本，只适用于写入结果与写入顺序无关的 writer |
+| `UNSUPPORTED`（默认） | 创建或恢复 writer 时拒绝该作业 |
 
 错误信息会给出该选项、取值，以及每张被拒绝的表及其连接器和 writer 类。此类 sink 请设置
-`multi_table_sink_replica = 1`。只有一个副本（默认值）时不做检查，行为不变。各连接器在
-[#13223](https://github.com/apache/seatunnel/issues/13223) 中逐个验证并声明。
+`multi_table_sink_replica = 1`。只有一个副本（默认值）时不做检查，行为不变。
 
 ### 5.3 副本选择策略
 
