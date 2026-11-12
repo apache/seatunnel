@@ -19,24 +19,34 @@ package org.apache.seatunnel.resource.kubernetes.cli;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.client.job.JobClient;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
+import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesHaClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.HaApplicationFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -44,21 +54,72 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.github.stefanbirkner.systemlambda.SystemLambda.withEnvironmentVariable;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class SeatunnelKubernetesHaApplicationTest {
+
+    @Test
+    void masterAdvertisesItsPodAddressWhileKeepingStableDiscoverySeeds() throws Exception {
+        assertMasterAddress("10.42.0.38", "10.42.0.38:5801");
+        assertMasterAddress("2001:db8::38", "[2001:db8::38]:5801");
+    }
+
+    @Test
+    void masterWithoutPodAddressKeepsNativeAddressSelection() throws Exception {
+        assertMasterAddress(null, null);
+        assertMasterAddress("", null);
+        assertMasterAddress("  ", null);
+    }
+
+    private static void assertMasterAddress(String host, String expected) throws Exception {
+        KubernetesApplicationConfig parameters = parameters();
+        StringWriter serialized = new StringWriter();
+        parameters.write(serialized);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(serialized.toString().getBytes(StandardCharsets.UTF_8));
+        SeaTunnelConfig config = new SeaTunnelConfig();
+        try (MockedStatic<ConfigProvider> configurations = mockStatic(ConfigProvider.class);
+                MockedStatic<SeaTunnelServerStarter> starter =
+                        mockStatic(SeaTunnelServerStarter.class)) {
+            configurations.when(ConfigProvider::locateAndGetSeaTunnelConfig).thenReturn(config);
+            withEnvironmentVariable(KubernetesConstants.SPECIFICATION_ENV, encoded)
+                    .and(KubernetesConstants.MASTER_HOST_ENV, host)
+                    .execute(
+                            () ->
+                                    SeatunnelKubernetesHaApplication.main(
+                                            new String[] {"app", "master"}));
+            starter.verify(
+                    () ->
+                            SeaTunnelServerStarter.createHazelcastInstance(
+                                    eq(config), isNull(), any(ResourceManagerFactory.class)));
+            assertEquals(
+                    expected, config.getHazelcastConfig().getNetworkConfig().getPublicAddress());
+            assertEquals(
+                    HaApplicationFactory.masterAddresses("app", parameters),
+                    config.getHazelcastConfig()
+                            .getNetworkConfig()
+                            .getJoin()
+                            .getTcpIpConfig()
+                            .getMembers());
+        }
+    }
 
     @Test
     void overlappingOwnersHaveOnlyOneSubmissionWinner() {

@@ -34,6 +34,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
+import org.testcontainers.shaded.org.awaitility.core.ThrowingRunnable;
 
 import io.kubernetes.client.Exec;
 import io.kubernetes.client.custom.Quantity;
@@ -348,7 +349,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
         ApplicationSpecification specification = haSpecification(null, null);
         try (KubernetesApplicationClient application = deployApplication(specification, "ha")) {
             try {
-                String[] before = awaitProgress(application, specification.getJobId(), -1);
+                String[] before = awaitProgress(application, specification.getJobId(), -1, true);
                 assertEquals(Long.toString(specification.getJobId()), before[6]);
                 assertEquals("2", before[7], "Both native masters must join before the fault");
                 V1Pod worker = workers(application).get(0);
@@ -386,32 +387,34 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                         null,
                         "Background",
                         null);
-                Awaitility.await()
-                        .atMost(180, TimeUnit.SECONDS)
-                        .pollInterval(2, TimeUnit.SECONDS)
-                        .ignoreExceptions()
-                        .untilAsserted(
-                                () -> {
-                                    V1Pod replacement =
-                                            core.readNamespacedPod(
-                                                    lost.getMetadata().getName(), namespace, null);
-                                    assertNotEquals(
-                                            lost.getMetadata().getUid(),
-                                            replacement.getMetadata().getUid());
-                                    assertEquals("Running", replacement.getStatus().getPhase());
-                                    String[] state = probe(application, specification.getJobId());
-                                    assertEquals("RUNNING", state[0]);
-                                    assertEquals(Long.toString(specification.getJobId()), state[6]);
-                                    assertEquals("2", state[7]);
-                                    assertEquals(
-                                            survivor.getStatus().getPodIP(),
-                                            state[3],
-                                            "The surviving native master must own the job");
-                                    assertTrue(
-                                            Arrays.asList(state[4].split(","))
-                                                    .contains(replacement.getStatus().getPodIP()));
-                                    assertFixedWorker(application, worker, nativeWorkerUid, state);
-                                });
+                long recoveryDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(180);
+                awaitReplacementPod(application, lost, recoveryDeadline);
+                awaitRecoveryStage(
+                        application,
+                        recoveryDeadline,
+                        "native master promotion and fixed-worker recovery",
+                        () -> {
+                            V1Pod replacement =
+                                    core.readNamespacedPod(
+                                            lost.getMetadata().getName(), namespace, null);
+                            assertNotEquals(
+                                    lost.getMetadata().getUid(),
+                                    replacement.getMetadata().getUid());
+                            assertEquals("Running", replacement.getStatus().getPhase());
+                            String[] state = probe(application, specification.getJobId());
+                            assertEquals("RUNNING", state[0]);
+                            assertEquals(Long.toString(specification.getJobId()), state[6]);
+                            assertEquals("2", state[7]);
+                            assertMasterAddresses(application, state);
+                            assertEquals(
+                                    survivor.getStatus().getPodIP(),
+                                    state[3],
+                                    "The surviving native master must own the job");
+                            assertTrue(
+                                    Arrays.asList(state[4].split(","))
+                                            .contains(replacement.getStatus().getPodIP()));
+                            assertFixedWorker(application, worker, nativeWorkerUid, state);
+                        });
                 long recoveredCheckpoint =
                         Long.parseLong(probe(application, specification.getJobId())[1]);
                 String[] after =
@@ -453,8 +456,7 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
         ApplicationSpecification specification = haSpecification(null, null);
         try (KubernetesApplicationClient application = deployApplication(specification, "ha")) {
             try {
-                awaitProgress(application, specification.getJobId(), -1);
-                String[] before = probe(application, specification.getJobId());
+                String[] before = awaitProgress(application, specification.getJobId(), -1, true);
                 List<V1Pod> masters = rolePods(application, "master");
                 V1Pod active =
                         masters.stream()
@@ -478,33 +480,32 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                         specification.getJobId(),
                         name);
                 core.deleteNamespacedPod(name, namespace, null, null, 0, null, "Background", null);
-                Awaitility.await()
-                        .atMost(180, TimeUnit.SECONDS)
-                        .ignoreExceptions()
-                        .untilAsserted(
-                                () -> {
-                                    V1Pod replacement =
-                                            core.readNamespacedPod(name, namespace, null);
-                                    assertNotEquals(uid, replacement.getMetadata().getUid());
-                                    assertEquals("Running", replacement.getStatus().getPhase());
-                                    String[] state = probe(application, specification.getJobId());
-                                    assertEquals("RUNNING", state[0]);
-                                    assertTrue(
-                                            Arrays.asList(state[4].split(","))
-                                                    .contains(replacement.getStatus().getPodIP()));
-                                    V1Pod promoted =
-                                            rolePods(application, "master").stream()
-                                                    .filter(
-                                                            pod ->
-                                                                    state[3].equals(
-                                                                            pod.getStatus()
-                                                                                    .getPodIP()))
-                                                    .findFirst()
-                                                    .get();
-                                    assertTrue(
-                                            survivingUids.contains(
-                                                    promoted.getMetadata().getUid()));
-                                });
+                long recoveryDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(180);
+                awaitReplacementPod(application, active, recoveryDeadline);
+                awaitRecoveryStage(
+                        application,
+                        recoveryDeadline,
+                        "native recovery before application-ID cancellation",
+                        () -> {
+                            V1Pod replacement = core.readNamespacedPod(name, namespace, null);
+                            assertNotEquals(uid, replacement.getMetadata().getUid());
+                            assertEquals("Running", replacement.getStatus().getPhase());
+                            String[] state = probe(application, specification.getJobId());
+                            assertEquals("RUNNING", state[0]);
+                            assertMasterAddresses(application, state);
+                            assertTrue(
+                                    Arrays.asList(state[4].split(","))
+                                            .contains(replacement.getStatus().getPodIP()));
+                            V1Pod promoted =
+                                    rolePods(application, "master").stream()
+                                            .filter(
+                                                    pod ->
+                                                            state[3].equals(
+                                                                    pod.getStatus().getPodIP()))
+                                            .findFirst()
+                                            .get();
+                            assertTrue(survivingUids.contains(promoted.getMetadata().getUid()));
+                        });
                 long baseline = Long.parseLong(probe(application, specification.getJobId())[1]);
                 awaitProgress(application, specification.getJobId(), baseline);
                 assertEquals(
@@ -985,6 +986,74 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
         return SeatunnelApplicationConfig.parse(job, options);
     }
 
+    private static void awaitReplacementPod(
+            KubernetesApplicationClient application, V1Pod lost, long deadline) {
+        awaitRecoveryStage(
+                application,
+                deadline,
+                "replacement master Pod running",
+                () -> {
+                    V1Pod replacement =
+                            core.readNamespacedPod(lost.getMetadata().getName(), namespace, null);
+                    assertNotEquals(
+                            lost.getMetadata().getUid(), replacement.getMetadata().getUid());
+                    assertEquals("Running", replacement.getStatus().getPhase());
+                });
+    }
+
+    private static void awaitRecoveryStage(
+            KubernetesApplicationClient application,
+            long deadline,
+            String stage,
+            ThrowingRunnable assertion) {
+        long remaining = deadline - System.nanoTime();
+        assertTrue(remaining > 0, "Recovery budget exhausted before " + stage);
+        LOG.info("HA recovery stage application={} stage={}", application.getClusterId(), stage);
+        Awaitility.await(stage)
+                .atMost(remaining, TimeUnit.NANOSECONDS)
+                .pollDelay(0, TimeUnit.NANOSECONDS)
+                .pollInterval(
+                        Math.min(remaining, TimeUnit.SECONDS.toNanos(2)), TimeUnit.NANOSECONDS)
+                .failFast(
+                        "Application stopped before " + stage,
+                        () -> {
+                            ApplicationStatus status;
+                            try {
+                                status = application.getStatus();
+                            } catch (Exception unavailable) {
+                                return false;
+                            }
+                            boolean stopped =
+                                    status.isTerminal() || status == ApplicationStatus.UNKNOWN;
+                            if (stopped) {
+                                LOG.error(
+                                        "HA recovery stopped application={} stage={} status={}",
+                                        application.getClusterId(),
+                                        stage,
+                                        status);
+                            }
+                            return stopped;
+                        })
+                .ignoreExceptions()
+                .untilAsserted(assertion);
+        LOG.info(
+                "HA recovery stage completed application={} stage={}",
+                application.getClusterId(),
+                stage);
+    }
+
+    private static void assertMasterAddresses(
+            KubernetesApplicationClient application, String[] state) throws Exception {
+        Set<String> podAddresses =
+                rolePods(application, "master").stream()
+                        .map(pod -> pod.getStatus().getPodIP())
+                        .collect(Collectors.toSet());
+        assertEquals(
+                podAddresses,
+                new HashSet<>(Arrays.asList(state[8].split(","))),
+                "Native masters must advertise their current Pod addresses, not discovery aliases");
+    }
+
     private static List<V1Pod> rolePods(KubernetesApplicationClient application, String role)
             throws Exception {
         return core.listNamespacedPod(
@@ -1044,6 +1113,14 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
 
     private static String[] awaitProgress(
             KubernetesApplicationClient application, long job, long previous) {
+        return awaitProgress(application, job, previous, false);
+    }
+
+    private static String[] awaitProgress(
+            KubernetesApplicationClient application,
+            long job,
+            long previous,
+            boolean requireMasters) {
         AtomicReference<String[]> observed = new AtomicReference<>();
         Awaitility.await()
                 .atMost(180, TimeUnit.SECONDS)
@@ -1054,6 +1131,13 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                             String[] state = probe(application, job);
                             assertEquals("RUNNING", state[0]);
                             assertEquals(Long.toString(job), state[6]);
+                            if (requireMasters) {
+                                assertEquals(
+                                        "2",
+                                        state[7],
+                                        "Both native masters must join before the fault");
+                                assertMasterAddresses(application, state);
+                            }
                             assertTrue(
                                     Long.parseLong(state[1]) > previous,
                                     "Fresh native completed checkpoint required");

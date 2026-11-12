@@ -96,6 +96,14 @@ public final class SeatunnelKubernetesHaApplication {
                 .getNetworkConfig()
                 .setPort(specification.getMasterPort())
                 .setPortAutoIncrement(false);
+        String host = System.getenv(KubernetesConstants.MASTER_HOST_ENV);
+        if (host != null && !host.trim().isEmpty()) {
+            // A stable discovery name can still resolve to the deleted Pod.
+            String formattedHost = host.contains(":") ? "[" + host + "]" : host;
+            config.getHazelcastConfig()
+                    .getNetworkConfig()
+                    .setPublicAddress(formattedHost + ":" + specification.getMasterPort());
+        }
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.enabled", "true");
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.policy", "GRACEFUL");
         // Native election, resource registration and recovery own this member. It owns no Pods.

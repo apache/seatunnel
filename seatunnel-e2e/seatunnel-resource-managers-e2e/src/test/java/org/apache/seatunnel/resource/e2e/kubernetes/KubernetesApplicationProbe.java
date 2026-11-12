@@ -114,7 +114,12 @@ public final class KubernetesApplicationProbe {
                             + " "
                             + jobs.getJobInfo(job).getJobId()
                             + " "
-                            + members.stream().filter(m -> !m.isLiteMember()).count());
+                            + members.stream().filter(m -> !m.isLiteMember()).count()
+                            + " "
+                            + members.stream()
+                                    .filter(m -> !m.isLiteMember())
+                                    .map(m -> m.getAddress().getHost())
+                                    .collect(Collectors.joining(",")));
         } finally {
             client.getHazelcastInstance().shutdown();
         }
