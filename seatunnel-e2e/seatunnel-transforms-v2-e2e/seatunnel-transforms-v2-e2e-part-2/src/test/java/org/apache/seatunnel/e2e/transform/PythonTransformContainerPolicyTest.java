@@ -17,13 +17,19 @@
 
 package org.apache.seatunnel.e2e.transform;
 
+import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.container.spark.AbstractTestSparkContainer;
+import org.apache.seatunnel.e2e.common.container.spark.Spark2Container;
+import org.apache.seatunnel.e2e.common.container.spark.Spark35Container;
+import org.apache.seatunnel.e2e.common.container.spark.Spark3Container;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.mockito.Mockito;
+
+import java.lang.reflect.Method;
 
 class PythonTransformContainerPolicyTest {
 
@@ -31,11 +37,33 @@ class PythonTransformContainerPolicyTest {
     @EnumSource(
             value = TestContainerId.class,
             names = {"SPARK_2_4", "SPARK_3_3", "SPARK_3_5"})
-    void preservesSparkContainersWithPolicyInJobConfig(TestContainerId containerId) {
-        TestContainer container = Mockito.mock(TestContainer.class);
-        Mockito.when(container.identifier()).thenReturn(containerId);
-
-        Assertions.assertSame(
-                container, TestPythonTransformIT.withPythonTransformPolicy(container));
+    void preservesSparkRuntimeAndCommandWithPolicyInJobConfig(TestContainerId containerId)
+            throws Exception {
+        TestContainer original;
+        switch (containerId) {
+            case SPARK_2_4:
+                original = new Spark2Container();
+                break;
+            case SPARK_3_3:
+                original = new Spark3Container();
+                break;
+            case SPARK_3_5:
+                original = new Spark35Container();
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported Spark container " + containerId);
+        }
+        TestContainer prepared = TestPythonTransformIT.withPythonTransformPolicy(original);
+        Assertions.assertEquals(containerId, prepared.identifier());
+        Assertions.assertEquals(original.getClass(), prepared.getClass().getSuperclass());
+        Method command = AbstractTestSparkContainer.class.getDeclaredMethod("getDockerCommand");
+        command.setAccessible(true);
+        Assertions.assertEquals(command.invoke(original), command.invoke(prepared));
+        Method shell = AbstractTestContainer.class.getDeclaredMethod("getStartShellName");
+        shell.setAccessible(true);
+        Assertions.assertEquals(shell.invoke(original), shell.invoke(prepared));
+        for (Method override : prepared.getClass().getDeclaredMethods()) {
+            Assertions.assertEquals("getDockerImage", override.getName());
+        }
     }
 }
