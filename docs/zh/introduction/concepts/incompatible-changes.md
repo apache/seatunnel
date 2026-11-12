@@ -7,7 +7,7 @@
 ### 多表 Sink：`multi_table_sink_replica` 大于 1 时需要声明副本模式
 
 - **行为变更：`multi_table_sink_replica` 大于 1 时，writer 未声明副本模式的 Sink 会被拒绝**
-  - **描述**：`multi_table_sink_replica` 大于 1 时，多表 Sink 会在一个子任务中为每张表运行多个 writer。除 Jdbc 外，所有连接器的 writer 都没有键，因此记录会被随机分配到这些 writer 上，同一条记录的两次变更可能乱序生效：旧值可能覆盖新值，已删除的行也可能重新出现。单表作业中没有 tableId 的记录，即使表有键，也会被随机分配。现在 writer 通过 `SupportMultiTableSinkWriter.replicaMode()` 声明副本模式：`KEYED` 按 `primaryKey()` 给出的键路由，`RANDOM` 允许随机路由，默认的 `UNSUPPORTED` 拒绝多个副本。Jdbc 声明 `KEYED`，而 `KEYED` 需要键，因此没有主键的 Jdbc 表不能使用多个副本。详见 [#13223](https://github.com/apache/seatunnel/issues/13223)。
+  - **描述**：`multi_table_sink_replica` 大于 1 时，多表 Sink 会在一个子任务中为每张表运行多个 writer。除 Jdbc 外，所有连接器的 writer 都没有键，因此记录会被随机分配到这些 writer 上，同一条记录的两次变更可能乱序生效：旧值可能覆盖新值，已删除的行也可能重新出现。单表作业中没有 tableId 的记录，即使表有键，也会被随机分配。现在 writer 通过 `SupportMultiTableSinkWriter.replicaMode()` 声明副本模式：`KEYED` 按 `primaryKey()` 给出的键路由，`RANDOM` 允许随机路由，默认的 `UNSUPPORTED` 拒绝多个副本。Jdbc 声明 `KEYED`，而 `KEYED` 需要键，因此没有主键的 Jdbc 表不能使用多个副本。
   - **影响**：对 Jdbc 和 Iceberg 以外的 Sink、开启 `is_exactly_once` 的 Jdbc、没有主键的 Jdbc 表，或按键写入但记录中没有键列的 Iceberg 表设置 `multi_table_sink_replica` 大于 1 的作业，现在会在创建或恢复 writer 时失败。错误信息会给出该选项、取值，以及每张表及其连接器和 writer 类。保持默认值 1 的作业不受影响。自定义连接器的 writer 如果只依赖 `primaryKey()`，还需要在 `replicaMode()` 中返回 `KEYED` 才能保留多个副本。
   - **迁移指南**：为受影响的 Sink 设置 `multi_table_sink_replica = 1`。对于 Jdbc，如需保留多个副本，请为表设置主键，或配置 `primary_keys`。
 

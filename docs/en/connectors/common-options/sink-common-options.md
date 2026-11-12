@@ -47,9 +47,6 @@ declare through `SupportMultiTableSinkWriter.replicaMode()` how that can be done
 - `UNSUPPORTED`, the default: the job fails when the writer is created or restored, and the
   error names the table, the connector and the writer class. Set the option to 1 for such a sink.
 
-Connectors are verified and declared one by one in
-[#13223](https://github.com/apache/seatunnel/issues/13223).
-
 # Important note
 
 A sink only consumes data sets, so it has no `plugin_output` option. The `plugin_input` value must match the `plugin_output` declared by an upstream source or transform. `plugin_input` is only mandatory when the job has more than one source, transform or sink (see the note at the end of this page).
