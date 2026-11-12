@@ -59,6 +59,47 @@ public class DorisTableConfigTest {
         Assertions.assertEquals("test_db.table2", result.get(1).getTableIdentifier());
     }
 
+    @Test
+    public void testSingleTableCaseInsensitiveLowercasesIdentifiers() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("database", "TestDB");
+        options.put("table", "TestTable");
+        options.put("case_sensitive", false);
+        ReadonlyConfig config = ReadonlyConfig.fromMap(options);
+
+        List<DorisTableConfig> result = DorisTableConfig.of(config);
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals("testdb.testtable", result.get(0).getTableIdentifier());
+    }
+
+    @Test
+    public void testSingleTableCaseSensitivePreservesIdentifiers() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("database", "TestDB");
+        options.put("table", "TestTable");
+        options.put("case_sensitive", true);
+        ReadonlyConfig config = ReadonlyConfig.fromMap(options);
+
+        List<DorisTableConfig> result = DorisTableConfig.of(config);
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals("TestDB.TestTable", result.get(0).getTableIdentifier());
+    }
+
+    @Test
+    public void testSingleTableCaseSensitiveAbsentPreservesIdentifiers() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("database", "TestDB");
+        options.put("table", "TestTable");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(options);
+
+        List<DorisTableConfig> result = DorisTableConfig.of(config);
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals("TestDB.TestTable", result.get(0).getTableIdentifier());
+    }
+
     private static Map<String, Object> tableEntry(String database, String table) {
         Map<String, Object> entry = new HashMap<>();
         entry.put("database", database);
