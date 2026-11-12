@@ -31,58 +31,124 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Replays what Flink does to the enumerator when the reader subtask fails: it hands back the splits
- * assigned since the last completed checkpoint, and a new reader registers.
+ * Drives the enumerator through its context the way Flink does when the reader subtask fails: the
+ * reader is removed, the splits assigned since the last completed checkpoint are handed back
+ * (possibly none), and a new reader registers.
  */
 class SingleSplitEnumeratorTest {
 
+    private static final int READER = 0;
+
     private final Set<Integer> readers = new HashSet<>();
-    private final List<SingleSplit> assigned = new ArrayList<>();
+    private final List<Integer> assignedReaders = new ArrayList<>();
+    private final List<SingleSplit> assignedSplits = new ArrayList<>();
     private SingleSplitEnumerator enumerator;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
-    void setUp() throws Exception {
+    void setUp() {
         SourceSplitEnumerator.Context<SingleSplit> context =
                 Mockito.mock(SourceSplitEnumerator.Context.class);
         Mockito.when(context.registeredReaders()).thenAnswer(invocation -> new HashSet<>(readers));
         Mockito.doAnswer(
                         invocation -> {
-                            assigned.add(invocation.getArgument(1));
+                            assignedReaders.add(invocation.getArgument(0));
+                            assignedSplits.add(invocation.getArgument(1));
                             return null;
                         })
                 .when(context)
                 .assignSplit(Mockito.anyInt(), Mockito.any(SingleSplit.class));
         enumerator = new SingleSplitEnumerator(context);
-        readers.add(0);
-        enumerator.registerReader(0);
+    }
+
+    @Test
+    void testFirstAssignmentWhenTheReaderRegistersBeforeRun() throws Exception {
+        registerReader();
         enumerator.run();
-        Assertions.assertEquals(1, assigned.size());
+        assertAssignments(1);
+
+        enumerator.run();
+        registerReader();
+        assertAssignments(1);
     }
 
     @Test
-    void testSplitGivenBackIsAssignedAgainWhenTheReaderRegisters() {
-        SingleSplit split = assigned.get(0);
+    void testFirstAssignmentWhenRunBeforeTheReaderRegisters() throws Exception {
+        enumerator.run();
+        assertAssignments(0);
 
-        restartReader(Collections.singletonList(split));
+        registerReader();
+        assertAssignments(1);
 
-        Assertions.assertEquals(2, assigned.size(), "the restarted reader must get the split back");
-        Assertions.assertSame(split, assigned.get(1));
+        enumerator.run();
+        registerReader();
+        assertAssignments(1);
     }
 
     @Test
-    void testEmptyListGivenBackIsIgnored() {
-        restartReader(Collections.singletonList(assigned.get(0)));
+    void testSplitGivenBackIsAssignedAgainWhenTheReaderRegisters() throws Exception {
+        start();
+        SingleSplit split = assignedSplits.get(0);
 
-        // Nothing was assigned since the first restart, so Flink gives back an empty list.
+        readers.remove(READER);
+        enumerator.addSplitsBack(Collections.singletonList(split), READER);
+        assertAssignments(1);
+
+        registerReader();
+        assertAssignments(2);
+        Assertions.assertSame(split, assignedSplits.get(1));
+    }
+
+    @Test
+    void testEmptyListGivenBackIsHarmless() throws Exception {
+        start();
+
+        // The reader fails before a checkpoint completes: it gets the split back.
+        restartReader(Collections.singletonList(assignedSplits.get(0)));
+        assertAssignments(2);
+
+        // It fails again: nothing was assigned since the last checkpoint, so the list is empty.
         Assertions.assertDoesNotThrow(() -> restartReader(Collections.emptyList()));
-        Assertions.assertEquals(2, assigned.size(), "an empty list must not assign anything");
+        Assertions.assertDoesNotThrow(
+                () -> enumerator.addSplitsBack(Collections.emptyList(), READER));
+        assertAssignments(2);
+    }
+
+    @Test
+    void testEmptyListGivenBackKeepsAPendingSplit() throws Exception {
+        start();
+        SingleSplit split = assignedSplits.get(0);
+
+        // The split comes back while no reader is registered, then an empty list follows.
+        readers.remove(READER);
+        enumerator.addSplitsBack(Collections.singletonList(split), READER);
+        enumerator.addSplitsBack(Collections.emptyList(), READER);
+        assertAssignments(1);
+
+        registerReader();
+        assertAssignments(2);
+        Assertions.assertSame(split, assignedSplits.get(1));
+    }
+
+    private void start() throws Exception {
+        registerReader();
+        enumerator.run();
+        assertAssignments(1);
+    }
+
+    private void registerReader() {
+        readers.add(READER);
+        enumerator.registerReader(READER);
     }
 
     private void restartReader(List<SingleSplit> splitsGivenBack) {
-        readers.remove(0);
-        enumerator.addSplitsBack(splitsGivenBack, 0);
-        readers.add(0);
-        enumerator.registerReader(0);
+        readers.remove(READER);
+        enumerator.addSplitsBack(splitsGivenBack, READER);
+        registerReader();
+    }
+
+    private void assertAssignments(int expected) {
+        Assertions.assertEquals(expected, assignedSplits.size(), "assignments");
+        Assertions.assertEquals(Collections.nCopies(expected, READER), assignedReaders, "readers");
     }
 }
