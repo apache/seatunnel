@@ -42,7 +42,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
@@ -162,8 +161,9 @@ public class EmbeddingModelDimensionTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void testOpenAIWaitsForRetryAfterCooldown(boolean httpDate) throws IOException {
+    @CsvSource({"false, 0", "true, 0", "false, 3000", "true, 3000"})
+    void testOpenAIWaitsForRetryAfterCooldown(boolean httpDate, long responseDelayMs)
+            throws IOException {
         AtomicInteger requests = new AtomicInteger();
         AtomicLong cooldownEnd = new AtomicLong();
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -174,7 +174,15 @@ public class EmbeddingModelDimensionTest {
                         while (exchange.getRequestBody().read() != -1) {
                             // Consume the request before reusing the HTTP connection.
                         }
-                        requests.incrementAndGet();
+                        int request = requests.incrementAndGet();
+                        if (request == 1 && responseDelayMs > 0) {
+                            try {
+                                Thread.sleep(responseDelayMs);
+                            } catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
+                                throw new IOException(interrupted);
+                            }
+                        }
                         long now = System.currentTimeMillis();
                         cooldownEnd.compareAndSet(
                                 0L, httpDate ? (now / 1000 + 2) * 1000 : now + 1000);
@@ -202,7 +210,8 @@ public class EmbeddingModelDimensionTest {
                         "test-model",
                         "http://127.0.0.1:" + server.getAddress().getPort() + "/embeddings",
                         1,
-                        new ModelInvocationOptions(2, 10L, 2000L, 2000))) {
+                        // Socket I/O must not consume the attempt reserved for the cooldown retry.
+                        new ModelInvocationOptions(2, 10L, 2000L, 10_000))) {
             Assertions.assertEquals(1, model.vectorization(new Object[] {"document"}).size());
             Assertions.assertEquals(2, requests.get());
         } finally {
