@@ -707,6 +707,11 @@ or state format migration is required.
 
 ### Connector Changes
 
+- **Breaking Change: Multi-table file sinks share one writer per physical destination**
+  - **Affected component**: `seatunnel-api` (`MultiTableSink`) and `seatunnel-connectors-v2/connector-file/connector-file-base` (all File/HDFS/S3/OSS/GCS sinks via `BaseMultipleTableFileSink`)
+  - **Description**: When multiple source tables resolve to the same file destination (same path, filesystem coordinates, file format, tmp path, file-name expression and a hash of filesystem options), only one `SinkWriter` is created per replica instead of one per source table. The physical destination identifier folds in all of these components and — for the file sinks themselves — the physical row layout (field names and field types) as well, so divergent buckets, endpoints, credentials or row layouts never share a writer.
+  - **Impact**: Existing multi-table jobs whose tables genuinely resolve to one physical destination with identical physical row layouts now share a writer and produce a merged file layout. Tables whose destinations differ in any identifier component — including physical row layout — keep separate writers exactly as before: their output is not merged and no error is raised. The coordinator-level fail-fast (`IllegalStateException` at submission when one destination identifier serves tables with divergent physical row layouts) remains available for connectors whose destination identifiers do not already distinguish row layouts.
+  - **Migration Guide**: Give each table its own destination (distinct path or tmp path) to keep isolated writers, or align the physical row layouts of tables that intentionally share a destination. Checkpoints written before writer sharing restore by merging per-alias state into the shared writer; no manual state migration is needed.
 - **Breaking Change: BigQuery Sink Connector — default schema save mode introduces automatic table creation**
   - **Affected component**: `seatunnel-connectors-v2/connector-bigquery`
   - **Description**: The BigQuery sink connector (`connector-bigquery`) now implements `SupportSaveMode` with support for `schema_save_mode` and `data_save_mode`. The default `schema_save_mode` is set to `CREATE_SCHEMA_WHEN_NOT_EXIST`.

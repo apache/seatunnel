@@ -222,6 +222,166 @@ public class HdfsFileSinkTest {
         fs.delete(new Path(FS_MULTI_TABLE_SINK_PATH), true);
     }
 
+    /** Ensures only compatible static-schema file aliases can opt into one multi-table writer. */
+    @Test
+    public void testPhysicalDestinationIdentifierRequiresStaticEquivalentSchema() {
+        Map<String, Object> staticConfig = createBasicConfig();
+        staticConfig.put(FileBaseSinkOptions.FILE_FORMAT_TYPE.key(), FileFormat.TEXT.toString());
+        HdfsFileSink firstStaticSink =
+                new HdfsFileSink(
+                        new HadoopConf(DEFAULT_FS),
+                        ReadonlyConfig.fromMap(staticConfig),
+                        catalogTable);
+        HdfsFileSink secondStaticSink =
+                new HdfsFileSink(
+                        new HadoopConf(DEFAULT_FS),
+                        ReadonlyConfig.fromMap(staticConfig),
+                        catalogTable);
+
+        Assertions.assertTrue(firstStaticSink.getPhysicalDestinationIdentifier().isPresent());
+        Assertions.assertEquals(
+                firstStaticSink.getPhysicalDestinationIdentifier(),
+                secondStaticSink.getPhysicalDestinationIdentifier());
+
+        CatalogTable differentSchemaTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "database", "different_table"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                ROW_NAME,
+                                                BasicType.STRING_TYPE,
+                                                1L,
+                                                true,
+                                                null,
+                                                ""))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "comment");
+        HdfsFileSink differentSchemaSink =
+                new HdfsFileSink(
+                        new HadoopConf(DEFAULT_FS),
+                        ReadonlyConfig.fromMap(staticConfig),
+                        differentSchemaTable);
+
+        Assertions.assertNotEquals(
+                firstStaticSink.getPhysicalDestinationIdentifier(),
+                differentSchemaSink.getPhysicalDestinationIdentifier());
+
+        Map<String, Object> schemaEvolutionConfig = new HashMap<>(staticConfig);
+        schemaEvolutionConfig.put(FileBaseSinkOptions.SCHEMA_EVOLUTION_ENABLED.key(), true);
+        HdfsFileSink schemaEvolutionSink =
+                new HdfsFileSink(
+                        new HadoopConf(DEFAULT_FS),
+                        ReadonlyConfig.fromMap(schemaEvolutionConfig),
+                        catalogTable);
+
+        Assertions.assertFalse(schemaEvolutionSink.getPhysicalDestinationIdentifier().isPresent());
+    }
+
+    @Test
+    public void testPhysicalDestinationIdentifierPinsEveryDestinationComponent() {
+        Map<String, Object> baseConfig = createBasicConfig();
+        baseConfig.put(FileBaseSinkOptions.FILE_FORMAT_TYPE.key(), FileFormat.TEXT.toString());
+        String baseIdentifier = identifier(baseConfig, DEFAULT_FS, catalogTable);
+
+        /* Every coordinate is folded into the identifier verbatim (fs options
+         * as an opaque hash) so a shared writer is only ever created for
+         * aliases that fully agree on the destination. */
+        Assertions.assertTrue(baseIdentifier.contains("path=" + FS_TARGET_PATH));
+        Assertions.assertTrue(baseIdentifier.contains("fs=" + DEFAULT_FS));
+        Assertions.assertTrue(baseIdentifier.contains("format=" + FileFormat.TEXT));
+        Assertions.assertTrue(baseIdentifier.contains("row-type="));
+
+        /* Changing any single component must change the identifier. */
+        Map<String, Object> otherPath = new HashMap<>(baseConfig);
+        otherPath.put(FileBaseSinkOptions.FILE_PATH.key(), FS_MULTI_TABLE_SINK_PATH);
+        Assertions.assertNotEquals(baseIdentifier, identifier(otherPath, DEFAULT_FS, catalogTable));
+
+        Map<String, Object> otherFormat = new HashMap<>(baseConfig);
+        otherFormat.put(FileBaseSinkOptions.FILE_FORMAT_TYPE.key(), FileFormat.ORC.toString());
+        Assertions.assertNotEquals(
+                baseIdentifier, identifier(otherFormat, DEFAULT_FS, catalogTable));
+
+        Map<String, Object> otherTmpPath = new HashMap<>(baseConfig);
+        otherTmpPath.put(FileBaseSinkOptions.TMP_PATH.key(), "/tmp/seatunnel/other");
+        Assertions.assertNotEquals(
+                baseIdentifier, identifier(otherTmpPath, DEFAULT_FS, catalogTable));
+
+        Map<String, Object> otherFileName = new HashMap<>(baseConfig);
+        otherFileName.put(
+                FileBaseSinkOptions.FILE_NAME_EXPRESSION.key(), "${transactionDirectory}");
+        Assertions.assertNotEquals(
+                baseIdentifier, identifier(otherFileName, DEFAULT_FS, catalogTable));
+
+        Assertions.assertNotEquals(
+                baseIdentifier, identifier(baseConfig, "hdfs://namenode:8020", catalogTable));
+
+        /* Filesystem options hash is order-independent: the same options in a
+         * different insertion order share the identifier, a changed value does
+         * not. */
+        HadoopConf optionsOne = hadoopConfWith(DEFAULT_FS, "key1", "value1", "key2", "value2");
+        HadoopConf optionsTwo = hadoopConfWith(DEFAULT_FS, "key2", "value2", "key1", "value1");
+        HadoopConf optionsThree = hadoopConfWith(DEFAULT_FS, "key1", "value1", "key2", "other");
+        Assertions.assertEquals(
+                identifier(baseConfig, optionsOne, catalogTable),
+                identifier(baseConfig, optionsTwo, catalogTable));
+        Assertions.assertNotEquals(
+                identifier(baseConfig, optionsOne, catalogTable),
+                identifier(baseConfig, optionsThree, catalogTable));
+
+        /* Metadata-only schema differences (column length and comment) do not
+         * change the physical row layout, so they keep the identifier — the
+         * two tables still share one writer. */
+        CatalogTable metadataVariantTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "database", "metadata_variant"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                ROW_NAME,
+                                                BasicType.STRING_TYPE,
+                                                128L,
+                                                true,
+                                                null,
+                                                "different comment"))
+                                .column(
+                                        PhysicalColumn.of(
+                                                ROW_AGE, BasicType.INT_TYPE, 1L, true, null, ""))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "comment");
+        Assertions.assertEquals(
+                baseIdentifier, identifier(baseConfig, DEFAULT_FS, metadataVariantTable));
+    }
+
+    private String identifier(
+            Map<String, Object> config, String fileSystemName, CatalogTable table) {
+        return identifier(config, new HadoopConf(fileSystemName), table);
+    }
+
+    private String identifier(
+            Map<String, Object> config, HadoopConf hadoopConf, CatalogTable table) {
+        return new HdfsFileSink(hadoopConf, ReadonlyConfig.fromMap(config), table)
+                .getPhysicalDestinationIdentifier()
+                .orElseThrow(
+                        () -> new AssertionError("expected a physical destination identifier"));
+    }
+
+    private HadoopConf hadoopConfWith(String fileSystemName, String... extraOptionPairs) {
+        HadoopConf hadoopConf =
+                new HadoopConf(fileSystemName) {
+                    {
+                        for (int i = 0; i < extraOptionPairs.length; i += 2) {
+                            extraOptions.put(extraOptionPairs[i], extraOptionPairs[i + 1]);
+                        }
+                    }
+                };
+        return hadoopConf;
+    }
+
     private Map<String, Object> createBasicConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put(FileBaseSinkOptions.DEFAULT_FS.key(), DEFAULT_FS);

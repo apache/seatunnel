@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 
@@ -41,6 +42,9 @@ class BaseFileSinkWriterTest {
     private static final String UUID_PREFIX = "uuid-1";
     private static final String TRANSACTION_ID = "T_job-1_uuid-1_0_7";
     private static final String TRANSACTION_DIR = "/tmp/seatunnel/" + TRANSACTION_ID;
+    private static final String OTHER_UUID_PREFIX = "uuid-2";
+    private static final String OTHER_TRANSACTION_ID = "T_job-1_uuid-2_0_7";
+    private static final String ORPHAN_TRANSACTION_ID = "T_job-1_uuid-2_0_6";
 
     @Test
     void shouldNotReplayCommittedTransactionWhenRestoringWriterState() throws Exception {
@@ -80,5 +84,57 @@ class BaseFileSinkWriterTest {
 
         Mockito.verify(writeStrategy).beginTransaction(8L);
         Mockito.verify(writeStrategy, Mockito.never()).abortPrepare(TRANSACTION_ID);
+    }
+
+    /** Verifies that restore cleanup scans every UUID prefix retained by legacy merged state. */
+    @Test
+    void shouldCleanOrphanTransactionsForEveryRestoredUuidPrefix() throws Exception {
+        WriteStrategy<?> writeStrategy = Mockito.mock(WriteStrategy.class);
+        HadoopFileSystemProxy fileSystemProxy = Mockito.mock(HadoopFileSystemProxy.class);
+        FileSinkConfig fileSinkConfig = Mockito.mock(FileSinkConfig.class);
+        SinkWriter.Context context = Mockito.mock(SinkWriter.Context.class);
+        FileSinkState firstState =
+                new FileSinkState(
+                        TRANSACTION_ID,
+                        UUID_PREFIX,
+                        7L,
+                        new LinkedHashMap<>(),
+                        new LinkedHashMap<>(),
+                        TRANSACTION_DIR);
+        FileSinkState secondState =
+                new FileSinkState(
+                        OTHER_TRANSACTION_ID,
+                        OTHER_UUID_PREFIX,
+                        7L,
+                        new LinkedHashMap<>(),
+                        new LinkedHashMap<>(),
+                        "/tmp/seatunnel/" + OTHER_TRANSACTION_ID);
+
+        Mockito.when(context.getIndexOfSubtask()).thenReturn(0);
+        Mockito.when(writeStrategy.getHadoopFileSystemProxy()).thenReturn(fileSystemProxy);
+        Mockito.when(writeStrategy.getFileSinkConfig()).thenReturn(fileSinkConfig);
+        Mockito.when(fileSinkConfig.getTmpPath()).thenReturn("/tmp/seatunnel");
+        Mockito.when(fileSystemProxy.getAllSubFiles(Mockito.anyString()))
+                .thenAnswer(
+                        invocation -> {
+                            String transactionDirectory = invocation.getArgument(0);
+                            if (transactionDirectory.contains(OTHER_UUID_PREFIX)) {
+                                return Arrays.asList(
+                                        new Path(OTHER_TRANSACTION_ID),
+                                        new Path(ORPHAN_TRANSACTION_ID));
+                            }
+                            return Collections.singletonList(new Path(TRANSACTION_ID));
+                        });
+
+        new BaseFileSinkWriter(
+                writeStrategy,
+                new HadoopConf("hdfs://dummy"),
+                context,
+                JOB_ID,
+                Arrays.asList(firstState, secondState));
+
+        Mockito.verify(writeStrategy).abortPrepare(ORPHAN_TRANSACTION_ID);
+        Mockito.verify(writeStrategy, Mockito.never()).abortPrepare(TRANSACTION_ID);
+        Mockito.verify(writeStrategy, Mockito.never()).abortPrepare(OTHER_TRANSACTION_ID);
     }
 }

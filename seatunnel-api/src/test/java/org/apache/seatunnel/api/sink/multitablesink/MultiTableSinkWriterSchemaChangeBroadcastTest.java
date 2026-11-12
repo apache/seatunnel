@@ -91,6 +91,27 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
     }
 
     /**
+     * Verifies writer-sharing does not apply one DDL repeatedly when several source aliases point
+     * at the same physical writer instance.
+     */
+    @Test
+    void schemaChangeIsAppliedOnceWhenSourceAliasesShareOneWriter() throws IOException {
+        RecordingSinkWriter sharedWriter = new RecordingSinkWriter(PHYSICAL_SINK_SHARED);
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
+        writers.put(SinkIdentifier.of("dbA.users", 0), sharedWriter);
+        writers.put(SinkIdentifier.of("dbB.users", 0), sharedWriter);
+
+        MultiTableSinkWriter coordinator =
+                new MultiTableSinkWriter(writers, 1, buildContextMap(writers));
+
+        coordinator.applySchemaChange(
+                new TestSchemaChangeEvent(TablePath.of("dbA", null, "users")));
+
+        assertEquals(1, sharedWriter.getInvocationCount());
+    }
+
+    /**
      * Verifies that writers targeting different physical tables keep the legacy isolated routing
      * behavior and do not receive sibling broadcasts.
      */

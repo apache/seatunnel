@@ -600,6 +600,11 @@ Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实
 
 ### 连接器变更
 
+- **破坏性变更：多表文件 Sink 按物理目标共享单个 Writer**
+  - **影响范围**：`seatunnel-api`（`MultiTableSink`）及 `seatunnel-connectors-v2/connector-file/connector-file-base`（经由 `BaseMultipleTableFileSink` 的全部 File/HDFS/S3/OSS/GCS Sink）
+  - **变更说明**：当多个源表解析到同一物理目标（路径、文件系统坐标、文件格式、tmp 路径、文件名表达式及文件系统选项哈希全部相同）时，每个 replica 只创建一个 `SinkWriter`，而不再按源表创建。物理目标标识涵盖上述所有组成部分——对文件 Sink 而言还包括物理行布局（字段名与字段类型）——因此桶、端点、凭证或行布局不同的别名永远不会共享 Writer。
+  - **影响**：存量多表作业中，解析到同一物理目标且物理行布局完全一致的各表，升级后将共享 Writer 并产生合并后的文件布局；目标标识任一组成部分（包括物理行布局）不同的各表，仍像以前一样保持各自独立的 Writer——输出不会合并，也不会报错。当某个目标标识同时服务物理行布局不同的表时，协调层仍会在提交时以 `IllegalStateException` 快速失败；该保护适用于目标标识未区分行布局的连接器。
+  - **迁移指南**：需要隔离写出时，为每张表配置独立目标（不同 path 或 tmp path）；确认共享目标时，对齐各表的物理行布局。旧版本 checkpoint 的按别名状态会在恢复时合并为共享 Writer 状态，无需手动迁移状态。
 - **破坏性变更：ORC 文件 Sink 保留嵌套 Struct 字段名的大小写**
   - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（所有共享 `OrcWriteStrategy` 的 File/HDFS/S3/OSS ORC Sink）
   - **变更说明**：此前，`OrcWriteStrategy.buildFieldWithRowType(...)` 在构建 ORC Schema 时，会将每个嵌套 `ROW`（struct）字段名强制转为小写，因此声明为 `MD5` 的嵌套字段在文件 footer 中被持久化为 `md5`。下游消费者按原始大小写名称读取该列时会得到 null/缺失值。本次移除了递归嵌套字段分支上的 `.toLowerCase()` 调用，嵌套 struct 字段名将按原始大小写写入文件 Schema。
