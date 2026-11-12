@@ -219,6 +219,19 @@ public class FixedChunkSplitter extends ChunkSplitter {
                 table, splitKeyName, splitKeyType, partitionStart, partitionEnd);
     }
 
+    /**
+     * With both {@code partition_lower_bound} and {@code partition_upper_bound} set, the splits of
+     * a numeric split key are closed ranges inside those bounds, so no row outside them is read,
+     * and a NULL key is outside them too. String keys are split by hash, or by ranges whose first
+     * and last split are open, so they still need the split for NULL keys.
+     */
+    @Override
+    protected boolean readsOnlyConfiguredRange(JdbcSourceTable table, SeaTunnelRowType splitKey) {
+        return StringUtils.isNotBlank(table.getPartitionStart())
+                && StringUtils.isNotBlank(table.getPartitionEnd())
+                && !SqlType.STRING.equals(splitKey.getFieldType(0).getSqlType());
+    }
+
     @Override
     protected PreparedStatement createSplitStatement(JdbcSourceSplit split, TableSchema schema)
             throws SQLException {

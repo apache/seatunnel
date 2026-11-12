@@ -355,6 +355,10 @@ CockroachDB 不支持 PostgreSQL 的 `HASHTEXT` 函数。本方言使用 `FNV32`
 
 该检查是每张表一条 `SELECT 1 ... WHERE <列> IS NULL` 查询，只在规划分片时执行一次。它在找到第一个 NULL 时即停止，但对于没有 NULL 值的大表，除非数据库能通过分片列上的索引回答 `IS NULL`，否则它会读取整张表。声明为 `NOT NULL` 的分片列会跳过该检查。
 
+对于 `query`，该检查总会执行，因为驱动为查询列报告的可空性可能不准确，例如外连接表中的列。如果检查本身失败，仍会增加该分片。可空分片列的每个哈希分片还会带上 `AND <列> IS NOT NULL`，这样哈希函数把 NULL 映射到某个桶的数据库不会重复读取这些行。
+
+当数值分片列同时设置了 `partition_lower_bound` 和 `partition_upper_bound` 时，SeaTunnel 只读取边界内的行，而 NULL 值不在边界内，因此不会增加该分片。字符串分片列按哈希分片，或按首尾分片不封闭的范围分片，边界不会排除其 NULL 值，因此仍会增加该分片。
+
 ### Query 与主键注意事项
 
 SeaTunnel 为 `query` 推断主键时，会继承结果集第一列所属底层表的元数据。对于 JOIN 或多表查询，该主键不保证在完整结果集中唯一。此类查询应使用单 Reader，或者显式选择能够安全划分查询结果的分区列。
@@ -582,7 +586,7 @@ sink {
 
 ### 配置分区边界后出现漏数
 
-`partition_lower_bound` 和 `partition_upper_bound` 定义 SeaTunnel 实际读取的数据范围，并不只是性能提示。可以删除它们，让 SeaTunnel 自动发现边界；也可以修正边界，确保覆盖所有需要读取的行。
+`partition_lower_bound` 和 `partition_upper_bound` 定义 SeaTunnel 实际读取的数据范围，并不只是性能提示。对于数值分片列，分片列为 NULL 的行也不在该范围内。可以删除它们，让 SeaTunnel 自动发现边界；也可以修正边界，确保覆盖所有需要读取的行。
 
 ## 变更日志
 

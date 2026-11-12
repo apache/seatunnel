@@ -359,6 +359,10 @@ Range and hash split conditions never match NULL, so when the split column is nu
 
 The check is one `SELECT 1 ... WHERE <column> IS NULL` query per table, run once when the splits are planned. It stops at the first NULL it finds, but on a large table without NULL values it reads the whole table, unless the database can answer `IS NULL` from an index on the split column. A split column declared `NOT NULL` skips the check.
 
+For a `query`, the check always runs, because the nullability a driver reports for a query column can be wrong, for example for a column of an outer-joined table. If the check itself fails, the extra split is added anyway. Each hash split of a nullable split column also has `AND <column> IS NOT NULL`, so a database whose hash function maps NULL to a bucket does not read these rows twice.
+
+With both `partition_lower_bound` and `partition_upper_bound` set on a numeric split column, SeaTunnel reads only the rows inside the bounds, and a NULL value is outside them, so no extra split is added. A string split column is split by hash or by ranges whose first and last split are open, so the bounds do not exclude its NULL values, and the extra split is still added.
+
 ### Query and primary-key caution
 
 When SeaTunnel infers a key for `query`, it inherits metadata from the underlying table of the first result column. For joins or multi-table queries, that key is not guaranteed to be unique across the complete result set. Prefer a single-reader query or explicitly choose a partition column whose values divide the result safely.
@@ -627,7 +631,7 @@ For dynamic splitting, verify that the table has a supported primary key or uniq
 
 ### Rows are missing after setting partition bounds
 
-`partition_lower_bound` and `partition_upper_bound` define the range SeaTunnel reads; they are not only performance hints. Remove them to let SeaTunnel discover the bounds, or correct them so they include every required row.
+`partition_lower_bound` and `partition_upper_bound` define the range SeaTunnel reads; they are not only performance hints. For a numeric split column, rows whose split column is NULL are outside that range as well. Remove them to let SeaTunnel discover the bounds, or correct them so they include every required row.
 
 ## Changelog
 

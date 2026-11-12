@@ -53,6 +53,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -526,7 +527,7 @@ public class FixedChunkSplitterTest {
             // code is split by range and name by hash; every 10th row has NULL in both
             for (JdbcSourceTable table :
                     Arrays.asList(
-                            tableSplitBy("code", "1", "99"), tableSplitBy("name", null, null))) {
+                            tableSplitBy("code", null, null), tableSplitBy("name", null, null))) {
                 Collection<JdbcSourceSplit> splits = splitter.generateSplits(table);
                 List<Long> ids = readAllIds(splitter, splits);
 
@@ -551,8 +552,9 @@ public class FixedChunkSplitterTest {
                         new DuckDbFixedChunkSplitter(duckDbConfig(), connection)) {
             createTableWithNullKeys(connection);
 
+            // the table path schema declares id NOT NULL, so no NULL check runs
             Collection<JdbcSourceSplit> splits =
-                    splitter.generateSplits(tableSplitBy("id", "1", "100"));
+                    splitter.generateSplits(tableSplitBy("id", null, null).withQuery(null));
 
             assertEquals(4, splits.size());
             assertFalse(splits.stream().anyMatch(JdbcSourceSplit::isNullSplitKey));
@@ -571,7 +573,7 @@ public class FixedChunkSplitterTest {
             }
 
             Collection<JdbcSourceSplit> splits =
-                    splitter.generateSplits(tableSplitBy("code", "1", "100"));
+                    splitter.generateSplits(tableSplitBy("code", null, null));
 
             assertEquals(4, splits.size());
             assertFalse(splits.stream().anyMatch(JdbcSourceSplit::isNullSplitKey));
@@ -584,7 +586,7 @@ public class FixedChunkSplitterTest {
         try (Connection connection = new DuckDBDriver().connect(DUCKDB_URL, new Properties())) {
             createTableWithNullKeys(connection);
             JdbcSourceTable table =
-                    tableSplitBy("code", "1", "99").withQuery("SELECT id, code FROM t");
+                    tableSplitBy("code", null, null).withQuery("SELECT id, code FROM t");
 
             try (DuckDbFixedChunkSplitter splitter =
                     new DuckDbFixedChunkSplitter(duckDbConfig("WHERE id > 50"), connection)) {
@@ -615,6 +617,140 @@ public class FixedChunkSplitterTest {
                 assertFalse(splits.stream().anyMatch(JdbcSourceSplit::isNullSplitKey));
                 assertEquals(90, readAllIds(splitter, splits).size());
             }
+        }
+    }
+
+    /**
+     * For a {@code query}, the schema nullability comes from the driver's result set metadata,
+     * which can report a column of an outer-joined table as NOT NULL while the query returns NULL
+     * for it. The key of a query is therefore always checked for NULL values; a table path keeps
+     * trusting its schema.
+     */
+    @Test
+    public void testQuerySplitKeyIsCheckedForNullEvenWhenTheSchemaSaysNotNull() throws Exception {
+        try (Connection connection = new DuckDBDriver().connect(DUCKDB_URL, new Properties());
+                DuckDbFixedChunkSplitter splitter =
+                        new DuckDbFixedChunkSplitter(duckDbConfig(), connection)) {
+            createTableWithNullKeys(connection);
+
+            // code is split by range and name by hash
+            for (String key : Arrays.asList("code", "name")) {
+                JdbcSourceTable query = tableSplitBy(key, null, null, false);
+                Collection<JdbcSourceSplit> splits = splitter.generateSplits(query);
+                List<Long> ids = readAllIds(splitter, splits);
+
+                assertEquals(
+                        1, splits.stream().filter(JdbcSourceSplit::isNullSplitKey).count(), key);
+                assertEquals(100, ids.size(), key + ": every row must be read exactly once");
+                assertEquals(
+                        LongStream.rangeClosed(1, 100).boxed().collect(Collectors.toSet()),
+                        new HashSet<>(ids),
+                        key);
+
+                Collection<JdbcSourceSplit> tablePathSplits =
+                        splitter.generateSplits(query.withQuery(null));
+                assertFalse(
+                        tablePathSplits.stream().anyMatch(JdbcSourceSplit::isNullSplitKey), key);
+            }
+        }
+    }
+
+    /**
+     * With both bounds set, the splits of a numeric key are closed ranges inside them, so rows
+     * outside the bounds are not read, and NULL keys are outside them too. A string key is split by
+     * hash, which does not apply the bounds, so its NULL keys are still read.
+     */
+    @Test
+    public void testExplicitBoundsExcludeNullKeysOnlyForNumericRanges() throws Exception {
+        try (Connection connection = new DuckDBDriver().connect(DUCKDB_URL, new Properties());
+                DuckDbFixedChunkSplitter splitter =
+                        new DuckDbFixedChunkSplitter(duckDbConfig(), connection)) {
+            createTableWithNullKeys(connection);
+
+            Collection<JdbcSourceSplit> numeric =
+                    splitter.generateSplits(tableSplitBy("code", "1", "99"));
+            assertFalse(numeric.stream().anyMatch(JdbcSourceSplit::isNullSplitKey));
+            List<Long> numericIds = readAllIds(splitter, numeric);
+            assertEquals(90, numericIds.size());
+            assertTrue(numericIds.stream().noneMatch(id -> id % 10 == 0));
+
+            Collection<JdbcSourceSplit> string =
+                    splitter.generateSplits(tableSplitBy("name", "n1", "n99"));
+            assertEquals(1, string.stream().filter(JdbcSourceSplit::isNullSplitKey).count());
+            assertEquals(100, readAllIds(splitter, string).size());
+        }
+    }
+
+    /**
+     * The NULL check only saves an empty split. When it fails, the split for NULL keys is added
+     * anyway instead of failing the job, and every row is still read once.
+     */
+    @Test
+    public void testNullSplitKeySplitIsAddedWhenTheNullCheckFails() throws Exception {
+        try (Connection connection = new DuckDBDriver().connect(DUCKDB_URL, new Properties())) {
+            createTableWithNullKeys(connection);
+            Connection failingStatements =
+                    (Connection)
+                            Proxy.newProxyInstance(
+                                    Connection.class.getClassLoader(),
+                                    new Class<?>[] {Connection.class},
+                                    (proxy, method, args) -> {
+                                        if ("createStatement".equals(method.getName())) {
+                                            throw new SQLException("simulated NULL check failure");
+                                        }
+                                        return method.invoke(connection, args);
+                                    });
+            try (DuckDbFixedChunkSplitter splitter =
+                    new DuckDbFixedChunkSplitter(duckDbConfig(), failingStatements)) {
+                // name is split by hash, so the NULL check is the only statement of planning
+                Collection<JdbcSourceSplit> splits =
+                        splitter.generateSplits(tableSplitBy("name", null, null));
+
+                assertEquals(1, splits.stream().filter(JdbcSourceSplit::isNullSplitKey).count());
+                assertEquals(100, readAllIds(splitter, splits).size());
+            }
+        }
+    }
+
+    /**
+     * A checkpoint taken before {@code nullSplitKey} existed holds splits of the previous seven
+     * field class. They must still restore as ordinary range splits.
+     */
+    @Test
+    public void testSplitOfThePreviousClassRestoresAsARangeSplit() throws Exception {
+        // new JdbcSourceSplit(TablePath.of("main", "t"), "main.t-0", null, "code",
+        // BasicType.LONG_TYPE, 1L, 10L), serialized by the class before nullSplitKey was added
+        String previousSplit =
+                "rO0ABXNyAEVvcmcuYXBhY2hlLnNlYXR1bm5lbC5jb25uZWN0b3JzLnNlYXR1bm5lbC5qZGJjLnNvdXJj"
+                        + "ZS5KZGJjU291cmNlU3BsaXT0rpxG2/j37QIAB0wACHNwbGl0RW5kdAASTGphdmEvbGFuZy9PYmplY3Q7"
+                        + "TAAHc3BsaXRJZHQAEkxqYXZhL2xhbmcvU3RyaW5nO0wADHNwbGl0S2V5TmFtZXEAfgACTAAMc3BsaXRL"
+                        + "ZXlUeXBldAA3TG9yZy9hcGFjaGUvc2VhdHVubmVsL2FwaS90YWJsZS90eXBlL1NlYVR1bm5lbERhdGFU"
+                        + "eXBlO0wACnNwbGl0UXVlcnlxAH4AAkwACnNwbGl0U3RhcnRxAH4AAUwACXRhYmxlUGF0aHQAMkxvcmcv"
+                        + "YXBhY2hlL3NlYXR1bm5lbC9hcGkvdGFibGUvY2F0YWxvZy9UYWJsZVBhdGg7eHBzcgAOamF2YS5sYW5n"
+                        + "Lkxvbmc7i+SQzI8j3wIAAUoABXZhbHVleHIAEGphdmEubGFuZy5OdW1iZXKGrJUdC5TgiwIAAHhwAAAA"
+                        + "AAAAAAp0AAhtYWluLnQtMHQABGNvZGVzcgAtb3JnLmFwYWNoZS5zZWF0dW5uZWwuYXBpLnRhYmxlLnR5"
+                        + "cGUuQmFzaWNUeXBlAAAAAAAAAAICAAJMAAdzcWxUeXBldAAtTG9yZy9hcGFjaGUvc2VhdHVubmVsL2Fw"
+                        + "aS90YWJsZS90eXBlL1NxbFR5cGU7TAAJdHlwZUNsYXNzdAARTGphdmEvbGFuZy9DbGFzczt4cH5yACtv"
+                        + "cmcuYXBhY2hlLnNlYXR1bm5lbC5hcGkudGFibGUudHlwZS5TcWxUeXBlAAAAAAAAAAASAAB4cgAOamF2"
+                        + "YS5sYW5nLkVudW0AAAAAAAAAABIAAHhwdAAGQklHSU5UdnEAfgAGcHNxAH4ABgAAAAAAAAABc3IAMG9y"
+                        + "Zy5hcGFjaGUuc2VhdHVubmVsLmFwaS50YWJsZS5jYXRhbG9nLlRhYmxlUGF0aAAAAAAAAAABAgADTAAM"
+                        + "ZGF0YWJhc2VOYW1lcQB+AAJMAApzY2hlbWFOYW1lcQB+AAJMAAl0YWJsZU5hbWVxAH4AAnhwdAAEbWFp"
+                        + "bnB0AAF0";
+        JdbcSourceSplit split =
+                new DefaultSerializer<JdbcSourceSplit>()
+                        .deserialize(Base64.getDecoder().decode(previousSplit));
+
+        assertFalse(split.isNullSplitKey());
+        assertEquals("code", split.getSplitKeyName());
+        assertEquals(1L, split.getSplitStart());
+        assertEquals(10L, split.getSplitEnd());
+        try (Connection connection = new DuckDBDriver().connect(DUCKDB_URL, new Properties());
+                DuckDbFixedChunkSplitter splitter =
+                        new DuckDbFixedChunkSplitter(duckDbConfig(), connection)) {
+            createTableWithNullKeys(connection);
+            assertEquals(
+                    LongStream.rangeClosed(1, 9).boxed().collect(Collectors.toList()),
+                    readAllIds(splitter, Collections.singletonList(split)));
         }
     }
 
@@ -669,6 +805,11 @@ public class FixedChunkSplitterTest {
     }
 
     private static JdbcSourceTable tableSplitBy(String splitKey, String start, String end) {
+        return tableSplitBy(splitKey, start, end, true);
+    }
+
+    private static JdbcSourceTable tableSplitBy(
+            String splitKey, String start, String end, boolean keysNullable) {
         TableSchema schema =
                 TableSchema.builder()
                         .column(
@@ -676,13 +817,18 @@ public class FixedChunkSplitterTest {
                                         "id", BasicType.LONG_TYPE, (Long) null, false, null, null))
                         .column(
                                 PhysicalColumn.of(
-                                        "code", BasicType.LONG_TYPE, (Long) null, true, null, null))
+                                        "code",
+                                        BasicType.LONG_TYPE,
+                                        (Long) null,
+                                        keysNullable,
+                                        null,
+                                        null))
                         .column(
                                 PhysicalColumn.of(
                                         "name",
                                         BasicType.STRING_TYPE,
                                         (Long) null,
-                                        true,
+                                        keysNullable,
                                         null,
                                         null))
                         .build();
