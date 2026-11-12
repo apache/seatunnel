@@ -320,6 +320,8 @@ sink {
 
 `snapshot-only` 模式下，connector 完全跳过 WAL 流式读取；如果快照读取需要独立的复制槽，请配置 `slot.name`。
 
+`snapshot-only` 任务从 checkpoint 或 savepoint 恢复时，只读取 checkpoint 中记录的表：checkpoint 之后新建或新加入 `table-names` 的表不会被读取；如果 checkpoint 中仍有未读快照数据的某张表已不在配置中或已不存在，恢复会失败，报错中会列出这些表。只有数据库名、schema 名和表名（包括大小写）完全相同时，checkpoint 中的表才与配置的表匹配。恢复时在 `snapshot-only` 与其他启动模式之间切换同样会被拒绝。需要修改读取的表或启动模式时，请提交新作业。
+
 ### 读取没有主键的表
 
 根据源表能够提供的保证来选择合适的路径：
@@ -458,6 +460,15 @@ source task 会失败；Zeta 引擎会按照 `job.retry.times`（默认 `3`）�
 从 checkpoint 恢复会从最近提交的 LSN 继续，不会重新执行快照；恢复后写入的数据会继续被消费。
 `debezium.heartbeat.interval.ms` 和 `status.update.interval.ms` 可以让复制连接和元数据连接保持活跃，
 同时建议在 JDBC URL 中设置 `tcpKeepAlive=true`。
+
+### PostgreSQL CDC 能在 Spark 引擎上运行吗？
+
+可以，但这一用法没有端到端测试覆盖。无论 `BATCH` 还是 `STREAMING` 作业，Spark 引擎都在一个 Spark task 中运行 CDC 数据源，这个 task 同时包含分片枚举器和所有 reader。Spark 不会为该数据源做 checkpoint，因此：
+
+- 作业无法从 checkpoint 恢复，重启的作业会按 `startup.mode` 重新开始。
+- SeaTunnel 不会向复制槽确认已处理的 LSN，因此复制槽的 `restart_lsn` 不会前移，只要复制槽存在，PostgreSQL 就会保留从该位置起的全部 WAL。请关注 WAL 占用，并在作业停止后推进或删除该复制槽。
+- 只在 checkpoint 或批次写满时才写出的 sink 可能会暂时攒住数据，例如使用默认 `batch_size` 的 JDBC sink。
+- 不支持通过 Spark 微批流式读取（`readStream`）该数据源。
 
 ## 另请参阅
 

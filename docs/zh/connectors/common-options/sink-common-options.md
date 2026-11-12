@@ -69,5 +69,7 @@ sink {
 }
 ```
 
+> 注意：sink 只消费数据集，因此没有 `plugin_output` 选项。`plugin_input` 的值必须与上游 source 或 transform 声明的 `plugin_output` 一致。
+>
 > 如果作业只有一个 source 和一个（或零个）transform 和一个 sink ，则不需要为连接器指定 `plugin_input` 和 `plugin_output`。
 > 如果 source 、transform 和 sink 中任意运算符的数量大于 1，则必须为作业中的每个连接器指定 `plugin_input` 和 `plugin_output`

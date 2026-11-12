@@ -325,6 +325,8 @@ sink {
 
 In `snapshot-only` mode, the connector skips WAL streaming entirely; configure `slot.name` if you need a dedicated slot for the snapshot read.
 
+When a `snapshot-only` job is restored from a checkpoint or savepoint, it reads exactly the tables recorded in the checkpoint: tables created or added to `table-names` after the checkpoint are not read, and a restore fails with an error naming the tables when a checkpointed table that still has unread snapshot data is no longer configured or no longer exists. A checkpointed table matches a configured table only when the database, schema and table names are identical, including letter case. Switching between `snapshot-only` and another startup mode across a restore is rejected as well. Submit a new job to change the captured tables or the startup mode.
+
 ### Read tables without a primary key
 
 Pick the path that matches what the source table guarantees:
@@ -477,6 +479,20 @@ Checkpoint restore resumes from the last committed LSN; it does not re-run the s
 written after recovery continue to be consumed. `debezium.heartbeat.interval.ms` and
 `status.update.interval.ms` keep the replication and metadata connections active, and
 `tcpKeepAlive=true` in the JDBC URL is recommended.
+
+### Can PostgreSQL CDC run on the Spark engine?
+
+It can, but it is not covered by end-to-end tests. The Spark engine runs CDC sources as one Spark
+task that holds the split enumerator and all readers, for both `BATCH` and `STREAMING` jobs. Spark
+does not checkpoint the source, so:
+
+- A job cannot be restored from a checkpoint. A restarted job starts again from `startup.mode`.
+- SeaTunnel never confirms a processed LSN to the replication slot, so the slot's `restart_lsn` does
+  not move and PostgreSQL keeps all WAL from it for as long as the slot exists. Watch the WAL size,
+  and advance or drop the slot when the job stops.
+- A sink that only writes on checkpoints or full batches can hold rows back, for example the JDBC
+  sink with its default `batch_size`.
+- Reading the source with Spark micro-batch streaming (`readStream`) is not supported.
 
 ## See Also
 

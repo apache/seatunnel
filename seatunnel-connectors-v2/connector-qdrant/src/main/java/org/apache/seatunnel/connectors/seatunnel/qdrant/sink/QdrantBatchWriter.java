@@ -158,11 +158,12 @@ public class QdrantBatchWriter {
         switch (sqlType) {
             case SMALLINT:
             case INT:
-            case BIGINT:
                 return ValueFactory.value(Integer.parseInt(value.toString()));
+            case BIGINT:
+                return ValueFactory.value(Long.parseLong(value.toString()));
             case FLOAT:
             case DOUBLE:
-                return ValueFactory.value(Long.parseLong(value.toString()));
+                return ValueFactory.value(Double.parseDouble(value.toString()));
             case STRING:
             case DATE:
                 return ValueFactory.value(value.toString());

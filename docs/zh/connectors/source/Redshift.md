@@ -56,7 +56,7 @@ Redshift 兼容 PostgreSQL，因此连接器可以读取 JDBC 用户有权访问
 | table_path | String | 否 | - | 要读取的完整表名，例如 `public.table2`。单表读取时可直接使用。 |
 | table_list | Array | 否 | - | 要读取的表列表，每一项可以覆盖 `table_path` 和 `query`。用于开启多表读取与自动分片。 |
 | connection_check_timeout_sec | Int | 否 | 30 | 用于校验连接的数据库操作超时时间，单位秒。 |
-| partition_column | String | 否 | - | 用于并行读取的拆分列，仅支持数值类型的主键列。 |
+| partition_column | String | 否 | - | 用于并行读取的拆分列。支持数值、字符串和日期类型的列；只能配置一列。 |
 | partition_lower_bound | String | 否 | - | `partition_column` 的最小扫描值。未配置时连接器从数据库中查询最小值。 |
 | partition_upper_bound | String | 否 | - | `partition_column` 的最大扫描值。未配置时连接器从数据库中查询最大值。 |
 | partition_num | Int | 否 | 10 | 分片数量，仅支持正整数，默认值为 10。 |
