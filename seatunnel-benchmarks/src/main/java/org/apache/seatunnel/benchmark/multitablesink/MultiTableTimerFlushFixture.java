@@ -20,6 +20,7 @@ package org.apache.seatunnel.benchmark.multitablesink;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
+import org.apache.seatunnel.api.sink.MultiTableSinkReplicaMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
@@ -131,6 +132,11 @@ public final class MultiTableTimerFlushFixture implements AutoCloseable {
         private void flush() throws InterruptedException {
             TimeUnit.MILLISECONDS.sleep(writerFlushMillis);
             flushedBatches++;
+        }
+
+        @Override
+        public MultiTableSinkReplicaMode replicaMode() {
+            return MultiTableSinkReplicaMode.RANDOM;
         }
 
         @Override
