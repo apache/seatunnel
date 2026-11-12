@@ -40,10 +40,9 @@ declare through `SupportMultiTableSinkWriter.replicaMode()` how that can be done
 - `KEYED`: rows are routed by the key from `primaryKey()`, so all changes of one key reach the
   same writer in order. A writer that declares it without a key is rejected. Jdbc declares it,
   except with `is_exactly_once`, so a Jdbc table needs a primary key in its schema or in
-  `primary_keys`. Iceberg declares it when the table has identifier fields, or
-  `iceberg.table.primary-keys` or `iceberg.table.upsert-mode-enabled` is set.
+  `primary_keys`.
 - `RANDOM`: rows may go to any writer. Only for writers whose result does not depend on the
-  write order. Iceberg declares it when it only appends rows.
+  write order.
 - `UNSUPPORTED`, the default: the job fails when the writer is created or restored, and the
   error names the table, the connector and the writer class. Set the option to 1 for such a sink.
 
