@@ -37,13 +37,14 @@ import java.util.Map;
 
 public class TableFactoryContextEnvTest {
 
-    private static final String ENV_KEY = "custom_parameters";
+    private static final Option<String> PROBE_OPTION =
+            Options.key("probe").stringType().noDefaultValue();
 
     private static ReadonlyConfig envOptions() {
-        Map<String, Object> customParameters = new HashMap<>();
-        customParameters.put("probe", "env-value");
         Map<String, Object> env = new HashMap<>();
-        env.put(ENV_KEY, customParameters);
+        // Every top-level env key is passed through, not only custom_parameters.
+        env.put("probe", "env-value");
+        env.put("custom_parameters", Collections.singletonMap("nested", "nested-value"));
         return ReadonlyConfig.fromMap(env);
     }
 
@@ -63,13 +64,8 @@ public class TableFactoryContextEnvTest {
     private static final Option<String> TABLE_OPTION =
             Options.key("table").stringType().noDefaultValue();
 
-    private static final Option<Map<String, String>> CUSTOM_PARAMETERS_OPTION =
-            Options.key(ENV_KEY).mapType().noDefaultValue();
-
     private static Object envValue(ReadonlyConfig config) {
-        Map<String, String> customParameters =
-                config.getOptional(CUSTOM_PARAMETERS_OPTION).orElse(Collections.emptyMap());
-        return customParameters.get("probe");
+        return config.get(PROBE_OPTION);
     }
 
     @Test

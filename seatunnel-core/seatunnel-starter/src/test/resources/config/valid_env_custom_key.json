@@ -1,7 +1,11 @@
 {
   "env": {
-    "unknown_key": 1,
-    "job.mode": "BATCH"
+    "parallelism": 1,
+    "job.mode": "BATCH",
+    "my_custom_key": "env-value",
+    "custom_parameters": {
+      "nested_key": "nested-value"
+    }
   },
   "source": [
     {

@@ -501,14 +501,11 @@ public class SeaTunnelConfValidateCommandTest {
     }
 
     @Test
-    public void testEnvUnknownKeyFailsValidation() {
-        ClientCommandArgs args = buildArgs("config/invalid_env_unknown_key.json");
+    public void testEnvCustomKeyIsAccepted() {
+        ClientCommandArgs args = buildArgs("config/valid_env_custom_key.json");
         SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
 
-        ConfigCheckException exception =
-                Assertions.assertThrows(ConfigCheckException.class, command::execute);
-        Assertions.assertTrue(
-                exception.getMessage().contains("Connector 'env' has unknown option keys"));
+        Assertions.assertDoesNotThrow(command::execute);
     }
 
     @Test

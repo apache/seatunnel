@@ -26,8 +26,9 @@ import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -574,9 +575,11 @@ public class MultipleTableJobConfigParserTest {
 
     private static void assertEnv(ReadonlyConfig envOptions) {
         Assertions.assertNotNull(envOptions);
-        Assertions.assertEquals(
-                "env-value", envOptions.get(EnvCommonOptions.CUSTOM_PARAMETERS).get("probe"));
+        Assertions.assertEquals("env-value", envOptions.get(PROBE_OPTION));
     }
+
+    private static final Option<String> PROBE_OPTION =
+            Options.key("probe").stringType().noDefaultValue();
 
     private CatalogTable mockCatalogTable(String tableName) {
         return CatalogTable.of(

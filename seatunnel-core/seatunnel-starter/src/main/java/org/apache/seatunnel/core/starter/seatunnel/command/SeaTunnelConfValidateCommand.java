@@ -111,7 +111,8 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                 OptionRule envRule = new EnvOptionRule().optionRule();
                 ConfigValidator.of(envConfig).validate(envRule);
                 validateOptionTypes(envConfig, envRule);
-                ConfigValidator.validateUnknownKeys(envConfig, envRule, "env");
+                // env is also an open map for user-defined variables. Unknown keys are passed
+                // through to plugin factories, so they must not be rejected as typos here.
             }
 
             List<? extends Config> sourceConfigs =

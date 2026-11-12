@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -40,6 +41,9 @@ import java.util.Map;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 
 public class FactoryUtilEnvOptionsTest {
+
+    private static final Option<String> PROBE_OPTION =
+            Options.key("probe").stringType().noDefaultValue();
 
     @Test
     public void testCreateAndPrepareSourceCarriesEnv() {
@@ -67,10 +71,7 @@ public class FactoryUtilEnvOptionsTest {
 
         Assertions.assertNotNull(EnvProbeSourceFactory.capturedEnvOptions());
         Assertions.assertEquals(
-                "env-value",
-                EnvProbeSourceFactory.capturedEnvOptions()
-                        .get(EnvCommonOptions.CUSTOM_PARAMETERS)
-                        .get("probe"));
+                "env-value", EnvProbeSourceFactory.capturedEnvOptions().get(PROBE_OPTION));
     }
 
     @Test
@@ -99,10 +100,7 @@ public class FactoryUtilEnvOptionsTest {
         Assertions.assertSame(sink, result);
         Assertions.assertNotNull(EnvProbeSinkFactory.capturedEnvOptions());
         Assertions.assertEquals(
-                "env-value",
-                EnvProbeSinkFactory.capturedEnvOptions()
-                        .get(EnvCommonOptions.CUSTOM_PARAMETERS)
-                        .get("probe"));
+                "env-value", EnvProbeSinkFactory.capturedEnvOptions().get(PROBE_OPTION));
     }
 
     private static CatalogTable catalogTable() {
@@ -114,10 +112,10 @@ public class FactoryUtilEnvOptionsTest {
     }
 
     private static ReadonlyConfig envOptions() {
-        Map<String, Object> customParameters = new HashMap<>();
-        customParameters.put("probe", "env-value");
         Map<String, Object> env = new HashMap<>();
-        env.put("custom_parameters", customParameters);
+        // A plain top-level env variable; custom_parameters is not required.
+        env.put("probe", "env-value");
+        env.put("custom_parameters", Collections.singletonMap("nested", "nested-value"));
         return ReadonlyConfig.fromMap(env);
     }
 }

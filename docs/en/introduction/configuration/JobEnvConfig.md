@@ -39,20 +39,18 @@ Specify the method of encryption, if you didn't have the requirement for encrypt
 
 For more details, you can refer to the documentation [Config Encryption Decryption](./config-encryption-decryption.md)
 
-### custom_parameters
+### User-defined variables
 
-Job-scoped custom key/value pairs for plugin factories:
+The entire `env` block is available to plugin factories, including user-defined top-level keys:
 
 ```hocon
 env {
   job.mode = "BATCH"
-  custom_parameters {
-    my_key = "my_value"
-  }
+  my_key = "my_value"
 }
 ```
 
-On Zeta, plugin factories can read them from `TableFactoryContext#getEnvOptions()`. See [Intro To Config File](../concepts/config.md#custom-parameters-for-plugins) for details and limitations.
+Nested blocks such as `custom_parameters` are also passed through. On Zeta, plugin factories can read every key from `TableFactoryContext#getEnvOptions()`. See [Intro To Config File](../concepts/config.md#job-scoped-variables-for-plugins) for details and limitations.
 
 ## Zeta Engine Parameter
 

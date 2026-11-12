@@ -82,23 +82,21 @@ sink {
 
 如果您想查看完整参数列表、引擎专属前缀和更多示例，请继续阅读 [JobEnvConfig](../configuration/JobEnvConfig.md)。
 
-#### 供插件使用的自定义参数
+#### 供插件使用的作业级变量
 
-`env.custom_parameters` 用于定义作业级键值对，插件工厂可以直接读取，无需在每个插件块中重复配置：
+**整个 `env` 块**都会传递给插件工厂，不只是 `custom_parameters`。任意顶层 key 都可以读取；需要分组时也可以继续使用 `custom_parameters` 等嵌套结构：
 
 ```hocon
 env {
   job.mode = "BATCH"
-  custom_parameters {
-    my_key = "my_value"
-  }
+  my_key = "my_value"
 }
 ```
 
 在 Zeta 引擎中：
 
-- `TableSourceFactory`、`TableSinkFactory`、`MultiTableSinkFactory`、`TableTransformFactory` 的实现可以通过 `context.getEnvOptions()` 读取，例如 `context.getEnvOptions().get(EnvCommonOptions.CUSTOM_PARAMETERS).get("my_key")`。
-- 这些参数与插件 options 相互独立，不会影响 OptionRule 校验、未知 key 检查以及 sink 的表名占位符重写。
+- `TableSourceFactory`、`TableSinkFactory`、`MultiTableSinkFactory`、`TableTransformFactory` 的实现可以通过 `context.getEnvOptions()` 读取所有 env key，例如 `context.getEnvOptions().get(Options.key("my_key").stringType())`。
+- `env` 是开放 map：除了引擎已声明的选项外，允许用户自定义 key。这些 key 与插件 options 相互独立，不会影响 OptionRule 校验、插件的未知 key 检查以及 sink 的表名占位符重写。
 - 如果插件在运行期需要这些参数，请从工厂上下文复制到随作业下发、可序列化的 source/sink/transform 对象中。
 
 限制说明：
