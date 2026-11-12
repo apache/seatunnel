@@ -39,6 +39,7 @@ import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 
 public class RowToAvroConverter implements Serializable {
@@ -48,9 +49,29 @@ public class RowToAvroConverter implements Serializable {
     private final Schema schema;
     private final SeaTunnelRowType rowType;
     private final DatumWriter<GenericRecord> writer;
+    private final boolean rowNullable;
+    // Keys come only from the configured type tree and its field names, never from row values.
+    // Identity avoids conflating distinct ROW types with the same nested field name.
+    private final Map<SeaTunnelRowType, Map<String, Schema>> recordSchemas =
+            new IdentityHashMap<>();
 
     public RowToAvroConverter(SeaTunnelRowType rowType) {
-        this.schema = SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(rowType);
+        this(rowType, false);
+    }
+
+    /**
+     * Creates a converter that serializes rows with either the legacy ROW layout or the opt-in
+     * nullable ROW layout.
+     *
+     * @param rowType row type to serialize
+     * @param rowNullable whether a ROW value is written as a nullable Avro union, see {@link
+     *     AvroFormatOptions#AVRO_ROW_NULLABLE}
+     */
+    public RowToAvroConverter(SeaTunnelRowType rowType, boolean rowNullable) {
+        this.rowNullable = rowNullable;
+        this.schema =
+                SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(
+                        rowType, rowNullable);
         this.rowType = rowType;
         this.writer = createWriter();
     }
@@ -79,12 +100,13 @@ public class RowToAvroConverter implements Serializable {
         for (int i = 0; i < fieldNames.length; i++) {
             String fieldName = rowType.getFieldName(i);
             Object value = element.getField(i);
-            builder.set(fieldName, resolveObject(value, rowType.getFieldType(i)));
+            builder.set(fieldName, resolveObject(value, rowType.getFieldType(i), fieldName));
         }
         return builder.build();
     }
 
-    private Object resolveObject(Object data, SeaTunnelDataType<?> seaTunnelDataType) {
+    private Object resolveObject(
+            Object data, SeaTunnelDataType<?> seaTunnelDataType, String recordName) {
         if (data == null) {
             return null;
         }
@@ -121,7 +143,7 @@ public class RowToAvroConverter implements Serializable {
                 int length = Array.getLength(data);
                 ArrayList<Object> records = new ArrayList<>(length);
                 for (int i = 0; i < length; i++) {
-                    records.add(resolveObject(Array.get(data, i), basicType));
+                    records.add(resolveObject(Array.get(data, i), basicType, recordName));
                 }
                 return records;
             case MAP:
@@ -131,8 +153,8 @@ public class RowToAvroConverter implements Serializable {
                 Map<Object, Object> mapData = new HashMap<>();
                 for (Map.Entry<?, ?> entry : ((Map<Object, Object>) data).entrySet()) {
                     mapData.put(
-                            resolveObject(entry.getKey(), keyType),
-                            resolveObject(entry.getValue(), valueType));
+                            resolveObject(entry.getKey(), keyType, recordName),
+                            resolveObject(entry.getValue(), valueType, recordName));
                 }
                 return mapData;
 
@@ -142,12 +164,12 @@ public class RowToAvroConverter implements Serializable {
                         ((SeaTunnelRowType) seaTunnelDataType).getFieldTypes();
                 String[] fieldNames = ((SeaTunnelRowType) seaTunnelDataType).getFieldNames();
                 Schema recordSchema =
-                        SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(
-                                (SeaTunnelRowType) seaTunnelDataType);
+                        getRecordSchema((SeaTunnelRowType) seaTunnelDataType, recordName);
                 GenericRecordBuilder recordBuilder = new GenericRecordBuilder(recordSchema);
                 for (int i = 0; i < fieldNames.length; i++) {
                     recordBuilder.set(
-                            fieldNames[i], resolveObject(seaTunnelRow.getField(i), fieldTypes[i]));
+                            fieldNames[i],
+                            resolveObject(seaTunnelRow.getField(i), fieldTypes[i], fieldNames[i]));
                 }
                 return recordBuilder.build();
             default:
@@ -158,5 +180,18 @@ public class RowToAvroConverter implements Serializable {
                 throw new SeaTunnelAvroFormatException(
                         AvroFormatErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
+    }
+
+    private Schema getRecordSchema(SeaTunnelRowType nestedRowType, String recordName) {
+        // Preserve the historic nested record name in the default layout. Nullable unions need
+        // the name assigned by the enclosing field, including ROWs in ARRAYs and MAPs.
+        String schemaName = rowNullable ? recordName : "SeaTunnelRecord";
+        return recordSchemas
+                .computeIfAbsent(nestedRowType, ignored -> new HashMap<>())
+                .computeIfAbsent(
+                        schemaName,
+                        name ->
+                                SeaTunnelRowTypeToAvroSchemaConverter.buildRecordSchema(
+                                        name, nestedRowType, rowNullable));
     }
 }

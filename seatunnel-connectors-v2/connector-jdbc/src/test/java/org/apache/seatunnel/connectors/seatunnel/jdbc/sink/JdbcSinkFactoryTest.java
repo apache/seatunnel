@@ -28,7 +28,9 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -55,6 +57,14 @@ class JdbcSinkFactoryTest {
         cfg.put("data_save_mode", "APPEND_DATA");
         cfg.put("generate_sink_sql", true);
         cfg.put("database", "ORCL");
+        return cfg;
+    }
+
+    private Map<String, Object> cockroachConfig() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("url", "jdbc:postgresql://localhost:26257/defaultdb");
+        cfg.put("driver", "org.postgresql.Driver");
+        cfg.put("dialect", "CockroachDB");
         return cfg;
     }
 
@@ -189,6 +199,49 @@ class JdbcSinkFactoryTest {
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
 
+    /**
+     * The strict unknown-key check used by {@code --check} and {@code --dry-run} only accepts keys
+     * declared in the option rule, so every option the sink reads must be declared there.
+     */
+    @Test
+    void testDocumentedSinkOptionsAreNotUnknownKeys() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("table", "TEST_TABLE");
+        cfg.put("schema", "ST");
+        cfg.put("properties", Collections.singletonMap("oracle.jdbc.timezoneAsRegion", "false"));
+        cfg.put("connect_timeout_ms", 30000);
+        cfg.put("socket_timeout_ms", 60000);
+        cfg.put("decimal_type_narrowing", true);
+        cfg.put("int_type_narrowing", true);
+        cfg.put("handle_blob_as_string", false);
+        cfg.put("use_kerberos", true);
+        cfg.put("kerberos_principal", "seatunnel@EXAMPLE.COM");
+        cfg.put("kerberos_keytab_path", "/etc/seatunnel.keytab");
+        cfg.put("krb5_path", "/etc/krb5.conf");
+        cfg.put("access_key_id", "ak");
+        cfg.put("secret_access_key", "sk");
+        cfg.put("region", "us-east-1");
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(cfg), rule, "Jdbc"));
+    }
+
+    @Test
+    void testUndeclaredSinkOptionIsUnknownKey() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("tabel", "TEST_TABLE");
+
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.validateUnknownKeys(
+                                        ReadonlyConfig.fromMap(cfg), rule, "Jdbc"));
+        Assertions.assertTrue(exception.getMessage().contains("[tabel]"));
+    }
+
     // ---- Entry-level regression tests through factory-context path ----
 
     @Test
@@ -241,5 +294,37 @@ class JdbcSinkFactoryTest {
                 "Factory-level validation and createSink should succeed even when "
                         + "CatalogTable has primary keys; the PK + APPEND_VALUES conflict "
                         + "is guarded at runtime by JdbcOutputFormatBuilder.validateOracleInsertMode");
+    }
+
+    @Test
+    void cockroachDoesNotAdvertiseSchemaEvolutionWhilePostgresStillDoes() {
+        Map<String, Object> cfg = cockroachConfig();
+        JdbcSink cockroach = (JdbcSink) createSinkViaFactoryContext(cfg, true).createSink();
+        Assertions.assertTrue(cockroach.supports().isEmpty());
+
+        cfg.put("dialect", "Postgres");
+        JdbcSink postgres = (JdbcSink) createSinkViaFactoryContext(cfg, true).createSink();
+        Assertions.assertTrue(postgres.supports().contains(SchemaChangeType.ADD_COLUMN));
+    }
+
+    @Test
+    void cockroachRejectsSaveModesThatWouldOtherwiseBeSkipped() {
+        Map<String, Object> cfg = cockroachConfig();
+        cfg.put("schema_save_mode", "IGNORE");
+        Assertions.assertDoesNotThrow(() -> createSinkViaFactoryContext(cfg, true));
+        cfg.put("custom_sql", "DELETE FROM public.target");
+
+        for (String dataMode :
+                new String[] {"DROP_DATA", "CUSTOM_PROCESSING", "ERROR_WHEN_DATA_EXISTS"}) {
+            cfg.put("data_save_mode", dataMode);
+            Assertions.assertThrows(
+                    JdbcConnectorException.class, () -> createSinkViaFactoryContext(cfg, true));
+        }
+        cfg.put("data_save_mode", "APPEND_DATA");
+        for (String schemaMode : new String[] {"RECREATE_SCHEMA", "ERROR_WHEN_SCHEMA_NOT_EXIST"}) {
+            cfg.put("schema_save_mode", schemaMode);
+            Assertions.assertThrows(
+                    JdbcConnectorException.class, () -> createSinkViaFactoryContext(cfg, true));
+        }
     }
 }

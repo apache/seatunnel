@@ -20,10 +20,30 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 
 import com.hazelcast.spi.impl.NodeEngine;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class StandaloneResourceManager extends AbstractResourceManager {
 
     public StandaloneResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
         super(nodeEngine, engineConfig);
+    }
+
+    /** Synchronizes existing worker slots without creating external worker processes. */
+    @Override
+    public synchronized void init() {
+        log.info("Init standalone ResourceManager");
+        try {
+            super.init();
+        } catch (RuntimeException e) {
+            // Keep the original exception type visible to callers and log-based alerting; only add
+            // the cleanup failure as a suppressed exception.
+            try {
+                close();
+            } catch (RuntimeException cleanupFailure) {
+                e.addSuppressed(cleanupFailure);
+            }
+            throw e;
+        }
     }
 }

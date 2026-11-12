@@ -33,7 +33,7 @@ fields.
 | BIGINT              | Written as an InfluxDB field, or as the timestamp when configured by `key_time`. |
 | FLOAT               | Written as an InfluxDB field. |
 | DOUBLE              | Written as an InfluxDB field. |
-| STRING              | Written as an InfluxDB field, a tag value, or a timestamp string when configured by `key_time`. |
+| STRING              | Written as an InfluxDB field, a tag value, or a numeric timestamp string when configured by `key_time`. |
 | TIMESTAMP           | Can be used by `key_time`; converted with UTC zone to epoch milliseconds. |
 
 Other SeaTunnel types are not supported by the current InfluxDB sink serializer.

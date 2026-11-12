@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
@@ -87,6 +88,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
@@ -580,6 +582,112 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
             Assertions.assertEquals(
                     exceptType,
                     tableFromSQL.getTableSchema().getColumn("c_tinyint_1").getDataType());
+        }
+    }
+
+    /**
+     * Regression test for <a href="https://github.com/apache/seatunnel/issues/10451">#10451</a>.
+     *
+     * <p>A SET or ENUM value list containing the word "unsigned" - MySQL's own {@code
+     * mysql.event.sql_mode} holds {@code NO_UNSIGNED_SUBTRACTION} - used to be read as the UNSIGNED
+     * attribute of the column. The type converters then appended a " UNSIGNED" suffix, producing a
+     * type that does not exist in MySQL and failing table discovery for the whole job.
+     */
+    @Test
+    public void testSetAndEnumColumnWithUnsignedWordInValueList() throws SQLException {
+        String tableName = "set_unsigned_source";
+        String createSql =
+                "CREATE TABLE IF NOT EXISTS `"
+                        + MYSQL_DATABASE
+                        + "`.`"
+                        + tableName
+                        + "` ("
+                        + "  `c_int` int DEFAULT NULL,"
+                        + "  `c_int_unsigned` int unsigned DEFAULT NULL,"
+                        + "  `c_set` set('REAL_AS_FLOAT','NO_UNSIGNED_SUBTRACTION') DEFAULT NULL,"
+                        + "  `c_enum` enum('unsigned','other') DEFAULT NULL)";
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createSql);
+            try {
+                TableSchema tableSchema =
+                        catalog.getTable(TablePath.of(MYSQL_DATABASE, tableName)).getTableSchema();
+
+                // The synthetic " UNSIGNED" suffix must not be attached to these columns anymore.
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE, tableSchema.getColumn("c_set").getDataType());
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE, tableSchema.getColumn("c_enum").getDataType());
+                // A genuinely unsigned numeric column keeps its attribute: INT UNSIGNED widens to
+                // LONG, while a plain INT stays INT.
+                Assertions.assertEquals(
+                        BasicType.LONG_TYPE, tableSchema.getColumn("c_int_unsigned").getDataType());
+                Assertions.assertEquals(
+                        BasicType.INT_TYPE, tableSchema.getColumn("c_int").getDataType());
+            } finally {
+                statement.execute(
+                        "DROP TABLE IF EXISTS `" + MYSQL_DATABASE + "`.`" + tableName + "`");
+            }
+        }
+    }
+
+    /**
+     * MySQL reports {@code DATA_TYPE} in lower case, for example {@code int} or {@code datetime}.
+     * Under {@code tr-TR} and {@code az-AZ}, upper casing it with the default locale gave {@code
+     * İNT}, which matched no type, so reading the table from the catalog failed.
+     */
+    @Test
+    public void testCatalogReadsColumnTypesUnderTurkishLocale() throws SQLException {
+        String tableName = "locale_type_source";
+        String createSql =
+                "CREATE TABLE IF NOT EXISTS `"
+                        + MYSQL_DATABASE
+                        + "`.`"
+                        + tableName
+                        + "` ("
+                        + "  `c_int` int DEFAULT NULL,"
+                        + "  `c_int_unsigned` int unsigned DEFAULT NULL,"
+                        + "  `c_bigint` bigint DEFAULT NULL,"
+                        + "  `c_datetime` datetime DEFAULT NULL)";
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createSql);
+            try {
+                for (Locale locale :
+                        new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
+                    // Upper casing "i" gives a dotted capital I under these locales.
+                    Locale.setDefault(locale);
+                    TableSchema tableSchema =
+                            catalog.getTable(TablePath.of(MYSQL_DATABASE, tableName))
+                                    .getTableSchema();
+                    Assertions.assertEquals(
+                            BasicType.INT_TYPE,
+                            tableSchema.getColumn("c_int").getDataType(),
+                            locale.toString());
+                    Assertions.assertEquals(
+                            BasicType.LONG_TYPE,
+                            tableSchema.getColumn("c_int_unsigned").getDataType(),
+                            locale.toString());
+                    Assertions.assertEquals(
+                            BasicType.LONG_TYPE,
+                            tableSchema.getColumn("c_bigint").getDataType(),
+                            locale.toString());
+                    Assertions.assertEquals(
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            tableSchema.getColumn("c_datetime").getDataType(),
+                            locale.toString());
+                }
+            } finally {
+                // The base locale first, because setting it overwrites both category defaults.
+                Locale.setDefault(saved[0]);
+                Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+                Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
+                statement.execute(
+                        "DROP TABLE IF EXISTS `" + MYSQL_DATABASE + "`.`" + tableName + "`");
+            }
         }
     }
 

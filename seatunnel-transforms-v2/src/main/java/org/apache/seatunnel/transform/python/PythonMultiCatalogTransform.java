@@ -50,6 +50,12 @@ public class PythonMultiCatalogTransform extends AbstractMultiCatalogMapTransfor
         return PythonTransform.PLUGIN_NAME;
     }
 
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
+    @Override
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(config, PythonTransformConfig.COLUMNS);
+    }
+
     /**
      * Builds the per-table Python transform used at runtime.
      *

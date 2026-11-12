@@ -34,6 +34,8 @@ class CheckpointSchedulingFixtureTest {
     private static final long CHECKPOINT_INTERVAL_MILLIS = 200L;
     private static final int SAMPLE_COUNT = 20;
     private static final long THREAD_STOP_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(30);
+    private static final long WARMUP_TRIGGERS = 40L;
+    private static final long MIN_WARMUP_MILLIS = 5_000L;
 
     @Test
     void shouldMeasureDueTriggersOfRealCoordinators() throws Exception {
@@ -56,6 +58,46 @@ class CheckpointSchedulingFixtureTest {
 
             assertEquals(SAMPLE_COUNT, fixture.getSampled());
             fixture.endIteration();
+        } finally {
+            fixture.tearDown();
+        }
+    }
+
+    @Test
+    void shouldTriggerTheWarmupCheckpointsBeforeMeasuringAnything() throws Exception {
+        CheckpointSchedulingFixture fixture =
+                new CheckpointSchedulingFixture(
+                        PIPELINE_NUM, CHECKPOINT_INTERVAL_MILLIS, WARMUP_TRIGGERS, 0L);
+        fixture.setUp();
+        try {
+            assertTrue(
+                    fixture.getTriggeredCheckpoints() >= WARMUP_TRIGGERS,
+                    "setup should return only after the warm-up checkpoints were triggered");
+            // Phases are taken after the warm-up, so the first iteration skips nothing for them.
+            fixture.beginIteration();
+            for (int i = 0; i < SAMPLE_COUNT; i++) {
+                fixture.awaitNextDueTrigger();
+                fixture.awaitTrigger();
+            }
+            assertEquals(SAMPLE_COUNT, fixture.getSampled());
+            fixture.endIteration();
+        } finally {
+            fixture.tearDown();
+        }
+    }
+
+    @Test
+    void shouldKeepWarmingUpForTheMinimumTimeOnceTheTriggersRan() throws Exception {
+        // One trigger is done within a second; the minimum time is what setup waits for.
+        CheckpointSchedulingFixture fixture =
+                new CheckpointSchedulingFixture(
+                        PIPELINE_NUM, CHECKPOINT_INTERVAL_MILLIS, 1L, MIN_WARMUP_MILLIS);
+        long start = System.nanoTime();
+        fixture.setUp();
+        try {
+            assertTrue(
+                    System.nanoTime() - start >= TimeUnit.MILLISECONDS.toNanos(MIN_WARMUP_MILLIS),
+                    "setup should not return before the minimum warm-up time");
         } finally {
             fixture.tearDown();
         }

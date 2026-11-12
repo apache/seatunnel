@@ -167,6 +167,27 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testCompositeKeyEncodingAvoidsDocumentIdCollisions(TestContainer container)
+            throws Exception {
+        Container.ExecResult result =
+                container.executeJob("/easysearch/easysearch_composite_key_encoding.conf");
+        Assertions.assertEquals(0, result.getExitCode());
+
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1L, TimeUnit.SECONDS)
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        2L,
+                                        easysearchClient
+                                                .getIndexDocsCount("st_id_encoding")
+                                                .get(0)
+                                                .getDocsCount()));
+    }
+
+    @TestTemplate
     public void testEasysearchWithSaveMode(TestContainer container)
             throws IOException, InterruptedException {
         // Test CREATE_SCHEMA_WHEN_NOT_EXIST mode

@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpPostCommandProcessor;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.rest.RestHttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.rest.RestHttpPostCommandProcessor;
 
@@ -44,9 +45,22 @@ public class NodeExtension extends DefaultNodeExtension {
     @Getter private final CollectorRegistry collectorRegistry;
     @Getter private final SeaTunnelServer seaTunnelServer;
 
+    /**
+     * Creates the Engine extension of one Hazelcast node.
+     *
+     * @param node owning Hazelcast node
+     * @param seaTunnelConfig Engine and cluster configuration
+     */
     public NodeExtension(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
+        this(node, seaTunnelConfig, new ResourceManagerFactory());
+    }
+
+    public NodeExtension(
+            @NonNull Node node,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull ResourceManagerFactory resourceManagerFactory) {
         super(node);
-        seaTunnelServer = new SeaTunnelServer(seaTunnelConfig);
+        seaTunnelServer = new SeaTunnelServer(seaTunnelConfig, resourceManagerFactory);
         extCommon = new NodeExtensionCommon(node, seaTunnelServer);
         collectorRegistry = new CollectorRegistry(true);
     }

@@ -97,7 +97,7 @@ Zeta 的 `--dry-run connect` 会校验 Redis 是否可达以及是否接受配�
 
 - `KEY` 和 `STRING`：每行写入一个 Redis 字符串。同一个 key 下，后写入的数据会覆盖先写入的数据。
 - `HASH`：写入 Redis hash。配置 `hash_key_field` 可以指定 hash field。
-- `LIST`：把每行数据追加到 Redis list。
+- `LIST`：把每行数据写入 Redis list。数据通过 `LPUSH` 插入到列表头部，因此 `LRANGE` 读取顺序与写入顺序相反。
 - `SET`：把每行数据加入 Redis set。
 - `ZSET`：把每行数据加入 Redis zset，score 固定为 `1`。
 
@@ -213,6 +213,24 @@ sink {
     value_field = "name"
     batch_size = 20
     expire = 30
+  }
+}
+```
+
+### 按上游字段动态生成键
+
+将 `support_custom_key` 设为 `true` 后，`key` 中可以包含占位符 `${field}`（同时也兼容旧的 `{field}` 写法），
+连接器在写入时会把占位符替换为对应上游字段的值。常用于把同一 Redis 数据类型按上游主键写入不同键的场景。
+
+```hocon
+sink {
+  Redis {
+    host = "localhost"
+    port = 6379
+    key = "person:${id}"
+    support_custom_key = true
+    data_type = KEY
+    format = JSON
   }
 }
 ```

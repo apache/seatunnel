@@ -164,7 +164,10 @@ public class AssertCatalogTableRule implements Serializable {
                 && column1.isNullable() == column2.isNullable()
                 && Objects.equals(column1.getDefaultValue(), column2.getDefaultValue())
                 && Objects.equals(column1.getComment(), column2.getComment())
-                && Objects.equals(column1.getSourceType(), column2.getSourceType());
+                && Objects.equals(column1.getSourceType(), column2.getSourceType())
+                // the sink type is optional: only a declared expectation is verified
+                && (column1.getSinkType() == null
+                        || Objects.equals(column1.getSinkType(), column2.getSinkType()));
     }
 
     @Data

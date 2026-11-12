@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatab
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.HadoopStreamFileIO;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -68,7 +69,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import static java.lang.Thread.sleep;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
 import static org.awaitility.Awaitility.given;
 
@@ -325,7 +325,18 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         MYSQL_DATABASE, SOURCE_TABLE, modifyTypeField1, modifyTypeField2);
         executeSql(insertTypeColumnsSql);
 
-        sleep(30000); // Wait for source capture data
+        // Wait until the CDC source has captured the pre-ALTER record (it becomes visible in
+        // the sink table) instead of waiting a fixed time, so the schema change is applied
+        // only after the old-schema row was consumed.
+        given().ignoreExceptions()
+                .await()
+                .atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        icebergTableHasRecordWithId(300),
+                                        "Record 300 should be captured before the column type"
+                                                + " change"));
 
         // Now modify multiple column types in a single ALTER TABLE statement
         String modifyTypesSql =
@@ -427,7 +438,18 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         MYSQL_DATABASE, SOURCE_TABLE, modifyField1, modifyField2);
         executeSql(insertModifyColumnsSql);
 
-        sleep(30000); // Wait for source capture data
+        // Wait until the CDC source has captured the pre-ALTER record (it becomes visible in
+        // the sink table) instead of waiting a fixed time, so the schema change is applied
+        // only after the old-schema row was consumed.
+        given().ignoreExceptions()
+                .await()
+                .atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        icebergTableHasRecordWithId(400),
+                                        "Record 400 should be captured before the column type"
+                                                + " change"));
 
         // Now modify multiple columns in a single ALTER TABLE statement
         String modifyColumnsSql =
@@ -747,11 +769,22 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
         return results;
     }
 
+    private boolean icebergTableHasRecordWithId(int id) {
+        for (Record record : loadIcebergTable()) {
+            if (Integer.valueOf(id).equals(record.getField("id"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @NotNull private static IcebergTableLoader getTableLoader() {
         Map<String, Object> configs = new HashMap<>();
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
         catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        // Parquet 1.16 needs Hadoop 3.3+ to open Hadoop files itself, see HadoopStreamFileIO
+        catalogProps.put("io-impl", HadoopStreamFileIO.class.getName());
         configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
         configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
         configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_sink_table");

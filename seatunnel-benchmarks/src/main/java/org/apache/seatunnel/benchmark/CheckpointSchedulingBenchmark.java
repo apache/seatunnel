@@ -59,10 +59,25 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>The checkpoint interval is {@code pipelineNum * triggerSpacingMillis}, so every point of the
  * sweep sees the same rate of due triggers and the same checkpoint load on storage, and only the
- * number of coordinators changes. It is floored at {@link #MIN_MEASURABLE_INTERVAL_MILLIS}, so the
- * smallest pipeline counts sample less often. Each job has one pipeline: many jobs is what "many
- * active pipelines" means on a member, and it keeps per-job checkpoint state from becoming the
- * bottleneck.
+ * number of coordinators changes. It is floored at {@link #MIN_MEASURABLE_INTERVAL_MILLIS}, which
+ * is why the sweep starts at ten pipelines: below that the floor binds, the member triggers fewer
+ * checkpoints a second than at the other points, and the code on the trigger path warms up that
+ * much slower. Each job has one pipeline: many jobs is what "many active pipelines" means on a
+ * member, and it keeps per-job checkpoint state from becoming the bottleneck.
+ *
+ * <p>The trigger path runs only 50 times a second, and the JIT compiles by invocation count, so
+ * with default thresholds that path is still being compiled minutes into a fork, reaching C2 only
+ * after about two minutes. Every iteration in that window scores lower than the one before. Two
+ * things keep that out of the measurement. The forks run with {@code
+ * -XX:CompileThresholdScaling=0.05}, so the path compiles after a twentieth of the invocations;
+ * lower values compile so much at once that triggers come due unmeasured and the skip limit fails
+ * the run. And each trial first lets its coordinators trigger {@link #TRIGGER_PATH_WARMUP_TRIGGERS}
+ * checkpoints, a warmup counted in triggers rather than seconds, and runs for at least {@link
+ * #MIN_WARMUP_SECONDS}. At 50 triggers a second the time is what binds; the count keeps the warmup
+ * long enough if a lower trigger rate is added.
+ *
+ * <p>Scores taken before this warmup are not comparable with scores taken after it, so a PR
+ * comparison needs the candidate branch to contain it as well as the baseline.
  */
 @BenchmarkMode(Mode.SampleTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -78,6 +93,7 @@ import java.util.concurrent.TimeUnit;
             "-XX:+AlwaysPreTouch",
             "-XX:+DisableExplicitGC",
             "-XX:ActiveProcessorCount=4",
+            "-XX:CompileThresholdScaling=0.05",
             "-Djava.net.preferIPv4Stack=true"
         })
 public class CheckpointSchedulingBenchmark extends BenchmarkBase {
@@ -89,6 +105,20 @@ public class CheckpointSchedulingBenchmark extends BenchmarkBase {
      * the lowest interval SeaTunnel accepts, which the fixture enforces separately.
      */
     static final long MIN_MEASURABLE_INTERVAL_MILLIS = 200L;
+
+    /**
+     * Checkpoints each trial triggers before JMH's own warmup starts. With the fork's lowered
+     * compile thresholds, the trigger path, the scheduler queue and the MDC wrapper around each
+     * scheduled task stopped changing tier after about 1,000 triggers on GitHub's Linux runners.
+     */
+    static final long TRIGGER_PATH_WARMUP_TRIGGERS = 1_000L;
+
+    /**
+     * Least time each trial runs its coordinators before JMH's own warmup. At ten pipelines or more
+     * the trigger count above is reached in 20 seconds, while the rest of the member is still
+     * compiling, and the first measured iteration then caught millisecond outliers.
+     */
+    static final long MIN_WARMUP_SECONDS = 60L;
 
     public static void main(String[] args) throws RunnerException {
         Options options =
@@ -111,7 +141,7 @@ public class CheckpointSchedulingBenchmark extends BenchmarkBase {
     @State(Scope.Thread)
     public static class CoordinatorsState {
 
-        @Param({"1", "10", "100", "500"})
+        @Param({"10", "100", "500"})
         private int pipelineNum;
 
         @Param({"20"})
@@ -126,7 +156,9 @@ public class CheckpointSchedulingBenchmark extends BenchmarkBase {
                             pipelineNum,
                             Math.max(
                                     MIN_MEASURABLE_INTERVAL_MILLIS,
-                                    pipelineNum * triggerSpacingMillis));
+                                    pipelineNum * triggerSpacingMillis),
+                            TRIGGER_PATH_WARMUP_TRIGGERS,
+                            TimeUnit.SECONDS.toMillis(MIN_WARMUP_SECONDS));
             fixture.setUp();
             System.out.printf(
                     "# checkpoint scheduler threads for %d pipelines: %d; measuring %d of them%n",

@@ -71,11 +71,14 @@ public class YashanDbTypeConverter implements TypeConverter<BasicTypeDefine> {
     // ============================ Character Data Types ============================
 
     // CHAR: [1,8000] bytes; VARCHAR: [1,65534] bytes
+    // VARCHAR2 is the Oracle-compatible synonym of VARCHAR and shares its byte length semantics.
     public static final String CHAR = "CHAR";
     public static final String VARCHAR = "VARCHAR";
     public static final String VARCHAR2 = "VARCHAR2";
 
     // NCHAR: [1,4000]; NVARCHAR: [1,32767] (Unicode)
+    // NVARCHAR2 is the Oracle-compatible synonym of NVARCHAR and shares its character length
+    // semantics.
     public static final String NCHAR = "NCHAR";
     public static final String NVARCHAR = "NVARCHAR";
     public static final String NVARCHAR2 = "NVARCHAR2";

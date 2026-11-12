@@ -49,6 +49,7 @@
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
         <module>seatunnel-engine</module>
+        <module>seatunnel-resource-managers</module>
         <module>seatunnel-trace</module>
         <module>seatunnel-examples</module>
         <module>seatunnel-e2e</module>
@@ -58,7 +59,7 @@
 
     <properties>
         <!--todo The classification is too confusing, reclassify by type-->
-        <revision>3.0.1-SNAPSHOT</revision>
+        <revision>3.1.0-SNAPSHOT</revision>
         <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <!-- The seatunnel shade version  e.g. ${seatunnel.shade.hazelcast.version}-${seatunnel.shade.version} -->
         <seatunnel.shade.version>3.0.0</seatunnel.shade.version>
@@ -101,6 +102,7 @@
         <flink.1.20.1.version>1.20.1</flink.1.20.1.version>
         <spark.2.4.0.version>2.4.0</spark.2.4.0.version>
         <spark.3.3.0.version>3.3.0</spark.3.3.0.version>
+        <spark.3.5.8.version>3.5.8</spark.3.5.8.version>
         <spark.binary.2.4.version>2.4</spark.binary.2.4.version>
         <commons.beanutils.version>1.9.4</commons.beanutils.version>
         <commons.cli.version>1.4</commons.cli.version>

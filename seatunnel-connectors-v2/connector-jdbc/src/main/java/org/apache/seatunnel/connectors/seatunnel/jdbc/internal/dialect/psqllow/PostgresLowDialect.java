@@ -27,6 +27,10 @@ public class PostgresLowDialect extends PostgresDialect {
         this.fieldIde = fieldIde;
     }
 
+    public PostgresLowDialect(String fieldIde, boolean numericSpecialValueAsNull) {
+        super(fieldIde, numericSpecialValueAsNull);
+    }
+
     @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] pkNames) {

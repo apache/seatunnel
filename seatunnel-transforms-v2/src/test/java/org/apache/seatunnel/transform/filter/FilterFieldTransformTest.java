@@ -22,12 +22,17 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -35,9 +40,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 class FilterFieldTransformTest {
 
@@ -245,5 +252,51 @@ class FilterFieldTransformTest {
                 Assertions.assertEquals(input.getFields()[originalIndex], output.getFields()[i]);
             }
         }
+    }
+
+    /** Tables without a matching {@code table_transform} entry must stay unchanged. */
+    @Test
+    void testMultiTableRulesOnlyLeavesUnlistedTablesUnchanged() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        CatalogTable listed =
+                CatalogTableUtil.getCatalogTable("catalog", "test", null, "xyz", rowType);
+        CatalogTable unlisted =
+                CatalogTableUtil.getCatalogTable("catalog", "test", null, "www", rowType);
+
+        Map<String, Object> entry = new HashMap<>();
+        entry.put(TransformCommonOptions.TABLE_PATH.key(), "test.xyz");
+        entry.put(FilterFieldTransformConfig.INCLUDE_FIELDS.key(), Collections.singletonList("id"));
+        Map<String, Object> config = new HashMap<>();
+        config.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+
+        FilterFieldMultiCatalogTransform transform =
+                new FilterFieldMultiCatalogTransform(
+                        Arrays.asList(listed, unlisted), ReadonlyConfig.fromMap(config));
+
+        List<CatalogTable> produced = transform.getProducedCatalogTables();
+        Assertions.assertEquals(Collections.singletonList("id"), columnNames(produced.get(0)));
+        Assertions.assertEquals(Arrays.asList("id", "name"), columnNames(produced.get(1)));
+
+        SeaTunnelRow listedRow = new SeaTunnelRow(new Object[] {1, "listed"});
+        listedRow.setTableId("test.xyz");
+        SeaTunnelRow listedOutput = transform.map(listedRow);
+        Assertions.assertEquals(1, listedOutput.getArity());
+        Assertions.assertEquals(1, listedOutput.getField(0));
+
+        SeaTunnelRow unlistedRow = new SeaTunnelRow(new Object[] {2, "unlisted"});
+        unlistedRow.setTableId("test.www");
+        SeaTunnelRow unlistedOutput = transform.map(unlistedRow);
+        Assertions.assertEquals(2, unlistedOutput.getArity());
+        Assertions.assertEquals(2, unlistedOutput.getField(0));
+        Assertions.assertEquals("unlisted", unlistedOutput.getField(1));
+    }
+
+    private static List<String> columnNames(CatalogTable catalogTable) {
+        return catalogTable.getTableSchema().getColumns().stream()
+                .map(Column::getName)
+                .collect(Collectors.toList());
     }
 }
