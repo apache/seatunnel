@@ -346,7 +346,7 @@ Configure `warehouse` pointing to the storage root (e.g. `hdfs:///paimon/warehou
 
 ### Does Paimon source support column projection?
 
-Yes. The Paimon source reads only the projection fields defined in the SeaTunnel job schema, avoiding unnecessary column deserialization and optimizing read performance on columnar formats like ORC and Parquet.
+Yes. The Paimon source reads only the columns listed in the `SELECT` clause of the `query` option (for example, `select id, name from st_test`). Columns that are not selected are not read, avoiding unnecessary column deserialization and improving read performance on columnar formats like ORC and Parquet. Note that a job-level `schema` block is not used for column projection.
 
 ## Changelog
 

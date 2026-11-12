@@ -74,7 +74,7 @@ This source supports connection/authentication and existing-queue metadata check
 | requested_frame_max        | int     | no       | -             | The requested maximum frame size.                                                                                           |
 | requested_heartbeat        | int     | no       | -             | The requested heartbeat timeout. Must be between 0 and 65535.                                                                |
 | prefetch_count             | int     | no       | -             | The maximum number of messages to receive without acknowledgement.                                                          |
-| delivery_timeout           | int     | no       | -             | Maximum wait time, in milliseconds, for the next message delivery.                                                          |
+| delivery_timeout           | int     | no       | -             | Maximum wait time for the next message delivery. **Note: the connector currently parses this option but does not apply it.** |
 | use_correlation_id         | boolean | no       | -             | Whether the consumed messages provide a unique correlation id that can be used to deduplicate messages when acknowledgments fail. |
 | common-options             |         | no       | -             | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md).                  |
 | durable                    | boolean | no       | true          | Whether the queue survives a server restart.                                                                                |
@@ -195,7 +195,9 @@ The maximum number of messages to receive without acknowledgement.
 
 ### delivery_timeout [int]
 
-Maximum wait time, in milliseconds, for the next message delivery.
+Maximum wait time for the next message delivery.
+
+**Note:** the connector currently parses this option and stores it in the source configuration, but does not apply it anywhere. Setting it has no effect on source behavior.
 
 ### use_correlation_id [boolean]
 

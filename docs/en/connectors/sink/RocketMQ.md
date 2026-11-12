@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 ## Key Features
 
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
@@ -39,7 +39,7 @@ Writes SeaTunnel rows to an Apache RocketMQ topic. The sink supports JSON and te
 | format | String | no | json | Message format. Supported values are `json` and `text`. |
 | field.delimiter | String | no | `,` | Field delimiter used when `format = text`. |
 | producer.send.sync | Boolean | no | false | Whether to send messages synchronously. When `false`, messages are sent asynchronously. |
-| exactly.once | Boolean | no | false | Whether to send transactional messages for exactly-once delivery. |
+| exactly.once | Boolean | no | false | Whether to send messages via a RocketMQ transactional producer. |
 | max.message.size | int | no | 4194304 | Maximum message body size in bytes. |
 | send.message.timeout | int | no | 3000 | Send timeout in milliseconds. |
 | common-options | config | no | - | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
@@ -62,7 +62,7 @@ partition.key.fields = ["c_int"]
 
 ### exactly.once
 
-The sink supports exactly-once writes through RocketMQ transactional messages. This behavior is disabled by default. Set `exactly.once = true` when the RocketMQ cluster and the job checkpoint settings are ready for transactional writes.
+When enabled, the sink sends messages through a RocketMQ transactional producer. This behavior is disabled by default. Note that each transactional message is committed immediately after it is sent — the sink does not hold half-messages until the engine checkpoint completes, so this option enables transactional sending rather than checkpoint-based exactly-once delivery.
 
 When `format = text`, SeaTunnel serializes fields in the upstream schema order and joins them with `field.delimiter`. When `format = json`, each row is written as a JSON object.
 
@@ -210,9 +210,9 @@ sink {
 
 Configure `partition.key.fields` with one or more table field names. The connector calculates a hash of the specified fields to ensure that messages sharing identical key values are always routed to the same RocketMQ message queue.
 
-### How does RocketMQ sink provide exactly-once delivery guarantees?
+### Does RocketMQ sink provide exactly-once delivery guarantees?
 
-When `exactly.once = true`, the sink utilizes RocketMQ 2PC transactional messages. Uncommitted messages are prepared during checkpoint execution and committed as visible messages only when the compute engine completes its checkpoint barrier handshake.
+No. When `exactly.once = true`, the sink sends messages through a RocketMQ transactional producer, but each transactional message is committed immediately after sending — messages become visible to consumers right away and are not held until the engine checkpoint completes. The sink does not participate in checkpoint barrier coordination, so it does not provide checkpoint-based exactly-once delivery.
 
 ### What message serialization formats are supported?
 

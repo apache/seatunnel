@@ -337,7 +337,7 @@ SeaTunnel Paimon 源连接器支持批处理快照读取与流式 changelog 消�
 
 ### Paimon 源连接器是否支持列投影？
 
-支持。Paimon 源连接器仅读取上游作业 Schema 中声明的目标字段，对底层 ORC 或 Parquet 等列式存储格式避免冗余数据反序列化，从而提升查询性能。
+支持。Paimon 源连接器仅读取 `query` 选项 `SELECT` 子句中列出的字段（例如 `select id, name from st_test`），未选择的列不会被读取，从而避免冗余列反序列化，提升 ORC、Parquet 等列式存储格式的读取性能。注意：作业级 `schema` 配置不会用于列投影。
 
 ## 变更日志
 

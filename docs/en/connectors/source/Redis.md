@@ -64,6 +64,13 @@ downloaded from Maven Central.
 | keys           | string | yes when tables_configs is absent | -   | Redis key pattern to scan. Supports fuzzy matching; users need to ensure the matched keys have the same type. Mutually exclusive with `tables_configs`. |
 | data_type      | string | yes when tables_configs is absent | -   | Redis data type of the matched keys: `key`, `string`, `hash`, `list`, `set`, `zset`. Required together with `keys` for single key pattern reading. |
 | tables_configs | list   | no                      | -             | List of table configurations for multi-table reading |
+| hash_key_parse_mode | enum | no                   | all           | Parse mode for HASH data when reading a single key pattern: `all` treats the whole hash as one row, `kv` outputs one row per hash key-value pair |
+| read_key_enabled | boolean | no                      | false         | If set to true, the source reads Redis values together with their keys. When enabled, `single_field_name` must be set |
+| key_field_name | string | no                      | -             | Field name used for the Redis key in the output row (applies when `read_key_enabled = true`) |
+| single_field_name | string | yes when read_key_enabled=true | -      | Field name used for the value in the output row when reading single-value types (`string`, `list`, `zset`) |
+| batch_size     | int    | no                      | 10            | Batch size used to control the number of items fetched from Redis per round |
+| format         | enum   | no                      | json          | The format of upstream data: `json` or `text` |
+| field_delimiter | string | no                      | ,             | The separator between columns in a row of data. Only needed for `text` format |
 | common-options |        | no                      | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
 
 Use `keys` and `data_type` for a single key pattern. Use `tables_configs` for multiple key patterns; `keys` and
