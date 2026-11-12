@@ -50,6 +50,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -140,6 +141,18 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
                         "mkdir -p "
                                 + CATALOG_DIR
                                 + "seatunnel_namespace/iceberg_parallel_row_delta_table/metadata");
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + CATALOG_DIR
+                                + "seatunnel_namespace/iceberg_replica_key_order_table/data");
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + CATALOG_DIR
+                                + "seatunnel_namespace/iceberg_replica_key_order_table/metadata");
                 container.execInContainer("sh", "-c", "chmod -R 777 " + CATALOG_DIR);
 
                 DependencyJar.of(Zstd.class)
@@ -442,6 +455,52 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
                 snapshots.size(),
                 "Batch job should produce exactly one Iceberg snapshot but got "
                         + snapshots.size());
+    }
+
+    /**
+     * Writes the CDC changes of 100 keys with {@code multi_table_sink_replica = 4}: an insert, an
+     * update, and a delete for every even key. The table must end with the latest value of each odd
+     * key and nothing else. This needs all changes of one key to reach one writer replica; with
+     * random routing, replicas flushed the changes of one key in any order, and the table kept old
+     * values and deleted rows.
+     */
+    @TestTemplate
+    public void testReplicasKeepTheChangesOfOneKeyInOrder(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                container.executeJob("/iceberg/fake_to_iceberg_replica_key_order.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+
+        Map<Integer, List<String>> valuesById = new HashMap<>();
+        for (Record row : readAllRows(loadTable("iceberg_replica_key_order_table"))) {
+            valuesById
+                    .computeIfAbsent((Integer) row.getField("id"), id -> new ArrayList<>())
+                    .add(String.valueOf(row.getField("val")));
+        }
+        Map<Integer, List<String>> expected = new HashMap<>();
+        for (int id = 1; id < 100; id += 2) {
+            expected.put(id, Collections.singletonList("v2"));
+        }
+        Assertions.assertEquals(expected, valuesById);
+    }
+
+    private Table loadTable(String tableName) throws IOException {
+        Map<String, Object> configs = new HashMap<>();
+        Map<String, Object> catalogProps = new HashMap<>();
+        catalogProps.put("type", HADOOP.getType());
+        catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        // Parquet 1.16 needs Hadoop 3.3+ to open Hadoop files itself, see HadoopStreamFileIO
+        catalogProps.put("io-impl", HadoopStreamFileIO.class.getName());
+        configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
+        configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
+        configs.put(IcebergCommonOptions.KEY_TABLE.key(), tableName);
+        configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
+        try (IcebergTableLoader loader =
+                IcebergTableLoader.create(
+                        new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)))) {
+            loader.open();
+            return loader.loadTable();
+        }
     }
 
     private Set<String> collectCheckpointIds(Table table) {

@@ -195,8 +195,8 @@ sink {
 
 | 副本模式 | 多个副本时的路由 | 声明方 |
 |----------|------------------|--------|
-| `KEYED` | 按 `primaryKey()` 指定的字段哈希，同一键的所有变更按顺序到达同一副本；没有键时拒绝 | Jdbc（`is_exactly_once` 除外）；表结构和 `primary_keys` 中都没有主键的表会被拒绝 |
-| `RANDOM` | 记录随机分配到副本，只适用于写入结果与写入顺序无关的 writer | 暂无连接器 |
+| `KEYED` | 按 `primaryKey()` 指定的字段哈希，同一键的所有变更按顺序到达同一副本；没有键时拒绝 | Jdbc（`is_exactly_once` 除外）；表结构和 `primary_keys` 中都没有主键的表会被拒绝。Iceberg：表有 identifier 字段，或配置了 `iceberg.table.primary-keys` 或 upsert 模式 |
+| `RANDOM` | 记录随机分配到副本，只适用于写入结果与写入顺序无关的 writer | Iceberg 只追加记录时 |
 | `UNSUPPORTED`（默认） | 创建或恢复 writer 时拒绝该作业 | 其他所有 writer |
 
 错误信息会给出该选项、取值，以及每张被拒绝的表及其连接器和 writer 类。此类 sink 请设置

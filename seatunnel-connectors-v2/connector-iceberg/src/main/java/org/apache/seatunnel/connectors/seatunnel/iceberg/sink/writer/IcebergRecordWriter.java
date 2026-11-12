@@ -49,6 +49,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 @Slf4j
 public class IcebergRecordWriter implements RecordWriter {
@@ -66,6 +68,21 @@ public class IcebergRecordWriter implements RecordWriter {
         this.writerResults = Lists.newArrayList();
         this.recordConverter = new RowConverter(table, config);
         this.writerFactory = writerFactory;
+    }
+
+    @Override
+    public boolean writesDeltas() {
+        return IcebergWriterFactory.writesDeltas(
+                IcebergWriterFactory.identifierFieldIds(table, config), config);
+    }
+
+    @Override
+    public Optional<Integer> routingKeyIndex(SeaTunnelRowType rowType) {
+        Set<Integer> identifierFieldIds = IcebergWriterFactory.identifierFieldIds(table, config);
+        if (identifierFieldIds.isEmpty()) {
+            return Optional.empty();
+        }
+        return recordConverter.indexOfAnyField(rowType, identifierFieldIds);
     }
 
     private TaskWriter<Record> createTaskWriter() {

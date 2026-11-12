@@ -318,8 +318,8 @@ Otherwise the job fails before any row is written:
 
 | Replica mode | Routing with more than one replica | Declared by |
 |--------------|------------------------------------|-------------|
-| `KEYED` | Rows are hashed by the key field from `primaryKey()`, so all changes of one key reach the same replica in order; a writer without a key is rejected | Jdbc (not with `is_exactly_once`); a table with no primary key in its schema or in `primary_keys` is rejected |
-| `RANDOM` | Rows go to a random replica. Only for writers whose result does not depend on the write order | No connector yet |
+| `KEYED` | Rows are hashed by the key field from `primaryKey()`, so all changes of one key reach the same replica in order; a writer without a key is rejected | Jdbc (not with `is_exactly_once`); a table with no primary key in its schema or in `primary_keys` is rejected. Iceberg with identifier fields, `iceberg.table.primary-keys` or upsert mode |
+| `RANDOM` | Rows go to a random replica. Only for writers whose result does not depend on the write order | Iceberg when it only appends rows |
 | `UNSUPPORTED` (default) | The job is rejected when the writer is created or restored | All other writers |
 
 The error names the option, its value, and each rejected table with its connector and
