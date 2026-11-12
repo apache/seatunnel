@@ -81,6 +81,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 | doris.deserialize.arrow.async    | boolean | no      | false      | 是否异步反序列化 Arrow 数据。                                                                           |
 | doris.deserialize.queue.size     | int    | no       | 64         | 异步反序列化 Arrow 数据时使用的队列大小。                                                                |
 | table_list                       | Array  | no       | -           | 要读取的 Doris 表清单。                                                                                |
+| case_sensitive                   | boolean | no      | true        | 是否保留数据库名和表名的原始大小写。设置为 false 时，数据库名和表名将被转换为小写。仅在通过 `database` 和 `table` 配置单表时生效。 |
 
 表清单配置:
 
