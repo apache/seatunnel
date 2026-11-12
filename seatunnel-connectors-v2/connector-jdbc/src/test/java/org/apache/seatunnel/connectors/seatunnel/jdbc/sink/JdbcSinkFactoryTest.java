@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -85,6 +87,38 @@ class JdbcSinkFactoryTest {
                 new ArrayList<>(),
                 null,
                 "catalog");
+    }
+
+    private CatalogTable createCatalogTableWithUniqueKeyOnName() {
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, "id"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 128, false, null, "name"))
+                        .constraintKey(
+                                ConstraintKey.of(
+                                        ConstraintKey.ConstraintType.UNIQUE_KEY,
+                                        "uk_name",
+                                        Collections.singletonList(
+                                                ConstraintKey.ConstraintKeyColumn.of(
+                                                        "name", ConstraintKey.ColumnSortType.ASC))))
+                        .build();
+        return CatalogTable.of(
+                TableIdentifier.of("catalog", "ORCL", null, "TEST_TABLE"),
+                schema,
+                new HashMap<>(),
+                new ArrayList<>(),
+                null,
+                "catalog");
+    }
+
+    private JdbcSink createJdbcSink(Map<String, Object> cfg, CatalogTable catalogTable) {
+        ReadonlyConfig config = ReadonlyConfig.fromMap(cfg);
+        ConfigValidator.of(config).validate(factory.optionRule());
+        TableSinkFactoryContext context =
+                new TableSinkFactoryContext(catalogTable, config, getClass().getClassLoader());
+        return (JdbcSink) factory.createSink(context).createSink();
     }
 
     /**
@@ -326,5 +360,32 @@ class JdbcSinkFactoryTest {
             Assertions.assertThrows(
                     JdbcConnectorException.class, () -> createSinkViaFactoryContext(cfg, true));
         }
+    }
+
+    /**
+     * A table with only a UNIQUE key gets {@code primary_keys} from it, so the sink upserts by that
+     * column. Its writers must route by the same column, or the changes of one row could reach
+     * different writers when {@code multi_table_sink_replica} is above 1.
+     */
+    @Test
+    void testUniqueKeyOnlyTableRoutesByItsUniqueColumn() {
+        JdbcSink sink = createJdbcSink(baseConfig(), createCatalogTableWithUniqueKeyOnName());
+
+        Assertions.assertEquals(1, sink.routingKeyIndex().get());
+    }
+
+    @Test
+    void testRoutingKeyFollowsConfiguredPrimaryKeysAndIsEmptyWithoutAnyKey() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("primary_keys", Arrays.asList("name"));
+        Assertions.assertEquals(
+                1, createJdbcSink(cfg, createCatalogTable(false)).routingKeyIndex().get());
+
+        Assertions.assertFalse(
+                createJdbcSink(baseConfig(), createCatalogTable(false))
+                        .routingKeyIndex()
+                        .isPresent());
+        Assertions.assertEquals(
+                0, createJdbcSink(baseConfig(), createCatalogTable(true)).routingKeyIndex().get());
     }
 }
