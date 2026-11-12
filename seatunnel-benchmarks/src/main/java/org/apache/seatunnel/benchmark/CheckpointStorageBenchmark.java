@@ -18,7 +18,6 @@
 package org.apache.seatunnel.benchmark;
 
 import org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointIdIncrementBenchmarkWorkload;
-import org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointOverviewBenchmarkWorkload;
 import org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointPersistenceBenchmarkWorkload;
 
 import org.openjdk.jmh.annotations.Benchmark;
@@ -70,9 +69,10 @@ public class CheckpointStorageBenchmark extends BenchmarkBase {
      * <p>Each measured invocation processes 100 independent, coordinator-produced checkpoints. For
      * every checkpoint it atomically allocates the next checkpoint ID, serializes and writes the
      * completed checkpoint through the HDFS storage plugin, and updates the checkpoint overview
-     * through {@code CheckpointMonitorService}. Barrier delivery, task snapshots, and ACK waiting
-     * are intentionally excluded; fixture preparation, durability validation, and cleanup run
-     * outside measured time.
+     * through {@code CheckpointMonitorService}. The overview is observability state kept in memory;
+     * only checkpoint IDs and checkpoint payloads are checked for durability. Barrier delivery,
+     * task snapshots, and ACK waiting are intentionally excluded; fixture preparation, result
+     * validation, and cleanup run outside measured time.
      *
      * <p>{@link Mode#SingleShotTime} executes exactly one fixed-size phase per measurement
      * iteration. {@link OperationsPerInvocation} then normalizes the phase duration to one logical
@@ -101,24 +101,5 @@ public class CheckpointStorageBenchmark extends BenchmarkBase {
     public long checkpointIdAtomicIncrement(CheckpointIdIncrementBenchmarkWorkload workload)
             throws Exception {
         return workload.incrementCheckpointId();
-    }
-
-    /**
-     * Measures the completed-checkpoint update path of the production checkpoint monitor.
-     *
-     * <p>For each of 100 independent checkpoint fixtures, the timed phase calculates retained state
-     * size and calls {@code CheckpointMonitorService.onCheckpointCompleted()}. This exercises the
-     * checkpoint-overview IMap update that increments the completed count and records the latest
-     * and historical checkpoint metadata. Fixture construction, durable MapStore reload checks, and
-     * cleanup are outside measured time.
-     *
-     * <p>{@link Mode#SingleShotTime} executes one fixed update phase per measurement iteration, and
-     * {@link OperationsPerInvocation} normalizes its duration to one completed-checkpoint overview
-     * update.
-     */
-    @Benchmark
-    @OperationsPerInvocation(CHECKPOINT_OPERATIONS_PER_INVOCATION)
-    public void checkpointOverviewIncrementalUpdate(CheckpointOverviewBenchmarkWorkload workload) {
-        workload.updateCheckpointOverview();
     }
 }
