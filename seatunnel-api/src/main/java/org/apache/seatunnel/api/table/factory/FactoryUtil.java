@@ -22,10 +22,12 @@ import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.env.ParsingMode;
 import org.apache.seatunnel.api.metadata.MetadataConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.options.SourceConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkFactory;
@@ -278,6 +280,13 @@ public final class FactoryUtil {
                     new MultiTableFactoryContext(options, classLoader, sinks);
             ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
             return factory.createSink(context).createSink();
+        } catch (OptionValidationException e) {
+            throw new FactoryException(
+                    String.format(
+                            "Unable to create a sink for identifier 'MultiTableSink' with option '%s' = %d.",
+                            SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(),
+                            options.get(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)),
+                    e);
         } catch (Throwable t) {
             throw new FactoryException(
                     "Unable to create a sink for identifier 'MultiTableSink'.", t);

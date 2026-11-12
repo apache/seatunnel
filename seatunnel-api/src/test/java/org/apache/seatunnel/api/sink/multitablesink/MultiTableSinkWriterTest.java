@@ -23,6 +23,9 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
@@ -34,6 +37,8 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.factory.FactoryException;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -53,6 +58,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -1022,70 +1028,207 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
-    public void testReplicaNumBelowOneIsRejectedWithTheOptionNamed() {
-        // multi_table_sink_replica has no lower bound at the option layer, so 0 and negative
-        // values reach MultiTableSink. replicaNum becomes the queue count and the thread-pool
-        // size in MultiTableSinkWriter, where Executors.newFixedThreadPool(queueSize * 2)
-        // rejects them with an IllegalArgumentException carrying no message at all. The
-        // exception type is unchanged; what is asserted here is that it now names the option
-        // and the offending value, and that it is raised before any writer is created.
-        for (int replicaNum : new int[] {0, -1}) {
-            IllegalArgumentException exception =
+    public void testOptionRuleRejectsReplicaNumBelowOne() {
+        OptionRule rule = new MultiTableSinkFactory().optionRule();
+        for (int replicaNum : new int[] {0, -1, -7, Integer.MIN_VALUE}) {
+            OptionValidationException exception =
                     Assertions.assertThrows(
-                            IllegalArgumentException.class, () -> buildMultiTableSink(replicaNum));
-            Assertions.assertNotNull(exception.getMessage());
+                            OptionValidationException.class,
+                            () -> ConfigValidator.of(replicaConfig(replicaNum)).validate(rule));
             Assertions.assertTrue(
                     exception
                             .getMessage()
-                            .contains(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key()),
-                    "message must name the option, but was: " + exception.getMessage());
-            Assertions.assertTrue(
-                    exception.getMessage().contains(String.valueOf(replicaNum)),
-                    "message must name the rejected value, but was: " + exception.getMessage());
+                            .contains(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key()));
         }
     }
 
     @Test
-    public void testReplicaNumOfOneAndAboveStillBuilds() {
-        // Guards the lower bound against being set too high: the smallest legal value and a
-        // larger one must both still construct, so the check above cannot regress into
-        // rejecting valid configuration.
-        Assertions.assertDoesNotThrow(() -> buildMultiTableSink(1));
-        Assertions.assertDoesNotThrow(() -> buildMultiTableSink(4));
+    public void testReplicaOptionRuleMatchesPositiveIntegerRange() {
+        OptionRule rule = new MultiTableSinkFactory().optionRule();
+        Random random = new Random(13232L);
+        int[] replicaNums = new int[256];
+        replicaNums[0] = Integer.MIN_VALUE;
+        replicaNums[1] = -1;
+        replicaNums[2] = 0;
+        replicaNums[3] = 1;
+        replicaNums[4] = 4;
+        replicaNums[5] = Integer.MAX_VALUE;
+        for (int i = 6; i < replicaNums.length; i++) {
+            replicaNums[i] = random.nextInt();
+        }
+        for (int replicaNum : replicaNums) {
+            if (replicaNum >= 1) {
+                Assertions.assertDoesNotThrow(
+                        () -> ConfigValidator.of(replicaConfig(replicaNum)).validate(rule),
+                        "replicaNum=" + replicaNum);
+            } else {
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () -> ConfigValidator.of(replicaConfig(replicaNum)).validate(rule),
+                        "replicaNum=" + replicaNum);
+            }
+        }
+        Assertions.assertDoesNotThrow(() -> ConfigValidator.of(replicaConfig(null)).validate(rule));
     }
 
     @Test
-    public void testReplicaNumDefaultsToOneWhenUnset() {
-        // The default must remain a legal value, otherwise the new check would reject every
-        // job that does not set the option explicitly.
-        Map<String, Object> options = new HashMap<>();
-        options.put(EnvCommonOptions.JOB_RETRY_TIMES.key(), 0);
-        options.put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
-        Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
-        sinks.put(
-                TablePath.of("test.table"), new TestSeaTunnelSink(new RecordingSinkWriter(false)));
-        Assertions.assertDoesNotThrow(
-                () ->
-                        new MultiTableSink(
-                                new MultiTableFactoryContext(
-                                        ReadonlyConfig.fromMap(options),
-                                        Thread.currentThread().getContextClassLoader(),
-                                        sinks)));
+    public void testFactoryRejectsReplicaNumBelowOneWithValueInDiagnostics() {
+        for (int replicaNum : new int[] {0, -1, -7, Integer.MIN_VALUE}) {
+            ReadonlyConfig options = replicaConfig(replicaNum);
+            options.getSourceMap().put("password", "unrelated-secret");
+            FactoryException exception =
+                    Assertions.assertThrows(
+                            FactoryException.class,
+                            () -> createMultiTableSink(options, singleSink()));
+            Assertions.assertInstanceOf(OptionValidationException.class, exception.getCause());
+            Assertions.assertTrue(
+                    exception
+                            .getMessage()
+                            .contains(
+                                    "'"
+                                            + SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA
+                                                    .key()
+                                            + "' = "
+                                            + replicaNum),
+                    exception.getMessage());
+            Assertions.assertFalse(exception.getMessage().contains("unrelated-secret"));
+            Assertions.assertFalse(exception.getCause().getMessage().contains("unrelated-secret"));
+        }
     }
 
-    private MultiTableSink buildMultiTableSink(int replicaNum) {
+    @Test
+    public void testFactoryPreservesReplicaTypeConversionFailure() {
+        ReadonlyConfig options = replicaConfig(null);
+        options.getSourceMap()
+                .put(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), "not-an-integer");
+        FactoryException exception =
+                Assertions.assertThrows(
+                        FactoryException.class, () -> createMultiTableSink(options, singleSink()));
+        Assertions.assertInstanceOf(IllegalArgumentException.class, exception.getCause());
+    }
+
+    @Test
+    public void testFactoryPreservesUnrelatedConstructionFailure() {
+        ReadonlyConfig options = replicaConfig(1);
+        options.getSourceMap().put(EnvCommonOptions.JOB_RETRY_TIMES.key(), "not-an-integer");
+        FactoryException exception =
+                Assertions.assertThrows(
+                        FactoryException.class, () -> createMultiTableSink(options, singleSink()));
+        Assertions.assertInstanceOf(IllegalArgumentException.class, exception.getCause());
+        Assertions.assertFalse(
+                exception
+                        .getMessage()
+                        .contains(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key()));
+    }
+
+    @Test
+    public void testFactoryAcceptsValidReplicaNum() {
+        for (int replicaNum : new int[] {1, 4, Integer.MAX_VALUE}) {
+            Assertions.assertDoesNotThrow(
+                    () -> createMultiTableSink(replicaConfig(replicaNum), singleSink()));
+        }
+    }
+
+    @Test
+    public void testFactoryPreservesReplicaCreateAndRestore() throws Exception {
+        for (Integer replicaNum : new Integer[] {null, 1, 4}) {
+            int expectedReplicas = replicaNum == null ? 1 : replicaNum;
+            AtomicInteger created = new AtomicInteger();
+            AtomicInteger restored = new AtomicInteger();
+            TablePath tablePath = TablePath.of("test.table");
+            TestSeaTunnelSink childSink =
+                    new TestSeaTunnelSink(new TestSinkWriter()) {
+                        @Override
+                        public SinkWriter<SeaTunnelRow, TestSinkState, Object> createWriter(
+                                SinkWriter.Context context) {
+                            created.incrementAndGet();
+                            return new TestSinkWriter() {
+                                @Override
+                                public List<Object> snapshotState(long checkpointId) {
+                                    return Collections.singletonList(
+                                            new TestSinkState(
+                                                    "replica-" + context.getIndexOfSubtask()));
+                                }
+                            };
+                        }
+
+                        @Override
+                        public SinkWriter<SeaTunnelRow, TestSinkState, Object> restoreWriter(
+                                SinkWriter.Context context, List<Object> states) {
+                            Assertions.assertEquals(
+                                    Collections.singletonList(
+                                            new TestSinkState(
+                                                    "replica-" + context.getIndexOfSubtask())),
+                                    states);
+                            restored.incrementAndGet();
+                            return new SnapshotRetrySinkWriter(0);
+                        }
+                    };
+            MultiTableSink sink =
+                    createMultiTableSink(
+                            replicaConfig(replicaNum),
+                            Collections.singletonMap(tablePath, childSink));
+            SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> writer =
+                    sink.createWriter(new TestSinkWriterContext());
+            List<MultiTableState> states;
+            try {
+                states = writer.snapshotState(1L);
+                Assertions.assertEquals(expectedReplicas, created.get());
+                Assertions.assertEquals(1, states.size());
+                Assertions.assertEquals(expectedReplicas, states.get(0).getStates().size());
+                for (int i = 0; i < expectedReplicas; i++) {
+                    Assertions.assertTrue(
+                            states.get(0)
+                                    .getStates()
+                                    .containsKey(SinkIdentifier.of(tablePath.toString(), i)));
+                }
+            } finally {
+                writer.close();
+            }
+            Assertions.assertTrue(getExecutorService((MultiTableSinkWriter) writer).isTerminated());
+            SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> restoredWriter =
+                    sink.restoreWriter(new TestSinkWriterContext(), states);
+            try {
+                Assertions.assertEquals(expectedReplicas, restored.get());
+                Assertions.assertEquals(expectedReplicas, created.get());
+                Assertions.assertEquals(
+                        expectedReplicas,
+                        restoredWriter.snapshotState(2L).get(0).getStates().size());
+            } finally {
+                restoredWriter.close();
+            }
+            Assertions.assertTrue(
+                    getExecutorService((MultiTableSinkWriter) restoredWriter).isTerminated());
+        }
+    }
+
+    private ReadonlyConfig replicaConfig(Integer replicaNum) {
         Map<String, Object> options = new HashMap<>();
-        options.put(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), replicaNum);
+        if (replicaNum != null) {
+            options.put(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), replicaNum);
+        }
         options.put(EnvCommonOptions.JOB_RETRY_TIMES.key(), 0);
         options.put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
+        return ReadonlyConfig.fromMap(options);
+    }
+
+    private Map<TablePath, SeaTunnelSink> singleSink() {
         Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
         sinks.put(
                 TablePath.of("test.table"), new TestSeaTunnelSink(new RecordingSinkWriter(false)));
-        return new MultiTableSink(
-                new MultiTableFactoryContext(
-                        ReadonlyConfig.fromMap(options),
-                        Thread.currentThread().getContextClassLoader(),
-                        sinks));
+        return sinks;
+    }
+
+    private MultiTableSink createMultiTableSink(
+            ReadonlyConfig options, Map<TablePath, SeaTunnelSink> sinks) {
+        return (MultiTableSink)
+                FactoryUtil
+                        .<SeaTunnelRow, MultiTableState, MultiTableCommitInfo,
+                                MultiTableAggregatedCommitInfo>
+                                createMultiTableSink(
+                                        sinks,
+                                        options,
+                                        Thread.currentThread().getContextClassLoader());
     }
 
     private SeaTunnelRow buildRow(String tableId, int value) {
