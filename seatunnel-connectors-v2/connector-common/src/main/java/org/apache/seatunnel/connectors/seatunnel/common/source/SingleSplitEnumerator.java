@@ -53,9 +53,21 @@ public class SingleSplitEnumerator
         // nothing
     }
 
+    /**
+     * Takes back the split of a failed reader, so that it is assigned again when a reader
+     * registers. Flink passes only the splits assigned since the last completed checkpoint, which
+     * is an empty list when nothing was assigned since then.
+     *
+     * @param splits the splits to take back, possibly empty
+     * @param subtaskId the subtask of the failed reader
+     */
     @Override
     public void addSplitsBack(List<SingleSplit> splits, int subtaskId) {
+        if (splits.isEmpty()) {
+            return;
+        }
         pendingSplit = splits.get(0);
+        assigned = false;
         assignSplit();
     }
 
