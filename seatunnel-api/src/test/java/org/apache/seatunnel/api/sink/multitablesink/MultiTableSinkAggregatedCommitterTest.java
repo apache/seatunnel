@@ -142,8 +142,6 @@ public class MultiTableSinkAggregatedCommitterTest {
             closeCount++;
         }
     }
-||||||| /tmp/base.java
-
     @Test
     void testRestoreCommitRoutesToTableRestoreCommit() throws IOException {
         List<String> calls = new ArrayList<>();
