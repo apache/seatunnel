@@ -17,6 +17,7 @@ import ChangeLog from '../changelog/connector-hbase.md';
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
@@ -139,6 +140,9 @@ Sink 插件常用参数，详见 Sink 常用选项 [Sink Common Options](../comm
 - `table = "${table_name}"` 会把每张上游表写入同名 HBase 表，也可以和固定文本组合，例如 `ods_${table_name}`。
 - `family_name { all_columns = "info" }` 会把所有非 rowkey 字段写入同一个列簇。不同字段需要写入不同列簇时，请使用逐字段映射。
 - `schema_save_mode` 控制是否创建或重建表，`data_save_mode` 控制保留、清空已有数据，还是在已有数据存在时报错。
+- 变更数据按 rowkey 写入：`INSERT` 和 `UPDATE_AFTER` 行写为 `Put`，`DELETE` 行删除该 rowkey 下本 sink 写入的列簇（表中其他列簇不受影响），`UPDATE_BEFORE` 行不会单独写入：随后的 `UPDATE_AFTER` 若 rowkey 不变则直接覆盖该行，若更新改变了 rowkey 列则先删除旧行。`null_mode = skip`（默认值）时，把某列更新为 null 会保留旧值，需要覆盖请使用 `null_mode = empty`。
+- 设置了 `version_column` 时，写入和删除都使用它的值作为时间戳，否则使用当前时间。`version_column` 必须是毫秒级 epoch 时间戳：删除会隐藏该时间戳之前的所有版本，远在未来的值会在 compaction 之前一直隐藏该 rowkey 的后续写入。未设置 `version_column` 时，同一毫秒内对同一 rowkey 的 `DELETE` 和 `INSERT` 会以删除为准，因此变更数据源建议设置 `version_column`。
+- HBase 客户端缓冲的数据（`write_buffer_size`）会在每次 checkpoint 时刷新，checkpoint 只有在数据被 region server 接受后才会完成。`wal_write = false`（默认值）时，这些数据在 region server 崩溃时仍可能丢失。
 
 ## 案例
 

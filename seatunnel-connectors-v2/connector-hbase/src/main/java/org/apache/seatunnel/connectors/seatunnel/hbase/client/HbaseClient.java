@@ -35,7 +35,9 @@ import org.apache.hadoop.hbase.client.BufferedMutatorParams;
 import org.apache.hadoop.hbase.client.ColumnFamilyDescriptorBuilder;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
+import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.HTable;
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.RegionLocator;
 import org.apache.hadoop.hbase.client.Result;
@@ -326,32 +328,54 @@ public class HbaseClient {
         }
     }
 
-    /** Close Hbase connection. */
+    /**
+     * Flush and close the mutator, then the admin and the connection. A failure in one step is
+     * logged and the remaining resources are still released.
+     */
     public void close() {
-        try {
-            if (hbaseMutator != null) {
-                hbaseMutator.flush();
+        if (hbaseMutator != null) {
+            try {
                 hbaseMutator.close();
+            } catch (IOException e) {
+                log.error("Close Hbase mutator failed.", e);
             }
-            if (admin != null) {
+        }
+        if (admin != null) {
+            try {
                 admin.close();
+            } catch (IOException e) {
+                log.error("Close Hbase admin failed.", e);
             }
-            if (connection != null) {
+        }
+        if (connection != null) {
+            try {
                 connection.close();
+            } catch (IOException e) {
+                log.error("Close Hbase connection failed.", e);
             }
-        } catch (IOException e) {
-            log.error("Close Hbase connection failed.", e);
         }
     }
 
     /**
-     * Mutate a Put.
+     * Buffer a mutation (a {@link Put} or a {@link Delete}) in the client's {@link
+     * BufferedMutator}. The mutation reaches the region server when the buffer fills up or on
+     * {@link #flush()}.
      *
-     * @param put Hbase put
+     * @param mutation Hbase mutation
      * @throws IOException exception
      */
-    public void mutate(Put put) throws IOException {
-        hbaseMutator.mutate(put);
+    public void mutate(Mutation mutation) throws IOException {
+        hbaseMutator.mutate(mutation);
+    }
+
+    /**
+     * Send every buffered mutation to the region servers and wait for them to be applied. A
+     * mutation that failed with retries exhausted is reported here.
+     *
+     * @throws IOException exception
+     */
+    public void flush() throws IOException {
+        hbaseMutator.flush();
     }
 
     /**

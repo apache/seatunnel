@@ -19,6 +19,7 @@ how null values, row keys, WAL, timestamps, and existing data are handled.
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
@@ -145,6 +146,20 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
   per-field mappings when fields should go to different column families.
 - `schema_save_mode` controls table creation or recreation. `data_save_mode` controls whether
   existing rows are kept, dropped, or treated as an error.
+- Change data capture rows are applied by row key: `INSERT` and `UPDATE_AFTER` rows are written as
+  a `Put`, a `DELETE` row deletes the column families this sink writes to for that row key (other
+  families of the table are left alone), and an `UPDATE_BEFORE` row is not written on its own:
+  when its `UPDATE_AFTER` keeps the row key the new image overwrites the row, and when the update
+  moves a row-key column the old row is deleted first. With `null_mode = skip` (the default) an
+  update that sets a column to null keeps the old cell; use `null_mode = empty` to overwrite it.
+- Mutations are stamped with the `version_column` value when it is set, otherwise with the current
+  time. `version_column` must hold epoch milliseconds: a delete hides every version up to its
+  timestamp, so a value far in the future hides later writes to that row key until it is
+  compacted away. Without `version_column`, a `DELETE` and an `INSERT` of the same row key in the
+  same millisecond resolve to the delete, so set `version_column` for change data capture sources.
+- Rows buffered in the HBase client (`write_buffer_size`) are flushed at every checkpoint, so a
+  checkpoint only completes once its rows have been accepted by the region servers. With
+  `wal_write = false` (the default) they are not yet durable against a region server crash.
 
 ## Example
 

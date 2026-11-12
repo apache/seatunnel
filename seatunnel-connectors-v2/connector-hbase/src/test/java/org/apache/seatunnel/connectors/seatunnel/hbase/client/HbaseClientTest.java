@@ -26,6 +26,8 @@ import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.BufferedMutator;
 import org.apache.hadoop.hbase.client.BufferedMutatorParams;
 import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
@@ -77,11 +79,43 @@ public class HbaseClientTest {
         assertTrue(client.isExistsData("ns", "tbl"));
     }
 
+    @Test
+    void testMutateBuffersPutAndDelete() throws Exception {
+        Connection connection = Mockito.mock(Connection.class);
+        BufferedMutator mutator = Mockito.mock(BufferedMutator.class);
+        HbaseClient client = newHbaseClient(connection, mutator);
+        Put put = new Put(Bytes.toBytes("1"));
+        Delete delete = new Delete(Bytes.toBytes("2"));
+
+        client.mutate(put);
+        client.mutate(delete);
+
+        Mockito.verify(mutator).mutate(put);
+        Mockito.verify(mutator).mutate(delete);
+        Mockito.verify(mutator, Mockito.never()).flush();
+    }
+
+    @Test
+    void testFlushDelegatesToBufferedMutator() throws Exception {
+        Connection connection = Mockito.mock(Connection.class);
+        BufferedMutator mutator = Mockito.mock(BufferedMutator.class);
+        HbaseClient client = newHbaseClient(connection, mutator);
+
+        client.flush();
+
+        Mockito.verify(mutator).flush();
+    }
+
     private HbaseClient newHbaseClient(Connection connection) throws Exception {
+        return newHbaseClient(connection, Mockito.mock(BufferedMutator.class));
+    }
+
+    private HbaseClient newHbaseClient(Connection connection, BufferedMutator mutator)
+            throws Exception {
         HbaseClient.hbaseConfiguration = HBaseConfiguration.create();
         Mockito.when(connection.getAdmin()).thenReturn(Mockito.mock(Admin.class));
         Mockito.when(connection.getBufferedMutator(any(BufferedMutatorParams.class)))
-                .thenReturn(Mockito.mock(BufferedMutator.class));
+                .thenReturn(mutator);
         HbaseParameters hbaseParameters = Mockito.mock(HbaseParameters.class);
         Mockito.when(hbaseParameters.getNamespace()).thenReturn("ns");
         Mockito.when(hbaseParameters.getTable()).thenReturn("tbl");
