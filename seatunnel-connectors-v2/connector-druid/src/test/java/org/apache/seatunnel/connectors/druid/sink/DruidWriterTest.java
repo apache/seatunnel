@@ -119,10 +119,46 @@ public class DruidWriterTest {
     }
 
     /**
+     * Every submission carries only the rows written since the previous submission. The writer
+     * keeps the rows in one buffer, so a flush that does not clear it re-submits the earlier
+     * batches; Druid runs with rollup disabled, so those rows are then stored twice.
+     */
+    @Test
+    public void everyBatchSubmitsOnlyItsOwnRows() throws IOException {
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        for (int i = 1; i <= 5; i++) {
+            rows.add(new SeaTunnelRow(new Object[] {i, "row-" + i, (long) i}));
+        }
+
+        List<JsonNode> ioConfigs = submitAllIoConfigs(rows, 2);
+
+        List<Integer> linesPerBatch = new ArrayList<>();
+        for (JsonNode ioConfig : ioConfigs) {
+            linesPerBatch.add(ioConfig.get("inputSource").get("data").asText().split("\n").length);
+        }
+        Assertions.assertEquals(
+                Arrays.asList(2, 2, 1),
+                linesPerBatch,
+                "a flush must not resubmit the rows of the previous batches");
+    }
+
+    /**
      * Writes the rows through a {@link DruidWriter} pointed at a local stand-in for the Druid
      * Overlord, and returns the {@code ioConfig} of the indexing task it submits on close.
      */
     private static JsonNode submitIoConfig(List<SeaTunnelRow> rows) throws IOException {
+        // A batch size above the row count, so the only submission happens on close.
+        List<JsonNode> ioConfigs = submitAllIoConfigs(rows, rows.size() + 1);
+        Assertions.assertEquals(1, ioConfigs.size());
+        return ioConfigs.get(0);
+    }
+
+    /**
+     * Writes the rows through a {@link DruidWriter} with the given batch size and returns the
+     * {@code ioConfig} of every indexing task it submits.
+     */
+    private static List<JsonNode> submitAllIoConfigs(List<SeaTunnelRow> rows, int batchSize)
+            throws IOException {
         List<String> requestBodies = new ArrayList<>();
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext(
@@ -145,13 +181,12 @@ public class DruidWriterTest {
                 });
         server.start();
         try {
-            // A batch size above the row count, so the only submission happens on close.
             DruidWriter writer =
                     new DruidWriter(
                             ROW_TYPE,
                             "127.0.0.1:" + server.getAddress().getPort(),
                             "test_datasource",
-                            rows.size() + 1);
+                            batchSize);
             for (SeaTunnelRow row : rows) {
                 writer.write(row);
             }
@@ -160,7 +195,11 @@ public class DruidWriterTest {
             server.stop(0);
         }
 
-        Assertions.assertEquals(1, requestBodies.size());
-        return new ObjectMapper().readTree(requestBodies.get(0)).get("spec").get("ioConfig");
+        ObjectMapper mapper = new ObjectMapper();
+        List<JsonNode> ioConfigs = new ArrayList<>();
+        for (String requestBody : requestBodies) {
+            ioConfigs.add(mapper.readTree(requestBody).get("spec").get("ioConfig"));
+        }
+        return ioConfigs;
     }
 }

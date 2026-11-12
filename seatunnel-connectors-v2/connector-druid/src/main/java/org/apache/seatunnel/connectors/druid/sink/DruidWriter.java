@@ -130,6 +130,11 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     }
 
     public void flush() throws IOException {
+        if (data.length() == 0) {
+            // Nothing accumulated since the last submission, e.g. close() right after a batch was
+            // flushed. Submitting here would create an indexing task without rows.
+            return;
+        }
         final ParallelIndexIOConfig ioConfig = provideDruidIOConfig(data);
         final ParallelIndexSupervisorTask indexTask = provideIndexTask(ioConfig);
         final String inputJSON = provideInputJSONString(indexTask);
@@ -144,6 +149,11 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                     response.getEntity() != null ? response.getEntity().toString() : "";
             LOG.info("Druid write task has been sent, and the response is {}", responseBody);
         }
+        // The buffer holds every row written since it was last cleared, so without this the next
+        // flush submits the earlier batches again. Druid runs with rollup disabled, so a row sent
+        // twice is stored twice. Cleared only after a successful submission, so a failed flush
+        // keeps its rows for the retry.
+        data.setLength(0);
     }
 
     @Override
@@ -224,7 +234,11 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                 null,
                 new InlineInputSource(data.toString()),
                 new CsvInputFormat(formatList, DEFAULT_LINE_DELIMITER, null, false, 0),
-                false,
+                // Append this batch to the datasource instead of replacing the segments of its
+                // time interval. Every row carries the writer's start time as its timestamp, so
+                // batches of one job land in the same interval: without appending, a job that
+                // flushes more than once would keep only the segments of its last batch.
+                true,
                 null);
     }
 

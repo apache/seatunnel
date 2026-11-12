@@ -53,8 +53,10 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.given;
@@ -70,6 +72,8 @@ public class DruidIT extends TestSuiteBase implements TestResource {
     private static final String MULTI_DATASOURCE_2 = "druid_sink_2";
     private static final String NULL_FIELD_DATASOURCE_PREFIX = "druid_null_field_";
     private static final String NULL_FIELD_DATASOURCE_VARIABLE = "nullFieldDatasource";
+    private static final String BATCH_DATASOURCE_PREFIX = "druid_batch_";
+    private static final String BATCH_DATASOURCE_VARIABLE = "batchDatasource";
     private static final String SQL_QUERY_TEMPLATE = "SELECT * FROM ";
     private static final String DRUID_SERVICE_NAME = "router";
     private static final int DRUID_SERVICE_PORT = 8888;
@@ -206,6 +210,47 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                             // The value after the null name stayed in its own column.
                             Assertions.assertEquals(20L, rowsById.get(2L).get("amount").asLong());
                             Assertions.assertEquals("c", rowsById.get(3L).get("name").asText());
+                        });
+    }
+
+    /**
+     * A job that spans several flushes must ingest every row exactly once. The writer keeps the
+     * rows in one buffer, so a flush that does not clear it re-submits the earlier batches, and
+     * Druid runs with rollup disabled, so those rows are stored again.
+     */
+    @TestTemplate
+    public void testDruidSinkDoesNotResubmitRowsAcrossBatches(TestContainer container)
+            throws Exception {
+        // The Druid cluster is shared by every engine this template runs on, so each run writes
+        // to its own datasource.
+        String datasource =
+                BATCH_DATASOURCE_PREFIX + container.identifier().name().toLowerCase(Locale.ROOT);
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/fakesource_to_druid_with_batch.conf",
+                        Arrays.asList(
+                                COORDINATOR_URL_VARIABLE + "=" + coordinatorURL,
+                                BATCH_DATASOURCE_VARIABLE + "=" + datasource));
+        Assertions.assertEquals(0, execResult.getExitCode());
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(400L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            ArrayNode rows = JsonUtils.parseArray(getSelectResponse(datasource));
+                            // Six rows written with a batch size of two: before the fix the second
+                            // flush re-sent the first batch and the close-time flush re-sent
+                            // everything, so the datasource held duplicated rows.
+                            Assertions.assertEquals(6, rows.size(), rows.toString());
+                            Set<Long> ids = new HashSet<>();
+                            for (JsonNode row : rows) {
+                                ids.add(row.get("id").asLong());
+                            }
+                            Assertions.assertEquals(
+                                    new HashSet<>(Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L)),
+                                    ids,
+                                    rows.toString());
                         });
     }
 
