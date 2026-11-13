@@ -146,8 +146,7 @@ class JdbcCockroachDBDialectIT {
             Set<Long> seen = new HashSet<>();
             try (ChunkSplitter splitter = ChunkSplitter.create(config)) {
                 Collection<JdbcSourceSplit> splits = splitter.generateSplits(table);
-                // Three hash splits, and one split for the row whose key is NULL.
-                Assertions.assertEquals(4, splits.size());
+                Assertions.assertEquals(3, splits.size());
                 for (JdbcSourceSplit split : splits) {
                     try (PreparedStatement query =
                                     splitter.generateSplitStatement(

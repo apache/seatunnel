@@ -162,7 +162,7 @@ driver = "org.mariadb.jdbc.Driver"
 | connection_check_timeout_sec               | Int     | 否    | 30      | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | connect_timeout_ms                         | Int     | 否    | 86400000 | 建立 JDBC 连接时的连接超时时间，单位毫秒。`0` 表示不超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | socket_timeout_ms                          | Int     | 否    | 86400000 | JDBC 连接建立后的 socket 读取超时时间，单位毫秒。`0` 表示不超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| partition_column                           | String  | 否    | -       | 用于分割数据的列名。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| partition_column                           | String  | 否    | -       | 用于分割数据的列名。该列为 NULL 的行不会被读取，请选择不含 NULL 值的列。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | partition_upper_bound                      | String  | 否    | -       | query 分区读取使用的闭区间上界。未配置时，SeaTunnel 会从源表查询最大值。对于 DATE 分区列，支持 ISO-8601 日期字符串（`yyyy-MM-dd`）或兼容历史配置的 epoch-day 数字。                                                                                                                                                                                                                                                                                                                                                                                                             |
 | partition_lower_bound                      | String  | 否    | -       | query 分区读取使用的闭区间下界。未配置时，SeaTunnel 会从源表查询最小值。对于 DATE 分区列，支持 ISO-8601 日期字符串（`yyyy-MM-dd`）或兼容历史配置的 epoch-day 数字。                                                                                                                                                                                                                                                                                                                                                                                                             |
 | partition_num                              | Int     | 否    | 10      | 顶层 `query` 与 `partition_column` 触发 fixed splitter 时的分片数，无论是否同时配置 `table_path`。动态 `table_path` 和 `table_list` 布局改用 `split.size`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -325,7 +325,7 @@ Jdbc {
 
 请为驱动配置集群的受信任根证书。`sslmode=disable` 仅适用于临时的、不启用安全认证的本地测试集群。
 
-CockroachDB 不支持 PostgreSQL 的 `HASHTEXT` 函数。本方言使用 `FNV32` 对 STRING 和 UUID 等分区键进行哈希分片。分区键为空的行由[分片列中的 NULL 值](#分片列中的-null-值)中所述的额外分片读取。由于 CockroachDB 的 `pg_class.reltuples` 为 null，分片器需要行数时使用 `COUNT(*)`，这可能扫描输入表或查询。如果单 Reader 足够，可设置 `enable_concurrent_read = false` 跳过分片分析。
+CockroachDB 不支持 PostgreSQL 的 `HASHTEXT` 函数。本方言使用 `FNV32` 对 STRING 和 UUID 等分区键进行哈希分片，并将空键值分配到一个分区，避免漏读。由于 CockroachDB 的 `pg_class.reltuples` 为 null，分片器需要行数时使用 `COUNT(*)`，这可能扫描输入表或查询。如果单 Reader 足够，可设置 `enable_concurrent_read = false` 跳过分片分析。
 
 字符串转换使用已发现的 schema 中的原生类型信息，而不是在游标打开期间查询结果集类型元数据。支持的读取场景无需启用预览参数 `multiple_active_portals_enabled`。显式 schema 未提供原生类型信息时，STRING 字段按普通字符串处理。
 
@@ -337,9 +337,9 @@ CockroachDB 不支持 PostgreSQL 的 `HASHTEXT` 函数。本方言使用 `FNV32`
 
 ### 推荐方式：`table_path` 动态分片
 
-整表快照建议配置 `table_path`，通常让 SeaTunnel 自动发现分片键。显式配置 `partition_column` 时优先使用该列；否则依次从主键和唯一索引中选择第一个受支持的列。支持 String、数值和 Date 类型的分片键。
+整表快照建议配置 `table_path`，通常让 SeaTunnel 自动发现分片键。显式配置 `partition_column` 时优先使用该列；否则依次从主键和唯一索引中选择第一个受支持且为 NOT NULL 的列；可为空的列会被跳过，因为该列为 NULL 的行不会被读取。支持 String、数值和 Date 类型的分片键。
 
-`split.size` 表示每个分片的目标行数，并不是严格的行数上限，实际大小会受到键值分布和数据库统计信息影响。如果表没有可用的主键、唯一索引或显式 `partition_column`，即使任务并行度大于 1，该表仍然只有一个读取分片。
+`split.size` 表示每个分片的目标行数，并不是严格的行数上限，实际大小会受到键值分布和数据库统计信息影响。如果表没有可用的 NOT NULL 主键或唯一索引列，也没有显式 `partition_column`，即使任务并行度大于 1，该表仍然只有一个读取分片。
 
 ### 顶层 `query` 固定分区
 
@@ -348,16 +348,6 @@ CockroachDB 不支持 PostgreSQL 的 `HASHTEXT` 函数。本方言使用 `FNV32`
 对 BIGINT、零标度 DECIMAL 等整数键使用固定分片时，各分片完整覆盖数值范围，不产生间隙或重叠。范围不能被 `partition_num` 整除时，剩余值仍会保留，各区间均位于上下界之内。
 
 `table_list` 中的条目即使配置了 `query` 或分区参数，仍然使用动态分片。`split.size` 不影响顶层 fixed partition 模式。
-
-### 分片列中的 NULL 值
-
-范围分片和哈希分片的条件都不会匹配 NULL，因此分片列可为空时，SeaTunnel 会检查待读取的行中是否有该列为 NULL 的行，如果有，就额外增加一个分片读取这些行。这适用于 `partition_column`，也适用于自动选择的唯一索引列。声明为 `NOT NULL` 的分片列（例如主键），或没有 NULL 值的分片列，不会增加该分片。
-
-该检查是每张表一条 `SELECT 1 ... WHERE <列> IS NULL` 查询，只在规划分片时执行一次。它在找到第一个 NULL 时即停止，但对于没有 NULL 值的大表，除非数据库能通过分片列上的索引回答 `IS NULL`，否则它会读取整张表。声明为 `NOT NULL` 的分片列会跳过该检查。
-
-对于 `query`，该检查总会执行，因为驱动为查询列报告的可空性可能不准确，例如外连接表中的列。如果检查本身失败，仍会增加该分片。可空分片列的每个哈希分片还会带上 `AND <列> IS NOT NULL`，这样哈希函数把 NULL 映射到某个桶的数据库不会重复读取这些行。
-
-当数值分片列同时设置了 `partition_lower_bound` 和 `partition_upper_bound` 时，SeaTunnel 只读取边界内的行，而 NULL 值不在边界内，因此不会增加该分片。字符串分片列按哈希分片，或按首尾分片不封闭的范围分片，边界不会排除其 NULL 值，因此仍会增加该分片。
 
 ### Query 与主键注意事项
 
@@ -582,11 +572,11 @@ sink {
 
 ### 提高 parallelism 后 Reader 数量没有增加
 
-使用动态分片时，确认表存在受支持的主键或唯一索引，或者显式配置 `partition_column`。要让顶层 `query` 使用旧版 fixed splitter，需要同时配置 `partition_column` 和合适的 `partition_num`。没有安全分片键的表会有意使用单个 split 读取。
+使用动态分片时，确认表存在受支持的 NOT NULL 主键或唯一索引列，或者显式配置不含 NULL 值的 `partition_column`。要让顶层 `query` 使用旧版 fixed splitter，需要同时配置 `partition_column` 和合适的 `partition_num`。没有安全分片键的表会有意使用单个 split 读取。
 
 ### 配置分区边界后出现漏数
 
-`partition_lower_bound` 和 `partition_upper_bound` 定义 SeaTunnel 实际读取的数据范围，并不只是性能提示。对于数值分片列，分片列为 NULL 的行也不在该范围内。可以删除它们，让 SeaTunnel 自动发现边界；也可以修正边界，确保覆盖所有需要读取的行。
+`partition_lower_bound` 和 `partition_upper_bound` 定义 SeaTunnel 实际读取的数据范围，并不只是性能提示。可以删除它们，让 SeaTunnel 自动发现边界；也可以修正边界，确保覆盖所有需要读取的行。
 
 ## 变更日志
 

@@ -219,19 +219,6 @@ public class FixedChunkSplitter extends ChunkSplitter {
                 table, splitKeyName, splitKeyType, partitionStart, partitionEnd);
     }
 
-    /**
-     * With both {@code partition_lower_bound} and {@code partition_upper_bound} set, the splits of
-     * a numeric split key are closed ranges inside those bounds, so no row outside them is read,
-     * and a NULL key is outside them too. String keys are split by hash, or by ranges whose first
-     * and last split are open, so they still need the split for NULL keys.
-     */
-    @Override
-    protected boolean readsOnlyConfiguredRange(JdbcSourceTable table, SeaTunnelRowType splitKey) {
-        return StringUtils.isNotBlank(table.getPartitionStart())
-                && StringUtils.isNotBlank(table.getPartitionEnd())
-                && !SqlType.STRING.equals(splitKey.getFieldType(0).getSqlType());
-    }
-
     @Override
     protected PreparedStatement createSplitStatement(JdbcSourceSplit split, TableSchema schema)
             throws SQLException {
@@ -269,19 +256,17 @@ public class FixedChunkSplitter extends ChunkSplitter {
                         .filter(c -> c.getName().equals(splitKeyName))
                         .findAny()
                         .get();
-        String hashCondition =
-                hashSplitCondition(
-                        table,
-                        splitKeyName,
-                        jdbcDialect.hashModForField(
-                                column.getSourceType(), splitKeyName, table.getPartitionNumber()));
         for (int i = 0; i < table.getPartitionNumber(); i++) {
             String splitQuery;
             if (StringUtils.isNotBlank(table.getQuery())) {
                 splitQuery =
                         String.format(
-                                "SELECT * FROM (%s) st_jdbc_splitter WHERE %s",
-                                applyUserWhereCondition(table.getQuery()), hashCondition);
+                                "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
+                                applyUserWhereCondition(table.getQuery()),
+                                jdbcDialect.hashModForField(
+                                        column.getSourceType(),
+                                        splitKeyName,
+                                        table.getPartitionNumber()));
             } else {
                 if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
                     String userQuery =
@@ -290,14 +275,21 @@ public class FixedChunkSplitter extends ChunkSplitter {
                                     jdbcDialect.tableIdentifier(table.getTablePath()));
                     splitQuery =
                             String.format(
-                                    "SELECT * FROM (%s) st_jdbc_splitter WHERE %s",
-                                    applyUserWhereCondition(userQuery), hashCondition);
+                                    "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
+                                    applyUserWhereCondition(userQuery),
+                                    jdbcDialect.hashModForField(
+                                            column.getSourceType(),
+                                            splitKeyName,
+                                            table.getPartitionNumber()));
                 } else {
                     splitQuery =
                             String.format(
-                                    "SELECT * FROM %s WHERE %s",
+                                    "SELECT * FROM %s WHERE %s = ?",
                                     jdbcDialect.tableIdentifier(table.getTablePath()),
-                                    hashCondition);
+                                    jdbcDialect.hashModForField(
+                                            column.getSourceType(),
+                                            splitKeyName,
+                                            table.getPartitionNumber()));
                 }
             }
 

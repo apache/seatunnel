@@ -18,7 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -32,11 +36,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -495,5 +501,110 @@ public class DynamicChunkSplitterTest {
             options.put(JdbcSourceOptions.WHERE_CONDITION.key(), whereCondition);
         }
         return JdbcSourceConfig.of(ReadonlyConfig.fromMap(options));
+    }
+
+    /**
+     * Range and hash split queries never match NULL, so a nullable key column chosen automatically
+     * would leave the rows holding NULL in it unread. Such a column is skipped, and a table left
+     * without a split key is read as one split.
+     */
+    @Test
+    public void testAutomaticSplitKeySkipsNullableKeyColumns() throws Exception {
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(postgresConfig());
+
+        JdbcSourceTable nullableUniqueKeyOnly =
+                table(null, null, Collections.singletonList(uniqueKey("uk_code", "code")));
+        assertFalse(splitter.findSplitKey(nullableUniqueKeyOnly).isPresent());
+        Collection<JdbcSourceSplit> splits = splitter.generateSplits(nullableUniqueKeyOnly);
+        assertEquals(1, splits.size());
+        assertNull(splits.iterator().next().getSplitKeyName());
+
+        JdbcSourceTable nullableAndNotNullUniqueKeys =
+                table(
+                        null,
+                        null,
+                        Arrays.asList(uniqueKey("uk_code", "code"), uniqueKey("uk_no", "no")));
+        assertEquals(
+                "no", splitter.findSplitKey(nullableAndNotNullUniqueKeys).get().getFieldName(0));
+
+        JdbcSourceTable nullablePrimaryKeyColumn =
+                table(
+                        null,
+                        PrimaryKey.of("pk_code", Collections.singletonList("code")),
+                        Collections.singletonList(uniqueKey("uk_no", "no")));
+        assertEquals("no", splitter.findSplitKey(nullablePrimaryKeyColumn).get().getFieldName(0));
+    }
+
+    @Test
+    public void testAutomaticSplitKeyKeepsNotNullKeyColumns() {
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(postgresConfig());
+
+        JdbcSourceTable primaryKey =
+                table(
+                        null,
+                        PrimaryKey.of("pk_id", Collections.singletonList("id")),
+                        Collections.singletonList(uniqueKey("uk_no", "no")));
+        assertEquals("id", splitter.findSplitKey(primaryKey).get().getFieldName(0));
+
+        JdbcSourceTable notNullUniqueKey =
+                table(null, null, Collections.singletonList(uniqueKey("uk_no", "no")));
+        assertEquals("no", splitter.findSplitKey(notNullUniqueKey).get().getFieldName(0));
+    }
+
+    /** An explicit {@code partition_column} is used as configured, also when it is nullable. */
+    @Test
+    public void testExplicitPartitionColumnMayBeNullable() {
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(postgresConfig());
+
+        JdbcSourceTable table = table("code", null, Collections.emptyList());
+        assertEquals("code", splitter.findSplitKey(table).get().getFieldName(0));
+    }
+
+    private static JdbcSourceConfig postgresConfig() {
+        return JdbcSourceConfig.builder()
+                .jdbcConnectionConfig(
+                        JdbcConnectionConfig.builder()
+                                .url("jdbc:postgresql://localhost:5432/test")
+                                .driverName("org.postgresql.Driver")
+                                .build())
+                .build();
+    }
+
+    private static ConstraintKey uniqueKey(String name, String column) {
+        return ConstraintKey.of(
+                ConstraintKey.ConstraintType.UNIQUE_KEY,
+                name,
+                Collections.singletonList(
+                        ConstraintKey.ConstraintKeyColumn.of(
+                                column, ConstraintKey.ColumnSortType.ASC)));
+    }
+
+    /**
+     * A table whose INT columns {@code id} and {@code no} are NOT NULL and {@code code} is
+     * nullable.
+     */
+    private static JdbcSourceTable table(
+            String partitionColumn, PrimaryKey primaryKey, List<ConstraintKey> uniqueKeys) {
+        TableSchema.Builder schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 0L, false, null, null))
+                        .column(PhysicalColumn.of("code", BasicType.INT_TYPE, 0L, true, null, null))
+                        .column(PhysicalColumn.of("no", BasicType.INT_TYPE, 0L, false, null, null))
+                        .constraintKey(uniqueKeys);
+        if (primaryKey != null) {
+            schema.primaryKey(primaryKey);
+        }
+        TablePath tablePath = TablePath.of("db", "tbl");
+        return JdbcSourceTable.builder()
+                .tablePath(tablePath)
+                .partitionColumn(partitionColumn)
+                .catalogTable(
+                        CatalogTable.of(
+                                TableIdentifier.of("catalog", tablePath),
+                                schema.build(),
+                                Collections.emptyMap(),
+                                Collections.emptyList(),
+                                ""))
+                .build();
     }
 }

@@ -90,9 +90,13 @@ public class CockroachDBDialect extends PostgresDialect {
     public String hashModForField(String nativeType, String fieldName, int mod) {
         // HASHTEXT is not available in CockroachDB. FNV32 returns a non-negative INT8, and
         // casting also supports UUID partition keys exposed as STRING by the type mapper.
-        // A NULL key hashes to NULL and matches no bucket; ChunkSplitter reads those rows in
-        // a separate split, so routing NULL to a bucket here would read them twice.
-        return "(FNV32(CAST(" + quoteIdentifier(fieldName) + " AS STRING)) % " + mod + ")";
+        // Both fixed and dynamic hash splitters use equality predicates; route NULL to one
+        // bucket as well, otherwise nullable partition keys would disappear from the source.
+        return "(COALESCE(FNV32(CAST("
+                + quoteIdentifier(fieldName)
+                + " AS STRING)), 0) % "
+                + mod
+                + ")";
     }
 
     @Override

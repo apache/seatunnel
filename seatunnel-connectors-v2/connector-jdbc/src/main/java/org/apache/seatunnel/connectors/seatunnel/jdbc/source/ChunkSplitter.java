@@ -42,7 +42,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -123,7 +122,6 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                 throw new UnsupportedOperationException("Currently, only support one split key");
             }
             splits = createSplits(table, splitKeyOptional.get());
-            splits = addNullSplitKeySplit(table, splitKeyOptional.get(), splits);
         }
 
         long end = System.currentTimeMillis();
@@ -153,161 +151,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         if (split.getSplitKeyName() == null) {
             return createSingleSplitStatement(split);
         }
-        if (split.isNullSplitKey()) {
-            return createNullSplitKeyStatement(split);
-        }
         return createSplitStatement(split, schema);
-    }
-
-    /**
-     * Adds a split for the rows whose split key is NULL. Range and hash split predicates never
-     * match a NULL key, so without it these rows are read by no split. Nothing is added when the
-     * split key column is not nullable, when no row has a NULL split key, when a split already
-     * reads the whole table, or when the splits read only the range set by {@code
-     * partition_lower_bound} and {@code partition_upper_bound}, which excludes NULL as well.
-     */
-    private Collection<JdbcSourceSplit> addNullSplitKeySplit(
-            JdbcSourceTable table, SeaTunnelRowType splitKey, Collection<JdbcSourceSplit> splits)
-            throws SQLException {
-        String splitKeyName = splitKey.getFieldNames()[0];
-        boolean readsWholeTable =
-                splits.isEmpty()
-                        || splits.stream()
-                                .anyMatch(
-                                        split ->
-                                                split.getSplitKeyName() == null
-                                                        || (split.getSplitStart() == null
-                                                                && split.getSplitEnd() == null));
-        if (readsWholeTable
-                || readsOnlyConfiguredRange(table, splitKey)
-                || !isNullableSplitKey(table, splitKeyName)
-                || !hasNullSplitKey(table, splitKeyName)) {
-            return splits;
-        }
-        List<JdbcSourceSplit> result = new ArrayList<>(splits);
-        result.add(
-                new JdbcSourceSplit(
-                        table.getTablePath(),
-                        createSplitId(table.getTablePath(), splits.size()),
-                        table.getQuery(),
-                        splitKeyName,
-                        splitKey.getFieldType(0),
-                        null,
-                        null,
-                        true));
-        log.info(
-                "Split key {} of table {} has NULL values, added a split for them",
-                splitKeyName,
-                table.getTablePath());
-        return result;
-    }
-
-    /**
-     * Whether the splits read only the range set by {@code partition_lower_bound} and {@code
-     * partition_upper_bound}. Rows outside that range are not read, and a NULL split key is outside
-     * it too, so no split is added for NULL keys. False unless a splitter applies the configured
-     * bounds to every split.
-     */
-    protected boolean readsOnlyConfiguredRange(JdbcSourceTable table, SeaTunnelRowType splitKey) {
-        return false;
-    }
-
-    /**
-     * Checks whether a row in the read scope has a NULL split key, so that tables without such rows
-     * keep the splits they had before. The answer is only an optimization: when the check fails,
-     * for example because the driver does not support {@link Statement#setMaxRows} or the query
-     * times out, the split for NULL keys is added anyway, and reading it costs one more query.
-     */
-    private boolean hasNullSplitKey(JdbcSourceTable table, String splitKeyName) {
-        table = applyWhereCondition(table);
-        String columnName = jdbcDialect.quoteIdentifier(splitKeyName);
-        String query = normalizeQuery(table.getQuery());
-        String sqlQuery;
-        if (StringUtils.isNotBlank(query)) {
-            sqlQuery = String.format("SELECT 1 FROM (%s) tmp WHERE %s IS NULL", query, columnName);
-        } else {
-            sqlQuery =
-                    String.format(
-                            "SELECT 1 FROM %s WHERE %s IS NULL",
-                            jdbcDialect.tableIdentifier(table.getTablePath()), columnName);
-        }
-        try (Statement stmt = getOrEstablishConnection().createStatement()) {
-            stmt.setMaxRows(1);
-            log.info("Split table, query NULL split key: {}", sqlQuery);
-            try (ResultSet resultSet = stmt.executeQuery(sqlQuery)) {
-                return resultSet.next();
-            }
-        } catch (SQLException e) {
-            log.warn(
-                    "Could not check split key {} of table {} for NULL values with [{}], adding a"
-                            + " split for them anyway",
-                    splitKeyName,
-                    table.getTablePath(),
-                    sqlQuery,
-                    e);
-            return true;
-        }
-    }
-
-    /**
-     * Whether rows can have a NULL split key. For a {@code query}, the nullability comes from the
-     * driver's result set metadata, which can report a column of an outer-joined table as NOT NULL
-     * although the query returns NULL for it, so the key of a {@code query} is always treated as
-     * nullable. A key that is not in the schema is treated as nullable as well, so that no rows are
-     * skipped.
-     *
-     * @param table the table being split
-     * @param splitKeyName the name of the split key column
-     * @return false only when the table schema declares the column NOT NULL
-     */
-    protected boolean isNullableSplitKey(JdbcSourceTable table, String splitKeyName) {
-        if (StringUtils.isNotBlank(table.getQuery())) {
-            return true;
-        }
-        return table.getCatalogTable().getTableSchema().getColumns().stream()
-                .filter(column -> column.getName().equals(splitKeyName))
-                .findFirst()
-                .map(Column::isNullable)
-                .orElse(true);
-    }
-
-    /**
-     * Builds the predicate of a hash split. Some hash functions map NULL to a value, so a nullable
-     * key also excludes NULL here: those rows are read by the NULL split key split instead.
-     */
-    protected String hashSplitCondition(
-            JdbcSourceTable table, String splitKeyName, String hashModExpression) {
-        String condition = hashModExpression + " = ?";
-        if (isNullableSplitKey(table, splitKeyName)) {
-            condition += " AND " + jdbcDialect.quoteIdentifier(splitKeyName) + " IS NOT NULL";
-        }
-        return condition;
-    }
-
-    private PreparedStatement createNullSplitKeyStatement(JdbcSourceSplit split)
-            throws SQLException {
-        String condition = jdbcDialect.quoteIdentifier(split.getSplitKeyName()) + " IS NULL";
-        String splitQuery;
-        if (StringUtils.isNotBlank(split.getSplitQuery())) {
-            splitQuery =
-                    String.format(
-                            "SELECT * FROM (%s) st_jdbc_splitter WHERE %s",
-                            applyUserWhereCondition(split.getSplitQuery()), condition);
-        } else if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
-            String userQuery =
-                    String.format(
-                            "SELECT * FROM %s", jdbcDialect.tableIdentifier(split.getTablePath()));
-            splitQuery =
-                    String.format(
-                            "SELECT * FROM (%s) st_jdbc_splitter WHERE %s",
-                            applyUserWhereCondition(userQuery), condition);
-        } else {
-            splitQuery =
-                    String.format(
-                            "SELECT * FROM %s WHERE %s",
-                            jdbcDialect.tableIdentifier(split.getTablePath()), condition);
-        }
-        return createPreparedStatement(splitQuery);
     }
 
     protected abstract PreparedStatement createSplitStatement(
@@ -552,7 +396,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         if (pk != null) {
             for (String pkField : pk.getColumnNames()) {
                 Column column = columnMap.get(pkField);
-                if (isSupportSplitColumn(column)) {
+                if (isAutomaticSplitColumn(column, table)) {
                     return Optional.of(
                             new SeaTunnelRowType(
                                     new String[] {pkField},
@@ -576,7 +420,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                             uniqueKey.getColumnNames()) {
                         String uniqueKeyColumnName = uniqueKeyColumn.getColumnName();
                         Column column = columnMap.get(uniqueKeyColumnName);
-                        if (isSupportSplitColumn(column)) {
+                        if (isAutomaticSplitColumn(column, table)) {
                             return Optional.of(
                                     new SeaTunnelRowType(
                                             new String[] {uniqueKeyColumnName},
@@ -587,8 +431,30 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
             }
         }
 
-        log.warn("No split key found for table {}", table.getTablePath());
+        log.warn("No split key found for table {}, reading it as one split", table.getTablePath());
         return Optional.empty();
+    }
+
+    /**
+     * Whether the automatic selection may split by this primary key or unique key column. A
+     * nullable column is skipped: the range and hash split queries never match NULL, so the rows
+     * holding NULL in it would not be read. When no column is left, the table is read as one split.
+     */
+    private boolean isAutomaticSplitColumn(Column column, JdbcSourceTable table) {
+        if (!isSupportSplitColumn(column)) {
+            return false;
+        }
+        if (column.isNullable()) {
+            log.warn(
+                    "Skip column {} of table {} as split key: it is nullable, and rows with NULL in"
+                            + " it would not be read. To read the table in parallel, declare a NOT"
+                            + " NULL unique column, or set partition_column to a column without"
+                            + " NULL values.",
+                    column.getName(),
+                    table.getTablePath());
+            return false;
+        }
+        return true;
     }
 
     protected boolean isSupportSplitColumn(Column splitColumn) {
