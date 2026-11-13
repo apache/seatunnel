@@ -23,6 +23,13 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Assigns the one split of a source to the first registered reader.
+ *
+ * <p>{@link #run()}, {@link #addSplitsBack} and {@link #registerReader} are synchronized: on Zeta
+ * they are called under different engine locks, and each of them checks whether the split is
+ * assigned before it assigns it, so that check and the assignment must not interleave.
+ */
 public class SingleSplitEnumerator
         implements SourceSplitEnumerator<SingleSplit, SingleSplitEnumeratorState> {
     protected final SourceSplitEnumerator.Context<SingleSplit> context;
@@ -39,7 +46,7 @@ public class SingleSplitEnumerator
     }
 
     @Override
-    public void run() throws Exception {
+    public synchronized void run() throws Exception {
         if (assigned || pendingSplit != null) {
             return;
         }
@@ -56,13 +63,15 @@ public class SingleSplitEnumerator
     /**
      * Takes back the split of a failed reader, so that it is assigned again when a reader
      * registers. Flink passes only the splits assigned since the last completed checkpoint, which
-     * is an empty list when nothing was assigned since then.
+     * is an empty list when nothing was assigned since then. Ignoring an empty list is safe because
+     * the readers this enumerator serves always include their split in their checkpoint state, so a
+     * reader restored from that checkpoint gets its split back from its own state.
      *
      * @param splits the splits to take back, possibly empty
      * @param subtaskId the subtask of the failed reader
      */
     @Override
-    public void addSplitsBack(List<SingleSplit> splits, int subtaskId) {
+    public synchronized void addSplitsBack(List<SingleSplit> splits, int subtaskId) {
         if (splits.isEmpty()) {
             return;
         }
@@ -71,7 +80,7 @@ public class SingleSplitEnumerator
         assignSplit();
     }
 
-    protected void assignSplit() {
+    protected synchronized void assignSplit() {
         if (assigned || pendingSplit == null) {
             return;
         }
@@ -93,7 +102,7 @@ public class SingleSplitEnumerator
     }
 
     @Override
-    public void registerReader(int subtaskId) {
+    public synchronized void registerReader(int subtaskId) {
         assignSplit();
     }
 
