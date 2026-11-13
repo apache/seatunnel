@@ -187,7 +187,14 @@ public class SqlConfigBuilder {
                 continue;
             }
             if (line.trim().startsWith(SQL_ANNOTATION_PREFIX)) {
-                anno = true;
+                // Only a block comment that stays open starts an annotation block. A comment that
+                // closes on the same line ("/* ... */") must not, otherwise every following line
+                // is skipped and the whole config is lost.
+                if (!line.trim()
+                        .substring(SQL_ANNOTATION_PREFIX.length())
+                        .contains(SQL_ANNOTATION_SUFFIX)) {
+                    anno = true;
+                }
                 continue;
             }
             if (anno) {
