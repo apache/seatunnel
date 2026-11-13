@@ -53,6 +53,30 @@ public class TransactionCommitConsumerTest {
     private static final TableId TABLE = TableId.parse("DEBEZIUM.LOB_TYPES");
 
     @Test
+    public void keepsAnApostropheWhenLogMinerDoublesItInsideTheLiteral() {
+        LogMinerSqlParser.LobWrite parsed =
+                LogMinerSqlParser.parseLobWrite(
+                        "buf_c := 'it''s a \uD83D\uDE00';\n  dbms_lob.write(loc_c, 8, 1, buf_c);");
+
+        LobUnderConstruction lob = new LobUnderConstruction();
+        lob.add(fragment(parsed.data, parsed.offset, parsed.length));
+
+        Assertions.assertEquals("it's a \uD83D\uDE00", lob.merge());
+    }
+
+    @Test
+    public void keepsAnUnescapedApostropheFrom11gLobRedo() {
+        LogMinerSqlParser.LobWrite parsed =
+                LogMinerSqlParser.parseLobWrite(
+                        "buf_c := 'it's a \uD83D\uDE00 clip. 你';\n  dbms_lob.write(loc_c, 16, 1, buf_c);");
+
+        LobUnderConstruction lob = new LobUnderConstruction();
+        lob.add(fragment(parsed.data, parsed.offset, parsed.length));
+
+        Assertions.assertEquals("it's a \uD83D\uDE00 clip. 你", lob.merge());
+    }
+
+    @Test
     public void keepsEveryEmojiWhenLogMinerLengthCountsCharacters() {
         String four = repeat(EMOJI, 4);
         LobUnderConstruction lob = new LobUnderConstruction();

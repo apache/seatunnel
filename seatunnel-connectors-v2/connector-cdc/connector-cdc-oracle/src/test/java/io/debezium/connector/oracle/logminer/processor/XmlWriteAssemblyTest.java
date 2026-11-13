@@ -62,6 +62,21 @@ public class XmlWriteAssemblyTest {
     }
 
     @Test
+    public void parsesDocumentTextWithoutTheXmlRedoPreamble() throws Exception {
+        String first = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><note>it's track</note>";
+        String second = "<title>现场 \uD83D\uDE00</title>";
+        XmlWriteParser.Payload start = XmlWriteParser.parse(first);
+        XmlWriteParser.Payload rest = XmlWriteParser.parse(second);
+        Assertions.assertEquals(first, start.getText());
+        Assertions.assertNull(start.getBytes());
+
+        XmlUnderConstruction xml = new XmlUnderConstruction();
+        xml.add(new XmlFragment(start.getText()));
+        xml.add(new XmlFragment(rest.getText()));
+        Assertions.assertEquals(first + second, xml.merge());
+    }
+
+    @Test
     public void parsesInlineXmlAsTextAndNullAsNull() throws Exception {
         XmlWriteParser.Payload text = XmlWriteParser.parse("XML_REDO := '<a>数符癸</a>':10");
         Assertions.assertEquals("<a>数符癸</a>", text.getText());

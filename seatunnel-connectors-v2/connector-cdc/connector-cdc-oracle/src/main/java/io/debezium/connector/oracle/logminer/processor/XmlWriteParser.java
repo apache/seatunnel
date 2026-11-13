@@ -27,7 +27,8 @@ import java.sql.SQLException;
  * <p>Out-of-line documents arrive as {@code HEXTORAW} chunks. Those chunks are returned as raw
  * bytes. A multi-byte UTF-8 character can be split across chunks, so the bytes are decoded once
  * when the document is assembled. Inline documents arrive as a quoted SQL string and are already
- * characters.
+ * characters. Oracle 11g and 21c also emit the document text directly, without the {@code XML_REDO}
+ * preamble.
  */
 final class XmlWriteParser {
 
@@ -37,27 +38,33 @@ final class XmlWriteParser {
     private XmlWriteParser() {}
 
     static Payload parse(String sql) throws SQLException {
-        if (sql == null || !sql.startsWith(XML_WRITE_PREAMBLE)) {
-            throw new IllegalStateException(
-                    "XML write operation does not start with XML_REDO preamble");
+        if (sql == null) {
+            throw new IllegalStateException("XML write operation does not contain document text");
         }
-        if (XML_WRITE_PREAMBLE_NULL.equals(sql)) {
+        String body = sql.trim();
+        if (!body.startsWith(XML_WRITE_PREAMBLE)) {
+            // 11g and 21c LogMiner put the document text itself in SQL_REDO.
+            return Payload.text(sql, sql.codePointCount(0, sql.length()));
+        }
+        if (XML_WRITE_PREAMBLE_NULL.equals(body)) {
             return Payload.nullValue();
         }
-        if (sql.charAt(XML_WRITE_PREAMBLE.length()) == '\'') {
-            int lastQuoteIndex = sql.lastIndexOf('\'');
+        if (body.charAt(XML_WRITE_PREAMBLE.length()) == '\'') {
+            int lastQuoteIndex = body.lastIndexOf('\'');
             if (lastQuoteIndex == -1) {
                 throw new IllegalStateException("Failed to find end of XML document");
             }
-            String xml = sql.substring(XML_WRITE_PREAMBLE.length() + 1, lastQuoteIndex);
-            return Payload.text(xml, lengthOf(sql));
+            String xml =
+                    LogMinerSqlParser.unescapeLiteral(
+                            body.substring(XML_WRITE_PREAMBLE.length() + 1, lastQuoteIndex));
+            return Payload.text(xml, lengthOf(body));
         }
 
-        int lastParenIndex = sql.lastIndexOf(')');
+        int lastParenIndex = body.lastIndexOf(')');
         if (lastParenIndex == -1) {
             throw new IllegalStateException("Failed to find end of XML document");
         }
-        String xmlHex = sql.substring(XML_WRITE_PREAMBLE.length(), lastParenIndex + 1);
+        String xmlHex = body.substring(XML_WRITE_PREAMBLE.length(), lastParenIndex + 1);
         if (!xmlHex.startsWith("HEXTORAW('") || !xmlHex.endsWith(")")) {
             throw new IllegalStateException("Invalid HEXTORAW XML decoded data");
         }
@@ -67,7 +74,7 @@ final class XmlWriteParser {
             // Oracle sometimes omits the closing quote before the final parenthesis.
             xmlHex = xmlHex.substring(10, xmlHex.length() - 1);
         }
-        return Payload.bytes(RAW.hexString2Bytes(xmlHex), lengthOf(sql));
+        return Payload.bytes(RAW.hexString2Bytes(xmlHex), lengthOf(body));
     }
 
     private static int lengthOf(String sql) {

@@ -67,8 +67,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * An abstract implementation of {@link LogMinerEventProcessor} that all processors should extend.
@@ -1197,10 +1195,6 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
         return dmlEntry;
     }
 
-    private static Pattern LOB_WRITE_SQL_PATTERN =
-            Pattern.compile(
-                    "(?s).* := ((?:HEXTORAW\\()?'.*'(?:\\))?);\\s*dbms_lob.write\\([^,]+,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,[^,]+\\);.*");
-
     /**
      * Parses a {@code LOB_WRITE} operation SQL fragment.
      *
@@ -1209,23 +1203,11 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
      * @throws DebeziumException if an unexpected SQL fragment is provided that cannot be parsed
      */
     private ParsedLobWriteSql parseLobWriteSql(String sql) {
-        if (sql == null) {
+        LogMinerSqlParser.LobWrite parsed = LogMinerSqlParser.parseLobWrite(sql);
+        if (parsed == null) {
             return null;
         }
-
-        Matcher m = LOB_WRITE_SQL_PATTERN.matcher(sql.trim());
-        if (!m.matches()) {
-            throw new DebeziumException("Unable to parse unsupported LOB_WRITE SQL: " + sql);
-        }
-
-        String data = m.group(1);
-        if (data.startsWith("'")) {
-            // string data; drop the quotes
-            data = data.substring(1, data.length() - 1);
-        }
-        int length = Integer.parseInt(m.group(2));
-        int offset = Integer.parseInt(m.group(3)) - 1; // Oracle uses 1-based offsets
-        return new ParsedLobWriteSql(offset, length, data);
+        return new ParsedLobWriteSql(parsed.offset, parsed.length, parsed.data);
     }
 
     private class ParsedLobWriteSql {
