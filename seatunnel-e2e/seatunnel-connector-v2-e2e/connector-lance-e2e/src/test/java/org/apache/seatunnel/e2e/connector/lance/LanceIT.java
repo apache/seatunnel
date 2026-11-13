@@ -141,6 +141,30 @@ public class LanceIT extends TestSuiteBase {
                 .untilAsserted(() -> Assertions.assertEquals(expected, readTimestampFractions()));
     }
 
+    /**
+     * Writes 100 rows into a dedicated dataset, then reads them back through the lance source and
+     * asserts the row count with the Assert sink. Uses its own table because the default CREATE
+     * write mode fails on a dataset that already exists.
+     */
+    @TestTemplate
+    public void testLanceSourceReadback(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult writeResult =
+                container.executeJob("/lance/fake_to_lance_source_readback.conf");
+        Assertions.assertEquals(0, writeResult.getExitCode(), writeResult.getStderr());
+
+        Container.ExecResult readResult = container.executeJob("/lance/lance_source_read.conf");
+        Assertions.assertEquals(
+                0,
+                readResult.getExitCode(),
+                "Lance source read job failed. STDOUT: "
+                        + readResult.getStdout()
+                        + "\nSTDERR: "
+                        + readResult.getStderr()
+                        + "\nContainer logs: "
+                        + container.getServerLogs());
+    }
+
     private Map<Integer, Long> readTimestampFractions() throws Exception {
         Map<Integer, Long> fractions = new HashMap<>();
         try (BufferAllocator allocator = new RootAllocator();

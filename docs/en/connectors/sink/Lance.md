@@ -24,7 +24,7 @@ import ChangeLog from '../changelog/connector-lance.md';
 The Lance sink writes SeaTunnel rows into a Lance dataset. It can create a Lance table from the incoming SeaTunnel schema and then append or create data according to the configured Lance write mode.
 
 The connector currently works with directory-based Lance namespaces.
-It provides a sink only; there is no Lance source connector.
+For reading Lance datasets, use the [Lance source](../source/Lance.md).
 
 ## Using Dependency
 
