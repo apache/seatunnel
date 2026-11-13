@@ -62,7 +62,7 @@
         <revision>3.1.0-SNAPSHOT</revision>
         <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <!-- The seatunnel shade version  e.g. ${seatunnel.shade.hazelcast.version}-${seatunnel.shade.version} -->
-        <seatunnel.shade.version>3.0.0</seatunnel.shade.version>
+        <seatunnel.shade.version>3.0.1</seatunnel.shade.version>
         <seatunnel.shade.arraw.version>15.0.1</seatunnel.shade.arraw.version>
         <seatunnel.shade.guava.version>27.0-jre</seatunnel.shade.guava.version>
         <seatunnel.shade.hadoop.version>3.1.4</seatunnel.shade.hadoop.version>
@@ -570,7 +570,7 @@
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
                 <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
-                <version>${seatunnel.shade.hadoop.version}-3.0.1</version>
+                <version>${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}</version>
                 <scope>provided</scope>
             </dependency>
 
@@ -619,7 +619,7 @@
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
                 <artifactId>seatunnel-shade-hazelcast</artifactId>
-                <version>${seatunnel.shade.hazelcast.version}-3.0.1</version>
+                <version>${seatunnel.shade.hazelcast.version}-${seatunnel.shade.version}</version>
             </dependency>
 
             <dependency>
