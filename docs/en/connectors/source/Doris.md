@@ -73,7 +73,7 @@ Base configuration:
 | username                         | string | yes      | -          | User username                                                                                       |
 | password                         | string | yes      | -          | User password                                                                                       |
 | doris.request.retries            | int    | no       | 3          | Number of retries to send requests to Doris FE.                                                     |
-| doris.request.read.timeout.ms    | int    | no       | 30000      | Socket read timeout for requests sent to Doris BE.                                                  |
+| doris.request.read.timeout.ms    | int    | no       | 30000      | Socket read timeout for requests sent to Doris FE or BE.                                            |
 | doris.request.connect.timeout.ms | int    | no       | 30000      | Connection timeout for requests sent to Doris FE or BE.                                             |
 | query-port                       | int    | no       | 9030       | Doris query port.                                                                                   |
 | doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |

@@ -99,10 +99,12 @@ When reading from a super table, put TAGS columns at the end of the list. Do not
 include `subtable_name`; the connector adds it automatically as the first output
 field.
 
-The order of `read_columns` decides the output field order after
-`subtable_name`. If the result is written to a TDengine sink, keep normal columns
-before TAGS columns so the sink can split column values and TAGS values
-correctly.
+`read_columns` only selects which columns are read; it does not reorder them. The
+output field order after `subtable_name` follows the super table column order
+reported by TDengine: the timestamp column first, then normal columns in
+table-definition order, TAGS columns last. If the result is written to a TDengine
+sink, keep normal column values before TAGS values so the sink can split column
+values and TAGS values correctly.
 
 ### common options
 
@@ -115,9 +117,9 @@ All required string options listed above must contain a nonblank value (not empt
 
 The output table always starts with the reserved `subtable_name` column, which
 carries the TDengine sub table name each row came from. Subsequent columns are
-the columns declared in `read_columns` (or all columns when `read_columns` is
-unset), in the order specified by `read_columns`. TAGS columns follow the
-normal columns in the same order you list them.
+the columns selected by `read_columns` (or all columns when `read_columns` is
+unset), in the super table column order reported by TDengine: the timestamp
+column first, then normal columns in table-definition order, TAGS columns last.
 
 ## Examples
 

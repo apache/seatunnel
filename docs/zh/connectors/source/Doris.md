@@ -73,7 +73,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 | username                         | string | yes      | -          | 用户名                                                                                               |
 | password                         | string | yes      | -          | 密码                                                                                                 |
 | doris.request.retries            | int    | no       | 3          | 请求Doris FE的重试次数                                                                                 |
-| doris.request.read.timeout.ms    | int    | no       | 30000      | 请求 Doris BE 的 socket 读取超时时间。                                                                 |
+| doris.request.read.timeout.ms    | int    | no       | 30000      | 请求 Doris FE 或 BE 的 socket 读取超时时间。                                                              |
 | doris.request.connect.timeout.ms | int    | no       | 30000      | 请求 Doris FE 或 BE 的连接超时时间。                                                                    |
 | query-port                       | int    | no       | 9030       | Doris 查询端口。                                                                                       |
 | doris.request.query.timeout.s    | int    | no       | 3600       | Doris扫描数据的超时时间，单位秒                                                                          |
