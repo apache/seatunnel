@@ -389,10 +389,11 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                         null);
                 long recoveryDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(180);
                 awaitReplacementPod(application, lost, recoveryDeadline);
+                awaitRecoveredJob(application, specification.getJobId(), recoveryDeadline);
                 awaitRecoveryStage(
                         application,
                         recoveryDeadline,
-                        "native master promotion and fixed-worker recovery",
+                        "promoted native master visible with fixed-worker recovery",
                         () -> {
                             V1Pod replacement =
                                     core.readNamespacedPod(
@@ -402,7 +403,10 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                                     replacement.getMetadata().getUid());
                             assertEquals("Running", replacement.getStatus().getPhase());
                             String[] state = probe(application, specification.getJobId());
-                            assertEquals("RUNNING", state[0]);
+                            assertEquals(
+                                    "RUNNING",
+                                    state[0],
+                                    "Native job must remain RUNNING while awaiting promoted master visibility");
                             assertEquals(Long.toString(specification.getJobId()), state[6]);
                             assertEquals("2", state[7]);
                             assertMasterAddresses(application, state);
@@ -482,16 +486,20 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                 core.deleteNamespacedPod(name, namespace, null, null, 0, null, "Background", null);
                 long recoveryDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(180);
                 awaitReplacementPod(application, active, recoveryDeadline);
+                awaitRecoveredJob(application, specification.getJobId(), recoveryDeadline);
                 awaitRecoveryStage(
                         application,
                         recoveryDeadline,
-                        "native recovery before application-ID cancellation",
+                        "promoted native master visible before application-ID cancellation",
                         () -> {
                             V1Pod replacement = core.readNamespacedPod(name, namespace, null);
                             assertNotEquals(uid, replacement.getMetadata().getUid());
                             assertEquals("Running", replacement.getStatus().getPhase());
                             String[] state = probe(application, specification.getJobId());
-                            assertEquals("RUNNING", state[0]);
+                            assertEquals(
+                                    "RUNNING",
+                                    state[0],
+                                    "Native job must remain RUNNING while awaiting promoted master visibility");
                             assertMasterAddresses(application, state);
                             assertTrue(
                                     Arrays.asList(state[4].split(","))
@@ -998,6 +1006,20 @@ public class KubernetesApplicationHaIT extends AbstractKubernetesApplicationIT {
                     assertNotEquals(
                             lost.getMetadata().getUid(), replacement.getMetadata().getUid());
                     assertEquals("Running", replacement.getStatus().getPhase());
+                });
+    }
+
+    private static void awaitRecoveredJob(
+            KubernetesApplicationClient application, long jobId, long deadline) {
+        awaitRecoveryStage(
+                application,
+                deadline,
+                "native job back to RUNNING",
+                () -> {
+                    String[] state = probe(application, jobId);
+                    assertEquals("RUNNING", state[0], "Native job must return to RUNNING");
+                    assertEquals(
+                            Long.toString(jobId), state[6], "Recovered job identity must match");
                 });
     }
 
