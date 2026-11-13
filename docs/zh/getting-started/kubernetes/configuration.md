@@ -176,7 +176,7 @@ seatunnel:
 
 Master 节点负责 IMap 状态存储。生产环境建议启用 MapStore，并将数据写入共享存储或对象存储。分离集群模式下只需要在 `hazelcast-master.yaml` 中配置 MapStore，Worker 不需要配置。
 
-MapStore 使用 `FileMapStoreFactory`。其中 `type: hdfs` 是 IMap 文件存储工厂的标识，使用 S3 或 OSS 时也保持不变；真正的底层存储由 `storage.type` 决定，当前支持 `hdfs`、`s3` 和 `oss`。
+MapStore 使用 `FileMapStoreFactory`。其中 `type: hdfs` 是 IMap 文件存储工厂的标识，使用 S3、OSS 或 GCS 时也保持不变；真正的底层存储由 `storage.type` 决定，当前支持 `hdfs`、`s3`、`oss` 和 `gcs`。
 
 ### Checkpoint Monitor MapStore
 
