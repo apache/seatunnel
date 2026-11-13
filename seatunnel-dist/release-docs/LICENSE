@@ -321,7 +321,7 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-core:1.8.0 - https://github.com/protostuff/protostuff)
      (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-api:1.8.0 - https://github.com/protostuff/protostuff)
      (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-runtime:1.8.0 - https://github.com/protostuff/protostuff)
-     (The Apache Software License, Version 2.0) hazelcast (com.hazelcast:hazelcast:5.1 - https://github.com/hazelcast/hazelcast)
+     (The Apache Software License, Version 2.0) hazelcast (com.hazelcast:hazelcast:5.1.7 - https://github.com/hazelcast/hazelcast)
      (Apache-2.0) disruptor (com.lmax:disruptor:3.4.4 https://lmax-exchange.github.io/disruptor/)
      (Apache-2.0) error_prone_annotations (com.google.errorprone:error_prone_annotations:2.2.0 https://mvnrepository.com/artifact/com.google.errorprone/error_prone_annotations/2.2.0)
      (Apache-2.0) error_prone_annotations (com.google.errorprone:error_prone_annotations:2.18.0 https://mvnrepository.com/artifact/com.google.errorprone/error_prone_annotations/2.18.0)
