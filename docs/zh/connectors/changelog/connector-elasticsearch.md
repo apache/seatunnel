@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Support Elasticsearch 9 in the Elasticsearch connector (#13090)|https://github.com/apache/seatunnel/commit/98613bcbb4|3.1.0|
 |[Fix][Connector-V2] Add opt-in collision-safe Elasticsearch IDs (#13003)|https://github.com/apache/seatunnel/commit/b66e0d4802|3.1.0|
 |[Fix][CDC][Zeta] Restore runtime schema from checkpoint after failover (#11503)|https://github.com/apache/seatunnel/commit/ec1b1b8b51|3.0.0|
 |[Improve][Connector-V2] Use isEmpty() instead of size() &gt; 0 in ES connectors (#11996)|https://github.com/apache/seatunnel/commit/2e2e9b8040|3.0.0|

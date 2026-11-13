@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Encode the HTTP source response body as UTF-8 (#13011)|https://github.com/apache/seatunnel/commit/ea39b25cf2|3.1.0|
 |[Fix][Connector-V2] Remove incorrect HTTP entity content encoding (#11281)|https://github.com/apache/seatunnel/commit/0cf767d0c8|3.1.0|
 |[Feature][Connector-V2] Add Typeform source connector (#12844)|https://github.com/apache/seatunnel/commit/75f9636c99|3.1.0|
 |[Feature][Connector-V2] Add Intercom source connector (#12831)|https://github.com/apache/seatunnel/commit/4eb1dc5912|3.1.0|

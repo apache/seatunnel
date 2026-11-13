@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Encode the HTTP source response body as UTF-8 (#13011)|https://github.com/apache/seatunnel/commit/ea39b25cf2|3.1.0|
 |[Fix][Connector-V2] Remove incorrect HTTP entity content encoding (#11281)|https://github.com/apache/seatunnel/commit/0cf767d0c8|3.1.0|
 |[Improve][Connector-V2] Validate HTTP sink URL is not blank (#12773)|https://github.com/apache/seatunnel/commit/a2f818afd2|3.1.0|
 |[Feature][Connector-V2] Fix HTTP credential handling - add scheme check and exclude token from toString (#12040)|https://github.com/apache/seatunnel/commit/136b12d32b|3.1.0|

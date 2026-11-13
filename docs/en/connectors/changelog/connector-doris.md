@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix] [Connector-V2] Fix Doris source duplicate table detection and error code typo (#13172)|https://github.com/apache/seatunnel/commit/ed4901e2e9|3.1.0|
 |[Improve][Connector-V2][Doris] Warn when TIMESTAMP_TZ columns use the JVM default zone (#12945)|https://github.com/apache/seatunnel/commit/5666e8d594|3.1.0|
 |[Fix][Connector-V2][Doris] Support IPV4 and IPV6 columns (#12761)|https://github.com/apache/seatunnel/commit/59775c6cb0|3.1.0|
 |[Fix][Connector-V2] Wait for Doris data visibility (#11562)|https://github.com/apache/seatunnel/commit/7490567580|3.1.0|
