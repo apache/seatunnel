@@ -137,6 +137,15 @@
                             <exclude>org.apache.seatunnel:seatunnel-shade-hadoop3-uber</exclude>
                         </excludes>
                     </artifactSet>
+                    <filters combine.children="append">
+                        <filter>
+                            <artifact>com.hazelcast:hazelcast</artifact>
+                            <excludes>
+                                <exclude>THIRD-PARTY.txt</exclude>
+                                <exclude>META-INF/THIRD-PARTY.txt</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
                     <transformers>
                         <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                     </transformers>
