@@ -17,7 +17,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 引擎支持
 
-* 支持  `ElasticSearch 版本 >= 2.x 并且 <= 8.x`
+* 支持  `ElasticSearch 版本 >= 2.x 并且 <= 9.x`
 
 :::
 
