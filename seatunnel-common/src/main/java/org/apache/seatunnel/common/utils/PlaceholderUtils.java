@@ -167,7 +167,7 @@ public class PlaceholderUtils {
             }
 
             if (isSystemPlaceholder.test(key)) {
-                result.append(input.substring(keyStart, closePos + 1));
+                result.append(input, start, closePos + 1);
                 cursor = closePos + 1;
                 continue;
             }
