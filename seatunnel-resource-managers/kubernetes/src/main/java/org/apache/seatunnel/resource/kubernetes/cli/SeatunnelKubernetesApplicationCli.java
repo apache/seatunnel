@@ -58,7 +58,7 @@ public final class SeatunnelKubernetesApplicationCli {
                             System.getenv(KubernetesConstants.SPECIFICATION_ENV));
             ApplicationSpecification specification = parameters.getSpecification();
             log.debug("Loaded application specification {}", specification.getName());
-            SeaTunnelConfig engineConfiguration = configureEngine(id, specification);
+            SeaTunnelConfig engineConfiguration = configureEngine(id, specification, parameters);
             KubernetesResourceManagerDriver driver = createDriver(parameters, id, clusterName(id));
             HazelcastInstanceImpl master =
                     startMaster(engineConfiguration, specification, id, driver);
@@ -99,10 +99,14 @@ public final class SeatunnelKubernetesApplicationCli {
      *
      * @param id Kubernetes application ID used for the cluster name
      * @param specification resolved application fields
+     * @param parameters Kubernetes settings; the {@code kubernetes.master.enable-http} and {@code
+     *     kubernetes.master.http-port} keys override the loaded {@code seatunnel.yaml}
      * @return configuration ready for master startup
      */
     private static SeaTunnelConfig configureEngine(
-            String id, ApplicationSpecification specification) {
+            String id,
+            ApplicationSpecification specification,
+            KubernetesApplicationConfig parameters) {
         SeaTunnelConfig engineConfiguration = ConfigProvider.locateAndGetSeaTunnelConfig();
         SeatunnelApplicationConfig.configure(
                 engineConfiguration,
@@ -110,6 +114,7 @@ public final class SeatunnelKubernetesApplicationCli {
                 null,
                 specification.getWorkerSpecification().getSlots());
         SeatunnelApplicationConfig.configureCheckpointRetention(engineConfiguration);
+        parameters.applyMasterHttpOverrides(engineConfiguration.getEngineConfig().getHttpConfig());
         engineConfiguration
                 .getHazelcastConfig()
                 .getNetworkConfig()

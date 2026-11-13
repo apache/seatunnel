@@ -20,6 +20,7 @@ package org.apache.seatunnel.resource.kubernetes;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
@@ -45,6 +46,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1ContainerPort;
 import io.kubernetes.client.openapi.models.V1EnvFromSource;
 import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1Job;
@@ -1702,6 +1704,316 @@ class KubernetesApplicationResourcesTest {
         assertEquals(
                 "platform,batch",
                 KubernetesApplicationConfig.read(encoded).getWorkerAnnotations().get("team"));
+    }
+
+    @Test
+    void declaresHttpContainerAndServicePortsWhenEnabled() throws Exception {
+        // kubernetes.seatunnel-config-file is a container path (POSIX). Do not pass host
+        // absolute paths such as Windows drive letters; owned ConfigMap data mounted onto the
+        // default container path is the portable source for HTTP resolution in tests.
+        Map<String, String> options = options();
+        options.put(
+                "kubernetes.configmap.engine.data.seatunnel.yaml",
+                "seatunnel:\n  engine:\n    http:\n      enable-http: true\n      port: 18080\n");
+        options.put(
+                "kubernetes.configmap.engine.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        assertEquals(18080, parameters.httpContainerPort());
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
+                        "app-http", mainClass, parameters);
+        V1Job job = applicationJob(application).getInternalResource();
+        List<V1ContainerPort> ports =
+                job.getSpec().getTemplate().getSpec().getContainers().get(0).getPorts();
+        assertTrue(
+                ports.stream()
+                        .anyMatch(
+                                port ->
+                                        KubernetesConstants.HTTP_PORT_NAME.equals(port.getName())
+                                                && Integer.valueOf(18080)
+                                                        .equals(port.getContainerPort())));
+        V1Service service =
+                accompanyingResources(application).stream()
+                        .filter(resource -> resource instanceof KubernetesService)
+                        .map(KubernetesService.class::cast)
+                        .findFirst()
+                        .orElseThrow()
+                        .getInternalResource();
+        assertTrue(
+                service.getSpec().getPorts().stream()
+                        .anyMatch(
+                                port ->
+                                        KubernetesConstants.HTTP_PORT_NAME.equals(port.getName())
+                                                && Integer.valueOf(18080).equals(port.getPort())));
+    }
+
+    @Test
+    void omitsHttpPortsWhenDisabled() throws Exception {
+        Map<String, String> options = options();
+        options.put(
+                "kubernetes.configmap.engine.data.seatunnel.yaml",
+                "seatunnel:\n  engine:\n    http:\n      enable-http: false\n      port: 8080\n");
+        options.put(
+                "kubernetes.configmap.engine.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        assertNull(parameters.httpContainerPort());
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
+                        "app-http-off", mainClass, parameters);
+        V1Job job = applicationJob(application).getInternalResource();
+        List<V1ContainerPort> ports =
+                job.getSpec().getTemplate().getSpec().getContainers().get(0).getPorts();
+        assertTrue(ports == null || ports.isEmpty());
+        V1Service service =
+                accompanyingResources(application).stream()
+                        .filter(resource -> resource instanceof KubernetesService)
+                        .map(KubernetesService.class::cast)
+                        .findFirst()
+                        .orElseThrow()
+                        .getInternalResource();
+        assertTrue(
+                service.getSpec().getPorts().stream()
+                        .noneMatch(
+                                port -> KubernetesConstants.HTTP_PORT_NAME.equals(port.getName())));
+    }
+
+    @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "kubernetes.seatunnel-config-file is a container path; a Windows host absolute "
+                            + "path (drive letter) is not a valid container path")
+    void resolvesHttpFromLocalSeatunnelConfigFileOnPosixHost() throws Exception {
+        Path yaml = temporary.resolve("http-local.yaml");
+        Files.write(
+                yaml,
+                ("seatunnel:\n  engine:\n    http:\n      enable-http: true\n      port: 17070\n")
+                        .getBytes(StandardCharsets.UTF_8));
+        // Absolute POSIX path only — valid as kubernetes.seatunnel-config-file on non-Windows.
+        String containerStylePath = yaml.toAbsolutePath().toString().replace('\\', '/');
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SEATUNNEL_CONFIG_FILE.key(), containerStylePath);
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        assertEquals(17070, parameters.httpContainerPort());
+    }
+
+    @Test
+    void masterSideEmptyOwnedConfigMapDataDoesNotCrashHttpResolution() throws Exception {
+        Map<String, String> options = options();
+        options.put(
+                "kubernetes.configmap.engine.data.seatunnel.yaml",
+                "seatunnel:\n  engine:\n    http:\n      enable-http: true\n      port: 18081\n");
+        options.put(
+                "kubernetes.configmap.engine.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        assertEquals(18081, parameters.httpContainerPort());
+
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        // Master re-reads the localized specification where owned data values are empty
+        // placeholders; the lazy Service-facing resolution must not parse an empty string
+        // as seatunnel.yaml either.
+        KubernetesApplicationConfig.read(encoded).httpContainerPort();
+    }
+
+    @Test
+    void rejectsHttpPortOutsideValidRange() {
+        Map<String, String> options = options();
+        options.put(
+                "kubernetes.configmap.engine.data.seatunnel.yaml",
+                "seatunnel:\n  engine:\n    http:\n      enable-http: true\n      port: 65536\n");
+        options.put(
+                "kubernetes.configmap.engine.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        // Master HTTP resolution is lazy; the Service-facing accessor validates the port.
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, parameters::httpContainerPort);
+        assertTrue(failure.getMessage().contains("http.port=65536"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("1 and 65535"), failure.getMessage());
+        assertFalse(failure.getMessage().contains("basicAuthPassword"), failure.getMessage());
+    }
+
+    @Test
+    void masterHttpKeysOverrideSeatunnelYaml() throws Exception {
+        Map<String, String> options = options();
+        options.put(
+                "kubernetes.configmap.engine.data.seatunnel.yaml",
+                "seatunnel:\n  engine:\n    http:\n      enable-http: true\n      port: 18080\n");
+        options.put(
+                "kubernetes.configmap.engine.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        options.put(KubernetesOptions.MASTER_ENABLE_HTTP.key(), "true");
+        options.put(KubernetesOptions.MASTER_HTTP_PORT.key(), "19090");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        assertEquals(19090, parameters.httpContainerPort());
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
+                        "app-http-key", mainClass, parameters);
+        V1Service service =
+                accompanyingResources(application).stream()
+                        .filter(resource -> resource instanceof KubernetesService)
+                        .map(KubernetesService.class::cast)
+                        .findFirst()
+                        .orElseThrow()
+                        .getInternalResource();
+        assertTrue(
+                service.getSpec().getPorts().stream()
+                        .anyMatch(
+                                port ->
+                                        KubernetesConstants.HTTP_PORT_NAME.equals(port.getName())
+                                                && Integer.valueOf(19090).equals(port.getPort())));
+
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        KubernetesApplicationConfig restored = KubernetesApplicationConfig.read(encoded);
+        assertEquals(19090, restored.httpContainerPort());
+
+        HttpConfig engineHttp = httpConfig(true, 8080);
+        restored.applyMasterHttpOverrides(engineHttp);
+        assertTrue(engineHttp.isEnabled());
+        assertEquals(19090, engineHttp.getPort());
+    }
+
+    @Test
+    void masterHttpDisableKeyTurnsOffEngineHttp() {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.MASTER_ENABLE_HTTP.key(), "false");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        HttpConfig engineHttp = httpConfig(true, 8080);
+        parameters.applyMasterHttpOverrides(engineHttp);
+        assertFalse(engineHttp.isEnabled());
+        assertEquals(8080, engineHttp.getPort());
+    }
+
+    @Test
+    void unsetMasterHttpKeysLeaveEngineHttpConfigUntouched() {
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options())));
+        HttpConfig engineHttp = httpConfig(true, 18080);
+        parameters.applyMasterHttpOverrides(engineHttp);
+        assertTrue(engineHttp.isEnabled());
+        assertEquals(18080, engineHttp.getPort());
+    }
+
+    @Test
+    void masterHttpKeysDisableHttpWithoutReadingYaml() {
+        Map<String, String> options = options();
+        // Unparseable owned data proves an explicit disable never opens seatunnel.yaml.
+        options.put("kubernetes.configmap.engine.data.seatunnel.yaml", "not yaml: [[[");
+        options.put(
+                "kubernetes.configmap.engine.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        options.put(KubernetesOptions.MASTER_ENABLE_HTTP.key(), "false");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        assertNull(parameters.httpContainerPort());
+    }
+
+    @Test
+    void masterHttpEnableKeyKeepsYamlPort() {
+        Map<String, String> options = options();
+        options.put(
+                "kubernetes.configmap.engine.data.seatunnel.yaml",
+                "seatunnel:\n  engine:\n    http:\n      enable-http: false\n      port: 18080\n");
+        options.put(
+                "kubernetes.configmap.engine.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        options.put(KubernetesOptions.MASTER_ENABLE_HTTP.key(), "true");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        assertEquals(18080, parameters.httpContainerPort());
+        HttpConfig engineHttp = httpConfig(false, 18080);
+        parameters.applyMasterHttpOverrides(engineHttp);
+        assertTrue(engineHttp.isEnabled());
+        assertEquals(18080, engineHttp.getPort());
+    }
+
+    @Test
+    void masterHttpPortKeyOverridesOnlyThePort() {
+        Map<String, String> options = options();
+        options.put(
+                "kubernetes.configmap.engine.data.seatunnel.yaml",
+                "seatunnel:\n  engine:\n    http:\n      enable-http: true\n      port: 18080\n");
+        options.put(
+                "kubernetes.configmap.engine.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        options.put(KubernetesOptions.MASTER_HTTP_PORT.key(), "19090");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        assertEquals(19090, parameters.httpContainerPort());
+        HttpConfig engineHttp = httpConfig(true, 18080);
+        parameters.applyMasterHttpOverrides(engineHttp);
+        assertTrue(engineHttp.isEnabled());
+        assertEquals(19090, engineHttp.getPort());
+    }
+
+    @Test
+    void rejectsMasterHttpPortOutsideValidRange() {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.MASTER_ENABLE_HTTP.key(), "false");
+        options.put(KubernetesOptions.MASTER_HTTP_PORT.key(), "65536");
+        IllegalArgumentException failure =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                KubernetesApplicationConfig.from(
+                                        specification(),
+                                        ReadonlyConfig.fromMap(new HashMap<>(options))));
+        assertTrue(
+                failure.getMessage().contains("kubernetes.master.http-port=65536"),
+                failure.getMessage());
+    }
+
+    @Test
+    void rejectsMasterHttpPortConflictingWithMasterPort() {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.MASTER_ENABLE_HTTP.key(), "true");
+        options.put(
+                KubernetesOptions.MASTER_HTTP_PORT.key(),
+                Integer.toString(specification().getMasterPort()));
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, parameters::httpContainerPort);
+        assertTrue(
+                failure.getMessage().contains(ApplicationOptions.MASTER_PORT.key()),
+                failure.getMessage());
+    }
+
+    private static HttpConfig httpConfig(boolean enabled, int port) {
+        HttpConfig http = new HttpConfig();
+        http.setEnabled(enabled);
+        http.setPort(port);
+        return http;
     }
 
     private static List<String> masterCommand(KubernetesApplicationConfig parameters) {

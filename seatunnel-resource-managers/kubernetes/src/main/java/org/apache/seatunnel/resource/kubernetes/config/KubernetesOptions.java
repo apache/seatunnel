@@ -161,6 +161,24 @@ public final class KubernetesOptions {
                             "SeaTunnel engine configuration file passed as -Dseatunnel.config: "
                                     + "a path relative to <seatunnel-home> or an absolute "
                                     + ".yaml/.yml path.");
+    public static final Option<Boolean> MASTER_ENABLE_HTTP =
+            Options.key("kubernetes.master.enable-http")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Overrides enable-http in seatunnel.yaml for the master when set. "
+                                    + "Unset keeps the yaml value. false turns the master's HTTP "
+                                    + "server off. The Service publishes http only when HTTP is "
+                                    + "on.");
+    public static final Option<Integer> MASTER_HTTP_PORT =
+            Options.key("kubernetes.master.http-port")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Overrides port in seatunnel.yaml for the master and the Service "
+                                    + "when set. Unset keeps the yaml value. A value outside "
+                                    + "1-65535 or equal to application.master.port is "
+                                    + "rejected.");
     public static final Option<String> LOG4J_CONFIG_FILE =
             Options.key("kubernetes.log4j-config-file")
                     .stringType()

@@ -20,10 +20,14 @@ package org.apache.seatunnel.resource.kubernetes.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionUtil;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
+import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -128,6 +132,13 @@ public final class KubernetesApplicationConfig {
     private final Map<String, String> workerNodeSelector;
     private final List<KubernetesToleration> masterTolerations;
     private final List<KubernetesToleration> workerTolerations;
+    /** Present only when the submitter set {@code kubernetes.master.enable-http}. */
+    private final Boolean configuredMasterEnableHttp;
+    /** Present only when the submitter set {@code kubernetes.master.http-port}. */
+    private final Integer configuredMasterHttpPort;
+    /** Resolved on first use by {@link #masterHttp()}; only the submitter resolves it. */
+    @Getter(AccessLevel.NONE)
+    private MasterHttpEndpoint masterHttp;
 
     private KubernetesApplicationConfig(
             ApplicationSpecification specification, ReadonlyConfig options) {
@@ -185,6 +196,13 @@ public final class KubernetesApplicationConfig {
                 KubernetesToleration.parse(
                         KubernetesOptions.WORKER_TOLERATIONS.key(),
                         options.get(KubernetesOptions.WORKER_TOLERATIONS));
+        this.configuredMasterEnableHttp =
+                options.getOptional(KubernetesOptions.MASTER_ENABLE_HTTP).orElse(null);
+        this.configuredMasterHttpPort =
+                options.getOptional(KubernetesOptions.MASTER_HTTP_PORT).orElse(null);
+        if (configuredMasterHttpPort != null) {
+            requireHttpPort(configuredMasterHttpPort, KubernetesOptions.MASTER_HTTP_PORT.key());
+        }
     }
 
     /**
@@ -404,6 +422,16 @@ public final class KubernetesApplicationConfig {
         properties.setProperty(
                 KubernetesOptions.WORKER_TOLERATIONS.key(),
                 KubernetesToleration.serialize(workerTolerations));
+        if (configuredMasterEnableHttp != null) {
+            properties.setProperty(
+                    KubernetesOptions.MASTER_ENABLE_HTTP.key(),
+                    Boolean.toString(configuredMasterEnableHttp));
+        }
+        if (configuredMasterHttpPort != null) {
+            properties.setProperty(
+                    KubernetesOptions.MASTER_HTTP_PORT.key(),
+                    Integer.toString(configuredMasterHttpPort));
+        }
         properties.store(writer, "SeaTunnel Kubernetes application");
     }
 
@@ -677,6 +705,137 @@ public final class KubernetesApplicationConfig {
                         prefix + "." + SECTION_MOUNT + "." + mount.getKey(), mount.getValue());
             }
         }
+    }
+
+    /** HTTP container/Service port when enabled; {@code null} when disabled. */
+    public Integer httpContainerPort() {
+        MasterHttpEndpoint endpoint = masterHttp();
+        return endpoint.enabled ? endpoint.port : null;
+    }
+
+    /**
+     * Resolved master HTTP context path for the submit-side endpoint log; evaluated with the same
+     * lazy resolution as {@link #httpContainerPort()}.
+     */
+    public String getHttpContextPath() {
+        return masterHttp().contextPath;
+    }
+
+    /**
+     * Applies the {@code kubernetes.master.enable-http} and {@code kubernetes.master.http-port}
+     * overrides onto the HTTP settings the master loaded from {@code seatunnel.yaml}. Keys that
+     * were not set leave their fields unchanged.
+     *
+     * @param http master HTTP configuration the engine will start
+     */
+    public void applyMasterHttpOverrides(HttpConfig http) {
+        if (configuredMasterEnableHttp != null) {
+            http.setEnabled(configuredMasterEnableHttp);
+        }
+        if (configuredMasterHttpPort != null) {
+            http.setPort(configuredMasterHttpPort);
+        }
+    }
+
+    /**
+     * Effective master HTTP endpoint, resolved on first use: the {@code seatunnel.yaml} the master
+     * will load, with each set {@code kubernetes.master.*} key replacing its own field. Only the
+     * submitter resolves it, to declare the Service port and log the endpoint; the master loads
+     * that yaml itself and applies the overrides through {@link
+     * #applyMasterHttpOverrides(HttpConfig)}.
+     */
+    private MasterHttpEndpoint masterHttp() {
+        if (masterHttp == null) {
+            masterHttp = resolveMasterHttp();
+        }
+        return masterHttp;
+    }
+
+    private MasterHttpEndpoint resolveMasterHttp() {
+        // An explicit disable needs no yaml: the Service gets no http port either way, and
+        // skipping discovery also skips warnings about unreadable sources.
+        if (Boolean.FALSE.equals(configuredMasterEnableHttp)) {
+            return new MasterHttpEndpoint(false, 0, null);
+        }
+        HttpConfig yaml = resolveHttpConfig();
+        boolean enabled =
+                configuredMasterEnableHttp != null ? configuredMasterEnableHttp : yaml.isEnabled();
+        int port = configuredMasterHttpPort != null ? configuredMasterHttpPort : yaml.getPort();
+        if (!enabled) {
+            return new MasterHttpEndpoint(false, port, yaml.getContextPath());
+        }
+        requireHttpPort(
+                port,
+                configuredMasterHttpPort != null
+                        ? KubernetesOptions.MASTER_HTTP_PORT.key()
+                        : "http.port");
+        if (port == specification.getMasterPort()) {
+            throw new IllegalArgumentException(
+                    "The master HTTP port "
+                            + port
+                            + " conflicts with "
+                            + ApplicationOptions.MASTER_PORT.key());
+        }
+        return new MasterHttpEndpoint(true, port, yaml.getContextPath());
+    }
+
+    private static void requireHttpPort(int port, String key) {
+        if (port < 1 || port > 65535) {
+            throw new IllegalArgumentException(key + "=" + port + " must be between 1 and 65535");
+        }
+    }
+
+    /**
+     * Resolves Master HTTP from owned ConfigMap data mounted at {@code
+     * kubernetes.seatunnel-config-file}, that file when it exists locally, otherwise {@link
+     * ConfigProvider}. Empty owned-data placeholders are skipped. A referenced ConfigMap mounted at
+     * that path is not readable on the submitter; falling back for it is reported.
+     */
+    private HttpConfig resolveHttpConfig() {
+        boolean referencedMount = false;
+        for (KubernetesConfigMapEntry entry : configMaps) {
+            for (Map.Entry<String, String> mount : entry.getMountPaths().entrySet()) {
+                if (!seatunnelConfigFile.equals(mount.getValue())) {
+                    continue;
+                }
+                if (entry.isReference()) {
+                    referencedMount = true;
+                    continue;
+                }
+                String data = entry.getData().get(mount.getKey());
+                if (data != null && !data.isEmpty()) {
+                    return ConfigProvider.locateAndGetSeaTunnelConfigFromString(data)
+                            .getEngineConfig()
+                            .getHttpConfig();
+                }
+            }
+        }
+        if (referencedMount) {
+            log.warn(
+                    "A referenced ConfigMap is mounted at {}; its content is not readable on "
+                            + "the submitter, so the master HTTP port follows local "
+                            + "configuration. Set {} and {} when the mounted file differs",
+                    seatunnelConfigFile,
+                    KubernetesOptions.MASTER_ENABLE_HTTP.key(),
+                    KubernetesOptions.MASTER_HTTP_PORT.key());
+        }
+        Path configured = Paths.get(seatunnelConfigFile);
+        if (Files.isRegularFile(configured)) {
+            try {
+                String yaml = new String(Files.readAllBytes(configured), StandardCharsets.UTF_8);
+                return ConfigProvider.locateAndGetSeaTunnelConfigFromString(yaml)
+                        .getEngineConfig()
+                        .getHttpConfig();
+            } catch (IOException failure) {
+                throw new IllegalArgumentException(
+                        "Failed to read "
+                                + KubernetesOptions.SEATUNNEL_CONFIG_FILE.key()
+                                + ": "
+                                + configured,
+                        failure);
+            }
+        }
+        return ConfigProvider.locateAndGetSeaTunnelConfig().getEngineConfig().getHttpConfig();
     }
 
     private void validateApplicationSecret() {
@@ -1130,5 +1289,18 @@ public final class KubernetesApplicationConfig {
         }
         pairs.add(current.toString());
         return pairs;
+    }
+
+    /** Master HTTP endpoint resolved on the submitter for the Service port and endpoint log. */
+    private static final class MasterHttpEndpoint {
+        private final boolean enabled;
+        private final int port;
+        private final String contextPath;
+
+        private MasterHttpEndpoint(boolean enabled, int port, String contextPath) {
+            this.enabled = enabled;
+            this.port = port;
+            this.contextPath = contextPath;
+        }
     }
 }

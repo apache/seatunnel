@@ -71,4 +71,9 @@ kubernetes {
   # Optional: tolerate tainted node pools. Entries are key[=value][:Effect] separated by ';'.
   # master.tolerations = "dedicated=seatunnel:NoSchedule"
   # worker.tolerations = "dedicated=seatunnel:NoSchedule"
+  #
+  # Master HTTP follows seatunnel.yaml. The shipped file sets enable-http: true
+  # and port: 8080. A kubernetes.master.* key overrides only that setting.
+  # kubernetes.master.enable-http = false
+  # kubernetes.master.http-port = 8080
 }

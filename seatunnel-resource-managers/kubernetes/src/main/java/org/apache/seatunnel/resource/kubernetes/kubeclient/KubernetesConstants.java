@@ -188,6 +188,7 @@ public final class KubernetesConstants {
 
     public static final String POD_IP_FIELD_PATH = "status.podIP";
     public static final String HAZELCAST_PORT_NAME = "hazelcast";
+    public static final String HTTP_PORT_NAME = "http";
     /** Cluster IP of a headless Service: Kubernetes publishes the Pod addresses directly. */
     public static final String HEADLESS_CLUSTER_IP = "None";
 

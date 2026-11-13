@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.resource.e2e.kubernetes;
 
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 
@@ -132,6 +134,22 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                         application.getClusterId(),
                         service.getSpec().getSelector().get(APPLICATION_LABEL));
                 assertEquals("master", service.getSpec().getSelector().get(ROLE_LABEL));
+                // Submitter does not read referenced ConfigMaps for HTTP; ports follow local
+                // ConfigProvider discovery (documented limitation with a WARN at submit).
+                HttpConfig submitterHttp =
+                        ConfigProvider.locateAndGetSeaTunnelConfig()
+                                .getEngineConfig()
+                                .getHttpConfig();
+                boolean expectHttp = submitterHttp.isEnabled() && submitterHttp.getPort() > 0;
+                assertEquals(
+                        expectHttp,
+                        service.getSpec().getPorts().stream()
+                                .anyMatch(port -> "http".equals(port.getName())));
+                assertEquals(
+                        expectHttp,
+                        master.getSpec().getContainers().get(0).getPorts() != null
+                                && master.getSpec().getContainers().get(0).getPorts().stream()
+                                        .anyMatch(port -> "http".equals(port.getName())));
                 assertTrue(
                         master.getSpec()
                                 .getContainers()
@@ -335,6 +353,44 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
             }
             assertNotNull(core.readNamespacedSecret(REFERENCE_SECRET, namespace, null));
             assertNotNull(core.readNamespacedConfigMap(RUNTIME_CONFIG_MAP, namespace, null));
+        }
+    }
+
+    @Test
+    void ownedConfigMapSeatunnelYamlEnablesMasterHttpWithoutCrashing() throws Exception {
+        try (KubernetesApplicationClient application =
+                deployApplication("configuration-owned-http")) {
+            try {
+                awaitWorkersRunning(application, 1);
+                V1Pod master = masterPod(application);
+                assertTrue(mountedReadOnly(master, "/opt/seatunnel/custom/seatunnel.yaml"));
+                assertTrue(
+                        master.getSpec()
+                                .getContainers()
+                                .get(0)
+                                .getCommand()
+                                .contains(
+                                        "-Dseatunnel.config=/opt/seatunnel/custom/seatunnel.yaml"));
+                assertTrue(
+                        master.getSpec().getContainers().get(0).getPorts().stream()
+                                .anyMatch(
+                                        port ->
+                                                "http".equals(port.getName())
+                                                        && Integer.valueOf(18080)
+                                                                .equals(port.getContainerPort())));
+                V1Service service =
+                        core.readNamespacedService(application.getClusterId(), namespace, null);
+                assertTrue(
+                        service.getSpec().getPorts().stream()
+                                .anyMatch(
+                                        port ->
+                                                "http".equals(port.getName())
+                                                        && Integer.valueOf(18080)
+                                                                .equals(port.getPort())));
+                awaitStatus(application, ApplicationStatus.SUCCEEDED);
+            } finally {
+                cancelAndAwait(application);
+            }
         }
     }
 }

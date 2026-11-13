@@ -57,6 +57,8 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 | `kubernetes.jvm-options-file` | string | no | `jvm_options` | 公共 JVM 参数文件，先于角色文件应用于 Master 和 Worker；设为 `disabled` 表示不传公共参数文件。 |
 | `kubernetes.log4j-config-file` | string | no | `log4j2_client.properties` | 传给 `-Dlog4j2.configurationFile` 的 Log4j2 配置：`<seatunnel-home>/config` 下的文件名或绝对路径。默认保持 console 日志；设为 `log4j2.properties` 使用写文件的服务端配置。 |
 | `kubernetes.seatunnel-config-file` | string | no | `config/seatunnel.yaml` | 传给 `-Dseatunnel.config` 的引擎配置文件：相对 `<seatunnel-home>` 的路径或绝对 `.yaml`/`.yml` 路径。 |
+| `kubernetes.master.enable-http` | boolean | no | - | 设置后覆盖 `seatunnel.yaml` 的 `enable-http`。不设置则沿用 yaml。`false` 会关闭 Master 的 HTTP 服务。只有开启 HTTP 时 Service 才发布 `http` 端口。 |
+| `kubernetes.master.http-port` | int | no | - | 设置后覆盖 `seatunnel.yaml` 的 `port`。不设置则沿用 yaml。超出 1–65535 或与 `application.master.port` 相同会被拒绝。 |
 | `kubernetes.master.labels` | map | no | - | Master Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
 | `kubernetes.worker.labels` | map | no | - | Worker Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
 | `kubernetes.master.annotations` | map | no | - | Master Pod annotation，格式为逗号分隔的 `key:value`。 |
@@ -267,6 +269,14 @@ kubernetes {
 凭据不要放进 ConfigMap：它不具备保密性。作业需要凭据时使用 Secret + `kubernetes.env` /
 `${VAR}` 注入。
 :::
+
+## Master HTTP
+
+Master 的 HTTP 来自 `seatunnel.yaml`。随发行包提供的文件是 `enable-http: true`、`port: 8080`，因此 Master 监听 8080，headless Service 也暴露这个端口。Worker 不提供 HTTP。在 `seatunnel.yaml` 里写 `enable-http: false` 即可关闭。
+
+每个 `kubernetes.master.*` key 只覆盖对应的那一项。没写的 key 沿用 `seatunnel.yaml`。`kubernetes.master.enable-http` 覆盖 `enable-http`，`kubernetes.master.http-port` 覆盖 `port`。`false` 会关闭 HTTP 服务。
+
+Service 端口在提交时确定。部署文件里的 ConfigMap `data` 挂到 `kubernetes.seatunnel-config-file` 时，用这份内容。只写 ConfigMap `ref` 时，提交端读不到其中的文件并会打出警告，Service 端口来自提交端的 `seatunnel.yaml`，Master 用的是 Pod 里挂载的文件。哪一项要和 yaml 不同，就写对应的 key。
 
 ## ConfigMap 与运行时文件
 

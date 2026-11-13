@@ -25,6 +25,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJ
 
 import io.kubernetes.client.custom.IntOrString;
 import io.kubernetes.client.openapi.models.V1Container;
+import io.kubernetes.client.openapi.models.V1ContainerPort;
 import io.kubernetes.client.openapi.models.V1EnvVar;
 import io.kubernetes.client.openapi.models.V1EnvVarSource;
 import io.kubernetes.client.openapi.models.V1Job;
@@ -113,6 +114,14 @@ public final class ApplicationJobFactory extends AbstractWorkloadFactory {
                         applicationId));
         container.addEnvItem(masterHostEnv());
         addMasterProbes(container, specification);
+        Integer httpPort = parameters.httpContainerPort();
+        if (httpPort != null) {
+            container.addPortsItem(
+                    new V1ContainerPort()
+                            .name(KubernetesConstants.HTTP_PORT_NAME)
+                            .containerPort(httpPort)
+                            .protocol("TCP"));
+        }
         V1PodSpec pod = podSpec(container, true);
         String checkpointClaim = parameters.getCheckpointPvc();
         if (checkpointClaim != null) {
