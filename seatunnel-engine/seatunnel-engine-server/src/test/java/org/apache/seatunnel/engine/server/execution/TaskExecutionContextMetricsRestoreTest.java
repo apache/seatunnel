@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.execution;
 
 import org.apache.seatunnel.api.common.metrics.MetricNames;
-import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
@@ -32,16 +31,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import com.hazelcast.internal.metrics.MetricDescriptor;
-import com.hazelcast.internal.metrics.MetricsCollectionContext;
-import com.hazelcast.internal.metrics.ProbeLevel;
-import com.hazelcast.internal.metrics.ProbeUnit;
-import com.hazelcast.internal.metrics.impl.DefaultMetricDescriptorSupplier;
-
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
+
+import static org.apache.seatunnel.engine.server.metrics.MetricsTestUtils.exportDynamicCounters;
 
 public class TaskExecutionContextMetricsRestoreTest {
 
@@ -197,6 +192,38 @@ public class TaskExecutionContextMetricsRestoreTest {
         // Register unrelated cumulative metric on Task A
         contextA.counter(MetricNames.SOURCE_RECEIVED_COUNT).inc(500);
 
+        // Verify initial queue ownership on first execution before restoration:
+        Map<String, Long> initialExportedA = exportDynamicCounters(contextA, jobId);
+        Map<String, Long> initialExportedB = exportDynamicCounters(contextB, jobId);
+
+        // 1. Task A owns and exports all three queue-specific metrics with initial values
+        Assertions.assertEquals(
+                2048L,
+                initialExportedA.get(MetricNames.INTERMEDIATE_QUEUE_CAPACITY + "#" + queueId),
+                "Initial execution: Task A must export intermediate queue capacity 2048");
+        Assertions.assertEquals(
+                50L,
+                initialExportedA.get(MetricNames.INTERMEDIATE_QUEUE_SIZE + "#" + queueId),
+                "Initial execution: Task A must export intermediate queue size 50");
+        Assertions.assertEquals(
+                10_000L,
+                initialExportedA.get(
+                        MetricNames.INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS + "#" + queueId),
+                "Initial execution: Task A must export intermediate queue put blocked nanos 10000");
+
+        // 2. Task B does not own or export any of the queue-specific metrics
+        Assertions.assertFalse(
+                initialExportedB.containsKey(
+                        MetricNames.INTERMEDIATE_QUEUE_CAPACITY + "#" + queueId),
+                "Initial execution: Task B must not export intermediate queue capacity");
+        Assertions.assertFalse(
+                initialExportedB.containsKey(MetricNames.INTERMEDIATE_QUEUE_SIZE + "#" + queueId),
+                "Initial execution: Task B must not export intermediate queue size");
+        Assertions.assertFalse(
+                initialExportedB.containsKey(
+                        MetricNames.INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS + "#" + queueId),
+                "Initial execution: Task B must not export intermediate queue put blocked nanos");
+
         // Store both task metrics contexts in the snapshot store
         snapshotMap.put(taskLocationA, contextA);
         snapshotMap.put(taskLocationB, contextB);
@@ -246,6 +273,14 @@ public class TaskExecutionContextMetricsRestoreTest {
                 2048L,
                 exportedB.get(MetricNames.INTERMEDIATE_QUEUE_CAPACITY + "#" + queueId),
                 "Task B must contain the newly registered queue capacity with value 2048");
+        Assertions.assertEquals(
+                0L,
+                exportedB.get(MetricNames.INTERMEDIATE_QUEUE_SIZE + "#" + queueId),
+                "Task B must contain the newly registered queue size with initial value 0");
+        Assertions.assertEquals(
+                0L,
+                exportedB.get(MetricNames.INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS + "#" + queueId),
+                "Task B must contain the newly registered queue put blocked nanos with initial value 0");
 
         // Exactly one of the two contexts exports the queue-ID-specific capacity metric
         int capacityOwnerCount =
@@ -451,45 +486,5 @@ public class TaskExecutionContextMetricsRestoreTest {
                             + execution
                             + ": Task A must retain its cumulative SourceReceivedCount across restorations");
         }
-    }
-
-    private static Map<String, Long> exportDynamicCounters(
-            SeaTunnelMetricsContext context, long jobId) {
-        Map<String, Long> map = new HashMap<>();
-        MetricDescriptor tagger =
-                DefaultMetricDescriptorSupplier.DEFAULT_DESCRIPTOR_SUPPLIER
-                        .get()
-                        .withTag(MetricTags.JOB_ID, String.valueOf(jobId));
-        context.provideDynamicMetrics(
-                tagger,
-                new MetricsCollectionContext() {
-                    @Override
-                    public void collect(
-                            MetricDescriptor descriptor,
-                            String name,
-                            ProbeLevel probeLevel,
-                            ProbeUnit probeUnit,
-                            long value) {
-                        map.put(name, value);
-                    }
-
-                    @Override
-                    public void collect(MetricDescriptor descriptor, Object value) {}
-
-                    @Override
-                    public void collect(
-                            MetricDescriptor descriptor,
-                            String name,
-                            ProbeLevel probeLevel,
-                            ProbeUnit probeUnit,
-                            double value) {}
-
-                    @Override
-                    public void collect(MetricDescriptor descriptor, long value) {}
-
-                    @Override
-                    public void collect(MetricDescriptor descriptor, double value) {}
-                });
-        return map;
     }
 }

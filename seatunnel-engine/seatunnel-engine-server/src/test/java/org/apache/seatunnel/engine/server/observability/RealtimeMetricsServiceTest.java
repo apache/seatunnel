@@ -43,6 +43,7 @@ import com.hazelcast.internal.metrics.impl.MetricsCompressor;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
@@ -50,6 +51,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import static org.apache.seatunnel.engine.server.metrics.MetricsTestUtils.exportDynamicCounters;
 
 public class RealtimeMetricsServiceTest {
 
@@ -347,6 +350,8 @@ public class RealtimeMetricsServiceTest {
 
         Assertions.assertEquals(1L, latestPoint.get("subtaskCount"));
         Assertions.assertEquals(2048L, latestPoint.get("queueCapacity"));
+        Assertions.assertEquals(200L, latestPoint.get("queueSize"));
+        Assertions.assertEquals(200.0 / 2048.0, (Double) latestPoint.get("queueFillRatio"), 1e-6);
 
         // Backpressure denominator: TimeUnit.MILLISECONDS.toNanos(bucketMs) * subtaskCount
         // Denominator = 5_000_000_000.0 (uses 1 current queue-bearing group)
@@ -354,8 +359,355 @@ public class RealtimeMetricsServiceTest {
         double expectedBpRatio =
                 ((double) emitBlockedNs)
                         / ((double) TimeUnit.MILLISECONDS.toNanos(bucketMs) * subtaskCount);
-        Assertions.assertEquals(0.50, expectedBpRatio, 1e-6);
         Assertions.assertEquals(expectedBpRatio, (Double) latestPoint.get("bpRatio"), 1e-6);
+    }
+
+    @Test
+    public void testFiveGroupIntermediateQueueMetricsRestorationAndRealtimeAggregation()
+            throws Exception {
+        long jobId = 1001L;
+        long queueId = -2L;
+        int capacity = 2048;
+        int groupCount = 5;
+
+        Map<TaskLocation, SeaTunnelMetricsContext> snapshotMap = new HashMap<>();
+
+        List<TaskLocation> taskLocationAList = new ArrayList<>();
+        List<TaskLocation> taskLocationBList = new ArrayList<>();
+        List<SeaTunnelMetricsContext> initialContextBList = new ArrayList<>();
+
+        // 1. INITIAL EXECUTION:
+        // For each of the five parallel task groups, initialize its queue group.
+        // Task A accesses the queue first and claims ownership; Task B accesses second.
+        for (int i = 0; i < groupCount; i++) {
+            TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobId, 1, (long) i);
+            TaskLocation taskLocationA = new TaskLocation(taskGroupLocation, 0L, i);
+            TaskLocation taskLocationB = new TaskLocation(taskGroupLocation, 1L, i);
+            taskLocationAList.add(taskLocationA);
+            taskLocationBList.add(taskLocationB);
+
+            SeaTunnelMetricsContext contextA = new SeaTunnelMetricsContext();
+            SeaTunnelMetricsContext contextB = new SeaTunnelMetricsContext();
+            initialContextBList.add(contextB);
+
+            TaskGroupWithIntermediateBlockingQueue taskGroup1 =
+                    new TaskGroupWithIntermediateBlockingQueue(
+                            taskGroupLocation, "group1-" + i, Collections.emptyList());
+            taskGroup1.init();
+
+            // Task A accesses the queue first and claims ownership
+            taskGroup1.getQueueCache(queueId, capacity, contextA);
+            // Task B accesses the same queue second
+            taskGroup1.getQueueCache(queueId, capacity, contextB);
+
+            // Verify ownership is initially assigned to Task A
+            Map<String, Long> initialExportedA = exportDynamicCounters(contextA, jobId);
+            Map<String, Long> initialExportedB = exportDynamicCounters(contextB, jobId);
+            Assertions.assertEquals(
+                    (long) capacity,
+                    initialExportedA.get(MetricNames.INTERMEDIATE_QUEUE_CAPACITY + "#" + queueId),
+                    "Group " + i + ": Task A must own the initial intermediate queue capacity");
+            Assertions.assertFalse(
+                    initialExportedB.containsKey(
+                            MetricNames.INTERMEDIATE_QUEUE_CAPACITY + "#" + queueId),
+                    "Group "
+                            + i
+                            + ": Task B must not own the intermediate queue capacity initially");
+
+            // Populate Task A with historical values
+            contextA.counter(MetricNames.INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS + "#" + queueId)
+                    .inc(1_000_000_000L);
+            contextA.counter(MetricNames.INTERMEDIATE_QUEUE_SIZE + "#" + queueId).set(100);
+            // Register an unrelated cumulative metric on Task A to verify persistence across
+            // restoration
+            contextA.counter(MetricNames.SOURCE_RECEIVED_COUNT).inc(500);
+
+            // Store both task contexts in snapshot store
+            snapshotMap.put(taskLocationA, contextA);
+            snapshotMap.put(taskLocationB, contextB);
+        }
+
+        // Set up TaskExecutionContext backed by the snapshot store
+        MetricsSnapshotStateStore snapshotStore = Mockito.mock(MetricsSnapshotStateStore.class);
+        Mockito.when(
+                        snapshotStore.getOrDefault(
+                                Mockito.any(TaskLocation.class),
+                                Mockito.any(SeaTunnelMetricsContext.class)))
+                .thenAnswer(
+                        inv -> snapshotMap.getOrDefault(inv.getArgument(0), inv.getArgument(1)));
+
+        EngineStateStores stateStores = Mockito.mock(EngineStateStores.class);
+        Mockito.when(stateStores.metricsSnapshotStore()).thenReturn(snapshotStore);
+
+        SeaTunnelEngineContext engineContext = SeaTunnelEngineContext.builder(stateStores).build();
+        TaskExecutionContext executionContext =
+                new TaskExecutionContext(null, null, engineContext, null);
+
+        // Verify non-queue tasks do not pollute queue metrics aggregation.
+        TaskGroupLocation coordinatorGroupLocation = new TaskGroupLocation(jobId, 0, 0L);
+        TaskLocation coordinatorTaskLocation = new TaskLocation(coordinatorGroupLocation, 0L, 0);
+        SeaTunnelMetricsContext coordinatorContext = new SeaTunnelMetricsContext();
+        coordinatorContext.counter(MetricNames.SOURCE_RECEIVED_COUNT).inc(100);
+        snapshotMap.put(coordinatorTaskLocation, coordinatorContext);
+        SeaTunnelMetricsContext restoredCoordinatorContext =
+                executionContext.getOrCreateMetricsContext(coordinatorTaskLocation);
+
+        // 2. RESTORATION:
+        // For each group, create and initialize a new TaskGroupWithIntermediateBlockingQueue.
+        // Task B accesses the new queue first and becomes the new owner.
+        // Task A restores through TaskExecutionContext.getOrCreateMetricsContext().
+        List<SeaTunnelMetricsContext> restoredContextAList = new ArrayList<>();
+        List<SeaTunnelMetricsContext> restoredContextBList = new ArrayList<>();
+
+        for (int i = 0; i < groupCount; i++) {
+            TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobId, 1, (long) i);
+            TaskLocation taskLocationA = taskLocationAList.get(i);
+
+            TaskGroupWithIntermediateBlockingQueue taskGroup2 =
+                    new TaskGroupWithIntermediateBlockingQueue(
+                            taskGroupLocation, "group2-" + i, Collections.emptyList());
+            taskGroup2.init();
+
+            // Task B is reused from the initial run rather than restored via
+            // getOrCreateMetricsContext.
+            SeaTunnelMetricsContext restoredContextB = initialContextBList.get(i);
+            // Task B accesses the new queue first and becomes the owner
+            taskGroup2.getQueueCache(queueId, capacity, restoredContextB);
+
+            // Set full queue size = 2048 and baseline blocked nanos = 2_500_000_000L
+            restoredContextB.counter(MetricNames.INTERMEDIATE_QUEUE_SIZE + "#" + queueId).set(2048);
+            restoredContextB
+                    .counter(MetricNames.INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS + "#" + queueId)
+                    .inc(2_500_000_000L);
+
+            // Restore Task A through TaskExecutionContext (which cleans stale queue metrics)
+            SeaTunnelMetricsContext restoredContextA =
+                    executionContext.getOrCreateMetricsContext(taskLocationA);
+
+            // Verify Task A's stale queue metrics have been cleaned
+            Map<String, Long> restoredExportedA = exportDynamicCounters(restoredContextA, jobId);
+            Assertions.assertFalse(
+                    restoredExportedA.containsKey(
+                            MetricNames.INTERMEDIATE_QUEUE_CAPACITY + "#" + queueId),
+                    "Group " + i + ": Task A stale capacity must be cleaned on restore");
+            Assertions.assertFalse(
+                    restoredExportedA.containsKey(
+                            MetricNames.INTERMEDIATE_QUEUE_SIZE + "#" + queueId),
+                    "Group " + i + ": Task A stale queue size must be cleaned on restore");
+            Assertions.assertFalse(
+                    restoredExportedA.containsKey(
+                            MetricNames.INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS + "#" + queueId),
+                    "Group " + i + ": Task A stale put blocked nanos must be cleaned on restore");
+            Assertions.assertFalse(
+                    restoredExportedA.containsKey(MetricNames.INTERMEDIATE_QUEUE_SIZE),
+                    "Group "
+                            + i
+                            + ": Task A stale aggregate queue size must be cleaned on restore");
+
+            // Verify Task A's unrelated cumulative metrics survive
+            Assertions.assertEquals(
+                    500L,
+                    restoredExportedA.get(MetricNames.SOURCE_RECEIVED_COUNT),
+                    "Group "
+                            + i
+                            + ": Task A unrelated cumulative metrics must survive restoration");
+
+            // Task A accesses the queue second
+            taskGroup2.getQueueCache(queueId, capacity, restoredContextA);
+
+            // Verify exactly one queue metric owner in this group (Task B owns capacity 2048)
+            Map<String, Long> restoredExportedB = exportDynamicCounters(restoredContextB, jobId);
+            Assertions.assertEquals(
+                    (long) capacity,
+                    restoredExportedB.get(MetricNames.INTERMEDIATE_QUEUE_CAPACITY + "#" + queueId));
+            Map<String, Long> postAccessExportedA = exportDynamicCounters(restoredContextA, jobId);
+            Assertions.assertFalse(
+                    postAccessExportedA.containsKey(
+                            MetricNames.INTERMEDIATE_QUEUE_CAPACITY + "#" + queueId));
+
+            restoredContextAList.add(restoredContextA);
+            restoredContextBList.add(restoredContextB);
+        }
+
+        // 3. METRICS COLLECTION & AGGREGATION:
+        MetricDescriptor tagger =
+                DefaultMetricDescriptorSupplier.DEFAULT_DESCRIPTOR_SUPPLIER
+                        .get()
+                        .withTag(MetricTags.JOB_ID, String.valueOf(jobId));
+
+        MetricsCompressor compressor = new MetricsCompressor();
+        MetricsCollectionContext collectionContext = createMetricsCollectionContext(compressor);
+
+        // Collect all ten restored worker contexts plus the non-queue coordinator context
+        for (int i = 0; i < groupCount; i++) {
+            restoredContextAList.get(i).provideDynamicMetrics(tagger, collectionContext);
+            restoredContextBList.get(i).provideDynamicMetrics(tagger, collectionContext);
+        }
+        restoredCoordinatorContext.provideDynamicMetrics(tagger, collectionContext);
+
+        RawJobMetrics rawJobMetrics = RawJobMetrics.of(compressor.getBlobAndReset());
+
+        Method aggMethod =
+                RealtimeMetricsService.class.getDeclaredMethod(
+                        "aggregateRawMetrics", List.class, Set.class);
+        aggMethod.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<Long, ?> aggByJobId =
+                (Map<Long, ?>)
+                        aggMethod.invoke(
+                                null,
+                                Collections.singletonList(rawJobMetrics),
+                                Collections.singleton(jobId));
+        Object jobAgg = aggByJobId.get(jobId);
+        Assertions.assertNotNull(jobAgg, "jobAgg should not be null for enabled job");
+
+        // Verify aggregated metric rows for queue ID -2 across five groups:
+        // Exactly five metric owners for queue ID -2
+        Object queueCapacityAgg = getField(jobAgg, "queueCapacity", Object.class);
+        Object queueSizeAgg = getField(jobAgg, "queueSize", Object.class);
+        Object queuePutBlockedNsAgg = getField(jobAgg, "queuePutBlockedNs", Object.class);
+
+        Map<?, ?> capacityCountById = getField(queueCapacityAgg, "countById", Map.class);
+        Map<?, ?> sizeCountById = getField(queueSizeAgg, "countById", Map.class);
+        Map<?, ?> blockedCountById = getField(queuePutBlockedNsAgg, "countById", Map.class);
+
+        Assertions.assertEquals(
+                1,
+                capacityCountById.size(),
+                "Coordinator metrics must not appear in queue capacity aggregation");
+        Assertions.assertEquals(
+                1,
+                sizeCountById.size(),
+                "Coordinator metrics must not appear in queue size aggregation");
+        Assertions.assertEquals(
+                1,
+                blockedCountById.size(),
+                "Coordinator metrics must not appear in queue blocked nanos aggregation");
+        Assertions.assertFalse(
+                capacityCountById.containsKey(coordinatorTaskLocation.getTaskID()),
+                "Coordinator task must not appear in queue capacity aggregation");
+        Assertions.assertFalse(
+                sizeCountById.containsKey(coordinatorTaskLocation.getTaskID()),
+                "Coordinator task must not appear in queue size aggregation");
+        Assertions.assertFalse(
+                blockedCountById.containsKey(coordinatorTaskLocation.getTaskID()),
+                "Coordinator task must not appear in queue blocked nanos aggregation");
+
+        Assertions.assertEquals(
+                5,
+                capacityCountById.get(queueId),
+                "Expected exactly five capacity metric rows (one per group) for queue ID -2");
+        Assertions.assertEquals(
+                5,
+                sizeCountById.get(queueId),
+                "Expected exactly five queue-size metric rows (one per group) for queue ID -2");
+        Assertions.assertEquals(
+                5,
+                blockedCountById.get(queueId),
+                "Expected exactly five blocked-time metric rows (one per group) for queue ID -2");
+
+        // Baseline update into JobStore
+        long bucketMs = 5000L;
+        Object store = newJobStore(bucketMs, 3);
+        long nowMs = System.currentTimeMillis();
+        long baseMs = nowMs - bucketMs;
+
+        invokeUpdate(store, baseMs, jobAgg);
+
+        // Next window update (+5000ms):
+        // Each of the five owners contributes another 2,500,000,000L blocked nanos (50% of bucket
+        // allowance)
+        for (int i = 0; i < groupCount; i++) {
+            restoredContextBList
+                    .get(i)
+                    .counter(MetricNames.INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS + "#" + queueId)
+                    .inc(2_500_000_000L);
+        }
+
+        MetricsCompressor nextCompressor = new MetricsCompressor();
+        MetricsCollectionContext nextCollectionContext =
+                createMetricsCollectionContext(nextCompressor);
+
+        for (int i = 0; i < groupCount; i++) {
+            restoredContextAList.get(i).provideDynamicMetrics(tagger, nextCollectionContext);
+            restoredContextBList.get(i).provideDynamicMetrics(tagger, nextCollectionContext);
+        }
+        restoredCoordinatorContext.provideDynamicMetrics(tagger, nextCollectionContext);
+
+        RawJobMetrics nextRaw = RawJobMetrics.of(nextCompressor.getBlobAndReset());
+
+        @SuppressWarnings("unchecked")
+        Map<Long, ?> nextAggByJobId =
+                (Map<Long, ?>)
+                        aggMethod.invoke(
+                                null,
+                                Collections.singletonList(nextRaw),
+                                Collections.singleton(jobId));
+        Object nextJobAgg = nextAggByJobId.get(jobId);
+
+        invokeUpdate(store, nowMs, nextJobAgg);
+
+        // Verify underlying bucket aggregations:
+        // queueCapacity = 5 * 2048 = 10240
+        long queueCapacity = latestEdgeBucketLong(store, queueId, "capacitySum");
+        Assertions.assertEquals(
+                10240L, queueCapacity, "queueCapacity must be 10240 (5 groups * 2048)");
+
+        // subtaskCount = 5
+        long subtaskCount = latestEdgeBucketLong(store, queueId, "subtaskCount");
+        Assertions.assertEquals(5L, subtaskCount, "subtaskCount must be 5");
+
+        // emitBlockedNs = 5 * 2,500,000,000 = 12,500,000,000
+        long emitBlockedNs = latestEdgeBucketLong(store, queueId, "emitBlockedNs");
+        Assertions.assertEquals(12_500_000_000L, emitBlockedNs);
+
+        // queueSizeSum = 5 * 2048 = 10240
+        long queueSizeSum = latestEdgeBucketLong(store, queueId, "queueSizeSum");
+        Assertions.assertEquals(
+                10240L, queueSizeSum, "queueSizeSum must be 10240 (5 groups * 2048)");
+
+        // Verify edge response aggregation using the populated in-memory store.
+        RealtimeMetricsService service = new RealtimeMetricsService(null, null);
+        try {
+            Field jobStoresField = RealtimeMetricsService.class.getDeclaredField("jobStores");
+            jobStoresField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<Long, Object> jobStores = (Map<Long, Object>) jobStoresField.get(service);
+            jobStores.put(jobId, store);
+
+            Map<String, Object> edgesResponse = service.getJobEdges(jobId, 60_000L);
+            Assertions.assertNotNull(edgesResponse);
+            Assertions.assertEquals(bucketMs, edgesResponse.get("bucketMs"));
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> edges =
+                    (List<Map<String, Object>>) edgesResponse.get("edges");
+            Assertions.assertEquals(1, edges.size());
+            Map<String, Object> edge = edges.get(0);
+            Assertions.assertEquals(queueId, edge.get("queueId"));
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> points = (List<Map<String, Object>>) edge.get("points");
+            Assertions.assertFalse(points.isEmpty());
+            Map<String, Object> latestPoint = points.get(points.size() - 1);
+
+            // Assertions for the 5-group full queue scenario:
+            Assertions.assertEquals(5L, latestPoint.get("subtaskCount"));
+            Assertions.assertEquals(10240L, latestPoint.get("queueCapacity"));
+            Assertions.assertEquals(10240L, latestPoint.get("queueSize"));
+            Assertions.assertEquals(1.0, (Double) latestPoint.get("queueFillRatio"), 1e-6);
+
+            // Backpressure denominator: TimeUnit.MILLISECONDS.toNanos(bucketMs) * subtaskCount
+            // Denominator = 5_000_000_000 * 5 = 25_000_000_000.0
+            // emitBlockedNs = 12_500_000_000.0
+            // bpRatio = 12_500_000_000.0 / 25_000_000_000.0 = 0.50
+            double expectedBpRatio =
+                    ((double) emitBlockedNs)
+                            / ((double) TimeUnit.MILLISECONDS.toNanos(bucketMs) * subtaskCount);
+            Assertions.assertEquals(expectedBpRatio, (Double) latestPoint.get("bpRatio"), 1e-6);
+        } finally {
+            service.shutdown();
+        }
     }
 
     private static Object newJobStore(long bucketMs, int retentionMinutes) throws Exception {
@@ -429,5 +781,37 @@ public class RealtimeMetricsServiceTest {
         Field f = target.getClass().getDeclaredField(field);
         f.setAccessible(true);
         return (T) f.get(target);
+    }
+
+    private static MetricsCollectionContext createMetricsCollectionContext(
+            MetricsCompressor compressor) {
+        return new MetricsCollectionContext() {
+            @Override
+            public void collect(
+                    MetricDescriptor descriptor,
+                    String name,
+                    ProbeLevel probeLevel,
+                    ProbeUnit probeUnit,
+                    long value) {
+                compressor.addLong(descriptor.copy().withMetric(name), value);
+            }
+
+            @Override
+            public void collect(MetricDescriptor descriptor, Object value) {}
+
+            @Override
+            public void collect(
+                    MetricDescriptor descriptor,
+                    String name,
+                    ProbeLevel level,
+                    ProbeUnit unit,
+                    double value) {}
+
+            @Override
+            public void collect(MetricDescriptor descriptor, long value) {}
+
+            @Override
+            public void collect(MetricDescriptor descriptor, double value) {}
+        };
     }
 }
