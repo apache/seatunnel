@@ -459,6 +459,7 @@ Public Domain License
 The following components are provided under the Public Domain License. See project link for details.
 The text of each license is also included at licenses/LICENSE-[project].txt.
 
+     (Public Domain) JSON-java (org.json:json:20230227 - https://github.com/stleary/JSON-java)
      (Public Domain) XZ for Java (org.tukaani:xz:1.5 - http://tukaani.org/xz/java.html)
 
 ========================================================================
