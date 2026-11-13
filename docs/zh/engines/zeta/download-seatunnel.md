@@ -80,8 +80,10 @@ connector-console
 
 | artifactId                   | version      | Maven                                                                                                      |
 |------------------------------| ------------ |------------------------------------------------------------------------------------------------------------|
-| seatunnel-shade-hadoop3-uber | 3.1.4-3.0.0   | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop3-uber/3.1.4-3.0.0/seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar) |
+| seatunnel-shade-hadoop3-uber | 3.1.4-3.0.1   | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop3-uber/3.1.4-3.0.1/seatunnel-shade-hadoop3-uber-3.1.4-3.0.1.jar) |
 | seatunnel-shade-hadoop-aws   | 3.1.4-3.0.0 | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop-aws/3.1.4-3.0.0/seatunnel-shade-hadoop-aws-3.1.4-3.0.0.jar)   |
+
+标准安装请使用 SeaTunnel 发行包 `lib/` 目录自带的 Hadoop Uber JAR。
 
 ### 重要说明
 

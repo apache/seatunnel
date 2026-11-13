@@ -80,8 +80,10 @@ Starting from version 3.0.0, the shade modules have been moved to a separate pro
 
 | artifactId                   | version      | Maven                                                                                                        |
 |------------------------------|--------------|--------------------------------------------------------------------------------------------------------------|
-| seatunnel-shade-hadoop3-uber | 3.1.4-3.0.0   | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop3-uber/3.1.4-3.0.0/seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar) |
+| seatunnel-shade-hadoop3-uber | 3.1.4-3.0.1   | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop3-uber/3.1.4-3.0.1/seatunnel-shade-hadoop3-uber-3.1.4-3.0.1.jar) |
 | seatunnel-shade-hadoop-aws   | 3.1.4-3.0.0 | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop-aws/3.1.4-3.0.0/seatunnel-shade-hadoop-aws-3.1.4-3.0.0.jar)   |
+
+For a standard installation, use the Hadoop Uber JAR already bundled in the SeaTunnel distribution's `lib/` directory.
 
 ### Important notes
 
