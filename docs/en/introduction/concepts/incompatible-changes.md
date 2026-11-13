@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Doris source: `case_sensitive = false` now lowercases a single-table `database`/`table`
+
+- **Behavior change: a single-table Doris source configured with `case_sensitive = false` resolves the `database` and `table` names in lowercase**
+  - **Description**: The `case_sensitive` option was introduced for the Doris source in 2.3.11, but the lowercase conversion was applied to an intermediate object that was then discarded, so the option never took effect and the configured spelling reached the query-plan requests unchanged. The conversion now applies to the table configuration the source actually uses. The option only affects a single table configured through `database` and `table`; `table_list` entries and the default (`true`) keep their behavior.
+  - **Impact**: A job that sets `case_sensitive = false` with mixed-case names now resolves `TestDB.TestTable` to `testdb.testtable`. On a cluster whose name matching is case-sensitive this selects a different object, or the lookup fails. A saved checkpoint from an earlier version can also hold splits with the original mixed-case names: restored into a source that now keys its tables by the lowercase names, the reader fails with `the table 'TestDB.TestTable' cannot be found in table_list of job configuration` instead of reading the split.
+  - **Migration Guide**: To keep the historical spelling, set `case_sensitive = true` or remove the option (the default is `true`). To keep using `case_sensitive = false`, restart the job from a new checkpoint after the upgrade instead of restoring an old one; saved splits are not rewritten, so an old mixed-case checkpoint cannot serve a job whose identifiers are now lowercase.
+
 ### Lance sink: BIGINT columns are created as int64
 
 - **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**

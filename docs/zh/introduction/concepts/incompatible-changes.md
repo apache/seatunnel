@@ -4,6 +4,13 @@
 
 ## dev
 
+### Doris Source：`case_sensitive = false` 现在会将单表 `database`/`table` 转为小写
+
+- **行为变更：单表 Doris Source 配置 `case_sensitive = false` 时，`database` 与 `table` 名称按小写解析**
+  - **描述**：`case_sensitive` 选项自 2.3.11 起就已存在于 Doris Source，但小写转换作用在一个随后被丢弃的中间对象上，该选项从未生效，配置中的原始大小写会原样进入 query-plan 请求。现在转换作用于 Source 实际使用的表配置。该选项只影响通过 `database` 和 `table` 配置的单表；`table_list` 条目与默认值（`true`）行为不变。
+  - **影响**：配置 `case_sensitive = false` 且名称含大写的作业，现在会把 `TestDB.TestTable` 解析为 `testdb.testtable`。在名称匹配区分大小写的集群上，这会选中另一个对象，或导致查找失败。早期版本保存的 checkpoint 中也可能持有原始大小写名称的 split：恢复到如今按小写名称索引表的 Source 时，Reader 会报 `the table 'TestDB.TestTable' cannot be found in table_list of job configuration` 而失败，而不是读取该 split。
+  - **迁移指南**：要保持历史拼写，请设置 `case_sensitive = true` 或删除该选项（默认值为 `true`）。要继续使用 `case_sensitive = false`，请在升级后从新的 checkpoint 启动作业，而不要恢复旧的 checkpoint；已保存的 split 不会被改写，因此旧的混大小写 checkpoint 无法服务于标识符已变为小写的作业。
+
 ### Lance Sink：BIGINT 列创建为 int64
 
 - **行为变更：Lance Sink 创建的数据集中，`BIGINT` 列为 Arrow `int64`**
