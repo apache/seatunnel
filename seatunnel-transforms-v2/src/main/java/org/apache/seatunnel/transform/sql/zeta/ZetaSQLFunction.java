@@ -1121,8 +1121,12 @@ public class ZetaSQLFunction {
         Expression conditionExpr = expressions.get(0);
         Object conditionResult;
 
-        if (conditionExpr instanceof BinaryExpression
-                && zetaSQLFilter.isConditionExpr(conditionExpr)) {
+        Expression unwrappedCondition = conditionExpr;
+        while (unwrappedCondition instanceof Parenthesis) {
+            unwrappedCondition = ((Parenthesis) unwrappedCondition).getExpression();
+        }
+        if (zetaSQLFilter.isConditionExpr(conditionExpr)
+                && !(unwrappedCondition instanceof Column)) {
             conditionResult = zetaSQLFilter.executeFilter(conditionExpr, inputFields);
         } else {
             conditionResult = computeForValue(conditionExpr, inputFields);
@@ -1139,7 +1143,11 @@ public class ZetaSQLFunction {
         Expression branchExpr =
                 Boolean.TRUE.equals(conditionResult) ? expressions.get(1) : expressions.get(2);
         Object result = computeForValue(branchExpr, inputFields);
-        return SystemFunction.castAs(result, zetaSQLType.getExpressionType(function));
+        SeaTunnelDataType<?> resultType = zetaSQLType.getExpressionType(function);
+        if (result == null || resultType.equals(zetaSQLType.getExpressionType(branchExpr))) {
+            return result;
+        }
+        return SystemFunction.castAs(result, resultType);
     }
 
     private Object computeDateTimeLiteralExpression(DateTimeLiteralExpression expression) {

@@ -322,7 +322,57 @@ public class ZetaSQLType {
         if (BasicType.STRING_TYPE.equals(trueType) || BasicType.STRING_TYPE.equals(falseType)) {
             return BasicType.STRING_TYPE;
         }
+        SeaTunnelDataType<?> decimalMergedType = mergeIfDecimalType(trueType, falseType);
+        if (decimalMergedType != null) {
+            return decimalMergedType;
+        }
         return getMaxType(trueType, falseType);
+    }
+
+    private SeaTunnelDataType<?> mergeIfDecimalType(
+            SeaTunnelDataType<?> trueType, SeaTunnelDataType<?> falseType) {
+        DecimalType decimalType;
+        SeaTunnelDataType<?> otherType;
+        if (trueType.getSqlType() == SqlType.DECIMAL) {
+            decimalType = (DecimalType) trueType;
+            otherType = falseType;
+        } else if (falseType.getSqlType() == SqlType.DECIMAL) {
+            decimalType = (DecimalType) falseType;
+            otherType = trueType;
+        } else {
+            return null;
+        }
+        int decimalIntegerDigits = decimalType.getPrecision() - decimalType.getScale();
+        if (otherType.getSqlType() == SqlType.DECIMAL) {
+            DecimalType otherDecimalType = (DecimalType) otherType;
+            int otherIntegerDigits = otherDecimalType.getPrecision() - otherDecimalType.getScale();
+            int scale = Math.max(decimalType.getScale(), otherDecimalType.getScale());
+            return new DecimalType(
+                    Math.max(decimalIntegerDigits, otherIntegerDigits) + scale, scale);
+        }
+        switch (otherType.getSqlType()) {
+            case TINYINT:
+                return new DecimalType(
+                        Math.max(decimalIntegerDigits, 3) + decimalType.getScale(),
+                        decimalType.getScale());
+            case SMALLINT:
+                return new DecimalType(
+                        Math.max(decimalIntegerDigits, 5) + decimalType.getScale(),
+                        decimalType.getScale());
+            case INT:
+                return new DecimalType(
+                        Math.max(decimalIntegerDigits, 10) + decimalType.getScale(),
+                        decimalType.getScale());
+            case BIGINT:
+                return new DecimalType(
+                        Math.max(decimalIntegerDigits, 19) + decimalType.getScale(),
+                        decimalType.getScale());
+            case FLOAT:
+            case DOUBLE:
+                return BasicType.DOUBLE_TYPE;
+            default:
+                return null;
+        }
     }
 
     private SeaTunnelDataType<?> getCaseType(CaseExpression caseExpression) {
