@@ -5,6 +5,15 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### DES SQL functions: versioned ciphertext with a per-value IV
+
+`DES_ENCRYPT` in SQL/Zeta and Calcite now returns `STDES1:` followed by Base64 of an 8-byte IV and the ciphertext. Each call uses a fresh random IV, so encrypting the same value with the same password produces different output. `DES_DECRYPT` reads both this format and historical Base64 ciphertext; old runtimes cannot decrypt new output.
+
+Before upgrading writers, upgrade all readers, including consumers outside SeaTunnel, and allow sufficient target-column capacity for the prefix and IV. Do not use encrypted values as deterministic join, deduplication, or replay keys. Existing ciphertext is not rewritten automatically. Encryption errors now fail instead of returning unencrypted input; malformed versioned ciphertext also fails rather than returning the supplied value. Legacy invalid-ciphertext behavior remains unchanged.
+
+The SQL signatures, null handling and password interpretation are unchanged. DES remains a legacy algorithm with a 56-bit effective key and CBC does not authenticate ciphertext; this format change does not make it a modern authenticated encryption scheme.
+
+
 ### Lance sink: BIGINT columns are created as int64
 
 - **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**

@@ -4312,4 +4312,25 @@ class CalciteSQLEngineTest {
             Locale.setDefault(original);
         }
     }
+
+    @Test
+    void testDesEncryptionUsesFreshIvForRepeatedRowsAndLiterals() {
+        CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT DES_ENCRYPT('password123', name) AS encrypted_name, "
+                                + "DES_ENCRYPT('password123', 'fixed-input') AS encrypted_literal "
+                                + "FROM test_table",
+                        "test_table",
+                        buildRowType());
+        try {
+            List<SeaTunnelRow> first = exec(engine, new Object[] {1, "same-input", 25});
+            List<SeaTunnelRow> second = exec(engine, new Object[] {2, "same-input", 25});
+            for (int column = 0; column < 2; column++) {
+                Assertions.assertNotEquals(
+                        first.get(0).getField(column), second.get(0).getField(column));
+            }
+        } finally {
+            engine.close();
+        }
+    }
 }

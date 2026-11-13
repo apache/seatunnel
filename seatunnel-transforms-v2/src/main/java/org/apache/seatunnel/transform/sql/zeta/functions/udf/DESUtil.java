@@ -25,12 +25,20 @@ import javax.crypto.spec.DESKeySpec;
 import javax.crypto.spec.IvParameterSpec;
 
 import java.security.Key;
+import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Base64;
 
 @Slf4j
 public class DESUtil {
 
-    private static final String IV_PARAMETER = "12345678";
+    private static final String LEGACY_IV_PARAMETER = "12345678";
+
+    private static final String FORMAT_PREFIX = "STDES1:";
+
+    private static final int IV_LENGTH = 8;
+
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private static final String ALGORITHM = "DES";
 
@@ -52,15 +60,19 @@ public class DESUtil {
         try {
             Key secretKey = generateKey(password);
             Cipher cipher = Cipher.getInstance(CIPHER_ALGORITHM);
-            IvParameterSpec iv = new IvParameterSpec(IV_PARAMETER.getBytes(CHARSET));
+            byte[] ivBytes = new byte[IV_LENGTH];
+            RANDOM.nextBytes(ivBytes);
+            IvParameterSpec iv = new IvParameterSpec(ivBytes);
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, iv);
             byte[] bytes = cipher.doFinal(data.getBytes(CHARSET));
 
-            return new String(Base64.getEncoder().encode(bytes));
+            byte[] payload = new byte[ivBytes.length + bytes.length];
+            System.arraycopy(ivBytes, 0, payload, 0, ivBytes.length);
+            System.arraycopy(bytes, 0, payload, ivBytes.length, bytes.length);
+            return FORMAT_PREFIX + Base64.getEncoder().encodeToString(payload);
 
         } catch (Exception e) {
-            log.error("Encrypt failed", e);
-            return data;
+            throw new IllegalStateException("Encrypt failed", e);
         }
     }
 
@@ -72,11 +84,27 @@ public class DESUtil {
         try {
             Key secretKey = generateKey(password);
             Cipher cipher = Cipher.getInstance(CIPHER_ALGORITHM);
-            IvParameterSpec iv = new IvParameterSpec(IV_PARAMETER.getBytes(CHARSET));
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, iv);
-            return new String(
-                    cipher.doFinal(Base64.getDecoder().decode(data.getBytes(CHARSET))), CHARSET);
+            byte[] ivBytes;
+            byte[] ciphertext;
+            if (data.startsWith(FORMAT_PREFIX)) {
+                byte[] payload = Base64.getDecoder().decode(data.substring(FORMAT_PREFIX.length()));
+                if (payload.length < IV_LENGTH * 2
+                        || (payload.length - IV_LENGTH) % IV_LENGTH != 0) {
+                    throw new IllegalArgumentException("Invalid encrypted payload length");
+                }
+                ivBytes = Arrays.copyOfRange(payload, 0, IV_LENGTH);
+                ciphertext = Arrays.copyOfRange(payload, IV_LENGTH, payload.length);
+            } else {
+                // Read legacy values only; new encryption always uses a fresh IV.
+                ivBytes = LEGACY_IV_PARAMETER.getBytes(CHARSET);
+                ciphertext = Base64.getDecoder().decode(data);
+            }
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(ivBytes));
+            return new String(cipher.doFinal(ciphertext), CHARSET);
         } catch (Exception e) {
+            if (data.startsWith(FORMAT_PREFIX)) {
+                throw new IllegalArgumentException("Decrypt failed", e);
+            }
             log.error("Decrypt failed", e);
             return data;
         }

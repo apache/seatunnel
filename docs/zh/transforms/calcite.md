@@ -96,7 +96,7 @@ SELECT MASK_HASH(phone) AS phone_hash FROM t
 
 ```DES_ENCRYPT(password, data) -> STRING```
 
-使用 `password`（不少于 8 字符）对 `data` 进行 DES 加密（CBC/PKCS5Padding），返回 Base64 编码密文。
+使用 `password`（不少于 8 字符）对 `data` 进行 DES 加密（CBC/PKCS5Padding），返回包含逐值随机 IV 的版本化密文，格式和迁移要求参见[不兼容变更](../introduction/concepts/incompatible-changes.md)。
 
 示例：
 
@@ -108,7 +108,7 @@ SELECT DES_ENCRYPT('12345678', secret) AS encrypted FROM t
 
 ```DES_DECRYPT(password, data) -> STRING```
 
-使用相同密码解密 Base64 编码的密文。
+使用相同密码解密版本化密文或历史 Base64 密文。
 
 示例：
 
