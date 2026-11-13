@@ -11,6 +11,9 @@ DefineSinkType 转换插件用于定义 sink 字段的目标存储类型，适�
 | 参数名  | 类型                      | 是否必填 | 默认值 | 说明 |
 |:------:|---------------------------|----------|--------|------|
 | columns | list<map<string, string>> | 是       |        | 需要定义的列，必须为每一列指定名称和类型 |
+| table_match_regex | string | 否 | `.*` | 与上游表路径进行匹配的正则表达式，转换级别规则只应用于匹配的表。 |
+| table_transform | array | 否 | - | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。每个条目包含 `table_path` 以及该表的 `columns`。 |
+| rule_match_mode | string | 否 | `FIRST_MATCH` | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
 
 ## 示例
 

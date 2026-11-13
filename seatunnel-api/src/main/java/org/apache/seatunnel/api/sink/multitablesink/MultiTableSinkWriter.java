@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.HashUtils;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,14 +48,18 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -67,10 +72,9 @@ import java.util.stream.Collectors;
  * appropriate sub-writer. Routing is based on the row's primary key hash for ordered delivery, or
  * random selection when no primary key exists.
  *
- * <p>Thread pool sizing is {@code queueSize * 2}: half for queue consumer threads, half for
- * parallel {@link #prepareCommit(long)} tasks. Synchronization between the consumer threads and
- * checkpoint/commit operations is coordinated through locks on each {@link
- * MultiTableWriterRunnable} instance.
+ * <p>Thread pool sizing is {@code queueSize * 2}, with half for queue consumer threads and half for
+ * parallel timer flush and {@link #prepareCommit(long)} tasks. These operations synchronize with
+ * the consumer threads through locks on each {@link MultiTableWriterRunnable} instance.
  */
 @Slf4j
 public class MultiTableSinkWriter
@@ -78,6 +82,8 @@ public class MultiTableSinkWriter
                 SupportSchemaEvolutionSinkWriter {
 
     private static final long EXECUTOR_CLOSE_TIMEOUT_SECONDS = 60L;
+    private static final CompletableFuture<Throwable> TIMER_FLUSH_CLOSED =
+            CompletableFuture.completedFuture(null);
 
     private final Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters;
     private final Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext;
@@ -90,6 +96,8 @@ public class MultiTableSinkWriter
     private final List<BlockingQueue<MultiTableWriterRunnable.QueueElement>> blockingQueues =
             new ArrayList<>();
     private final ExecutorService executorService;
+    private final AtomicReference<CompletableFuture<Throwable>> activeTimerFlush =
+            new AtomicReference<>();
     private final MultiTableFailurePolicy failurePolicy;
     private final JobMode jobMode;
     private final int tableRetryTimes;
@@ -109,9 +117,8 @@ public class MultiTableSinkWriter
      *
      * <p>Initializes a fixed thread pool of size {@code queueSize * 2}: half the threads run {@link
      * MultiTableWriterRunnable} consumers that drain the blocking queues, and the other half are
-     * reserved for parallel {@link #prepareCommit(long)} tasks. Each sub-writer is assigned to a
-     * queue using the formula {@code sinkIdentifier.getIndex() % queueSize}, ensuring deterministic
-     * distribution across queues.
+     * reserved for timer flush and parallel {@link #prepareCommit(long)} tasks. Each sub-writer is
+     * assigned to a queue using the formula {@code sinkIdentifier.getIndex() % queueSize}.
      *
      * @param sinkWriters map of sink identifiers to their corresponding writers
      * @param queueSize number of blocking queues (and consumer threads) to create
@@ -205,9 +212,7 @@ public class MultiTableSinkWriter
         executorService =
                 MDCTracer.tracing(
                         Executors.newFixedThreadPool(
-                                // we use it in `MultiTableWriterRunnable` and `prepare commit
-                                // task`, so it
-                                // should be double.
+                                // Reserve one thread per queue for flush and prepare commit tasks.
                                 queueSize * 2,
                                 runnable -> {
                                     Thread thread = new Thread(runnable);
@@ -251,7 +256,8 @@ public class MultiTableSinkWriter
                             failurePolicy.continueOtherTables(),
                             this::handleRuntimeTableFailure,
                             this.tableRetryTimes,
-                            this.tableRetryIntervalSeconds);
+                            this.tableRetryIntervalSeconds,
+                            queueSize > 1);
             runnable.add(r);
         }
         log.info("init multi table sink writer, queue size: {}", queueSize);
@@ -779,12 +785,15 @@ public class MultiTableSinkWriter
         subSinkErrorCheck();
         MultiTableCommitInfo multiTableCommitInfo =
                 new MultiTableCommitInfo(new ConcurrentHashMap<>());
+        ConcurrentMap<String, Throwable> checkpointFailures = new ConcurrentHashMap<>();
         List<Future<?>> futures = new ArrayList<>();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             int subWriterIndex = i;
             futures.add(
                     executorService.submit(
                             () -> {
+                                String fatalFailureTable = null;
+                                Throwable fatalFailure = null;
                                 synchronized (runnable.get(subWriterIndex)) {
                                     for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>
                                             sinkWriterEntry :
@@ -792,15 +801,19 @@ public class MultiTableSinkWriter
                                                             sinkWritersWithIndex
                                                                     .get(subWriterIndex)
                                                                     .entrySet())) {
+                                        SinkIdentifier sinkIdentifier = sinkWriterEntry.getKey();
+                                        String tableId = sinkIdentifier.getTableIdentifier();
+                                        if (isTableFailed(tableId)
+                                                || checkpointFailures.containsKey(tableId)) {
+                                            continue;
+                                        }
                                         Optional<?> commit;
                                         try {
                                             SinkWriter<SeaTunnelRow, ?, ?> sinkWriter =
                                                     sinkWriterEntry.getValue();
                                             commit =
                                                     executeWithTableRetry(
-                                                            sinkWriterEntry
-                                                                    .getKey()
-                                                                    .getTableIdentifier(),
+                                                            tableId,
                                                             MultiTableFailurePhase.CHECKPOINT,
                                                             () ->
                                                                     sinkWriter.prepareCommit(
@@ -809,23 +822,29 @@ public class MultiTableSinkWriter
                                             Thread.currentThread().interrupt();
                                             throw new RuntimeException(error);
                                         } catch (Throwable error) {
-                                            if (failurePolicy.continueOtherTables()) {
-                                                handleTableFailure(
-                                                        sinkWriterEntry
-                                                                .getKey()
-                                                                .getTableIdentifier(),
-                                                        MultiTableFailurePhase.CHECKPOINT,
-                                                        error);
-                                                continue;
+                                            if (!failurePolicy.continueOtherTables()) {
+                                                throw new RuntimeException(error);
                                             }
-                                            throw new RuntimeException(error);
+                                            if (containsFatalRowErrorHandlingFailure(error)) {
+                                                fatalFailureTable = tableId;
+                                                fatalFailure = error;
+                                                break;
+                                            }
+                                            checkpointFailures.putIfAbsent(tableId, error);
+                                            continue;
                                         }
                                         commit.ifPresent(
                                                 o ->
                                                         multiTableCommitInfo
                                                                 .getCommitInfo()
-                                                                .put(sinkWriterEntry.getKey(), o));
+                                                                .put(sinkIdentifier, o));
                                     }
+                                }
+                                if (fatalFailure != null) {
+                                    handleTableFailure(
+                                            fatalFailureTable,
+                                            MultiTableFailurePhase.CHECKPOINT,
+                                            fatalFailure);
                                 }
                             }));
         }
@@ -836,6 +855,10 @@ public class MultiTableSinkWriter
                 throw new RuntimeException(e);
             }
         }
+        // Table isolation acquires other queue locks. Run it after the prepare tasks finish.
+        checkpointFailures.forEach(
+                (tableId, error) ->
+                        handleTableFailure(tableId, MultiTableFailurePhase.CHECKPOINT, error));
         waitRuntimeTableFailuresHandled();
         subSinkErrorCheck();
         if (multiTableCommitInfo.getCommitInfo().isEmpty()) {
@@ -883,21 +906,24 @@ public class MultiTableSinkWriter
     /**
      * Closes this writer and releases all resources.
      *
-     * <p>Drains remaining queues, then calls {@link ExecutorService#shutdownNow()} to interrupt all
-     * consumer threads. Each sub-writer is closed under its respective {@link
-     * MultiTableWriterRunnable} lock to avoid concurrent access. Finally, the shared {@link
+     * <p>Signals any active timer flush round to stop, drains pending writes, and interrupts the
+     * executor threads. After any in-progress table isolation finishes, each sub-writer is closed
+     * under its queue lock, which also protects any in-flight flush. Finally, the shared {@link
      * MultiTableResourceManager} is closed and this method waits for the executor threads to stop.
      *
      * <p>Uses first-exception-wins error handling: if multiple sub-writers throw during close, only
      * the first exception is propagated. Resource manager close errors are logged but not
      * propagated.
      *
-     * @throws RuntimeException wrapping the first {@link Throwable} caught from any sub-writer;
-     *     note that the method signature declares {@code throws IOException} (inherited from the
-     *     interface), but the current implementation always wraps in {@code RuntimeException}
+     * @throws IOException if shutdown reports failed tables for a batch job
+     * @throws RuntimeException if shutdown fails without a batch failed-table report
      */
     @Override
     public void close() throws IOException {
+        CompletableFuture<Throwable> flush = activeTimerFlush.getAndSet(TIMER_FLUSH_CLOSED);
+        if (flush != null && flush != TIMER_FLUSH_CLOSED) {
+            flush.complete(new IOException("Multi-table sink writer is closing"));
+        }
         // The variables used in lambda expressions should be final or valid final, so they are
         // modified to arrays
         final Throwable[] firstE = {null};
@@ -908,6 +934,21 @@ public class MultiTableSinkWriter
             firstE[0] = e;
         }
         executorService.shutdownNow();
+        if (failurePolicy.continueOtherTables()) {
+            synchronized (this) {
+                // When a timer flush round is cancelled, a worker may already be isolating
+                // a failed table. That isolation can continue after shutdownNow() returns
+                // while the worker closes and removes the table's writers across queues.
+                //
+                // Queue locks serialize individual close calls. If shutdown closes a writer
+                // first, the writer is still in the map and isolation could close it again.
+                //
+                // handleTableFailure() holds this monitor. A flush worker checks the round's
+                // stop signal under the same monitor before starting isolation. Since close()
+                // has already signaled the round to stop, acquiring this monitor waits for any
+                // isolation in progress. Release it before acquiring the queue locks below.
+            }
+        }
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
                 Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkIdentifierSinkWriterMap =
@@ -980,37 +1021,130 @@ public class MultiTableSinkWriter
     }
 
     /**
-     * Aggregated flush triggered by the engine timer. Drains all blocking queues first, then calls
-     * each sub-writer's flush action under the corresponding {@link MultiTableWriterRunnable} lock
-     * to prevent concurrent writes.
+     * Drains the row queues and flushes independent queues in parallel. A successful round waits
+     * for every queue. A fatal failure ends the round and prevents further child flush actions.
      *
      * @param proxyContexts map from sink identifier to its {@link SinkContextProxy}
      */
     void aggregatedFlush(Map<SinkIdentifier, SinkContextProxy> proxyContexts) throws Exception {
         checkQueueRemain();
         subSinkErrorCheck();
-        for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
-            synchronized (runnable.get(i)) {
-                for (SinkIdentifier id : sinkWritersWithIndex.get(i).keySet()) {
+        // A null result means all queues succeeded. Any completed result stops new actions.
+        CompletableFuture<Throwable> completion = new CompletableFuture<>();
+        if (!activeTimerFlush.compareAndSet(null, completion)) {
+            throw new IOException(
+                    "Multi-table timer flush is already running or the writer is closing");
+        }
+        List<Future<?>> flushTasks = new ArrayList<>();
+        boolean succeeded = false;
+        try {
+            if (sinkWritersWithIndex.size() == 1) {
+                flushQueue(0, proxyContexts, completion);
+                completion.complete(null);
+            } else {
+                try {
+                    submitQueueFlushes(proxyContexts, completion, flushTasks);
+                } catch (RejectedExecutionException error) {
+                    // Closing can shut down the executor after the submit loop checks completion.
+                    completion.complete(error);
+                }
+            }
+            Throwable failure = completion.get();
+            if (failure instanceof Exception) {
+                throw (Exception) failure;
+            }
+            if (failure instanceof Error) {
+                throw (Error) failure;
+            }
+            if (failure != null) {
+                throw new ExecutionException(failure);
+            }
+            succeeded = true;
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw error;
+        } finally {
+            if (!succeeded) {
+                completion.cancel(false);
+                flushTasks.forEach(task -> task.cancel(true));
+            }
+            activeTimerFlush.compareAndSet(completion, null);
+        }
+    }
+
+    private void submitQueueFlushes(
+            Map<SinkIdentifier, SinkContextProxy> proxyContexts,
+            CompletableFuture<Throwable> completion,
+            List<Future<?>> flushTasks) {
+        int queueCount = sinkWritersWithIndex.size();
+        AtomicInteger remainingQueues = new AtomicInteger(queueCount);
+        for (int i = 0; i < queueCount && !completion.isDone(); i++) {
+            int queueIndex = i;
+            flushTasks.add(
+                    executorService.submit(
+                            () -> {
+                                try {
+                                    flushQueue(queueIndex, proxyContexts, completion);
+                                    if (remainingQueues.decrementAndGet() == 0) {
+                                        completion.complete(null);
+                                    }
+                                } catch (Throwable error) {
+                                    if (!completion.complete(error)) {
+                                        log.warn(
+                                                "Timer flush task for queue {} failed after the round ended",
+                                                queueIndex,
+                                                error);
+                                    }
+                                }
+                            }));
+        }
+    }
+
+    private void flushQueue(
+            int queueIndex,
+            Map<SinkIdentifier, SinkContextProxy> proxyContexts,
+            CompletableFuture<Throwable> completion) {
+        MultiTableWriterRunnable writerRunnable = runnable.get(queueIndex);
+        for (SinkIdentifier id : sinkWritersWithIndex.get(queueIndex).keySet()) {
+            try {
+                synchronized (writerRunnable) {
+                    if (completion.isDone()) {
+                        return;
+                    }
+                    if (isTableFailed(id.getTableIdentifier())) {
+                        continue;
+                    }
                     SinkContextProxy proxy = proxyContexts.get(id);
-                    if (proxy != null && proxy.getFlushAction() != null) {
-                        try {
-                            proxy.getFlushAction().run();
-                        } catch (InterruptedException error) {
-                            Thread.currentThread().interrupt();
-                            throw error;
-                        } catch (Exception error) {
-                            if (failurePolicy.continueOtherTables()) {
-                                handleTableFailure(
-                                        id.getTableIdentifier(),
-                                        MultiTableFailurePhase.TIMER_FLUSH,
-                                        error);
-                                continue;
-                            }
-                            throw error;
+                    RunnableWithException flushAction =
+                            proxy == null ? null : proxy.getFlushAction();
+                    if (flushAction != null) {
+                        flushAction.run();
+                    }
+                }
+            } catch (Throwable error) {
+                if (error instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                } else if (error instanceof Exception && failurePolicy.continueOtherTables()) {
+                    // Table isolation acquires other queue locks. Coordinate with close outside
+                    // ours.
+                    synchronized (this) {
+                        if (!completion.isDone()) {
+                            handleTableFailure(
+                                    id.getTableIdentifier(),
+                                    MultiTableFailurePhase.TIMER_FLUSH,
+                                    error);
+                            continue;
                         }
                     }
                 }
+                if (!completion.complete(error)) {
+                    log.warn(
+                            "Timer flush failed for table {} in queue {} after the round ended",
+                            id.getTableIdentifier(),
+                            queueIndex,
+                            error);
+                }
+                return;
             }
         }
     }
