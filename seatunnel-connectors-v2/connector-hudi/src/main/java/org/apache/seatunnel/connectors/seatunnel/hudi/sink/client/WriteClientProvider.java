@@ -20,9 +20,15 @@ package org.apache.seatunnel.connectors.seatunnel.hudi.sink.client;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 
+import java.util.function.Supplier;
+
 public interface WriteClientProvider {
 
     HoodieJavaWriteClient<HoodieAvroPayload> getOrCreateClient();
+
+    default <T> T execute(Supplier<T> action) {
+        return action.get();
+    }
 
     void close();
 }

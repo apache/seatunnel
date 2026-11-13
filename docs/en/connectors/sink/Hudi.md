@@ -36,6 +36,9 @@ Base configuration:
 |----------------------------|---------|----------|------------------------------|-------------|
 | table_dfs_path             | string  | yes      | -                            | Root path for Hudi table data and metadata. |
 | conf_files_path            | string  | no       | -                            | Semicolon-separated local paths to HDFS client configuration files. |
+| kerberos_principal         | string  | no       | -                            | Kerberos principal; set together with kerberos_keytab_path. |
+| kerberos_keytab_path       | string  | no       | -                            | Local keytab path accessible in the catalog and writer processes. |
+| krb5_path                  | string  | no       | -                            | Optional local Kerberos configuration file; changes a JVM-wide setting. |
 | table_list                 | Array   | no       | -                            | Per-table settings for multi-table jobs. |
 | schema_save_mode           | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target schema before the job starts. |
 | data_save_mode             | enum    | no       | APPEND_DATA                  | How to handle existing table data before the job starts. |
@@ -67,6 +70,42 @@ Table list configuration:
 Note: When this configuration corresponds to a single table, you can flatten the configuration items in `table_list` to the outer layer. For a multi-table job, keep table-specific options inside each `table_list` entry; `table_dfs_path`, `conf_files_path`, `schema_save_mode`, and `data_save_mode` remain at the sink level.
 
 `record_key_fields` is required for `UPSERT` (validated at startup) and for `BULK_INSERT` (currently unvalidated — omitting it causes a `NullPointerException` during writing, not a config-time error). For CDC input, the upstream record must contain the fields used by `record_key_fields`; set `cdc_enabled = true` only when the Hudi CDC change log is required.
+
+### Kerberos authentication
+
+Set both nonblank `kerberos_principal` and `kerberos_keytab_path` at the sink level
+(also for multi-table jobs). Omitting both preserves the existing authentication behavior.
+Partial or blank credentials are rejected. The dotted JDBC options `use.kerberos`,
+`kerberos.principal` and `kerberos.principal.file` are not Hudi options.
+
+`conf_files_path` must load `hadoop.security.authentication=kerberos`, along with
+the HDFS configuration for the target cluster. XML loading alone does not log in.
+The connector logs in from the keytab; an external worker keytab login is not required.
+The keytab and XML files must be readable wherever save-mode/catalog initialization runs
+and on every writer worker. Do not put keytab contents in the job configuration.
+
+```hocon
+kerberos_principal = "seatunnel@EXAMPLE.COM"
+kerberos_keytab_path = "/etc/security/keytabs/seatunnel.keytab"
+krb5_path = "/etc/krb5.conf"
+conf_files_path = "/etc/hadoop/core-site.xml;/etc/hadoop/hdfs-site.xml"
+```
+
+Each catalog and cached/direct write client owns a returned UGI. Filesystem/client
+initialization, writes, deletes, automatic commits and cleanup use that identity;
+ticket renewal is checked before operations. Authenticated Java-engine parallel streams
+run in a private identity-scoped pool instead of an already initialized common pool.
+The connector does not replace Hadoop's global login user. Hadoop security initialization
+and `java.security.krb5.conf` remain JVM-wide, so jobs sharing a worker must use compatible
+Hadoop security/realm configuration.
+
+Credential-free tests cover identity propagation and error/cleanup paths; they do not
+verify KDC login or real ticket expiry. For deployment validation, run an INSERT job and
+UPSERT/delete CDC job against a Kerberos-protected HDFS with no pre-login, repeat in
+multi-table mode, and exercise save-mode catalog creation and job shutdown. Keep a
+streaming job running across ticket renewal; verify another concurrent identity remains
+independent. Also check missing/unreadable keytabs and unreachable KDC failures without
+exposing credentials in logs.
 
 ### table_name [string]
 

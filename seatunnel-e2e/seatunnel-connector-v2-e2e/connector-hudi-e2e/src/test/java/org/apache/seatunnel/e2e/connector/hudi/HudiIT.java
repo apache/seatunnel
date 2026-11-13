@@ -60,6 +60,20 @@ public class HudiIT extends TestSuiteBase {
     @DisabledOnContainer(
             value = {TestContainerId.SPARK_2_4},
             type = {EngineType.FLINK},
+            disabledReason = "FLINK does not support the local Hudi catalog.")
+    public void testRejectKerberosCredentialsWithoutSecurityConfiguration(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                container.executeJob("/hudi/fake_to_hudi_invalid_kerberos.conf");
+        String output = result.getStdout() + result.getStderr();
+        Assertions.assertNotEquals(0, result.getExitCode(), output);
+        Assertions.assertTrue(output.contains("hadoop.security.authentication=kerberos"), output);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.SPARK_2_4},
+            type = {EngineType.FLINK},
             disabledReason = "FLINK do not support local file catalog in hudi.")
     public void testWriteHudi(TestContainer container)
             throws IOException, InterruptedException, URISyntaxException {

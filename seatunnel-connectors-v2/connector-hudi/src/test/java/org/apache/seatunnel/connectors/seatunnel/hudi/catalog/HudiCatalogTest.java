@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -37,6 +38,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -48,6 +51,57 @@ import static org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_DATE_TYPE;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisabledOnOs(OS.WINDOWS)
 class HudiCatalogTest {
+
+    @Test
+    void catalogUsesReturnedIdentityForInitializationOperationsAndCleanup(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path root) throws Exception {
+        Configuration conf = new Configuration(false);
+        conf.set("hadoop.security.authentication", "kerberos");
+        UserGroupInformation user =
+                Mockito.spy(UserGroupInformation.createRemoteUser("hudi-catalog"));
+        HudiCatalog catalog =
+                new HudiCatalog(
+                        CATALOG_NAME,
+                        conf,
+                        root.resolve("catalog").toUri().toString(),
+                        "principal",
+                        "keytab",
+                        null);
+        try (MockedStatic<UserGroupInformation> login =
+                Mockito.mockStatic(UserGroupInformation.class)) {
+            login.when(
+                            () ->
+                                    UserGroupInformation.loginUserFromKeytabAndReturnUGI(
+                                            "principal", "keytab"))
+                    .thenReturn(user);
+            catalog.open();
+            login.verify(() -> UserGroupInformation.setConfiguration(conf));
+            login.verify(
+                    () ->
+                            UserGroupInformation.loginUserFromKeytabAndReturnUGI(
+                                    "principal", "keytab"));
+        }
+        try {
+            TablePath database = TablePath.of("authenticated", "orders");
+            catalog.createDatabase(database, false);
+            Assertions.assertTrue(catalog.databaseExists("authenticated"));
+            CatalogTable table =
+                    buildAllTypesTable(TableIdentifier.of(CATALOG_NAME, "authenticated", "orders"));
+            catalog.createTable(database, table, false);
+            Assertions.assertTrue(catalog.tableExists(database));
+            Assertions.assertEquals(
+                    "orders", catalog.getTable(database).getTableId().getTableName());
+            Assertions.assertTrue(catalog.listTables("authenticated").contains("orders"));
+            catalog.dropTable(database, false);
+            catalog.dropDatabase(database, false);
+            Assertions.assertFalse(catalog.databaseExists("authenticated"));
+        } finally {
+            catalog.close();
+        }
+        Mockito.verify(user, Mockito.atLeast(10)).checkTGTAndReloginFromKeytab();
+        Mockito.verify(user).logoutUserFromKeytab();
+    }
+
     private static final String CATALOG_NAME = "seatunnel";
     private static final String CATALOG_DIR = "/tmp/seatunnel/hudi";
 
