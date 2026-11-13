@@ -206,7 +206,7 @@ The Markdown file source now declares `child_ids` as `ARRAY<STRING>` and emits a
 
   - In `-i k=[a,b],c]`, `[a,b]` is parsed as an array, and `c]` is ignored because it has no `=` (it is not kept as a string).
   - Balanced values that start with `{` or `[` but are not valid HOCON/JSON now are parsed as string type. Previously, parameter values inside `{}` that contained no key-value pairs, such as `-i pattern='{a,b}'`, still worked; however, values with incomplete key-value pairs, such as `-i pattern='{"k"=}'` or `-i pattern='{"k":}'`, would throw a `BadValue` error.
-  - Ambiguous format should add quotes to distinguish option type by following the document, such as  `-i option=[a-z]` should be written as `-i option=["a-z"]` for list or `-i option='"[a-z]"'` for string type.   
+  - Ambiguous format should add quotes to distinguish option type by following the document, such as  `-i option=[a-z]` should be written as `-i option=["a-z"]` for list or `-i option='"[a-z]"'` for string type.
 - **`-i` keys and values are now trimmed, and empty keys are rejected**
   - `-i 'k1= , k2=v2'` now explicitly removes whitespace: `k1` becomes an empty string, and the key of the second pair becomes `k2` instead of ` k2`.
   - `-i ' =v1 , k2=v2'` now reports an error, because the key for `v1` is empty after trimming.
