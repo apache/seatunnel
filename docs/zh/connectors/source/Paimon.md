@@ -72,6 +72,10 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 Paimon warehouse 路径，不能为空白字符串。
 
+### catalog_name [string]
+
+Paimon catalog 的名称。默认值为 `paimon`。
+
 ### catalog_type [string]
 
 Paimon Catalog 类型，支持 filesystem 和 hive
@@ -90,7 +94,15 @@ Paimon 的 catalog URI。当 `catalog_type` 为 `hive` 时必须配置。
 
 ### table_list [array]
 
-`Paimon` 表名列表。当一个 Source 需要读取多张 Paimon 表时，使用此配置代替 `table`。`table` 和 `table_list` 必须二选一配置。每个配置项必须包含 `table`，也可以配置该表自己的 `query`。
+`Paimon` 表名列表。当一个 Source 需要读取多张 Paimon 表时，使用此配置代替 `table`。`table` 和 `table_list` 必须二选一配置。每个配置项必须包含 `database` 和 `table`，也可以配置该表自己的 `query`。
+
+### user [string]
+
+用于访问 Paimon 表的用户名。需与 `password` 一起配置。当底层 catalog 开启认证时通常必须配置。
+
+### password [string]
+
+Paimon 用户密码。配置了 `user` 时必须配置。
 
 ### hdfs_site_path [string]
 
@@ -164,10 +176,12 @@ source {
     database = "default"
     table_list = [
       {
+        database = "default"
         table = "table1"
         query = "select * from table1 where id > 100"
       },
       {
+        database = "default"
         table = "table2"
         query = "select * from table2 where id > 100"
       }
