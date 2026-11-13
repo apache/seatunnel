@@ -388,4 +388,17 @@ class JdbcSinkFactoryTest {
         Assertions.assertEquals(
                 0, createJdbcSink(baseConfig(), createCatalogTable(true)).routingKeyIndex().get());
     }
+
+    /**
+     * Configured {@code primary_keys} replace the primary key of the table for upserts, so the
+     * writers route by them too, not by the primary key of the table.
+     */
+    @Test
+    void testConfiguredPrimaryKeysRouteInsteadOfThePrimaryKeyOfTheTable() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("primary_keys", Arrays.asList("name"));
+
+        Assertions.assertEquals(
+                1, createJdbcSink(cfg, createCatalogTable(true)).routingKeyIndex().get());
+    }
 }
