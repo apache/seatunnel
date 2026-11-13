@@ -2,7 +2,7 @@
 
 This is another important release for Apache SeaTunnel following version 3.0.0!
 
-Version 3.1.0 includes 385 PRs and 11 new connectors, with a focus on Zeta engine stability and Connector-V2 data correctness. It also improves deployment, operations, and data transformation to make production data integration jobs more reliable.
+Version 3.1.0 includes 395 PRs and 11 new connectors, with a focus on Zeta engine stability and Connector-V2 data correctness. It also improves deployment, operations, and data transformation to make production data integration jobs more reliable.
 
 Thank you to all contributors for their hard work on this update. We believe version 3.1.0 will bring the community a more stable and reliable data integration experience.
 
@@ -27,6 +27,7 @@ Thank you to all contributors for their hard work on this update. We believe ver
 
 ## Feature
 
+*   [Feature][Connector-V2] Support Elasticsearch 9 in the Elasticsearch connector ([#13090](https://github.com/apache/seatunnel/pull/13090))
 *   [Feature][Zeta] Support environment-variable object storage credential ([#12885](https://github.com/apache/seatunnel/pull/12885))
 *   [Feature][STIP-41][Zeta] Add Native Zeta Application Mode on Kubernetes ([#12460](https://github.com/apache/seatunnel/pull/12460))
 *   [Feature][Connector-V2][Iceberg] Support Iceberg table format v3 ([#12777](https://github.com/apache/seatunnel/pull/12777))
@@ -66,6 +67,10 @@ Thank you to all contributors for their hard work on this update. We believe ver
 *   [Feature][Connector-V2] Add Google Analytics 4 report source ([#12280](https://github.com/apache/seatunnel/pull/12280))
 *   [Feature][Connector-V2] Add RFC 5424 Syslog sink over TLS ([#12279](https://github.com/apache/seatunnel/pull/12279))
 *   [Feature][Connector-V2] Support ADD COLUMN schema evolution for BigQuery ([#11577](https://github.com/apache/seatunnel/pull/11577))
+*   [Improve][Core] Upgrade all SeaTunnel Shade dependencies to 3.0.1 ([#13265](https://github.com/apache/seatunnel/pull/13265))
+*   [Improve][Zeta] Exclude engine_checkpoint_monitor from IMap persistence ([#13015](https://github.com/apache/seatunnel/pull/13015))
+*   [Improve][API] Run multi-table timer flushes in parallel ([#13201](https://github.com/apache/seatunnel/pull/13201))
+*   [Improve][API] Reduce queue handoff overhead in MultiTableSinkWriter ([#13196](https://github.com/apache/seatunnel/pull/13196))
 *   [Improve][Connector-V2] Validate DB2 CDC source URL ([#12931](https://github.com/apache/seatunnel/pull/12931))
 *   [Improve][Connector-V2][Doris] Warn when TIMESTAMP_TZ columns use the JVM default zone ([#12945](https://github.com/apache/seatunnel/pull/12945))
 *   [Improve] Update snapshot version to 3.1.0 ([#12950](https://github.com/apache/seatunnel/pull/12950))
@@ -120,6 +125,11 @@ Thank you to all contributors for their hard work on this update. We believe ver
 
 ## Bug Fix
 
+*   [Fix][Zeta] Remove obsolete checkpoint overview storage benchmark ([#13255](https://github.com/apache/seatunnel/pull/13255))
+*   [Fix][Connector-V2] Encode the HTTP source response body as UTF-8 ([#13011](https://github.com/apache/seatunnel/pull/13011))
+*   [Fix][Connector-V2] Fix Doris source duplicate table detection and error code typo ([#13172](https://github.com/apache/seatunnel/pull/13172))
+*   [Fix][Tools] Support 3.x and later in connector changelogs ([#13206](https://github.com/apache/seatunnel/pull/13206))
+*   [Fix][Build] Correct source distribution contents ([#13098](https://github.com/apache/seatunnel/pull/13098))
 *   [Fix][Transform-V2] Rebind Replace fields on schema refresh ([#12365](https://github.com/apache/seatunnel/pull/12365))
 *   [Fix][Zeta] Isolate REST test HTTP ports from Hazelcast discovery ([#13030](https://github.com/apache/seatunnel/pull/13030))
 *   [Fix][Connector-V2] Preserve NULL transitions in DB2 upserts ([#13037](https://github.com/apache/seatunnel/pull/13037))
@@ -422,7 +432,9 @@ Thank you to all contributors for their hard work on this update. We believe ver
 *   [Test][E2E] Start the RocketMQ broker with a single identity and wait for name-server routes ([#12115](https://github.com/apache/seatunnel/pull/12115))
 *   [Test][Connector-V2] Widen PayPalClientTest's loopback HTTP wait budget for slower CI runners ([#12370](https://github.com/apache/seatunnel/pull/12370))
 
-Finally, let's remember the contributors who participated in contributing PRs this time. They are (in no particular order)
+For complete upgrade notes, see the [Incompatible Changes documentation](https://github.com/apache/seatunnel/blob/98613bcbb43d0db7f15224863244243ecaa9c146/docs/en/introduction/concepts/incompatible-changes.md#dev).
+
+Contributors (in no particular order):
 
 *   88fantasy
 *   Arvin
