@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
-import org.apache.seatunnel.shade.com.google.common.base.Throwables;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
@@ -90,14 +89,10 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
             assertTableRule = new AssertTableRule(new ArrayList<>());
         }
 
-        if (assertRowRules.isEmpty()
-                && assertFieldRules.isEmpty()
-                && assertCatalogTableRule.isEmpty()
-                && assertTableRule.getTableNames().isEmpty()) {
-            Throwables.throwIfUnchecked(
-                    new ConfigException.BadValue(
-                            RULES.key(), "Assert rule config is empty, please add rule config."));
-        }
+        // Per-assertion structural validation (row_rules/field_rules/catalog_table_rule content)
+        // is intentionally kept here because it requires parsing the nested Map structure. The
+        // top-level "rules must not be empty" check has been migrated to the declarative optionRule()
+        // via AssertRulesValidator in AssertSinkFactory (see #11007).
         this.catalogTable = catalogTable;
     }
 
