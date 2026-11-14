@@ -33,13 +33,25 @@ public class CheckpointableSequenceSourceReader
     private final Context context;
     private final int recordsPerPoll;
     private final long emitIntervalMs;
+
+    /**
+     * Delay applied to {@link #snapshotState(long)} once this reader is exhausted (no active split
+     * left and no-more-splits received). See {@link
+     * CheckpointableSequenceSourceFactory#EXHAUSTED_SNAPSHOT_DELAY_MS}.
+     */
+    private final long exhaustedSnapshotDelayMs;
+
     private volatile boolean noMoreSplits;
 
     public CheckpointableSequenceSourceReader(
-            Context context, int recordsPerPoll, long emitIntervalMs) {
+            Context context,
+            int recordsPerPoll,
+            long emitIntervalMs,
+            long exhaustedSnapshotDelayMs) {
         this.context = context;
         this.recordsPerPoll = recordsPerPoll;
         this.emitIntervalMs = emitIntervalMs;
+        this.exhaustedSnapshotDelayMs = exhaustedSnapshotDelayMs;
     }
 
     @Override
@@ -79,6 +91,14 @@ public class CheckpointableSequenceSourceReader
 
     @Override
     public List<CheckpointableSequenceSplit> snapshotState(long checkpointId) throws Exception {
+        if (exhaustedSnapshotDelayMs > 0L && noMoreSplits && activeSplits.isEmpty()) {
+            // Every split has been drained, so the barrier being snapshotted is one of the
+            // barriers that close this bounded run (the COMPLETED_POINT barrier, or a periodic
+            // one racing it). Holding the acknowledgement back keeps the pipeline inside its
+            // shutdown phase for a known amount of time, which is the window failover tests
+            // need to hit deterministically.
+            Thread.sleep(exhaustedSnapshotDelayMs);
+        }
         return new ArrayList<>(activeSplits);
     }
 
