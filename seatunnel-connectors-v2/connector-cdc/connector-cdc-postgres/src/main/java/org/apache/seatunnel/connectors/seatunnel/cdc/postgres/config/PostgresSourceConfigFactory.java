@@ -24,6 +24,9 @@ import io.debezium.connector.postgresql.PostgresConnector;
 
 import java.util.List;
 import java.util.Properties;
+import java.util.regex.Pattern;
+
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /**
  * PostgreSQL-specific source config factory built on top of the PG-base Debezium property assembly.
@@ -36,12 +39,31 @@ public class PostgresSourceConfigFactory extends PgBaseSourceConfigFactory<Postg
 
     private static final String DRIVER_CLASS_NAME = "org.postgresql.Driver";
 
+    /**
+     * PostgreSQL replication slot name charset, matching the server's own identifier rules. The
+     * derived backfill slot name ({@link PostgresSourceConfig#getSlotNameForBackfillTask()})
+     * appends a fixed-charset suffix to this value and truncates by Java {@code char} count to
+     * PostgreSQL's 63-byte identifier limit; restricting the configured name to single-byte ASCII
+     * here keeps that char-count truncation provably byte-accurate, and rejects invalid names at
+     * job submission instead of a late, confusing failure once the backfill slot lifecycle starts.
+     */
+    private static final Pattern SLOT_NAME_PATTERN = Pattern.compile("[a-z0-9_]{1,63}");
+
     private String decodingPluginName =
             PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME.defaultValue();
 
     private String slotName = PostgresIncrementalSourceOptions.SLOT_NAME.defaultValue();
 
     private List<String> schemaList;
+
+    @Override
+    public PostgresSourceConfig create(int subtask) {
+        PostgresSourceConfig config = super.create(subtask);
+        String effectiveSlotName = config.getDbzConfiguration().getString("slot.name");
+        validateSlotName(effectiveSlotName);
+        config.setSubtaskId(subtask);
+        return config;
+    }
 
     @Override
     public PostgresSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
@@ -103,5 +125,15 @@ public class PostgresSourceConfigFactory extends PgBaseSourceConfigFactory<Postg
                 connectMaxRetries,
                 connectionPoolSize,
                 exactlyOnce);
+    }
+
+    private static void validateSlotName(String slotName) {
+        checkArgument(
+                SLOT_NAME_PATTERN.matcher(slotName).matches(),
+                "PostgreSQL slot.name '%s' is invalid: it must match %s (PostgreSQL replication"
+                        + " slot identifier rules), since it is also used to derive the per-reader"
+                        + " snapshot backfill slot name.",
+                slotName,
+                SLOT_NAME_PATTERN.pattern());
     }
 }
