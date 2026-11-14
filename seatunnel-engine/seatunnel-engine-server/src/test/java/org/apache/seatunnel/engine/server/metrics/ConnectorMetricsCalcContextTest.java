@@ -31,10 +31,13 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_COMMITTED
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_COMMITTED_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
 
 public class ConnectorMetricsCalcContextTest {
 
     private static final String TABLE_ID = "fake.table1";
+
+    private static final String DOTTED_DATABASE_TABLE_ID = "LIS6.0.dbo.LIS_ITEM";
 
     @Test
     public void testCommitFlushesPendingMetrics() {
@@ -96,6 +99,27 @@ public class ConnectorMetricsCalcContextTest {
         Assertions.assertEquals(0, metricsContext.counter(SINK_COMMITTED_COUNT).getCount());
         Assertions.assertEquals(
                 0, metricsContext.counter(SINK_COMMITTED_COUNT + "#" + TABLE_ID).getCount());
+    }
+
+    @Test
+    public void testUpdateMetricsWithDotInDatabaseName() {
+        SeaTunnelMetricsContext metricsContext = new SeaTunnelMetricsContext();
+        ConnectorMetricsCalcContext calcContext =
+                new ConnectorMetricsCalcContext(
+                        metricsContext,
+                        PluginType.SOURCE,
+                        true,
+                        Collections.singletonList(TablePath.of("LIS6.0", "dbo", "LIS_ITEM")));
+
+        SeaTunnelRow row = createRowWithTableId(DOTTED_DATABASE_TABLE_ID, "C");
+
+        calcContext.updateMetrics(row, DOTTED_DATABASE_TABLE_ID);
+        Assertions.assertEquals(1, metricsContext.counter(SOURCE_RECEIVED_COUNT).getCount());
+        Assertions.assertEquals(
+                1,
+                metricsContext
+                        .counter(SOURCE_RECEIVED_COUNT + "#" + DOTTED_DATABASE_TABLE_ID)
+                        .getCount());
     }
 
     private SeaTunnelRow createRowWithTableId(String tableId, String payload) {
