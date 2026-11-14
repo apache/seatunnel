@@ -18,11 +18,14 @@
 package org.apache.seatunnel.e2e.connector.influxdb;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.TimePrecision;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.serialize.DefaultSerializer;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -36,6 +39,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -50,8 +55,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -215,6 +223,68 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
                 }
             }
         }
+    }
+
+    @ParameterizedTest
+    @EnumSource(TimePrecision.class)
+    public void testGeneratedTimestampPrecision(TimePrecision precision) {
+        TimeUnit unit = precision.getTimeUnit();
+        LocalDateTime timestamp = LocalDateTime.of(2025, 1, 2, 3, 4, 5, 123_000_000);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"time", "value"},
+                        new SeaTunnelDataType[] {
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE, BasicType.INT_TYPE
+                        });
+        String timestampMeasurement = "timestamp_" + precision.name();
+        String processingMeasurement = "processing_" + precision.name();
+        DefaultSerializer timestampSerializer =
+                new DefaultSerializer(
+                        rowType, unit, Collections.emptyList(), "time", timestampMeasurement);
+        DefaultSerializer processingSerializer =
+                new DefaultSerializer(
+                        new SeaTunnelRowType(
+                                new String[] {"value"},
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE}),
+                        unit,
+                        Collections.emptyList(),
+                        "",
+                        processingMeasurement);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {timestamp, 1});
+
+        long before = System.currentTimeMillis();
+        Point processingPoint = processingSerializer.serialize(new SeaTunnelRow(new Object[] {1}));
+        long after = System.currentTimeMillis();
+        influxDB.write(
+                BatchPoints.database(INFLUXDB_DATABASE)
+                        .precision(unit)
+                        .point(timestampSerializer.serialize(row))
+                        .point(processingPoint)
+                        .build());
+
+        long epochMillis = timestamp.toInstant(ZoneOffset.UTC).toEpochMilli();
+        long expected =
+                TimeUnit.MILLISECONDS.convert(
+                        unit.convert(epochMillis, TimeUnit.MILLISECONDS), unit);
+        Assertions.assertEquals(expected, readTimestampMillis(timestampMeasurement));
+        long actualProcessingTime = readTimestampMillis(processingMeasurement);
+        long earliest =
+                TimeUnit.MILLISECONDS.convert(unit.convert(before, TimeUnit.MILLISECONDS), unit);
+        long latest =
+                TimeUnit.MILLISECONDS.convert(unit.convert(after, TimeUnit.MILLISECONDS), unit);
+        Assertions.assertTrue(actualProcessingTime >= earliest && actualProcessingTime <= latest);
+    }
+
+    private long readTimestampMillis(String measurement) {
+        QueryResult result =
+                influxDB.query(
+                        new Query("select value from " + measurement, INFLUXDB_DATABASE),
+                        TimeUnit.MILLISECONDS);
+        Assertions.assertFalse(result.hasError(), result.getError());
+        List<QueryResult.Series> series = result.getResults().get(0).getSeries();
+        Assertions.assertNotNull(series, "No points stored in " + measurement);
+        Assertions.assertEquals(1, series.get(0).getValues().size());
+        return ((Number) series.get(0).getValues().get(0).get(0)).longValue();
     }
 
     @TestTemplate

@@ -115,7 +115,8 @@ public class DefaultSerializer implements Serializer {
             SeaTunnelRowType seaTunnelRowType, String timeKey) {
         // not config timeKey, use processing time
         if (Strings.isNullOrEmpty(timeKey)) {
-            return (row, builder) -> builder.time(System.currentTimeMillis(), precision);
+            return (row, builder) ->
+                    builder.time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
         }
 
         int timeFieldIndex = seaTunnelRowType.indexOf(timeKey);
@@ -137,7 +138,7 @@ public class DefaultSerializer implements Serializer {
                                     .atZone(ZoneOffset.UTC)
                                     .toInstant()
                                     .toEpochMilli(),
-                            precision);
+                            TimeUnit.MILLISECONDS);
                     break;
                 case BIGINT:
                     builder.time((Long) time, precision);
