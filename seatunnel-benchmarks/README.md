@@ -71,6 +71,12 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
   -rff seatunnel-benchmarks/target/benchmark-result.json
 ```
 
+Run only the `JdbcRowConverter` benchmarks.
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar JdbcRowConverterBenchmark
+```
+
 ## Run Zeta full-pipeline benchmarks
 
 ```bash
