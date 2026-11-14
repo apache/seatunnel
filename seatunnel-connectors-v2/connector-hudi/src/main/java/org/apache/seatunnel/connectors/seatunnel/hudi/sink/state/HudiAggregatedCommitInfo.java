@@ -17,8 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.sink.state;
 
-import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
+import java.io.Serializable;
+import java.util.List;
+
+/**
+ * The commit infos of all writers for one checkpoint. It is the state of the aggregated committer,
+ * so it is restored and committed again when the job restarts from the checkpoint that produced it.
+ */
+@Getter
+@AllArgsConstructor
 public class HudiAggregatedCommitInfo implements Serializable {
+
     private static final long serialVersionUID = -5342563020191900441L;
+
+    private final List<HudiCommitInfo> commitInfos;
+
+    public boolean isEmpty() {
+        return commitInfos == null || commitInfos.isEmpty();
+    }
 }
