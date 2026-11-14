@@ -21,6 +21,7 @@ import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispat
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import org.apache.kafka.connect.errors.ConnectException;
 
@@ -282,6 +283,11 @@ public class MySqlSnapshotSplitReadTask
      */
     private Object readField(ResultSet rs, int fieldNo, Column actualColumn, Table actualTable)
             throws SQLException {
+        // Connector/J 8.0.x cannot decode the MySQL 9.0 VECTOR wire type in rs.getObject(), and
+        // rs.getBytes() returns the stored value undecoded, matching the binlog representation.
+        if (MySqlTypeConverter.MYSQL_VECTOR.equalsIgnoreCase(actualColumn.typeName())) {
+            return rs.getBytes(fieldNo);
+        }
         if (actualColumn.jdbcType() == Types.TIME) {
             return readTimeField(rs, fieldNo);
         } else if (actualColumn.jdbcType() == Types.DATE) {

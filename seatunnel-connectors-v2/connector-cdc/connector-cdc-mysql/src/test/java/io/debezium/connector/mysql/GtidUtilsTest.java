@@ -23,49 +23,79 @@ import static io.debezium.connector.mysql.GtidUtils.fixRestoredGtidSet;
 import static io.debezium.connector.mysql.GtidUtils.mergeGtidSetInto;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** Unit test for {@link GtidUtils}. */
+/**
+ * Unit test for {@link GtidUtils}.
+ *
+ * <p>Server identifiers are real UUIDs because the binlog client behind {@link GtidSet} parses them
+ * with {@link java.util.UUID#fromString}, as MySQL always reports them. Lowercase is used because
+ * that is how the client renders them, and the a/b/c prefixes keep the sorted order of the output.
+ */
 class GtidUtilsTest {
     @Test
     void testFixingRestoredGtidSet() {
-        GtidSet serverGtidSet = new GtidSet("A:1-100");
-        GtidSet restoredGtidSet = new GtidSet("A:30-100");
-        assertEquals("A:1-100", fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString());
-
-        serverGtidSet = new GtidSet("A:1-100");
-        restoredGtidSet = new GtidSet("A:30-50");
-        assertEquals("A:1-50", fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString());
-
-        serverGtidSet = new GtidSet("A:1-100:102-200,B:20-200");
-        restoredGtidSet = new GtidSet("A:106-150");
+        GtidSet serverGtidSet = new GtidSet("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100");
+        GtidSet restoredGtidSet = new GtidSet("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:30-100");
         assertEquals(
-                "A:1-100:102-150,B:20-200",
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100",
                 fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString());
 
-        serverGtidSet = new GtidSet("A:1-100:102-200,B:20-200");
-        restoredGtidSet = new GtidSet("A:106-150,C:1-100");
+        serverGtidSet = new GtidSet("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100");
+        restoredGtidSet = new GtidSet("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:30-50");
         assertEquals(
-                "A:1-100:102-150,B:20-200,C:1-100",
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-50",
                 fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString());
 
-        serverGtidSet = new GtidSet("A:1-100:102-200,B:20-200");
-        restoredGtidSet = new GtidSet("A:106-150:152-200,C:1-100");
+        serverGtidSet =
+                new GtidSet(
+                        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100:102-200,bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:20-200");
+        restoredGtidSet = new GtidSet("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:106-150");
         assertEquals(
-                "A:1-100:102-200,B:20-200,C:1-100",
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100:102-150,bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:20-200",
+                fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString());
+
+        serverGtidSet =
+                new GtidSet(
+                        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100:102-200,bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:20-200");
+        restoredGtidSet =
+                new GtidSet(
+                        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:106-150,cccccccc-cccc-cccc-cccc-cccccccccccc:1-100");
+        assertEquals(
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100:102-150,bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:20-200,cccccccc-cccc-cccc-cccc-cccccccccccc:1-100",
+                fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString());
+
+        serverGtidSet =
+                new GtidSet(
+                        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100:102-200,bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:20-200");
+        restoredGtidSet =
+                new GtidSet(
+                        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:106-150:152-200,cccccccc-cccc-cccc-cccc-cccccccccccc:1-100");
+        assertEquals(
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100:102-200,bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:20-200,cccccccc-cccc-cccc-cccc-cccccccccccc:1-100",
                 fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString());
     }
 
     @Test
     void testMergingGtidSets() {
-        GtidSet base = new GtidSet("A:1-100");
-        GtidSet toMerge = new GtidSet("A:1-10");
-        assertEquals("A:1-100", mergeGtidSetInto(base, toMerge).toString());
+        GtidSet base = new GtidSet("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100");
+        GtidSet toMerge = new GtidSet("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-10");
+        assertEquals(
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100",
+                mergeGtidSetInto(base, toMerge).toString());
 
-        base = new GtidSet("A:1-100");
-        toMerge = new GtidSet("B:1-10");
-        assertEquals("A:1-100,B:1-10", mergeGtidSetInto(base, toMerge).toString());
+        base = new GtidSet("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100");
+        toMerge = new GtidSet("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:1-10");
+        assertEquals(
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100,bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:1-10",
+                mergeGtidSetInto(base, toMerge).toString());
 
-        base = new GtidSet("A:1-100,C:1-100");
-        toMerge = new GtidSet("A:1-10,B:1-10");
-        assertEquals("A:1-100,B:1-10,C:1-100", mergeGtidSetInto(base, toMerge).toString());
+        base =
+                new GtidSet(
+                        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100,cccccccc-cccc-cccc-cccc-cccccccccccc:1-100");
+        toMerge =
+                new GtidSet(
+                        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-10,bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:1-10");
+        assertEquals(
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-100,bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:1-10,cccccccc-cccc-cccc-cccc-cccccccccccc:1-100",
+                mergeGtidSetInto(base, toMerge).toString());
     }
 }
