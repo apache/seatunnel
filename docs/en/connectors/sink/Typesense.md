@@ -45,6 +45,10 @@ or more primary key fields.
 
 The access address for Typesense, formatted as `host:port`, e.g., `["typesense-01:8108"]`. When several nodes are configured, the sink keeps a single client per writer and does not balance writes across them.
 
+### protocol [string]
+
+The protocol used to connect to Typesense. The default value is `http`. Use `https` for Typesense Cloud.
+
 ### collection [string]
 
 The name of the collection to write to, e.g., `"seatunnel"`. In multi-table jobs, every table routes to the same configured collection; configure one sink block per target collection if different tables need different destinations.

@@ -44,6 +44,10 @@ import ChangeLog from '../changelog/connector-typesense.md';
 
 Typesense 的访问地址，格式为 `host:port`，例如：`["typesense-01:8108"]`。配置多个节点时，每个 Writer 只持有一个客户端，不会把写入请求在节点之间负载均衡。
 
+### protocol [string]
+
+连接 Typesense 使用的协议。默认值为 `http`，Typesense Cloud 请使用 `https`。
+
 ### collection [string]
 
 要写入的 collection 名，例如：`seatunnel`。在多表作业中，所有表都会路由到同一个 collection；如果不同表要写入不同目标，请为每个目标 collection 单独配置一个 sink 块。
