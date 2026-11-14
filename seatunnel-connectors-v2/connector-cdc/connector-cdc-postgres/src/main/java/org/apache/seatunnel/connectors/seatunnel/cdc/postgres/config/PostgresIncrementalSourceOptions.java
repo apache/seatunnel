@@ -59,4 +59,34 @@ public class PostgresIncrementalSourceOptions extends JdbcSourceOptions {
                                     + "but UPDATE/DELETE events may not contain the previous state. "
                                     + "This should only be used for append-only tables (e.g., outbox pattern). "
                                     + "Default is true for backward compatibility.");
+
+    public static final Option<String> SSL_MODE =
+            Options.key("sslmode")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "SSL mode for the Debezium PostgreSQL replication and data connections. "
+                                    + "Valid values: disable, require, verify-ca, verify-full. "
+                                    + "When set, it is written to database.sslmode and overrides "
+                                    + "debezium.database.sslmode. When unset, database.sslmode is left untouched "
+                                    + "(the JDBC url sslmode is not inherited), so debezium.database.sslmode "
+                                    + "applies if configured and otherwise the Debezium default disable is used.");
+
+    public static final Option<String> PUBLICATION_NAME =
+            Options.key("publication.name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The PostgreSQL publication name used for pgoutput logical replication "
+                                    + "(defaults to dbz_publication when unset).");
+
+    public static final Option<String> PUBLICATION_AUTOCREATE_MODE =
+            Options.key("publication.autocreate.mode")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Controls how the publication specified by publication.name is created when using pgoutput. "
+                                    + "Valid values: all_tables (default, creates FOR ALL TABLES), "
+                                    + "filtered (creates FOR TABLE for monitored tables only), "
+                                    + "disabled (uses an existing publication without creating or altering it).");
 }
