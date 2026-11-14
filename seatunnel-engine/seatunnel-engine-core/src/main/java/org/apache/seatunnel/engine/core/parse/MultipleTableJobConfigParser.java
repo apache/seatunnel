@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
@@ -38,6 +39,8 @@ import org.apache.seatunnel.api.metalake.MetalakeConfigUtils;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.EnvOptionRule;
+import org.apache.seatunnel.api.sink.DirtyCollectorConfigProcessor;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SaveModeExecuteLocation;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
@@ -628,7 +631,11 @@ public class MultipleTableJobConfigParser {
             ClassLoader classLoader,
             LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap) {
 
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sinkConfig);
+        Config envConfig =
+                seaTunnelJobConfig.hasPath("env") ? seaTunnelJobConfig.getConfig("env") : null;
+        Config mergedSinkConfig =
+                DirtyCollectorConfigProcessor.getMergedSinkConfigForDirty(envConfig, sinkConfig);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(mergedSinkConfig);
         String factoryId = getFactoryId(readonlyConfig);
         List<String> inputIds = getInputIds(readonlyConfig);
 
@@ -657,60 +664,96 @@ public class MultipleTableJobConfigParser {
         List<SinkAction<?, ?, ?, ?>> sinkActions = new ArrayList<>();
         int failedTableStartIndex = failedTables.size();
 
-        // union
-        if (inputVertices.size() > 1) {
-            Set<Action> inputActions =
-                    inputVertices.stream()
-                            .flatMap(Collection::stream)
-                            .map(Tuple2::_2)
-                            .collect(Collectors.toCollection(LinkedHashSet::new));
-            checkProducedTypeEquals(inputActions);
-            Tuple2<CatalogTable, Action> inputActionSample = inputVertices.get(0).get(0);
-            Optional<SinkAction<?, ?, ?, ?>> sinkAction =
-                    createSinkAction(
-                            inputActionSample._1(),
-                            inputActions,
-                            readonlyConfig,
-                            classLoader,
-                            jarUrls,
-                            new HashSet<>(),
-                            factoryId,
-                            inputActionSample._2().getParallelism(),
-                            configIndex);
-            sinkAction.ifPresent(sinkActions::add);
-            return sinkActions;
-        }
+        CatalogTable catalogTableSample =
+                !inputVertices.isEmpty() && !inputVertices.get(0).isEmpty()
+                        ? inputVertices.get(0).get(0)._1()
+                        : null;
+        DirtyRecordCollector dirtyRecordCollector =
+                DirtyCollectorConfigProcessor.processConfig(
+                        envConfig,
+                        sinkConfig,
+                        catalogTableSample,
+                        inputVertices.stream().mapToInt(List::size).sum());
 
-        // TODO move it into tryGenerateMultiTableSink when we don't support sink template
-        // sink template
-        for (Tuple2<CatalogTable, Action> tuple : inputVertices.get(0)) {
-            Optional<SinkAction<?, ?, ?, ?>> sinkAction =
-                    createSinkAction(
-                            tuple._1(),
-                            Collections.singleton(tuple._2()),
+        boolean policyTransferred = false;
+        Throwable planningFailure = null;
+        try {
+            // union
+            if (inputVertices.size() > 1) {
+                Set<Action> inputActions =
+                        inputVertices.stream()
+                                .flatMap(Collection::stream)
+                                .map(Tuple2::_2)
+                                .collect(Collectors.toCollection(LinkedHashSet::new));
+                checkProducedTypeEquals(inputActions);
+                Tuple2<CatalogTable, Action> inputActionSample = inputVertices.get(0).get(0);
+                Optional<SinkAction<?, ?, ?, ?>> sinkAction =
+                        createSinkAction(
+                                inputActionSample._1(),
+                                inputActions,
+                                readonlyConfig,
+                                classLoader,
+                                jarUrls,
+                                new HashSet<>(),
+                                factoryId,
+                                inputActionSample._2().getParallelism(),
+                                configIndex);
+                sinkAction.ifPresent(
+                        action -> {
+                            action.setDirtyRecordCollector(dirtyRecordCollector);
+                            sinkActions.add(action);
+                        });
+                policyTransferred = !sinkActions.isEmpty();
+                return sinkActions;
+            }
+
+            // TODO move it into tryGenerateMultiTableSink when we don't support sink template
+            // sink template
+            for (Tuple2<CatalogTable, Action> tuple : inputVertices.get(0)) {
+                Optional<SinkAction<?, ?, ?, ?>> sinkAction =
+                        createSinkAction(
+                                tuple._1(),
+                                Collections.singleton(tuple._2()),
+                                readonlyConfig,
+                                classLoader,
+                                jarUrls,
+                                new HashSet<>(),
+                                factoryId,
+                                tuple._2().getParallelism(),
+                                configIndex);
+                sinkAction.ifPresent(
+                        action -> {
+                            action.setDirtyRecordCollector(dirtyRecordCollector);
+                            sinkActions.add(action);
+                        });
+            }
+            if (DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
+                policyTransferred = !sinkActions.isEmpty();
+                return sinkActions;
+            }
+            Optional<SinkAction<?, ?, ?, ?>> multiTableSink =
+                    tryGenerateMultiTableSink(
+                            sinkActions,
                             readonlyConfig,
                             classLoader,
-                            jarUrls,
-                            new HashSet<>(),
                             factoryId,
-                            tuple._2().getParallelism(),
-                            configIndex);
-            sinkAction.ifPresent(sinkActions::add);
+                            configIndex,
+                            getInitialFailedTablesForSink(failedTableStartIndex));
+            List<SinkAction<?, ?, ?, ?>> outputs =
+                    multiTableSink
+                            .<List<SinkAction<?, ?, ?, ?>>>map(Collections::singletonList)
+                            .orElse(sinkActions);
+            policyTransferred = !outputs.isEmpty();
+            return outputs;
+        } catch (RuntimeException | Error failure) {
+            planningFailure = failure;
+            throw failure;
+        } finally {
+            if (!policyTransferred) {
+                DirtyCollectorConfigProcessor.closeAfterPlanningFailure(
+                        dirtyRecordCollector, planningFailure);
+            }
         }
-        if (DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
-            return sinkActions;
-        }
-        Optional<SinkAction<?, ?, ?, ?>> multiTableSink =
-                tryGenerateMultiTableSink(
-                        sinkActions,
-                        readonlyConfig,
-                        classLoader,
-                        factoryId,
-                        configIndex,
-                        getInitialFailedTablesForSink(failedTableStartIndex));
-        return multiTableSink
-                .<List<SinkAction<?, ?, ?, ?>>>map(Collections::singletonList)
-                .orElse(sinkActions);
     }
 
     private Optional<SinkAction<?, ?, ?, ?>> tryGenerateMultiTableSink(
@@ -757,6 +800,10 @@ public class MultipleTableJobConfigParser {
                         jars,
                         new HashSet<>());
         multiTableAction.setParallelism(sinkActions.get(0).getParallelism());
+        DirtyRecordCollector dirtyCollector = sinkActions.get(0).getDirtyRecordCollector();
+        if (dirtyCollector != null) {
+            multiTableAction.setDirtyRecordCollector(dirtyCollector);
+        }
         return Optional.of(multiTableAction);
     }
 
@@ -823,6 +870,8 @@ public class MultipleTableJobConfigParser {
             return handleCreateSinkFailure(
                     catalogTable, factoryId, MultiTableFailurePhase.SINK_INIT, error);
         }
+        DirtyCollectorConfigProcessor.validateSinkSupport(
+                ConfigFactory.parseMap(readonlyConfig.getSourceMap()), sink);
         sink.setJobContext(jobConfig.getJobContext());
         SinkConfig actionConfig = new SinkConfig(catalogTable.getTableId().toTablePath());
         long id = idGenerator.getNextId();

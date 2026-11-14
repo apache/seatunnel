@@ -22,6 +22,8 @@ import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
@@ -35,6 +37,7 @@ public class SinkWriterContext implements SinkWriter.Context {
     private final int numberOfParallelSubtasks;
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
+    private final DirtyRecordCollector dirtyRecordCollector;
     private final transient RowErrorCollector rowErrorCollector;
     private transient volatile RunnableWithException flushAction;
     private transient volatile boolean deferredTerminalWriteOutcomesEnabled;
@@ -53,6 +56,28 @@ public class SinkWriterContext implements SinkWriter.Context {
             MetricsContext metricsContext,
             EventListener eventListener,
             RowErrorCollector rowErrorCollector) {
+        this(
+                numberOfParallelSubtasks,
+                indexOfSubtask,
+                metricsContext,
+                eventListener,
+                rowErrorCollector,
+                NoOpDirtyRecordCollector.INSTANCE);
+    }
+
+    /**
+     * Supplies independent asynchronous row-error and dirty-validation collectors.
+     *
+     * <p>The existing five-argument constructor retains its row-error meaning; optional dirty
+     * validation uses a separate sixth argument without changing deferred outcomes or flush hooks.
+     */
+    public SinkWriterContext(
+            int numberOfParallelSubtasks,
+            int indexOfSubtask,
+            MetricsContext metricsContext,
+            EventListener eventListener,
+            RowErrorCollector rowErrorCollector,
+            DirtyRecordCollector dirtyRecordCollector) {
         Preconditions.checkArgument(
                 numberOfParallelSubtasks >= 1, "Parallelism must be a positive number.");
         Preconditions.checkArgument(
@@ -62,6 +87,7 @@ public class SinkWriterContext implements SinkWriter.Context {
         this.metricsContext = metricsContext;
         this.eventListener = eventListener;
         this.rowErrorCollector = rowErrorCollector;
+        this.dirtyRecordCollector = dirtyRecordCollector;
     }
 
     @Override
@@ -81,6 +107,11 @@ public class SinkWriterContext implements SinkWriter.Context {
     @Override
     public EventListener getEventListener() {
         return eventListener;
+    }
+
+    @Override
+    public DirtyRecordCollector getDirtyRecordCollector() {
+        return dirtyRecordCollector;
     }
 
     @Override

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -48,6 +49,8 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
     private volatile String jobId;
 
     private volatile Integer parallelism;
+
+    private volatile DirtyRecordCollector dirtyRecordCollector;
 
     private void init(DataSourceOptions options) {
         if (sink == null) {
@@ -83,6 +86,12 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
                                                     SparkSinkInjector.PARALLELISM
                                                             + " must be specified"));
         }
+        if (dirtyRecordCollector == null) {
+            this.dirtyRecordCollector =
+                    options.get(SparkSinkInjector.DIRTY_COLLECTOR)
+                            .map(s -> (DirtyRecordCollector) SerializationUtils.stringToObject(s))
+                            .orElse(null);
+        }
     }
 
     @Override
@@ -91,7 +100,8 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
         init(options);
 
         try {
-            return new SparkStreamWriter<>(sink, catalogTables, jobId, parallelism);
+            return new SparkStreamWriter<>(
+                    sink, catalogTables, jobId, parallelism, dirtyRecordCollector);
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }
@@ -104,7 +114,8 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
 
         try {
             return Optional.of(
-                    new SparkDataSourceWriter<>(sink, catalogTables, jobId, parallelism));
+                    new SparkDataSourceWriter<>(
+                            sink, catalogTables, jobId, parallelism, dirtyRecordCollector));
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }
