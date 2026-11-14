@@ -65,6 +65,9 @@ data:
               clusterName: seatunnel-cluster
               storage.type: hdfs
               fs.defaultFS: hdfs://namenode:8020
+        engine_finishedJobMetrics:
+          map-store:
+            enabled: false
       properties:
         hazelcast.invocation.max.retry.count: 20
         hazelcast.tcp.join.port.try.count: 30
@@ -77,6 +80,17 @@ data:
         hazelcast.heartbeat.phiaccrual.failuredetector.sample.size: 200
         hazelcast.heartbeat.phiaccrual.failuredetector.min.std.dev.millis: 100
 ```
+
+:::info 说明
+这些示例保持 `engine*` 的 `map-store.enabled: true`，并通过精确名称配置单独关闭
+`engine_finishedJobMetrics` 的持久化。这是示例中的选择，不会改变产品默认值。使用该覆盖时，
+整个集群重启后不会保留重启前已完成作业的指标。作业恢复不依赖该 IMap。
+
+如需为这些指标启用 MapStore，可以删除 `engine_finishedJobMetrics` 配置项，使其使用 `engine*` 配置；也可以
+将 `engine*` 的完整 `map-store` 配置块复制到精确名称配置项中并设置 `enabled: true`，包括
+`factory-class-name` 和对应存储的 `properties`。精确名称配置项不会继承通配符配置，因此只修改
+`enabled` 不会配置持久化实现。
+:::
 
 ### Worker Hazelcast 配置
 
