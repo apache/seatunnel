@@ -26,7 +26,7 @@ To use this connector you need to put `hadoop-cos-{hadoop.version}-{version}.jar
 
 ## Key Features
 
-- [x] [multimodal](../../introduction/concepts/connector-v2-features.md#multimodal)
+- [x] [multimodal](../../introduction/concepts/connector-v2-features.md#multimodal-write)
 
   Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
 

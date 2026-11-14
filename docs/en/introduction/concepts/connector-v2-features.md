@@ -79,6 +79,6 @@ If a sink connector supports writing row kinds(INSERT/UPDATE_BEFORE/UPDATE_AFTER
 
 Supports write multiple tables in one SeaTunnel job, users can dynamically specify the table's identifier by [configuring placeholders](../configuration/sink-options-placeholders.md).
 
-### multimodal
+### multimodal write
 
 Support multimodal data integration, including structured and unstructured text data, video, images, binary files, etc.
