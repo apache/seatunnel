@@ -6,7 +6,14 @@ import ChangeLog from '../changelog/connector-hudi.md';
 
 ## Description
 
-Used to write data to Hudi.
+The Hudi sink connector writes SeaTunnel rows to an Apache Hudi table stored on HDFS or an
+S3-compatible filesystem. It supports both single-table and multi-table jobs, with CDC
+changelog persistence, configurable commit cleanup, and pluggable indexing.
+
+Use this connector when you want a copy-on-write or merge-on-read Hudi table backed by
+SeaTunnel CDC input (e.g. MySQL-CDC, PostgreSQL-CDC) or batch sources. The connector writes
+Hudi data files plus `.hoodie` metadata and lets you choose between `INSERT`, `UPSERT`, and
+`BULK_INSERT` write modes through `op_type`.
 
 ## Key features
 
@@ -107,7 +114,7 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### op_type [enum]
 
-`op_type` The operation type of hudi table. The value is `insert` or `upsert` or `bulk_insert`.
+`op_type` The operation type of hudi table. The value is `INSERT`, `UPSERT`, or `BULK_INSERT`.
 
 ### batch_interval_ms [Int]
 

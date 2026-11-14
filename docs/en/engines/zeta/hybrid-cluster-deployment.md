@@ -350,10 +350,12 @@ map:
            fs.defaultFS: file:///
 ```
 
-Note: `engine_runningJobMetrics` stores high-frequency runtime metrics snapshots and is
-intentionally excluded from persistent IMAP storage even when `map.engine*` uses `map-store`. This
-avoids excessive WAL growth for observability-only state. After an engine restart, running-job
-metrics are rebuilt from subsequent reports instead of continuing from the pre-restart snapshot.
+Note: `engine_runningJobMetrics` stores high-frequency runtime metrics snapshots and
+`engine_checkpoint_monitor` stores the checkpoint overview and history served by the REST API.
+Both are intentionally excluded from persistent IMAP storage even when `map.engine*` uses
+`map-store`. This avoids excessive WAL growth for observability-only state. After an engine
+restart, running-job metrics are rebuilt from subsequent reports and the checkpoint overview and
+history start again from the next checkpoint, instead of continuing from the pre-restart state.
 
 If using OSS, you can configure it as follows:
 
@@ -388,7 +390,7 @@ The provider reads `OSS_ACCESS_KEY_ID` and `OSS_ACCESS_KEY_SECRET`, plus optiona
 
 Notice: When using OSS, make sure that the following jars are in the lib directory.
 
-The `seatunnel-shade-hadoop3-uber` JAR comes from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project, which provides a shaded (package-relocated) version of the Hadoop client. All third-party classes are relocated under `org.apache.seatunnel.shade.*` to avoid classpath conflicts with SeaTunnel's own dependencies. The version follows the `${library.version}-${seatunnel.shade.version}` format (e.g., `3.1.4-3.0.0`). Refer to the actual JAR file name in your SeaTunnel distribution package for the exact version.
+The `seatunnel-shade-hadoop3-uber` JAR comes from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project, which provides a shaded (package-relocated) version of the Hadoop client. All third-party classes are relocated under `org.apache.seatunnel.shade.*` to avoid classpath conflicts with SeaTunnel's own dependencies. Use the Hadoop Uber JAR bundled in the SeaTunnel distribution's `lib/` directory.
 
 ```
 aliyun-sdk-oss-3.4.1.jar
@@ -396,7 +398,7 @@ hadoop-aliyun-3.1.4.jar
 jdom-1.1.jar
 netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
-seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop3-uber-*.jar
 ```
 
 It is possible to utilize S3 for IMAP storage. 
@@ -438,10 +440,10 @@ Both JARs come from the [Apache SeaTunnel Shade](https://github.com/apache/seatu
 - `seatunnel-shade-hadoop3-uber` — shaded Hadoop client with relocated packages
 - `seatunnel-shade-hadoop-aws` — shaded Hadoop AWS connector with relocated packages
 
-The version follows the `${library.version}-${seatunnel.shade.version}` format (e.g., `3.1.4-3.0.0`). Refer to the actual JAR file names in your SeaTunnel distribution package for the exact version.
+Use the Hadoop Uber JAR bundled in the SeaTunnel distribution's `lib/` directory.
 
 ```
-seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop3-uber-*.jar
 seatunnel-shade-hadoop-aws-${seatunnel.shade.hadoop-aws.version}-${seatunnel.shade.version}.jar
 ```
 
@@ -470,7 +472,7 @@ Notice: When using GCS, make sure that the following jars are in the lib directo
 
 ```
 gcs-connector-hadoop3-2.2.33-shaded.jar
-seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop3-uber-*.jar
 ```
 
 ## 6. Configure The SeaTunnel Engine Client
@@ -506,7 +508,7 @@ mkdir -p $SEATUNNEL_HOME/logs
 ./bin/seatunnel-cluster.sh -d
 ```
 
-The logs will be written to `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`
+The logs will be written to `$SEATUNNEL_HOME/logs/` — for the default master-and-worker deployment this is `seatunnel-engine-server.log`
 
 ## 8. Submit And Manage Jobs
 
