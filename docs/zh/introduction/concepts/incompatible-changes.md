@@ -4,6 +4,12 @@
 
 ## dev
 
+### Kubernetes Application Mode：可选原生 Master HA
+
+HA 需要显式开启，使用两个原生 Master、一个同步元数据备份和固定 Worker Pod。平台负责部署集群，owner Job 作为唯一原生客户端提交作业。选举、恢复、检查点存储和任务协议保持不变，单 Master 的部署默认值不变。不包含 Worker 自动补充、Operator、严格网络分区保护或连接器 fencing。
+
+单 Master 和 HA 的 `cancel` 现在都需要先读取 Job 再删除；升级时请向取消操作身份授予 Job `get`。HA `retrieve` 还需要 Service `get`。参见 [RBAC 清单](../../getting-started/application/kubernetes/architecture.md#ha-权限)。
+
 ### Lance Sink：BIGINT 列创建为 int64
 
 - **行为变更：Lance Sink 创建的数据集中，`BIGINT` 列为 Arrow `int64`**

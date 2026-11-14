@@ -49,6 +49,21 @@ public final class KubernetesResourceIdentity {
      * @return a unique id suitable for Kubernetes resource names
      */
     public static String newId(String name) {
+        return newId(name, 35);
+    }
+
+    /**
+     * Generates an id whose master StatefulSet revision fits a Kubernetes label value.
+     *
+     * @param name display name used as a sanitized prefix
+     * @return a unique id with room for the master suffix and controller-generated revision hash
+     */
+    public static String newHaId(String name) {
+        // 32 prefix + 13 random suffix + 7 "-master" + 1 separator + 10 FNV32 hash = 63.
+        return newId(name, 32);
+    }
+
+    private static String newId(String name, int maxPrefixLength) {
         String prefix =
                 name.toLowerCase(Locale.ROOT)
                         .replaceAll("[^a-z0-9-]", "-")
@@ -56,7 +71,9 @@ public final class KubernetesResourceIdentity {
         if (prefix.isEmpty()) {
             prefix = "seatunnel";
         }
-        prefix = prefix.substring(0, Math.min(prefix.length(), 35)).replaceAll("-+$", "");
+        prefix =
+                prefix.substring(0, Math.min(prefix.length(), maxPrefixLength))
+                        .replaceAll("-+$", "");
         return prefix + "-" + UUID.randomUUID().toString().substring(0, 12);
     }
 

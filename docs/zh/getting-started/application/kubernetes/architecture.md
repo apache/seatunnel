@@ -5,6 +5,8 @@ title: 集群架构
 
 # Kubernetes 集群架构
 
+以下为默认单 Master 架构；可选多 Master 模式见本页 Application HA 章节。
+
 每次提交在目标 Namespace 中创建一组带唯一 application ID 的资源。Job Pod 运行 Master；Worker Pod 不挂载 Kubernetes API token，只通过 Hazelcast TCP 与 Master 通信。
 
 ```mermaid
@@ -95,3 +97,100 @@ application 显式清理，并使用 application 标签辅助兜底删除。引�
 Master 和 Worker 共同挂载，application 清理后仍会保留。
 
 调用方提供的 checkpoint PVC 不设置 Job OwnerReference，因此成功、失败、取消或 TTL 到期都不会删除 PVC。远程 checkpoint 存储同样独立于 application 生命周期。
+
+## 可选 Application HA
+
+```hocon
+kubernetes {
+  ha.enabled = true
+  master.replicas = 2
+  ha.backup-count = 1
+}
+```
+
+HA 部署两个普通原生 Zeta Master 和固定 Worker Pod。ClusterIP 提供稳定的客户端入口，headless
+Service 提供各 Master 独立的发现地址；成员公布自己的 Pod 地址。首次提交前等待两个 Master
+及全部 Worker 加入同一集群，元数据使用一个原生同步备份。
+
+### 部署与原生运行时
+
+先创建 suspended owner Job，再用服务端确认的 owner UID 创建 Master StatefulSet、Service、
+固定 Worker Pod 和生成的配置，最后启动 owner。owner 是唯一原生提交客户端：准备作业图并通过
+现有 Zeta 客户端 API 提交固定作业 ID。Master 使用现有 standalone 资源管理器注册 Worker，
+不提交作业也不清理 Kubernetes Worker。选举、调度、检查点恢复及任务协议保持不变。
+
+owner 不再是仅观察元数据的进程，它接收作业配置、所需环境变量、Secret/ConfigMap 挂载和插件，
+使用配置的 Master 资源、至少 512Mi 内存以及正常 JVM 堆比例。只有 owner 使用 Kubernetes API
+令牌，Master 和 Worker 不挂载该令牌。
+
+### 提交、切换与清理
+
+- 首次提交等待两个 Master 和固定数量 Worker。Master 替换不会重新提交作业，也不会补充 Worker。
+  原生接管保留相同作业 ID。
+- 提交意图通过 owner UID 和 resourceVersion 记录一次。提交确认丢失时只观察原有作业 ID，不能重提。
+  `UNKNOWABLE`、连接异常或历史记录缺失均不表示成功。原生恢复无法完成时，owner 和剩余 Worker
+  可能一直运行，必须通过 application `cancel` 释放；未知状态不能触发自动重新提交。
+- 原生 `FINISHED`/`SAVEPOINT_DONE`、`FAILED`、`CANCELED` 先持久化，再清理计算资源。
+  API 删除失败会重试，清理同时校验 owner UID 和资源 UID，只删除本应用生成的资源。
+  用户 PVC 和引用配置不删除；生成的挂载配置保留至 owner Job TTL。
+- Worker 为固定且不重启的 Pod，丢失 Worker 会失败并释放剩余计算资源，不自动补充。
+- 应用 cancel 以 UID 前置条件和 foreground 传播删除 owner；删除确认不等于已观察到全部依赖消失。
+
+owner Job 不自动重试，以免重复含糊的提交。owner 进程丢失不属于 Master HA：Job 会失败，
+Kubernetes 在配置 TTL 到期后回收其依赖，显式取消可以提前删除。本功能不是 Operator。
+
+### 存储与保证边界
+
+所有 Master 必须能访问相同的保留检查点。原生存储语义、重试限制和 sink 正确性不变。
+两个 Master 不提供 quorum 或分区写入 fencing。严格网络分区保护、同时丢失两个 Master、
+Worker 补充、弹性扩缩、YARN HA 和连接器 fencing 均不在范围内。
+
+### 原生恢复依赖
+
+Application HA 使用未修改的 Zeta 原生引擎，并继承其恢复限制；构建和运行不依赖独立的实验性引擎分支。
+Pod 丢失和恢复测试并不能证明所有终态回调重放、checkpoint 计数器或存储读取竞争、旧执行轮次报告、
+接管初始化时序都安全。
+
+相关引擎工作由 [#12558](https://github.com/apache/seatunnel/issues/12558) 和
+[#12117](https://github.com/apache/seatunnel/issues/12117) 单独跟踪，只覆盖部分 checkpoint 状态协调和
+coordinator 生命周期隔离问题，未覆盖上述全部恢复场景。如果在本功能支持的路径中复现引擎正确性缺陷，
+必须通过独立引擎修复解决后才能声明该路径安全；仅调整部署的范围并不免除此要求。
+
+### HA 权限
+
+提交端和 owner 使用独立的 namespace 级身份；Master 和 Worker 不得获得 owner Role 或 Kubernetes API
+令牌，无需集群级权限。HA 集成测试使用以下同一份权限清单：
+
+- [提交端 Role](../../../../en/getting-started/application/kubernetes/ha-submitter-role.yaml)：
+  Job `create/get/patch/delete`、Pod `create/list/delete/deletecollection`、StatefulSet `create`、
+  Service `create/get`，以及生成的 Secret/ConfigMap `create`。Pod 删除权限用于 owner 缺失时的取消清理。
+  HA 部署部分失败时按 UID 删除已确认的 owner Job，由 Kubernetes 回收其依赖，因此回滚无需子资源
+  `get/delete` 权限。
+  引用对象的 Secret/ConfigMap `get` 是可选的校验权限，建议通过 `resourceNames` 限定到需校验的对象；
+  缺少此权限时只发出警告，由 Kubernetes 校验挂载。
+- [owner Role](../../../../en/getting-started/application/kubernetes/ha-owner-role.yaml)：
+  Job `get/patch`、Pod `list/delete`、StatefulSet `get/delete`、Service `list/delete`。
+  owner 不创建 Worker，也不通过 API 读取 Secret/ConfigMap；所需文件通过 Pod 挂载提供。
+
+单 Master 和 HA application 的 `cancel` 都先读取 owner Job，因此调用方除了 `delete` 还需要 Job `get`。
+读取被拒绝时取消操作失败，不退回无 UID 校验的删除。HA `retrieve` 还需要 Service `get` 以发现 ClusterIP。
+
+管理员在提交前应用并绑定 Role，根据目标部署替换 `seatunnel-apps`、`SUBMITTER` 和 owner ServiceAccount：
+
+```bash
+kubectl -n seatunnel-apps apply -f ha-submitter-role.yaml -f ha-owner-role.yaml
+kubectl -n seatunnel-apps create rolebinding seatunnel-submitter \
+  --role=seatunnel-application-submitter --user=SUBMITTER
+kubectl -n seatunnel-apps create serviceaccount application
+kubectl -n seatunnel-apps create rolebinding seatunnel-owner \
+  --role=application --serviceaccount=seatunnel-apps:application
+```
+
+设置 `kubernetes.service-account = application` 使用该 owner 身份。上述 Role 不授予 RBAC 管理或用户 PVC
+创建权限，这些资源仍由管理员负责。
+
+### 验收
+
+在仅平台变更的分支运行 `KubernetesApplicationHaIT`，验证 active/standby Master 丢失、相同作业和
+Worker UID、新检查点、LocalFile 精确输出、原生取消、成功/失败清理、API 删除重试及用户资源保留。
+本地临时 Kubernetes 测试不证明物理主机 HA 或网络分区安全。

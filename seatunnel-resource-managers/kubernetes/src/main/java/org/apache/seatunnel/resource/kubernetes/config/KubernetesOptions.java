@@ -26,6 +26,26 @@ public final class KubernetesOptions {
 
     private KubernetesOptions() {}
 
+    public static final Option<Boolean> HA_ENABLED =
+            Options.key("kubernetes.ha.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Enable native Zeta failover between two masters with fixed workers.");
+
+    public static final Option<Integer> MASTER_REPLICAS =
+            Options.key("kubernetes.master.replicas")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription(
+                            "Master replicas; HA requires exactly two, otherwise exactly one.");
+    public static final Option<Integer> HA_BACKUP_COUNT =
+            Options.key("kubernetes.ha.backup-count")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "HA requires one native synchronous backup; defaults to one independently of submitter configuration.");
+
     public static final Option<String> NAMESPACE =
             Options.key("kubernetes.namespace")
                     .stringType()
