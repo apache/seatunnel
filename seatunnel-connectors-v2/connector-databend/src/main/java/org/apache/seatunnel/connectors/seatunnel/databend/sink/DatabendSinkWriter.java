@@ -48,6 +48,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -686,7 +687,14 @@ public class DatabendSinkWriter
                         i + 1,
                         field,
                         field.getClass().getSimpleName());
-                preparedStatement.setObject(i + 1, field);
+                if (field instanceof LocalTime) {
+                    // A TIME column is created as STRING, since Databend has no TIME type, and
+                    // databend-jdbc's setObject rejects a LocalTime. Write the time of day as text.
+                    preparedStatement.setString(
+                            i + 1, ((LocalTime) field).format(DateTimeFormatter.ISO_LOCAL_TIME));
+                } else {
+                    preparedStatement.setObject(i + 1, field);
+                }
             }
         }
         preparedStatement.addBatch();

@@ -17,10 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.databend.catalog;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.seatunnel.databend.util.DatabendTypeConverter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -31,7 +34,8 @@ import java.util.Locale;
 /**
  * Covers the Databend to SeaTunnel type mapping the catalog applies to every column of every table
  * the source reads. The type names used here are the ones the JDBC driver reports as TYPE_NAME:
- * without a Nullable(...) wrapper, and with the arguments of a parameterised type.
+ * without a Nullable(...) wrapper, and with the arguments of a parameterised type. Also covers the
+ * column type the catalog names when it creates a table.
  */
 public class DatabendCatalogTest {
 
@@ -111,6 +115,23 @@ public class DatabendCatalogTest {
         assertMaps("variant", BasicType.STRING_TYPE);
         assertMaps("geometry", BasicType.STRING_TYPE);
         assertMaps("array(int32)", BasicType.STRING_TYPE);
+    }
+
+    @Test
+    public void aTimeColumnIsCreatedAsString() {
+        // Databend has no TIME type, so CREATE TABLE has to name another one. It is the type the
+        // schema change path already uses for a TIME column.
+        Column timeColumn =
+                PhysicalColumn.builder()
+                        .name("start_time")
+                        .dataType(LocalTimeType.LOCAL_TIME_TYPE)
+                        .nullable(true)
+                        .build();
+        Assertions.assertEquals(
+                "STRING", DatabendCatalog.toDatabendTypeString(LocalTimeType.LOCAL_TIME_TYPE));
+        Assertions.assertEquals(
+                DatabendTypeConverter.convertToDatabendType(timeColumn).getColumnType(),
+                DatabendCatalog.toDatabendTypeString(LocalTimeType.LOCAL_TIME_TYPE));
     }
 
     private static void assertMaps(String databendTypeName, SeaTunnelDataType<?> expected) {
