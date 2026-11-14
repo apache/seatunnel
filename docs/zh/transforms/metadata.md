@@ -22,7 +22,10 @@ Metadata 转换插件用于将数据行中的元数据信息提取为普通字�
 |    元数据Key    | 输出类型 |          说明          | 数据来源 |
 |:---------:|:--------:|:-----------------------------:|:----:|
 | Database  |  string  |  数据所属的数据库名称  | 所有连接器 |
+| Schema | string | 关系型数据库的 schema 或 owner 名称，不包含数据库名或表名。 | PostgreSQL-CDC、Opengauss-CDC、Oracle-CDC、SQLServer-CDC |
 |   Table   |  string  |  数据所属的表名称  | 所有连接器 |
+| Collection | string | MongoDB 集合名称。 | MongoDB-CDC |
+| Namespace | string | 源端原生的组合命名空间。MongoDB-CDC 中固定为 `database.collection`。 | MongoDB-CDC |
 |  RowKind  |  string  |  行的变更类型，值为：+I（插入）、-U（更新前）、+U（更新后）、-D（删除）  | 所有连接器 |
 | EventTime | long   | 数据变更的事件时间戳（毫秒） | CDC 连接器；Kafka 源（ConsumerRecord.timestamp） |
 |   Delay   |   long   |  数据采集延迟时间（毫秒），即数据抽取时间与数据库变更时间的差值  | CDC 连接器 |
@@ -88,6 +91,28 @@ Knowledge Sync 流程可以使用下面的逻辑元数据 Key 携带文档和 ch
 7. **来源 URI 安全**：producer 在将 `SourceUri` 写入行 options 前，必须移除 URI userinfo、访问令牌、签名以及其他临时鉴权信息。通用 Markdown bridge 会移除分层远程 URI 的完整 query 和 fragment；如果来源身份依赖 query，则必须提供稳定且不敏感的 path。
 8. **Knowledge Sync 可空语义**：`DocumentId` 用于标识每个文档生命周期事件。声明 `Deleted` 后，producer 必须为普通行写入 `false`，为文档 tombstone 写入 `true`，不能使用 `null`。普通 chunk 行必须包含 `ChunkId`、`ChunkHash` 和 `ChunkIndex`；紧凑的文档 tombstone 可以将这些 chunk 字段留为 `null`。
 9. **投影冲突**：输出字段名不能与已有物理字段重复。启用 Markdown RAG metadata 后已经存在物理 `source_uri` 和 `document_id`，因此应把逻辑值投影为 `ks_source_uri`、`ks_document_id` 等别名。
+
+### CDC 源端标识契约
+
+CDC 标识元数据使用以下稳定的 SeaTunnel 字段语义：
+
+无法提供的标识保持缺失，不会填充占位值或重复值。
+
+| 元数据Key | 语义 |
+|:----------|:-----|
+| Database | 仅表示逻辑数据库名，不包含 schema、表、集合或命名空间组合。 |
+| Schema | 仅表示关系型数据库的 schema 或 owner。后端没有 schema 概念时该字段缺失。 |
+| Table | 仅表示物理表名，不包含 database 或 schema 前缀。 |
+| Collection | 仅表示文档集合名称。 |
+| Namespace | 源端原生组合命名空间。MongoDB-CDC 中固定为 `database.collection`。 |
+
+首批交付的连接器覆盖范围：
+
+| 连接器 | 标识元数据 |
+|:-------|:-----------|
+| MySQL-CDC / TiDB-CDC | `Database`、`Table` |
+| PostgreSQL-CDC / Opengauss-CDC / Oracle-CDC / SQLServer-CDC | 可用时提供 `Database`，并提供 `Schema`、`Table` |
+| MongoDB-CDC | `Database`、`Collection`、`Namespace` |
 
 ### Markdown Source Bridge
 
@@ -291,7 +316,43 @@ sink {
 }
 ```
 
-### 示例 3：Kafka 写入时间用于分区
+### 示例 3：CDC 结构化源端标识
+
+对于能提供 schema 或 owner 的关系型 CDC 连接器，可以分别投影 `Database`、`Schema` 和
+`Table`，避免解析组合表标识。
+
+```hocon
+transform {
+  Metadata {
+    plugin_input = "postgres_cdc"
+    plugin_output = "postgres_with_source"
+    metadata_fields {
+      Database = source_database
+      Schema = source_schema
+      Table = source_table
+    }
+  }
+}
+```
+
+对于 MongoDB-CDC，可以投影集合相关的标识。`Namespace` 是原生的 `database.collection`
+字符串。
+
+```hocon
+transform {
+  Metadata {
+    plugin_input = "mongodb_cdc"
+    plugin_output = "mongodb_with_source"
+    metadata_fields {
+      Database = source_database
+      Collection = source_collection
+      Namespace = source_namespace
+    }
+  }
+}
+```
+
+### 示例 4：Kafka 写入时间用于分区
 
 将 Kafka `ConsumerRecord.timestamp`（写入到 `EventTime` 元数据）暴露为普通字段，再生成分区字段并写入 Hive，适合回放或补数场景。
 
@@ -359,7 +420,7 @@ sink {
 
 上面的 `pt` 字段由 Kafka 事件时间转换而来，可在 Hive 中作为分区列使用，便于补数和校准分区。
 
-### 示例 4：结合 Metadata 和 Sql 提取分表后缀并生成装载日期
+### 示例 5：结合 Metadata 和 Sql 提取分表后缀并生成装载日期
 
 当上游是按月或按天分表的 CDC 源时，常见需求是先把 `Table` 元数据暴露成普通字段，再用
 `Sql` 提取分表后缀、补充任务装载日期。
