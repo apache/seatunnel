@@ -27,14 +27,20 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.ActionUtils;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
+import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
+import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.Edge;
 import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.VertexInfo;
+import org.apache.seatunnel.engine.server.dag.execution.ExecutionEdge;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlanGenerator;
+import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 
 import com.hazelcast.internal.serialization.Data;
@@ -43,7 +49,11 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -142,11 +152,6 @@ public class DAGUtils {
                     historyExecutionAddress);
         } else {
             // Generate LogicalPlan DAG
-            List<Edge> edges =
-                    logicalDag.getEdges().stream()
-                            .map(e -> new Edge(e.getInputVertexId(), e.getTargetVertexId()))
-                            .collect(Collectors.toList());
-
             Map<Long, LogicalVertex> logicalVertexMap = logicalDag.getLogicalVertexMap();
             Map<Long, VertexInfo> vertexInfoMap =
                     logicalVertexMap.values().stream()
@@ -161,27 +166,7 @@ public class DAGUtils {
                                     Collectors.toMap(VertexInfo::getVertexId, Function.identity()));
 
             Map<Integer, List<Edge>> pipelineWithEdges =
-                    edges.stream()
-                            .collect(
-                                    Collectors.groupingBy(
-                                            e -> {
-                                                LogicalVertex info =
-                                                        logicalVertexMap.get(
-                                                                e.getInputVertexId() != null
-                                                                        ? e.getInputVertexId()
-                                                                        : e.getTargetVertexId());
-                                                return pipelines.stream()
-                                                        .filter(
-                                                                p ->
-                                                                        p.getActions()
-                                                                                .containsKey(
-                                                                                        info.getAction()
-                                                                                                .getId()))
-                                                        .findFirst()
-                                                        .get()
-                                                        .getId();
-                                            },
-                                            Collectors.toList()));
+                    logicalEdgesByPipeline(logicalDag, pipelines);
             return new JobDAGInfo(
                     jobImmutableInformation.getJobId(),
                     logicalDag.getJobConfig().getEnvOptions(),
@@ -190,6 +175,116 @@ public class DAGUtils {
                     master,
                     historyExecutionAddress);
         }
+    }
+
+    /**
+     * Assigns each logical edge to the pipelines that run it.
+     *
+     * <p>The execution plan copies actions but keeps the source, sink and transform instances of
+     * the logical plan, so pipeline vertices are traced back to logical vertices by instance. A
+     * chained transform vertex stands for several logical vertices, and a union split runs the
+     * shared part of the graph in several pipelines, so an edge can belong to more than one
+     * pipeline.
+     */
+    static Map<Integer, List<Edge>> logicalEdgesByPipeline(
+            LogicalDag logicalDag, List<Pipeline> pipelines) {
+        Map<Object, Long> logicalVertexByPlugin = new IdentityHashMap<>();
+        for (LogicalVertex vertex : logicalDag.getLogicalVertexMap().values()) {
+            Long previous =
+                    logicalVertexByPlugin.put(plugin(vertex.getAction()), vertex.getVertexId());
+            if (previous != null) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Logical vertices %s and %s share one plugin instance",
+                                previous, vertex.getVertexId()));
+            }
+        }
+
+        Set<Edge> logicalEdges = new HashSet<>();
+        for (LogicalEdge edge : logicalDag.getEdges()) {
+            logicalEdges.add(new Edge(edge.getInputVertexId(), edge.getTargetVertexId()));
+        }
+
+        Map<Integer, List<Edge>> edgesByPipeline = new LinkedHashMap<>();
+        Set<Edge> assigned = new HashSet<>();
+        for (Pipeline pipeline : pipelines) {
+            Set<Edge> edges = new HashSet<>();
+            for (ExecutionVertex vertex : pipeline.getVertexes().values()) {
+                List<Long> chained = logicalVertexIds(vertex.getAction(), logicalVertexByPlugin);
+                for (int i = 1; i < chained.size(); i++) {
+                    edges.add(new Edge(chained.get(i - 1), chained.get(i)));
+                }
+            }
+            for (ExecutionEdge edge : pipeline.getEdges()) {
+                List<Long> left =
+                        logicalVertexIds(edge.getLeftVertex().getAction(), logicalVertexByPlugin);
+                List<Long> right =
+                        logicalVertexIds(edge.getRightVertex().getAction(), logicalVertexByPlugin);
+                edges.add(new Edge(left.get(left.size() - 1), right.get(0)));
+            }
+            for (Edge edge : edges) {
+                if (!logicalEdges.contains(edge)) {
+                    throw new IllegalStateException(
+                            String.format(
+                                    "Pipeline %s has edge %s -> %s that is not in the logical plan",
+                                    pipeline.getId(),
+                                    edge.getInputVertexId(),
+                                    edge.getTargetVertexId()));
+                }
+            }
+            List<Edge> sorted = new ArrayList<>(edges);
+            sorted.sort(
+                    Comparator.comparing(Edge::getInputVertexId)
+                            .thenComparing(Edge::getTargetVertexId));
+            edgesByPipeline.put(pipeline.getId(), sorted);
+            assigned.addAll(edges);
+        }
+
+        for (Edge edge : logicalEdges) {
+            if (!assigned.contains(edge)) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Logical edge %s -> %s is not part of any pipeline",
+                                edge.getInputVertexId(), edge.getTargetVertexId()));
+            }
+        }
+        return edgesByPipeline;
+    }
+
+    /** Logical vertex ids an execution action stands for, in chain order. */
+    private static List<Long> logicalVertexIds(
+            Action action, Map<Object, Long> logicalVertexByPlugin) {
+        List<Object> plugins = new ArrayList<>();
+        if (action instanceof TransformChainAction) {
+            plugins.addAll(((TransformChainAction<?>) action).getTransforms());
+        } else {
+            plugins.add(plugin(action));
+        }
+        List<Long> ids = new ArrayList<>(plugins.size());
+        for (Object plugin : plugins) {
+            Long id = logicalVertexByPlugin.get(plugin);
+            if (id == null) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Action %s is not traceable to the logical plan",
+                                action.getName()));
+            }
+            ids.add(id);
+        }
+        return ids;
+    }
+
+    private static Object plugin(Action action) {
+        if (action instanceof SourceAction) {
+            return ((SourceAction<?, ?, ?>) action).getSource();
+        }
+        if (action instanceof SinkAction) {
+            return ((SinkAction<?, ?, ?, ?>) action).getSink();
+        }
+        if (action instanceof TransformAction) {
+            return ((TransformAction) action).getTransform();
+        }
+        throw new UnknownActionException(action);
     }
 
     private static List<TablePath> getTablePaths(Action action) {
