@@ -22,39 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
-public class BigQuerySinkOptions {
-
-    public static final String IDENTIFIER = "BigQuery";
-
-    public static final Option<String> PROJECT_ID =
-            Options.key("project_id")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("GCP project ID");
-
-    public static final Option<String> DATASET_ID =
-            Options.key("dataset_id")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("BigQuery dataset ID");
-
-    public static final Option<String> TABLE_ID =
-            Options.key("table_id")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("BigQuery table ID");
-
-    public static final Option<String> SERVICE_ACCOUNT_KEY_PATH =
-            Options.key("service_account_key_path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Path to GCP service account JSON key file");
-
-    public static final Option<String> SERVICE_ACCOUNT_KEY_JSON =
-            Options.key("service_account_key_json")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Inline GCP service account JSON key content");
+public class BigQuerySinkOptions extends BigQueryBaseOptions {
 
     public static final Option<String> WRITE_MODE =
             Options.key("write_mode")
@@ -90,13 +58,6 @@ public class BigQuerySinkOptions {
                     .withDescription(
                             "Whether to add non-null source columns as NULLABLE BigQuery fields during schema evolution.");
 
-    public static final Option<String> EMULATOR_HOST =
-            Options.key("emulator_host")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The REST host of the BigQuery emulator (e.g. localhost:9050). Only for testing purposes.");
-
     public static final Option<String> EMULATOR_GRPC_HOST =
             Options.key("emulator_grpc_host")
                     .stringType()
@@ -104,13 +65,6 @@ public class BigQuerySinkOptions {
                     .withDescription(
                             "The gRPC Storage Write API host of the BigQuery emulator (e.g. localhost:9060). "
                                     + "Only for testing purposes. Falls back to emulator_host when omitted.");
-
-    public static final Option<String> UNIVERSE_DOMAIN =
-            Options.key("universe_domain")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The Google Cloud Universe Domain (e.g. s3nsapis.fr for S3NS sovereign cloud)");
 
     public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
             Options.key("schema_save_mode")

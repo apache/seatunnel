@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.bigquery.client;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorErrorCode;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorException;
+import org.apache.seatunnel.connectors.bigquery.option.BigQueryBaseOptions;
 import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
 
 import com.google.api.gax.core.FixedCredentialsProvider;
@@ -45,10 +46,10 @@ public class BigQueryClientFactory {
 
     public static BigQueryWriteClient getWriteClient(ReadonlyConfig config) {
         try {
-            if (config.get(BigQuerySinkOptions.EMULATOR_HOST) != null) {
+            if (config.get(BigQueryBaseOptions.EMULATOR_HOST) != null) {
                 String emulatorGrpcHost =
                         config.getOptional(BigQuerySinkOptions.EMULATOR_GRPC_HOST)
-                                .orElse(config.get(BigQuerySinkOptions.EMULATOR_HOST));
+                                .orElse(config.get(BigQueryBaseOptions.EMULATOR_HOST));
                 log.info("Using BigQuery emulator Storage Write API at {}", emulatorGrpcHost);
 
                 BigQueryWriteSettings settings =
@@ -75,8 +76,8 @@ public class BigQueryClientFactory {
                     BigQueryWriteSettings.newBuilder()
                             .setCredentialsProvider(FixedCredentialsProvider.create(credentials));
 
-            if (config.get(BigQuerySinkOptions.UNIVERSE_DOMAIN) != null) {
-                settingsBuilder.setUniverseDomain(config.get(BigQuerySinkOptions.UNIVERSE_DOMAIN));
+            if (config.get(BigQueryBaseOptions.UNIVERSE_DOMAIN) != null) {
+                settingsBuilder.setUniverseDomain(config.get(BigQueryBaseOptions.UNIVERSE_DOMAIN));
             }
 
             return BigQueryWriteClient.create(settingsBuilder.build());
@@ -89,10 +90,10 @@ public class BigQueryClientFactory {
     }
 
     public static BigQuery getBigQuery(ReadonlyConfig config) {
-        String projectId = config.get(BigQuerySinkOptions.PROJECT_ID);
-        if (config.get(BigQuerySinkOptions.EMULATOR_HOST) != null) {
+        String projectId = config.get(BigQueryBaseOptions.PROJECT_ID);
+        if (config.get(BigQueryBaseOptions.EMULATOR_HOST) != null) {
             return BigQueryOptions.newBuilder()
-                    .setHost("http://" + config.get(BigQuerySinkOptions.EMULATOR_HOST))
+                    .setHost("http://" + config.get(BigQueryBaseOptions.EMULATOR_HOST))
                     .setProjectId(projectId)
                     .setCredentials(NoCredentials.getInstance())
                     .build()
@@ -104,8 +105,8 @@ public class BigQueryClientFactory {
         BigQueryOptions.Builder builder =
                 BigQueryOptions.newBuilder().setProjectId(projectId).setCredentials(credentials);
 
-        if (config.get(BigQuerySinkOptions.UNIVERSE_DOMAIN) != null) {
-            builder.setUniverseDomain(config.get(BigQuerySinkOptions.UNIVERSE_DOMAIN));
+        if (config.get(BigQueryBaseOptions.UNIVERSE_DOMAIN) != null) {
+            builder.setUniverseDomain(config.get(BigQueryBaseOptions.UNIVERSE_DOMAIN));
         }
 
         return builder.build().getService();
@@ -114,19 +115,19 @@ public class BigQueryClientFactory {
     public static GoogleCredentials getCredentials(ReadonlyConfig config) {
         try {
             GoogleCredentials credentials;
-            if (config.get(BigQuerySinkOptions.SERVICE_ACCOUNT_KEY_PATH) != null) {
+            if (config.get(BigQueryBaseOptions.SERVICE_ACCOUNT_KEY_PATH) != null) {
                 try (InputStream is =
                         Files.newInputStream(
                                 Paths.get(
                                         config.get(
-                                                BigQuerySinkOptions.SERVICE_ACCOUNT_KEY_PATH)))) {
+                                                BigQueryBaseOptions.SERVICE_ACCOUNT_KEY_PATH)))) {
                     credentials = ServiceAccountCredentials.fromStream(is);
                 }
-            } else if (config.get(BigQuerySinkOptions.SERVICE_ACCOUNT_KEY_JSON) != null) {
+            } else if (config.get(BigQueryBaseOptions.SERVICE_ACCOUNT_KEY_JSON) != null) {
                 credentials =
                         ServiceAccountCredentials.fromStream(
                                 new ByteArrayInputStream(
-                                        config.get(BigQuerySinkOptions.SERVICE_ACCOUNT_KEY_JSON)
+                                        config.get(BigQueryBaseOptions.SERVICE_ACCOUNT_KEY_JSON)
                                                 .getBytes()));
             } else {
                 credentials = GoogleCredentials.getApplicationDefault();
