@@ -13,6 +13,7 @@ sidebar_position: 2
   - **Anthropic API** — `ANTHROPIC_API_KEY`
   - **OpenAI API** (or compatible) — `OPENAI_API_KEY`
   - **OrcaRouter** — `ORCAROUTER_API_KEY`
+  - **UberLLM** — `UBERLLM_API_KEY`
 - (Optional) a SeaTunnel installation for engine-level validation and job execution
 
 ## Install
@@ -69,6 +70,14 @@ export ORCAROUTER_API_KEY=orc_...
 # export ORCAROUTER_MODEL=orcarouter/auto
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
 # export ORCAROUTER_ECHO_REASONING_CONTENT=true   # optional: replay reasoning_content for reasoning models
+
+# Option E: UberLLM gateway
+export AI_PROVIDER=uberllm
+export UBERLLM_API_KEY=ull_...
+# Model IDs use a vendor/model namespace (e.g. anthropic/claude-sonnet-4.6).
+# export UBERLLM_MODEL=deepseek/deepseek-v4-pro
+# export UBERLLM_SMALL_FAST_MODEL=deepseek/deepseek-v4.1-flash
+# export UBERLLM_ECHO_REASONING_CONTENT=true   # optional: replay reasoning_content for reasoning models
 ```
 
 ### OrcaRouter AI gateway
@@ -97,6 +106,36 @@ The provider speaks the OpenAI Chat Completions protocol, so it fully supports
 the CLI's internal tool-calling loop (connector lookups during planning),
 streaming output, multi-turn sessions, and reasoning-content replay for
 compatible reasoning models.
+
+### UberLLM gateway
+
+[UberLLM](https://uberllm.dev) is an OpenAI-compatible gateway with one
+prepaid key for many chat models — Claude, GPT, Gemini, DeepSeek, Qwen, GLM
+and more — behind a single endpoint (`https://api.uberllm.dev/v1`). Model IDs
+use a `vendor/model` namespace; `GET https://api.uberllm.dev/v1/models` lists
+them without a key, and per-model prices are at https://uberllm.dev/models.
+Configure it as a first-class provider:
+
+```bash
+# Requires the openai package (shares the ".[openai]" extra)
+pip install -e ".[openai]"
+
+export AI_PROVIDER=uberllm
+export UBERLLM_API_KEY=ull_...
+# export UBERLLM_MODEL=anthropic/claude-sonnet-4.6               # optional override
+# export UBERLLM_SMALL_FAST_MODEL=deepseek/deepseek-v4.1-flash   # optional override
+# export UBERLLM_ECHO_REASONING_CONTENT=true                      # optional: replay reasoning_content
+
+seatunnel "Sync MySQL users table to S3 Parquet"
+```
+
+The provider speaks the OpenAI Chat Completions protocol, so it supports the
+CLI's internal tool-calling loop, streaming output, multi-turn sessions, and
+reasoning-content replay for compatible reasoning models.
+
+`UBERLLM_MODEL` falls back to `OPENAI_MODEL` when unset. When `AI_PROVIDER` is
+unset and both `UBERLLM_API_KEY` and `OPENAI_API_KEY` are set, auto-detect
+selects UberLLM.
 
 ### bedrock-mantle: OpenAI-family models on Bedrock
 

@@ -13,6 +13,7 @@ sidebar_position: 2
   - **Anthropic API** —— `ANTHROPIC_API_KEY`
   - **OpenAI API**（或兼容 API）—— `OPENAI_API_KEY`
   - **OrcaRouter** —— `ORCAROUTER_API_KEY`
+  - **UberLLM** —— `UBERLLM_API_KEY`
 - （可选）SeaTunnel 安装目录，用于引擎级校验和作业执行
 
 ## 安装
@@ -68,6 +69,14 @@ export ORCAROUTER_API_KEY=orc_...
 # export ORCAROUTER_MODEL=orcarouter/auto
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
 # export ORCAROUTER_ECHO_REASONING_CONTENT=true   # 可选：保留并回传推理模型的 reasoning_content
+
+# 方式 E：UberLLM 网关
+export AI_PROVIDER=uberllm
+export UBERLLM_API_KEY=ull_...
+# 模型 ID 使用 vendor/model 命名空间（如 anthropic/claude-sonnet-4.6）。
+# export UBERLLM_MODEL=deepseek/deepseek-v4-pro
+# export UBERLLM_SMALL_FAST_MODEL=deepseek/deepseek-v4.1-flash
+# export UBERLLM_ECHO_REASONING_CONTENT=true   # 可选：保留并回传推理模型的 reasoning_content
 ```
 
 ### OrcaRouter AI 网关
@@ -93,6 +102,33 @@ seatunnel "Sync MySQL users table to S3 Parquet"
 该提供商使用 OpenAI Chat Completions 协议，因此完全支持 CLI 内部的工具调用循环
 （规划期间的连接器查询）、流式输出、多轮会话，以及兼容推理模型的
 reasoning_content 回放。
+
+### UberLLM 网关
+
+[UberLLM](https://uberllm.dev) 是一个 OpenAI 兼容的网关，用一个预付费密钥在单个端点
+（`https://api.uberllm.dev/v1`）之后访问众多对话模型——Claude、GPT、Gemini、
+DeepSeek、Qwen、GLM 等。模型 ID 使用 `vendor/model` 命名空间；
+`GET https://api.uberllm.dev/v1/models` 无需密钥即可列出模型，各模型价格见
+https://uberllm.dev/models 。作为一等提供商配置：
+
+```bash
+# 需要 openai 包（复用 ".[openai]" extra）
+pip install -e ".[openai]"
+
+export AI_PROVIDER=uberllm
+export UBERLLM_API_KEY=ull_...
+# export UBERLLM_MODEL=anthropic/claude-sonnet-4.6               # 可选覆盖
+# export UBERLLM_SMALL_FAST_MODEL=deepseek/deepseek-v4.1-flash   # 可选覆盖
+# export UBERLLM_ECHO_REASONING_CONTENT=true                      # 可选：回传 reasoning_content
+
+seatunnel "Sync MySQL users table to S3 Parquet"
+```
+
+该提供商使用 OpenAI Chat Completions 协议，因此支持 CLI 内部的工具调用循环、流式输出、
+多轮会话，以及兼容推理模型的 reasoning_content 回放。
+
+未设置 `UBERLLM_MODEL` 时，回退到 `OPENAI_MODEL`。未设置 `AI_PROVIDER` 且同时设置了
+`UBERLLM_API_KEY` 和 `OPENAI_API_KEY` 时，自动检测选择 UberLLM。
 
 ### bedrock-mantle：Bedrock 上的 OpenAI 系模型
 
