@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 
@@ -50,6 +51,13 @@ import java.util.stream.Collectors;
  * <p>{@code update.columns} acts as a group alias for all column-level changes ({@code add.column},
  * {@code drop.column}, {@code modify.column}, {@code change.column}): including it admits the whole
  * group, excluding it suppresses the whole group.
+ *
+ * <p>Runtime table registration is outside this filter's scope. A {@link CreateTableEvent} produced
+ * by {@code scan.binlog.newly-added-table.enabled} is a control event: the source has already
+ * admitted the table and will emit its rows, and the event is what creates the downstream row type
+ * and sink writer those rows need. Suppressing it would leave rows without a schema, so {@link
+ * #filter(SchemaChangeEvent)} always passes it through; the include/exclude lists only govern
+ * column-level DDL of captured tables.
  */
 public final class SchemaChangeEventFilter implements Serializable {
 
@@ -111,6 +119,11 @@ public final class SchemaChangeEventFilter implements Serializable {
      */
     public SchemaChangeEvent filter(SchemaChangeEvent event) {
         if (event == null || isNoOp()) {
+            return event;
+        }
+
+        if (event instanceof CreateTableEvent) {
+            // Control event for runtime table registration; never filterable (see class Javadoc).
             return event;
         }
 

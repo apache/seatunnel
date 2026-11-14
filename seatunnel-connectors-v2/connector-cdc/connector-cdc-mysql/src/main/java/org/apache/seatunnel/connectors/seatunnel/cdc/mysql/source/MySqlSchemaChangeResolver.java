@@ -26,14 +26,50 @@ import org.apache.seatunnel.connectors.cdc.base.schema.AbstractSchemaChangeResol
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser.CustomMySqlAntlrDdlParser;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
+import org.apache.kafka.connect.source.SourceRecord;
+
 import io.debezium.relational.ddl.DdlParser;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class MySqlSchemaChangeResolver extends AbstractSchemaChangeResolver {
 
+    /** DDL prefix needed to receive metadata for a table created during the binlog phase. */
+    private static final String CREATE_TABLE_DDL = "CREATE TABLE";
+
+    /**
+     * Keeps CREATE TABLE records isolated to jobs that explicitly enable runtime table discovery.
+     */
+    private final boolean scanBinlogNewlyAddedTableEnabled;
+
+    /** Creates a resolver that preserves the existing ALTER TABLE-only behavior. */
     public MySqlSchemaChangeResolver(SourceConfig.Factory<JdbcSourceConfig> sourceConfigFactory) {
+        this(sourceConfigFactory, false);
+    }
+
+    /**
+     * Creates a resolver for the configured schema-evolution and runtime table-discovery modes.
+     *
+     * @param sourceConfigFactory provides the Debezium configuration for DDL parsing
+     * @param scanBinlogNewlyAddedTableEnabled permits CREATE TABLE records only for runtime
+     *     discovery
+     */
+    public MySqlSchemaChangeResolver(
+            SourceConfig.Factory<JdbcSourceConfig> sourceConfigFactory,
+            boolean scanBinlogNewlyAddedTableEnabled) {
         super(sourceConfigFactory.create(0));
+        this.scanBinlogNewlyAddedTableEnabled = scanBinlogNewlyAddedTableEnabled;
+    }
+
+    @Override
+    public boolean support(SourceRecord record) {
+        if (!scanBinlogNewlyAddedTableEnabled) {
+            return super.support(record);
+        }
+        List<String> supportedDdl = new ArrayList<>(SUPPORT_DDL);
+        supportedDdl.add(CREATE_TABLE_DDL);
+        return supportsDdl(record, supportedDdl);
     }
 
     @Override

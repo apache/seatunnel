@@ -18,20 +18,24 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.error.RowErrorClassification;
 import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.common.error.RowErrorPhase;
 import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
@@ -61,6 +65,14 @@ import java.util.Set;
 public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager>
         implements SupportRowLevelErrorClassifier<SeaTunnelRow> {
     private final Integer primaryKeyIndex;
+    /** Template sink config reused to resolve naming rules for runtime-created tables. */
+    private final ReadonlyConfig baseConfig;
+    /**
+     * Whether the job checkpoints. Kept so a writer created for a runtime table inherits the same
+     * commit boundary (commit per flush versus commit at prepareCommit) as its parent writer.
+     */
+    private final boolean checkpointEnabled;
+
     private final Optional<RowErrorCollector> rowErrorCollector;
     private final int batchSize;
     private final Object batchLock = new Object();
@@ -114,6 +126,11 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                 true);
     }
 
+    /**
+     * Startup-table constructor. Runtime-created tables (see {@link #createSinkWriter}) are never
+     * resolved through a writer built here, so no template config is needed; {@code
+     * checkpointEnabled} still decides the commit boundary exactly as for the full constructor.
+     */
     public JdbcSinkWriter(
             TablePath sinkTablePath,
             SinkWriter.Context context,
@@ -123,12 +140,36 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             TableSchema databaseTableSchema,
             Integer primaryKeyIndex,
             boolean checkpointEnabled) {
+        this(
+                sinkTablePath,
+                context,
+                dialect,
+                jdbcSinkConfig,
+                tableSchema,
+                databaseTableSchema,
+                primaryKeyIndex,
+                null,
+                checkpointEnabled);
+    }
+
+    public JdbcSinkWriter(
+            TablePath sinkTablePath,
+            SinkWriter.Context context,
+            JdbcDialect dialect,
+            JdbcSinkConfig jdbcSinkConfig,
+            TableSchema tableSchema,
+            TableSchema databaseTableSchema,
+            Integer primaryKeyIndex,
+            ReadonlyConfig baseConfig,
+            boolean checkpointEnabled) {
         this.sinkTablePath = sinkTablePath;
         this.dialect = dialect;
         this.tableSchema = tableSchema;
         this.databaseTableSchema = databaseTableSchema;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.primaryKeyIndex = primaryKeyIndex;
+        this.baseConfig = baseConfig;
+        this.checkpointEnabled = checkpointEnabled;
         // Without checkpointing there is no prepareCommit boundary to commit manual-commit
         // connections (for example Oracle, which is forced to manual commit above), so every
         // successful batch flush must carry its own commit or flushed rows stay in one unbounded
@@ -291,6 +332,56 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     @Override
     public Optional<Integer> primaryKey() {
         return primaryKeyIndex != null ? Optional.of(primaryKeyIndex) : Optional.empty();
+    }
+
+    /** Runtime tables require generated SQL and the non-XA writer lifecycle. */
+    @Override
+    public boolean supportsNewlyCreatedTable() {
+        return !jdbcSinkConfig.isExactlyOnce()
+                && StringUtils.isBlank(jdbcSinkConfig.getSimpleSql());
+    }
+
+    /**
+     * Reuses JDBC sink naming rules so a runtime source table is mapped to the same target naming
+     * convention as startup tables.
+     *
+     * <p>This compatibility path only constructs a writer. Like factory-created writers, it applies
+     * non-destructive schema save mode when the ordered CreateTableEvent arrives, not here.
+     */
+    @Override
+    public SinkWriter<SeaTunnelRow, ?, ?> createSinkWriter(
+            CatalogTable catalogTable, SinkWriter.Context context) throws IOException {
+        if (!supportsNewlyCreatedTable() || baseConfig == null) {
+            throw new IOException(
+                    "Runtime JDBC tables require generated SQL, at-least-once mode and sink options");
+        }
+        JdbcSinkFactory.ResolvedSinkTable resolvedSinkTable =
+                JdbcSinkFactory.resolveSinkTable(baseConfig, catalogTable);
+        CatalogTable resolvedCatalogTable = resolvedSinkTable.getCatalogTable();
+        TableSchema targetTableSchema = resolvedCatalogTable.getTableSchema();
+        Integer targetPrimaryKeyIndex = null;
+        if (targetTableSchema.getPrimaryKey() != null) {
+            String keyName = targetTableSchema.getPrimaryKey().getColumnNames().get(0);
+            int index = targetTableSchema.toPhysicalRowDataType().indexOf(keyName);
+            if (index > -1) {
+                targetPrimaryKeyIndex = index;
+            }
+        }
+        JdbcSinkConfig resolvedSinkConfig = JdbcSinkConfig.of(resolvedSinkTable.getOptions());
+        JdbcSinkWriter writer =
+                new JdbcSinkWriter(
+                        resolvedCatalogTable.getTablePath(),
+                        context,
+                        dialect,
+                        resolvedSinkConfig,
+                        targetTableSchema,
+                        null,
+                        targetPrimaryKeyIndex,
+                        baseConfig,
+                        checkpointEnabled);
+        writer.configureRuntimeTableCreation(
+                resolvedCatalogTable, baseConfig.get(JdbcSinkOptions.SCHEMA_SAVE_MODE));
+        return writer;
     }
 
     private void tryOpen() throws IOException {
