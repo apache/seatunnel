@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.http.sink;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.util.RawValue;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
@@ -36,6 +37,7 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -128,7 +130,9 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         ArrayNode arrayNode = mapper.createArrayNode();
         for (SeaTunnelRow row : batchBuffer) {
             byte[] serialize = serializationSchema.serialize(row);
-            arrayNode.add(new String(serialize));
+            // Add each row as a JSON value, not as a string holding its JSON text. It is added
+            // raw because parsing it again would turn DECIMAL values into doubles
+            arrayNode.addRawValue(new RawValue(new String(serialize, StandardCharsets.UTF_8)));
         }
         String body = mapper.writeValueAsString(arrayNode);
         doHttpRequest(body);
