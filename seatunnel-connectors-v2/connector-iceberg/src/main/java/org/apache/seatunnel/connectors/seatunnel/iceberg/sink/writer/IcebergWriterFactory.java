@@ -107,24 +107,9 @@ public class IcebergWriterFactory {
                         WRITE_TARGET_FILE_SIZE_BYTES,
                         WRITE_TARGET_FILE_SIZE_BYTES_DEFAULT);
 
-        Set<Integer> identifierFieldIds = table.schema().identifierFieldIds();
+        Set<Integer> identifierFieldIds = identifierFieldIds(table, config);
 
-        // override the identifier fields if the config is set
-        List<String> idCols = config.getPrimaryKeys();
-        if (!idCols.isEmpty()) {
-            identifierFieldIds =
-                    idCols.stream()
-                            .map(
-                                    colName ->
-                                            config.isCaseSensitive()
-                                                    ? table.schema()
-                                                            .caseInsensitiveFindField(colName)
-                                                            .fieldId()
-                                                    : table.schema().findField(colName).fieldId())
-                            .collect(toSet());
-        }
-
-        if (!identifierFieldIds.isEmpty() || config.isUpsertModeEnabled()) {
+        if (writesDeltas(identifierFieldIds, config)) {
             checkDeltaWriteSupported(table);
         }
 
@@ -155,7 +140,7 @@ public class IcebergWriterFactory {
 
         TaskWriter<Record> writer;
         if (table.spec().isUnpartitioned()) {
-            if (identifierFieldIds.isEmpty() && !config.isUpsertModeEnabled()) {
+            if (!writesDeltas(identifierFieldIds, config)) {
                 // No delta writer
                 writer =
                         new UnpartitionedWriter<>(
@@ -180,7 +165,7 @@ public class IcebergWriterFactory {
                                 config.isUpsertModeEnabled());
             }
         } else {
-            if (identifierFieldIds.isEmpty() && !config.isUpsertModeEnabled()) {
+            if (!writesDeltas(identifierFieldIds, config)) {
                 // No delta writer
                 writer =
                         new PartitionedAppendWriter(
@@ -207,6 +192,36 @@ public class IcebergWriterFactory {
             }
         }
         return writer;
+    }
+
+    /**
+     * Returns the ids of the fields the writer applies deletes and upserts by: the identifier
+     * fields of the table, or the columns of {@code iceberg.table.primary-keys} when it is set.
+     *
+     * @param table the Iceberg table the writer writes to
+     * @param config the sink config
+     * @return the identifier field ids, empty when the table has none and no key is configured
+     */
+    static Set<Integer> identifierFieldIds(Table table, IcebergSinkConfig config) {
+        List<String> idCols = config.getPrimaryKeys();
+        if (idCols.isEmpty()) {
+            return table.schema().identifierFieldIds();
+        }
+        return idCols.stream()
+                .map(
+                        colName ->
+                                config.isCaseSensitive()
+                                        ? table.schema().caseInsensitiveFindField(colName).fieldId()
+                                        : table.schema().findField(colName).fieldId())
+                .collect(toSet());
+    }
+
+    /**
+     * Whether the writer for these identifier fields is a delta writer, which applies deletes and
+     * upserts by key, rather than an append writer.
+     */
+    static boolean writesDeltas(Set<Integer> identifierFieldIds, IcebergSinkConfig config) {
+        return !identifierFieldIds.isEmpty() || config.isUpsertModeEnabled();
     }
 
     /**

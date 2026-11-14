@@ -21,6 +21,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.sink;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.sink.MultiTableSinkReplicaMode;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
@@ -102,6 +103,32 @@ public class IcebergSinkWriter
     public void write(SeaTunnelRow element) throws IOException {
         tryCreateRecordWriter();
         writer.write(element, rowType);
+    }
+
+    /**
+     * {@link MultiTableSinkReplicaMode#KEYED} when the table is written with a delta writer, which
+     * applies deletes and upserts by its identifier fields, so the changes of one key must stay in
+     * order; {@link MultiTableSinkReplicaMode#RANDOM} when it is written with an append writer,
+     * which only adds rows. The record writer is created here if no row created it yet, as the
+     * first write would, because the decision depends on the loaded table.
+     */
+    @Override
+    public MultiTableSinkReplicaMode replicaMode() {
+        tryCreateRecordWriter();
+        return writer.writesDeltas()
+                ? MultiTableSinkReplicaMode.KEYED
+                : MultiTableSinkReplicaMode.RANDOM;
+    }
+
+    /**
+     * The position in the current row type of the first column that is an identifier field of the
+     * table, or a column of {@code iceberg.table.primary-keys}. Empty when no column of the row is
+     * one, so a {@code KEYED} table without it is rejected with several replicas.
+     */
+    @Override
+    public Optional<Integer> primaryKey() {
+        tryCreateRecordWriter();
+        return writer.routingKeyIndex(rowType);
     }
 
     @Override

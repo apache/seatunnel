@@ -25,12 +25,29 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface RecordWriter extends Cloneable {
 
     void write(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType);
 
     void applySchemaChange(SeaTunnelRowType afterRowType, SchemaChangeEvent event);
+
+    /**
+     * Whether this writer applies deletes and upserts by key (a delta writer). Then all changes of
+     * one key must reach the same writer, in order.
+     */
+    default boolean writesDeltas() {
+        return true;
+    }
+
+    /**
+     * Returns the position in {@code rowType} of a key column the writer applies changes by, for
+     * routing rows of one key to one writer. Empty when there is none.
+     */
+    default Optional<Integer> routingKeyIndex(SeaTunnelRowType rowType) {
+        return Optional.empty();
+    }
 
     default List<WriteResult> complete() {
         return ImmutableList.of();

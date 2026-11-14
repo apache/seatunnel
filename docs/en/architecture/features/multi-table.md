@@ -170,9 +170,12 @@ public class MultiTableSinkWriter
     // Sub-writers, keyed by (table identifier, replica index)
     private final Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters;
 
-    // Primary-key field index per table id. An empty Optional means "table has no
-    // primary key"; a missing key means "no sub-writer is registered for this table".
+    // Per table id: the key from primaryKey() and the declared replica mode. Both are
+    // filled when this writer is created or restored, after validateReplicaRouting(...)
+    // has checked the declarations, and both lose a table when its writers are removed.
+    // A missing entry means "no sub-writer is registered for this table".
     private final ConcurrentMap<String, Optional<Integer>> sinkPrimaryKeys;
+    private final ConcurrentMap<String, MultiTableSinkReplicaMode> sinkReplicaModes;
 
     // One queue per writer thread. The queue index is the replica index.
     private final List<BlockingQueue<MultiTableWriterRunnable.QueueElement>> blockingQueues;
@@ -190,38 +193,42 @@ public class MultiTableSinkWriter
         ensureQueueWorkersSubmitted();
         subSinkErrorCheck();
 
-        // 1. Rows carry the table id, not a TablePath
+        // 1. Rows carry the table id, not a TablePath. A writer built for one table also
+        //    takes rows whose id is missing or names no table, with that table's routing.
         String tableId = element.getTableId();
-        Optional<Integer> primaryKey = tableId == null ? null : sinkPrimaryKeys.get(tableId);
-
-        if ((primaryKey == null && sinkPrimaryKeys.size() == 1)
-                || (primaryKey != null && !primaryKey.isPresent())) {
-            // 2a. No primary key to route on: spread rows across queues.
-            //     No per-key ordering guarantee.
-            int index = random.nextInt(blockingQueues.size());
-            offerRowElement(index, element);
-
-        } else if (primaryKey == null) {
-            // 2b. No sub-writer registered for this table. Quarantine it and keep the
-            //     other tables running, or fail the job, per the failure policy.
+        String targetTableId = resolveTargetTableId(tableId);
+        MultiTableSinkReplicaMode mode =
+                targetTableId == null ? null : sinkReplicaModes.get(targetTableId);
+        if (mode == null) {
+            // 2. No sub-writer registered for this table. Quarantine it and keep the
+            //    other tables running, or fail the job, per the failure policy.
             if (failurePolicy.continueOtherTables()) {
                 handleTableFailure(tableId, MultiTableFailurePhase.RUNTIME_WRITE, ...);
                 return;
             }
             throw new RuntimeException("multi table sink can not write table: " + tableId);
-
-        } else {
-            // 2c. Primary key present: route by its hash so equal keys always reach the
-            //     same queue, which is what preserves per-key ordering.
-            Object object = element.getField(primaryKey.get());
-            int index = 0;
-            if (object != null) {
-                // Clear the sign bit rather than using Math.abs: Math.abs(Integer.MIN_VALUE)
-                // returns Integer.MIN_VALUE unchanged, which would yield a negative index.
-                index = (object.hashCode() & Integer.MAX_VALUE) % blockingQueues.size();
-            }
-            offerRowElement(index, element);
         }
+
+        // 3. Pick one queue, then offer the row to it once.
+        int index;
+        if (blockingQueues.size() == 1) {
+            index = 0;
+        } else if (mode == MultiTableSinkReplicaMode.KEYED) {
+            // Route by the hash of the key field so equal keys always reach the same
+            // queue, which is what preserves per-key ordering.
+            Object key = element.getField(sinkPrimaryKeys.get(targetTableId).get());
+            // Clear the sign bit rather than using Math.abs: Math.abs(Integer.MIN_VALUE)
+            // returns Integer.MIN_VALUE unchanged, which would yield a negative index.
+            index = key == null ? 0 : (key.hashCode() & Integer.MAX_VALUE) % blockingQueues.size();
+        } else if (mode == MultiTableSinkReplicaMode.RANDOM) {
+            // Spread rows across queues, even when the writer also has a key.
+            // No per-key ordering guarantee.
+            index = random.nextInt(blockingQueues.size());
+        } else {
+            // UNSUPPORTED with several replicas is already rejected at creation.
+            throw new IllegalStateException(...);
+        }
+        offerRowElement(index, element);
     }
 }
 ```
@@ -299,16 +306,32 @@ sink {
 
     # Multi-table configuration
     multi_table_sink_replica = 4 # replicas per table (applies to all tables)
+    # Jdbc routes replicas by the primary key, so every table needs one
+    # (from its schema or from primary_keys)
   }
 }
 ```
+
+A value above 1 is accepted only when the writer of every table declares how its rows
+may be spread over the replicas, through `SupportMultiTableSinkWriter.replicaMode()`.
+Otherwise the job fails before any row is written:
+
+| Replica mode | Routing with more than one replica |
+|--------------|------------------------------------|
+| `KEYED` | Rows are hashed by the key field from `primaryKey()`, so all changes of one key reach the same replica in order; a writer without a key is rejected |
+| `RANDOM` | Rows go to a random replica. Only for writers whose result does not depend on the write order |
+| `UNSUPPORTED` (default) | The job is rejected when the writer is created or restored |
+
+The error names the option, its value, and each rejected table with its connector and
+writer class. Set `multi_table_sink_replica = 1` for such a sink. With one replica (the
+default) nothing is checked and nothing changes.
 
 ### 5.3 Replica Selection Strategies
 
 Both strategies select a queue index in `[0, blockingQueues.size())`. See
 `MultiTableSinkWriter.write(SeaTunnelRow)` for the full branch structure.
 
-**Hash-based (primary key available)** — the same key always reaches the same queue,
+**Hash-based (`KEYED`)** — the same key always reaches the same queue,
 which is what preserves ordering for that key:
 
 ```java
@@ -326,7 +349,7 @@ Tracked as [#11720](https://github.com/apache/seatunnel/issues/11720).
 
 :::
 
-**Random (no primary key available)** — spreads load, with no stable routing guarantee:
+**Random (`RANDOM`)** — spreads load, with no stable routing guarantee, even when the writer also has a key. With a single replica every row goes to queue 0:
 
 ```java
 int index = random.nextInt(blockingQueues.size());

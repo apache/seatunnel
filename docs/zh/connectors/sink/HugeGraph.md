@@ -363,7 +363,7 @@ sink {
     host = "dst-host"
     port = 8080
     graph_name = "hugegraph"
-    multi_table_sink_replica = 2
+    multi_table_sink_replica = 1
     batch_size = 500
     mappings = [
       {
