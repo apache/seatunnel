@@ -446,7 +446,7 @@ public class MultiTableSink
     }
 
     /**
-     * Registers an aggregated flush action on the parent context if a sub-writer needs timer flush.
+     * Registers a stable parent action if a sub-writer needs timer flush now or can be added later.
      *
      * <p>The sink task invokes the action when it consumes a flush signal. The action drains
      * pending writes and flushes independent queues in parallel, with child writers serialized
@@ -460,6 +460,22 @@ public class MultiTableSink
                 proxyContexts.values().stream().anyMatch(proxy -> proxy.getFlushAction() != null);
         if (anyFlush) {
             context.registerFlushAction(writer::aggregatedFlush);
+        } else if (options.get(EnvCommonOptions.SINK_FLUSH_INTERVAL) > 0
+                && options.getOptional(ConnectorCommonOptions.PLUGIN_NAME).isPresent()
+                && supportsRuntimeTimerFlush()) {
+            // Register before the engine can wrap the action for ErrorData flushing. The writer
+            // checks its live registry, so an empty sink does no flush work until admitted.
+            context.registerFlushAction(writer::flushRuntimeWritersIfNeeded);
+        }
+    }
+
+    private boolean supportsRuntimeTimerFlush() {
+        try {
+            return runtimeSinkWriterFactory.supportsNewlyCreatedTable();
+        } catch (IOException unavailableFactory) {
+            // Legacy sinks may have no discoverable TableSinkFactory. That was not a startup
+            // error before; runtime CREATE still performs its independent admission checks.
+            return false;
         }
     }
 

@@ -23,8 +23,10 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.MultiTableCommonOptions;
 import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
@@ -40,11 +42,15 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -524,6 +530,87 @@ public class MultiTableSinkWriterTest {
         multiTableSinkWriter.close();
 
         Assertions.assertEquals(1, RuntimeFlushSinkWriter.FLUSH_COUNT.get());
+    }
+
+    /**
+     * The parent action is captured during job setup, before any dynamic table is registered. The
+     * same action must flush the first runtime-only table after both fresh and restored startup.
+     */
+    @Test
+    public void testParentTimerFlushesFirstRuntimeWriter() throws Exception {
+        Map<String, Object> options = new HashMap<>();
+        options.put(ConnectorCommonOptions.PLUGIN_NAME.key(), "runtime-flush-test");
+        options.put(EnvCommonOptions.SINK_FLUSH_INTERVAL.key(), 500L);
+        MultiTableSink sink =
+                new MultiTableSink(
+                        new MultiTableFactoryContext(
+                                ReadonlyConfig.fromMap(options),
+                                getClass().getClassLoader(),
+                                Collections.emptyMap()));
+        for (boolean restore : new boolean[] {false, true}) {
+            RuntimeFlushSinkWriter.FLUSH_COUNT.set(0);
+            AtomicReference<RunnableWithException> timer = new AtomicReference<>();
+            SinkWriter.Context context =
+                    new TestSinkWriterContext() {
+                        @Override
+                        public void registerFlushAction(RunnableWithException action) {
+                            timer.set(action);
+                        }
+                    };
+            SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> writer =
+                    restore
+                            ? sink.restoreWriter(
+                                    context,
+                                    Collections.singletonList(new MultiTableState(new HashMap<>())))
+                            : sink.createWriter(context);
+            try {
+                RunnableWithException registered = timer.get();
+                Assertions.assertNotNull(registered);
+                registered.run();
+                Assertions.assertEquals(0, RuntimeFlushSinkWriter.FLUSH_COUNT.get());
+                CatalogTable runtimeTable = catalogTable(TablePath.of("db1", "runtime_flush"));
+                writer.applySchemaChange(
+                        new CreateTableEvent(runtimeTable.getTableId(), runtimeTable));
+                Assertions.assertSame(registered, timer.get());
+                registered.run();
+                Assertions.assertEquals(1, RuntimeFlushSinkWriter.FLUSH_COUNT.get());
+            } finally {
+                writer.close();
+            }
+        }
+    }
+
+    public static class RuntimeFlushSinkFactory
+            implements TableSinkFactory<SeaTunnelRow, Object, TestSinkState, Object> {
+        @Override
+        public String factoryIdentifier() {
+            return "runtime-flush-test";
+        }
+
+        @Override
+        public OptionRule optionRule() {
+            return OptionRule.builder().build();
+        }
+
+        @Override
+        public boolean supportsNewlyCreatedTable() {
+            return true;
+        }
+
+        @Override
+        public TableSink<SeaTunnelRow, Object, TestSinkState, Object> createSink(
+                TableSinkFactoryContext context) {
+            return () ->
+                    new TestSeaTunnelSink(null) {
+                        @Override
+                        public SinkWriter<SeaTunnelRow, TestSinkState, Object> createWriter(
+                                SinkWriter.Context writerContext) {
+                            return new RuntimeFlushSinkWriter(
+                                    context.getCatalogTable().getTablePath().getFullName(),
+                                    writerContext);
+                        }
+                    };
+        }
     }
 
     @Test

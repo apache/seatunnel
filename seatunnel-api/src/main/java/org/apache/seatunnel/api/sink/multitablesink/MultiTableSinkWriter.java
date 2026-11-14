@@ -1320,6 +1320,13 @@ public class MultiTableSinkWriter
         }
     }
 
+    /** Handles timer signals before and after the first runtime child registers its action. */
+    void flushRuntimeWritersIfNeeded() throws Exception {
+        if (proxyContexts.values().stream().anyMatch(proxy -> proxy.getFlushAction() != null)) {
+            aggregatedFlush();
+        }
+    }
+
     /** Flushes the registered child writers using the shared parallel flush path. */
     void aggregatedFlush() throws Exception {
         aggregatedFlush(proxyContexts);
