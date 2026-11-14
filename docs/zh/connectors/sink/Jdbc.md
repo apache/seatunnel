@@ -49,6 +49,8 @@ sh bin/install-plugin.sh
 
 常用驱动类名和下载地址见[驱动参考](#驱动参考)。
 
+写入原生 PostgreSQL 的 `json`、`jsonb`、`uuid` 目标列时，连接器使用 PostgreSQL 驱动的原生类型绑定；使用 Greenplum 原生驱动或 OpenGauss、DSQL、HighGo 驱动时，这些类型保持字符串绑定。
+
 ## CockroachDB
 
 使用 `driver = "org.postgresql.Driver"`、PostgreSQL JDBC URL，并显式配置 `dialect = "CockroachDB"`。作业启动前必须创建目标表；本方言不提供用于自动建表或 schema save mode 的 Catalog。

@@ -17,13 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.greenplum;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 
 import com.google.auto.service.AutoService;
 import lombok.NonNull;
+
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
 @AutoService(JdbcDialectFactory.class)
 public class GreenplumDialectFactory implements JdbcDialectFactory {
@@ -41,6 +46,23 @@ public class GreenplumDialectFactory implements JdbcDialectFactory {
 
     @Override
     public JdbcDialect create() {
-        return new PostgresDialect();
+        return new GreenplumDialect();
+    }
+
+    private static final class GreenplumDialect extends PostgresDialect {
+        @Override
+        public JdbcRowConverter getRowConverter() {
+            return new GreenplumJdbcRowConverter();
+        }
+    }
+
+    private static final class GreenplumJdbcRowConverter extends PostgresJdbcRowConverter {
+        @Override
+        protected void setJsonOrUuid(
+                PreparedStatement statement, int index, String sourceType, String value)
+                throws SQLException {
+            // The native Greenplum driver must not receive pgjdbc-specific PGobject values.
+            statement.setString(index, value);
+        }
     }
 }
