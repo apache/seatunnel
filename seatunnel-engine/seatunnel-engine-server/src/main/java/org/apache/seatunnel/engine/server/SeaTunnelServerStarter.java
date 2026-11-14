@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -24,6 +25,7 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceInitializer;
 
+import com.hazelcast.config.QueueConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
@@ -64,6 +66,8 @@ public class SeaTunnelServerStarter {
             @NonNull SeaTunnelConfig seaTunnelConfig,
             String customInstanceName,
             @NonNull ResourceManagerFactory resourceManagerFactory) {
+        // Bound the finished-job monitoring outbox queue before the member is created.
+        configureFinishedJobMonitoringOutbox(seaTunnelConfig);
         // set the default async executor for Hazelcast InvocationFuture
         ConcurrencyUtil.setDefaultAsyncExecutor(CompletableFuture.EXECUTOR);
 
@@ -88,6 +92,26 @@ public class SeaTunnelServerStarter {
         }
 
         return original;
+    }
+
+    private static void configureFinishedJobMonitoringOutbox(SeaTunnelConfig seaTunnelConfig) {
+        QueueConfig queueConfig =
+                seaTunnelConfig
+                        .getHazelcastConfig()
+                        .getQueueConfigs()
+                        .get(Constant.IMAP_FINISHED_JOB_MONITORING_PENDING);
+        if (queueConfig == null) {
+            seaTunnelConfig
+                    .getHazelcastConfig()
+                    .addQueueConfig(
+                            new QueueConfig(Constant.IMAP_FINISHED_JOB_MONITORING_PENDING)
+                                    .setMaxSize(Constant.FINISHED_JOB_MONITORING_PENDING_CAPACITY));
+            return;
+        }
+        if (queueConfig.getMaxSize() <= 0
+                || queueConfig.getMaxSize() > Constant.FINISHED_JOB_MONITORING_PENDING_CAPACITY) {
+            queueConfig.setMaxSize(Constant.FINISHED_JOB_MONITORING_PENDING_CAPACITY);
+        }
     }
 
     public static HazelcastInstanceImpl createMasterAndWorkerHazelcastInstance(

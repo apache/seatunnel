@@ -642,6 +642,18 @@ public class CoordinatorService {
                         nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE),
                         nodeEngine
                                 .getHazelcastInstance()
+                                .getMap(Constant.IMAP_FINISHED_JOB_MONITORING),
+                        nodeEngine
+                                .getHazelcastInstance()
+                                .getMap(Constant.IMAP_FINISHED_JOB_MONITORING_METADATA),
+                        nodeEngine
+                                .getHazelcastInstance()
+                                .getQueue(Constant.IMAP_FINISHED_JOB_MONITORING_PENDING),
+                        nodeEngine
+                                .getHazelcastInstance()
+                                .getMap(Constant.IMAP_FINISHED_JOB_MONITORING_OVERFLOW),
+                        nodeEngine
+                                .getHazelcastInstance()
                                 .getMap(Constant.IMAP_FINISHED_JOB_METRICS),
                         nodeEngine
                                 .getHazelcastInstance()
@@ -683,6 +695,9 @@ public class CoordinatorService {
     private void cleanupPendingPipelines() {
         if (!isActive) {
             return;
+        }
+        if (jobHistoryService != null) {
+            jobHistoryService.retryPendingJobMonitoringRecords();
         }
         IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
                 this.pendingPipelineCleanupIMap;
