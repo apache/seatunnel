@@ -32,6 +32,12 @@
         <!-- SeaTunnel connectors -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-jdbc</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-starrocks</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>

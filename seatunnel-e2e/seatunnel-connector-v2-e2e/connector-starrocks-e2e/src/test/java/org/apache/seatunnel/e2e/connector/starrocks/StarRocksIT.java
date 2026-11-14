@@ -525,6 +525,53 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testStarRocksBooleanAsTinyInt(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        String sourceTable = DATABASE + ".e2e_boolean_as_tinyint_source";
+        String sinkTable = DATABASE + ".e2e_boolean_as_tinyint_sink";
+        try (Statement statement = jdbcConnection.createStatement()) {
+            try {
+                statement.execute(
+                        "CREATE TABLE "
+                                + sourceTable
+                                + " (id INT, flag BOOLEAN) ENGINE=OLAP DUPLICATE KEY(id) "
+                                + "DISTRIBUTED BY HASH(id) BUCKETS 1 "
+                                + "PROPERTIES (\"replication_num\" = \"1\")");
+                statement.execute(
+                        "CREATE TABLE "
+                                + sinkTable
+                                + " (id INT, flag TINYINT) ENGINE=OLAP DUPLICATE KEY(id) "
+                                + "DISTRIBUTED BY HASH(id) BUCKETS 1 "
+                                + "PROPERTIES (\"replication_num\" = \"1\")");
+                statement.execute(
+                        "INSERT INTO " + sourceTable + " VALUES (1, false), (2, true), (3, null)");
+
+                Container.ExecResult execResult =
+                        container.executeJob("/starrocks-boolean-to-jdbc-tinyint.conf");
+                Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+                try (ResultSet result =
+                        statement.executeQuery(
+                                "SELECT id, flag FROM " + sinkTable + " ORDER BY id")) {
+                    Byte[] expectedValues = {(byte) 0, (byte) 1, null};
+                    for (int i = 0; i < expectedValues.length; i++) {
+                        Assertions.assertTrue(result.next());
+                        Assertions.assertEquals(i + 1, result.getInt(1));
+                        Byte actual = result.getByte(2);
+                        if (result.wasNull()) {
+                            actual = null;
+                        }
+                        Assertions.assertEquals(expectedValues[i], actual);
+                    }
+                    Assertions.assertFalse(result.next());
+                }
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS " + sourceTable);
+                statement.execute("DROP TABLE IF EXISTS " + sinkTable);
+            }
+        }
+    }
+
+    @TestTemplate
     public void testStarRocksMultipleRead(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
