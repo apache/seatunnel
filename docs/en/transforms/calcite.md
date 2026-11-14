@@ -96,7 +96,7 @@ SELECT MASK_HASH(phone) AS phone_hash FROM t
 
 ```DES_ENCRYPT(password, data) -> STRING```
 
-Encrypts `data` with DES (CBC/PKCS5Padding) using `password` (must be >= 8 chars). Returns Base64-encoded ciphertext.
+Encrypts `data` with DES (CBC/PKCS5Padding) using `password` (must be >= 8 chars). Returns versioned ciphertext containing a fresh per-value IV. See [incompatible changes](../introduction/concepts/incompatible-changes.md) for the format and migration requirements.
 
 Example:
 
@@ -108,7 +108,7 @@ SELECT DES_ENCRYPT('12345678', secret) AS encrypted FROM t
 
 ```DES_DECRYPT(password, data) -> STRING```
 
-Decrypts Base64-encoded `data` with the same password used for encryption.
+Decrypts versioned or historical Base64 ciphertext with the same password used for encryption.
 
 Example:
 
