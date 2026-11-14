@@ -40,8 +40,10 @@ Write data to OceanBase through JDBC. The sink supports batch and streaming jobs
 
 |                                                          Mysql Data type                                                          |                                                                 SeaTunnel Data type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
-| TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
+| BIT(1)<br/>TINYINT(1)                                                                                                             | BOOLEAN                                                                                                                                             |
+| TINYINT                                                                                                                           | TINYINT                                                                                                                                             |
+| TINYINT UNSIGNED<br/>SMALLINT                                                                                                     | SMALLINT                                                                                                                                            |
+| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR                                               | INT                                                                                                                                                 |
 | INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                                                      | BIGINT                                                                                                                                              |
 | BIGINT UNSIGNED                                                                                                                   | DECIMAL(20,0)                                                                                                                                       |
 | DECIMAL(x,y)(Get the designated column's specified column size.<38)                                                               | DECIMAL(x,y)                                                                                                                                        |
@@ -49,27 +51,34 @@ Write data to OceanBase through JDBC. The sink supports batch and streaming jobs
 | DECIMAL UNSIGNED                                                                                                                  | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
 | FLOAT<br/>FLOAT UNSIGNED                                                                                                          | FLOAT                                                                                                                                               |
 | DOUBLE<br/>DOUBLE UNSIGNED                                                                                                        | DOUBLE                                                                                                                                              |
-| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON                                                       | STRING                                                                                                                                              |
+| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON<br/>ENUM                                              | STRING                                                                                                                                              |
 | DATE                                                                                                                              | DATE                                                                                                                                                |
 | TIME                                                                                                                              | TIME                                                                                                                                                |
-| DATETIME<br/>TIMESTAMP                                                                                                            | TIMESTAMP                                                                                                                                           |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
-| GEOMETRY<br/>UNKNOWN                                                                                                              | Not supported yet                                                                                                                                   |
+| DATETIME                                                                                                                          | TIMESTAMP                                                                                                                                           |
+| TIMESTAMP                                                                                                                         | TIMESTAMP_TZ                                                                                                                                        |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)<br/>GEOMETRY                                    | BYTES                                                                                                                                               |
+| UNKNOWN                                                                                                                           | Not supported yet                                                                                                                                   |
 
 ### Oracle Mode
 
-|                     Oracle Data type                      | SeaTunnel Data type |
-|-----------------------------------------------------------|---------------------|
-| Number(p), p <= 9                                         | INT                 |
-| Number(p), p <= 18                                        | BIGINT              |
-| Number(p), p > 18                                         | DECIMAL(38,18)      |
-| REAL<br/> BINARY_FLOAT                                    | FLOAT               |
-| BINARY_DOUBLE                                             | DOUBLE              |
-| CHAR<br/>NCHAR<br/>NVARCHAR2<br/>NCLOB<br/>CLOB<br/>ROWID | STRING              |
-| DATE                                                      | DATE                |
-| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE              | TIMESTAMP           |
-| BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                       | BYTES               |
-| UNKNOWN                                                   | Not supported yet   |
+|                                          Oracle Data type                                           | SeaTunnel Data type |
+|-----------------------------------------------------------------------------------------------------|---------------------|
+| Integer                                                                                             | DECIMAL(38,0)       |
+| Number(p), p <= 9                                                                                   | INT                 |
+| Number(p), p <= 18                                                                                  | BIGINT              |
+| Number(p), 18 < p < 38                                                                              | DECIMAL(p,0)        |
+| Number(p), p >= 38                                                                                  | DECIMAL(38,0)       |
+| Number(p,s), s > 0                                                                                  | DECIMAL(p, min(s, 18)) |
+| Number(p,s), s < 0                                                                                  | Normalized to `DECIMAL(p - s, 0)` (or narrowed types when decimal narrowing applies). |
+| Float                                                                                               | DECIMAL(38,18)      |
+| REAL<br/> BINARY_FLOAT                                                                              | FLOAT               |
+| BINARY_DOUBLE                                                                                       | DOUBLE              |
+| CHAR<br/>NCHAR<br/>VARCHAR<br/>VARCHAR2<br/>NVARCHAR2<br/>NCLOB<br/>CLOB<br/>LONG<br/>XML<br/>ROWID | STRING              |
+| DATE                                                                                                | TIMESTAMP           |
+| TIMESTAMP                                                                                           | TIMESTAMP           |
+| TIMESTAMP WITH TIME ZONE<br/>TIMESTAMP WITH LOCAL TIME ZONE                                         | TIMESTAMP_TZ        |
+| BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                                 | BYTES               |
+| UNKNOWN                                                                                             | Not supported yet   |
 
 ## Sink Options
 

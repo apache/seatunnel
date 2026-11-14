@@ -32,8 +32,11 @@ You can narrow what is read and what columns are returned without scanning the w
 - Use `flat.sync-string` to capture the whole document as one JSON `STRING` column when no
   fixed schema is needed.
 
-The connector tracks split progress through checkpoints, so a restarted job resumes from the
-last committed split instead of rescanning the whole collection.
+Checkpoints only store splits that have not been fully read yet; a split does not record a read
+position inside its range. When a job restarts from a checkpoint, the enumerator restores those
+pending splits and then re-runs the split strategy over the whole collection, so documents that
+were already read can be read again. Make the downstream write idempotent (for example, an upsert
+on the primary key) if duplicates after a restore are not acceptable.
 
 ## Supported DataSource Info
 

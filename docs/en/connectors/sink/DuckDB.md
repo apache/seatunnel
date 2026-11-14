@@ -35,10 +35,10 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 > The generic JDBC sink implements exactly-once through XA transactions. The DuckDB JDBC driver does not
 > provide an XA datasource; do not set `is_exactly_once = true` for DuckDB.
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
 
@@ -101,7 +101,8 @@ DuckDB `TIME` values preserve microsecond precision when read or written through
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> Sink concurrency follows the job or pipeline parallelism. `partition_column` is a JDBC
+> source option for splitting reads; it does not control how the sink distributes writes.
 
 ## Task Example
 
@@ -116,7 +117,7 @@ env {
 source {
   FakeSource {
     parallelism = 1
-    row_num = 1000
+    row.num = 1000
     schema = {
       fields {
         id = "int"

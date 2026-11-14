@@ -112,7 +112,7 @@ cd "apache-seatunnel-${version}"
 在 Windows 上，请在 SeaTunnel 目录下运行对应的批处理入口：
 
 ```bat
-cd apache-seatunnel-3.0.0
+cd apache-seatunnel-3.1.0
 bin\seatunnel.cmd --config config\v2.batch.config.template -m local
 ```
 

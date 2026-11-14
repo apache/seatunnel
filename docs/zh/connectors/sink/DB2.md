@@ -46,7 +46,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |                                            DB2 数据类型                                            | SeaTunnel 数据类型 |
 |------------------------------------------------------------------------------------------------------|--------------------|
 | BOOLEAN                                                                                              | BOOLEAN            |
-| SMALLINT                                                                                             | SHORT              |
+| SMALLINT                                                                                             | SMALLINT           |
 | INT<br/>INTEGER                                                                                      | INT            |
 | BIGINT                                                                                               | BIGINT               |
 | DECIMAL<br/>DEC<br/>NUMERIC<br/>NUM                                                                  | DECIMAL((获取指定列的指定列大小),<br/>(获取指定列小数点右边的位数。)))     |

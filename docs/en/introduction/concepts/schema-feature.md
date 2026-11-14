@@ -215,7 +215,7 @@ Constraint keys is a list of config used to define the constraint keys in schema
 constraintKeys = [
       {
          constraintName = "id_index"
-         constraintType = KEY
+         constraintType = INDEX_KEY
          constraintColumns = [
             {
                 columnName = "id"
@@ -229,7 +229,7 @@ constraintKeys = [
 | Field             | Required | Default Value |                                                                Description                                                                |
 |:------------------|:---------|:--------------|-------------------------------------------------------------------------------------------------------------------------------------------|
 | constraintName    | Yes      | -             | The name of the constraintKey                                                                                                             |
-| constraintType    | No       | KEY           | The type of the constraintKey                                                                                                             |
+| constraintType    | Yes      | -             | The type of the constraintKey. Supported values are listed in [What constraintType supported at now](#what-constrainttype-supported-at-now). |
 | constraintColumns | Yes      | -             | The column list in the constraintKey. Each column must contain `columnName`. For `INDEX_KEY`/`UNIQUE_KEY`/`FOREIGN_KEY`, `sortType` is supported (ASC/DESC, default ASC). For `VECTOR_INDEX_KEY`, `indexName` is optional; `indexType` and `metricType` are optional at the schema parsing level but may be required by specific connectors that create vector indexes (e.g., Milvus). |
 
 #### What constraintType supported at now

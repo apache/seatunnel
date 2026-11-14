@@ -41,7 +41,7 @@ All options live under `seatunnel.engine.jar-storage` in `seatunnel.yaml`; a top
 |-------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
 | enable                              | false         | Whether to enable uploading the connector jar package to the engine. The default enabled state is false.                                           |
 | connector-jar-storage-mode          | SHARED        | Engine-side jar package storage mode selection. There are two optional modes, SHARED and ISOLATED. The default Jar package storage mode is SHARED. |
-| connector-jar-storage-path          | " "           | User-defined jar package storage path.                                                                                                             |
+| connector-jar-storage-path          | ""            | User-defined jar package storage path. When it is empty, the engine stores the jar packages under the SeaTunnel home directory (`SEATUNNEL_HOME`). |
 | connector-jar-cleanup-task-interval | 3600s         | Engine-side jar package cleaning scheduled task execution interval.                                                                                |
 | connector-jar-expiry-time           | 600s          | Engine-side jar package storage expiration time.                                                                                                   |
 

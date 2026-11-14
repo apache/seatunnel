@@ -65,7 +65,7 @@ semantics (using XA transaction guarantee).
 | TIME                                                                                                                              | TIME                                                                                                                                                |
 | DATETIME                                                                                                                          | TIMESTAMP                                                                                                                                           |
 | TIMESTAMP                                                                                                                         | TIMESTAMP_TZ                                                                                                                                        |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)<br/>GEOMETRY                                     | BYTES                                                                                                                                               |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)<br/>GEOMETRY                                    | BYTES                                                                                                                                               |
 | UNKNOWN                                                                                                                           | Not supported yet                                                                                                                                   |
 
 ## Sink Options
@@ -101,7 +101,8 @@ semantics (using XA transaction guarantee).
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> Sink concurrency follows the job or pipeline parallelism. `partition_column` is a JDBC
+> source option for splitting reads; it does not control how the sink distributes writes.
 
 ## Task Example
 
