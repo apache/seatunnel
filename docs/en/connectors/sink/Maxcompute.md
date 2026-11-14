@@ -74,6 +74,8 @@ or upsert session selected by `insert_strategy`.
 
 `endpoint` Your Maxcompute endpoint start with http.
 
+This required option must not be empty or whitespace-only. The option rule validates nonblank values without trimming or rewriting them; URL parsing and connectivity checks remain part of runtime initialization.
+
 ### project [string]
 
 `project` Your Maxcompute project which is created in Alibaba Cloud.

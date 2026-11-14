@@ -111,6 +111,61 @@ public class MaxcomputeSourceFactoryTest {
         assertInvalidSinkRetryCount(MaxcomputeSinkOptions.TUNNEL_RETRY_TIMES, retries);
     }
 
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "http://service.odps.aliyun.com/api",
+                " \thttp://service.odps.aliyun.com/api\r\n "
+            })
+    void acceptsNonblankSinkEndpointWithoutTrimming(String endpoint) {
+        Map<String, Object> config = sinkConfig();
+        config.put(MaxcomputeSinkOptions.ENDPOINT.key(), endpoint);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.of(readonlyConfig)
+                                .validate(new MaxcomputeSinkFactory().optionRule()));
+        Assertions.assertEquals(endpoint, readonlyConfig.get(MaxcomputeSinkOptions.ENDPOINT));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"endpoint", "project", "table_name"})
+    void rejectsMissingRequiredSinkOption(String key) {
+        Map<String, Object> config = sinkConfig();
+        config.remove(key);
+        OptionValidationException error =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.of(ReadonlyConfig.fromMap(config))
+                                        .validate(new MaxcomputeSinkFactory().optionRule()));
+        Assertions.assertTrue(error.getMessage().contains(key), error.getMessage());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "\t", "\n", "\r", " \t\r\n "})
+    void rejectsBlankSinkEndpoint(String endpoint) {
+        Map<String, Object> config = sinkConfig();
+        config.put(MaxcomputeSinkOptions.ENDPOINT.key(), endpoint);
+        OptionValidationException error =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.of(ReadonlyConfig.fromMap(config))
+                                        .validate(new MaxcomputeSinkFactory().optionRule()));
+        Assertions.assertTrue(error.getMessage().contains("endpoint"), error.getMessage());
+        Assertions.assertTrue(error.getMessage().contains("blank"), error.getMessage());
+    }
+
+    private Map<String, Object> sinkConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(MaxcomputeSinkOptions.ENDPOINT.key(), "http://service.odps.aliyun.com/api");
+        config.put(MaxcomputeSinkOptions.PROJECT.key(), "test_project");
+        config.put(MaxcomputeSinkOptions.TABLE_NAME.key(), "test_table");
+        return config;
+    }
+
     @Test
     void optionRule() {
         Assertions.assertNotNull((new MaxcomputeSourceFactory()).optionRule());
