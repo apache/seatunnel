@@ -35,6 +35,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.DryRunConnectFailureMessageSanitizer;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.enums.DryRun;
+import org.apache.seatunnel.core.starter.enums.OutputFormat;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
@@ -101,9 +102,9 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
 
     @Override
     public void execute() throws ConfigCheckException {
-        Path configPath = FileUtils.getConfigPath(clientCommandArgs);
-
+        ConfigValidationResult successResult;
         try {
+            Path configPath = FileUtils.getConfigPath(clientCommandArgs);
             Config config = ConfigBuilder.of(configPath, clientCommandArgs.getVariables());
 
             if (config.hasPath("env")) {
@@ -183,6 +184,8 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                         .validate();
             }
 
+            successResult = ConfigValidationResult.success(validationPhase());
+
         } catch (Exception e) {
             String validationMode =
                     clientCommandArgs.getDryRun() == DryRun.CONNECT
@@ -191,10 +194,31 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
             String message = e.getMessage();
             if (clientCommandArgs.getDryRun() == DryRun.CONNECT) {
                 message = DryRunConnectFailureMessageSanitizer.sanitize(message);
+                printJsonResultIfRequested(
+                        ConfigValidationResult.failure(
+                                validationPhase(),
+                                toValidationError(
+                                        message == null ? "Validation failed" : message)));
                 throw new ConfigCheckException(validationMode + " failed: " + message);
             }
-            throw new ConfigCheckException(validationMode + " failed: " + message, e);
+            String sanitizedMessage = DryRunConnectFailureMessageSanitizer.sanitize(message);
+            printJsonResultIfRequested(
+                    ConfigValidationResult.failure(
+                            validationPhase(),
+                            toValidationError(
+                                    sanitizedMessage == null
+                                            ? "Validation failed"
+                                            : sanitizedMessage)));
+            if (clientCommandArgs.getOutputFormat() == OutputFormat.JSON) {
+                // The CLI logs the full exception chain; do not retain an unsanitized cause in
+                // the machine-readable mode after emitting the credential-safe result.
+                throw new ConfigCheckException(validationMode + " failed: " + sanitizedMessage);
+            }
+            throw new ConfigCheckException(validationMode + " failed: " + sanitizedMessage, e);
         }
+        // Keep serialization outside the validation try/catch so an output failure
+        // cannot be reported as a configuration-validation failure.
+        printJsonResultIfRequested(successResult);
     }
 
     /**
@@ -218,6 +242,16 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
             return ConfigValidationResult.failure(
                     validationPhase(),
                     toValidationError(message == null ? "Validation failed" : message));
+        }
+    }
+
+    /**
+     * Emits one credential-safe result for the JSON CLI protocol. Text mode retains its existing
+     * diagnostic output and does not write a machine-readable result to standard output.
+     */
+    private void printJsonResultIfRequested(ConfigValidationResult result) {
+        if (clientCommandArgs.getOutputFormat() == OutputFormat.JSON) {
+            System.out.println(result.toJson());
         }
     }
 
