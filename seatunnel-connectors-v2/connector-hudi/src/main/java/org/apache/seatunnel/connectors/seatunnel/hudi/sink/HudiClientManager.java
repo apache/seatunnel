@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.hudi.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.client.HudiWriteClientProvider;
 
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.common.model.HoodieAvroPayload;
@@ -28,15 +29,12 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil.createHoodieJavaWriteClient;
-
 @Slf4j
 public class HudiClientManager {
 
     private final HudiSinkConfig hudiSinkConfig;
 
-    private final Map<String, Map<Integer, HoodieJavaWriteClient<HoodieAvroPayload>>>
-            hoodieJavaWriteClientMap;
+    private final Map<String, Map<Integer, HudiWriteClientProvider>> hoodieJavaWriteClientMap;
 
     public HudiClientManager(HudiSinkConfig hudiSinkConfig) {
         this.hudiSinkConfig = hudiSinkConfig;
@@ -45,13 +43,18 @@ public class HudiClientManager {
 
     public HoodieJavaWriteClient<HoodieAvroPayload> getClient(
             int index, String tableName, SeaTunnelRowType seaTunnelRowType) {
+        return getProvider(index, tableName, seaTunnelRowType).getOrCreateClient();
+    }
+
+    public HudiWriteClientProvider getProvider(
+            int index, String tableName, SeaTunnelRowType seaTunnelRowType) {
         return hoodieJavaWriteClientMap
                 .computeIfAbsent(tableName, i -> new ConcurrentHashMap<>())
                 .computeIfAbsent(
                         index,
                         i ->
-                                createHoodieJavaWriteClient(
-                                        hudiSinkConfig, seaTunnelRowType, tableName));
+                                new HudiWriteClientProvider(
+                                        hudiSinkConfig, tableName, seaTunnelRowType));
     }
 
     public boolean containsClient(String tableName, int index) {
@@ -60,6 +63,16 @@ public class HudiClientManager {
     }
 
     public HoodieJavaWriteClient<HoodieAvroPayload> remove(String tableName, int index) {
-        return hoodieJavaWriteClientMap.get(tableName).get(index);
+        return hoodieJavaWriteClientMap.get(tableName).get(index).getOrCreateClient();
+    }
+
+    public void closeClient(String tableName, int index) {
+        Map<Integer, HudiWriteClientProvider> clients = hoodieJavaWriteClientMap.get(tableName);
+        if (clients != null) {
+            HudiWriteClientProvider provider = clients.remove(index);
+            if (provider != null) {
+                provider.close();
+            }
+        }
     }
 }

@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistExce
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiAuthenticationContext;
 
 import org.apache.avro.Schema;
 import org.apache.hadoop.conf.Configuration;
@@ -71,16 +72,47 @@ public class HudiCatalog implements Catalog {
     private final String tableParentDfsPathStr;
     private final Path tableParentDfsPath;
     private FileSystem fs;
+    private final String principal;
+    private final String keytab;
+    private final String krb5Path;
+    private HudiAuthenticationContext authentication;
 
     public HudiCatalog(String catalogName, Configuration hadoopConf, String tableParentDfsPathStr) {
+        this(catalogName, hadoopConf, tableParentDfsPathStr, null, null, null);
+    }
+
+    public HudiCatalog(
+            String catalogName,
+            Configuration hadoopConf,
+            String tableParentDfsPathStr,
+            String principal,
+            String keytab,
+            String krb5Path) {
         this.catalogName = catalogName;
         this.hadoopConf = hadoopConf;
         this.tableParentDfsPathStr = tableParentDfsPathStr;
         this.tableParentDfsPath = new Path(tableParentDfsPathStr);
+        this.principal = principal;
+        this.keytab = keytab;
+        this.krb5Path = krb5Path;
     }
 
     @Override
     public void open() throws CatalogException {
+        authentication = new HudiAuthenticationContext(hadoopConf, principal, keytab, krb5Path);
+        try {
+            authentication.execute(
+                    () -> {
+                        openUnderIdentity();
+                        return null;
+                    });
+        } catch (RuntimeException e) {
+            close();
+            throw e;
+        }
+    }
+
+    private void openUnderIdentity() {
         fs = HadoopFSUtils.getFs(tableParentDfsPathStr, hadoopConf);
         try {
             if (!fs.exists(tableParentDfsPath)) {
@@ -101,12 +133,14 @@ public class HudiCatalog implements Catalog {
 
     @Override
     public void close() throws CatalogException {
-        try {
-            if (fs != null) {
-                fs.close();
-            }
-        } catch (Exception e) {
-            log.info("Hudi catalog close error.", e);
+        if (authentication != null) {
+            authentication.close(
+                    () -> {
+                        if (fs != null) {
+                            fs.close();
+                        }
+                        return null;
+                    });
         }
     }
 
@@ -130,6 +164,10 @@ public class HudiCatalog implements Catalog {
 
     @Override
     public List<String> listDatabases() throws CatalogException {
+        return authentication.execute(this::listDatabasesUnderIdentity);
+    }
+
+    private List<String> listDatabasesUnderIdentity() {
         try {
             FileStatus[] fileStatuses = fs.listStatus(tableParentDfsPath);
             return Arrays.stream(fileStatuses)
@@ -144,6 +182,10 @@ public class HudiCatalog implements Catalog {
     @Override
     public List<String> listTables(String databaseName)
             throws CatalogException, DatabaseNotExistException {
+        return authentication.execute(() -> listTablesUnderIdentity(databaseName));
+    }
+
+    private List<String> listTablesUnderIdentity(String databaseName) {
         if (!databaseExists(databaseName)) {
             throw new DatabaseNotExistException(catalogName, databaseName);
         }
@@ -162,6 +204,10 @@ public class HudiCatalog implements Catalog {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
+        return authentication.execute(() -> tableExistsUnderIdentity(tablePath));
+    }
+
+    private boolean tableExistsUnderIdentity(TablePath tablePath) {
         String basePath = inferTablePath(tableParentDfsPathStr, tablePath);
         try {
             return fs.exists(new Path(basePath, HoodieTableMetaClient.METAFOLDER_NAME))
@@ -178,6 +224,10 @@ public class HudiCatalog implements Catalog {
     @Override
     public CatalogTable getTable(TablePath tablePath)
             throws CatalogException, TableNotExistException {
+        return authentication.execute(() -> getTableUnderIdentity(tablePath));
+    }
+
+    private CatalogTable getTableUnderIdentity(TablePath tablePath) {
         if (!tableExists(tablePath)) {
             throw new TableNotExistException(name(), tablePath);
         }
@@ -217,6 +267,14 @@ public class HudiCatalog implements Catalog {
     @Override
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+        authentication.execute(
+                () -> {
+                    createTableUnderIdentity(tablePath, table);
+                    return null;
+                });
+    }
+
+    private void createTableUnderIdentity(TablePath tablePath, CatalogTable table) {
         checkNotNull(tablePath, "Table path cannot be null");
         checkNotNull(table, "Table cannot be null");
 
@@ -250,6 +308,14 @@ public class HudiCatalog implements Catalog {
     @Override
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
+        authentication.execute(
+                () -> {
+                    dropTableUnderIdentity(tablePath, ignoreIfNotExists);
+                    return null;
+                });
+    }
+
+    private void dropTableUnderIdentity(TablePath tablePath, boolean ignoreIfNotExists) {
         if (!tableExists(tablePath)) {
             if (ignoreIfNotExists) {
                 return;
@@ -275,6 +341,14 @@ public class HudiCatalog implements Catalog {
     @Override
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
             throws DatabaseAlreadyExistException, CatalogException {
+        authentication.execute(
+                () -> {
+                    createDatabaseUnderIdentity(tablePath, ignoreIfExists);
+                    return null;
+                });
+    }
+
+    private void createDatabaseUnderIdentity(TablePath tablePath, boolean ignoreIfExists) {
         if (databaseExists(tablePath.getDatabaseName())) {
             if (ignoreIfExists) {
                 return;
@@ -296,6 +370,14 @@ public class HudiCatalog implements Catalog {
     @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
+        authentication.execute(
+                () -> {
+                    dropDatabaseUnderIdentity(tablePath, ignoreIfNotExists);
+                    return null;
+                });
+    }
+
+    private void dropDatabaseUnderIdentity(TablePath tablePath, boolean ignoreIfNotExists) {
         // do nothing
         if (!databaseExists(tablePath.getDatabaseName())) {
             if (ignoreIfNotExists) {

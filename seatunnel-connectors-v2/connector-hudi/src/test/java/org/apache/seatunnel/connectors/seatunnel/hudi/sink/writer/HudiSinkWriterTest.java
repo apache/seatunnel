@@ -17,23 +17,44 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.function.RunnableWithException;
+import org.apache.seatunnel.connectors.seatunnel.hudi.catalog.HudiCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.HudiClientManager;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.HudiSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.client.HudiWriteClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.client.HudiWriteClientProviderProxy;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.client.WriteClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiAuthenticationContext;
+import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hudi.client.HoodieJavaWriteClient;
+import org.apache.hudi.common.model.HoodieAvroPayload;
+import org.apache.hudi.common.model.WriteOperationType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
+import java.security.PrivilegedExceptionAction;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -43,6 +64,149 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class HudiSinkWriterTest {
+
+    @Test
+    void shouldDeclareAndRetainKerberosOptionsWithoutLeakingThemInConfigText() {
+        java.util.Map<String, Object> options = new java.util.HashMap<>();
+        options.put("table_dfs_path", "/tmp/hudi");
+        options.put("table_name", "orders");
+        options.put("kerberos_principal", "sensitive-principal");
+        options.put("kerberos_keytab_path", "sensitive-keytab");
+        options.put("krb5_path", "sensitive-krb5");
+        HudiSinkConfig config = HudiSinkConfig.of(ReadonlyConfig.fromMap(options));
+        Assertions.assertEquals("sensitive-principal", config.getKerberosPrincipal());
+        Assertions.assertEquals("sensitive-keytab", config.getKerberosKeytabPath());
+        Assertions.assertEquals("sensitive-krb5", config.getKrb5Path());
+        Assertions.assertFalse(config.toString().contains("sensitive-"));
+        for (org.apache.seatunnel.api.configuration.Option<?> option :
+                java.util.Arrays.asList(
+                        HudiSinkOptions.KERBEROS_PRINCIPAL,
+                        HudiSinkOptions.KERBEROS_KEYTAB_PATH,
+                        HudiSinkOptions.KRB5_PATH)) {
+            Assertions.assertTrue(
+                    new HudiSinkFactory().optionRule().getOptionalOptions().contains(option));
+            Assertions.assertTrue(
+                    new HudiCatalogFactory().optionRule().getOptionalOptions().contains(option));
+        }
+    }
+
+    @Test
+    void shouldScopeDirectAndCachedClientLifecycleIncludingWritesAndDeletes() throws Exception {
+        for (boolean cached : new boolean[] {false, true}) {
+            verifyClientIdentity(cached);
+        }
+    }
+
+    private void verifyClientIdentity(boolean cached) throws Exception {
+        UserGroupInformation user = UserGroupInformation.createRemoteUser("owned-client");
+        Configuration conf = new Configuration(false);
+        HudiSinkConfig config = HudiSinkConfig.builder().build();
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        HudiTableConfig table =
+                HudiTableConfig.builder()
+                        .tableName("orders")
+                        .recordKeyFields("id")
+                        .opType(WriteOperationType.UPSERT)
+                        .batchSize(1)
+                        .build();
+        HoodieJavaWriteClient<HoodieAvroPayload> client = mock(HoodieJavaWriteClient.class);
+        AtomicInteger operations = new AtomicInteger();
+        Mockito.doAnswer(
+                        i -> {
+                            Assertions.assertEquals(
+                                    "owned-client",
+                                    UserGroupInformation.getCurrentUser().getUserName());
+                            operations.incrementAndGet();
+                            return "001";
+                        })
+                .when(client)
+                .startCommit();
+        Mockito.doAnswer(
+                        i -> {
+                            Assertions.assertEquals(
+                                    "owned-client",
+                                    UserGroupInformation.getCurrentUser().getUserName());
+                            operations.incrementAndGet();
+                            return java.util.Collections.emptyList();
+                        })
+                .when(client)
+                .upsert(Mockito.anyList(), Mockito.anyString());
+        Mockito.doAnswer(
+                        i -> {
+                            Assertions.assertEquals(
+                                    "owned-client",
+                                    UserGroupInformation.getCurrentUser().getUserName());
+                            operations.incrementAndGet();
+                            return java.util.Collections.emptyList();
+                        })
+                .when(client)
+                .delete(Mockito.anyList(), Mockito.anyString());
+        Mockito.doAnswer(
+                        i -> {
+                            Assertions.assertEquals(
+                                    "owned-client",
+                                    UserGroupInformation.getCurrentUser().getUserName());
+                            operations.incrementAndGet();
+                            return null;
+                        })
+                .when(client)
+                .close();
+
+        try (MockedConstruction<HudiAuthenticationContext> contexts =
+                        Mockito.mockConstruction(
+                                HudiAuthenticationContext.class,
+                                (auth, context) -> {
+                                    when(auth.getConfiguration()).thenReturn(conf);
+                                    Mockito.doAnswer(
+                                                    i ->
+                                                            user.doAs(
+                                                                    (PrivilegedExceptionAction<?>)
+                                                                            i.getArgument(0)))
+                                            .when(auth)
+                                            .execute(Mockito.any());
+                                    Mockito.doAnswer(
+                                                    i ->
+                                                            user.doAs(
+                                                                    (PrivilegedExceptionAction<?>)
+                                                                            i.getArgument(0)))
+                                            .when(auth)
+                                            .close(Mockito.any());
+                                });
+                MockedStatic<HudiUtil> factory = Mockito.mockStatic(HudiUtil.class)) {
+            factory.when(
+                            () ->
+                                    HudiUtil.createHoodieJavaWriteClient(
+                                            config, rowType, "orders", conf))
+                    .thenAnswer(
+                            i -> {
+                                Assertions.assertEquals(
+                                        "owned-client",
+                                        UserGroupInformation.getCurrentUser().getUserName());
+                                return client;
+                            });
+            HudiClientManager manager = new HudiClientManager(config);
+            WriteClientProvider provider =
+                    cached
+                            ? new HudiWriteClientProviderProxy(manager, rowType, 0, "orders")
+                            : new HudiWriteClientProvider(config, "orders", rowType);
+            HudiRecordWriter writer = new HudiRecordWriter(table, provider, rowType);
+            writer.open();
+            writer.writeRecord(new SeaTunnelRow(new Object[] {1}));
+            SeaTunnelRow deleted = new SeaTunnelRow(new Object[] {1});
+            deleted.setRowKind(org.apache.seatunnel.api.table.type.RowKind.DELETE);
+            writer.writeRecord(deleted);
+            writer.close();
+            Assertions.assertEquals(5, operations.get());
+            Assertions.assertEquals(1, contexts.constructed().size());
+            factory.verify(
+                    () -> HudiUtil.createHoodieJavaWriteClient(config, rowType, "orders", conf));
+            if (cached) {
+                Assertions.assertFalse(manager.containsClient("orders", 0));
+            }
+        }
+    }
 
     @Test
     void shouldRegisterAndExecuteTimerFlush() throws Exception {

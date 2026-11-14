@@ -17,14 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.client.HudiWriteClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.HudiRecordConverter;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.HudiRecordWriter;
+import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -33,6 +38,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hudi.avro.AvroSchemaUtils;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.WriteStatus;
@@ -58,6 +64,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -81,6 +89,77 @@ import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSc
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.RowDataToAvroConverters.createConverter;
 
 public class HudiTest {
+
+    @Test
+    void testRealClientWritesAndCommitsUnderReturnedIdentity() throws Exception {
+        java.nio.file.Path root = tempDir.resolve("authenticated");
+        Map<String, Object> options = new HashMap<>();
+        options.put("table_dfs_path", root.toString());
+        options.put("table_name", "orders");
+        options.put("record_key_fields", "id");
+        options.put("precombine_field", "id");
+        options.put("index_type", "INMEMORY");
+        options.put("op_type", "UPSERT");
+        options.put("batch_size", 1);
+        options.put("kerberos_principal", "principal");
+        options.put("kerberos_keytab_path", "keytab");
+        HudiSinkConfig config = HudiSinkConfig.of(ReadonlyConfig.fromMap(options));
+        HudiTableConfig table = config.getTableList().get(0);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(new String[] {"id"}, new SeaTunnelDataType[] {INT_TYPE});
+        String path = root.resolve("default/orders").toString();
+        HoodieTableMetaClient.withPropertyBuilder()
+                .setTableType(HoodieTableType.COPY_ON_WRITE)
+                .setTableName("orders")
+                .setRecordKeyFields("id")
+                .setPreCombineField("id")
+                .setTableCreateSchema(
+                        convertToSchema(
+                                        rowType,
+                                        AvroSchemaUtils.getAvroRecordQualifiedName("orders"))
+                                .toString())
+                .setPayloadClassName(HoodieAvroPayload.class.getName())
+                .initTable(new HadoopStorageConfiguration(new Configuration()), path);
+        Configuration conf = new Configuration();
+        conf.set("hadoop.security.authentication", "kerberos");
+        UserGroupInformation user =
+                Mockito.spy(UserGroupInformation.createRemoteUser("hudi-real-client"));
+        HudiWriteClientProvider provider = new HudiWriteClientProvider(config, "orders", rowType);
+        HudiRecordWriter writer = new HudiRecordWriter(table, provider, rowType);
+        try {
+            try (MockedStatic<UserGroupInformation> login =
+                            Mockito.mockStatic(UserGroupInformation.class);
+                    MockedStatic<HudiUtil> util =
+                            Mockito.mockStatic(HudiUtil.class, Mockito.CALLS_REAL_METHODS)) {
+                login.when(
+                                () ->
+                                        UserGroupInformation.loginUserFromKeytabAndReturnUGI(
+                                                "principal", "keytab"))
+                        .thenReturn(user);
+                util.when(() -> HudiUtil.getConfiguration(null)).thenReturn(conf);
+                writer.open();
+            }
+            writer.writeRecord(new SeaTunnelRow(new Object[] {1}));
+            SeaTunnelRow deleted = new SeaTunnelRow(new Object[] {1});
+            deleted.setRowKind(org.apache.seatunnel.api.table.type.RowKind.DELETE);
+            writer.writeRecord(deleted);
+            HoodieTableMetaClient metadata =
+                    HoodieTableMetaClient.builder()
+                            .setConf(new HadoopStorageConfiguration(new Configuration()))
+                            .setBasePath(path)
+                            .build();
+            Assertions.assertEquals(
+                    2,
+                    metadata.getActiveTimeline()
+                            .getCommitsTimeline()
+                            .filterCompletedInstants()
+                            .countInstants());
+        } finally {
+            writer.close();
+        }
+        Mockito.verify(user, Mockito.atLeastOnce()).checkTGTAndReloginFromKeytab();
+        Mockito.verify(user).logoutUserFromKeytab();
+    }
 
     protected static @TempDir java.nio.file.Path tempDir;
     private static final String tableName = "hudi";
@@ -199,6 +278,7 @@ public class HudiTest {
                                         .archiveCommitsWith(11, 25)
                                         .build())
                         .withAutoCommit(false)
+                        .withEmbeddedTimelineServerEnabled(false)
                         .build();
 
         try (HoodieJavaWriteClient<HoodieAvroPayload> javaWriteClient =

@@ -32,6 +32,24 @@ import java.util.List;
 
 public class HudiSinkOptions {
 
+    public static final Option<String> KERBEROS_PRINCIPAL =
+            Options.key("kerberos_principal")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Kerberos principal; requires kerberos_keytab_path.");
+
+    public static final Option<String> KERBEROS_KEYTAB_PATH =
+            Options.key("kerberos_keytab_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Keytab readable by the catalog and each writer process.");
+
+    public static final Option<String> KRB5_PATH =
+            Options.key("krb5_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Optional Kerberos configuration file (JVM-wide setting).");
+
     public static Option<String> TABLE_DFS_PATH =
             Options.key("table_dfs_path")
                     .stringType()
