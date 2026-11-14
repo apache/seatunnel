@@ -16,6 +16,11 @@ GraphQL Sink 连接器通过 HTTP POST 向 GraphQL 服务写入数据。它会�
 GraphQL `mutation`：输入行里的字段会按同名字段放入 GraphQL `variables`，然后随配置的
 mutation 一起发送。
 
+当服务端返回的状态码不是 200，或者响应中的 `errors` 数组不为空时，写入会失败。GraphQL
+服务通常用 HTTP 200 加 `errors` 数组来表示 mutation 被拒绝，所以 sink 会同时检查这两点。
+日期和时间字段会以 ISO 8601 字符串发送，例如 `2020-02-02T02:02:00`。未配置 `variables`
+时，行字段会放入一个新的对象发送。
+
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)

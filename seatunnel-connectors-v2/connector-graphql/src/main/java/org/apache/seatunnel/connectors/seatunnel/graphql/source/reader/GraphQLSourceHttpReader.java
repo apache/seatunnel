@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.graphql.config.GraphQLSourceParameter;
+import org.apache.seatunnel.connectors.seatunnel.graphql.exception.GraphQLConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.graphql.util.GraphQLUtil;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
@@ -122,9 +123,13 @@ public class GraphQLSourceHttpReader extends AbstractSingleSplitReader<SeaTunnel
                     BufferedReader bufferedReader = new BufferedReader(stringReader);
                     String lineStr;
                     while ((lineStr = bufferedReader.readLine()) != null) {
+                        GraphQLUtil.checkNoErrors(
+                                lineStr, GraphQLConnectorErrorCode.GRAPHQL_SOURCE_OPERATION_ERROR);
                         GraphQLUtil.collect(deserializationCollector, lineStr, contentJson, output);
                     }
                 } else {
+                    GraphQLUtil.checkNoErrors(
+                            content, GraphQLConnectorErrorCode.GRAPHQL_SOURCE_OPERATION_ERROR);
                     GraphQLUtil.collect(deserializationCollector, content, contentJson, output);
                 }
             }

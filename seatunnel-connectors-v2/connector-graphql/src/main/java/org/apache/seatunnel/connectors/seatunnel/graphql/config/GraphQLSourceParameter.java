@@ -54,7 +54,8 @@ public class GraphQLSourceParameter implements Serializable {
                     pluginConfig.get(GraphQLSourceOptions.VARIABLES));
 
         } else {
-            bodymap.put(GraphQLSourceOptions.VARIABLES.key(), "{}");
+            // GraphQL servers expect variables as a JSON object, never as a string.
+            bodymap.put(GraphQLSourceOptions.VARIABLES.key(), new HashMap<>());
         }
         bodymap.put(GraphQLSourceOptions.QUERY.key(), query);
         this.httpParameter.setBody(JsonUtils.toJsonString(bodymap));
