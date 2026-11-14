@@ -46,6 +46,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 @Slf4j
 public class PostgresIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory {
@@ -61,10 +63,8 @@ public class PostgresIncrementalSourceFactory extends BaseChangeStreamTableSourc
     @Override
     public OptionRule optionRule() {
         return JdbcSourceOptions.getBaseRule()
-                .required(
-                        JdbcSourceOptions.USERNAME,
-                        JdbcSourceOptions.PASSWORD,
-                        JdbcCommonOptions.URL)
+                .required(JdbcSourceOptions.USERNAME, JdbcSourceOptions.PASSWORD)
+                .required(JdbcCommonOptions.URL, notBlank(JdbcCommonOptions.URL))
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
                         JdbcSourceOptions.DATABASE_NAMES,
