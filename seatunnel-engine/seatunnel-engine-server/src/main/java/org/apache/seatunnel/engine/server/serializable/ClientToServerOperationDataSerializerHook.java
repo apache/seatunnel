@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobTaskMappingOperation;
 import org.apache.seatunnel.engine.server.operation.GetNodeHttpPortOperation;
 import org.apache.seatunnel.engine.server.operation.GetRunningJobMetricsOperation;
+import org.apache.seatunnel.engine.server.operation.GetRunningJobSlotUsageOperation;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.SavePointJobOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
@@ -78,6 +79,10 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
     public static final int GET_NODE_HTTP_PORT_OPERATION = 15;
     public static final int GET_JOB_TASK_MAPPING_OPERATION = 16;
     public static final int GET_JOB_DIAGNOSTICS_OPERATION = 17;
+    // NOTE: 17 is already taken by GET_JOB_DIAGNOSTICS_OPERATION, added to dev independently of
+    // this branch. Type ids must stay stable for already-shipped classes, so this operation is
+    // assigned the next free id (18) rather than reusing 17.
+    public static final int GET_RUNNING_JOB_SLOT_USAGE_OPERATION = 18;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -139,6 +144,8 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
                     return new GetJobTaskMappingOperation();
                 case GET_JOB_DIAGNOSTICS_OPERATION:
                     return new GetJobDiagnosticsOperation();
+                case GET_RUNNING_JOB_SLOT_USAGE_OPERATION:
+                    return new GetRunningJobSlotUsageOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
