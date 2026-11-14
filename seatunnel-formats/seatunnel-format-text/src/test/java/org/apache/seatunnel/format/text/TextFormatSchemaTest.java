@@ -172,7 +172,8 @@ public class TextFormatSchemaTest {
     public void testJsonDocumentsRoundTripWithoutStringQuoting() throws IOException {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {"payload"}, new SeaTunnelDataType[] {BasicType.JSON_TYPE});
+                        new String[] {"id", "payload"},
+                        new SeaTunnelDataType<?>[] {INT_TYPE, BasicType.JSON_TYPE});
         TextSerializationSchema serializer =
                 TextSerializationSchema.builder()
                         .seaTunnelRowType(rowType)
@@ -187,13 +188,19 @@ public class TextFormatSchemaTest {
                 new String[] {
                     "{\"name\":\"value\"}", "[true,1]", "true", "1", "\"text\"", "null"
                 }) {
-            byte[] bytes = serializer.serialize(new SeaTunnelRow(new Object[] {document}));
-            Assertions.assertEquals(document, new String(bytes, StandardCharsets.UTF_8));
-            Assertions.assertEquals(document, deserializer.deserialize(bytes).getField(0));
+            byte[] bytes = serializer.serialize(new SeaTunnelRow(new Object[] {1, document}));
+            Assertions.assertEquals(
+                    "1\u0001" + document, new String(bytes, StandardCharsets.UTF_8));
+            SeaTunnelRow row = deserializer.deserialize(bytes);
+            Assertions.assertEquals(1, row.getField(0));
+            Assertions.assertEquals(document, row.getField(1));
         }
-        byte[] sqlNull = serializer.serialize(new SeaTunnelRow(new Object[] {null}));
-        Assertions.assertEquals("", new String(sqlNull, StandardCharsets.UTF_8));
-        Assertions.assertNull(deserializer.deserialize(sqlNull).getField(0));
+        byte[] sqlNull = serializer.serialize(new SeaTunnelRow(new Object[] {1, null}));
+        Assertions.assertEquals("1\u0001", new String(sqlNull, StandardCharsets.UTF_8));
+        SeaTunnelRow row = deserializer.deserialize(sqlNull);
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertNull(row.getField(1));
+        Assertions.assertNull(deserializer.deserialize(new byte[0]));
     }
 
     @Test
