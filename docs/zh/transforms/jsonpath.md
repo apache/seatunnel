@@ -49,6 +49,7 @@ JsonPath 不支持 `ROUTE_TO_TABLE`：不会路由错误，为失败值选择此
 
 * STRING
 * BYTES
+* VARBINARY（BYTES 的别名）
 * ARRAY
 * MAP
 * ROW

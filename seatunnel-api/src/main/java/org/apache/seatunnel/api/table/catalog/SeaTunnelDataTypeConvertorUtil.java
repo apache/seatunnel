@@ -60,6 +60,7 @@ public class SeaTunnelDataTypeConvertorUtil {
             case TINYINT:
                 return BasicType.BYTE_TYPE;
             case BYTES:
+            case VARBINARY:
                 return PrimitiveByteArrayType.INSTANCE;
             case SMALLINT:
                 return BasicType.SHORT_TYPE;

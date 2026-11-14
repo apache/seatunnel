@@ -193,6 +193,7 @@ public class JsonToRowConverters implements Serializable {
                         return convertToBytes(jsonNode);
                     }
                 };
+
             case DECIMAL:
                 return new JsonToObjectConverter() {
                     @Override
