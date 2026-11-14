@@ -32,7 +32,10 @@ const sidebars = {
                     "label": "Concepts",
                     "items": [
                         "introduction/concepts/connector-v2-features",
-                        "introduction/concepts/schema-feature"
+                        "introduction/concepts/schema-feature",
+                        "introduction/concepts/metadata-spi",
+                        "introduction/concepts/gravitino-type-mapping",
+                        "introduction/concepts/incompatible-changes"
                     ]
                 }
             ]
@@ -193,6 +196,7 @@ const sidebars = {
                         "getting-started/recipes/mysql-cdc-to-kafka",
                         "getting-started/recipes/mysql-cdc-to-elasticsearch",
                         "getting-started/recipes/jdbc-to-s3",
+                        "getting-started/recipes/jdbc-to-jdbc",
                         "getting-started/recipes/mysql-to-hdfs",
                         "getting-started/recipes/kafka-to-iceberg",
                         "getting-started/recipes/postgresql-cdc-to-iceberg",
@@ -229,6 +233,7 @@ const sidebars = {
                 "transforms/data-validator",
                 "transforms/define-sink-type",
                 "transforms/dynamic-compile",
+                "transforms/encrypt",
                 "transforms/embedding",
                 "transforms/field-mapper",
                 "transforms/field-rename",
@@ -301,6 +306,8 @@ const sidebars = {
                                 },
                                 "engines/zeta/web-ui",
                                 "engines/zeta/runtime-execution-graph",
+                                "engines/zeta/stain-trace",
+                                "engines/zeta/stain-trace-quickstart",
                                 "engines/zeta/security",
                                 "engines/zeta/python-sdk"
                             ]
@@ -312,6 +319,7 @@ const sidebars = {
                         "engines/zeta/stain-trace-quickstart",
                         "engines/zeta/telemetry",
                         "engines/zeta/busyness-and-backpressure",
+                        "engines/zeta/realtime-observability",
                         "engines/zeta/live-metrics-chart",
                         "engines/zeta/slot-allocation-strategy",
                         "engines/zeta/benchmark",

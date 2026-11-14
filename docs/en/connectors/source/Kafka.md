@@ -68,7 +68,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | poll.timeout                        | Long                                                                       | No       | 10000                    | The interval(millis) for poll messages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | kafka.config                        | Map                                                                        | No       | -                        | In addition to the above necessary parameters that must be specified by the `Kafka consumer` client, users can also specify multiple `consumer` client non-mandatory parameters, covering [all consumer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#consumerconfigs).                                                                                                                                                                                                                   |
 | schema                              | Config                                                                     | No       | -                        | The structure of the data, including field names and field types. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| format                              | String                                                                     | No       | json                     | Data format. The default format is json. Optional text format, canal_json, debezium_json, compatible_kafka_connect_json, maxwell_json, ogg_json, avro , protobuf and native. If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. Some format details please refer [formats](../formats) |
+| format                              | String                                                                     | No       | json                     | Data format. The default format is json. Optional text format, canal_json, debezium_json, compatible_kafka_connect_json, maxwell_json, ogg_json, avro , protobuf and native. If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. Some format details please refer [formats](../formats/overview.md) |
 | avro_schema                         | String                                                                     | No       | -                        | Effective when `format` is `avro`. Provides the writer Avro schema used to deserialize binary Avro messages whose record name, namespace, or union layout differs from the SeaTunnel schema.                                                                                                                                                                                                                                                                                                                                                                                       |
 | value_converter_schema_enabled      | Boolean                                                                    | No       | true                     | Effective only when `format = compatible_kafka_connect_json`. Whether the Kafka Connect value converter carries its schema in the JSON payload.                                                                                                                                                                                                                                                                                                                                                       |
 | avro_row_nullable                   | Boolean                                                                    | No       | false                    | Effective when `format` is `avro`. Set `true` when the producer wrote ROW fields as nullable Avro unions (the writer had `avro_row_nullable = true`), so a `null` ROW value can be decoded; the reader must match the writer. An explicit `avro_schema` stays authoritative for the wire layout. See [Avro format](../formats/avro.md#avro_row_nullable). When using `tables_configs` or `table_list`, set this option in each table entry. |
@@ -436,7 +436,7 @@ sink {
 
 ### Protobuf configuration
 
-Set `format` to `protobuf`, configure `protobuf` data structure, `protobuf_message_name` and `protobuf_schema` parameters
+Set `format` to `protobuf`, configure `protobuf_message_name` and `protobuf_schema` parameters, and define the row structure with a `schema` block. Note: `format = protobuf` is only applied when `schema` is configured; otherwise the source falls back to the text deserializer and the protobuf options have no effect.
 
 Example:
 
@@ -476,6 +476,24 @@ source {
                 repeated string phone_numbers = 10;
               }
               """
+    schema = {
+        fields {
+            c_int32 = int
+            c_int64 = long
+            c_float = float
+            c_double = double
+            c_bool = boolean
+            c_string = string
+            c_bytes = bytes
+            Address {
+                city = string
+                state = string
+                street = string
+            }
+            attributes = "map<string,float>"
+            phone_numbers = "array<string>"
+        }
+    }
     bootstrap.servers = "kafkaCluster:9092"
     start_mode = "earliest"
     plugin_output = "kafka_table"
@@ -526,6 +544,24 @@ source {
                 repeated string phone_numbers = 10;
               }
               """
+    schema = {
+        fields {
+            c_int32 = int
+            c_int64 = long
+            c_float = float
+            c_double = double
+            c_bool = boolean
+            c_string = string
+            c_bytes = bytes
+            Address {
+                city = string
+                state = string
+                street = string
+            }
+            attributes = "map<string,float>"
+            phone_numbers = "array<string>"
+        }
+    }
     bootstrap.servers = "kafkaCluster:9092"
     start_mode = "earliest"
     plugin_output = "kafka_table"
