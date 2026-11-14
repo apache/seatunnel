@@ -32,7 +32,11 @@ import java.util.List;
 @Getter
 public abstract class TableFactoryContext {
 
-    /** Shared empty env used by the compatibility constructors. */
+    /**
+     * Shared empty env used by the compatibility constructors. The backing map must stay immutable:
+     * {@link ReadonlyConfig#getSourceMap()} exposes it raw and this instance is shared by every
+     * context created through the empty-env defaults.
+     */
     protected static final ReadonlyConfig EMPTY_ENV_OPTIONS =
             ReadonlyConfig.fromMap(Collections.emptyMap());
 
@@ -51,6 +55,7 @@ public abstract class TableFactoryContext {
         this(options, classLoader, EMPTY_ENV_OPTIONS);
     }
 
+    /** @param envOptions the job-level env block; {@code null} is treated as an empty env */
     public TableFactoryContext(
             ReadonlyConfig options, ClassLoader classLoader, ReadonlyConfig envOptions) {
         this.options = options;

@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -45,9 +46,14 @@ public class FactoryUtilEnvOptionsTest {
     private static final Option<String> PROBE_OPTION =
             Options.key("probe").stringType().noDefaultValue();
 
+    @BeforeEach
+    void resetProbeFactories() {
+        EnvProbeSourceFactory.reset();
+        EnvProbeSinkFactory.reset();
+    }
+
     @Test
     public void testCreateAndPrepareSourceCarriesEnv() {
-        EnvProbeSourceFactory.reset();
         EnvProbeSourceFactory factory = new EnvProbeSourceFactory();
 
         TableSource tableSource = Mockito.mock(TableSource.class);
@@ -76,7 +82,6 @@ public class FactoryUtilEnvOptionsTest {
 
     @Test
     public void testCreateAndPrepareSinkCarriesEnv() {
-        EnvProbeSinkFactory.reset();
         EnvProbeSinkFactory factory = new EnvProbeSinkFactory();
 
         TableSink tableSink = Mockito.mock(TableSink.class);

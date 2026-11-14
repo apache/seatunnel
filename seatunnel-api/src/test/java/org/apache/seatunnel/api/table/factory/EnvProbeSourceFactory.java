@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.table.factory;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
 
 import com.google.auto.service.AutoService;
@@ -60,10 +61,7 @@ public class EnvProbeSourceFactory implements TableSourceFactory {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <
-                    T,
-                    SplitT extends org.apache.seatunnel.api.source.SourceSplit,
-                    StateT extends Serializable>
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         if (context != null) {
             capturedEnvOptions = context.getEnvOptions();

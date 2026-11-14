@@ -96,7 +96,7 @@ env {
 On the Zeta engine:
 
 - A `TableSourceFactory`, `TableSinkFactory`, `MultiTableSinkFactory` or `TableTransformFactory` implementation can read every env key from `context.getEnvOptions()`, for example `context.getEnvOptions().get(Options.key("my_key").stringType())`.
-- `env` is an open map: user-defined keys are allowed in addition to the engine's declared options. They are kept separate from the plugin options, so option-rule validation, unknown-key checks for plugins and sink table-placeholder rewriting are not affected.
+- `env` is an open map: user-defined keys are allowed in addition to the engine's declared options, and `--check` accepts them by design (declared options are still type- and required-checked, but typos in optional env keys are no longer reported). The values reach factories through a dedicated `getEnvOptions()` view, so option-rule validation and sink table-placeholder rewriting are not affected.
 - If the plugin needs the values at runtime, copy them from the factory context into the serializable source/sink/transform object that the job carries to the workers.
 
 Limitations:

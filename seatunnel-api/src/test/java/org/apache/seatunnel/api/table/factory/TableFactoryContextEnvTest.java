@@ -150,6 +150,10 @@ public class TableFactoryContextEnvTest {
         Assertions.assertEquals("sink_env_probe_table", context.getOptions().get(TABLE_OPTION));
         Assertions.assertSame(env, context.getEnvOptions());
         assertEnv(context.getEnvOptions());
+        // Core contract: env keys must never leak into the plugin options.
+        Assertions.assertFalse(context.getOptions().getSourceMap().containsKey("probe"));
+        Assertions.assertFalse(
+                context.getOptions().getSourceMap().containsKey("custom_parameters"));
     }
 
     @Test

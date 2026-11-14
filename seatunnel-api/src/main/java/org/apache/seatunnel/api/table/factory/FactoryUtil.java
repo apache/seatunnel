@@ -95,6 +95,10 @@ public final class FactoryUtil {
                 TableFactoryContext.EMPTY_ENV_OPTIONS);
     }
 
+    /**
+     * @param envOptions job env block exposed to the factory context; it is not delivered to
+     *     plugins created through the deprecated fallback path
+     */
     public static <T, SplitT extends SourceSplit, StateT extends Serializable>
             Tuple2<SeaTunnelSource<T, SplitT, StateT>, List<CatalogTable>> createAndPrepareSource(
                     ReadonlyConfig options,
@@ -135,6 +139,10 @@ public final class FactoryUtil {
                 TableFactoryContext.EMPTY_ENV_OPTIONS);
     }
 
+    /**
+     * @param envOptions job env block exposed to the factory context; it is not delivered to
+     *     plugins created through the deprecated fallback path
+     */
     public static <T, SplitT extends SourceSplit, StateT extends Serializable>
             Tuple2<SeaTunnelSource<T, SplitT, StateT>, List<CatalogTable>> restoreAndPrepareSource(
                     ReadonlyConfig options,
@@ -285,6 +293,8 @@ public final class FactoryUtil {
                     TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
                             tableSinkFactory,
                     ReadonlyConfig envOptions) {
+        // envOptions is exposed to the factory context; it is not delivered to plugins created
+        // through the deprecated fallback path below.
         try {
             final String factoryId = config.get(PLUGIN_NAME);
 

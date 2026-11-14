@@ -53,10 +53,12 @@ import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import scala.Tuple2;
@@ -76,6 +78,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 public class MultipleTableJobConfigParserTest {
+
+    @BeforeEach
+    void resetEnvProbeFactories() {
+        ParserEnvProbeSourceFactory.reset();
+        ParserEnvProbeTransformFactory.reset();
+        ParserEnvProbeSinkFactory.reset();
+    }
 
     @Test
     public void testSampleDryRunReplacesConfiguredSink() {
@@ -531,9 +540,32 @@ public class MultipleTableJobConfigParserTest {
     }
 
     @Test
+    public void testEnvOptionsReachSourceFactory() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fake_to_parser_env_source.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
+                        .parse(null);
+
+        SourceAction sourceAction =
+                parsed.getLeft().stream()
+                        .flatMap(action -> action.getUpstream().stream())
+                        .filter(SourceAction.class::isInstance)
+                        .map(SourceAction.class::cast)
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("No source action was created"));
+        Assertions.assertEquals(
+                ParserEnvProbeSourceFactory.IDENTIFIER, sourceAction.getSource().getPluginName());
+        assertEnv(ParserEnvProbeSourceFactory.capturedEnvOptions());
+    }
+
+    @Test
     public void testEnvOptionsReachTransformFactory() {
         Common.setDeployMode(DeployMode.CLIENT);
-        ParserEnvProbeTransformFactory.reset();
         String filePath =
                 ContentFormatUtilTest.getResource("/batch_fake_to_parser_env_transform.conf");
         JobConfig jobConfig = new JobConfig();
@@ -559,7 +591,6 @@ public class MultipleTableJobConfigParserTest {
     @Test
     public void testEnvOptionsReachSinkFactory() {
         Common.setDeployMode(DeployMode.CLIENT);
-        ParserEnvProbeSinkFactory.reset();
         String filePath = ContentFormatUtilTest.getResource("/batch_fake_to_parser_env_sink.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setJobContext(new JobContext());

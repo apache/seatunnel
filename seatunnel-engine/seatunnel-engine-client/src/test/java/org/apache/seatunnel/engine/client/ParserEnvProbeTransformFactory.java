@@ -60,7 +60,11 @@ public class ParserEnvProbeTransformFactory implements TableTransformFactory {
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
-        capturedEnvOptions = context.getEnvOptions();
+        // Null-guarded for symmetry with the source/sink probes; the transform path is never
+        // probed with a null context today (isFallback only applies to source/sink factories).
+        if (context != null) {
+            capturedEnvOptions = context.getEnvOptions();
+        }
         CatalogTable input = context.getCatalogTables().get(0);
         return () -> new ParserEnvProbeTransform(input);
     }

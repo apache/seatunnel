@@ -96,7 +96,7 @@ env {
 在 Zeta 引擎中：
 
 - `TableSourceFactory`、`TableSinkFactory`、`MultiTableSinkFactory`、`TableTransformFactory` 的实现可以通过 `context.getEnvOptions()` 读取所有 env key，例如 `context.getEnvOptions().get(Options.key("my_key").stringType())`。
-- `env` 是开放 map：除了引擎已声明的选项外，允许用户自定义 key。这些 key 与插件 options 相互独立，不会影响 OptionRule 校验、插件的未知 key 检查以及 sink 的表名占位符重写。
+- `env` 是开放 map：除引擎已声明的选项外允许用户自定义 key，`--check` 会放行这些 key（已声明选项仍做类型与必填校验，但可选 env 选项的拼写错误不会再被提示）。这些值通过独立的 `getEnvOptions()` 视图提供给工厂，因此不受 OptionRule 校验和 sink 表名占位符重写的影响。
 - 如果插件在运行期需要这些参数，请从工厂上下文复制到随作业下发、可序列化的 source/sink/transform 对象中。
 
 限制说明：

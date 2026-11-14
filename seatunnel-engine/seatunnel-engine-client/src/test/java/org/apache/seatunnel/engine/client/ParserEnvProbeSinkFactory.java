@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -60,8 +61,7 @@ public class ParserEnvProbeSinkFactory implements TableSinkFactory<Object, Objec
             capturedEnvOptions = context.getEnvOptions();
         }
         TableSink<Object, Object, Object, Object> tableSink = Mockito.mock(TableSink.class);
-        Mockito.when(tableSink.createSink())
-                .thenReturn(Mockito.mock(org.apache.seatunnel.api.sink.SeaTunnelSink.class));
+        Mockito.when(tableSink.createSink()).thenReturn(Mockito.mock(SeaTunnelSink.class));
         return tableSink;
     }
 }
