@@ -48,10 +48,13 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
 
     protected Map<String, SeaTunnelTransform<SeaTunnelRow>> transformMap;
 
+    private transient TransformLifecycle lifecycle;
+
     // Used only while constructing the per-table transforms; the constructed transforms are
     // serialized.
     protected final transient ReadonlyConfig transformLevelConfig;
 
+    @lombok.SneakyThrows
     public AbstractMultiCatalogTransform(
             List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
         this.inputCatalogTables = inputCatalogTables;
@@ -82,44 +85,88 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
         boolean hasTransformLevelRule =
                 isSingleTableMode(config) || hasTransformLevelRuleConfigured(config);
 
-        inputCatalogTables.forEach(
-                inputCatalogTable -> {
-                    String tableId = inputCatalogTable.getTableId().toTablePath().toString();
-                    List<ReadonlyConfig> tableConfigs =
-                            singleTableConfigs.stream()
-                                    .filter(
-                                            c ->
-                                                    tableId.equals(
-                                                            c.get(
-                                                                    TransformCommonOptions
-                                                                            .TABLE_PATH)))
-                                    .collect(Collectors.toList());
-                    if (!tableConfigs.isEmpty()) {
-                        transformMap.put(
-                                tableId,
-                                buildTransform(
-                                        inputCatalogTable,
-                                        selectTableConfigs(tableConfigs, ruleMatchMode)));
-                    } else if (hasTransformLevelRule
-                            && tableMatchRegex.matcher(tableId).matches()) {
-                        transformMap.put(
-                                tableId,
-                                buildTransform(
-                                        inputCatalogTable, Collections.singletonList(config)));
-                    } else {
-                        transformMap.put(tableId, createIdentityTransform(inputCatalogTable));
-                    }
-                });
+        try {
+            inputCatalogTables.forEach(
+                    inputCatalogTable -> {
+                        String tableId = inputCatalogTable.getTableId().toTablePath().toString();
+                        List<ReadonlyConfig> tableConfigs =
+                                singleTableConfigs.stream()
+                                        .filter(
+                                                c ->
+                                                        tableId.equals(
+                                                                c.get(
+                                                                        TransformCommonOptions
+                                                                                .TABLE_PATH)))
+                                        .collect(Collectors.toList());
+                        if (!tableConfigs.isEmpty()) {
+                            transformMap.put(
+                                    tableId,
+                                    buildTransform(
+                                            inputCatalogTable,
+                                            selectTableConfigs(tableConfigs, ruleMatchMode)));
+                        } else if (hasTransformLevelRule
+                                && tableMatchRegex.matcher(tableId).matches()) {
+                            transformMap.put(
+                                    tableId,
+                                    buildTransform(
+                                            inputCatalogTable, Collections.singletonList(config)));
+                        } else {
+                            transformMap.put(tableId, createIdentityTransform(inputCatalogTable));
+                        }
+                    });
 
-        this.outputCatalogTables =
-                inputCatalogTables.stream()
-                        .map(
-                                inputCatalogTable -> {
-                                    String tableName =
-                                            inputCatalogTable.getTableId().toTablePath().toString();
-                                    return transformMap.get(tableName).getProducedCatalogTable();
-                                })
-                        .collect(Collectors.toList());
+            this.outputCatalogTables =
+                    inputCatalogTables.stream()
+                            .map(
+                                    inputCatalogTable -> {
+                                        String tableName =
+                                                inputCatalogTable
+                                                        .getTableId()
+                                                        .toTablePath()
+                                                        .toString();
+                                        return transformMap
+                                                .get(tableName)
+                                                .getProducedCatalogTable();
+                                    })
+                            .collect(Collectors.toList());
+        } catch (Exception failure) {
+            TransformLifecycle.closeAfterFailure(orderedChildren(), failure);
+            throw failure;
+        }
+    }
+
+    /** Opens each direct per-table owner in input-table order. */
+    @Override
+    public void open() {
+        lifecycle().open();
+    }
+
+    /** Closes all per-table owners, retaining the first failure and continuing sibling cleanup. */
+    @Override
+    public void close() {
+        lifecycle().close();
+    }
+
+    private synchronized TransformLifecycle lifecycle() {
+        if (lifecycle == null) {
+            lifecycle = new TransformLifecycle(orderedChildren());
+        }
+        return lifecycle;
+    }
+
+    private List<SeaTunnelTransform<SeaTunnelRow>> orderedChildren() {
+        List<SeaTunnelTransform<SeaTunnelRow>> owners = new ArrayList<>();
+        for (CatalogTable table : inputCatalogTables) {
+            SeaTunnelTransform<SeaTunnelRow> child =
+                    transformMap.get(table.getTableId().toTablePath().toString());
+            if (child != null) {
+                owners.add(child);
+            }
+        }
+        transformMap.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> owners.add(entry.getValue()));
+        return owners;
     }
 
     protected abstract SeaTunnelTransform<SeaTunnelRow> buildTransform(
@@ -146,17 +193,23 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
         return tableConfigs;
     }
 
+    @lombok.SneakyThrows
     private SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, List<ReadonlyConfig> configs) {
         List<SeaTunnelTransform<SeaTunnelRow>> transforms = new ArrayList<>();
         CatalogTable currentCatalogTable = inputCatalogTable;
-        for (ReadonlyConfig config : configs) {
-            SeaTunnelTransform<SeaTunnelRow> transform =
-                    buildTransform(currentCatalogTable, config);
-            transforms.add(transform);
-            currentCatalogTable = transform.getProducedCatalogTable();
+        try {
+            for (ReadonlyConfig config : configs) {
+                SeaTunnelTransform<SeaTunnelRow> transform =
+                        buildTransform(currentCatalogTable, config);
+                transforms.add(transform);
+                currentCatalogTable = transform.getProducedCatalogTable();
+            }
+            return composeTransforms(transforms);
+        } catch (Exception failure) {
+            TransformLifecycle.closeAfterFailure(transforms, failure);
+            throw failure;
         }
-        return composeTransforms(transforms);
     }
 
     protected SeaTunnelTransform<SeaTunnelRow> composeTransforms(

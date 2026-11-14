@@ -63,6 +63,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class EmbeddingTransform extends MultipleFieldOutputTransform {
 
+    private transient boolean closed;
+
     private final ReadonlyConfig config;
     private transient Model model;
     private Integer dimension;
@@ -88,122 +90,133 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
 
     @Override
     public void open() {
-        ModelProvider provider = config.get(ModelTransformConfig.MODEL_PROVIDER);
-        ModelInvocationOptions invocationOptions = ModelInvocationOptions.fromConfig(config);
-        String apiPath =
-                provider.usedEmbeddingPath(
-                        config.get(ModelTransformConfig.API_PATH), isMultimodalFields);
-        try {
-            switch (provider) {
-                case CUSTOM:
-                    // load custom_config from the configuration
-                    ReadonlyConfig customConfig =
-                            config.getOptional(
-                                            ModelTransformConfig.CustomRequestConfig.CUSTOM_CONFIG)
-                                    .map(ReadonlyConfig::fromMap)
-                                    .orElseThrow(
-                                            () ->
-                                                    new IllegalArgumentException(
-                                                            "Custom config can't be null"));
-                    model =
-                            new CustomModel(
-                                    config.get(ModelTransformConfig.MODEL),
-                                    apiPath,
-                                    customConfig.get(
-                                            LLMTransformConfig.CustomRequestConfig
-                                                    .CUSTOM_REQUEST_HEADERS),
-                                    customConfig.get(
-                                            ModelTransformConfig.CustomRequestConfig
-                                                    .CUSTOM_REQUEST_BODY),
-                                    customConfig.get(
-                                            LLMTransformConfig.CustomRequestConfig
-                                                    .CUSTOM_RESPONSE_PARSE),
-                                    config.get(
-                                            EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
-                                    invocationOptions);
-                    break;
-                case OPENAI:
-                    model =
-                            new OpenAIModel(
-                                    config.get(ModelTransformConfig.API_KEY),
-                                    config.get(ModelTransformConfig.MODEL),
-                                    apiPath,
-                                    config.get(
-                                            EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
-                                    invocationOptions);
-                    break;
-                case DOUBAO:
-                    model =
-                            new DoubaoModel(
-                                    config.get(ModelTransformConfig.API_KEY),
-                                    config.get(ModelTransformConfig.MODEL),
-                                    apiPath,
-                                    config.get(
-                                            EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
-                                    isMultimodalFields,
-                                    invocationOptions);
-                    break;
-                case QIANFAN:
-                    model =
-                            new QianfanModel(
-                                    config.get(ModelTransformConfig.API_KEY),
-                                    config.get(ModelTransformConfig.SECRET_KEY),
-                                    config.get(ModelTransformConfig.MODEL),
-                                    apiPath,
-                                    config.get(ModelTransformConfig.OAUTH_PATH),
-                                    config.get(
-                                            EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
-                                    invocationOptions);
+        synchronized (this) {
+            if (closed) {
+                throw new IllegalStateException("Transform is closed");
+            }
+            // Schema discovery may already have initialized this instance.
+            if (model != null) {
+                return;
+            }
+            ModelProvider provider = config.get(ModelTransformConfig.MODEL_PROVIDER);
+            ModelInvocationOptions invocationOptions = ModelInvocationOptions.fromConfig(config);
+            String apiPath =
+                    provider.usedEmbeddingPath(
+                            config.get(ModelTransformConfig.API_PATH), isMultimodalFields);
+            try {
+                switch (provider) {
+                    case CUSTOM:
+                        // load custom_config from the configuration
+                        ReadonlyConfig customConfig =
+                                config.getOptional(
+                                                ModelTransformConfig.CustomRequestConfig
+                                                        .CUSTOM_CONFIG)
+                                        .map(ReadonlyConfig::fromMap)
+                                        .orElseThrow(
+                                                () ->
+                                                        new IllegalArgumentException(
+                                                                "Custom config can't be null"));
+                        model =
+                                new CustomModel(
+                                        config.get(ModelTransformConfig.MODEL),
+                                        apiPath,
+                                        customConfig.get(
+                                                LLMTransformConfig.CustomRequestConfig
+                                                        .CUSTOM_REQUEST_HEADERS),
+                                        customConfig.get(
+                                                ModelTransformConfig.CustomRequestConfig
+                                                        .CUSTOM_REQUEST_BODY),
+                                        customConfig.get(
+                                                LLMTransformConfig.CustomRequestConfig
+                                                        .CUSTOM_RESPONSE_PARSE),
+                                        config.get(
+                                                EmbeddingTransformConfig
+                                                        .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                        invocationOptions);
+                        break;
+                    case OPENAI:
+                        model =
+                                new OpenAIModel(
+                                        config.get(ModelTransformConfig.API_KEY),
+                                        config.get(ModelTransformConfig.MODEL),
+                                        apiPath,
+                                        config.get(
+                                                EmbeddingTransformConfig
+                                                        .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                        invocationOptions);
+                        break;
+                    case DOUBAO:
+                        model =
+                                new DoubaoModel(
+                                        config.get(ModelTransformConfig.API_KEY),
+                                        config.get(ModelTransformConfig.MODEL),
+                                        apiPath,
+                                        config.get(
+                                                EmbeddingTransformConfig
+                                                        .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                        isMultimodalFields,
+                                        invocationOptions);
+                        break;
+                    case QIANFAN:
+                        model =
+                                new QianfanModel(
+                                        config.get(ModelTransformConfig.API_KEY),
+                                        config.get(ModelTransformConfig.SECRET_KEY),
+                                        config.get(ModelTransformConfig.MODEL),
+                                        apiPath,
+                                        config.get(ModelTransformConfig.OAUTH_PATH),
+                                        config.get(
+                                                EmbeddingTransformConfig
+                                                        .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                        invocationOptions);
 
-                    break;
-                case ZHIPU:
-                    model =
-                            new ZhipuModel(
-                                    config.get(ModelTransformConfig.API_KEY),
-                                    config.get(ModelTransformConfig.MODEL),
-                                    apiPath,
-                                    config.get(ModelTransformConfig.DIMENSION),
-                                    config.get(
-                                            EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
-                                    invocationOptions);
-                    break;
-                case AMAZON:
-                    String bedrockModelId = config.get(ModelTransformConfig.MODEL);
-                    int bedrockDimension = config.get(ModelTransformConfig.DIMENSION);
-                    int bedrockBatchSize =
-                            config.get(EmbeddingTransformConfig.SINGLE_VECTORIZED_INPUT_NUMBER);
-                    model =
-                            new BedrockModel(
-                                    BedrockModel.createBedrockClient(
-                                            config.get(ModelTransformConfig.API_KEY),
-                                            config.get(ModelTransformConfig.SECRET_KEY),
-                                            config.get(ModelTransformConfig.AWS_REGION),
-                                            config.get(ModelTransformConfig.API_PATH)),
-                                    bedrockModelId,
-                                    bedrockDimension,
-                                    bedrockBatchSize,
-                                    invocationOptions);
-                    break;
-                case LOCAL:
-                default:
-                    throw new IllegalArgumentException("Unsupported model provider: " + provider);
+                        break;
+                    case ZHIPU:
+                        model =
+                                new ZhipuModel(
+                                        config.get(ModelTransformConfig.API_KEY),
+                                        config.get(ModelTransformConfig.MODEL),
+                                        apiPath,
+                                        config.get(ModelTransformConfig.DIMENSION),
+                                        config.get(
+                                                EmbeddingTransformConfig
+                                                        .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                        invocationOptions);
+                        break;
+                    case AMAZON:
+                        String bedrockModelId = config.get(ModelTransformConfig.MODEL);
+                        int bedrockDimension = config.get(ModelTransformConfig.DIMENSION);
+                        int bedrockBatchSize =
+                                config.get(EmbeddingTransformConfig.SINGLE_VECTORIZED_INPUT_NUMBER);
+                        model =
+                                new BedrockModel(
+                                        BedrockModel.createBedrockClient(
+                                                config.get(ModelTransformConfig.API_KEY),
+                                                config.get(ModelTransformConfig.SECRET_KEY),
+                                                config.get(ModelTransformConfig.AWS_REGION),
+                                                config.get(ModelTransformConfig.API_PATH)),
+                                        bedrockModelId,
+                                        bedrockDimension,
+                                        bedrockBatchSize,
+                                        invocationOptions);
+                        break;
+                    case LOCAL:
+                    default:
+                        throw new IllegalArgumentException(
+                                "Unsupported model provider: " + provider);
+                }
+                if (isMultimodalFields && !(model instanceof MultimodalModel)) {
+                    throw new IllegalArgumentException(
+                            String.format(
+                                    "Model provider: %s does not support multimodal embedding",
+                                    provider));
+                }
+                dimension = model.dimension();
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to initialize model", e);
+            } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
             }
-            if (isMultimodalFields && !(model instanceof MultimodalModel)) {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "Model provider: %s does not support multimodal embedding",
-                                provider));
-            }
-            dimension = model.dimension();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to initialize model", e);
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(e);
         }
     }
 
@@ -400,10 +413,20 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     @SneakyThrows
     @Override
     public void close() {
-        if (model != null) {
-            model.close();
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            try {
+                if (model != null) {
+                    model.close();
+                }
+            } finally {
+                model = null;
+                binaryFileCache.clear();
+                partIndexMap.clear();
+            }
         }
-        binaryFileCache.clear();
-        partIndexMap.clear();
     }
 }

@@ -57,6 +57,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectStreamClass;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.Field;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -87,6 +88,20 @@ class LLMBooleanOutputTest {
         } finally {
             server.shutdown();
         }
+    }
+
+    @Test
+    void repeatedRuntimeOpenReusesModel() throws Exception {
+        configure("BOOLEAN", null);
+        Field model = LLMTransform.class.getDeclaredField("model");
+        model.setAccessible(true);
+        Object initialized = model.get(transform);
+        transform.open();
+        Assertions.assertSame(initialized, model.get(transform));
+        Assertions.assertEquals(true, mapResponse("[true]").getField(1));
+        transform.close();
+        Assertions.assertThrows(IllegalStateException.class, transform::open);
+        Assertions.assertNull(model.get(transform));
     }
 
     @ParameterizedTest

@@ -21,12 +21,18 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 import org.apache.seatunnel.transform.common.TransformLevelRuleAssertions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,6 +43,36 @@ class CalciteTransformFactoryTest {
     void testTransformLevelRuleDetectionMatchesTheTableRule() {
         TransformLevelRuleAssertions.assertMatchesFactoryRule(
                 new CalciteTransformFactory(), CalciteTransformConfig.SQL);
+    }
+
+    @Test
+    void runtimeOpenReusesSchemaInitializedEngine() throws Exception {
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        "catalog",
+                        "db",
+                        "schema",
+                        "input",
+                        new SeaTunnelRowType(
+                                new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE}));
+        CalciteTransform transform =
+                new CalciteTransform(
+                        ReadonlyConfig.fromMap(
+                                Collections.singletonMap("sql", "select id from input")),
+                        table);
+        try {
+            transform.getProducedCatalogTable();
+            Field field = CalciteTransform.class.getDeclaredField("engine");
+            field.setAccessible(true);
+            Object engine = field.get(transform);
+            Assertions.assertNotNull(engine);
+            transform.open();
+            transform.open();
+            Assertions.assertSame(engine, field.get(transform));
+        } finally {
+            transform.close();
+        }
+        Assertions.assertThrows(IllegalStateException.class, transform::open);
     }
 
     @Test

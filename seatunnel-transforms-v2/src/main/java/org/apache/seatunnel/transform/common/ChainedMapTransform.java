@@ -35,6 +35,8 @@ class ChainedMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
 
     private final List<SeaTunnelTransform<SeaTunnelRow>> transforms;
 
+    private transient TransformLifecycle lifecycle;
+
     /** Extra table paths of every rule, rebuilt only by {@link #refreshExtraTablePaths()}. */
     private transient List<Set<String>> extraTablePaths = new ArrayList<>();
 
@@ -73,7 +75,7 @@ class ChainedMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
 
     @Override
     public void open() {
-        transforms.forEach(SeaTunnelTransform::open);
+        lifecycle().open();
     }
 
     @Override
@@ -154,23 +156,17 @@ class ChainedMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
         refreshExtraTablePaths();
     }
 
+    /** Releases composed rules once, continuing after a child cleanup failure. */
     @Override
     public void close() {
-        RuntimeException closeFailure = null;
-        for (SeaTunnelTransform<SeaTunnelRow> transform : transforms) {
-            try {
-                transform.close();
-            } catch (RuntimeException e) {
-                if (closeFailure == null) {
-                    closeFailure = e;
-                } else {
-                    closeFailure.addSuppressed(e);
-                }
-            }
+        lifecycle().close();
+    }
+
+    private synchronized TransformLifecycle lifecycle() {
+        if (lifecycle == null) {
+            lifecycle = new TransformLifecycle(transforms);
         }
-        if (closeFailure != null) {
-            throw closeFailure;
-        }
+        return lifecycle;
     }
 
     private void setTransformInput(

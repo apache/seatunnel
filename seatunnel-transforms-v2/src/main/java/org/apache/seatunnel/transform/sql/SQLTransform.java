@@ -57,6 +57,8 @@ import static org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType.ZET
 @Slf4j
 public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
         implements SupportRowLevelErrorClassifier<SeaTunnelRow> {
+
+    private transient boolean closed;
     public static final String PLUGIN_NAME = "Sql";
 
     public static final Option<String> KEY_QUERY =
@@ -102,12 +104,21 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
 
     @Override
     public void open() {
-        sqlEngine = SQLEngineFactory.getSQLEngine(engineType);
-        sqlEngine.init(
-                inputTableName,
-                inputCatalogTable.getTableId().getTableName(),
-                inputCatalogTable.getSeaTunnelRowType(),
-                query);
+        synchronized (this) {
+            if (closed) {
+                throw new IllegalStateException("Transform is closed");
+            }
+            // Schema discovery may already have initialized this instance.
+            if (sqlEngine != null) {
+                return;
+            }
+            sqlEngine = SQLEngineFactory.getSQLEngine(engineType);
+            sqlEngine.init(
+                    inputTableName,
+                    inputCatalogTable.getTableId().getTableName(),
+                    inputCatalogTable.getSeaTunnelRowType(),
+                    query);
+        }
     }
 
     private void tryOpen() {
@@ -275,8 +286,18 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
 
     @Override
     public void close() {
-        if (sqlEngine != null) {
-            sqlEngine.close();
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            if (sqlEngine != null) {
+                try {
+                    sqlEngine.close();
+                } finally {
+                    sqlEngine = null;
+                }
+            }
         }
     }
 }

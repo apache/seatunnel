@@ -80,23 +80,9 @@ public class PythonMultiCatalogTransform extends AbstractMultiCatalogMapTransfor
         return new IdentityMapTransform(catalogTable);
     }
 
-    /** Closes every inner transform so Python subprocesses do not outlive the wrapper. */
+    /** Uses the shared per-table lifecycle owner, including once-only partial-startup cleanup. */
     @Override
     public void close() {
-        RuntimeException closeFailure = null;
-        for (SeaTunnelTransform<SeaTunnelRow> transform : transformMap.values()) {
-            try {
-                transform.close();
-            } catch (RuntimeException e) {
-                if (closeFailure == null) {
-                    closeFailure = e;
-                } else {
-                    closeFailure.addSuppressed(e);
-                }
-            }
-        }
-        if (closeFailure != null) {
-            throw closeFailure;
-        }
+        super.close();
     }
 }
