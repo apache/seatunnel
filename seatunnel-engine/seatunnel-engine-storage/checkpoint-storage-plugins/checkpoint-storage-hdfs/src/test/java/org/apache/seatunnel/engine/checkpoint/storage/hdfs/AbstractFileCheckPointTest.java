@@ -23,11 +23,16 @@ package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.Path;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 public abstract class AbstractFileCheckPointTest {
 
@@ -57,6 +62,31 @@ public abstract class AbstractFileCheckPointTest {
     public void testGetCheckpointsByJobIdAndPipelineId() throws CheckpointStorageException {
         List<PipelineState> state = STORAGE.getCheckpointsByJobIdAndPipelineId(JOB_ID, "1");
         Assertions.assertEquals(2, state.size());
+    }
+
+    @Test
+    public void testMetadataIdsIncludeCorruptPayloadAndPreserveOtherPipelines() throws Exception {
+        String jobId = "metadata-only-" + UUID.randomUUID();
+        Path directory = new Path(STORAGE.getStorageParentDirectory() + jobId);
+        Path corrupt = new Path(directory, "1-0-1-7.ser");
+        Path otherPipeline = new Path(directory, "1-0-2-99.ser");
+        STORAGE.fs.mkdirs(directory);
+        try {
+            try (FSDataOutputStream output = STORAGE.fs.create(corrupt)) {
+                output.write(new byte[] {1, 2, 3});
+            }
+            try (FSDataOutputStream output = STORAGE.fs.create(otherPipeline)) {
+                output.write(new byte[] {4, 5, 6});
+            }
+            Assertions.assertEquals(
+                    Arrays.asList(7L),
+                    STORAGE.getCheckpointIdsByJobIdAndPipelineId(jobId, "1").get());
+            STORAGE.deleteCheckpoint(jobId, "1", "7");
+            Assertions.assertFalse(STORAGE.fs.exists(corrupt));
+            Assertions.assertTrue(STORAGE.fs.exists(otherPipeline));
+        } finally {
+            STORAGE.deleteCheckpoint(jobId);
+        }
     }
 
     @AfterAll

@@ -183,7 +183,7 @@ public class CheckpointRestoreWithStopIT extends SeaTunnelEngineContainer {
      * disk with no integrity check), and there is no fallback to an older, uncorrupted checkpoint
      * even though {@code checkpoint.storage.max-retained} keeps several around.
      *
-     * <p>This test drives a real streaming job to 2 completed checkpoints, stops it cleanly (so
+     * <p>This test drives a real streaming job to 5 completed checkpoints, stops it cleanly (so
      * both checkpoint files survive on disk, since the source job's env enables {@code
      * checkpoint.retain-after-job-cancelled}), then corrupts ONLY the file the storage plugin's own
      * file-name convention identifies as the latest one -- leaving the older, valid one untouched
@@ -236,10 +236,9 @@ public class CheckpointRestoreWithStopIT extends SeaTunnelEngineContainer {
                             });
 
             awaitJobStatus(sourceJobId, "RUNNING");
-            // A meaningful fallback-to-previous-checkpoint fix needs an older checkpoint to fall
-            // back to, so this test requires 2 completed checkpoints (well under this module's
-            // configured max-retained of 3) before stopping the job.
-            awaitCompletedCheckpointCount(sourceJobId, 2);
+            // Exercise retention beyond the configured default window before corrupting the
+            // newest retained checkpoint. Older retained checkpoints must still be available.
+            awaitCompletedCheckpointCount(sourceJobId, 5);
 
             stopJob(String.valueOf(sourceJobId));
             awaitJobStatus(sourceJobId, "CANCELED");
@@ -253,6 +252,10 @@ public class CheckpointRestoreWithStopIT extends SeaTunnelEngineContainer {
 
             String checkpointDir = getCheckpointDirectory(sourceJobId);
             List<String> checkpointFiles = listCheckpointFiles(sourceJobId);
+            Assertions.assertEquals(
+                    3,
+                    checkpointFiles.size(),
+                    "Completed checkpoint storage must respect the max-retained window");
             Assertions.assertTrue(
                     checkpointFiles.size() >= 2,
                     "Test setup requires at least 2 retained checkpoint files on disk in "
