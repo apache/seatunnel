@@ -82,6 +82,9 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
 
     private final JsonDeserializationSchema jsonDeserializer;
 
+    /** Sparse old images must not apply defaults before unchanged fields are reconstructed. */
+    private transient JsonDeserializationSchema oldDeserializer;
+
     private final CatalogTable catalogTable;
     private final SeaTunnelRowType seaTunnelRowType;
 
@@ -90,7 +93,7 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
         this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.jsonDeserializer =
-                new JsonDeserializationSchema(false, ignoreParseErrors, seaTunnelRowType);
+                new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors, true);
         this.database = database;
         this.table = table;
         this.fieldNames = seaTunnelRowType.getFieldNames();
@@ -142,10 +145,14 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
         } else if (OP_UPDATE.equals(type)) {
             SeaTunnelRow rowAfter = convertJsonNode(dataNode);
             JsonNode oldNode = jsonNode.get(FIELD_OLD);
-            SeaTunnelRow rowBefore = convertJsonNode(oldNode);
+            if (oldDeserializer == null) {
+                oldDeserializer =
+                        new JsonDeserializationSchema(false, ignoreParseErrors, seaTunnelRowType);
+            }
+            SeaTunnelRow rowBefore = oldDeserializer.convertToRowData(oldNode);
             for (int f = 0; f < fieldCount; f++) {
                 assert rowBefore != null;
-                if (rowBefore.isNullAt(f) && oldNode.findValue(fieldNames[f]) == null) {
+                if (oldNode.get(fieldNames[f]) == null) {
                     // fields in "old" (before) means the fields are changed
                     // fields not in "old" (before) means the fields are not changed
                     // so we just copy the not changed fields into before

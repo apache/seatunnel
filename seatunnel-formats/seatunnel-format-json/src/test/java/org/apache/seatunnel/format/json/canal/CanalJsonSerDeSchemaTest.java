@@ -21,6 +21,11 @@ package org.apache.seatunnel.format.json.canal;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -37,6 +42,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -44,6 +50,7 @@ import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class CanalJsonSerDeSchemaTest {
@@ -65,6 +72,143 @@ public class CanalJsonSerDeSchemaTest {
                         .setTable("^prod.*")
                         .build();
         runTest(lines, deserializationSchema);
+    }
+
+    @Test
+    public void testSparseOldImagesUsePerRowFieldPresence() throws IOException {
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.of("test.test")),
+                        TableSchema.builder()
+                                .columns(
+                                        Arrays.asList(
+                                                PhysicalColumn.of(
+                                                        "id",
+                                                        INT_TYPE,
+                                                        (Long) null,
+                                                        false,
+                                                        null,
+                                                        null),
+                                                PhysicalColumn.of(
+                                                        "name",
+                                                        STRING_TYPE,
+                                                        (Long) null,
+                                                        false,
+                                                        "default-name",
+                                                        null),
+                                                PhysicalColumn.of(
+                                                        "description",
+                                                        STRING_TYPE,
+                                                        (Long) null,
+                                                        false,
+                                                        "default-description",
+                                                        null)))
+                                .build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "test");
+        CanalJsonDeserializationSchema schema =
+                CanalJsonDeserializationSchema.builder(table).build();
+        SimpleCollector collector = new SimpleCollector();
+
+        schema.deserialize(
+                ("{\"type\":\"UPDATE\",\"data\":["
+                                + "{\"id\":1,\"name\":\"after-1\",\"description\":\"after-description-1\"},"
+                                + "{\"id\":2,\"name\":\"after-2\",\"description\":\"after-description-2\"}],"
+                                + "\"old\":["
+                                + "{\"id\":1,\"name\":null},"
+                                + "{\"id\":2,\"description\":\"before-description-2\"}]}")
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+
+        assertEquals(4, collector.list.size());
+        SeaTunnelRow firstBefore = collector.list.get(0);
+        SeaTunnelRow firstAfter = collector.list.get(1);
+        SeaTunnelRow secondBefore = collector.list.get(2);
+        SeaTunnelRow secondAfter = collector.list.get(3);
+        assertEquals(RowKind.UPDATE_BEFORE, firstBefore.getRowKind());
+        assertEquals(RowKind.UPDATE_AFTER, firstAfter.getRowKind());
+        assertEquals(RowKind.UPDATE_BEFORE, secondBefore.getRowKind());
+        assertEquals(RowKind.UPDATE_AFTER, secondAfter.getRowKind());
+
+        assertEquals(1, firstBefore.getField(0));
+        assertNull(firstBefore.getField(1));
+        assertEquals("after-description-1", firstBefore.getField(2));
+        assertEquals(1, firstAfter.getField(0));
+        assertEquals("after-1", firstAfter.getField(1));
+        assertEquals("after-description-1", firstAfter.getField(2));
+
+        assertEquals(2, secondBefore.getField(0));
+        assertEquals("after-2", secondBefore.getField(1));
+        assertEquals("before-description-2", secondBefore.getField(2));
+        assertEquals(2, secondAfter.getField(0));
+        assertEquals("after-2", secondAfter.getField(1));
+        assertEquals("after-description-2", secondAfter.getField(2));
+    }
+
+    @Test
+    public void testMainImagesPreserveExplicitNullAndDefaultMissingFields() throws IOException {
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.of("test.test")),
+                        TableSchema.builder()
+                                .columns(
+                                        Arrays.asList(
+                                                PhysicalColumn.of(
+                                                        "id",
+                                                        INT_TYPE,
+                                                        (Long) null,
+                                                        true,
+                                                        null,
+                                                        null),
+                                                PhysicalColumn.of(
+                                                        "name",
+                                                        STRING_TYPE,
+                                                        (Long) null,
+                                                        true,
+                                                        "default-name",
+                                                        null),
+                                                PhysicalColumn.of(
+                                                        "description",
+                                                        STRING_TYPE,
+                                                        (Long) null,
+                                                        true,
+                                                        "default-description",
+                                                        null)))
+                                .build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "test");
+        CanalJsonDeserializationSchema schema =
+                CanalJsonDeserializationSchema.builder(table).build();
+        SimpleCollector collector = new SimpleCollector();
+        schema.deserialize(
+                "{\"type\":\"INSERT\",\"data\":[{\"id\":1,\"name\":null}]}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+        schema.deserialize(
+                "{\"type\":\"UPDATE\",\"data\":[{\"id\":1,\"name\":null}],\"old\":[{\"name\":\"before\"}]}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+        schema.deserialize(
+                "{\"type\":\"DELETE\",\"data\":[{\"id\":1,\"name\":null}]}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+        assertEquals(4, collector.list.size());
+        assertEquals(RowKind.INSERT, collector.list.get(0).getRowKind());
+        assertEquals(RowKind.UPDATE_BEFORE, collector.list.get(1).getRowKind());
+        assertEquals(RowKind.UPDATE_AFTER, collector.list.get(2).getRowKind());
+        assertEquals(RowKind.DELETE, collector.list.get(3).getRowKind());
+        for (int i = 0; i < collector.list.size(); i++) {
+            SeaTunnelRow row = collector.list.get(i);
+            assertEquals(1, row.getField(0));
+            if (i == 1) {
+                assertEquals("before", row.getField(1));
+            } else {
+                assertNull(row.getField(1));
+            }
+            assertEquals("default-description", row.getField(2));
+        }
     }
 
     @Test

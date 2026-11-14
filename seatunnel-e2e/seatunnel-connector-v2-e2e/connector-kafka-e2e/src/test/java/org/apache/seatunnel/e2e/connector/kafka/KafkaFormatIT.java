@@ -603,6 +603,8 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     }
 
     private void checkCanalFormat() {
+        // UPDATE_BEFORE is serialized as DELETE; sparse old values override or inherit data.
+        // Catalog defaults fill missing fields, but explicit nulls must survive in both images.
         List<String> expectedResult =
                 Arrays.asList(
                         "{\"old\":null,\"data\":[{\"id\":1101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"}],\"type\":\"INSERT\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900618}",
@@ -614,11 +616,15 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                         "{\"old\":null,\"data\":[{\"id\":1107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"}],\"type\":\"INSERT\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900618}",
                         "{\"old\":null,\"data\":[{\"id\":1108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":\"0.1\"}],\"type\":\"INSERT\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900618}",
                         "{\"old\":null,\"data\":[{\"id\":1109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"}],\"type\":\"INSERT\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900618}",
-                        "{\"old\":null,\"data\":[{\"id\":1101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"}],\"type\":\"DELETE\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900619}",
+                        "{\"old\":null,\"data\":[{\"id\":1101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":null}],\"type\":\"DELETE\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900619}",
                         "{\"old\":null,\"data\":[{\"id\":1101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"4.56\"}],\"type\":\"INSERT\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900619}",
-                        "{\"old\":null,\"data\":[{\"id\":1107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"}],\"type\":\"DELETE\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900619}",
+                        "{\"old\":null,\"data\":[{\"id\":1107,\"name\":\"old rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"7.88\"}],\"type\":\"DELETE\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900619}",
                         "{\"old\":null,\"data\":[{\"id\":1107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"7.88\"}],\"type\":\"INSERT\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900619}",
-                        "{\"old\":null,\"data\":[{\"id\":1109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"}],\"type\":\"DELETE\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900619}");
+                        "{\"old\":null,\"data\":[{\"id\":1109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"}],\"type\":\"DELETE\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900619}",
+                        "{\"old\":null,\"data\":[{\"id\":1201,\"name\":null,\"description\":\"schema-description-default\",\"weight\":null}],\"type\":\"INSERT\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900620}",
+                        "{\"old\":null,\"data\":[{\"id\":1201,\"name\":\"schema-name-default\",\"description\":null,\"weight\":null}],\"type\":\"DELETE\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900620}",
+                        "{\"old\":null,\"data\":[{\"id\":1201,\"name\":\"schema-name-default\",\"description\":null,\"weight\":\"2.5\"}],\"type\":\"INSERT\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900620}",
+                        "{\"old\":null,\"data\":[{\"id\":1201,\"name\":null,\"description\":null,\"weight\":\"schema-weight-default\"}],\"type\":\"DELETE\",\"database\":null,\"table\":\"test-cdc_mds\",\"ts\":1697788900620}");
 
         ArrayList<String> result = new ArrayList<>();
         ArrayList<String> topics = new ArrayList<>();
@@ -662,6 +668,8 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     }
 
     private void checkMaxWellFormat() {
+        // UPDATE_BEFORE is serialized as DELETE; sparse old values override or inherit data.
+        // Catalog defaults fill missing fields, but explicit nulls must survive in both images.
         List<String> expectedResult =
                 Arrays.asList(
                         "{\"old\":null,\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"insert\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253290000}",
@@ -673,11 +681,17 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                         "{\"old\":null,\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"insert\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253290000}",
                         "{\"old\":null,\"data\":{\"id\":108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":\"0.1\"},\"type\":\"insert\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253290000}",
                         "{\"old\":null,\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"insert\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253290000}",
+                        "{\"old\":null,\"data\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":null},\"type\":\"delete\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253290000}",
+                        "{\"old\":null,\"data\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":\"8.1\"},\"type\":\"insert\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253290000}",
                         "{\"old\":null,\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"delete\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253290000}",
                         "{\"old\":null,\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"4.56\"},\"type\":\"insert\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253290000}",
                         "{\"old\":null,\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"delete\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253290000}",
                         "{\"old\":null,\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"7.88\"},\"type\":\"insert\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253290000}",
-                        "{\"old\":null,\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"delete\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253290000}");
+                        "{\"old\":null,\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"delete\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253290000}",
+                        "{\"old\":null,\"data\":{\"id\":201,\"name\":null,\"description\":\"schema-description-default\",\"weight\":null},\"type\":\"insert\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253291000}",
+                        "{\"old\":null,\"data\":{\"id\":201,\"name\":\"schema-name-default\",\"description\":null,\"weight\":null},\"type\":\"delete\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253291000}",
+                        "{\"old\":null,\"data\":{\"id\":201,\"name\":\"schema-name-default\",\"description\":null,\"weight\":\"2.5\"},\"type\":\"insert\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253291000}",
+                        "{\"old\":null,\"data\":{\"id\":201,\"name\":null,\"description\":null,\"weight\":\"schema-weight-default\"},\"type\":\"delete\",\"database\":null,\"table\":\"maxwell-test-cdc_mds\",\"ts\":1699253291000}");
 
         ArrayList<String> result = new ArrayList<>();
         ArrayList<String> topics = new ArrayList<>();
@@ -719,6 +733,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     }
 
     private void checkOggFormat() {
+        // Before and after images independently preserve nulls and default only missing fields.
         List<String> kafkaExpectedResult =
                 Arrays.asList(
                         "{\"before\":null,\"after\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.140000104904175\"},\"op_type\":\"I\",\"table\":\"test-ogg-source\",\"op_ts\":1589384406000}",
@@ -740,7 +755,11 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                         "{\"before\":null,\"after\":{\"id\":110,\"name\":\"jacket\",\"description\":\"new water resistent white wind breaker\",\"weight\":\"0.5\"},\"op_type\":\"I\",\"table\":\"test-ogg-source\",\"op_ts\":1589391140000}",
                         "{\"before\":null,\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":\"5.179999828338623\"},\"op_type\":\"D\",\"table\":\"test-ogg-source\",\"op_ts\":1589391130000}",
                         "{\"before\":null,\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":\"5.170000076293945\"},\"op_type\":\"I\",\"table\":\"test-ogg-source\",\"op_ts\":1589391130000}",
-                        "{\"before\":null,\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":\"5.170000076293945\"},\"op_type\":\"D\",\"table\":\"test-ogg-source\",\"op_ts\":1589391144000}");
+                        "{\"before\":null,\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":\"5.170000076293945\"},\"op_type\":\"D\",\"table\":\"test-ogg-source\",\"op_ts\":1589391144000}",
+                        "{\"before\":null,\"after\":{\"id\":201,\"name\":null,\"description\":\"schema-description-default\",\"weight\":null},\"op_type\":\"I\",\"table\":\"test-ogg-source\",\"op_ts\":1589391145000}",
+                        "{\"before\":null,\"after\":{\"id\":201,\"name\":\"schema-name-default\",\"description\":null,\"weight\":\"schema-weight-default\"},\"op_type\":\"D\",\"table\":\"test-ogg-source\",\"op_ts\":1589391145000}",
+                        "{\"before\":null,\"after\":{\"id\":201,\"name\":null,\"description\":\"schema-description-default\",\"weight\":null},\"op_type\":\"I\",\"table\":\"test-ogg-source\",\"op_ts\":1589391145000}",
+                        "{\"before\":null,\"after\":{\"id\":201,\"name\":null,\"description\":\"schema-description-default\",\"weight\":null},\"op_type\":\"D\",\"table\":\"test-ogg-source\",\"op_ts\":1589391145000}");
 
         ArrayList<String> checkKafkaConsumerResult = new ArrayList<>();
         ArrayList<String> topics = new ArrayList<>();
