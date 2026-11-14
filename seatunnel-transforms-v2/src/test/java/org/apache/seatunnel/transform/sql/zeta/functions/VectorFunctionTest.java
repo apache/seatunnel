@@ -33,17 +33,146 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class VectorFunctionTest {
+
+    @ParameterizedTest
+    @ValueSource(strings = {"RANDOM_PROJECTION", "SPARSE_RANDOM_PROJECTION"})
+    public void testProjectionDoesNotDependOnCallOrder(String method) {
+        Float[] source = {1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f};
+        Float[] expected = project(source, 4, method);
+        for (int i = 0; i < 5; i++) {
+            project(new Float[] {8f, 7f, 6f, 5f, 4f, 3f, 2f, 1f}, 3, method);
+            project(source, 2, "RANDOM_PROJECTION");
+            project(source, 3, "SPARSE_RANDOM_PROJECTION");
+            Assertions.assertArrayEquals(expected, project(source, 4, method));
+        }
+        // A projection must use the same linear map for different input rows.
+        Float[] doubled = Arrays.stream(source).map(value -> value * 2).toArray(Float[]::new);
+        Float[] doubledExpected =
+                Arrays.stream(expected).map(value -> value * 2).toArray(Float[]::new);
+        Assertions.assertArrayEquals(doubledExpected, project(doubled, 4, method));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"RANDOM_PROJECTION", "SPARSE_RANDOM_PROJECTION"})
+    public void testProjectionMatchesSeededReference(String method) {
+        Float[] source = {1f, -2f, 0f, 4f, 5f, -6f, 7f, 8f};
+        Random rng = new Random(42L);
+        Float[] expected = new Float[4];
+        for (int i = 0; i < expected.length; i++) {
+            float sum = 0;
+            for (Float value : source) {
+                float coefficient;
+                if ("RANDOM_PROJECTION".equals(method)) {
+                    coefficient = (float) rng.nextGaussian() * (float) Math.sqrt(1.0 / 4);
+                } else {
+                    double sample = rng.nextDouble();
+                    coefficient =
+                            sample < 1.0 / 6
+                                    ? (float) Math.sqrt(3.0)
+                                    : sample < 2.0 / 6 ? -(float) Math.sqrt(3.0) : 0f;
+                }
+                if (coefficient != 0) {
+                    sum += value * coefficient;
+                }
+            }
+            expected[i] = sum;
+        }
+        Assertions.assertArrayEquals(expected, project(source, 4, method));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"RANDOM_PROJECTION", "SPARSE_RANDOM_PROJECTION"})
+    public void testProjectionIsStableAcrossThreads(String method) throws Exception {
+        Float[] source = {1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f};
+        Float[] expected = project(source, 4, method);
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+        try {
+            List<Future<Float[]>> results = new ArrayList<>();
+            for (int i = 0; i < 32; i++) {
+                results.add(executor.submit(() -> project(source, 4, method)));
+            }
+            for (Future<Float[]> result : results) {
+                Assertions.assertArrayEquals(expected, result.get(10, TimeUnit.SECONDS));
+            }
+        } finally {
+            executor.shutdownNow();
+            Assertions.assertTrue(executor.awaitTermination(10, TimeUnit.SECONDS));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"RANDOM_PROJECTION", "SPARSE_RANDOM_PROJECTION"})
+    public void testProjectionIsStableAcrossProcesses(String method) throws Exception {
+        String classpath =
+                System.getProperty(
+                        "surefire.test.class.path", System.getProperty("java.class.path"));
+        Process process =
+                new ProcessBuilder(
+                                Paths.get(System.getProperty("java.home"), "bin", "java")
+                                        .toString(),
+                                "-cp",
+                                classpath,
+                                ProjectionProcessProbe.class.getName(),
+                                method)
+                        .redirectError(ProcessBuilder.Redirect.INHERIT)
+                        .start();
+        try {
+            Assertions.assertTrue(process.waitFor(30, TimeUnit.SECONDS));
+            String output;
+            try (BufferedReader reader =
+                    new BufferedReader(
+                            new InputStreamReader(
+                                    process.getInputStream(), StandardCharsets.UTF_8))) {
+                output = reader.lines().collect(Collectors.joining("\n")).trim();
+            }
+            Assertions.assertEquals(0, process.exitValue(), output);
+            // Advance the parent process independently before comparing it with the fresh JVM.
+            project(new Float[] {1f, 2f, 3f, 4f, 5f}, 2, method);
+            Assertions.assertEquals(
+                    output, Arrays.toString(project(new Float[] {1f, 2f, 3f, 4f}, 2, method)));
+        } finally {
+            process.destroyForcibly();
+            Assertions.assertTrue(process.waitFor(10, TimeUnit.SECONDS));
+        }
+    }
+
+    private static Float[] project(Float[] input, int dimension, String method) {
+        return VectorUtils.toFloatArray(
+                (ByteBuffer)
+                        VectorFunction.vectorReduce(
+                                VectorUtils.toByteBuffer(input), dimension, method));
+    }
+
+    /** Executes the projection in a fresh JVM, without relying on the test runner's call order. */
+    public static class ProjectionProcessProbe {
+        public static void main(String[] args) {
+            System.err.println("Projection probe initialized");
+            System.out.println(Arrays.toString(project(new Float[] {1f, 2f, 3f, 4f}, 2, args[0])));
+        }
+    }
 
     @ParameterizedTest
     @ValueSource(

@@ -32,6 +32,8 @@ import org.apache.seatunnel.common.utils.VectorUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -40,6 +42,50 @@ import java.util.HashMap;
 import java.util.List;
 
 public class SQLVectorFunctionTest {
+
+    @ParameterizedTest
+    @ValueSource(strings = {"RANDOM_PROJECTION", "SPARSE_RANDOM_PROJECTION"})
+    public void testProjectionStableAcrossRowsAndTransforms(String method) {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "SELECT VECTOR_REDUCE(vector_field,3,'"
+                                        + method
+                                        + "') AS reduced FROM dual"));
+        Float[] source = {1f, 2f, 3f, 4f, 5f};
+        SQLTransform first = new SQLTransform(config, catalogTable);
+        SQLTransform second = new SQLTransform(config, catalogTable);
+        try {
+            ByteBuffer expected =
+                    (ByteBuffer)
+                            first.transformRow(
+                                            new SeaTunnelRow(
+                                                    new Object[] {
+                                                        1, VectorUtils.toByteBuffer(source), null
+                                                    }))
+                                    .get(0)
+                                    .getField(0);
+            for (SQLTransform transform : new SQLTransform[] {first, second, first}) {
+                ByteBuffer result =
+                        (ByteBuffer)
+                                transform
+                                        .transformRow(
+                                                new SeaTunnelRow(
+                                                        new Object[] {
+                                                            2,
+                                                            VectorUtils.toByteBuffer(source),
+                                                            null
+                                                        }))
+                                        .get(0)
+                                        .getField(0);
+                Assertions.assertEquals(expected, result);
+            }
+        } finally {
+            first.close();
+            second.close();
+        }
+    }
 
     private static final String TEST_NAME = "vector_test";
     private static final String[] FIELD_NAMES =
