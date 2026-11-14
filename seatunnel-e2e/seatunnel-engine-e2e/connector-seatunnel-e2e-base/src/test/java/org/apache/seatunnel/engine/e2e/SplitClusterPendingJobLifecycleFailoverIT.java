@@ -582,6 +582,22 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             // separate resource-lifecycle concern from the duplicate-dispatch invariant under test.
             // Adding a worker keeps the assertions below attributable to scheduling alone, and
             // matches how testPendingJobLifecycleInMasterFailover releases a pending job.
+            SeaTunnelServer finalActiveServer =
+                    currentStandby.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            JobMaster restoredPendingMaster =
+                    finalActiveServer
+                            .getCoordinatorService()
+                            .getPendingJobQueue()
+                            .getById(pendingJobId)
+                            .getJobMaster();
+            restoredPendingMaster
+                    .getPhysicalPlan()
+                    .getPipelineList()
+                    .forEach(
+                            plan ->
+                                    Assertions.assertEquals(
+                                            PipelineStatus.CREATED, plan.getPipelineState()));
+
             SeaTunnelConfig extraWorkerConfig = getSeaTunnelConfig(testClusterName);
             configurePendingLifecycleTest(extraWorkerConfig);
             extraWorkerNode =
@@ -596,6 +612,13 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
                                             3, finalCoordinator.getCluster().getMembers().size()));
 
             assertJobStatusWithTimeout(pendingJobAfterFlapping, JobStatus.FINISHED, 180);
+
+            // A never-started pipeline uses the scheduler's first reservation. It must not
+            // cancel and consume retry attempts just to obtain the same slots again.
+            restoredPendingMaster
+                    .getPhysicalPlan()
+                    .getPipelineList()
+                    .forEach(plan -> Assertions.assertEquals(0, plan.getPipelineRestoreNum()));
 
             Long finalLineCount =
                     FileUtils.getFileLineNumberFromDir(contestedJobResources.getLeft());
