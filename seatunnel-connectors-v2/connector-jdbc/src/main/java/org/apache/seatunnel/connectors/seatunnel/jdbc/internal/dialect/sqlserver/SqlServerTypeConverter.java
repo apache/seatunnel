@@ -32,6 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
+
 // reference https://learn.microsoft.com/zh-cn/sql/t-sql/data-types/data-types-transact-sql
 @Slf4j
 @AutoService(TypeConverter.class)
@@ -109,7 +111,7 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String sqlServerType = typeDefine.getDataType().toUpperCase();
+        String sqlServerType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         switch (sqlServerType) {
             case SQLSERVER_BIT:
                 builder.sourceType(SQLSERVER_BIT);
