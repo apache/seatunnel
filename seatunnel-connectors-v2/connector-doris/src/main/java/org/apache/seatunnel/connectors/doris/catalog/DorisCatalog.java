@@ -476,17 +476,21 @@ public class DorisCatalog implements Catalog {
 
     /**
      * Truncates the requested partitions, or the complete table when no partitions are supplied.
+     *
+     * @param ignoreIfNotExists whether to skip the truncate when the table doesn't exist, instead
+     *     of failing with {@link TableNotExistException}
      */
     public void truncateTable(
             TablePath tablePath, boolean ignoreIfNotExists, List<String> partitions)
             throws TableNotExistException, CatalogException {
-        try {
+        if (!tableExists(tablePath)) {
             if (ignoreIfNotExists) {
-                try (Statement statement = conn.createStatement()) {
-                    statement.execute(
-                            DorisCatalogUtil.getTruncateTableQuery(tablePath, partitions));
-                }
+                return;
             }
+            throw new TableNotExistException(catalogName, tablePath);
+        }
+        try (Statement statement = conn.createStatement()) {
+            statement.execute(DorisCatalogUtil.getTruncateTableQuery(tablePath, partitions));
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed TRUNCATE TABLE in catalog %s", tablePath.getFullName()),
