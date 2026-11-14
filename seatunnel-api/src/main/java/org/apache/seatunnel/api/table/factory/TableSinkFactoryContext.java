@@ -36,7 +36,15 @@ public class TableSinkFactoryContext extends TableFactoryContext {
     @VisibleForTesting
     public TableSinkFactoryContext(
             CatalogTable catalogTable, ReadonlyConfig options, ClassLoader classLoader) {
-        super(options, classLoader);
+        this(catalogTable, options, classLoader, EMPTY_ENV_OPTIONS);
+    }
+
+    public TableSinkFactoryContext(
+            CatalogTable catalogTable,
+            ReadonlyConfig options,
+            ClassLoader classLoader,
+            ReadonlyConfig envOptions) {
+        super(options, classLoader, envOptions);
         if (catalogTable != null) {
             checkCatalogTableIllegal(Collections.singletonList(catalogTable));
         }
@@ -48,9 +56,23 @@ public class TableSinkFactoryContext extends TableFactoryContext {
             ReadonlyConfig options,
             ClassLoader classLoader,
             Collection<String> excludeTablePlaceholderReplaceKeys) {
+        return replacePlaceholderAndCreate(
+                catalogTable,
+                options,
+                classLoader,
+                excludeTablePlaceholderReplaceKeys,
+                EMPTY_ENV_OPTIONS);
+    }
+
+    public static TableSinkFactoryContext replacePlaceholderAndCreate(
+            CatalogTable catalogTable,
+            ReadonlyConfig options,
+            ClassLoader classLoader,
+            Collection<String> excludeTablePlaceholderReplaceKeys,
+            ReadonlyConfig envOptions) {
         ReadonlyConfig rewriteConfig =
                 TablePlaceholderProcessor.replaceTablePlaceholder(
                         options, catalogTable, excludeTablePlaceholderReplaceKeys);
-        return new TableSinkFactoryContext(catalogTable, rewriteConfig, classLoader);
+        return new TableSinkFactoryContext(catalogTable, rewriteConfig, classLoader, envOptions);
     }
 }

@@ -106,12 +106,16 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
         try {
             Config config = ConfigBuilder.of(configPath, clientCommandArgs.getVariables());
 
+            ReadonlyConfig envReadonly =
+                    config.hasPath("env")
+                            ? ReadonlyConfig.fromConfig(config.getConfig("env"))
+                            : ReadonlyConfig.fromMap(Collections.emptyMap());
             if (config.hasPath("env")) {
-                ReadonlyConfig envConfig = ReadonlyConfig.fromConfig(config.getConfig("env"));
                 OptionRule envRule = new EnvOptionRule().optionRule();
-                ConfigValidator.of(envConfig).validate(envRule);
-                validateOptionTypes(envConfig, envRule);
-                ConfigValidator.validateUnknownKeys(envConfig, envRule, "env");
+                ConfigValidator.of(envReadonly).validate(envRule);
+                validateOptionTypes(envReadonly, envRule);
+                // env is also an open map for user-defined variables. Unknown keys are passed
+                // through to plugin factories, so they must not be rejected as typos here.
             }
 
             List<? extends Config> sourceConfigs =
@@ -125,10 +129,6 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
             List<? extends Config> sinkConfigs =
                     config.hasPath("sink") ? config.getConfigList("sink") : Collections.emptyList();
 
-            ReadonlyConfig envReadonly =
-                    config.hasPath("env")
-                            ? ReadonlyConfig.fromConfig(config.getConfig("env"))
-                            : ReadonlyConfig.fromMap(Collections.emptyMap());
             List<URL> commonPluginJars =
                     JobPluginClasspathHelper.thirdPartyJarsFromEnv(envReadonly);
 
@@ -179,7 +179,8 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                                 transformConfigs,
                                 sinkConfigs,
                                 sourceAndTransformClassLoader,
-                                sinkClassLoader)
+                                sinkClassLoader,
+                                envReadonly)
                         .validate();
             }
 

@@ -26,17 +26,41 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import lombok.Getter;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Getter
 public abstract class TableFactoryContext {
 
+    /**
+     * Shared empty env used by the compatibility constructors. The backing map must stay immutable:
+     * {@link ReadonlyConfig#getSourceMap()} exposes it raw and this instance is shared by every
+     * context created through the empty-env defaults.
+     */
+    protected static final ReadonlyConfig EMPTY_ENV_OPTIONS =
+            ReadonlyConfig.fromMap(Collections.emptyMap());
+
     private final ReadonlyConfig options;
     private final ClassLoader classLoader;
 
+    /**
+     * Job-level {@code env} block, exposed to plugins independently from the plugin options.
+     *
+     * <p>Env values are intentionally kept outside {@link #options} so that they do not affect
+     * option-rule validation, unknown-key checks or sink table-placeholder rewriting.
+     */
+    private final ReadonlyConfig envOptions;
+
     public TableFactoryContext(ReadonlyConfig options, ClassLoader classLoader) {
+        this(options, classLoader, EMPTY_ENV_OPTIONS);
+    }
+
+    /** @param envOptions the job-level env block; {@code null} is treated as an empty env */
+    public TableFactoryContext(
+            ReadonlyConfig options, ClassLoader classLoader, ReadonlyConfig envOptions) {
         this.options = options;
         this.classLoader = classLoader;
+        this.envOptions = envOptions == null ? EMPTY_ENV_OPTIONS : envOptions;
     }
 
     protected static void checkCatalogTableIllegal(List<CatalogTable> catalogTables) {

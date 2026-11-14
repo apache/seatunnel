@@ -81,18 +81,22 @@ class DryRunConnectValidator {
     private final List<? extends Config> sinkConfigs;
     private final ClassLoader sourceAndTransformClassLoader;
     private final ClassLoader sinkClassLoader;
+    private final ReadonlyConfig envOptions;
 
     DryRunConnectValidator(
             List<? extends Config> sourceConfigs,
             List<? extends Config> transformConfigs,
             List<? extends Config> sinkConfigs,
             ClassLoader sourceAndTransformClassLoader,
-            ClassLoader sinkClassLoader) {
+            ClassLoader sinkClassLoader,
+            ReadonlyConfig envOptions) {
         this.sourceConfigs = sourceConfigs;
         this.transformConfigs = transformConfigs;
         this.sinkConfigs = sinkConfigs;
         this.sourceAndTransformClassLoader = sourceAndTransformClassLoader;
         this.sinkClassLoader = sinkClassLoader;
+        this.envOptions =
+                envOptions == null ? ReadonlyConfig.fromMap(Collections.emptyMap()) : envOptions;
     }
 
     /**
@@ -151,7 +155,7 @@ class DryRunConnectValidator {
             TableSourceFactory factory =
                     FactoryUtil.discoverFactory(classLoader, TableSourceFactory.class, factoryId);
             TableSourceFactoryContext context =
-                    new TableSourceFactoryContext(readonlyConfig, classLoader);
+                    new TableSourceFactoryContext(readonlyConfig, classLoader, null, envOptions);
 
             if (factory instanceof SupportSourceDryRunValidation) {
                 SupportSourceDryRunValidation validation = (SupportSourceDryRunValidation) factory;
@@ -274,7 +278,8 @@ class DryRunConnectValidator {
                             new ArrayList<>(new LinkedHashSet<>(inputCatalogTables)),
                             readonlyConfig,
                             classLoader,
-                            factoryId);
+                            factoryId,
+                            envOptions);
             tableWithSchemas.put(
                     outputId, SchemaInfo.trusted(transform.getProducedCatalogTables()));
             results.add(
@@ -340,7 +345,8 @@ class DryRunConnectValidator {
                                 catalogTable,
                                 readonlyConfig,
                                 classLoader,
-                                factory.excludeTablePlaceholderReplaceKeys());
+                                factory.excludeTablePlaceholderReplaceKeys(),
+                                envOptions);
                 validation.validateConnectionForDryRun(context);
             }
             // The exact checks (table existence, field compatibility, ...) are connector-specific,

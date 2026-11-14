@@ -82,6 +82,28 @@ sink {
 
 如果您想查看完整参数列表、引擎专属前缀和更多示例，请继续阅读 [JobEnvConfig](../configuration/JobEnvConfig.md)。
 
+#### 供插件使用的作业级变量
+
+**整个 `env` 块**都会传递给插件工厂，不只是 `custom_parameters`。任意顶层 key 都可以读取；需要分组时也可以继续使用 `custom_parameters` 等嵌套结构：
+
+```hocon
+env {
+  job.mode = "BATCH"
+  my_key = "my_value"
+}
+```
+
+在 Zeta 引擎中：
+
+- `TableSourceFactory`、`TableSinkFactory`、`MultiTableSinkFactory`、`TableTransformFactory` 的实现可以通过 `context.getEnvOptions()` 读取所有 env key，例如 `context.getEnvOptions().get(Options.key("my_key").stringType())`。
+- `env` 是开放 map：除引擎已声明的选项外允许用户自定义 key，`--check` 会放行这些 key（已声明选项仍做类型与必填校验，但可选 env 选项的拼写错误不会再被提示）。这些值通过独立的 `getEnvOptions()` 视图提供给工厂，因此不受 OptionRule 校验和 sink 表名占位符重写的影响。
+- 如果插件在运行期需要这些参数，请从工厂上下文复制到随作业下发、可序列化的 source/sink/transform 对象中。
+
+限制说明：
+
+- Flink 和 Spark 执行时，插件工厂目前拿到的是空 env，该能力仅在 Zeta 引擎生效。
+- `env` 块不参与配置加解密（`ConfigShadeUtils` 只处理 `source`、`sink` 和 `transform`），因此不要在其中放置加密值或敏感信息。
+
 ### `source`：数据读取入口
 
 `source` 用来定义 SeaTunnel 从哪里读取数据。一个作业中可以同时声明多个 source。每个连接器都有自己的参数，同时也有一些通用的链路字段，例如 `plugin_output`，它用于给当前 source 产出的数据集命名，方便后续模块引用。

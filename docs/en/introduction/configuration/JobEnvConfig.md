@@ -39,6 +39,19 @@ Specify the method of encryption, if you didn't have the requirement for encrypt
 
 For more details, you can refer to the documentation [Config Encryption Decryption](./config-encryption-decryption.md)
 
+### Job-scoped variables
+
+The entire `env` block is available to plugin factories, including user-defined top-level keys:
+
+```hocon
+env {
+  job.mode = "BATCH"
+  my_key = "my_value"
+}
+```
+
+Nested blocks such as `custom_parameters` are also passed through. On Zeta, plugin factories can read every key from `TableFactoryContext#getEnvOptions()`. `--check` accepts user-defined env keys by design; declared options are still type- and required-checked. See [Intro To Config File](../concepts/config.md#job-scoped-variables-for-plugins) for details and limitations.
+
 ## Zeta Engine Parameter
 
 ### job.retry.times

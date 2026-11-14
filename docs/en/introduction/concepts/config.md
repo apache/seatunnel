@@ -82,6 +82,28 @@ The most common `env` parameters are:
 
 For the full parameter list, engine-specific prefixes, and more examples, see [JobEnvConfig](../configuration/JobEnvConfig.md).
 
+#### Job-scoped variables for plugins
+
+The **entire** `env` block is passed to plugin factories, not only `custom_parameters`. Any top-level key can be read, and nested blocks such as `custom_parameters` remain available when you want to group related values:
+
+```hocon
+env {
+  job.mode = "BATCH"
+  my_key = "my_value"
+}
+```
+
+On the Zeta engine:
+
+- A `TableSourceFactory`, `TableSinkFactory`, `MultiTableSinkFactory` or `TableTransformFactory` implementation can read every env key from `context.getEnvOptions()`, for example `context.getEnvOptions().get(Options.key("my_key").stringType())`.
+- `env` is an open map: user-defined keys are allowed in addition to the engine's declared options, and `--check` accepts them by design (declared options are still type- and required-checked, but typos in optional env keys are no longer reported). The values reach factories through a dedicated `getEnvOptions()` view, so option-rule validation and sink table-placeholder rewriting are not affected.
+- If the plugin needs the values at runtime, copy them from the factory context into the serializable source/sink/transform object that the job carries to the workers.
+
+Limitations:
+
+- Flink and Spark execution currently provide an empty env to plugin factories; this capability is Zeta-only.
+- The `env` block is not processed by config encryption/decryption (`ConfigShadeUtils` only handles `source`, `sink`, and `transform`), so do not put encrypted or sensitive values there.
+
 ### source
 
 `source` defines where SeaTunnel reads data from. You can declare multiple sources in one job. Each connector has its own parameters, plus common wiring fields such as `plugin_output`, which names the dataset produced by that source.

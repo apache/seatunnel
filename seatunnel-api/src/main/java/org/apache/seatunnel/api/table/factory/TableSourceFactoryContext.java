@@ -36,4 +36,13 @@ public class TableSourceFactoryContext extends TableFactoryContext {
         super(options, classLoader);
         this.metadataConfig = metadataConfig;
     }
+
+    public TableSourceFactoryContext(
+            ReadonlyConfig options,
+            ClassLoader classLoader,
+            MetadataConfig metadataConfig,
+            ReadonlyConfig envOptions) {
+        super(options, classLoader, envOptions);
+        this.metadataConfig = metadataConfig;
+    }
 }

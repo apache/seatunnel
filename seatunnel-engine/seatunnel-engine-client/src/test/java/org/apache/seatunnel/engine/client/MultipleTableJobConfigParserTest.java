@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -39,6 +41,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
@@ -50,9 +53,12 @@ import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import scala.Tuple2;
@@ -72,6 +78,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 public class MultipleTableJobConfigParserTest {
+
+    @BeforeEach
+    void resetEnvProbeFactories() {
+        ParserEnvProbeSourceFactory.reset();
+        ParserEnvProbeTransformFactory.reset();
+        ParserEnvProbeSinkFactory.reset();
+    }
 
     @Test
     public void testSampleDryRunReplacesConfiguredSink() {
@@ -525,6 +538,79 @@ public class MultipleTableJobConfigParserTest {
         Assertions.assertEquals(MultiTableFailurePhase.DISCOVERY, failedTable.getPhase());
         Assertions.assertTrue(failedTable.getMessageSummary().contains("metadata read failed"));
     }
+
+    @Test
+    public void testEnvOptionsReachSourceFactory() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fake_to_parser_env_source.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
+                        .parse(null);
+
+        SourceAction sourceAction =
+                parsed.getLeft().stream()
+                        .flatMap(action -> action.getUpstream().stream())
+                        .filter(SourceAction.class::isInstance)
+                        .map(SourceAction.class::cast)
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("No source action was created"));
+        Assertions.assertEquals(
+                ParserEnvProbeSourceFactory.IDENTIFIER, sourceAction.getSource().getPluginName());
+        assertEnv(ParserEnvProbeSourceFactory.capturedEnvOptions());
+    }
+
+    @Test
+    public void testEnvOptionsReachTransformFactory() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fake_to_parser_env_transform.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
+                        .parse(null);
+
+        TransformAction transformAction =
+                parsed.getLeft().stream()
+                        .flatMap(action -> action.getUpstream().stream())
+                        .filter(TransformAction.class::isInstance)
+                        .map(TransformAction.class::cast)
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("No transform action was created"));
+        SeaTunnelTransform<?> transform = transformAction.getTransform();
+        Assertions.assertEquals(
+                ParserEnvProbeTransformFactory.IDENTIFIER, transform.getPluginName());
+        assertEnv(ParserEnvProbeTransformFactory.capturedEnvOptions());
+    }
+
+    @Test
+    public void testEnvOptionsReachSinkFactory() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = ContentFormatUtilTest.getResource("/batch_fake_to_parser_env_sink.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
+                        .parse(null);
+
+        Assertions.assertFalse(parsed.getLeft().isEmpty());
+        Assertions.assertInstanceOf(SinkAction.class, parsed.getLeft().get(0));
+        assertEnv(ParserEnvProbeSinkFactory.capturedEnvOptions());
+    }
+
+    private static void assertEnv(ReadonlyConfig envOptions) {
+        Assertions.assertNotNull(envOptions);
+        Assertions.assertEquals("env-value", envOptions.get(PROBE_OPTION));
+    }
+
+    private static final Option<String> PROBE_OPTION =
+            Options.key("probe").stringType().noDefaultValue();
 
     private CatalogTable mockCatalogTable(String tableName) {
         return CatalogTable.of(

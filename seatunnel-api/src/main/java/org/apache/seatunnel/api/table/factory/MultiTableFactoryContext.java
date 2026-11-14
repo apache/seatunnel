@@ -35,4 +35,13 @@ public class MultiTableFactoryContext extends TableSinkFactoryContext {
         super(null, options, classLoader);
         this.sinks = sinks;
     }
+
+    public MultiTableFactoryContext(
+            ReadonlyConfig options,
+            ClassLoader classLoader,
+            Map<TablePath, SeaTunnelSink> sinks,
+            ReadonlyConfig envOptions) {
+        super(null, options, classLoader, envOptions);
+        this.sinks = sinks;
+    }
 }
