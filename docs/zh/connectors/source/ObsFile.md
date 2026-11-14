@@ -34,6 +34,8 @@ import ChangeLog from '../changelog/connector-file-obs.md';
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
+  - [x] binary
   - [x] markdown
   - [x] pdf
 

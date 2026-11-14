@@ -36,7 +36,7 @@ Writes SeaTunnel rows to an Apache RocketMQ topic. The sink supports JSON and te
 | producer.group | String | no | SeaTunnel-Producer-Group | RocketMQ producer group ID. |
 | tag | String | no | - | RocketMQ message tag written with each message. |
 | partition.key.fields | List | no | - | Field names serialized as the RocketMQ message key. Every listed field must exist in the upstream schema. |
-| format | String | no | json | Message format. Supported values are `json` and `text`. |
+| format | enum | no | json | Message format. Supported values are `json` and `text`. |
 | field.delimiter | String | no | `,` | Field delimiter used when `format = text`. |
 | producer.send.sync | Boolean | no | false | Whether to send messages synchronously. When `false`, messages are sent asynchronously. |
 | exactly.once | Boolean | no | false | Whether to send transactional messages for exactly-once delivery. |
