@@ -71,7 +71,32 @@ class BaseServletQueryParameterTest {
     void testInvalidEncodingIsRejected() {
         IllegalArgumentException exception =
                 Assertions.assertThrows(IllegalArgumentException.class, () -> parse("jobName=%zz"));
-        Assertions.assertTrue(exception.getMessage().contains("%zz"));
+        Assertions.assertEquals("Invalid URL encoding in query parameter", exception.getMessage());
+        Assertions.assertNull(exception.getCause());
+    }
+
+    @Test
+    void testRepeatedVariablesAreRejectedAfterDecodingNames() {
+        for (String secondName : new String[] {"variables", "%76ariables"}) {
+            IllegalArgumentException exception =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () -> parse("variables=region%3Deu&" + secondName + "=rows%3D1"));
+            Assertions.assertTrue(exception.getMessage().contains("one 'variables' parameter"));
+            Assertions.assertFalse(exception.getMessage().contains("region"));
+        }
+    }
+
+    @Test
+    void testMalformedEncodingDoesNotExposeValues() {
+        for (String query :
+                new String[] {"variables=token%3Dpw-secret-xyz%zz", "pw-secret-xyz%zz=value"}) {
+            IllegalArgumentException exception =
+                    Assertions.assertThrows(IllegalArgumentException.class, () -> parse(query));
+            Assertions.assertEquals(
+                    "Invalid URL encoding in query parameter", exception.getMessage());
+            Assertions.assertNull(exception.getCause());
+        }
     }
 
     @Test

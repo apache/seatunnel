@@ -12,6 +12,19 @@ You need to check this document before you upgrade to related version.
   - **Impact**: A dataset created by this version has an `int64` column where an earlier version created `int32`. A dataset that already exists keeps its column types, because the sink writes to the schema it finds, so its `int32` column still wraps large values.
   - **Migration Guide**: No configuration change is needed. If a consumer expects `int32` for these columns, update it to read `int64`. To store large values in a dataset created by an earlier version, recreate the dataset and write the rows again from the source.
 
+### REST job submission: reserved `variables` key in JSON bodies
+
+The top-level `variables` key in a JSON `/submit-job` body, or in each `/submit-jobs` item,
+is now reserved for the substitution variables object. It is consumed before the job
+configuration is built; a non-null, non-object value is rejected with HTTP 400. A `null`
+value is removed without adding substitution variables. Previously, this key was passed
+through as part of the job configuration.
+
+If an existing JSON configuration uses a top-level `variables` field for another purpose,
+rename that field and update its references before upgrading. Requests without this field
+retain their existing behavior. This reservation does not apply to fields nested inside
+connector or transform configurations.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**

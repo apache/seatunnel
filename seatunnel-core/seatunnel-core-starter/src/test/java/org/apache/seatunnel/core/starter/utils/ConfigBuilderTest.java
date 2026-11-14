@@ -45,6 +45,42 @@ import static org.mockito.Mockito.when;
 public class ConfigBuilderTest {
 
     @Test
+    public void testSubmittedVariablesPreserveLiteralSchemaKeys() {
+        Map<String, Object> configMap = new LinkedHashMap<>();
+        configMap.put("env", Collections.singletonMap("job.name", "prefix-${jobName}"));
+        configMap.put(
+                "source",
+                Collections.singletonList(
+                        Collections.singletonMap(
+                                "schema",
+                                Collections.singletonMap("fields", literalSchemaFields()))));
+        configMap.put("sink", Collections.singletonList(Collections.emptyMap()));
+
+        Config resolved =
+                ConfigBuilder.substituteVariables(
+                        ConfigBuilder.of(configMap),
+                        Collections.singletonMap("jobName", "submitted"));
+
+        Assertions.assertEquals(
+                "prefix-submitted", resolved.getConfig("env").getString("job.name"));
+        assertLiteralSchemaFields(resolved);
+    }
+
+    @Test
+    public void testSubmittedStructuredVariablePreservesLiteralKeys() {
+        Config resolved =
+                ConfigBuilder.substituteVariables(
+                        ConfigFactory.parseString("payload = ${record}"),
+                        Collections.singletonMap(
+                                "record", "{\"^t_nova_.*$\": \"string\", \"a:b\": \"long\"}"));
+
+        Map<String, Object> expected = new LinkedHashMap<>();
+        expected.put("^t_nova_.*$", "string");
+        expected.put("a:b", "long");
+        Assertions.assertEquals(expected, resolved.getConfig("payload").root().unwrapped());
+    }
+
+    @Test
     public void testInvalidPathKeysSurviveConfigShadeRoundTrip() {
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("^t_nova_.*$", "string");
