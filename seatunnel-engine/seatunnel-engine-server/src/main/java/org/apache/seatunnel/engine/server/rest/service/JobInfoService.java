@@ -379,15 +379,17 @@ public class JobInfoService extends BaseService {
             if (basicInfo != null) {
                 return basicInfo;
             }
-        } catch (Throwable t) {
-            log.debug("Fast decode of job basic info failed for job {}", jobId, t);
+        } catch (Exception e) {
+            // Data that the fast path cannot read is expected here. Errors are not caught, so a
+            // fatal VM error is not followed by a full deserialization.
+            log.debug("Fast decode of job basic info failed for job {}", jobId, e);
         }
 
         // Fallback to full deserialization for compatibility.
         try {
             JobImmutableInformation obj = nodeEngine.getSerializationService().toObject(data);
             return obj == null ? null : new JobBasicInfo(obj.getJobName(), obj.getCreateTime());
-        } catch (Throwable ignored) {
+        } catch (Exception ignored) {
             return null;
         }
     }
@@ -440,6 +442,10 @@ public class JobInfoService extends BaseService {
         String jobName = in.readString();
         in.readBoolean(); // isStartWithSavePoint
         long createTime = in.readLong();
+        // The create time is an epoch timestamp, so anything else means misaligned reads.
+        if (createTime <= 0) {
+            return null;
+        }
         return new JobBasicInfo(jobName, createTime);
     }
 

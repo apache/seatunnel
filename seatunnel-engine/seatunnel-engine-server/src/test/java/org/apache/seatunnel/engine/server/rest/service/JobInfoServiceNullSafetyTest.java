@@ -156,7 +156,7 @@ class JobInfoServiceNullSafetyTest {
         long largeJobId = 0x0F1B2C3D4E5F6A01L;
         String jobName = "cdc_example";
         JobImmutableInformation information =
-                buildJobImmutableInformation(largeJobId, jobName, 20 * 1024 * 1024);
+                buildJobImmutableInformation(largeJobId, jobName, 17 * 1024 * 1024);
         Data data = serializationService.toData(information);
         Assertions.assertTrue(data.totalSize() > (1 << 24) + 1024);
 
@@ -200,6 +200,14 @@ class JobInfoServiceNullSafetyTest {
         basicInfo = invokeDecodeJobBasicInfo(jobId, new JobInfo(1L, otherData));
         Assertions.assertEquals("other-job", getFieldValue(basicInfo, "jobName"));
         Assertions.assertEquals(other.getCreateTime(), getFieldValue(basicInfo, "createTime"));
+
+        // A create time that is not a timestamp is not trusted either.
+        for (long implausibleCreateTime : new long[] {0L, -1L, Long.MIN_VALUE}) {
+            Data implausibleData =
+                    serializationService.toData(
+                            new LegacyJobImmutableInformation(jobId, implausibleCreateTime));
+            Assertions.assertNull(invokeDecodeJobBasicInfoFromPrefix(jobId, implausibleData));
+        }
 
         // Not a DataSerializable at all.
         Assertions.assertNull(
