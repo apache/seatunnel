@@ -218,6 +218,26 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                 ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE
                                         .key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.WorkerServerConfigOptions
+                    .MAX_PROMOTED_COOPERATIVE_WORKERS
+                    .key()
+                    .equals(name)) {
+                engineConfig.setMaxPromotedCooperativeWorkers(
+                        getIntegerValue(
+                                ServerConfigOptions.WorkerServerConfigOptions
+                                        .MAX_PROMOTED_COOPERATIVE_WORKERS
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.WorkerServerConfigOptions
+                    .MAX_PROMOTED_COOPERATIVE_WORKERS_PER_JOB
+                    .key()
+                    .equals(name)) {
+                engineConfig.setMaxPromotedCooperativeWorkersPerJob(
+                        getIntegerValue(
+                                ServerConfigOptions.WorkerServerConfigOptions
+                                        .MAX_PROMOTED_COOPERATIVE_WORKERS_PER_JOB
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT
                     .key()
                     .equals(name)) {
