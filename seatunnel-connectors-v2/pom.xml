@@ -112,6 +112,7 @@
         <module>connector-amazondocumentdb</module>
         <module>connector-azurecosmosdb</module>
         <module>connector-nats-jetstream</module>
+        <module>connector-splunk</module>
         <module>connector-firebase</module>
         <module>connector-websocket</module>
     </modules>
