@@ -72,6 +72,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
+import org.apache.seatunnel.engine.core.parse.TransformDependencyScheduler.ScheduledTransform;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
@@ -92,12 +93,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -107,6 +106,7 @@ import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
 import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getFactoryId;
 import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getInputIds;
+import static org.apache.seatunnel.engine.core.parse.TransformDependencyScheduler.scheduleTransforms;
 
 @Slf4j
 public class MultipleTableJobConfigParser {
@@ -467,45 +467,57 @@ public class MultipleTableJobConfigParser {
             return;
         }
         Set<String> usedTransformNames = new HashSet<>();
-        Queue<Config> configList = new LinkedList<>(transformConfigs);
-        int index = 0;
-        while (!configList.isEmpty()) {
+        List<ScheduledTransform> scheduledTransforms =
+                scheduleTransforms(transformConfigs, tableWithActionMap.keySet());
+        for (ScheduledTransform scheduledTransform : scheduledTransforms) {
             parseTransform(
-                    index++, configList, classLoader, tableWithActionMap, usedTransformNames);
+                    scheduledTransform.getActionIndex(),
+                    scheduledTransform.getConfig(),
+                    scheduledTransform.isLegacyFallback(),
+                    classLoader,
+                    tableWithActionMap,
+                    usedTransformNames);
         }
     }
 
     private void parseTransform(
             int index,
-            Queue<Config> transforms,
+            Config config,
+            boolean legacyFallback,
             ClassLoader classLoader,
             LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap,
             Set<String> usedTransformNames) {
-        Config config = transforms.poll();
         final ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
         final String factoryId = getFactoryId(readonlyConfig);
-        // get jar urls
-        Set<URL> jarUrls = new HashSet<>();
-        jarUrls.addAll(getTransformPluginJarPaths(config));
         final List<String> inputIds = getInputIds(readonlyConfig);
 
-        List<Tuple2<CatalogTable, Action>> inputs =
-                inputIds.stream()
-                        .map(tableWithActionMap::get)
-                        .filter(Objects::nonNull)
-                        .flatMap(Collection::stream)
-                        .collect(Collectors.toList());
-        if (inputs.isEmpty()) {
-            if (transforms.isEmpty()) {
-                // Tolerates incorrect configuration of simple graph
-                inputs = findLast(tableWithActionMap);
-            } else {
-                // The previous transform has not been created
-                transforms.offer(config);
-                return;
+        List<Tuple2<CatalogTable, Action>> inputs;
+        if (legacyFallback) {
+            // Tolerates incorrect configuration of a legacy simple graph.
+            inputs = findLast(tableWithActionMap);
+        } else {
+            List<String> missingInputIds =
+                    inputIds.stream()
+                            .filter(inputId -> !tableWithActionMap.containsKey(inputId))
+                            .collect(Collectors.toList());
+            if (!missingInputIds.isEmpty()) {
+                throw new JobDefineCheckException(
+                        "Transform '"
+                                + readonlyConfig
+                                        .getOptional(ConnectorCommonOptions.PLUGIN_OUTPUT)
+                                        .orElse(DEFAULT_ID)
+                                + "' is missing scheduled inputs "
+                                + missingInputIds);
             }
+            inputs =
+                    inputIds.stream()
+                            .map(tableWithActionMap::get)
+                            .flatMap(Collection::stream)
+                            .collect(Collectors.toList());
         }
 
+        // Plugin discovery only happens after all configured dependencies are available.
+        Set<URL> jarUrls = new HashSet<>(getTransformPluginJarPaths(config));
         final String tableId =
                 readonlyConfig.getOptional(ConnectorCommonOptions.PLUGIN_OUTPUT).orElse(DEFAULT_ID);
 
