@@ -94,6 +94,11 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertEquals(
                 32L * 1024 * 1024,
                 config.getEngineConfig().getHttpConfig().getLogResponseMaxSizeBytes());
+        // public-url is read by LogService to build log links behind an Ingress; a missing parse
+        // branch would leave it null and silently disable the feature.
+        Assertions.assertEquals(
+                "https://seatunnel.example.com/zeta",
+                config.getEngineConfig().getHttpConfig().getPublicUrl());
         Assertions.assertEquals(
                 30, config.getEngineConfig().getCoordinatorServiceConfig().getCoreThreadNum());
         Assertions.assertEquals(
