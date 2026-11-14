@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.common.error.RowErrorPhase;
 import org.apache.seatunnel.api.common.metrics.ThreadSafeCounter;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -27,6 +28,10 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.StateRestoreException;
+import org.apache.seatunnel.engine.server.checkpoint.StateRestoreExceptionTest;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
@@ -49,6 +54,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -411,6 +417,44 @@ class SinkFlowLifeCycleErrorOutcomeTest {
 
         Assertions.assertTrue(multiTableHandler.consumeCollectedRowErrorOutcome(row));
         Assertions.assertEquals(1, writtenOutcomes.get());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void unreadableWriterStateNamesTheActionOnRestore() throws Exception {
+        SeaTunnelSink<SeaTunnelRow, Serializable, String, String> sink =
+                Mockito.mock(SeaTunnelSink.class);
+        Mockito.when(sink.getPluginName()).thenReturn("FakeSink");
+        Mockito.when(sink.getWriterStateSerializer())
+                .thenReturn(Optional.of(new DefaultSerializer<>()));
+        SinkAction<SeaTunnelRow, Serializable, String, String> action =
+                new SinkAction<>(7L, "sink", sink, Collections.emptySet(), Collections.emptySet());
+        SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, Serializable> flow =
+                new SinkFlowLifeCycle<>(
+                        action,
+                        TASK_LOCATION,
+                        0,
+                        task,
+                        null,
+                        false,
+                        new CompletableFuture<>(),
+                        new SeaTunnelMetricsContext());
+        flow.init();
+        ActionSubtaskState state =
+                new ActionSubtaskState(
+                        new ActionStateKey("ActionStateKey - sink"),
+                        0,
+                        Collections.singletonList(
+                                StateRestoreExceptionTest.stateWrittenByAnOlderVersion()));
+
+        StateRestoreException e =
+                Assertions.assertThrows(
+                        StateRestoreException.class,
+                        () -> flow.restoreState(Collections.singletonList(state)));
+
+        StateRestoreExceptionTest.assertUpgradeFailure(e, "sink", "FakeSink", 1L, 1);
+        Mockito.verify(sink, Mockito.never()).restoreWriter(Mockito.any(), Mockito.anyList());
     }
 
     @SuppressWarnings("unchecked")
