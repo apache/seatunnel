@@ -145,7 +145,7 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
             SeaTunnelRow rowBefore = convertJsonNode(oldNode);
             for (int f = 0; f < fieldCount; f++) {
                 assert rowBefore != null;
-                if (rowBefore.isNullAt(f) && oldNode.findValue(fieldNames[f]) == null) {
+                if (rowBefore.isNullAt(f) && oldNode.get(fieldNames[f]) == null) {
                     // fields in "old" (before) means the fields are changed
                     // fields not in "old" (before) means the fields are not changed
                     // so we just copy the not changed fields into before

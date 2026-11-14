@@ -158,6 +158,60 @@ public class CanalJsonSerDeSchemaTest {
                 String.format("Unknown operation type '%s'.", unknownType));
     }
 
+    @Test
+    public void testDeserializeUpdateWithOldImageOfMultipleRows() throws Exception {
+        final CanalJsonDeserializationSchema deserializationSchema =
+                createCanalJsonDeserializationSchema(null, null);
+        final SimpleCollector collector = new SimpleCollector();
+        // "old" is an array parallel to "data": the first row only changed weight
+        // and the second row only changed name
+        String multiRowUpdateMsg =
+                "{\"type\":\"UPDATE\","
+                        + "\"data\":["
+                        + "{\"id\":1,\"name\":\"alpha\",\"description\":\"d1\",\"weight\":5.0},"
+                        + "{\"id\":2,\"name\":\"b0\",\"description\":\"d2\",\"weight\":9.0}],"
+                        + "\"old\":[{\"weight\":4.0},{\"name\":\"a0\"}],"
+                        + "\"ts\":1598944202218,\"database\":\"\",\"table\":\"test\"}";
+
+        deserializationSchema.deserialize(
+                multiRowUpdateMsg.getBytes(StandardCharsets.UTF_8), collector);
+
+        List<String> expected =
+                Arrays.asList(
+                        "SeaTunnelRow{tableId=..test, kind=-U, fields=[1, alpha, d1, 4.0]}",
+                        "SeaTunnelRow{tableId=..test, kind=+U, fields=[1, alpha, d1, 5.0]}",
+                        "SeaTunnelRow{tableId=..test, kind=-U, fields=[2, a0, d2, 9.0]}",
+                        "SeaTunnelRow{tableId=..test, kind=+U, fields=[2, b0, d2, 9.0]}");
+        List<String> actual =
+                collector.list.stream().map(Object::toString).collect(Collectors.toList());
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    public void testDeserializeUpdateWithNullFieldInOldImage() throws Exception {
+        final CanalJsonDeserializationSchema deserializationSchema =
+                createCanalJsonDeserializationSchema(null, null);
+        final SimpleCollector collector = new SimpleCollector();
+        // an explicitly null field in "old" is a changed field, the before image keeps the null
+        String nullFieldUpdateMsg =
+                "{\"type\":\"UPDATE\","
+                        + "\"data\":[{\"id\":3,\"name\":\"gamma\",\"description\":\"d3\","
+                        + "\"weight\":6.0}],"
+                        + "\"old\":[{\"description\":null}],"
+                        + "\"ts\":1598944202218,\"database\":\"\",\"table\":\"test\"}";
+
+        deserializationSchema.deserialize(
+                nullFieldUpdateMsg.getBytes(StandardCharsets.UTF_8), collector);
+
+        List<String> expected =
+                Arrays.asList(
+                        "SeaTunnelRow{tableId=..test, kind=-U, fields=[3, gamma, null, 6.0]}",
+                        "SeaTunnelRow{tableId=..test, kind=+U, fields=[3, gamma, d3, 6.0]}");
+        List<String> actual =
+                collector.list.stream().map(Object::toString).collect(Collectors.toList());
+        assertEquals(expected, actual);
+    }
+
     public void runTest(List<String> lines, CanalJsonDeserializationSchema deserializationSchema)
             throws IOException {
         SimpleCollector collector = new SimpleCollector();

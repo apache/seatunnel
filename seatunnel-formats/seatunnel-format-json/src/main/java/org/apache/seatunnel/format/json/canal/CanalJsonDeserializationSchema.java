@@ -168,9 +168,12 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                     final ArrayNode oldNode = (ArrayNode) jsonNode.get(FIELD_OLD);
                     for (int i = 0; i < dataNode.size(); i++) {
                         SeaTunnelRow after = convertJsonNode(dataNode.get(i));
-                        SeaTunnelRow before = convertJsonNode(oldNode.get(i));
+                        // "old" is an array parallel to "data", so the before image of the i-th
+                        // after row is built from oldNode.get(i) only
+                        JsonNode oldRowNode = oldNode.get(i);
+                        SeaTunnelRow before = convertJsonNode(oldRowNode);
                         for (int f = 0; f < fieldCount; f++) {
-                            if (before.isNullAt(f) && oldNode.findValue(fieldNames[f]) == null) {
+                            if (before.isNullAt(f) && oldRowNode.get(fieldNames[f]) == null) {
                                 // fields in "old" (before) means the fields are changed
                                 // fields not in "old" (before) means the fields are not changed
                                 // so we just copy the not changed fields into before

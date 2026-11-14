@@ -54,6 +54,9 @@ Note: please refer to MaxWell documentation about the meaning of each fields.
 
 The MySQL products table has 4 columns (id, name, description and weight).
 The above JSON message is an update change event on the products table where the weight value of the row with id = 111 is changed from 5.18 to 5.15.
+
+The `old` object contains only the columns changed by the update. Only columns that appear directly in `old` count as changed: if a column name merely occurs inside a nested object of `old`, the top-level column is still treated as unchanged and is filled from the current row in `data`. For example, with `"old": { "weight": 5.15 }` only `weight` differs, so the before image keeps `id`, `name` and `description` from `data` and takes `weight` from `old`. A column explicitly set to JSON `null` in `old` counts as changed, and that `null` value is kept.
+
 Assuming the messages have been synchronized to Kafka topic products_binlog, then we can use the following Seatunnel to consume this topic and interpret the change events.
 
 ```bash

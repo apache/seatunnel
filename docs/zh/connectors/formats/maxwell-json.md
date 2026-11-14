@@ -54,6 +54,9 @@ Maxwell 为变更日志提供了一种统一的格式，以下是一个从 MySQL
 
 MySQL products 表有 4 列（id、name、description 和 weight）。
 上面的 JSON 消息是 products 表上的一个更新变更事件，其中 id = 111 的行的 weight 值从 5.18 更改为 5.15。
+
+`old` 对象中只包含本次更新发生变更的列。只有直接出现在 `old` 中的列才视为已变更：如果列名只是出现在 `old` 的某个嵌套对象内部，对应的顶层列仍视为未变更，会使用 `data` 中当前行的值填充。例如 `"old": { "weight": 5.15 }` 表示只有 `weight` 发生变化，因此前镜像的 `id`、`name`、`description` 取自 `data`，`weight` 取自 `old`。若列在 `old` 中被显式设置为 JSON `null`，则视为已变更，并保留该 `null` 值。
+
 假设消息已同步到 Kafka 主题 products_binlog，那么我们可以使用以下 SeaTunnel 来消费此主题并解释变更事件。
 
 ```bash
