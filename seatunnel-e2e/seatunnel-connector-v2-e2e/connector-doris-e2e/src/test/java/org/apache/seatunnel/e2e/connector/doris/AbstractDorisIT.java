@@ -19,6 +19,8 @@ package org.apache.seatunnel.e2e.connector.doris;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
@@ -40,10 +42,12 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
@@ -70,6 +74,32 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
     private static final String DROP_BE = "ALTER SYSTEM DROPP BACKEND \"127.0.0.1:9050\"";
     private static final String ADD_BE = "ALTER SYSTEM ADD BACKEND \"%s:9050\"";
     protected static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
+
+    /**
+     * Columns of the shared test tables that hold LARGEINT inside a MAP or ARRAY. Spark supports
+     * DECIMAL precision up to 38, so it cannot carry LARGEINT (DECIMAL(39, 0)) there and the Spark
+     * jobs leave these columns out. DorisIT#testNestedLargeintFailsOnSpark checks the error.
+     */
+    protected static final List<String> NESTED_LARGEINT_COLUMNS =
+            Arrays.asList(
+                    "MAP_SMALLINT_LARGEINT", "MAP_LARGEINT_DOUBLE", "F_ARRAY_STRING_LARGEINT");
+
+    protected static boolean isSpark(TestContainer container) {
+        return container.identifier().getEngineType() == EngineType.SPARK;
+    }
+
+    /** Returns the Spark variant under {@code /spark} on Spark, otherwise the config itself. */
+    protected static String jobConfig(TestContainer container, String confFile) {
+        return isSpark(container) ? "/spark" + confFile : confFile;
+    }
+
+    /** Returns the columns a job on this engine reads, from a comma-separated column list. */
+    protected static List<String> readColumns(TestContainer container, String columns) {
+        return Arrays.stream(columns.split(","))
+                .map(String::trim)
+                .filter(column -> !isSpark(container) || !NESTED_LARGEINT_COLUMNS.contains(column))
+                .collect(Collectors.toList());
+    }
 
     @BeforeAll
     @Override
