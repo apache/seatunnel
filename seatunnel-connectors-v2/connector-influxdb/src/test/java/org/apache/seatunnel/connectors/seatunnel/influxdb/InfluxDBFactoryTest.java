@@ -17,11 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.sink.InfluxDBSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.source.InfluxDBSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.HashMap;
+import java.util.Map;
 
 class InfluxDBFactoryTest {
 
@@ -29,5 +36,48 @@ class InfluxDBFactoryTest {
     void optionRule() {
         Assertions.assertNotNull((new InfluxDBSourceFactory()).optionRule());
         Assertions.assertNotNull((new InfluxDBSinkFactory()).optionRule());
+    }
+
+    @Test
+    void testSinkOptionRuleSuccess() {
+        Map<String, Object> map = new HashMap<>();
+        map.put(InfluxDBSinkOptions.URL.key(), "http://localhost:8086");
+        map.put(InfluxDBSinkOptions.DATABASES.key(), "test_db");
+        map.put(InfluxDBSinkOptions.USERNAME.key(), "admin");
+        map.put(InfluxDBSinkOptions.PASSWORD.key(), "123456");
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(map);
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.of(config)
+                                .validate((new InfluxDBSinkFactory()).optionRule()));
+    }
+
+    @Test
+    void testSinkOptionRuleMissingRequired() {
+        Map<String, Object> map = new HashMap<>();
+        map.put(InfluxDBSinkOptions.URL.key(), "http://localhost:8086");
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(map);
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.of(config)
+                                .validate((new InfluxDBSinkFactory()).optionRule()));
+    }
+
+    @Test
+    void testSinkOptionRuleBundledFailed() {
+        Map<String, Object> map = new HashMap<>();
+        map.put(InfluxDBSinkOptions.URL.key(), "http://localhost:8086");
+        map.put(InfluxDBSinkOptions.DATABASES.key(), "test_db");
+        map.put(InfluxDBSinkOptions.USERNAME.key(), "admin");
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(map);
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.of(config)
+                                .validate((new InfluxDBSinkFactory()).optionRule()));
     }
 }

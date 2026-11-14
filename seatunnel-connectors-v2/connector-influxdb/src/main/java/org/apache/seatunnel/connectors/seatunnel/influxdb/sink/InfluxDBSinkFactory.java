@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.influxdb.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -69,6 +70,9 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
+
+        ConfigValidator.of(config).validate(optionRule());
+
         if (!config.getOptional(InfluxDBSinkOptions.KEY_MEASUREMENT).isPresent()) {
             Map<String, String> map = config.toMap();
             map.put(
