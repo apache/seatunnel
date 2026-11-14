@@ -80,7 +80,7 @@ Couchbase stores JSON documents. The connector maps SeaTunnel types to JSON valu
 | collection            | String        | Yes      | -          | Target collection name. |
 | ready.timeout         | Integer       | No       | `30`       | Maximum seconds to wait for the target bucket to become ready during writer initialization. Must be greater than zero. |
 | primary-key           | `List<String>` | No       | -          | Field names used to build the document key (length-prefixed encoding: `<len>:<value>` components separated by `#`). A random UUID is used when not set. |
-| upsert-enable         | Boolean       | No       | `false`    | Enable upsert (insert-or-replace) mode. When `false`, duplicate keys will cause an error. |
+| upsert-enable         | Boolean       | No       | `false`    | Enable upsert (insert-or-replace) mode. When `false`, duplicate keys will cause an error. Requires `primary-key` to be configured; the job fails at startup when `upsert-enable = true` without `primary-key`. |
 | buffer-flush.max-rows | Integer       | No       | `1000`     | Maximum rows to buffer before a batch write is triggered. Use `-1` to disable. |
 | retry.max             | Integer       | No       | `3`        | Maximum retry attempts on transient write failure. |
 | retry.interval        | Long          | No       | `1000`     | Base milliseconds for linear retry delay. Attempt `n` waits `retry.interval × n` ms. |
