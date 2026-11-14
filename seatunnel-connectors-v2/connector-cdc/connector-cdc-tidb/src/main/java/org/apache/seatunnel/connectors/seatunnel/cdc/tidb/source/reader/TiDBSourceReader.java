@@ -99,16 +99,21 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
         this.catalogTable = catalogTable;
     }
 
-    /** Open the source reader. */
+    /**
+     * Initializes the TiKV session and both deserializers with the factory-discovered key layout.
+     * Table-layout discovery stays outside the per-record polling and transaction-buffering paths.
+     */
     @Override
     public void open() throws Exception {
         this.session = TiSession.create(config.getTiConfiguration());
         TiTableInfo tableInfo =
                 session.getCatalog().getTable(config.getDatabaseName(), config.getTableName());
         this.snapshotRecordDeserializer =
-                new SeaTunnelRowSnapshotRecordDeserializer(tableInfo, catalogTable);
+                new SeaTunnelRowSnapshotRecordDeserializer(
+                        tableInfo, catalogTable, config.isClusteredPrimaryKey());
         this.streamingRecordDeserializer =
-                new SeaTunnelRowStreamingRecordDeserializer(tableInfo, catalogTable);
+                new SeaTunnelRowStreamingRecordDeserializer(
+                        tableInfo, catalogTable, config.isClusteredPrimaryKey());
         log.info(
                 "{} Reader opened, database={}, table={}, startupMode={}, batchSize={},"
                         + " scanTimeout={}, requestTimeout={}.",
