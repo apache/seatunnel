@@ -70,6 +70,17 @@ public class ClientCommandArgs extends AbstractCommandArgs {
             converter = SeaTunnelMasterTargetConverter.class)
     private MasterType masterType = MasterType.CLUSTER;
 
+    /**
+     * Optional local member override. {@code null} preserves configured port and join behavior;
+     * {@code 0} asks the OS to select a port. Keep the null default for existing local jobs.
+     */
+    @Parameter(
+            names = {"-port", "--hazelcast-port"},
+            description =
+                    "Set Hazelcast port for local mode. Port 0 means random assignment. Only valid in local mode.",
+            validateWith = PortValidator.class)
+    private Integer hazelcastPort = null;
+
     @Parameter(
             names = {"-r", "--restore", "--restore-job"},
             description = "restore with savepoint by jobId")
@@ -256,6 +267,12 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     /** Validates options that depend on other command-line arguments. */
     public void validateCommandOptions() {
+        if (hazelcastPort != null) {
+            new PortValidator().validate("--hazelcast-port", String.valueOf(hazelcastPort));
+            if (masterType != MasterType.LOCAL) {
+                throw new ParameterException("--hazelcast-port requires --master local.");
+            }
+        }
         validateSampleOptions();
         if (dryRun == DryRun.SAMPLE) {
             validateSampleMode();
@@ -351,6 +368,29 @@ public class ClientCommandArgs extends AbstractCommandArgs {
                         "\n******************************************************************************************"
                                 + "\n-e and --deploy-mode deprecated in 2.3.1, please use -m and --master instead of it"
                                 + "\n******************************************************************************************");
+            }
+        }
+    }
+
+    /**
+     * Validates the Hazelcast port parameter before local member startup. Zero delegates port
+     * selection to the operating system, while positive values must fit the TCP port range.
+     */
+    public static class PortValidator implements IParameterValidator {
+        @Override
+        public void validate(String name, String value) throws ParameterException {
+            try {
+                int port = Integer.parseInt(value);
+                if (port < 0 || port > 65535) {
+                    throw new ParameterException(
+                            "Parameter "
+                                    + name
+                                    + " should be between 0 and 65535, found: "
+                                    + value);
+                }
+            } catch (NumberFormatException e) {
+                throw new ParameterException(
+                        "Parameter " + name + " should be a valid port number, found: " + value);
             }
         }
     }
