@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
-import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
@@ -67,41 +64,37 @@ public class CheckpointBarrierTriggerOperation extends TaskOperation {
         barrier = in.readObject();
     }
 
+    /**
+     * Hands the barrier to the target task on this worker.
+     *
+     * <p>No task of a pipeline starts before every task has reported that it is ready, so when a
+     * barrier exists, its target task group is already registered on this worker. If it cannot be
+     * found, that deployment has ended. The barrier is not retried: a pipeline restore deploys a
+     * new task group at the same location, and a retried barrier would reach that deployment, which
+     * belongs to a new checkpoint coordinator and never completes this checkpoint.
+     */
     @Override
     public void runInternal() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(
-                () -> {
-                    Task task =
-                            server.getTaskExecutionService()
-                                    .getExecutionContext(taskLocation.getTaskGroupLocation())
-                                    .getTaskGroup()
-                                    .getTask(taskLocation.getTaskID());
-                    task.getExecutionContext()
-                            .getTaskExecutionService()
-                            .asyncExecuteFunction(
-                                    taskLocation.getTaskGroupLocation(),
-                                    () -> {
-                                        try {
-                                            log.debug(
-                                                    "CheckpointBarrierTriggerOperation [{}]",
-                                                    taskLocation);
-                                            task.triggerBarrier(barrier);
-                                        } catch (Exception e) {
-                                            task.getExecutionContext()
-                                                    .sendToMaster(
-                                                            new CheckpointErrorReportOperation(
-                                                                    taskLocation, e));
-                                        }
-                                    });
-                    return null;
-                },
-                new RetryUtils.RetryMaterial(
-                        Constant.OPERATION_RETRY_TIME,
-                        true,
-                        exception ->
-                                exception instanceof TaskGroupContextNotFoundException
-                                        && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
-                        Constant.OPERATION_RETRY_SLEEP));
+        Task task =
+                server.getTaskExecutionService()
+                        .getExecutionContext(taskLocation.getTaskGroupLocation())
+                        .getTaskGroup()
+                        .getTask(taskLocation.getTaskID());
+        task.getExecutionContext()
+                .getTaskExecutionService()
+                .asyncExecuteFunction(
+                        taskLocation.getTaskGroupLocation(),
+                        () -> {
+                            try {
+                                log.debug("CheckpointBarrierTriggerOperation [{}]", taskLocation);
+                                task.triggerBarrier(barrier);
+                            } catch (Exception e) {
+                                task.getExecutionContext()
+                                        .sendToMaster(
+                                                new CheckpointErrorReportOperation(
+                                                        taskLocation, e));
+                            }
+                        });
     }
 }
