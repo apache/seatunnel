@@ -239,6 +239,30 @@ class SeaTunnelContainerThreadExemptionTest {
     // Sanity — existing global system threads must still pass isSystemThread
     // -------------------------------------------------------------------------
 
+    @ParameterizedTest
+    @ValueSource(strings = {"G1 Refine#0", "G1 Refine#6", "G1 Refine#123"})
+    void isSystemThread_g1RefinementWorkers_returnsTrue(String threadName) throws Exception {
+        assertTrue(isSystemThread(threadName));
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "G1 Refine",
+                "G1 Refine#",
+                "G1 Refine#-1",
+                "G1 Refine#x",
+                "G1 Refine#6-worker",
+                "app-G1 Refine#6",
+                "G1 Refine#6 ",
+                "G1 Refine#6\n",
+                "G1 Refine#6\nworker",
+                "G1 application-worker"
+            })
+    void isSystemThread_g1RefinementNearNames_returnsFalse(String threadName) throws Exception {
+        assertFalse(isSystemThread(threadName));
+    }
+
     @ParameterizedTest(name = "isSystemThread(\"{0}\") must still be true")
     @ValueSource(
             strings = {

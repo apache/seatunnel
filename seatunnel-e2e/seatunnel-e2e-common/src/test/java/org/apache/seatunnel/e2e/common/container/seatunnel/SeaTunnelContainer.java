@@ -90,6 +90,7 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     public static final String CLIENT_JVM_OPTION_PROPERTY =
             "seatunnel.e2e.seatunnel.client.jvm.option";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final Pattern G1_REFINEMENT_THREAD = Pattern.compile("G1 Refine#[0-9]+");
     private static final String REST_STOP_JOB_PATH = "/stop-job";
     private static final String REST_CHECKPOINT_OVERVIEW_PATH = "/jobs/checkpoints";
     // Must stay a full JDK image: ContainerUtil inspects the running server with jps/jstack/jmap
@@ -675,6 +676,8 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                 || s.startsWith("seatunnel-metrics-fetch-")
                 || s.startsWith("pending-job-schedule-runner")
                 || s.startsWith("GC task thread")
+                // G1 may start native refinement workers after the pre-job thread snapshot.
+                || G1_REFINEMENT_THREAD.matcher(s).matches()
                 || s.contains("CompilerThread")
                 || s.startsWith("SeaTunnel-CompletableFuture-Thread-")
                 || s.contains("NioNetworking-closeListenerExecutor")
