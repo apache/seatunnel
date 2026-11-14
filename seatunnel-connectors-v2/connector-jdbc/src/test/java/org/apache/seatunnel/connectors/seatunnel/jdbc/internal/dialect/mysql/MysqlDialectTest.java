@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringRangeSplitDec
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,6 +46,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.zip.CRC32;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Slf4j
 public class MysqlDialectTest {
@@ -125,6 +131,54 @@ public class MysqlDialectTest {
                         3);
 
         Assertions.assertTrue(decision.isSafe());
+    }
+
+    @Test
+    public void testSampleDataFromColumnOrdersByDatabaseCollationForTablePath() throws Exception {
+        Connection connection = mock(Connection.class);
+        Statement stmt = mock(Statement.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
+                .thenReturn(stmt);
+        when(stmt.executeQuery(anyString())).thenReturn(rs);
+        when(rs.next()).thenReturn(false);
+
+        JdbcSourceTable table =
+                JdbcSourceTable.builder().tablePath(TablePath.of("mysql_db", "mysql_tbl")).build();
+
+        new MysqlDialect().sampleDataFromColumn(connection, table, "id", 1, 100);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(stmt).executeQuery(sqlCaptor.capture());
+        // The sample must be ordered by the database collation, not re-sorted on the Java
+        // side: chunk boundaries are later compared by the database in its own collation.
+        Assertions.assertEquals(
+                "SELECT `id` FROM `mysql_db`.`mysql_tbl` ORDER BY `id`", sqlCaptor.getValue());
+    }
+
+    @Test
+    public void testSampleDataFromColumnOrdersByDatabaseCollationForQuery() throws Exception {
+        Connection connection = mock(Connection.class);
+        Statement stmt = mock(Statement.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
+                .thenReturn(stmt);
+        when(stmt.executeQuery(anyString())).thenReturn(rs);
+        when(rs.next()).thenReturn(false);
+
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of("mysql_db", "mysql_tbl"))
+                        .query("SELECT id FROM custom_src WHERE x = 1")
+                        .build();
+
+        new MysqlDialect().sampleDataFromColumn(connection, table, "id", 1, 100);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(stmt).executeQuery(sqlCaptor.capture());
+        Assertions.assertEquals(
+                "SELECT `id` FROM (SELECT id FROM custom_src WHERE x = 1) AS T ORDER BY `id`",
+                sqlCaptor.getValue());
     }
 
     @Test

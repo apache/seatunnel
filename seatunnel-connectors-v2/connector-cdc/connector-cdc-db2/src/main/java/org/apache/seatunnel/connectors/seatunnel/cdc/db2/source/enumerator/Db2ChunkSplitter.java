@@ -58,7 +58,7 @@ public class Db2ChunkSplitter extends AbstractJdbcSourceChunkSplitter {
     public Object[] sampleDataFromColumn(
             JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
             throws Exception {
-        return Db2Utils.skipReadAndSortSampleData(jdbc, tableId, columnName, inverseSamplingRate);
+        return Db2Utils.sampleDataFromColumn(jdbc, tableId, columnName, inverseSamplingRate);
     }
 
     @Override

@@ -155,17 +155,23 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
             int samplingRate,
             int fetchSize)
             throws Exception {
+        // Order the sample by the database collation; see JdbcDialect#sampleDataFromColumn for
+        // why the keys must not be re-sorted on the Java side.
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sampleQuery =
                     String.format(
-                            "SELECT %s FROM (%s) AS T",
-                            quoteIdentifier(columnName), table.getQuery());
+                            "SELECT %s FROM (%s) AS T ORDER BY %s",
+                            quoteIdentifier(columnName),
+                            table.getQuery(),
+                            quoteIdentifier(columnName));
         } else {
             sampleQuery =
                     String.format(
-                            "SELECT %s FROM %s",
-                            quoteIdentifier(columnName), tableIdentifier(table.getTablePath()));
+                            "SELECT %s FROM %s ORDER BY %s",
+                            quoteIdentifier(columnName),
+                            tableIdentifier(table.getTablePath()),
+                            quoteIdentifier(columnName));
         }
 
         try (Statement stmt =
@@ -179,15 +185,21 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
                 while (rs.next()) {
                     count++;
                     if (count % samplingRate == 0) {
-                        results.add(rs.getObject(1));
+                        Object sampleValue = rs.getObject(1);
+                        // NULL must not become a chunk boundary; NULL keys never match any
+                        // range predicate anyway.
+                        if (sampleValue != null) {
+                            results.add(sampleValue);
+                        }
                     }
                     if (Thread.currentThread().isInterrupted()) {
                         throw new InterruptedException("Thread interrupted");
                     }
                 }
-                Object[] resultsArray = results.toArray();
-                Arrays.sort(resultsArray);
-                return resultsArray;
+                // Already ordered by the database (ORDER BY in sampleQuery); a Java-side
+                // Arrays.sort would re-order string keys by UTF-16 code units and misalign the
+                // chunk boundaries.
+                return results.toArray();
             }
         }
     }

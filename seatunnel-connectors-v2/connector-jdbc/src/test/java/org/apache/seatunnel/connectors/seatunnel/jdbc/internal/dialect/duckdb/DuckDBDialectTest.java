@@ -168,6 +168,34 @@ public class DuckDBDialectTest {
     }
 
     @Test
+    void testSampleDataFromColumnSkipsNullSamples() throws Exception {
+        // DuckDB orders NULLs last, so with a sampling rate of 2 the sampled positions
+        // 2,4,6,8 of [1,2,3,4,null,null,null,null] are [2,4,null,null]. NULL keys must be
+        // dropped instead of becoming chunk boundaries.
+        insertRows(1, null, 2, null, 3, null, 4, null);
+        Object[] samples = dialect.sampleDataFromColumn(connection, sourceTable, "id", 2, 100);
+        int[] sampleValues =
+                Arrays.stream(samples).mapToInt(value -> ((Number) value).intValue()).toArray();
+        Assertions.assertArrayEquals(new int[] {2, 4}, sampleValues);
+    }
+
+    @Test
+    void testSampleDataFromColumnReturnsDatabaseOrder() throws Exception {
+        // Inserted out of order on purpose: the sample must come back in the order the
+        // database returns for ORDER BY, not the physical insertion order.
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(
+                    String.format(
+                            "INSERT INTO \"%s\" VALUES (1, 'pear'), (2, 'Apple'), (3, 'apple'), "
+                                    + "(4, 'Banana'), (5, 'banana'), (6, 'Cherry')",
+                            TABLE_NAME));
+        }
+        Object[] samples = dialect.sampleDataFromColumn(connection, sourceTable, "name", 1, 100);
+        Assertions.assertArrayEquals(
+                new String[] {"Apple", "Banana", "Cherry", "apple", "banana", "pear"}, samples);
+    }
+
+    @Test
     void testQueryNextChunkMax() throws Exception {
         insertRows(IntStream.rangeClosed(1, 10).boxed().collect(Collectors.toList()).toArray());
         Object firstChunkMax = dialect.queryNextChunkMax(connection, sourceTable, "id", 3, 1);
