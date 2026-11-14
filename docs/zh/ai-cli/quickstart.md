@@ -13,6 +13,7 @@ sidebar_position: 2
   - **Anthropic API** —— `ANTHROPIC_API_KEY`
   - **OpenAI API**（或兼容 API）—— `OPENAI_API_KEY`
   - **OrcaRouter** —— `ORCAROUTER_API_KEY`
+  - **Cheaper Inference** —— `CHEAPER_INFERENCE_API_KEY`
 - （可选）SeaTunnel 安装目录，用于引擎级校验和作业执行
 
 ## 安装
@@ -68,6 +69,14 @@ export ORCAROUTER_API_KEY=orc_...
 # export ORCAROUTER_MODEL=orcarouter/auto
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
 # export ORCAROUTER_ECHO_REASONING_CONTENT=true   # 可选：保留并回传推理模型的 reasoning_content
+
+# 方式 E：Cheaper Inference LLM 网关
+export AI_PROVIDER=cheaperinference
+export CHEAPER_INFERENCE_API_KEY=ci_live_...
+# 模型 ID 不带前缀（如 gpt-5.4-mini、gpt-5.4、claude-sonnet-5）。
+# export CHEAPER_INFERENCE_MODEL=gpt-5.4-mini
+# export CHEAPER_INFERENCE_SMALL_FAST_MODEL=gpt-5.4-mini
+# export CHEAPER_INFERENCE_ECHO_REASONING_CONTENT=true   # 可选：保留并回传推理模型的 reasoning_content
 ```
 
 ### OrcaRouter AI 网关
@@ -93,6 +102,33 @@ seatunnel "Sync MySQL users table to S3 Parquet"
 该提供商使用 OpenAI Chat Completions 协议，因此完全支持 CLI 内部的工具调用循环
 （规划期间的连接器查询）、流式输出、多轮会话，以及兼容推理模型的
 reasoning_content 回放。
+
+### Cheaper Inference LLM 网关
+
+[Cheaper Inference](https://cheaperinference.com) 是一个 OpenAI 兼容的 LLM 网关，在单个端点
+（`https://api.cheaperinference.com/v1`）之后暴露多家实验室的模型——GPT、Claude、Gemini、
+DeepSeek、GLM 等。
+模型 ID 不带前缀，例如 `gpt-5.4-mini`、`gpt-5.4` 或 `claude-sonnet-5`。
+作为一等提供商配置：
+
+```bash
+# 需要 openai 包（复用 ".[openai]" extra）
+pip install -e ".[openai]"
+
+export AI_PROVIDER=cheaperinference
+export CHEAPER_INFERENCE_API_KEY=ci_live_...
+# export CHEAPER_INFERENCE_MODEL=claude-sonnet-5            # 可选覆盖
+# export CHEAPER_INFERENCE_SMALL_FAST_MODEL=gpt-5.4-mini    # 可选覆盖
+# export CHEAPER_INFERENCE_ECHO_REASONING_CONTENT=true      # 可选：回传 reasoning_content
+
+seatunnel "Sync MySQL users table to S3 Parquet"
+```
+
+该提供商使用 OpenAI Chat Completions 协议，因此支持 CLI 内部的工具调用循环、流式输出、
+多轮会话，以及兼容推理模型的 reasoning_content 回放。
+
+未设置 `CHEAPER_INFERENCE_MODEL` 时，回退到 `OPENAI_MODEL`。
+未设置 `AI_PROVIDER` 且同时设置了 `CHEAPER_INFERENCE_API_KEY` 和 `OPENAI_API_KEY` 时，自动检测选择 Cheaper Inference。
 
 ### bedrock-mantle：Bedrock 上的 OpenAI 系模型
 
