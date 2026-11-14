@@ -260,7 +260,7 @@ Source 插件常用参数，具体请参考 [Source 常用选项](../common-opti
 
 案例一
 
-> 案例一会从满足seatunnel-*匹配的索引中按照query读取数据，查询只会返回文档`id`,`name`,`age`,`tags`,`phones` 三个字段。在这个例子中，使用了source字段配置应该读取哪些字段,使用`array_column`指定了`tags`，`phones`应该被当做数组处理。
+> 案例一会从满足seatunnel-*匹配的索引中按照query读取数据，查询只会返回文档的`id`、`name`、`age`、`tags`、`phones` 五个字段。在这个例子中，使用了source字段配置应该读取哪些字段,使用`array_column`指定了`tags`，`phones`应该被当做数组处理。
 
 ```hocon
 Elasticsearch {
@@ -336,7 +336,7 @@ sink {
     tls_verify_certificate = false
     tls_verify_hostname = false
 
-    index = "multi_source_write_test_index"
+    index = "${table_name}_copy"
     index_type = "st"
     "schema_save_mode"="CREATE_SCHEMA_WHEN_NOT_EXIST"
     "data_save_mode"="APPEND_DATA"
