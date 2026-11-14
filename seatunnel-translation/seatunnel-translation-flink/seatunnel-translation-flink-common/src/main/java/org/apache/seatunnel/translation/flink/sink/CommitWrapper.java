@@ -26,6 +26,16 @@ package org.apache.seatunnel.translation.flink.sink;
 public class CommitWrapper<CommitT> {
     private final CommitT commit;
 
+    private transient boolean recovered;
+
+    public boolean isRecovered() {
+        return recovered;
+    }
+
+    public void markRecovered() {
+        recovered = true;
+    }
+
     public CommitWrapper(CommitT commit) {
         this.commit = commit;
     }
