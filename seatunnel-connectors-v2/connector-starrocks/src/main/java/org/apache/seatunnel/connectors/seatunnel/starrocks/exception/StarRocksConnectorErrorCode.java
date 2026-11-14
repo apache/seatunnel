@@ -27,7 +27,8 @@ public enum StarRocksConnectorErrorCode implements SeaTunnelErrorCode {
     SCAN_BE_DATA_FAILED("STARROCKS-05", "Scan data from StarRocks BE failed"),
     QUEST_QUERY_PLAN_FAILED("STARROCKS-06", "Request query Plan failed"),
     READER_ARROW_DATA_FAILED("STARROCKS-07", "Read Arrow data failed"),
-    HOST_IS_NULL("STARROCKS-08", "Read Arrow data failed");
+    HOST_IS_NULL("STARROCKS-08", "Read Arrow data failed"),
+    HOST_MAPPING_ILLEGAL("STARROCKS-09", "Config 'be_host_port_mapping' parse failed");
 
     private final String code;
     private final String description;

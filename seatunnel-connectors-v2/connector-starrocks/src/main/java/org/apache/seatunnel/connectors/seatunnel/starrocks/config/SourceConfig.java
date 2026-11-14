@@ -52,6 +52,7 @@ public class SourceConfig extends StarRocksConfig {
                             }
                         });
         this.tableConfigList = StarRocksSourceTableConfig.of(config);
+        this.beHostPortMapping = config.get(StarRocksSourceOptions.BE_HOST_PORT_MAPPING);
     }
 
     private int maxRetries = StarRocksSourceOptions.MAX_RETRIES.defaultValue();
@@ -63,6 +64,7 @@ public class SourceConfig extends StarRocksConfig {
     private int batchRows = StarRocksSourceOptions.SCAN_BATCH_ROWS.defaultValue();
     private int connectTimeoutMs = StarRocksSourceOptions.SCAN_CONNECT_TIMEOUT.defaultValue();
     private List<StarRocksSourceTableConfig> tableConfigList = new ArrayList<>();
+    private List<BeHostPortMapping> beHostPortMapping = new ArrayList<>();
 
     private Map<String, String> sourceOptionProps = new HashMap<>();
 }
