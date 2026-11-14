@@ -60,7 +60,9 @@ public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecuto
                 statementExecutor.executeBatch();
                 buffer.clear();
                 flushFailed = false;
-            } catch (SQLException e) {
+            } catch (SQLException | RuntimeException e) {
+                // Keep the buffered rows. closeStatements runs during reconnect and must not
+                // bind them again onto the statement this attempt just failed against.
                 flushFailed = true;
                 throw e;
             }
