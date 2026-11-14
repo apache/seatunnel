@@ -17,15 +17,19 @@
 package org.apache.seatunnel.core.starter.flink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.starter.flink.execution.FlinkRuntimeEnvironment;
 import org.apache.seatunnel.core.starter.flink.utils.EnvironmentUtil;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 import org.junit.jupiter.api.Assertions;
@@ -86,6 +90,45 @@ public class TestFlinkParameter {
         checkList.sort(null);
         ExternalSettingLists.sort(null);
         Assertions.assertIterableEquals(checkList, ExternalSettingLists);
+    }
+
+    /** env.min-pause must still take effect when checkpoint.timeout is configured */
+    @Test
+    public void testMinPauseAppliesTogetherWithCheckpointTimeout() {
+        CheckpointConfig checkpointConfig =
+                buildCheckpointConfig(
+                        "env { job.mode = \"STREAMING\", checkpoint.interval = 60000, "
+                                + "checkpoint.timeout = 120000, min-pause = 10000 }");
+
+        Assertions.assertEquals(120000L, checkpointConfig.getCheckpointTimeout());
+        Assertions.assertEquals(10000L, checkpointConfig.getMinPauseBetweenCheckpoints());
+    }
+
+    /** a negative min-pause means "not set", Flink only accepts zero or a positive value */
+    @Test
+    public void testNegativeMinPauseIsIgnored() {
+        CheckpointConfig checkpointConfig =
+                buildCheckpointConfig(
+                        "env { job.mode = \"STREAMING\", checkpoint.interval = 60000, "
+                                + "checkpoint.timeout = 120000, min-pause = -1 }");
+
+        Assertions.assertEquals(0L, checkpointConfig.getMinPauseBetweenCheckpoints());
+    }
+
+    /**
+     * Build the checkpoint config of one env block.
+     *
+     * <p>The runtime environment is a process wide singleton, so the config is applied explicitly
+     * instead of relying on the config that created the singleton first.
+     */
+    private static CheckpointConfig buildCheckpointConfig(String env) {
+        Config config = ConfigFactory.parseString(env);
+        FlinkRuntimeEnvironment runtime =
+                FlinkRuntimeEnvironment.getInstance(config)
+                        .setConfig(config.getConfig("env"))
+                        .setJobMode(JobMode.STREAMING)
+                        .prepare();
+        return runtime.getStreamExecutionEnvironment().getCheckpointConfig();
     }
 
     /** Test the relevant configurations associated with the yarn application mode */
