@@ -116,7 +116,7 @@ seatunnel:
 
     # 采样间隔：每 100 条记录采样 1 条（开发环境）
     # 生产环境推荐：100000-1000000
-    stain-trace-sample-interval: 100
+    stain-trace-sample-rate: 100
 
     # 本地文件存储根目录。该项必须显式配置。
     stain-trace-file-base-path: /tmp/seatunnel/traces
@@ -249,7 +249,7 @@ seatunnel:
     # 采样间隔：每 N 条记录采样 1 条（默认：100000）
     # 开发环境推荐：100-1000
     # 生产环境推荐：100000-1000000
-    stain-trace-sample-interval: 100000
+    stain-trace-sample-rate: 100000
 
     # 每个 Worker 每秒最大 Trace 数（默认：50）
     # 控制追踪量，防止事件风暴
@@ -313,7 +313,7 @@ env {
 |-------|------|-------|------|
 | **引擎级（seatunnel.yaml）** ||||
 | `stain-trace-enabled` | Boolean | false | 引擎级主开关，必须为 true 才能启用 |
-| `stain-trace-sample-interval` | Integer | 100000 | 采样间隔：每 N 条记录采样 1 条 |
+| `stain-trace-sample-rate` | Integer | 100000 | 采样间隔：每 N 条记录采样 1 条 |
 | `stain-trace-max-traces-per-second-per-worker` | Integer | 50 | 每个 Worker 每秒最大 Trace 数 |
 | `stain-trace-max-entries-per-trace` | Integer | 32 | 每条 Trace 最大阶段条目数 |
 | `stain-trace-propagate-to-all-splits` | Boolean | false | 是否传播到所有分裂输出 |
@@ -463,7 +463,7 @@ stain-trace-propagate-to-all-splits: true   # 所有分裂均继承
 
 ```yaml
 # 增大采样间隔以减少追踪数量
-stain-trace-sample-interval: 1000000  # 每 100 万条记录采样 1 条
+stain-trace-sample-rate: 1000000  # 每 100 万条记录采样 1 条
 
 # 增大文件大小限制
 stain-trace-file-max-size-mb: 50
@@ -510,7 +510,7 @@ public static void main(String[] args) {
 #### 开发环境配置（高采样率，便于调试）
 ```yaml
 stain-trace-enabled: true
-stain-trace-sample-interval: 100  # 每 100 条采样 1 条
+stain-trace-sample-rate: 100  # 每 100 条采样 1 条
 stain-trace-max-traces-per-second-per-worker: 1000
 stain-trace-max-entries-per-trace: 64
 stain-trace-file-base-path: /tmp/seatunnel/traces
@@ -528,7 +528,7 @@ stain-trace-file-flush-interval-seconds: 5  # 更频繁刷盘
 seatunnel:
   engine:
     stain-trace-enabled: true
-    stain-trace-sample-interval: 100000  # 每 10 万条采样 1 条
+    stain-trace-sample-rate: 100000  # 每 10 万条采样 1 条
     stain-trace-max-traces-per-second-per-worker: 50
     stain-trace-max-entries-per-trace: 32
     # 与 checkpoint.storage.plugin-config.namespace 保持相同存储根路径

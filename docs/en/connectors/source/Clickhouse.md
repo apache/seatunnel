@@ -41,14 +41,14 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 |-----------------------------------------------------------------------------------------------------------------------------------------------|---------------------|
 | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            | STRING              |
 | Int8                                                                                                                                          | TINYINT             |
-| UInt8 / Int16                                                                                                                                 | SMALLINT            |
-| UInt16 / Int32                                                                                                                                | INT                 |
-| UInt64 / Int64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond | BIGINT              |
+| Int16 / UInt8                                                                                                                                 | SMALLINT            |
+| Int32 / UInt16                                                                                                                                | INT                 |
+| Int64 / UInt32 / UInt64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond | BIGINT       |
 | Float64                                                                                                                                       | DOUBLE              |
 | Decimal                                                                                                                                       | DECIMAL             |
 | Float32                                                                                                                                       | FLOAT               |
 | Date                                                                                                                                          | DATE                |
-| DateTime                                                                                                                                      | TIMESTAMP           |
+| DateTime / DateTime32 / DateTime64                                                                                                            | TIMESTAMP           |
 | Array                                                                                                                                         | ARRAY               |
 | Map                                                                                                                                           | MAP                 |
 

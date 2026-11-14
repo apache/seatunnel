@@ -318,6 +318,10 @@ PDF 特有的解析行为如下：
 - 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
 - 需要按时间顺序处理文件
 
+### 临时安全凭证（OBS STS）
+
+本连接器当前无法使用 OBS STS 临时凭证。它只会将 `access_key`、`access_secret`、`endpoint` 三个选项映射到 Hadoop OBS 配置中，不支持透传 OBS STS 临时凭证必然携带的 session token（`ObsConf.buildWithReadonlyConfig` 仅安装这三个键），因此绑定 token 的临时凭证会在连接阶段失败。支持携带 security token 或凭证 provider 需要单独的、经过测试的连接器改动。请改为通过标准选项配置长期 AK/SK，并按目标 bucket 前缀设置最小权限策略；在共享环境中避免将长期 AK/SK 提交到作业配置文件。
+
 ## 任务示例
 
 ### text 文件
@@ -423,28 +427,7 @@ PDF 特有的解析行为如下：
 
 ```
 
-### 使用 OBS STS 临时安全凭证读取
-
-生产环境建议通过 [OBS STS](https://support.huaweicloud.com/intl/zh-cn/api-obs/obs_04_0081.html) 颁发临时 AK/SK，并配合细粒度自定义策略限制只能访问指定 bucket 前缀，再通过 `hadoop_obs_properties` 传给连接器。
-
-```hocon
-source {
-  ObsFile {
-    path = "/staging/prefix"
-    bucket = "obs://target-bucket"
-    endpoint = "obs.ap-southeast-1.myhuaweicloud.com"
-    hadoop_obs_properties = {
-      "fs.obs.access.key"    = "<临时-access-key>"
-      "fs.obs.secret.key"    = "<临时-secret-key>"
-      "fs.obs.session.token" = "<临时-security-token>"
-    }
-    file_format_type = "parquet"
-  }
-}
-```
-
-provider 的 jar 必须放在每个运行节点的 classpath（`${SEATUNNEL_HOME}/lib`）上。生产环境应避免在作业配置中硬编码长期 AK/SK；运行在华为云内时推荐使用 ECS 委托（Agency）或 STS 临时凭证。
-
 ## 变更日志
+
 
 <ChangeLog />
