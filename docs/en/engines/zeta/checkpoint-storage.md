@@ -294,11 +294,11 @@ seatunnel:
 
 For Kubernetes or EKS nodes backed by EC2, use `com.amazonaws.auth.InstanceProfileCredentialsProvider` as shown above and grant the node role only the required bucket and prefix permissions.
 
-The AWS SDK v1 bundled with the current checkpoint-storage dependencies does not contain `WebIdentityTokenCredentialsProvider`, so EKS IRSA is not supported. Do not configure an IRSA provider unless the runtime dependencies have been upgraded and validated together.
+Checkpoint storage and the distribution use AWS SDK v1.12.770, making `WebIdentityTokenCredentialsProvider` loadable. IRSA also requires the Kubernetes service account role, web identity token, and corresponding AWS environment variables to be configured.
 
 If `Factory initialize failed` or `ClassNotFoundException` appears, verify the provider class name and confirm that every master and worker accessing checkpoint storage has the required Hadoop/AWS jars.
 
-**Container environments**: Checkpoint storage passes `fs.s3a.*` configuration keys directly to Hadoop without any connector-level enum restriction, so any S3A credential provider class available on the classpath can be used. This includes container-oriented providers such as `com.amazonaws.auth.ContainerCredentialsProvider` (ECS task role) and `com.amazonaws.auth.DefaultAWSCredentialsProviderChain`. For EKS deployments, the EC2 node instance role is recommended. EKS IRSA (`WebIdentityTokenCredentialsProvider`) is not available in the bundled AWS SDK v1.x (1.11.271) and requires adding a newer AWS SDK v1.x JAR to `${SEATUNNEL_HOME}/lib` on all nodes.
+**Container environments**: Checkpoint storage passes `fs.s3a.*` configuration keys directly to Hadoop without any connector-level enum restriction, so any S3A credential provider class available on the classpath can be used. This includes container-oriented providers such as `com.amazonaws.auth.ContainerCredentialsProvider` (ECS task role) and `com.amazonaws.auth.DefaultAWSCredentialsProviderChain`. For EKS deployments, the EC2 node instance role is recommended. The bundled AWS SDK v1.12.770 contains the `WebIdentityTokenCredentialsProvider` used by EKS IRSA; every node accessing checkpoint storage must use the same dependency versions.
 
 If you want to use Minio that supports the S3 protocol as checkpoint storage, you should configure it this way:
 
@@ -322,6 +322,27 @@ seatunnel:
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
        # important: The user of this key needs to have write permission for the bucket, otherwise an exception of 403 will be returned
 ```
+
+If you are running SeaTunnel on **Kubernetes with IRSA (IAM Roles for Service Accounts)**, you can use `WebIdentityTokenCredentialsProvider`.
+You can config like this:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          storage.type: s3
+          s3.bucket: s3a://your-bucket
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.WebIdentityTokenCredentialsProvider
+```
+
+Note: this makes `WebIdentityTokenCredentialsProvider` loadable on the checkpoint-storage classpath (it requires an AWS SDK version this class ships in). The bundled `hadoop-aws` version has not been upgraded to the 3.3.x line, so broader Hadoop/AWS SDK alignment for IRSA across all S3-backed components is tracked separately.
 
 For additional reading on the Hadoop Credential Provider API, you can see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
