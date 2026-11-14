@@ -46,6 +46,10 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -54,8 +58,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcOpenGaussIT extends AbstractJdbcIT {
@@ -340,6 +348,8 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
                         .withNetwork(NETWORK)
                         .withNetworkAliases(OPEN_GAUSS_ALIASES)
                         .withEnv("GS_PASSWORD", PASSWORD)
+                        // The official OpenGauss image requires privileged mode for CI startup.
+                        .withPrivilegedMode(true)
                         .waitingFor(
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
@@ -348,6 +358,36 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
         container.addExposedPort(OPEN_GAUSS_PORT);
 
         return container;
+    }
+
+    /**
+     * Waits until OpenGauss can authenticate a real SQL session through the JDBC endpoint.
+     *
+     * <p>The first host-port readiness signal can arrive before OpenGauss accepts authenticated
+     * sessions, which makes downstream SeaTunnel JDBC catalog creation fail with EOF.
+     */
+    @Override
+    protected void beforeStartUP() {
+        given().ignoreExceptions()
+                .await()
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // Docker exec does not inherit the image entrypoint's gsql PATH.
+                            // Probe through the same driver and authenticated endpoint as the test.
+                            Driver driver = (Driver) loadDriverClass().newInstance();
+                            Properties properties = new Properties();
+                            properties.setProperty("user", USERNAME);
+                            properties.setProperty("password", PASSWORD);
+                            String jdbcUrl =
+                                    jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
+                            try (Connection probe = driver.connect(jdbcUrl, properties);
+                                    Statement statement = probe.createStatement();
+                                    ResultSet result = statement.executeQuery("SELECT 1")) {
+                                Assertions.assertTrue(result.next());
+                                Assertions.assertEquals(1, result.getInt(1));
+                            }
+                        });
     }
 
     @Override
