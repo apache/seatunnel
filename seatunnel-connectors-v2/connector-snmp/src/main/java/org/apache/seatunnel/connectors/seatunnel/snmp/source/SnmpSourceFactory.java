@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.snmp.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -43,13 +44,24 @@ public class SnmpSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .required(SnmpSourceOptions.HOST, Conditions.notBlank(SnmpSourceOptions.HOST))
                 .required(
-                        SnmpSourceOptions.HOST, SnmpSourceOptions.COMMUNITY, SnmpSourceOptions.OIDS)
+                        SnmpSourceOptions.COMMUNITY,
+                        Conditions.notBlank(SnmpSourceOptions.COMMUNITY))
+                .required(SnmpSourceOptions.OIDS)
                 .optional(
                         SnmpSourceOptions.PORT,
+                        Conditions.greaterOrEqual(SnmpSourceOptions.PORT, 1)
+                                .and(Conditions.lessOrEqual(SnmpSourceOptions.PORT, 65535)))
+                .optional(
                         SnmpSourceOptions.TIMEOUT_MILLIS,
+                        Conditions.greaterThan(SnmpSourceOptions.TIMEOUT_MILLIS, 0L))
+                .optional(
                         SnmpSourceOptions.RETRIES,
-                        SnmpSourceOptions.POLL_INTERVAL_MILLIS)
+                        Conditions.greaterOrEqual(SnmpSourceOptions.RETRIES, 0))
+                .optional(
+                        SnmpSourceOptions.POLL_INTERVAL_MILLIS,
+                        Conditions.greaterThan(SnmpSourceOptions.POLL_INTERVAL_MILLIS, 0L))
                 .build();
     }
 
