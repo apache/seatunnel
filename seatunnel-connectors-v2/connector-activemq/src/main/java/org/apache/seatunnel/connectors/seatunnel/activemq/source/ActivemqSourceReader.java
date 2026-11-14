@@ -33,6 +33,7 @@ import org.apache.activemq.transport.TransportDisposedIOException;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
+import javax.jms.InvalidSelectorException;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
@@ -54,11 +55,21 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.QUEUE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.URI;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.ALWAYS_SESSION_ASYNC;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CHECK_FOR_DUPLICATE;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CLIENT_ID;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CLOSE_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CONNECT_RESPONSE_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.CONSUMER_EXPIRY_CHECK_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.DISPATCH_ASYNC;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.URI;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqBaseOptions.WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.MAX_IN_FLIGHT_MESSAGES;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.MESSAGE_SELECTOR;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSourceOptions.RECEIVE_TIMEOUT;
 
 /**
  * Synchronous queue reader with checkpoint-scoped individual acknowledgements. JMS calls and local
@@ -67,6 +78,7 @@ import static org.apache.seatunnel.connectors.seatunnel.activemq.config.Activemq
  * broker.
  */
 public class ActivemqSourceReader implements SourceReader<SeaTunnelRow, Split> {
+
     private final ReadonlyConfig config;
     private final DeserializationSchema<SeaTunnelRow> deserializer;
     private final ConnectionFactory connectionFactory;
@@ -76,6 +88,7 @@ public class ActivemqSourceReader implements SourceReader<SeaTunnelRow, Split> {
     private final NavigableMap<Long, Long> checkpoints = new TreeMap<>();
     private final AtomicReference<Exception> failure = new AtomicReference<>();
     private final int maxInFlight;
+    private final int receiveTimeout;
     private long sequence;
     private volatile boolean closed;
     private volatile Connection connection;
@@ -83,8 +96,10 @@ public class ActivemqSourceReader implements SourceReader<SeaTunnelRow, Split> {
     private MessageConsumer consumer;
 
     public ActivemqSourceReader(
-            ReadonlyConfig config, DeserializationSchema<SeaTunnelRow> deserializer) {
-        this(config, deserializer, createConnectionFactory(config));
+            ReadonlyConfig config,
+            DeserializationSchema<SeaTunnelRow> deserializer,
+            int subtaskIndex) {
+        this(config, deserializer, createConnectionFactory(config, subtaskIndex));
     }
 
     ActivemqSourceReader(
@@ -95,9 +110,12 @@ public class ActivemqSourceReader implements SourceReader<SeaTunnelRow, Split> {
         this.deserializer = deserializer;
         this.connectionFactory = connectionFactory;
         this.maxInFlight = config.get(MAX_IN_FLIGHT_MESSAGES);
+        this.receiveTimeout = config.get(RECEIVE_TIMEOUT);
     }
 
-    private static ActiveMQConnectionFactory createConnectionFactory(ReadonlyConfig config) {
+    // Package-private so the factory wiring can be exercised in tests without a live broker.
+    static ActiveMQConnectionFactory createConnectionFactory(
+            ReadonlyConfig config, int subtaskIndex) {
         ActivemqSourceFactory.validate(config);
         ActiveMQConnectionFactory factory =
                 new ActiveMQConnectionFactory(config.get(URI) + "?connectionTimeout=10000");
@@ -109,8 +127,18 @@ public class ActivemqSourceReader implements SourceReader<SeaTunnelRow, Split> {
         factory.setWatchTopicAdvisories(false);
         factory.setTrustAllPackages(false);
         factory.setTrustedPackages(Collections.emptyList());
-        factory.setCloseTimeout(5000);
-        factory.setConnectResponseTimeout(10000);
+        factory.setCloseTimeout(config.getOptional(CLOSE_TIMEOUT).orElse(5000));
+        factory.setConnectResponseTimeout(
+                config.getOptional(CONNECT_RESPONSE_TIMEOUT).orElse(10000));
+        config.getOptional(CLIENT_ID)
+                .ifPresent(clientId -> factory.setClientID(clientId + "-" + subtaskIndex));
+        config.getOptional(ALWAYS_SESSION_ASYNC).ifPresent(factory::setAlwaysSessionAsync);
+        config.getOptional(CHECK_FOR_DUPLICATE).ifPresent(factory::setCheckForDuplicates);
+        config.getOptional(DISPATCH_ASYNC).ifPresent(factory::setDispatchAsync);
+        config.getOptional(WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT)
+                .ifPresent(factory::setWarnAboutUnstartedConnectionTimeout);
+        config.getOptional(CONSUMER_EXPIRY_CHECK_ENABLED)
+                .ifPresent(factory::setConsumerExpiryCheckEnabled);
         return factory;
     }
 
@@ -135,7 +163,21 @@ public class ActivemqSourceReader implements SourceReader<SeaTunnelRow, Split> {
             connection.setExceptionListener(error -> failure.compareAndSet(null, error));
             // CLIENT_ACKNOWLEDGE is cumulative and could acknowledge post-checkpoint records.
             session = connection.createSession(false, ActiveMQSession.INDIVIDUAL_ACKNOWLEDGE);
-            consumer = session.createConsumer(session.createQueue(config.get(QUEUE_NAME)));
+            String selector = config.get(MESSAGE_SELECTOR);
+            try {
+                consumer =
+                        session.createConsumer(
+                                session.createQueue(config.get(QUEUE_NAME)), selector);
+            } catch (InvalidSelectorException e) {
+                // Surface the offending selector so users can debug bad selector syntax.
+                throw (JMSException)
+                        new JMSException(
+                                        "Invalid message_selector '"
+                                                + selector
+                                                + "': "
+                                                + e.getMessage())
+                                .initCause(e);
+            }
             connection.start();
         } catch (JMSException e) {
             failure.compareAndSet(null, e);
@@ -170,7 +212,7 @@ public class ActivemqSourceReader implements SourceReader<SeaTunnelRow, Split> {
                     return;
                 }
                 openConsumer();
-                message = i == 0 ? consumer.receive(200) : consumer.receiveNoWait();
+                message = i == 0 ? consumer.receive(receiveTimeout) : consumer.receiveNoWait();
             }
             if (message == null) {
                 checkFailure();

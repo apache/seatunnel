@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 /** Options for consuming one ActiveMQ Classic queue. */
-public final class ActivemqSourceOptions {
+public class ActivemqSourceOptions extends ActivemqBaseOptions {
     public enum MessageFormat {
         JSON,
         TEXT
@@ -47,5 +47,21 @@ public final class ActivemqSourceOptions {
                             "Maximum emitted messages retained per reader until checkpoint completion. "
                                     + "Also bounds the client queue prefetch; this is a count, not a byte limit.");
 
-    private ActivemqSourceOptions() {}
+    public static final Option<String> MESSAGE_SELECTOR =
+            Options.key("message_selector")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "JMS selector expression for broker-side filtering. "
+                                    + "Only messages matching the selector are delivered to the consumer.");
+
+    public static final Option<Integer> RECEIVE_TIMEOUT =
+            Options.key("receive_timeout")
+                    .intType()
+                    .defaultValue(200)
+                    .withDescription(
+                            "Timeout in milliseconds for consumer.receive(). "
+                                    + "Smaller values improve checkpoint responsiveness "
+                                    + "but increase CPU usage when the queue is idle. "
+                                    + "Defaults to 200.");
 }
