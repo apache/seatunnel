@@ -74,6 +74,13 @@ transform-v2:
       - any-glob-to-any-file: seatunnel-transforms-v2/**
 
 # Connectors
+mixpanel:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-http/connector-http-mixpanel/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-mixpanel-e2e/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-http/connector-http-!(mixpanel)/**'
 amazondocumentdb:
   - all:
       - changed-files:

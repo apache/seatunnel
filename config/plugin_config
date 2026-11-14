@@ -75,6 +75,7 @@ connector-http-asana
 connector-http-intercom
 connector-http-typeform
 connector-http-mailchimp
+connector-http-mixpanel
 connector-http-feishu
 connector-http-gitlab
 connector-http-github
