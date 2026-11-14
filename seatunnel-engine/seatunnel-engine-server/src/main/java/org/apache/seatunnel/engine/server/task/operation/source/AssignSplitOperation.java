@@ -100,7 +100,17 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends TracingOpe
         for (int i = 0; i < splitCount; i++) {
             splits.add(in.readByteArray());
         }
-        taskID = in.readObject();
+        Object decodedLocation = in.readObject();
+        if (!(decodedLocation instanceof TaskLocation)) {
+            throw new IOException(
+                    "Assign split operation expects location of type "
+                            + TaskLocation.class.getName()
+                            + " but the wire payload decoded to "
+                            + (decodedLocation == null
+                                    ? "null"
+                                    : decodedLocation.getClass().getName()));
+        }
+        taskID = (TaskLocation) decodedLocation;
     }
 
     @Override
