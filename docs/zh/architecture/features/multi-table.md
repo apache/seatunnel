@@ -175,6 +175,9 @@ MultiTableSink 是一个“按表路由 + 可多副本并行写入”的 Sink:
 
 ### 5.2 副本配置
 
+`multi_table_sink_replica` 是可选的整数配置，默认值为 `1`，且必须大于或等于 `1`。
+多表 Sink 工厂会在构造 Sink 之前验证此范围。配置值无效时，错误信息会包含配置项名称和被拒绝的值。
+
 ```hocon
 sink {
   Jdbc {
