@@ -323,6 +323,72 @@ public class MultiTableSinkWriterTest {
         Assertions.assertEquals(2, DynamicTestSinkWriter.WRITTEN_ROWS.get(tableId).size());
     }
 
+    /**
+     * A failure after the first replica is installed must release the barrier before quarantine
+     * acquires worker locks and removes the partial registration.
+     */
+    @Test
+    public void testRuntimeRegistrationIsolatesPartiallyInstalledTable() {
+        AtomicInteger registrationAttempts = new AtomicInteger();
+        AtomicInteger partialWriterCloses = new AtomicInteger();
+        String healthyTable = "db1.partial_failure_healthy";
+        String rejectedTable = "db1.partial_failure_rejected";
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> contexts = new HashMap<>();
+        SinkIdentifier healthy = SinkIdentifier.of(healthyTable, 0);
+        TestSinkWriterContext context = new TestSinkWriterContext();
+        writers.put(healthy, new DynamicTestSinkWriter(healthyTable));
+        contexts.put(healthy, context);
+        MultiTableSinkWriter writer =
+                new MultiTableSinkWriter(
+                        writers,
+                        2,
+                        contexts,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.STREAMING,
+                        Collections.emptyList(),
+                        0,
+                        0,
+                        Arrays.asList(
+                                new MultiTableSinkWriter.SinkWriterTemplate(null, context, 0),
+                                new MultiTableSinkWriter.SinkWriterTemplate(null, context, 1)),
+                        (table, childContext) -> {
+                            if (registrationAttempts.incrementAndGet() == 2) {
+                                throw new IOException("second replica cannot start");
+                            }
+                            return new DynamicTestSinkWriter(rejectedTable) {
+                                @Override
+                                public void close() {
+                                    partialWriterCloses.incrementAndGet();
+                                }
+                            };
+                        });
+        CatalogTable table = catalogTable(TablePath.of(rejectedTable));
+        Assertions.assertTimeoutPreemptively(
+                Duration.ofSeconds(10),
+                () -> {
+                    try {
+                        writer.applySchemaChange(new CreateTableEvent(table.getTableId(), table));
+                        // The healthy writer occupies queue 0 of the two replicas.
+                        SeaTunnelRow healthyRow = buildRow(healthyTable, 2);
+                        writer.write(healthyRow);
+                        MultiTableState state = writer.snapshotState(1L).get(0);
+                        Assertions.assertEquals(2, registrationAttempts.get());
+                        Assertions.assertEquals(1, partialWriterCloses.get());
+                        Assertions.assertEquals(
+                                Collections.emptyList(), state.getRuntimeCreatedTables());
+                        Assertions.assertEquals(1, state.getFailedTables().size());
+                        Assertions.assertEquals(
+                                rejectedTable, state.getFailedTables().get(0).getTablePath());
+                        Assertions.assertEquals(
+                                Collections.singletonList(healthyRow),
+                                DynamicTestSinkWriter.WRITTEN_ROWS.get(healthyTable));
+                    } finally {
+                        writer.close();
+                    }
+                });
+    }
+
     @Test
     public void testRuntimeTableRegistrationRetriesWriterCreation() throws Exception {
         DynamicTestSinkWriter.WRITTEN_ROWS.clear();

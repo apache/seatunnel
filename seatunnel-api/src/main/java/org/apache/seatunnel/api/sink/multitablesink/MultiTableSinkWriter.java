@@ -557,7 +557,8 @@ public class MultiTableSinkWriter
      *     policy does not allow the job to continue with the remaining tables
      */
     private List<SchemaChangeDispatchTarget> collectSchemaChangeDispatchTargets(
-            SchemaChangeEvent event) throws IOException {
+            SchemaChangeEvent event, List<SchemaChangeFailure> schemaChangeFailures)
+            throws IOException {
         String tableId = event.tablePath().getFullName();
         if (isTableFailed(tableId)) {
             log.warn("Skip schema change for failed table {}", tableId);
@@ -574,7 +575,9 @@ public class MultiTableSinkWriter
                         });
             } catch (Throwable error) {
                 if (failurePolicy.continueOtherTables()) {
-                    handleTableFailure(tableId, MultiTableFailurePhase.CHECKPOINT, error);
+                    // Cleanup may take the monitors held by parked workers. As for DDL errors,
+                    // let the caller quarantine the table after the barrier releases them.
+                    schemaChangeFailures.add(new SchemaChangeFailure(tableId, error));
                     return Collections.emptyList();
                 }
                 throwAsIOException(error);
@@ -676,7 +679,7 @@ public class MultiTableSinkWriter
             SchemaChangeEvent event, List<SchemaChangeFailure> schemaChangeFailures)
             throws IOException {
         List<SchemaChangeDispatchTarget> dispatchTargets =
-                collectSchemaChangeDispatchTargets(event);
+                collectSchemaChangeDispatchTargets(event, schemaChangeFailures);
         for (SchemaChangeDispatchTarget dispatchTarget : dispatchTargets) {
             try {
                 applySchemaChangeToTarget(event, dispatchTarget);
