@@ -18,6 +18,7 @@
 export default {
   overview: 'Overview',
   jobs: 'Jobs',
+  operations: 'Operations',
   managers: {
     workers: 'Workers',
     master: 'Master'
