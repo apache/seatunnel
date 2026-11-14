@@ -27,21 +27,27 @@ import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraCo
 import org.apache.seatunnel.connectors.seatunnel.cassandra.util.TypeConvertUtil;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
 import com.datastax.oss.driver.api.core.cql.BatchStatement;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.ColumnDefinition;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.type.DataType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
@@ -55,26 +61,58 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     private List<CompletionStage<AsyncResultSet>> completionStages;
     private final PreparedStatement preparedStatement;
     private final AtomicInteger counter = new AtomicInteger(0);
+    private final Set<CqlIdentifier> primaryKeyColumns;
 
     public CassandraSinkWriter(
             CassandraParameters cassandraParameters,
             SeaTunnelRowType seaTunnelRowType,
             ColumnDefinitions tableSchema) {
-        this.cassandraParameters = cassandraParameters;
-        this.seaTunnelRowType = seaTunnelRowType;
-        this.tableSchema = tableSchema;
-        this.session =
+        this(
+                cassandraParameters,
+                seaTunnelRowType,
+                tableSchema,
                 CassandraClient.getCqlSessionBuilder(
                                 cassandraParameters.getHost(),
                                 cassandraParameters.getKeyspace(),
                                 cassandraParameters.getUsername(),
                                 cassandraParameters.getPassword(),
                                 cassandraParameters.getDatacenter())
-                        .build();
+                        .build());
+    }
+
+    CassandraSinkWriter(
+            CassandraParameters cassandraParameters,
+            SeaTunnelRowType seaTunnelRowType,
+            ColumnDefinitions tableSchema,
+            CqlSession session) {
+        this.cassandraParameters = cassandraParameters;
+        this.seaTunnelRowType = seaTunnelRowType;
+        this.tableSchema = tableSchema;
+        this.session = session;
         this.batchStatement = BatchStatement.builder(cassandraParameters.getBatchType()).build();
         this.boundStatementList = new ArrayList<>();
         this.completionStages = new ArrayList<>();
         this.preparedStatement = session.prepare(initPrepareCQL());
+        // The prepared statement names the table as the server resolved it, so a configured name
+        // such as keyspace.table needs no parsing here.
+        ColumnDefinition insertedColumn = preparedStatement.getVariableDefinitions().get(0);
+        this.primaryKeyColumns =
+                session.getMetadata()
+                        .getKeyspace(insertedColumn.getKeyspace())
+                        .flatMap(keyspace -> keyspace.getTable(insertedColumn.getTable()))
+                        .map(
+                                table ->
+                                        table.getPrimaryKey().stream()
+                                                .map(ColumnMetadata::getName)
+                                                .collect(Collectors.toSet()))
+                        .orElse(Collections.emptySet());
+        if (primaryKeyColumns.isEmpty()) {
+            log.warn(
+                    "Cannot read the primary key of table {}.{} from the driver metadata, so a"
+                            + " NULL key is not rejected before it reaches the server.",
+                    insertedColumn.getKeyspace(),
+                    insertedColumn.getTable());
+        }
     }
 
     @Override
@@ -119,6 +157,16 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 String fieldName = cassandraParameters.getFields().get(i);
                 DataType dataType = tableSchema.get(i).getType();
                 Object fieldValue = row.getField(seaTunnelRowType.indexOf(fieldName));
+                // The server rejects a NULL key, but a failed write does not fail the job, so stop
+                // here instead of losing the row.
+                if (fieldValue == null
+                        && primaryKeyColumns.contains(
+                                preparedStatement.getVariableDefinitions().get(i).getName())) {
+                    throw new IllegalArgumentException(
+                            String.format(
+                                    "Primary key column %s of table %s is NULL",
+                                    fieldName, cassandraParameters.getTable()));
+                }
                 boundStatement =
                         TypeConvertUtil.reconvertAndInject(boundStatement, i, dataType, fieldValue);
             }

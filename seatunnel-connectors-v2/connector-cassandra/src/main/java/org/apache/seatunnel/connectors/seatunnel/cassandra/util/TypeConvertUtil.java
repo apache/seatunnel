@@ -136,6 +136,10 @@ public class TypeConvertUtil {
         Object[] fields = new Object[row.size()];
         ColumnDefinitions metaData = row.getColumnDefinitions();
         for (int i = 0; i < row.size(); i++) {
+            // The driver's primitive getters read a CQL NULL as 0 or false, so check it first.
+            if (row.isNull(i)) {
+                continue;
+            }
             switch (metaData.get(i).getType().getProtocolCode()) {
                 case ProtocolConstants.DataType.ASCII:
                 case ProtocolConstants.DataType.VARCHAR:
@@ -292,6 +296,10 @@ public class TypeConvertUtil {
 
     public static BoundStatement reconvertAndInject(
             BoundStatement statement, int index, DataType type, Object fileValue) {
+        // The typed setters below would unbox a null, or resolve a null inet to the loopback.
+        if (fileValue == null) {
+            return statement.setToNull(index);
+        }
         switch (type.getProtocolCode()) {
             case ProtocolConstants.DataType.VARCHAR:
             case ProtocolConstants.DataType.ASCII:

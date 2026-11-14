@@ -112,6 +112,8 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     private static final String CASSANDRA_JOB_CONFIG = "/cassandra_to_cassandra.conf";
     private static final String CASSANDRA_MULTI_TABLE_JOB_CONFIG =
             "/cassandra_multitable_source.conf";
+    private static final String NULL_PRIMARY_KEY_JOB_CONFIG =
+            "/fake_null_primary_key_to_cassandra.conf";
     private static final String CASSANDRA_DRIVER_CONFIG = "/application.conf";
     private static final String DATACENTER = "datacenter1";
     private static final String KEYSPACE = "test";
@@ -124,6 +126,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     private static final String MT_INSERT_A = "mt_insert_a";
     private static final String MT_INSERT_B = "mt_insert_b";
     private static final int MT_ROWS_PER_TABLE = 5;
+    private static final long NULL_CELLS_ROW_ID = -1L;
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
             generateTestDataSet();
     private Config config;
@@ -379,7 +382,24 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertNotNull(getRow());
         compareResult();
+        assertNullCellsStayNull();
         clearSinkTable();
+        Assertions.assertNull(getRow());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason =
+                    "Spark does not close the sink writer when a task aborts, so the CQL session"
+                            + " keeps spark-submit running in local mode after the job failed.")
+    public void testNullPrimaryKeyFailsTheJob(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob(NULL_PRIMARY_KEY_JOB_CONFIG);
+        Assertions.assertNotEquals(0, execResult.getExitCode());
+        Assertions.assertTrue(
+                (execResult.getStdout() + execResult.getStderr())
+                        .contains("Primary key column id of table sink_table is NULL"));
         Assertions.assertNull(getRow());
     }
 
@@ -502,8 +522,34 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             }
             session.execute(batchStatement);
             batchStatement.clear();
+            // Every column of this row except the key is NULL.
+            session.execute(
+                    SimpleStatement.builder(
+                                    String.format(
+                                            "insert into %s (id) values (%d)",
+                                            SOURCE_TABLE, NULL_CELLS_ROW_ID))
+                            .setKeyspace(KEYSPACE)
+                            .build());
         } catch (Exception e) {
             throw new RuntimeException("Batch insert data failed!", e);
+        }
+    }
+
+    private void assertNullCellsStayNull() {
+        Row row =
+                session.execute(
+                                SimpleStatement.builder(
+                                                String.format(
+                                                        "select * from %s where id = %d",
+                                                        SINK_TABLE, NULL_CELLS_ROW_ID))
+                                        .setKeyspace(KEYSPACE)
+                                        .build())
+                        .one();
+        Assertions.assertNotNull(row);
+        for (String column : TEST_DATASET.getKey().getFieldNames()) {
+            if (!"id".equals(column)) {
+                Assertions.assertTrue(row.isNull(column), column);
+            }
         }
     }
 
