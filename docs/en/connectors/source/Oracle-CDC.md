@@ -42,11 +42,13 @@ So, you can not set this property named `log.mining.continuous.mine` in the debe
 
 > 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
 > 2. To support the i18n character set, copy the `orai18n.jar` to the `$SEATUNNEL_HOME/plugins/` directory.
+> 3. To capture `XMLTYPE` columns, also copy `xdb` and `xmlparserv2` (the same Oracle version as `ojdbc8`, for example 19.18) into `${SEATUNNEL_HOME}/plugins/`.
 
 #### For SeaTunnel Zeta Engine
 
 > 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 > 2. To support the i18n character set, copy the `orai18n.jar` to the `$SEATUNNEL_HOME/lib/` directory.
+> 3. To capture `XMLTYPE` columns, also copy `xdb` and `xmlparserv2` (the same Oracle version as `ojdbc8`, for example 19.18) into `${SEATUNNEL_HOME}/lib/`.
 
 ### Enable Oracle Logminer
 
@@ -107,6 +109,8 @@ GRANT LOGMINING TO logminer_user;
 
 ```sql
 GRANT SELECT ANY TABLE TO logminer_user;
+-- FLASHBACK is required for AS OF SCN (LOB re-select)
+GRANT FLASHBACK ANY TABLE TO logminer_user;
 GRANT ANALYZE ANY TO logminer_user;
 ```
 
@@ -215,7 +219,7 @@ exit;
 | NUMBER(scale != 0)                                                                   | DECIMAL(38, 18)     |
 | BINARY_DOUBLE                                                                        | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                | FLOAT               |
-| CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/> | STRING              |
+| CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XMLTYPE<br/> | STRING              |
 | DATE                                                                                 | DATE                |
 | TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                         | TIMESTAMP           |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                  | BYTES               |
@@ -256,8 +260,27 @@ exit;
 | schema-changes.enabled                    | Boolean  | No        | false   | Schema evolution is disabled by default. Now we only support `add column`、`drop column`、`rename column` and `modify column`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | schema-changes.include                     | List     | No        | -       | Only the listed schema change event types are sent downstream (when `schema-changes.enabled = true`). Empty means all are eligible. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                             |
 | schema-changes.exclude                     | List     | No        | -       | Schema change event types listed here are NOT sent downstream. Applied after `schema-changes.include`; exclude wins on conflict. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| lob.enabled                               | Boolean  | No        | false   | Passed through to Debezium `lob.enabled`. `true` captures CLOB, NCLOB, BLOB, and XMLTYPE values in incremental events. When omitted, `debezium.lob.enabled` is left unchanged. See [LOB columns](#lob-columns). |
+| lob.reselect.enabled                      | Boolean  | No        | false   | When `lob.enabled` is true and this is false, an unchanged LOB/XMLTYPE column is the placeholder `__debezium_unavailable_value`. `true` looks the current value up by primary key on INSERT and UPDATE_AFTER. Requires a primary key. See [LOB columns](#lob-columns). |
+| lob.unavailable-value.handling            | Enum     | No        | warn_and_keep | What to do when the placeholder is still present: `warn_and_keep` (default), `null`, or `fail`. `null` and `fail` require `lob.enabled = true`. |
 | debezium                                  | Config   | No        | -       | Pass-through [Debezium's properties](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/oracle.adoc#connector-properties) to Debezium Embedded Engine which is used to capture data changes from Oracle server.                                                                                                                                                                                                                                                                                                                                                      |
 | common-options                            |          | no        | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+
+## LOB columns
+
+Set `lob.enabled = true` to capture `CLOB`, `NCLOB`, `BLOB`, and `XMLTYPE` values in incremental events. Snapshot already reads these columns through JDBC.
+
+Oracle only puts a LOB into redo when that statement sets or changes the column. An unchanged LOB on UPDATE, and LOB columns on DELETE / UPDATE_BEFORE, become `__debezium_unavailable_value`. A sink that writes the whole row will overwrite the stored value with that placeholder. Set `lob.reselect.enabled = true` to look the current value up by primary key instead (requires a primary key, or a key in `table-names-config`).
+
+If the placeholder is still present, `lob.unavailable-value.handling` chooses what the sink receives: `warn_and_keep` (default), `null`, or `fail`.
+
+`EMPTY_CLOB()` / `EMPTY_BLOB()` become an empty string or empty bytes. SQL `NULL` stays null. Use a sink column that can hold large values (CLOB, LONGTEXT, BLOB), not a short VARCHAR.
+
+## XMLTYPE columns
+
+`XMLTYPE` on a relational table is captured as STRING. Copy `xdb` and `xmlparserv2` next to `ojdbc8` as in [Install Jdbc Driver](#install-jdbc-driver). If the engine fails XML parsing after those jars are added, start it with `-Djavax.xml.parsers.SAXParserFactory=com.sun.org.apache.xerces.internal.jaxp.SAXParserFactoryImpl`.
+
+Tables created as `CREATE TABLE ... OF XMLTYPE` are not supported. Placeholder handling is the same as for CLOB.
 
 ## Task Example
 
@@ -281,6 +304,64 @@ source {
     debezium {
       database.oracle.jdbc.timezoneAsRegion = "false"
     }
+  }
+}
+```
+
+### Capture LOB columns
+
+`lob.enabled = true` captures LOB values in incremental events. `lob.reselect.enabled = true` replaces the placeholder on columns the statement did not change. `lob.unavailable-value.handling = "null"` keeps that placeholder out of the sink when lookup cannot recover the value.
+
+```sql
+CREATE TABLE DEBEZIUM.LOB_TYPES (
+  ID NUMBER(9) NOT NULL PRIMARY KEY,
+  VAL_CLOB CLOB,
+  VAL_BLOB BLOB,
+  VAL_NCLOB NCLOB
+);
+ALTER TABLE DEBEZIUM.LOB_TYPES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+```
+
+```conf
+source {
+  Oracle-CDC {
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    username = "c##dbzuser"
+    password = "dbz"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["ORCLCDB.DEBEZIUM.LOB_TYPES"]
+    lob.enabled = true
+    lob.reselect.enabled = true
+    lob.unavailable-value.handling = "null"
+  }
+}
+```
+
+### Capture XMLTYPE columns
+
+Same options as [Capture LOB columns](#capture-lob-columns). `XMLTYPE` is STRING. Copy `xdb` and `xmlparserv2` next to the JDBC driver.
+
+```sql
+CREATE TABLE DEBEZIUM.XML_TYPES (
+  ID NUMBER(9) NOT NULL PRIMARY KEY,
+  VAL_XML XMLTYPE
+);
+ALTER TABLE DEBEZIUM.XML_TYPES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+```
+
+```conf
+source {
+  Oracle-CDC {
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    username = "c##dbzuser"
+    password = "dbz"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["ORCLCDB.DEBEZIUM.XML_TYPES"]
+    lob.enabled = true
+    lob.reselect.enabled = true
+    lob.unavailable-value.handling = "null"
   }
 }
 ```
@@ -558,6 +639,14 @@ Treat this primarily as a database and redo-log tuning topic. Reuse the LogMiner
 supplemental logging sections above first, enable logging only for the required tables, and add
 Debezium passthrough tuning only after validating that those properties are supported in the exact
 Oracle CDC runtime you are deploying.
+
+### How are XMLTYPE columns captured?
+
+See [XMLTYPE columns](#xmltype-columns). Copy `xdb` and `xmlparserv2` next to the driver, and set `lob.enabled = true` for incremental events.
+
+### How are CLOB, NCLOB, and BLOB columns captured?
+
+See [LOB columns](#lob-columns) and [Capture LOB columns](#capture-lob-columns). Set `lob.enabled = true`. Use `lob.reselect.enabled = true` if a full-row sink must not write `__debezium_unavailable_value` for unchanged LOB columns.
 
 ### Which Oracle versions are supported?
 

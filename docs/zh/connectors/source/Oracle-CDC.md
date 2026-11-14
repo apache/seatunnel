@@ -41,11 +41,13 @@ Debezium Oracle 连接器不依赖于连续挖掘（continuous mining）选项�
 
 > 1. 您需要确保 [jdbc 驱动 jar 包](https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8) 已放置在 `${SEATUNNEL_HOME}/plugins/` 目录下。
 > 2. 为了支持 i18n 字符集，请将 `orai18n.jar` 复制到 `$SEATUNNEL_HOME/plugins/` 目录。
+> 3. 采集 `XMLTYPE` 列时，请把与 `ojdbc8` 相同版本（例如 19.18）的 `xdb` 和 `xmlparserv2` 一并放到 `${SEATUNNEL_HOME}/plugins/`。
 
 #### 适用于 SeaTunnel Zeta 引擎
 
 > 1. 您需要确保 [jdbc 驱动 jar 包](https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8) 已放置在 `${SEATUNNEL_HOME}/lib/` 目录下。
 > 2. 为了支持 i18n 字符集，请将 `orai18n.jar` 复制到 `$SEATUNNEL_HOME/lib/` 目录。
+> 3. 采集 `XMLTYPE` 列时，请把与 `ojdbc8` 相同版本（例如 19.18）的 `xdb` 和 `xmlparserv2` 一并放到 `${SEATUNNEL_HOME}/lib/`。
 
 ### 启用 Oracle Logminer
 
@@ -106,6 +108,8 @@ GRANT LOGMINING TO logminer_user;
 
 ```sql
 GRANT SELECT ANY TABLE TO logminer_user;
+-- FLASHBACK 用于 AS OF SCN（LOB 回查）
+GRANT FLASHBACK ANY TABLE TO logminer_user;
 GRANT ANALYZE ANY TO logminer_user;
 ```
 
@@ -214,7 +218,7 @@ exit;
 | NUMBER(scale != 0)                                                                   | DECIMAL(38, 18)     |
 | BINARY_DOUBLE                                                                        | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                | FLOAT               |
-| CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/> | STRING              |
+| CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XMLTYPE<br/> | STRING              |
 | DATE                                                                                 | DATE                |
 | TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                         | TIMESTAMP           |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                  | BYTES               |
@@ -255,8 +259,27 @@ exit;
 | schema-changes.enabled                    | Boolean  | 否      | false   | Schema 演进默认禁用。目前我们仅支持 `add column`、`drop column`、`rename column` 和 `modify column`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | schema-changes.include                     | List     | 否      | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                                                                                                                                                                                          |
 | schema-changes.exclude                     | List     | 否      | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                                                                                                                                                                                   |
+| lob.enabled                               | Boolean  | 否      | false   | 透传给 Debezium `lob.enabled`。`true` 时在增量事件中采集 CLOB、NCLOB、BLOB 和 XMLTYPE。不设置时，`debezium.lob.enabled` 保持原样。详见 [LOB 列](#lob-列)。 |
+| lob.reselect.enabled                      | Boolean  | 否      | false   | 挖掘打开且本参数为 false 时，语句没改到的 LOB/XMLTYPE 列是占位符 `__debezium_unavailable_value`。设为 `true` 后，INSERT 与 UPDATE_AFTER 按主键再查当前值。需要 `lob.enabled = true` 和主键。详见 [LOB 列](#lob-列)。 |
+| lob.unavailable-value.handling            | Enum     | 否      | warn_and_keep | 占位符仍在时的处理：`warn_and_keep`（默认）、`null` 或 `fail`。`null` 和 `fail` 需要 `lob.enabled = true`。 |
 | debezium                                  | Config   | 否      | -       | 透传 [Debezium 属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/oracle.adoc#connector-properties) 给 Debezium Embedded Engine，该引擎用于捕获 Oracle 服务器的数据更改。                                                                                                                                                                                                                                                                                                                                                      |
 | common-options                            |          | 否      | -       | 源端插件常用参数，详情请参阅 [源端常用选项](../common-options/source-common-options.md)。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+
+## LOB 列
+
+增量事件要采到 `CLOB`、`NCLOB`、`BLOB`、`XMLTYPE`，请设置 `lob.enabled = true`。快照阶段本来就会通过 JDBC 读这些列。
+
+Oracle 只在语句真正写入该列时才把 LOB 放进 redo。UPDATE 没改到的 LOB，以及 DELETE / UPDATE_BEFORE 里的 LOB，会是占位符 `__debezium_unavailable_value`。按整行写入的 sink 会用这个占位符盖掉库里原来的值。需要补当前值时，设 `lob.reselect.enabled = true`（需要主键，或 `table-names-config` 里的键）。
+
+占位符还在时，由 `lob.unavailable-value.handling` 决定下游看到什么：`warn_and_keep`（默认）、`null` 或 `fail`。
+
+`EMPTY_CLOB()` / `EMPTY_BLOB()` 是空字符串或空字节，SQL `NULL` 仍是 null。目标列请用 CLOB、LONGTEXT、BLOB，不要用很短的 VARCHAR。
+
+## XMLTYPE 列
+
+关系表上的 `XMLTYPE` 采成 STRING。按 [安装 Jdbc 驱动](#安装-jdbc-驱动) 把 `xdb` 和 `xmlparserv2` 放到 `ojdbc8` 旁边。加入这些 jar 后如果引擎 XML 解析失败，启动时加上 `-Djavax.xml.parsers.SAXParserFactory=com.sun.org.apache.xerces.internal.jaxp.SAXParserFactoryImpl`。
+
+不支持 `CREATE TABLE ... OF XMLTYPE` 这种对象表。占位符处理与 CLOB 相同。
 
 ## 任务示例
 
@@ -280,6 +303,64 @@ source {
     debezium {
       database.oracle.jdbc.timezoneAsRegion = "false"
     }
+  }
+}
+```
+
+### 采集 LOB 列
+
+`lob.enabled = true` 在增量事件中采集 LOB。`lob.reselect.enabled = true` 换掉语句没改到的列上的占位符。`lob.unavailable-value.handling = "null"` 在查不回来时不把占位符写入 sink。
+
+```sql
+CREATE TABLE DEBEZIUM.LOB_TYPES (
+  ID NUMBER(9) NOT NULL PRIMARY KEY,
+  VAL_CLOB CLOB,
+  VAL_BLOB BLOB,
+  VAL_NCLOB NCLOB
+);
+ALTER TABLE DEBEZIUM.LOB_TYPES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+```
+
+```conf
+source {
+  Oracle-CDC {
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    username = "c##dbzuser"
+    password = "dbz"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["ORCLCDB.DEBEZIUM.LOB_TYPES"]
+    lob.enabled = true
+    lob.reselect.enabled = true
+    lob.unavailable-value.handling = "null"
+  }
+}
+```
+
+### 采集 XMLTYPE 列
+
+选项与 [采集 LOB 列](#采集-lob-列) 相同。`XMLTYPE` 采成 STRING。请把 `xdb` 和 `xmlparserv2` 放到 JDBC 驱动旁边。
+
+```sql
+CREATE TABLE DEBEZIUM.XML_TYPES (
+  ID NUMBER(9) NOT NULL PRIMARY KEY,
+  VAL_XML XMLTYPE
+);
+ALTER TABLE DEBEZIUM.XML_TYPES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+```
+
+```conf
+source {
+  Oracle-CDC {
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    username = "c##dbzuser"
+    password = "dbz"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["ORCLCDB.DEBEZIUM.XML_TYPES"]
+    lob.enabled = true
+    lob.reselect.enabled = true
+    lob.unavailable-value.handling = "null"
   }
 }
 ```
@@ -550,6 +631,14 @@ debezium {
 首先把它当作数据库和 redo log 调优问题处理。优先复用上面的 LogMiner 配置和 supplemental
 logging 章节，只为需要采集的表开启日志；只有在确认目标 Oracle CDC 运行时确实支持相应
 Debezium 透传属性后，再引入额外调优参数。
+
+### XMLTYPE 列如何采集？
+
+见 [XMLTYPE 列](#xmltype-列)。把 `xdb` 和 `xmlparserv2` 放到驱动旁边，增量请设 `lob.enabled = true`。
+
+### CLOB、NCLOB、BLOB 列如何采集？
+
+见 [LOB 列](#lob-列) 和 [采集 LOB 列](#采集-lob-列)。设置 `lob.enabled = true`。若整行写入的 sink 不能把未改动的 LOB 写成 `__debezium_unavailable_value`，再打开 `lob.reselect.enabled`。
 
 ### 支持哪些 Oracle 版本？
 

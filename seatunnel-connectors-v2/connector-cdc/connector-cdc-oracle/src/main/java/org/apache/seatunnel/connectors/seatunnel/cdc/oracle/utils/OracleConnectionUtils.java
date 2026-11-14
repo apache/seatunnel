@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLo
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.debezium.DebeziumException;
 import io.debezium.config.Configuration;
 import io.debezium.connector.oracle.OracleConnection;
 import io.debezium.connector.oracle.Scn;
@@ -30,6 +31,7 @@ import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.RelationalTableFilters;
 import io.debezium.relational.TableId;
+import oracle.sql.CharacterSet;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -52,7 +54,7 @@ public class OracleConnectionUtils {
     /** show current scn sql in oracle. */
     private static final String SHOW_CURRENT_SCN = "SELECT CURRENT_SCN FROM V$DATABASE";
 
-    /** Creates a new {@link OracleConnection}, but not open the connection. */
+    /** Creates a new {@link OracleConnection}, but does not open it. */
     public static OracleConnection createOracleConnection(JdbcConfiguration dbzConfiguration) {
         Configuration configuration = dbzConfiguration.subset(DATABASE_CONFIG_PREFIX, true);
 
@@ -83,6 +85,33 @@ public class OracleConnectionUtils {
                             + SHOW_CURRENT_SCN
                             + "'. Make sure your server is correctly configured",
                     e);
+        }
+    }
+
+    /**
+     * Resolves {@code NLS_CHARACTERSET} the same way as Debezium {@code
+     * OracleConnection#getDatabaseCharacterSet()}. See <a
+     * href="https://github.com/debezium/dbz/issues/1798">debezium/dbz#1798</a>.
+     */
+    public static CharacterSet getDatabaseCharacterSet(OracleConnection connection) {
+        final String query =
+                "SELECT NLS_CHARSET_ID(VALUE) FROM NLS_DATABASE_PARAMETERS WHERE PARAMETER = 'NLS_CHARACTERSET'";
+        try {
+            Integer charsetId =
+                    connection.queryAndMap(
+                            query,
+                            rs -> {
+                                if (rs.next()) {
+                                    return rs.getInt(1);
+                                }
+                                return null;
+                            });
+            if (charsetId != null) {
+                return CharacterSet.make(charsetId);
+            }
+            throw new SQLException("Failed to resolve Oracle's NLS_CHARACTERSET property");
+        } catch (SQLException e) {
+            throw new DebeziumException("Failed to resolve Oracle's NLS_CHARACTERSET property", e);
         }
     }
 

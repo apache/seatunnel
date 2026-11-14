@@ -76,4 +76,34 @@ public class OracleIncrementalSourceOptions extends JdbcSourceOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Skip the analysis of table count in full stage");
+
+    public static final Option<Boolean> LOB_ENABLED =
+            Options.key("lob.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Pass through to Debezium lob.enabled. true mines CLOB, NCLOB, BLOB, and"
+                                    + " XMLTYPE redo. When omitted, debezium.lob.enabled is left unchanged."
+                                    + " An explicit value overrides debezium.lob.enabled.");
+
+    public static final Option<Boolean> LOB_RESELECT_ENABLED =
+            Options.key("lob.reselect.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "When lob.enabled is true and this is false, an unchanged LOB/XMLTYPE column"
+                                    + " is the placeholder __debezium_unavailable_value. true looks the"
+                                    + " current value up by primary key on INSERT and UPDATE_AFTER."
+                                    + " Requires a primary key. Rejected unless lob.enabled is true.");
+
+    public static final Option<OracleLobUnavailableValueHandling> LOB_UNAVAILABLE_VALUE_HANDLING =
+            Options.key("lob.unavailable-value.handling")
+                    .enumType(OracleLobUnavailableValueHandling.class)
+                    .defaultValue(OracleLobUnavailableValueHandling.WARN_AND_KEEP)
+                    .withDescription(
+                            "The placeholder remains when re-select is off, the table has no primary key,"
+                                    + " or the lookup fails, and a full-row sink write would store it."
+                                    + " warn_and_keep logs once and keeps it. null replaces it with null so"
+                                    + " the sink does not store the placeholder. fail stops the task. null"
+                                    + " and fail are rejected unless lob.enabled is true.");
 }
