@@ -329,7 +329,8 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                         .withNetworkAliases(ORACLE_NETWORK_ALIASES)
                         .withExposedPorts(ORACLE_PORT)
                         .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)))
+                        .withStartupTimeout(Duration.ofMinutes(6));
 
         return container;
     }

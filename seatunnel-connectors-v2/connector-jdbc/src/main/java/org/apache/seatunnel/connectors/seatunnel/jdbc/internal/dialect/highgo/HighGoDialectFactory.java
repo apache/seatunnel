@@ -17,10 +17,16 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.highgo;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialectFactory;
 
 import com.google.auto.service.AutoService;
+
+import javax.annotation.Nonnull;
+
+import java.sql.DatabaseMetaData;
 
 @AutoService(JdbcDialectFactory.class)
 public class HighGoDialectFactory extends PostgresDialectFactory {
@@ -32,5 +38,25 @@ public class HighGoDialectFactory extends PostgresDialectFactory {
     @Override
     public boolean acceptsURL(String url) {
         return url.startsWith("jdbc:highgo:");
+    }
+
+    @Override
+    public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
+        if ("postgresLow".equalsIgnoreCase(compatibleMode)) {
+            return super.create(compatibleMode, fieldIde);
+        }
+        return new HighGoDialect(fieldIde);
+    }
+
+    private static class HighGoDialect extends PostgresDialect {
+        private HighGoDialect(String fieldIde) {
+            super(fieldIde);
+        }
+
+        @Override
+        public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
+            // Composite splitting has not been validated for this dialect by official E2E.
+            return false;
+        }
     }
 }

@@ -26,6 +26,8 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
+import java.sql.DatabaseMetaData;
+
 public class StarRocksDialect extends MysqlDialect {
 
     public StarRocksDialect() {}
@@ -45,6 +47,12 @@ public class StarRocksDialect extends MysqlDialect {
                 statement.setTimestamp(index, Timestamp.valueOf(value));
             }
         };
+    }
+
+    @Override
+    public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
+        // Composite splitting has not been validated for this dialect by official E2E.
+        return false;
     }
 
     @Override
