@@ -7,7 +7,7 @@ You need to check this document before you upgrade to related version.
 
 ### DES SQL functions: versioned ciphertext with a per-value IV
 
-`DES_ENCRYPT` in SQL/Zeta and Calcite now returns `STDES1:` followed by Base64 of an 8-byte IV and the ciphertext. Each call uses a fresh random IV, so encrypting the same value with the same password produces different output. `DES_DECRYPT` reads both this format and historical Base64 ciphertext; old runtimes cannot decrypt new output.
+`DES_ENCRYPT` in SQL/Zeta and Calcite now returns `STDES1:` followed by standard Base64 of the concatenated bytes `IV || ciphertext`. The first 8 decoded bytes are the IV; all remaining bytes are the DES/CBC/PKCS5Padding ciphertext. Each call uses a fresh random IV, so encrypting the same value with the same password produces different output. `DES_DECRYPT` reads both this format and historical Base64 ciphertext; old runtimes cannot decrypt new output.
 
 Before upgrading writers, upgrade all readers, including consumers outside SeaTunnel, and allow sufficient target-column capacity for the prefix and IV. Do not use encrypted values as deterministic join, deduplication, or replay keys. Existing ciphertext is not rewritten automatically. Encryption errors now fail instead of returning unencrypted input; malformed versioned ciphertext also fails rather than returning the supplied value. Legacy invalid-ciphertext behavior remains unchanged.
 
