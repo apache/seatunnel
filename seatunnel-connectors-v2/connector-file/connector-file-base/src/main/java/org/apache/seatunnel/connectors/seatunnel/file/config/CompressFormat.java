@@ -30,14 +30,14 @@ public enum CompressFormat implements Serializable {
     NONE("", CompressionKind.NONE, CompressionCodecName.UNCOMPRESSED),
     SNAPPY(".snappy", CompressionKind.SNAPPY, CompressionCodecName.SNAPPY),
     LZ4(".lz4", CompressionKind.LZ4, CompressionCodecName.LZ4),
+    ZSTD(".zstd", CompressionKind.ZSTD, CompressionCodecName.ZSTD),
 
     // only orc support
     ZLIB(".zlib", CompressionKind.ZLIB, CompressionCodecName.UNCOMPRESSED),
 
     // only parquet support
     GZIP(".gz", CompressionKind.NONE, CompressionCodecName.GZIP),
-    BROTLI(".br", CompressionKind.NONE, CompressionCodecName.BROTLI),
-    ZSTD(".zstd", CompressionKind.NONE, CompressionCodecName.ZSTD);
+    BROTLI(".br", CompressionKind.NONE, CompressionCodecName.BROTLI);
 
     private final String compressCodec;
     private final CompressionKind orcCompression;

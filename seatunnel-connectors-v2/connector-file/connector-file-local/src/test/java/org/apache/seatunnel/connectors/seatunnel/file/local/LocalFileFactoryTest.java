@@ -22,13 +22,17 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
+import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.local.sink.LocalFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.local.source.LocalFileSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -36,6 +40,52 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 class LocalFileFactoryTest {
+
+    @ParameterizedTest
+    @ValueSource(strings = {"NONE", "LZO", "SNAPPY", "LZ4", "ZLIB", "ZSTD", "zstd"})
+    void orcSinkAcceptsSupportedCompression(String codec) {
+        Map<String, Object> config = sinkConfig("orc", codec);
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, new LocalFileSinkFactory().optionRule()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GZIP", "BROTLI"})
+    void orcSinkRejectsUnsupportedCompression(String codec) {
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () -> validate(sinkConfig("orc", codec), new LocalFileSinkFactory().optionRule()));
+    }
+
+    @Test
+    void compressionDefaultsAndOtherFormatsAreUnchanged() {
+        Map<String, Object> config = sinkConfig("orc", "NONE");
+        config.remove(FileBaseSinkOptions.COMPRESS_CODEC.key());
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, new LocalFileSinkFactory().optionRule()));
+        Assertions.assertEquals(
+                CompressFormat.NONE,
+                ReadonlyConfig.fromMap(config).get(FileBaseSinkOptions.COMPRESS_CODEC));
+        Assertions.assertDoesNotThrow(
+                () ->
+                        validate(
+                                sinkConfig("parquet", "ZSTD"),
+                                new LocalFileSinkFactory().optionRule()));
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        validate(
+                                sinkConfig("text", "ZSTD"),
+                                new LocalFileSinkFactory().optionRule()));
+    }
+
+    private static Map<String, Object> sinkConfig(String format, String codec) {
+        Map<String, Object> config = new HashMap<>();
+        config.put(FileBaseOptions.FILE_PATH.key(), "/sink");
+        config.put(FileBaseSinkOptions.FILE_FORMAT_TYPE.key(), format);
+        config.put(FileBaseSinkOptions.COMPRESS_CODEC.key(), codec);
+        return config;
+    }
 
     @Test
     void optionRule() {
