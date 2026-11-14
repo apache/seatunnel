@@ -42,6 +42,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
@@ -262,6 +263,6 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
     }
 
     private boolean isDuckDBDecimal(String typeName) {
-        return typeName.toUpperCase().startsWith(DuckDBTypeConverter.DUCKDB_DECIMAL);
+        return typeName.toUpperCase(Locale.ROOT).startsWith(DuckDBTypeConverter.DUCKDB_DECIMAL);
     }
 }

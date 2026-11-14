@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -204,7 +205,7 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
 
         boolean useTableStats =
                 StringUtils.isBlank(table.getQuery())
-                        || (!table.getQuery().toLowerCase().contains("where")
+                        || (!table.getQuery().toLowerCase(Locale.ROOT).contains("where")
                                 && table.getTablePath() != null
                                 && !TablePath.DEFAULT
                                         .getFullName()

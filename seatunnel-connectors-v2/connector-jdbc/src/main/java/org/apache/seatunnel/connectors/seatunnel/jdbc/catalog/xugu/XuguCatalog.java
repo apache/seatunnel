@@ -41,6 +41,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -157,13 +158,13 @@ public class XuguCatalog extends AbstractJdbcCatalog {
         }
         try {
             return querySQLResultExists(
-                    defaultUrl, getDatabaseWithConditionSql(databaseName.toUpperCase()));
+                    defaultUrl, getDatabaseWithConditionSql(databaseName.toUpperCase(Locale.ROOT)));
         } catch (SeaTunnelRuntimeException e) {
             if (e.getSeaTunnelErrorCode().getCode().equals(UNSUPPORTED_METHOD.getCode())) {
                 log.warn(
                         "The catalog: {} is not supported the getDatabaseWithConditionSql for databaseExists",
                         this.catalogName);
-                return listDatabases().contains(databaseName.toUpperCase());
+                return listDatabases().contains(databaseName.toUpperCase(Locale.ROOT));
             }
             throw e;
         } catch (SQLException e) {

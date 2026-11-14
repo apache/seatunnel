@@ -69,6 +69,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -959,5 +960,168 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                         "DROP TABLE IF EXISTS " + MYSQL_DATABASE + ".fixed_numeric_uneven");
             }
         }
+    }
+
+    // The charset_based string splitter encodes MIN/MAX of the partition column into a number and
+    // decodes the interior boundaries back to strings. Under tr-TR a bare toLowerCase() turns the
+    // I of "I1" into a dotless i (U+0131), and CollationBasedSplitter#charToIndex maps any
+    // character outside the collation sequence to index 0 - the same index as the padding
+    // character - so the encoded range collapses and every interior bound decodes to a string that
+    // starts with the U+0001 placeholder instead of "i".
+    //
+    // Asserting on the rows read cannot see that: the first split still starts at the literal MIN
+    // and the last still ends at the literal MAX, so every row is read exactly once and only the
+    // boundaries move. This test therefore compares the generated boundaries under Locale.ROOT and
+    // under tr-TR, and keeps the row identity check as an extra guard.
+    @Test
+    public void testFixedStringSplitBoundsAreLocaleIndependent() throws Exception {
+        String tableName = "fixed_string_locale";
+        String qualifiedTable = MYSQL_DATABASE + "." + tableName;
+        List<String> ids =
+                Arrays.asList(
+                        "I1", "i2", "I3", "i4", "I5", "i6", "I7", "i8", "I9", "i10", "I11", "i12",
+                        "i13", "i14", "I15", "i16", "I17", "i18", "I19", "i20");
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE "
+                            + qualifiedTable
+                            + " (id VARCHAR(32) PRIMARY KEY) COLLATE utf8mb4_general_ci");
+            try {
+                try (PreparedStatement insert =
+                        connection.prepareStatement(
+                                "INSERT INTO " + qualifiedTable + " (id) VALUES (?)")) {
+                    for (String id : ids) {
+                        insert.setString(1, id);
+                        insert.addBatch();
+                    }
+                    insert.executeBatch();
+                }
+
+                String query = "SELECT id FROM " + qualifiedTable;
+                Map<String, Object> configMap = new HashMap<>();
+                configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+                configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+                configMap.put("username", MYSQL_USERNAME);
+                configMap.put("password", MYSQL_PASSWORD);
+                configMap.put("query", query);
+                configMap.put("partition_column", "id");
+                configMap.put("split.string_split_mode", "charset_based");
+                // isCaseInsensitive is not read from the table collation: FixedChunkSplitter asks
+                // JdbcDialect#getCollationSequence for the ASCII order of the connection and treats
+                // a sequence that contains an "aa"-like pair as case insensitive. Pinning the
+                // collation here keeps that decision deterministic (the server default may not tie
+                // A with a) and documents which collation the fixture actually exercises. The
+                // table collation above still drives the MIN/MAX ordering the fixture relies on.
+                configMap.put("split.string_split_mode_collate", "utf8mb4_general_ci");
+
+                TablePath tablePath = TablePath.of(MYSQL_DATABASE, tableName);
+                try (MySqlCatalog mySqlCatalog =
+                                new MySqlCatalog(
+                                        "mysql",
+                                        MYSQL_USERNAME,
+                                        MYSQL_PASSWORD,
+                                        mysqlUrlInfo,
+                                        null);
+                        FixedChunkSplitter splitter = getFixedChunkSplitter(configMap)) {
+                    // MySqlCatalog is fixed in the sibling PR, so read the catalog table before the
+                    // default locale is switched: only the split generation below has to run under
+                    // tr-TR.
+                    mySqlCatalog.open();
+                    CatalogTable table = mySqlCatalog.getTable(tablePath);
+                    JdbcSourceTable jdbcSourceTable =
+                            JdbcSourceTable.builder()
+                                    .tablePath(tablePath)
+                                    .catalogTable(table)
+                                    .query(query)
+                                    .partitionColumn("id")
+                                    .partitionNumber(4)
+                                    .build();
+
+                    List<JdbcSourceSplit> rootSplits;
+                    List<String> rootBounds;
+                    List<String> turkishBounds;
+                    Map<String, Integer> readCounts = new HashMap<>();
+                    int splitCount = 0;
+                    Locale base = Locale.getDefault();
+                    Locale display = Locale.getDefault(Locale.Category.DISPLAY);
+                    Locale format = Locale.getDefault(Locale.Category.FORMAT);
+                    try {
+                        Locale.setDefault(Locale.ROOT);
+                        rootSplits = new ArrayList<>(splitter.generateSplits(jdbcSourceTable));
+                        rootBounds = splitBounds(rootSplits);
+
+                        Locale.setDefault(new Locale("tr", "TR"));
+                        Collection<JdbcSourceSplit> turkishSplits =
+                                splitter.generateSplits(jdbcSourceTable);
+                        turkishBounds = splitBounds(turkishSplits);
+                        for (JdbcSourceSplit split : turkishSplits) {
+                            splitCount++;
+                            try (PreparedStatement splitStatement =
+                                            splitter.generateSplitStatement(
+                                                    split, table.getTableSchema());
+                                    ResultSet resultSet = splitStatement.executeQuery()) {
+                                while (resultSet.next()) {
+                                    readCounts.merge(resultSet.getString(1), 1, Integer::sum);
+                                }
+                            }
+                        }
+                    } finally {
+                        Locale.setDefault(base);
+                        Locale.setDefault(Locale.Category.DISPLAY, display);
+                        Locale.setDefault(Locale.Category.FORMAT, format);
+                    }
+
+                    Assertions.assertEquals(
+                            rootBounds,
+                            turkishBounds,
+                            "split bounds depend on the JVM default locale");
+                    for (int i = 0; i < rootSplits.size(); i++) {
+                        if (i > 0) {
+                            assertFoldedBound(rootSplits.get(i).getSplitStart());
+                        }
+                        if (i < rootSplits.size() - 1) {
+                            assertFoldedBound(rootSplits.get(i).getSplitEnd());
+                        }
+                    }
+                    Assertions.assertTrue(
+                            splitCount > 1, "expected more than one split, got " + splitCount);
+                    Assertions.assertEquals(
+                            ids.size(),
+                            readCounts.size(),
+                            "row identities read across splits differ: " + readCounts.keySet());
+                    for (String id : ids) {
+                        Assertions.assertEquals(
+                                1,
+                                readCounts.getOrDefault(id, 0),
+                                "row " + id + " was not read exactly once");
+                    }
+                }
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS " + qualifiedTable);
+            }
+        }
+    }
+
+    private static List<String> splitBounds(FixedChunkSplitter splitter, JdbcSourceTable table)
+            throws Exception {
+        return splitBounds(splitter.generateSplits(table));
+    }
+
+    private static List<String> splitBounds(Collection<JdbcSourceSplit> splits) {
+        List<String> bounds = new ArrayList<>();
+        for (JdbcSourceSplit split : splits) {
+            bounds.add(split.getSplitStart() + ".." + split.getSplitEnd());
+        }
+        return bounds;
+    }
+
+    private static void assertFoldedBound(Object bound) {
+        Assertions.assertNotNull(bound, "generated interior bound must not be null");
+        String text = bound.toString();
+        Assertions.assertEquals(
+                text.toLowerCase(Locale.ROOT),
+                text,
+                "interior bound " + text + " is not folded to the case insensitive sequence");
     }
 }

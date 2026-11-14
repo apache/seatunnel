@@ -30,6 +30,7 @@ import org.apache.commons.collections4.MapUtils;
 import com.google.auto.service.AutoService;
 
 import java.util.Collections;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter.DM_DEC;
@@ -61,7 +62,7 @@ public class DamengDataTypeConvertor implements DataTypeConvertor<String> {
             String field, String dataType, Map<String, Object> properties) {
         Integer precision = null;
         Integer scale = null;
-        switch (dataType.toUpperCase()) {
+        switch (dataType.toUpperCase(Locale.ROOT)) {
             case DM_NUMERIC:
             case DM_NUMBER:
             case DM_DECIMAL:

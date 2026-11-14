@@ -51,6 +51,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -242,7 +243,7 @@ public class OracleDialect implements JdbcDialect {
 
         boolean useTableStats =
                 StringUtils.isBlank(query)
-                        || (!query.toLowerCase().contains("where")
+                        || (!query.toLowerCase(Locale.ROOT).contains("where")
                                 && table.getTablePath() != null
                                 && !TablePath.DEFAULT
                                         .getFullName()

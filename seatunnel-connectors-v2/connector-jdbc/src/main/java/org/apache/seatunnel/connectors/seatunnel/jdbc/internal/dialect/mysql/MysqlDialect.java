@@ -205,7 +205,7 @@ public class MysqlDialect implements JdbcDialect {
 
         boolean useTableStats =
                 StringUtils.isBlank(table.getQuery())
-                        || (!table.getQuery().toLowerCase().contains("where")
+                        || (!table.getQuery().toLowerCase(Locale.ROOT).contains("where")
                                 && table.getTablePath() != null
                                 && !TablePath.DEFAULT
                                         .getFullName()

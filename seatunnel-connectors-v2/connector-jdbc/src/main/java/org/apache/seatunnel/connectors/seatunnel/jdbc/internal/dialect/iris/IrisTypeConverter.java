@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -144,7 +145,7 @@ public class IrisTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .nullable(typeDefine.isNullable())
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
-        String irisDataType = typeDefine.getDataType().toUpperCase();
+        String irisDataType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         long charOrBinaryLength =
                 Objects.nonNull(typeDefineLength) && typeDefineLength > 0 ? typeDefineLength : 1;
         switch (irisDataType) {

@@ -32,6 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
+
 // reference
 // https://docs.xugudb.com/content/reference/sql/datatype/numerical
 @Slf4j
@@ -104,7 +106,7 @@ public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String xuguDataType = typeDefine.getDataType().toUpperCase();
+        String xuguDataType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         switch (xuguDataType) {
             case XUGU_BOOLEAN:
             case XUGU_BOOL:

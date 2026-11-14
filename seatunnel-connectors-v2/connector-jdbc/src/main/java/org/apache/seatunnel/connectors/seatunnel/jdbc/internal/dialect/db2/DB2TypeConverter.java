@@ -32,6 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
+
 // reference https://www.ibm.com/docs/en/db2/11.5?topic=statements-create-table#r0000927__title__52
 @Slf4j
 @AutoService(TypeConverter.class)
@@ -106,7 +108,7 @@ public class DB2TypeConverter implements TypeConverter<BasicTypeDefine> {
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String db2Type = typeDefine.getDataType().toUpperCase();
+        String db2Type = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         switch (db2Type) {
             case DB2_BOOLEAN:
                 builder.sourceType(DB2_BOOLEAN);
