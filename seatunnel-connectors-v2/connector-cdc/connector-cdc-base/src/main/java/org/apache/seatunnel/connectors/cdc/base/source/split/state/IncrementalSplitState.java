@@ -24,8 +24,11 @@ import io.debezium.relational.TableId;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** The state of split to describe the change log of table(s). */
 @Getter
@@ -43,11 +46,15 @@ public class IncrementalSplitState extends SourceSplitStateBase {
     private Offset maxSnapshotSplitsHighWatermark;
     private volatile boolean enterPureIncrementPhase;
 
+    /** Restored per-table offsets, see {@link IncrementalSplit#getTableStartupOffsets()}. */
+    private Map<TableId, Offset> tableStartupOffsets;
+
     public IncrementalSplitState(IncrementalSplit split) {
         super(split);
         this.tableIds = split.getTableIds();
         this.startupOffset = split.getStartupOffset();
         this.stopOffset = split.getStopOffset();
+        this.tableStartupOffsets = split.getTableStartupOffsets();
 
         if (split.getCompletedSnapshotSplitInfos().isEmpty()) {
             this.maxSnapshotSplitsHighWatermark = null;
@@ -71,7 +78,28 @@ public class IncrementalSplitState extends SourceSplitStateBase {
                 getTableIds(),
                 getStartupOffset(),
                 getStopOffset(),
-                incrementalSplit.getCompletedSnapshotSplitInfos());
+                incrementalSplit.getCompletedSnapshotSplitInfos(),
+                new ArrayList<>(),
+                new HashMap<>(),
+                pendingTableStartupOffsets());
+    }
+
+    /**
+     * A restored table offset only needs to be checkpointed until the split has read past it, so
+     * entries at or before the current startup offset are dropped.
+     */
+    private Map<TableId, Offset> pendingTableStartupOffsets() {
+        Map<TableId, Offset> pending = new HashMap<>();
+        if (tableStartupOffsets == null) {
+            return pending;
+        }
+        tableStartupOffsets.forEach(
+                (tableId, offset) -> {
+                    if (startupOffset == null || offset.isAfter(startupOffset)) {
+                        pending.put(tableId, offset);
+                    }
+                });
+        return pending;
     }
 
     public synchronized boolean markEnterPureIncrementPhaseIfNeed(Offset currentRecordPosition) {

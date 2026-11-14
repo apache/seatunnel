@@ -50,7 +50,7 @@ public class L1DistanceFunction implements CalciteUdf {
                             vector1.length, vector2.length));
         }
         return IntStream.range(0, vector1.length)
-                .mapToDouble(i -> Math.abs(vector1[i] - vector2[i]))
+                .mapToDouble(i -> Math.abs((double) vector1[i] - vector2[i]))
                 .sum();
     }
 }

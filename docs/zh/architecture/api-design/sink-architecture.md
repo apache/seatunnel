@@ -154,6 +154,10 @@ sequenceDiagram
     Note over Committer: commit 失败由框架重试\n必须保证幂等
 ```
 
+## 3. 关键实现
+
+### 3.1 SinkWriter 接口
+
 **核心职责**：
 - `write(element)`：接收上游记录并写入外部系统的“临时/事务内”区域（避免对外可见）
 - `prepareCommit(checkpointId)`：在 checkpoint 边界生成提交信息（commitInfo），要求“无副作用”（不让数据对外可见）
@@ -179,7 +183,7 @@ sequenceDiagram
 **契约要点**：
 - `commit(commitInfos)`：对一批提交信息执行提交；必须支持重试，因此要求幂等
 - 返回值语义：返回“仍需重试/未完成”的提交信息集合（框架会在后续 checkpoint 或恢复路径中重试）
-- `abort(commitInfos)`（可选）：放弃提交并做资源清理（例如回滚事务、删除临时文件）
+- `abort(commitInfos)`：放弃提交并做资源清理（例如回滚事务、删除临时文件）。这是抽象方法，每个 committer 都必须实现；Spark 在写入任务中止时调用，SeaTunnel Engine 在 checkpoint 中止时调用
 
 **关键要求**：
 - `commit()` **必须**是幂等的（使用相同的 commitInfo 调用两次应该是安全的）
@@ -208,6 +212,19 @@ sequenceDiagram
 **实现示例（语义级，以 Hive 为例）**：
 - `combine`： Sink 总所有 writer 产生的文件/分区元数据，形成一次表级提交所需的“全量变更集”
 - `commit`：对外部 metastore/表事务执行一次全局原子提交；失败后需要可重试且不重复（幂等）
+
+### 3.4 代码参考
+
+**API 接口**：
+- [SeaTunnelSink.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SeaTunnelSink.java)
+- [SinkWriter.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkWriter.java)
+- [SinkCommitter.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkCommitter.java)
+- [SinkAggregatedCommitter.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkAggregatedCommitter.java)
+
+**示例实现**：
+- JDBC Sink：`seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/sink/`
+- Kafka Sink：`seatunnel-connectors-v2/connector-kafka/src/main/java/org/apache/seatunnel/connectors/seatunnel/kafka/sink/`
+- File Sink：`seatunnel-connectors-v2/connector-file/connector-file-base/src/main/java/org/apache/seatunnel/connectors/seatunnel/file/sink/`
 
 ## 4. 设计考量
 

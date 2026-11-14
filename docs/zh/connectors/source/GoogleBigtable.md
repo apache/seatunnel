@@ -42,6 +42,7 @@ import ChangeLog from '../changelog/connector-google-bigtable.md';
 | end_timestamp   | long   | 否     | -    |
 | max_versions    | int    | 否     | 1    |
 | scan_row_limit  | int    | 否     | -1   |
+| schema          | config | 是     | -    |
 | common-options  |        | 否     | -    |
 
 ### project_id [string]
@@ -91,6 +92,13 @@ Cell 时间戳过滤的结束值，不包含该时间戳，单位是微秒。
 ### scan_row_limit [int]
 
 每个 split 最多读取的行数。默认值 `-1` 表示不限制。当 Enumerator 切出多个 split 时，作业级上限约为 `scan_row_limit × split 数`，而不是整表一条上限。把 `scan_row_limit` 与 `start_rowkey` / `end_rowkey` 配合，可以在多个作业之间分页扫描整张表。
+
+### schema [config]
+
+Source 的输出 schema。该参数为必填：Source 根据 `schema` 构建输出表，缺少时会在启动阶段报错
+`Schema config need option [schema]`。字段名需遵循 [Schema 映射](#schema-映射) 中的
+`familyName:qualifier` 格式，行键字段由 `rowkey_column` 指定。通用语法见
+[Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 ### common options
 

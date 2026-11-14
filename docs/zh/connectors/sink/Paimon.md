@@ -160,7 +160,7 @@ Cdc采集支持有限数量的模式更改。目前支持的模式更改包括�
 
 * 删除列。
 
-* 更改列。
+* 重命名列（可与上文“修改列类型”中列出的类型加宽、列位置、注释、可空性变更同时进行——当新旧列名不同时，变更处理器会在同一步骤中应用这些更新并重命名该列）。
 
 ## 示例
 
@@ -659,6 +659,64 @@ sink {
     table = "${table_name}"
     user = "paimon"
     password = "******"
+  }
+}
+```
+
+### 使用 Hive catalog 在启动时清空目标表
+
+该示例在每次作业启动时依据上游 schema 重建 Hive catalog 中的 Paimon 表
+（`schema_save_mode = "RECREATE_SCHEMA"`），并清空已有数据，使 sink 表现为全新覆写。
+适用于需要全量刷新的批处理作业。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+      primaryKey {
+        name = "pk_id"
+        columnNames = [pk_id]
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "A", 100] }
+      { kind = INSERT, fields = [2, "B", 100] }
+      { kind = INSERT, fields = [3, "C", 100] }
+      { kind = UPDATE_BEFORE, fields = [1, "A", 100] }
+      { kind = UPDATE_AFTER,  fields = [1, "A_1", 100] }
+      { kind = DELETE,        fields = [2, "B", 100] }
+    ]
+  }
+}
+
+sink {
+  Paimon {
+    warehouse = "hdfs:///tmp/paimon"
+    catalog_type = "hive"
+    catalog_uri = "thrift://hadoop04:9083"
+    database = "seatunnel_namespace12"
+    table = "st_test"
+    schema_save_mode = "RECREATE_SCHEMA"
+    data_save_mode = "DROP_DATA"
+    paimon.hadoop.conf = {
+      fs.defaultFS = "hdfs://nameservice1"
+      dfs.nameservices = "nameservice1"
+      dfs.ha.namenodes.nameservice1 = "nn1,nn2"
+      dfs.namenode.rpc-address.nameservice1.nn1 = "hadoop03:8020"
+      dfs.namenode.rpc-address.nameservice1.nn2 = "hadoop04:8020"
+      dfs.client.failover.proxy.provider.nameservice1 = "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider"
+      dfs.client.use.datanode.hostname = "true"
+    }
   }
 }
 ```

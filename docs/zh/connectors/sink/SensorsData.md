@@ -254,31 +254,94 @@ sink {
 
 ### 项目跟踪
 
+物品记录必须设置 `entity_name = items`。`entity_name` 的默认值是 `users`，在该默认值下
+`record_type = items` 会在写入器启动时以 `UNSUPPORTED_RECORD_TYPE` 报错。物品记录只使用
+`item_id_column`、`item_type_column`、`property_fields` 以及可选的 `time_column`；`schema`、
+`event_name`、`distinct_id_column`、`identity_fields` 等仅用于用户记录的参数无需配置。
+
 ```hocon
 sink {
   SensorsData {
     server_url = "http://10.1.136.63:8106/sa?project=default"
     time_free = true
 
+    entity_name = items
     record_type = items
-    schema = items
-    event_name = "$ItemViewed"
+    item_id_column = product_id
+    item_type_column = product_type
     time_column = view_time
-    distinct_id_column = user_id
-    identity_fields = [
-      { source = user_id, target = "$identity_login_id" }
-    ]
     property_fields = [
       { target = "view_duration", source = duration, type = INT }
       { target = "referrer", source = referrer_url, type = STRING }
     ]
-    item_id_column = product_id
-    item_type_column = product_type
+  }
+}
+```
+
+### 用户明细（Detail 记录）
+
+用户明细记录（`record_type = "details"`）会为 SensorsData 用户附加一条按记录维度的标识。
+`detail_id_column` 提供明细键，`distinct_id_column` 和 `identity_fields` 用于标识所属用户。
+
+```hocon
+sink {
+  SensorsData {
+    consumer = console
+    server_url = "http://10.129.27.43:8106/sa?project=sditest"
+    time_free = true
+
+    record_type = details
+    schema = fund_manager
+    distinct_id_column = c_id
+    detail_id_column = c_id
+    identity_fields = [
+      { target = "$identity_distinct_id", source = c_id }
+    ]
+    property_fields = [
+      { target = c_id, source = c_id, type = STRING }
+      { target = fund_amount, source = c_int, type = INT }
+      { target = "$is_valid", source = c_boolean, type = BOOLEAN }
+    ]
+  }
+}
+```
+
+### 多身份与动态事件名称
+
+下面的示例直接从数据行本身构造事件名称（`event_name = "${c_event}"`），并一次性映射多个身份
+（`$identity_login_id`、`$identity_distinct_id`）。转换失败的记录会通过 `skip_error_record = true` 跳过。
+
+```hocon
+sink {
+  SensorsData {
+    consumer = console
+    server_url = "http://10.1.136.63:8106/sa?project=default"
+    time_free = true
+
+    record_type = events
+    schema = events
+    event_name = "${c_event}"
+    time_column = c_date
+    distinct_id_column = c_bigint
+    identity_fields = [
+      { source = c_bigint, target = "$identity_login_id" }
+      { source = c_bigint, target = "$identity_distinct_id" }
+    ]
+    property_fields = [
+      { target = c_tinyint, source = c_tinyint, type = INT }
+      { target = c_bigint,   source = c_bigint,   type = BIGINT }
+      { target = c_int,      source = c_int,      type = INT }
+      { target = c_boolean,  source = c_boolean,  type = BOOLEAN }
+    ]
+    skip_error_record = true
   }
 }
 ```
 
 ### 控制台输出（用于测试）
+
+这里 `entity_name` 保持默认值 `users`，因此和其他用户记录示例一样必须配置 `identity_fields`；
+缺少该参数时作业会在参数校验阶段失败。
 
 ```hocon
 sink {
@@ -290,6 +353,9 @@ sink {
     event_name = "$TestEvent"
     time_column = timestamp
     distinct_id_column = test_id
+    identity_fields = [
+      { source = test_id, target = "$identity_distinct_id" }
+    ]
     property_fields = [
       { target = "test", source = test_field, type = STRING }
     ]

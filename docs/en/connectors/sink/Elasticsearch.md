@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 ## Description
 
-Output data to Elasticsearch or OpenSearch-compatible clusters. The connector uses the Bulk API to buffer documents and flush them in batches. Document IDs are derived from the primary key columns, which makes the sink suitable for CDC workloads that need update and delete semantics. Elasticsearch `2.x` through `8.x` is supported.
+Output data to Elasticsearch or OpenSearch-compatible clusters. The connector uses the Bulk API to buffer documents and flush them in batches. Document IDs are derived from the primary key columns, which makes the sink suitable for CDC workloads that need update and delete semantics. Elasticsearch `2.x` through `9.x` is supported.
 
 ## Key features
 
@@ -23,7 +23,7 @@ Output data to Elasticsearch or OpenSearch-compatible clusters. The connector us
 
 Engine Supported
 
-* supported  `ElasticSearch version is >= 2.x and <= 8.x`
+* supported  `ElasticSearch version is >= 2.x and <= 9.x`
 
 :::
 
@@ -38,6 +38,7 @@ Engine Supported
 | index_type              | string  | no       | -                            | Deprecated. Maps to Elasticsearch `_type` for clusters that still require it. Leave unset for modern clusters. |
 | primary_keys            | list    | no       | -                            | Primary key fields used to generate the document `_id`. Required for CDC sources that produce update / delete events. |
 | key_delimiter           | string  | no       | `_`                          | Delimiter joining composite keys into `_id` (default `_`). Use a different character to avoid clashes with field values. |
+| key_encoding            | enum    | no       | LEGACY                       | `LEGACY` keeps existing document IDs; `LENGTH_PREFIXED` avoids composite-key delimiter collisions. |
 | auth_type               | string  | no       | basic                        | Authentication mode: `basic` (HTTP Basic with `username`/`password`) or `api_key` (Elasticsearch API key). |
 | username                | string  | no       | -                            | Username for `basic` auth. |
 | password                | string  | no       | -                            | Password for `basic` auth. |
@@ -77,6 +78,12 @@ Primary key fields used to generate the document `_id`, this is cdc required opt
 ### key_delimiter [string]
 
 Delimiter for composite keys ("_" by default), e.g., "$" would result in document `_id` "KEY1$KEY2$KEY3".
+
+### key_encoding [enum]
+
+`LEGACY` (default) keeps existing document IDs. With multiple `primary_keys`, values containing `key_delimiter` can produce the same ID. Set `LENGTH_PREFIXED` to encode each formatted value as `<length>:<value>`; for example, `["1_1", "2"]` becomes `3:1_11:2` and `["1", "1_2"]` becomes `1:13:1_2`. This mode ignores `key_delimiter` and leaves single-key IDs unchanged.
+
+Changing this option for an existing composite-key index changes its document IDs. Reindex or migrate existing documents before switching; otherwise subsequent writes can create duplicates instead of updating the old IDs.
 
 ### multi_table_sink_replica [int]
 
@@ -382,7 +389,8 @@ CDC collection supports a limited number of schema changes. The currently suppor
 
 * Adding columns.
 
-### Schema Evolution
+Example:
+
 ```hocon
 env {
   # You can set engine configuration here

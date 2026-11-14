@@ -67,11 +67,13 @@ Column 通常由以下信息构成:
 
 ### 2.4 SeaTunnelDataType
 
-跨连接器的统一类型系统。
+跨连接器的统一类型系统。类型以 `org.apache.seatunnel.api.table.type` 包中的常量或类表示（例如 `BasicType.INT_TYPE`、
+`new DecimalType(precision, scale)`、`LocalTimeType.LOCAL_DATE_TIME_TYPE`、`PrimitiveByteArrayType.INSTANCE`），
+并不存在 `DataTypes` 这样的工厂类。
 
 **基本类型**(示例):
 - 数值: TINYINT/SMALLINT/INT/BIGINT/FLOAT/DOUBLE/DECIMAL(precision, scale)
-- 字符串: STRING/CHAR(length)/VARCHAR(length)
+- 字符串: STRING（没有独立的 CHAR/VARCHAR 类型，声明长度记录在 Column 的 `columnLength` 中）
 - 二进制: BYTES
 - 日期/时间: DATE/TIME/TIMESTAMP
 - 布尔: BOOLEAN
@@ -322,13 +324,17 @@ Sink 侧的关键是：把输入行映射到正确分区并以目标系统要求
 
 ### 9.1 模式覆盖
 
+无法从外部系统读取 schema 的 Source 可以通过 `schema` 块显式声明字段。`Jdbc` 等 Source 会从表或查询的元数据推断
+schema；对 `Jdbc` 而言，`schema` 是一个字符串参数，表示数据库的 schema 名称，而不是字段列表。
+
 ```hocon
 source {
-  Jdbc {
-    url = "..."
-    query = "SELECT * FROM users"
+  Kafka {
+    bootstrap.servers = "localhost:9092"
+    topic = "users"
+    format = json
 
-    # 覆盖推断的模式
+    # 声明 JSON 消息的 schema
     schema {
       fields {
         id = "BIGINT"
@@ -379,3 +385,13 @@ sink {
 - [sink 目标端架构](sink-architecture.md)
 - [模式演化](../../introduction/configuration/schema-evolution.md)
 - [模式特性](../../introduction/concepts/schema-feature.md)
+
+## 11. 参考资料
+
+### 关键源码文件
+
+- [CatalogTable.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
+- [TableSchema.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/TableSchema.java)
+- [Column.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/Column.java)
+- [SeaTunnelDataType.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/type/SeaTunnelDataType.java)
+- [SchemaChangeEvent.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/schema/event/SchemaChangeEvent.java)
