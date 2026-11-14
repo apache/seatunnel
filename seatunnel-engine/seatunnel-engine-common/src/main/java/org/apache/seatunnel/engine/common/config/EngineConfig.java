@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.engine.common.config.server.AutoscalerConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
@@ -34,6 +35,7 @@ import lombok.Data;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.hazelcast.internal.util.Preconditions.checkBackupCount;
 import static com.hazelcast.internal.util.Preconditions.checkNotNull;
@@ -66,6 +68,9 @@ public class EngineConfig {
 
     private SlotServiceConfig slotServiceConfig =
             ServerConfigOptions.WorkerServerConfigOptions.SLOT_SERVICE.defaultValue();
+
+    /** Node-local autoscaler settings; all master and worker nodes must use consistent values. */
+    private AutoscalerConfig autoscalerConfig = AutoscalerConfig.defaults();
 
     private CheckpointConfig checkpointConfig =
             ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT.defaultValue();
@@ -144,6 +149,11 @@ public class EngineConfig {
 
     public void setScheduleStrategy(ScheduleStrategy scheduleStrategy) {
         this.scheduleStrategy = scheduleStrategy;
+    }
+
+    /** Sets the node-local autoscaler settings shared by this node's master and worker services. */
+    public void setAutoscalerConfig(AutoscalerConfig autoscalerConfig) {
+        this.autoscalerConfig = Objects.requireNonNull(autoscalerConfig, "autoscalerConfig");
     }
 
     public void setPrintExecutionInfoInterval(int printExecutionInfoInterval) {

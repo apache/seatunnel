@@ -29,6 +29,14 @@ public class StandaloneResourceManager extends AbstractResourceManager {
         super(nodeEngine, engineConfig);
     }
 
+    /** Creates a standalone manager that reports capacity shortages to the supplied listener. */
+    public StandaloneResourceManager(
+            NodeEngine nodeEngine,
+            EngineConfig engineConfig,
+            ResourceShortageListener resourceShortageListener) {
+        super(nodeEngine, engineConfig, resourceShortageListener);
+    }
+
     /** Synchronizes existing worker slots without creating external worker processes. */
     @Override
     public synchronized void init() {

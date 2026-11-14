@@ -35,7 +35,11 @@ import java.util.Collections;
 /** Used to test ResourceManager, override init method to register more workers. */
 public class FakeResourceManager extends AbstractResourceManager {
     public FakeResourceManager(NodeEngine nodeEngine) {
-        super(nodeEngine, new EngineConfig());
+        this(nodeEngine, ResourceShortageListener.NOOP);
+    }
+
+    public FakeResourceManager(NodeEngine nodeEngine, ResourceShortageListener shortageListener) {
+        super(nodeEngine, new EngineConfig(), shortageListener);
         init();
     }
 
