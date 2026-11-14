@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.format.json.RowToJsonConverters;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationErrorType;
+import org.apache.seatunnel.transform.nlpmodel.llm.LLMDiagnostics;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -89,13 +91,26 @@ public abstract class AbstractModel implements Model {
 
     @Override
     public List<String> inference(List<SeaTunnelRow> rows) throws IOException {
-        ArrayNode rowsNode = OBJECT_MAPPER.createArrayNode();
-        for (SeaTunnelRow row : rows) {
-            ObjectNode rowNode = OBJECT_MAPPER.createObjectNode();
-            rowToJsonConverter.convert(OBJECT_MAPPER, rowNode, createProjectionSeaTunnelRow(row));
-            rowsNode.add(rowNode);
+        String rowsJson;
+        try {
+            ArrayNode rowsNode = OBJECT_MAPPER.createArrayNode();
+            for (SeaTunnelRow row : rows) {
+                ObjectNode rowNode = OBJECT_MAPPER.createObjectNode();
+                rowToJsonConverter.convert(
+                        OBJECT_MAPPER, rowNode, createProjectionSeaTunnelRow(row));
+                rowsNode.add(rowNode);
+            }
+            rowsJson = OBJECT_MAPPER.writeValueAsString(rowsNode);
+        } catch (Exception failure) {
+            throw LLMDiagnostics.sanitize(
+                    failure, "LLM", null, ModelInvocationErrorType.CONFIGURATION_ERROR);
         }
-        return chatWithModel(getPromptWithLimit(), OBJECT_MAPPER.writeValueAsString(rowsNode));
+        try {
+            return chatWithModel(getPromptWithLimit(), rowsJson);
+        } catch (Exception failure) {
+            throw LLMDiagnostics.sanitize(
+                    failure, "LLM", null, ModelInvocationErrorType.UNKNOWN_REMOTE_ERROR);
+        }
     }
 
     @VisibleForTesting

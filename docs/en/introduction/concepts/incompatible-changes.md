@@ -12,6 +12,17 @@ You need to check this document before you upgrade to related version.
   - **Impact**: A dataset created by this version has an `int64` column where an earlier version created `int32`. A dataset that already exists keeps its column types, because the sink writes to the schema it finds, so its `int32` column still wraps large values.
   - **Migration Guide**: No configuration change is needed. If a consumer expects `int32` for these columns, update it to read `int64`. To store large values in a dataset created by an earlier version, recreate the dataset and write the rows again from the source.
 
+### LLM transform: sanitized failure diagnostics
+
+Error messages and exception causes from `LLMTransform` initialization/inference and
+`Model.inference` no longer expose input rows, prompts, raw provider responses,
+credentials, or unsafe nested exception text. Safe `provider`,
+validated `model`, `errorType`, and available `httpStatus` metadata remain. Monitoring
+that matched the previous raw error text must use these fields instead. No configuration
+migration is required; successful output and LLM invocation attempt behavior are unchanged.
+This scope excludes `close()`, configuration validation before constructor invocation,
+request/response testing helpers, and configuration/HTTP wire logging.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**

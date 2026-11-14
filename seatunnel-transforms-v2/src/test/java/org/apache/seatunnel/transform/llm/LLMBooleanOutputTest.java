@@ -36,6 +36,7 @@ import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.nlpmodel.llm.LLMTransform;
 import org.apache.seatunnel.transform.nlpmodel.llm.LLMTransformFactory;
+import org.apache.seatunnel.transform.nlpmodel.llm.remote.Model;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -57,6 +58,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectStreamClass;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.Field;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -185,7 +187,237 @@ class LLMBooleanOutputTest {
         RuntimeException error =
                 Assertions.assertThrows(
                         RuntimeException.class, () -> mapResponse("[\"invalid-number\"]"));
-        Assertions.assertInstanceOf(NumberFormatException.class, error.getCause());
+        Assertions.assertTrue(error.getCause().getMessage().contains("RESPONSE_PARSE_ERROR"));
+        assertSafe(error, "invalid-number");
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {"OPENAI", "MICROSOFT", "KIMIAI", "CUSTOM", "DEEPSEEK", "DOUBAO", "ZHIPU"})
+    void inferenceFailureDoesNotExposeRowOrProviderBody(String provider) {
+        TableTransformFactoryContext context =
+                configuration("STRING", null, "CUSTOM".equals(provider), provider);
+        transform = new LLMTransform(context.getOptions(), context.getCatalogTables().get(0));
+        transform.getProducedCatalogTable();
+        server.enqueue(
+                new MockResponse().setResponseCode(503).setBody("private-provider-response"));
+        RuntimeException error =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {INPUT_VALUE})));
+        StringWriter stack = new StringWriter();
+        error.printStackTrace(new PrintWriter(stack));
+        Assertions.assertFalse(stack.toString().contains(INPUT_VALUE), stack.toString());
+        Assertions.assertFalse(
+                stack.toString().contains("private-provider-response"), stack.toString());
+        Assertions.assertTrue(stack.toString().contains("provider=" + provider), stack.toString());
+        Assertions.assertTrue(stack.toString().contains("httpStatus=503"), stack.toString());
+        Assertions.assertEquals(1, server.getRequestCount());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"OPENAI", "MICROSOFT", "KIMIAI", "CUSTOM"})
+    void malformedResponseDoesNotLeakParserContent(String provider) {
+        configureProvider(provider, "STRING");
+        server.enqueue(new MockResponse().setBody("{\"private-response-marker\": invalid-json}"));
+        RuntimeException failure =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {INPUT_VALUE})));
+        assertSafe(failure, "private-response-marker");
+        Assertions.assertTrue(failure.getCause().getMessage().contains("RESPONSE_PARSE_ERROR"));
+        Assertions.assertEquals(1, server.getRequestCount());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"INT", "BIGINT", "DOUBLE"})
+    void numericConversionDoesNotLeakGeneratedContent(String type) throws IOException {
+        configure(type, false);
+        RuntimeException failure =
+                Assertions.assertThrows(
+                        RuntimeException.class, () -> mapResponse("[\"private-output-marker\"]"));
+        assertSafe(failure, "private-output-marker");
+        Assertions.assertTrue(failure.getCause().getMessage().contains("RESPONSE_PARSE_ERROR"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {302, 400, 401, 403, 429, 500, 503})
+    void retainsStatusWithoutRetryingOrExposingErrorBody(int status) {
+        configureProvider("CUSTOM", "STRING");
+        // Do not allow HTTP redirection to turn this into another provider invocation.
+        server.enqueue(new MockResponse().setResponseCode(status).setBody("private-error-marker"));
+        RuntimeException failure =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {INPUT_VALUE})));
+        assertSafe(failure, "private-error-marker");
+        Assertions.assertTrue(failure.getCause().getMessage().contains("httpStatus=" + status));
+        Assertions.assertEquals(1, server.getRequestCount());
+    }
+
+    @Test
+    void dropsUnsafeCauseAndSuppressedExceptionsFromInjectedModel() throws Exception {
+        configure("STRING", false);
+        transform.close();
+        Field field = LLMTransform.class.getDeclaredField("model");
+        field.setAccessible(true);
+        field.set(
+                transform,
+                new Model() {
+                    @Override
+                    public java.util.List<String> inference(java.util.List<SeaTunnelRow> rows)
+                            throws IOException {
+                        IOException failure =
+                                new IOException(
+                                        "private-credential-marker", new IOException(INPUT_VALUE));
+                        failure.addSuppressed(new IOException("private-prompt-marker"));
+                        throw failure;
+                    }
+
+                    @Override
+                    public void close() {}
+                });
+        RuntimeException failure =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {INPUT_VALUE})));
+        assertSafe(failure, "private-credential-marker", "private-prompt-marker");
+        Assertions.assertNull(failure.getCause().getCause());
+        Assertions.assertEquals(0, failure.getCause().getSuppressed().length);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"CUSTOM", "OPENAI"})
+    void subsequentSuccessfulInvocationIsUnchangedAfterFailure(String provider) throws IOException {
+        configureProvider(provider, "STRING");
+        server.enqueue(new MockResponse().setResponseCode(503).setBody("private-response-marker"));
+        Assertions.assertThrows(
+                RuntimeException.class,
+                () -> transform.map(new SeaTunnelRow(new Object[] {INPUT_VALUE})));
+        Assertions.assertEquals("success", mapResponse("[\"success\"]").getField(1));
+        Assertions.assertEquals(2, server.getRequestCount());
+    }
+
+    @Test
+    void transportSetupDoesNotExposeCredentialBearingUri() {
+        configureOverride("api_path", "http://private-credential-marker.invalid/invalid path");
+        RuntimeException failure =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {INPUT_VALUE})));
+        assertSafe(failure, "private-credential-marker");
+        Assertions.assertEquals(0, server.getRequestCount());
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "private-model-marker\nforged-log-entry",
+                "https://user:private-model-marker@host/model",
+                "https://private-model-marker/model"
+            })
+    void omitsUnsafeModelMetadata(String modelName) {
+        configureOverride("model", modelName);
+        server.enqueue(new MockResponse().setResponseCode(401).setBody("private-response-marker"));
+        RuntimeException failure =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {INPUT_VALUE})));
+        StringWriter stack = new StringWriter();
+        failure.printStackTrace(new PrintWriter(stack));
+        Assertions.assertFalse(stack.toString().contains("private-model-marker"), stack.toString());
+        Assertions.assertTrue(stack.toString().contains("model=[omitted]"), stack.toString());
+    }
+
+    @Test
+    void omitsModelMetadataContainingConfiguredCredential() {
+        configureOverride("api_key", "test-model");
+        server.enqueue(new MockResponse().setResponseCode(401));
+        RuntimeException failure =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {INPUT_VALUE})));
+        Assertions.assertTrue(failure.getCause().getMessage().contains("model=[omitted]"));
+        Assertions.assertFalse(failure.getCause().getMessage().contains("test-model"));
+    }
+
+    @Test
+    void initializationDoesNotExposeInvalidProjection() {
+        configureOverride(
+                "inference_columns", Collections.singletonList("private-projection-marker"));
+        RuntimeException failure =
+                Assertions.assertThrows(RuntimeException.class, () -> transform.open());
+        assertSafe(failure, "private-projection-marker");
+        Assertions.assertTrue(failure.getCause().getMessage().contains("CONFIGURATION_ERROR"));
+        Assertions.assertEquals(0, server.getRequestCount());
+    }
+
+    @Test
+    void invalidProviderDoesNotEscapeDiagnosticSanitization() {
+        configureOverride("model_provider", "private-provider-marker");
+        RuntimeException failure =
+                Assertions.assertThrows(RuntimeException.class, () -> transform.open());
+        StringWriter stack = new StringWriter();
+        failure.printStackTrace(new PrintWriter(stack));
+        Assertions.assertFalse(
+                stack.toString().contains("private-provider-marker"), stack.toString());
+        Assertions.assertTrue(stack.toString().contains("CONFIGURATION_ERROR"), stack.toString());
+    }
+
+    @Test
+    void customAuthorizationCredentialIsNotEchoedAsModelMetadata() {
+        TableTransformFactoryContext context = configuration("STRING", false, true);
+        Map<String, Object> options = new HashMap<>(context.getOptions().getSourceMap());
+        options.put("model", "private-credential-marker");
+        Map<String, Object> custom =
+                new HashMap<>((Map<String, Object>) options.get("custom_config"));
+        custom.put(
+                "custom_request_headers",
+                Collections.singletonMap("Authorization", "Bearer private-credential-marker"));
+        options.put("custom_config", custom);
+        transform =
+                new LLMTransform(
+                        ReadonlyConfig.fromMap(options), context.getCatalogTables().get(0));
+        transform.getProducedCatalogTable();
+        server.enqueue(new MockResponse().setResponseCode(401));
+        RuntimeException failure =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {INPUT_VALUE})));
+        StringWriter stack = new StringWriter();
+        failure.printStackTrace(new PrintWriter(stack));
+        Assertions.assertFalse(
+                stack.toString().contains("private-credential-marker"), stack.toString());
+        Assertions.assertTrue(stack.toString().contains("model=[omitted]"), stack.toString());
+    }
+
+    private void configureOverride(String option, Object value) {
+        TableTransformFactoryContext context = configuration("STRING", false, false);
+        Map<String, Object> options = new HashMap<>(context.getOptions().getSourceMap());
+        options.put(option, value);
+        transform =
+                new LLMTransform(
+                        ReadonlyConfig.fromMap(options), context.getCatalogTables().get(0));
+        transform.getProducedCatalogTable();
+    }
+
+    private void configureProvider(String provider, String type) {
+        TableTransformFactoryContext context =
+                configuration(type, null, "CUSTOM".equals(provider), provider);
+        transform = new LLMTransform(context.getOptions(), context.getCatalogTables().get(0));
+        transform.getProducedCatalogTable();
+        transform.open();
+    }
+
+    private static void assertSafe(Throwable error, String... markers) {
+        StringWriter stack = new StringWriter();
+        error.printStackTrace(new PrintWriter(stack));
+        Assertions.assertFalse(stack.toString().contains(INPUT_VALUE), stack.toString());
+        for (String marker : markers) {
+            Assertions.assertFalse(stack.toString().contains(marker), stack.toString());
+        }
+        Assertions.assertTrue(stack.toString().contains("provider="), stack.toString());
+        Assertions.assertTrue(stack.toString().contains("model=test-model"), stack.toString());
     }
 
     @Test
@@ -323,8 +555,13 @@ class LLMBooleanOutputTest {
 
     private TableTransformFactoryContext configuration(
             String type, Boolean strict, boolean custom) {
+        return configuration(type, strict, custom, custom ? "CUSTOM" : "OPENAI");
+    }
+
+    private TableTransformFactoryContext configuration(
+            String type, Boolean strict, boolean custom, String provider) {
         Map<String, Object> options = new HashMap<>();
-        options.put("model_provider", custom ? "CUSTOM" : "OPENAI");
+        options.put("model_provider", provider);
         options.put("model", "test-model");
         options.put("api_key", "test-key");
         options.put("api_path", server.url("/chat/completions").toString());

@@ -176,6 +176,20 @@ transform {
 
 转换插件的常见参数, 请参考  [Transform Plugin](common-options/common-options.md) 了解详情
 
+## 失败诊断
+
+`LLMTransform` 初始化/推理及 `Model.inference` 的错误消息和异常原因链经过安全处理，
+不再包含输入行、提示词、提供方原始响应、凭据或不安全的嵌套异常文本。
+诊断信息保留 `provider`、经过校验的模型标识符、
+`errorType` 以及可用时的 `httpStatus` 等安全元数据。例如，HTTP 503 失败包含
+`provider=OPENAI, model=test-model, errorType=TEMPORARY_REMOTE_ERROR` 和 `httpStatus=503`。
+无效或过长的模型标识符不会原样输出。
+
+成功输出、配置选项及 LLM 调用尝试行为保持不变，错误分类不会新增重试。
+依赖原始响应文本或嵌套异常消息的监控应改为使用安全元数据。
+此范围不包括 `close()`、调用构造函数前的配置校验、请求/响应测试辅助方法，
+以及配置日志和 HTTP wire 日志，并不构成通用的日志保密保证。
+
 ## tips
 大模型API接口通常会有速率限制，可以配合Seatunnel的限速配置，已确保任务顺利运行。
 Seatunnel限速配置,请参考[speed-limit](../introduction/configuration/speed-limit.md)了解详情
