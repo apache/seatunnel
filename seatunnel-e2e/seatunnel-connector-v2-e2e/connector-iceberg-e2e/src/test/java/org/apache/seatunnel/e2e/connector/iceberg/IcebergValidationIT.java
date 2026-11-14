@@ -43,6 +43,24 @@ public class IcebergValidationIT extends TestSuiteBase {
                 "stderr should report the failed primary-keys validation, but was: " + stderr);
     }
 
+    /**
+     * Verifies that the packaged Glue catalog loads the configured provider and reports its own
+     * credential validation before attempting any external service connection.
+     */
+    @TestTemplate
+    public void testPackagedGlueCredentialsProviderRejectsBlankCredentials(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                container.executeJob("/iceberg/iceberg-glue-blank-credentials.conf");
+        Assertions.assertNotEquals(0, result.getExitCode());
+        String output = result.getStdout() + result.getStderr();
+        Assertions.assertTrue(
+                output.contains(
+                        "Missing credentials. Use 'client.credentials-provider.access-key-id'"),
+                "The packaged catalog must load the configured provider and report its validation: "
+                        + output);
+    }
+
     @TestTemplate
     public void testSourceNonPositiveScanIntervalRejected(TestContainer container)
             throws IOException, InterruptedException {
