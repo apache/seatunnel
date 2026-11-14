@@ -38,6 +38,7 @@ on:
           - 'IntermediateQueueBenchmark'
           - 'MultiTableSinkBenchmark'
           - 'DebeziumJsonFormatBenchmark'
+          - 'IncrementalSourceRecordEmitterBenchmark'
           - 'ProtoStuffSerializerBenchmark'
           - 'SeaTunnelPipelineBenchmark'
           - 'CheckpointingTimeBenchmark'

@@ -47,6 +47,12 @@ Run only the `ProtoStuffSerializer` benchmarks:
 java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark
 ```
 
+Run only the `IncrementalSourceRecordEmitter` benchmark.
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar IncrementalSourceRecordEmitterBenchmark
+```
+
 Run the `MultiTableSink` record handoff benchmark without starting an engine or database:
 
 ```bash
