@@ -17,6 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.common.error.RowErrorEvent;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkWriter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -27,6 +39,7 @@ import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -42,12 +55,17 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @Slf4j
 public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResource {
@@ -79,6 +97,147 @@ public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResour
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(this::initializeJdbcTable);
+    }
+
+    @Test
+    void testHealthyManualCommitCloseDeliversPendingRows() throws Exception {
+        String table = "sink_close_healthy";
+        createCleanupTable(table);
+        JdbcSinkWriter writer = cleanupWriter(table, 10, null);
+        try {
+            writer.write(new SeaTunnelRow(new Object[] {1L, "good", 2}));
+            Assertions.assertEquals(0, getSinkRowCount(table));
+        } finally {
+            writer.close();
+        }
+        assertCommittedRow(table, 1L);
+        Assertions.assertEquals(1L, getExecutionAttempts(table));
+    }
+
+    @Test
+    void testFailedCloseDoesNotReplayBatch() throws Exception {
+        String table = "sink_close_failed";
+        createCleanupTable(table);
+        JdbcSinkWriter writer = cleanupWriter(table, 1, null);
+        try {
+            Assertions.assertThrows(
+                    JdbcConnectorException.class,
+                    () -> writer.write(new SeaTunnelRow(new Object[] {1L, "bad", -1})));
+        } finally {
+            Assertions.assertThrows(JdbcConnectorException.class, writer::close);
+        }
+        Assertions.assertEquals(0, getSinkRowCount(table));
+        Assertions.assertEquals(1L, getExecutionAttempts(table));
+    }
+
+    @Test
+    void testRowErrorRollbackAllowsNextBatch() throws Exception {
+        String table = "sink_close_recovery";
+        createCleanupTable(table);
+        List<RowErrorEvent> errors = new ArrayList<>();
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+        when(context.getRowErrorCollector()).thenReturn(Optional.of(errors::add));
+        JdbcSinkWriter writer = cleanupWriter(table, 1, context);
+        try {
+            writer.write(new SeaTunnelRow(new Object[] {1L, "bad", -1}));
+            Assertions.assertEquals(1, errors.size());
+            writer.write(new SeaTunnelRow(new Object[] {2L, "good", 2}));
+            Assertions.assertEquals(0, getSinkRowCount(table));
+        } finally {
+            writer.close();
+        }
+        assertCommittedRow(table, 2L);
+        Assertions.assertEquals(2L, getExecutionAttempts(table));
+    }
+
+    /** Uses the real writer and PostgreSQL transaction path without an engine container. */
+    private JdbcSinkWriter cleanupWriter(String table, int batchSize, SinkWriter.Context context) {
+        JdbcConnectionConfig connectionConfig =
+                JdbcConnectionConfig.builder()
+                        .url(postgreSQLContainer.getJdbcUrl())
+                        .driverName("org.postgresql.Driver")
+                        .username(postgreSQLContainer.getUsername())
+                        .password(postgreSQLContainer.getPassword())
+                        .autoCommit(false)
+                        .batchSize(batchSize)
+                        .maxRetries(0)
+                        .build();
+        JdbcSinkConfig sinkConfig =
+                JdbcSinkConfig.builder()
+                        .jdbcConnectionConfig(connectionConfig)
+                        .database("public")
+                        .table(table)
+                        .simpleSql(
+                                "INSERT INTO " + table + " (pk_id, name, score) VALUES (?, ?, ?)")
+                        .build();
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "pk_id", BasicType.LONG_TYPE, 0L, false, null, null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 255L, true, null, null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "score", BasicType.INT_TYPE, 0L, true, null, null))
+                        .build();
+        return new JdbcSinkWriter(
+                TablePath.of("public", table),
+                context,
+                new PostgresDialect(),
+                sinkConfig,
+                schema,
+                schema,
+                null);
+    }
+
+    /** Sequence increments survive rollback and expose every database execution attempt. */
+    private void createCleanupTable(String table) throws SQLException {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(String.format(CREATE_TABLE_SQL, table));
+            statement.execute("CREATE SEQUENCE " + table + "_attempts");
+            statement.execute(
+                    "CREATE FUNCTION "
+                            + table
+                            + "_check() RETURNS trigger AS $$ BEGIN "
+                            + "PERFORM nextval('"
+                            + table
+                            + "_attempts'); "
+                            + "IF NEW.score < 0 THEN RAISE EXCEPTION 'controlled row failure' USING ERRCODE = '22003'; END IF; "
+                            + "RETURN NEW; END; $$ LANGUAGE plpgsql");
+            statement.execute(
+                    "CREATE TRIGGER check_row BEFORE INSERT ON "
+                            + table
+                            + " FOR EACH ROW EXECUTE FUNCTION "
+                            + table
+                            + "_check()");
+        }
+    }
+
+    private long getExecutionAttempts(String table) throws SQLException {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet result =
+                        statement.executeQuery(
+                                "SELECT last_value, is_called FROM " + table + "_attempts")) {
+            Assertions.assertTrue(result.next());
+            return result.getBoolean(2) ? result.getLong(1) : 0L;
+        }
+    }
+
+    private void assertCommittedRow(String table, long id) throws SQLException {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet result =
+                        statement.executeQuery("SELECT pk_id, name, score FROM " + table)) {
+            Assertions.assertTrue(result.next());
+            Assertions.assertEquals(id, result.getLong(1));
+            Assertions.assertEquals("good", result.getString(2));
+            Assertions.assertEquals(2, result.getInt(3));
+            Assertions.assertFalse(result.next());
+        }
     }
 
     @TestTemplate

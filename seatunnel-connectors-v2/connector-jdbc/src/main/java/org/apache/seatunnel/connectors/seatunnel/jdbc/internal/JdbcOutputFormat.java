@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -170,10 +169,12 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             jdbcStatementExecutor.clearBatch();
             batchCount = 0;
         } catch (SQLException e) {
-            throw new JdbcConnectorException(
-                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
-                    "Failed to clear JDBC batch after row-level error.",
-                    e);
+            flushException =
+                    new JdbcConnectorException(
+                            CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                            "Failed to clear JDBC batch after row-level error.",
+                            e);
+            throw (JdbcConnectorException) flushException;
         }
     }
 
@@ -210,15 +211,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     public synchronized void flush() throws IOException {
-        if (flushException != null) {
-            LOG.warn(
-                    String.format(
-                            "An exception occurred during the previous flush process %s, skipping"
-                                    + " this flush",
-                            ExceptionUtils.getMessage(flushException)));
-            return;
-        }
-
+        checkFlushException();
         if (batchCount == 0) {
             LOG.debug("No data to flush.");
             return;
@@ -235,6 +228,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 flushException = null;
                 lastFlushTimeMs = System.currentTimeMillis();
                 break;
+            } catch (RuntimeException e) {
+                recordFlushException(e);
+                throw e;
             } catch (SQLException e) {
                 recordFlushException(e);
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
@@ -280,8 +276,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 }
 
                 if (i >= jdbcConnectionConfig.getMaxRetries()) {
-                    throw new JdbcConnectorException(
-                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
+                    flushException =
+                            new JdbcConnectorException(
+                                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
+                    throw (JdbcConnectorException) flushException;
                 }
                 if (transactionStateManager.hasPendingOrLostWork()) {
                     // A retry would re-send only the current batch. Earlier batches live only in
@@ -308,19 +306,23 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     LOG.error(
                             "JDBC connection is not valid, and reestablish connection failed.",
                             exception);
-                    throw new JdbcConnectorException(
-                            JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
-                            "Reestablish JDBC connection failed",
-                            exception);
+                    flushException =
+                            new JdbcConnectorException(
+                                    JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
+                                    "Reestablish JDBC connection failed",
+                                    exception);
+                    throw (JdbcConnectorException) flushException;
                 }
                 try {
                     sleepBeforeFlushRetry((long) sleepMs * i);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    throw new JdbcConnectorException(
-                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                            "unable to flush; interrupted while doing another attempt",
-                            e);
+                    flushException =
+                            new JdbcConnectorException(
+                                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                    "unable to flush; interrupted while doing another attempt",
+                                    e);
+                    throw (JdbcConnectorException) flushException;
                 }
             }
         }
