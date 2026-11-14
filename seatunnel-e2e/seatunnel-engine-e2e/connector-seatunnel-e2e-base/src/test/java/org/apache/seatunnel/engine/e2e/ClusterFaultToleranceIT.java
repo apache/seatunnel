@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -42,6 +43,7 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.EntryView;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.map.IMap;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -848,6 +850,22 @@ public class ClusterFaultToleranceIT {
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
                                 Assertions.assertTrue(lineNumberFromDir > 1);
                             });
+
+            // engine_checkpoint_monitor matches the engine* map-store config, but it only holds
+            // observability state: it keeps the job's checkpoint overview in memory and writes
+            // nothing to the IMap storage, next to the engine maps that are persisted.
+            IMap<Long, Object> checkpointMonitor =
+                    finalNode.getMap(EngineStateStoreNames.CHECKPOINT_MONITOR);
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(checkpointMonitor.containsKey(jobId)));
+            File imapStorageRoot =
+                    new File("/tmp/seatunnel/imap", TestUtils.getClusterName(testClusterName));
+            Assertions.assertTrue(
+                    new File(imapStorageRoot, Constant.IMAP_RUNNING_JOB_STATE).isDirectory());
+            Assertions.assertFalse(
+                    new File(imapStorageRoot, EngineStateStoreNames.CHECKPOINT_MONITOR).exists());
 
             Thread.sleep(5000);
             // shutdown all node

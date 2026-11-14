@@ -17,9 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
@@ -28,6 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 
 import org.duckdb.DuckDBDriver;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,10 +44,13 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -51,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -131,6 +143,178 @@ public class FixedChunkSplitterTest {
     }
 
     @Test
+    public void testDateSplitsWithIsoAndLegacyBoundsBindJdbcDates() throws Exception {
+        for (String[] bounds :
+                new String[][] {
+                    {"2024-01-01", "2024-01-03"},
+                    {"19723", "19725"}
+                }) {
+            CapturingFixedChunkSplitter splitter = new CapturingFixedChunkSplitter(mysqlConfig());
+            assertDateSplits(splitter, dateTable(bounds[0], bounds[1]));
+        }
+    }
+
+    @Test
+    public void testDateSplitsDiscoverDateAndTimestampMinMax() throws Exception {
+        for (Object[] bounds :
+                new Object[][] {
+                    {Date.valueOf("2024-01-01"), Date.valueOf("2024-01-03")},
+                    {
+                        Timestamp.valueOf("2024-01-01 12:34:56"),
+                        Timestamp.valueOf("2024-01-03 12:34:56")
+                    }
+                }) {
+            CapturingFixedChunkSplitter splitter =
+                    new CapturingFixedChunkSplitter(mysqlConfig()) {
+                        @Override
+                        protected Pair<Object, Object> queryMinMax(
+                                JdbcSourceTable table, String columnName) {
+                            return Pair.of(bounds[0], bounds[1]);
+                        }
+                    };
+            assertDateSplits(splitter, dateTable(null, null));
+        }
+    }
+
+    @Test
+    @ResourceLock("java.util.TimeZone")
+    public void testDateSplitsPreserveDaysAcrossTimeZoneSerialization() throws Exception {
+        TimeZone original = TimeZone.getDefault();
+        try {
+            for (String[] zones :
+                    new String[][] {
+                        {"Asia/Shanghai", "America/Los_Angeles"},
+                        {"Etc/GMT+12", "Pacific/Kiritimati"}
+                    }) {
+                TimeZone.setDefault(TimeZone.getTimeZone(zones[0]));
+                CapturingFixedChunkSplitter splitter =
+                        new CapturingFixedChunkSplitter(mysqlConfig());
+                DefaultSerializer<JdbcSourceSplit> serializer = new DefaultSerializer<>();
+                List<byte[]> serialized = new ArrayList<>();
+                for (JdbcSourceSplit split :
+                        splitter.createSplits(dateTable("2024-01-01", "2024-01-03"), dateKey())) {
+                    serialized.add(serializer.serialize(split));
+                }
+                TimeZone.setDefault(TimeZone.getTimeZone(zones[1]));
+                for (int i = 0; i < serialized.size(); i++) {
+                    JdbcSourceSplit restored = serializer.deserialize(serialized.get(i));
+                    splitter.generateSplitStatement(restored, TableSchema.builder().build());
+                    LocalDate expected = LocalDate.of(2024, 1, 1).plusDays(i);
+                    assertEquals(expected, splitter.dateParameters.get(1).toLocalDate());
+                    assertEquals(expected, splitter.dateParameters.get(2).toLocalDate());
+                    assertTrue(splitter.bigDecimalParameters.isEmpty());
+                }
+                assertEquals(3, serialized.size());
+            }
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
+
+    @Test
+    public void testRejectInvalidAndFractionalDateBounds() {
+        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
+        for (String bound : new String[] {"2024-01-03 00:00:00", "20000.5"}) {
+            JdbcConnectorException exception =
+                    assertThrows(
+                            JdbcConnectorException.class,
+                            () -> splitter.createSplits(dateTable(bound, "2024-01-03"), dateKey()));
+            assertTrue(exception.getMessage().contains("DATE"));
+        }
+    }
+
+    @Test
+    public void testRejectOutOfRangeDateBounds() {
+        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
+        for (String bound :
+                new String[] {String.valueOf(Long.MAX_VALUE), "1000000000000000000000000000000"}) {
+            JdbcConnectorException error =
+                    assertThrows(
+                            JdbcConnectorException.class,
+                            () -> splitter.createSplits(dateTable(bound, bound), dateKey()));
+            assertTrue(error.getMessage().contains("DATE partition bound"));
+        }
+    }
+
+    @Test
+    public void testExistingJdbcDateSplitParametersRemainSupported() throws Exception {
+        CapturingFixedChunkSplitter splitter = new CapturingFixedChunkSplitter(mysqlConfig());
+        Date date = Date.valueOf("2024-01-01");
+        JdbcSourceSplit split =
+                new JdbcSourceSplit(
+                        TablePath.of("db", "tbl"),
+                        "legacy-date",
+                        null,
+                        "create_date",
+                        LocalTimeType.LOCAL_DATE_TYPE,
+                        date,
+                        date);
+        splitter.generateSplitStatement(split, TableSchema.builder().build());
+        assertEquals(date, splitter.dateParameters.get(1));
+        assertEquals(date, splitter.dateParameters.get(2));
+    }
+
+    @Test
+    public void testNonDateTemporalPartitionColumnsRemainUnsupported() {
+        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
+        for (SeaTunnelDataType<?> type :
+                new SeaTunnelDataType<?>[] {
+                    LocalTimeType.LOCAL_TIME_TYPE,
+                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                    LocalTimeType.OFFSET_DATE_TIME_TYPE
+                }) {
+            TableSchema schema =
+                    TableSchema.builder()
+                            .column(PhysicalColumn.of("created_at", type, 0L, true, null, null))
+                            .build();
+            JdbcSourceTable table =
+                    JdbcSourceTable.builder()
+                            .tablePath(TablePath.of("db", "tbl"))
+                            .partitionColumn("created_at")
+                            .catalogTable(
+                                    CatalogTable.of(
+                                            TableIdentifier.of("catalog", "db", "tbl"),
+                                            schema,
+                                            Collections.emptyMap(),
+                                            Collections.emptyList(),
+                                            ""))
+                            .build();
+            assertThrows(JdbcConnectorException.class, () -> splitter.generateSplits(table));
+        }
+    }
+
+    private static JdbcSourceTable dateTable(String lower, String upper) {
+        return JdbcSourceTable.builder()
+                .tablePath(TablePath.of("db", "tbl"))
+                .partitionNumber(3)
+                .partitionStart(lower)
+                .partitionEnd(upper)
+                .build();
+    }
+
+    private static SeaTunnelRowType dateKey() {
+        return new SeaTunnelRowType(
+                new String[] {"create_date"},
+                new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TYPE});
+    }
+
+    private static void assertDateSplits(
+            CapturingFixedChunkSplitter splitter, JdbcSourceTable table) throws Exception {
+        List<JdbcSourceSplit> splits = new ArrayList<>(splitter.createSplits(table, dateKey()));
+        assertEquals(3, splits.size());
+        for (int i = 0; i < splits.size(); i++) {
+            Date expected = Date.valueOf(LocalDate.of(2024, 1, 1).plusDays(i));
+            JdbcSourceSplit split = splits.get(i);
+            assertEquals(expected.toLocalDate(), split.getSplitStart());
+            assertEquals(expected.toLocalDate(), split.getSplitEnd());
+            splitter.generateSplitStatement(split, TableSchema.builder().build());
+            assertEquals(expected, splitter.dateParameters.get(1));
+            assertEquals(expected, splitter.dateParameters.get(2));
+            assertTrue(splitter.bigDecimalParameters.isEmpty());
+        }
+    }
+
+    @Test
     public void testConvertFloat() throws Exception {
         JdbcSourceConfig config =
                 JdbcSourceConfig.builder()
@@ -189,12 +373,15 @@ public class FixedChunkSplitterTest {
                                 .driverName("com.mysql.cj.jdbc.Driver")
                                 .build())
                 .stringSplitStrategy(StringSplitStrategy.RANGE)
+                .enableConcurrentRead(true)
                 .build();
     }
 
     private static class CapturingFixedChunkSplitter extends FixedChunkSplitter {
         private String sql;
         private final Map<Integer, String> stringParameters = new HashMap<>();
+        private final Map<Integer, Date> dateParameters = new HashMap<>();
+        private final Map<Integer, BigDecimal> bigDecimalParameters = new HashMap<>();
 
         private CapturingFixedChunkSplitter(JdbcSourceConfig config) {
             super(config);
@@ -207,6 +394,10 @@ public class FixedChunkSplitterTest {
                     (proxy, method, args) -> {
                         if ("setString".equals(method.getName())) {
                             stringParameters.put((Integer) args[0], (String) args[1]);
+                        } else if ("setDate".equals(method.getName())) {
+                            dateParameters.put((Integer) args[0], (Date) args[1]);
+                        } else if ("setBigDecimal".equals(method.getName())) {
+                            bigDecimalParameters.put((Integer) args[0], (BigDecimal) args[1]);
                         }
                         return null;
                     };
@@ -322,6 +513,45 @@ public class FixedChunkSplitterTest {
             assertFalse(
                     distinct.contains(0L), "values below the configured start must be excluded");
             assertFalse(distinct.contains(11L), "values above the configured end must be excluded");
+        }
+    }
+
+    @Test
+    public void testDateSplitsUseNumericRangeFixForUnevenAndExcessPartitions() throws Exception {
+        try (Connection connection = new DuckDBDriver().connect(DUCKDB_URL, new Properties());
+                DuckDbFixedChunkSplitter splitter =
+                        new DuckDbFixedChunkSplitter(duckDbConfig(), connection)) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE t (id BIGINT, create_date DATE)");
+            }
+            try (PreparedStatement insert =
+                    connection.prepareStatement("INSERT INTO t VALUES (?, ?)")) {
+                for (int id = 0; id <= 11; id++) {
+                    insert.setInt(1, id);
+                    insert.setDate(2, Date.valueOf(LocalDate.of(2024, 1, 1).plusDays(id - 1)));
+                    insert.addBatch();
+                }
+                insert.executeBatch();
+            }
+            for (int partitions : new int[] {3, 20}) {
+                JdbcSourceTable table =
+                        JdbcSourceTable.builder()
+                                .tablePath(TablePath.of("main", "t"))
+                                .query("SELECT id, create_date FROM t")
+                                .partitionColumn("create_date")
+                                .partitionStart("2024-01-01")
+                                .partitionEnd("2024-01-10")
+                                .partitionNumber(partitions)
+                                .build();
+                Collection<JdbcSourceSplit> splits = splitter.createSplits(table, dateKey());
+                assertEquals(Math.min(partitions, 10), splits.size());
+                List<Long> ids = readAllIds(splitter, splits);
+                Collections.sort(ids);
+                assertEquals(
+                        LongStream.rangeClosed(1, 10).boxed().collect(Collectors.toList()),
+                        ids,
+                        "DATE ranges must retain every day exactly once and exclude outsiders");
+            }
         }
     }
 
