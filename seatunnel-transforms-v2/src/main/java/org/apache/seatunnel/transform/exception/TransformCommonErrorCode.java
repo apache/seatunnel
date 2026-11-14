@@ -41,6 +41,9 @@ public enum TransformCommonErrorCode implements SeaTunnelErrorCode {
             "TRANSFORM_COMMON-07",
             "The where statement '<wherebody>' of SQL transform execute failed"),
     ENCRYPTION_FAILED("TRANSFORM_COMMON-08", "Field '<field>' encryption failed."),
+    SQL_SCHEMA_CHANGE_INCOMPATIBLE(
+            "TRANSFORM_COMMON-09",
+            "The query '<query>' of SQL transform on table '<table>' is incompatible with the schema change '<statement>': <reason>"),
     ;
 
     private final String code;
