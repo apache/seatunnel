@@ -12,6 +12,13 @@ You need to check this document before you upgrade to related version.
   - **Impact**: A dataset created by this version has an `int64` column where an earlier version created `int32`. A dataset that already exists keeps its column types, because the sink writes to the schema it finds, so its `int32` column still wraps large values.
   - **Migration Guide**: No configuration change is needed. If a consumer expects `int32` for these columns, update it to read `int64`. To store large values in a dataset created by an earlier version, recreate the dataset and write the rows again from the source.
 
+### JDBC sink: `field_ide` converts case the same way under every locale
+
+- **Behavior change: `field_ide` no longer follows the worker's default locale**
+  - **Description**: The JDBC sink read `field_ide` and converted identifier case with the JVM default locale. Under a Turkish or Azerbaijani default locale, `i` and `I` convert to the dotted `İ` and the dotless `ı`: `UPPERCASE` turned `user_id` into `USER_İD`, `LOWERCASE` turned `USER_ID` into `user_ıd`, and a sink without `field_ide`, or with `ORIGINAL`, failed when its writer was created, with `No enum constant ...FieldIdeEnum.ORİGİNAL`. Both conversions now use `Locale.ROOT`.
+  - **Impact**: Only workers whose default locale is Turkish or Azerbaijani. There, `UPPERCASE` and `LOWERCASE` now produce `USER_ID` and `user_id` where they produced `USER_İD` and `user_ıd`, and a sink without `field_ide`, or with `ORIGINAL`, now starts. Workers with any other default locale are unchanged.
+  - **Migration Guide**: No configuration change is needed. On such a worker, if the sink created or wrote to tables or columns whose names contain `İ` or `ı` because of `field_ide`, rename them to the ASCII spelling before upgrading, or the sink will address different names.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**
