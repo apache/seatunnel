@@ -36,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Deprecated
@@ -54,7 +55,7 @@ public class MetalakeConfigUtils {
                                         .getOrDefault(
                                                 EnvCommonOptions.METALAKE_ENABLED
                                                         .key()
-                                                        .toUpperCase(),
+                                                        .toUpperCase(Locale.ROOT),
                                                 Boolean.toString(false)));
         if (!metalakeEnabled) return jobConfigTmp;
 
@@ -62,13 +63,16 @@ public class MetalakeConfigUtils {
         String metalakeType =
                 envConfig.hasPath(EnvCommonOptions.METALAKE_TYPE.key())
                         ? envConfig.getString(EnvCommonOptions.METALAKE_TYPE.key())
-                        : System.getenv(EnvCommonOptions.METALAKE_TYPE.key().toUpperCase());
+                        : System.getenv(
+                                EnvCommonOptions.METALAKE_TYPE.key().toUpperCase(Locale.ROOT));
         String metalakeUrl =
                 envConfig.hasPath(EnvCommonOptions.METALAKE_URL.key())
                         ? envConfig.getString(EnvCommonOptions.METALAKE_URL.key())
-                        : System.getenv(EnvCommonOptions.METALAKE_URL.key().toUpperCase());
+                        : System.getenv(
+                                EnvCommonOptions.METALAKE_URL.key().toUpperCase(Locale.ROOT));
         MetalakeClient metalakeClient =
-                MetaLakeFactory.createClient(MetaLakeType.valueOf(metalakeType.toUpperCase()));
+                MetaLakeFactory.createClient(
+                        MetaLakeType.valueOf(metalakeType.toUpperCase(Locale.ROOT)));
         update =
                 replaceConfigList(update, PluginType.SOURCE.getType(), metalakeClient, metalakeUrl);
         update = replaceConfigList(update, PluginType.SINK.getType(), metalakeClient, metalakeUrl);

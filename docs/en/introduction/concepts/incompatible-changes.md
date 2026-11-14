@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### API: identifier and type matching no longer follows the worker's default locale
+
+- **Behavior change: the API resolves the same identifier and type name on every worker**
+  - **Description**: Several `seatunnel-api` code paths matched an identifier or a type name with `String#toUpperCase()` / `String#toLowerCase()` without `Locale.ROOT`. Under a Turkish or Azerbaijani default locale, an upper-case `I` lower-cases to the dotless `ı` and a lower-case `i` upper-cases to the dotted `İ`, so a name that contains an `i` or an `I` no longer matched the constant it was compared against. `PluginIdentifier#hashCode` could then return a different value for two identifiers that `equals` considers equal, and a job that enables the metalake failed to start with `No enum constant org.apache.seatunnel.common.constants.MetaLakeType.GRAVİTİNO`. These conversions now use `Locale.ROOT`.
+  - **Impact**: Only workers whose default locale is Turkish or Azerbaijani. There, the affected lookups now resolve as they do under any other locale; previously a job that enabled the metalake failed to start and the metalake type was not converted. Workers with any other default locale are unchanged.
+  - **Migration Guide**: No configuration change is needed. On such a worker, a job that enables the metalake now starts instead of failing.
+
 ### Lance sink: BIGINT columns are created as int64
 
 - **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**

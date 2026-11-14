@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Locale;
 
 public class GravitinoTableSchemaConvertorTest {
 
@@ -962,5 +963,25 @@ public class GravitinoTableSchemaConvertorTest {
         Assertions.assertEquals("public", catalogTable.getTableId().getSchemaName());
         Assertions.assertEquals("all_type", catalogTable.getTableId().getTableName());
         Assertions.assertEquals(tableSchema, catalogTable.getTableSchema());
+    }
+
+    @Test
+    void testConvertTypeIsIndependentOfDefaultLocale() throws Exception {
+        Locale defaultLocale = Locale.getDefault();
+        try {
+            // In a Turkish or Azerbaijani locale an upper-case "I" is lower-cased to
+            // a dotless "i" (U+0131), so a locale dependent conversion would not match
+            // the type name below.
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            String json =
+                    "{\"columns\":[{\"name\":\"int_col\",\"type\":\"INTEGER\",\"nullable\":true}]}";
+            JsonNode metaInfo = OBJECT_MAPPER.readTree(json);
+            TableSchema schema = CONVERTOR.convertor(metaInfo);
+            Column column = schema.getColumns().get(0);
+            Assertions.assertEquals("int_col", column.getName());
+            Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
+        } finally {
+            Locale.setDefault(defaultLocale);
+        }
     }
 }
