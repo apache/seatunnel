@@ -18,6 +18,13 @@
   - **影响**：读取 Databend `DECIMAL` 列的作业现在输出 decimal 值。SeaTunnel 通过 `schema_save_mode` 创建的 Sink 表会得到 decimal 列而不是字符串列，原本期望字符串的 Transform 或 Sink 现在会收到 decimal。
   - **迁移指南**：无需修改配置。如果下游步骤需要文本，请显式转换该列，例如在 SQL Transform 中使用 `CAST(price AS STRING)`。早期运行中已创建为字符串列的 Sink 表会保留原有类型。
 
+### OpenLineage：限制带凭据接收端的作业覆盖
+
+配置环境或集群 bearer token 后，作业中的 `openlineage_url` 和 `openlineage_transport`
+必须与可信接收端配置一致。冲突值现在导致配置解析失败，避免作业重定向可信凭据。
+请将接收端 URL 和 transport 与 token 一起放入进程环境变量或集群配置，并移除冲突的作业配置。
+未带凭据时的接收端覆盖能力以及默认关闭的上报行为保持不变。
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，
