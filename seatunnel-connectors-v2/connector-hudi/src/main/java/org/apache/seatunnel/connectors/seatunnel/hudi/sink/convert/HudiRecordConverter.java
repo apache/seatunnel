@@ -78,7 +78,10 @@ public class HudiRecordConverter implements Serializable {
                         : getRecordPartitionPath(element, seaTunnelRowType, hudiTableConfig);
         String rowKey =
                 hudiTableConfig.getRecordKeyFields() == null
-                                && hudiTableConfig.getOpType().equals(WriteOperationType.INSERT)
+                                && (hudiTableConfig.getOpType().equals(WriteOperationType.INSERT)
+                                        || hudiTableConfig
+                                                .getOpType()
+                                                .equals(WriteOperationType.BULK_INSERT))
                         ? UUID.randomUUID().toString()
                         : getRecordKey(element, seaTunnelRowType, hudiTableConfig);
         return new HoodieKey(rowKey, partitionPath);
