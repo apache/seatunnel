@@ -80,8 +80,30 @@ class JobsApi:
     def get_job_details(self, jobId: int):
         """
         Return Details Of A Job
+
+        An unknown id is still an HTTP 200 response. New servers mark it with
+        ``"found": false``; successful payloads keep their existing shape and
+        omit the marker. Older servers return only ``jobId`` for an unknown id.
         """
         return self.client.request(HttpMethod.GET, f"/job-info/{jobId}")
+
+    def job_exists(self, jobId: int) -> bool:
+        """
+        Return whether the cluster has a retained record for the job id.
+
+        New servers set ``found`` explicitly. For older servers, which return
+        only ``jobId`` for an unknown job, the presence of ``jobStatus`` is
+        used as the compatibility fallback.
+        """
+        details = self.get_job_details(jobId)
+        if not isinstance(details, dict):
+            raise TypeError(
+                f"/job-info/{jobId} returned a non-JSON object response: "
+                f"{type(details).__name__}"
+            )
+        if "found" in details:
+            return bool(details["found"])
+        return "jobStatus" in details
 
     def get_finished_jobs_info(self, state: Optional[JobStatus] = None):
         """

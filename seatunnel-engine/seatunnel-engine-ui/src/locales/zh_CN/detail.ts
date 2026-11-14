@@ -19,6 +19,15 @@ export default {
   id: 'ID',
   createTime: '开始时间',
   duration: '运行时间',
+  notFound: {
+    title: '作业不存在',
+    description: '作业 {jobId} 在当前集群中不存在，或已从已完成作业历史中过期。'
+  },
+  loadError: {
+    title: '加载作业失败',
+    description: '无法加载作业 {jobId}：{error}',
+    refresh: '刷新作业 {jobId} 失败：{error}，正在重试。'
+  },
   tabs: {
     overview: '概览',
     exception: '异常',

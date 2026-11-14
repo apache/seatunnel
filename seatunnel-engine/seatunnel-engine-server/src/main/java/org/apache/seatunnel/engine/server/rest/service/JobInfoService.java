@@ -111,7 +111,9 @@ public class JobInfoService extends BaseService {
             return getJobInfoJson(
                     finishedJobState, finishedJobMetrics.toJsonString(), finishedJobDAGInfo);
         } else {
-            return new JsonObject().add(RestConstant.JOB_ID, jobId.toString());
+            return new JsonObject()
+                    .add(RestConstant.JOB_ID, jobId.toString())
+                    .add(RestConstant.FOUND, false);
         }
     }
 

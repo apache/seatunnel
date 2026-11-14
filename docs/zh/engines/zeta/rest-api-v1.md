@@ -419,7 +419,7 @@ network:
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+对于集群中存在的 Job，会返回 `jobId`、`jobName`、`jobStatus`、`createTime`、`jobDag`、`metrics` 字段；未知 id 会返回下方的 `found: false` 响应。
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
 `finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
 运行中的Job还会返回 `diagnostics` 字段（状态时间戳与各 Pipeline 的恢复次数），字段说明见 [REST API V2](rest-api-v2.md)。该字段只在本接口返回，`/running-jobs` 不返回。
@@ -445,13 +445,16 @@ network:
 | TableSinkWrite* | 按表汇总的 Sink 写入尝试，键格式 `TableSinkWriteXXX#<表>` |
 | TableSinkCommitted* | 按表汇总的 Sink 已提交指标，键格式 `TableSinkCommittedXXX#<表>` |
 
-当我们查询不到这个Job时，返回结果只包含请求的 `jobId`：
+未知 id 仍会返回 HTTP 200，并带有 `found: false`：
 
 ```json
 {
-  "jobId" : "733584788375666689"
+  "jobId" : "<id>",
+  "found" : false
 }
 ```
+
+完整说明及旧版本引擎的兼容方式请参阅 [REST API V2](rest-api-v2.md) 的 `/job-info/:jobId` 章节。
 
 </details>
 
@@ -508,17 +511,20 @@ network:
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+对于集群中存在的 Job，会返回 `jobId`、`jobName`、`jobStatus`、`createTime`、`jobDag`、`metrics` 字段；未知 id 会返回下方的 `found: false` 响应。
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
 `finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
 
-当我们查询不到这个Job时，返回结果只包含请求的 `jobId`：
+未知 id 仍会返回 HTTP 200，并带有 `found: false`：
 
 ```json
 {
-  "jobId" : "733584788375666689"
+  "jobId" : "<id>",
+  "found" : false
 }
 ```
+
+完整说明及旧版本引擎的兼容方式请参阅 [REST API V2](rest-api-v2.md) 的 `/job-info/:jobId` 章节。
 
 </details>
 
