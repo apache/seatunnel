@@ -105,7 +105,7 @@ enforce_gtid_consistency = on
 3. 重启MySQL Server
 
 ```shell
-/etc/inint.d/mysqld restart
+/etc/init.d/mysqld restart
 ```
 
 4. 修改之后再检查一次binlog的状态:
@@ -179,7 +179,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | DATE                                                                                           | DATE          |
 | TIME(s)                                                                                        | TIME(s)       |
 | DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)  |
-| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES         |
+| BINARY<br/>VARBINARY<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES         |
 
 ## 配置参数选项
 

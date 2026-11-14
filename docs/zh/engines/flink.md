@@ -97,11 +97,14 @@ sink {
 
 如果你是在源码仓库里运行示例，对应模块是：
 
-- `seatunnel-examples/seatunnel-flink-connector-v2-example`
+- `seatunnel-examples/seatunnel-flink-examples/seatunnel-flink-13-example`
+- `seatunnel-examples/seatunnel-flink-examples/seatunnel-flink-15-example`
+- `seatunnel-examples/seatunnel-flink-examples/seatunnel-flink-20-example`
 
 示例入口类是：
 
-- `org.apache.seatunnel.example.flink.v2.SeaTunnelApiExample`
+- `org.apache.seatunnel.example.flink.SeaTunnelBatchJobExample`
+- `org.apache.seatunnel.example.flink.SeaTunnelStreamingJobExample`
 
 ## 下一步
 

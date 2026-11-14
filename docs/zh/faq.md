@@ -132,7 +132,7 @@ distributed, massive data integration tool.
 ```
 var = """
 your string 1
-"""${you_var}""" your string 2"""
+"""${your_var}""" your string 2"""
 ```
 
 请参阅：[lightbend/config#456](https://github.com/lightbend/config/issues/456)。
