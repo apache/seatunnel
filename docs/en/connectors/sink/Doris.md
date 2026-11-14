@@ -682,14 +682,11 @@ sink {
 }
 ```
 
-The `sink.label-prefix` must be unique per job to avoid label conflicts when retrying or restarting.
+The `sink.label-prefix` must be unique per job to avoid label conflicts when retrying or restarting. Sub-writers of one job are disambiguated automatically by the connector.
 
 ### Why do I get a "Label already exists" error?
 
-Doris uses Stream Load labels to detect and reject duplicate submissions. If a job is restarted with 2PC enabled, the same label prefix may be reused. To resolve:
-
-- Include a timestamp or unique token in `sink.label-prefix` to ensure uniqueness across restarts.
-- Abort uncommitted transactions in Doris before restarting: `CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`.
+Doris uses Stream Load labels to detect and reject duplicate submissions. The connector appends a stable per-source-table discriminator to every sub-writer's label, and non-2PC labels also include a timestamp and a process-wide sequence. This keeps the sub-writers of a multi-table job distinct and lets a restarted writer abort its own pre-committed transactions. Labels are limited to 128 characters by Doris, so keep `sink.label-prefix` and the database/table names reasonably short. If a conflict still occurs, abort uncommitted transactions in Doris before restarting: `CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`.
 
 ### Does Doris Sink support DELETE propagation from CDC sources?
 

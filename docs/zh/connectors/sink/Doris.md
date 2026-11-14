@@ -679,14 +679,11 @@ sink {
 }
 ```
 
-`sink.label-prefix` 必须全局唯一，以避免重试或重启时出现 label 冲突。
+`sink.label-prefix` 必须全局唯一，以避免重试或重启时出现 label 冲突；同一作业的多个 sub-writer 由连接器自动区分。
 
 ### 为什么出现"Label already exists"错误？
 
-Doris 通过 Stream Load label 去重，防止重复提交。开启 2PC 后重启任务，可能复用相同的 label 前缀导致冲突。解决方法：
-
-- 在 `sink.label-prefix` 中加入时间戳或唯一标识，确保每次重启后 label 唯一。
-- 重启前在 Doris 中中止未提交的事务：`CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`。
+Doris 通过 Stream Load label 去重，防止重复提交。连接器会为每个 sub-writer 追加一个基于源表的稳定区分段，非 2PC label 还会包含时间戳和进程内的序号。这样多表作业的各 sub-writer 不会冲突，重启后的 writer 也能中止自己遗留的 pre-committed 事务。Doris 的 label 最长 128 个字符，请尽量保持 `sink.label-prefix` 和库表名简短。如果仍然发生冲突，可以在重启前中止未提交的事务：`CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`。
 
 ### Doris Sink 是否支持 CDC 的 DELETE 传播？
 

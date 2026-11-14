@@ -62,22 +62,12 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
 
     private static final String DATABASE = "test";
     private static final String SINK_TABLE = "e2e_table_sink";
+    private static final String SINK_TABLE_MULTI = "e2e_table_sink_multi";
+    private static final String SINK_TABLE_MULTI_2PC = "e2e_table_sink_multi_2pc";
     private static final String CREATE_DATABASE = "CREATE DATABASE IF NOT EXISTS " + DATABASE;
-    private static final String DDL_SINK =
-            "CREATE TABLE IF NOT EXISTS "
-                    + DATABASE
-                    + "."
-                    + SINK_TABLE
-                    + " (\n"
-                    + "  uuid   BIGINT,\n"
-                    + "  name    VARCHAR(128),\n"
-                    + "  score   INT\n"
-                    + ")ENGINE=OLAP\n"
-                    + "UNIQUE KEY(`uuid`)\n"
-                    + "DISTRIBUTED BY HASH(`uuid`) BUCKETS 1\n"
-                    + "PROPERTIES (\n"
-                    + "\"replication_allocation\" = \"tag.location.default: 1\""
-                    + ")";
+    private static final String DDL_SINK = createSinkTableDdl(SINK_TABLE);
+    private static final String DDL_SINK_MULTI = createSinkTableDdl(SINK_TABLE_MULTI);
+    private static final String DDL_SINK_MULTI_2PC = createSinkTableDdl(SINK_TABLE_MULTI_2PC);
 
     // mysql
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
@@ -86,6 +76,27 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
     private static final String MYSQL_DATABASE = "mysql_cdc";
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table";
+    private static final String SOURCE_TABLE_MULTI_1 = "mysql_cdc_e2e_source_table_multi_1";
+    private static final String SOURCE_TABLE_MULTI_2 = "mysql_cdc_e2e_source_table_multi_2";
+    private static final String SOURCE_TABLE_MULTI_2PC_1 = "mysql_cdc_e2e_source_table_multi2pc_1";
+    private static final String SOURCE_TABLE_MULTI_2PC_2 = "mysql_cdc_e2e_source_table_multi2pc_2";
+
+    private static String createSinkTableDdl(String table) {
+        return "CREATE TABLE IF NOT EXISTS "
+                + DATABASE
+                + "."
+                + table
+                + " (\n"
+                + "  uuid   BIGINT,\n"
+                + "  name    VARCHAR(128),\n"
+                + "  score   INT\n"
+                + ")ENGINE=OLAP\n"
+                + "UNIQUE KEY(`uuid`)\n"
+                + "DISTRIBUTED BY HASH(`uuid`) BUCKETS 1\n"
+                + "PROPERTIES (\n"
+                + "\"replication_allocation\" = \"tag.location.default: 1\""
+                + ")";
+    }
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
@@ -193,12 +204,153 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
                 "INSERT INTO " + MYSQL_DATABASE + "." + SOURCE_TABLE + " VALUES (1, 'Alice', 95)");
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "TestContainer.getJobStatus/stopJob are only implemented by the Zeta engine")
+    public void testMultiTableCDCSinkToSingleDorisTable(TestContainer container) throws Exception {
+        clearTable(DATABASE, SINK_TABLE_MULTI);
+        String jobId = String.valueOf(System.nanoTime());
+        CompletableFuture<Void> jobFuture =
+                CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                container.executeJob("/mysqlcdc_multi_table_to_doris.conf", jobId);
+                            } catch (Exception e) {
+                                log.error("Commit task exception :" + e.getMessage());
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        try {
+            await().atMost(120000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING", container.getJobStatus(jobId)));
+
+            executeSql(buildInsertSql(MYSQL_DATABASE + "." + SOURCE_TABLE_MULTI_1, 1000, 100));
+            executeSql(buildInsertSql(MYSQL_DATABASE + "." + SOURCE_TABLE_MULTI_2, 2000, 100));
+
+            String sinkSql =
+                    String.format("select count(*) from %s.%s", DATABASE, SINK_TABLE_MULTI);
+            // Two initial rows in each source table plus 100 inserted rows in each table.
+            long expectedRows = 204L;
+            await().atMost(180000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                try (Statement statement = jdbcConnection.createStatement();
+                                        ResultSet resultSet = statement.executeQuery(sinkSql)) {
+                                    resultSet.next();
+                                    Assertions.assertEquals(expectedRows, resultSet.getLong(1));
+                                }
+                            });
+            Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+        } finally {
+            try {
+                container.stopJob(jobId);
+            } catch (Exception e) {
+                log.warn("Failed to stop job {}", jobId, e);
+            }
+            try {
+                jobFuture.get(60, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                log.warn("Job {} did not finish cleanly", jobId, e);
+            }
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "TestContainer.getJobStatus/stopJob are only implemented by the Zeta engine")
+    public void testMultiTableCDCSinkToSingleDorisTableWithTwoPhaseCommit(TestContainer container)
+            throws Exception {
+        clearTable(DATABASE, SINK_TABLE_MULTI_2PC);
+        String jobId = String.valueOf(System.nanoTime());
+        CompletableFuture<Void> jobFuture =
+                CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                container.executeJob(
+                                        "/mysqlcdc_multi_table_to_doris_2pc.conf", jobId);
+                            } catch (Exception e) {
+                                log.error("Commit task exception :" + e.getMessage());
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        try {
+            await().atMost(120000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING", container.getJobStatus(jobId)));
+
+            executeSql(buildInsertSql(MYSQL_DATABASE + "." + SOURCE_TABLE_MULTI_2PC_1, 3000, 100));
+            executeSql(buildInsertSql(MYSQL_DATABASE + "." + SOURCE_TABLE_MULTI_2PC_2, 4000, 100));
+
+            String sinkSql =
+                    String.format("select count(*) from %s.%s", DATABASE, SINK_TABLE_MULTI_2PC);
+            // Two initial rows in each source table plus 100 inserted rows in each table.
+            long expectedRows = 204L;
+            await().atMost(180000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                try (Statement statement = jdbcConnection.createStatement();
+                                        ResultSet resultSet = statement.executeQuery(sinkSql)) {
+                                    resultSet.next();
+                                    Assertions.assertEquals(expectedRows, resultSet.getLong(1));
+                                }
+                            });
+            Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+        } finally {
+            try {
+                container.stopJob(jobId);
+            } catch (Exception e) {
+                log.warn("Failed to stop job {}", jobId, e);
+            }
+            try {
+                jobFuture.get(60, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                log.warn("Job {} did not finish cleanly", jobId, e);
+            }
+        }
+    }
+
+    private String buildInsertSql(String table, int startUuid, int count) {
+        StringBuilder sql =
+                new StringBuilder("INSERT INTO ")
+                        .append(table)
+                        .append(" (uuid, name, score) VALUES ");
+        for (int i = 0; i < count; i++) {
+            if (i > 0) {
+                sql.append(",");
+            }
+            int uuid = startUuid + i;
+            sql.append("(")
+                    .append(uuid)
+                    .append(", 'user_")
+                    .append(uuid)
+                    .append("', ")
+                    .append(80 + (i % 20))
+                    .append(")");
+        }
+        return sql.toString();
+    }
+
     private void initializeJdbcTable() {
         try (Statement statement = jdbcConnection.createStatement()) {
             // create databases
             statement.execute(CREATE_DATABASE);
-            // create sink table
+            // create sink tables
             statement.execute(DDL_SINK);
+            statement.execute(DDL_SINK_MULTI);
+            statement.execute(DDL_SINK_MULTI_2PC);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing table failed!", e);
         }
