@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 > Hive Sink 连接器
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 将数据写入 Hive。
@@ -12,7 +18,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hive。测试过的 Hive 版本是 2.3.9 和 3.1.3。
 
-如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
+如果您使用 SeaTunnel 引擎，请使用发行包自带的 `seatunnel-shade-hadoop3-uber-*.jar`，并将 `hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 添加到 `$SEATUNNEL_HOME/lib/` 目录。
 :::
 
 ## 关键特性
@@ -269,6 +275,7 @@ sink {
       bucket = "s3a://mybucket"
       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
     }
+  }
 }
 ```
 
@@ -508,7 +515,7 @@ sink {
 }
 ```
 
-### 示例 2
+### 示例 3
 
 我们有多个源表如下：
 

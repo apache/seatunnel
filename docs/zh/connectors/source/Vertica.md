@@ -47,7 +47,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |-----------------|------------------|
 | BIT | BOOLEAN |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT |
-| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT | LONG |
+| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT | BIGINT |
 | BIGINT UNSIGNED | DECIMAL(20,0) |
 | DECIMAL(x,y)(<38) | DECIMAL(x,y) |
 | DECIMAL(x,y)(>38) | DECIMAL(38,18) |
@@ -71,7 +71,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | password | String | 否 | - | 连接实例密码 |
 | query | String | 否 | - | 查询语句。未配置 `table_path` 和 `table_list` 时必填。 |
 | connection_check_timeout_sec | Int | 否 | 30 | 等待用于验证连接的数据库操作完成的时间（秒） |
-| partition_column | String | 否 | - | 用于并行性分割的列名，仅支持数值类型，仅支持数值类型主键，只能配置一列。 |
+| partition_column | String | 否 | - | 用于并行性分割的列名，支持数值、字符串和日期类型的列，只能配置一列。 |
 | partition_lower_bound | String | 否 | - | partition_column 的最小值用于扫描，如果未设置，SeaTunnel 将查询数据库获取最小值。 |
 | partition_upper_bound | String | 否 | - | partition_column 的最大值用于扫描，如果未设置，SeaTunnel 将查询数据库获取最大值。 |
 | partition_num | Int | 否 | 10 | 分割数量，仅支持正整数。默认值是 10。 |
