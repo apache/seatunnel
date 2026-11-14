@@ -27,10 +27,17 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Covers terminal job log cleanup with exact job id file matching.
+ *
+ * <p>The regression target is preventing terminal cleanup from deleting adjacent job files.
+ */
 public class TaskLogManagerServiceTest {
 
     @TempDir Path tempDir;
@@ -43,31 +50,83 @@ public class TaskLogManagerServiceTest {
         ReflectionUtils.setField(service, "path", tempDir.toString());
     }
 
+    /**
+     * Terminal cleanup must delete only active, rolled, and sidecar files for the exact job id.
+     *
+     * <p>Files for other jobs or unsupported suffixes must survive cleanup.
+     */
     @Test
-    void testCleanDoesNothingWhenJobIdIsZero() throws IOException {
-        Path logFile = tempDir.resolve("job-1111022.log");
-        Files.write(logFile, "test log content".getBytes(StandardCharsets.UTF_8));
+    void testCleanDeletesOnlyExactJobLogFiles() throws IOException {
+        Path activeFile = tempDir.resolve("job-123.log");
+        Path rolledFile = tempDir.resolve("job-123.log.2026-07-13-1");
+        Path sidecarFile = tempDir.resolve("job-123.log.unclassified");
+        Path substringFile = tempDir.resolve("job-1234.log");
+        Path unsupportedSuffixFile = tempDir.resolve("job-123.log.tmp");
+        Path unrelatedFile = tempDir.resolve("seatunnel.log");
 
-        service.clean(0);
+        Files.write(activeFile, "active".getBytes(StandardCharsets.UTF_8));
+        Files.write(rolledFile, "rolled".getBytes(StandardCharsets.UTF_8));
+        Files.write(sidecarFile, "sidecar".getBytes(StandardCharsets.UTF_8));
+        Files.write(substringFile, "substring".getBytes(StandardCharsets.UTF_8));
+        Files.write(unsupportedSuffixFile, "tmp".getBytes(StandardCharsets.UTF_8));
+        Files.write(unrelatedFile, "unrelated".getBytes(StandardCharsets.UTF_8));
 
-        assertTrue(Files.exists(logFile), "Log file should NOT be deleted when jobId is 0");
+        service.clean(123L);
+
+        assertFalse(Files.exists(activeFile), "Active job log should be deleted");
+        assertFalse(Files.exists(rolledFile), "Rolled job log should be deleted");
+        assertFalse(Files.exists(sidecarFile), "Unclassified sidecar should be deleted");
+        assertTrue(Files.exists(substringFile), "Adjacent job id must not be touched");
+        assertTrue(Files.exists(unsupportedSuffixFile), "Unsupported suffix must not be touched");
+        assertTrue(Files.exists(unrelatedFile), "Unrelated log must not be touched");
     }
 
     @Test
-    void testCleanDeletesMatchingLogFiles() throws IOException {
-        long jobId = 12345L;
-        Path matchFile1 = tempDir.resolve("seatunnel-" + jobId + "-task-1.log");
-        Path matchFile2 = tempDir.resolve("worker-" + jobId + "-task-2.log");
-        Path otherFile = tempDir.resolve("seatunnel-99999-task.log");
+    void testCleanSkipsMissingLogDirectory() throws Exception {
+        TaskLogManagerService missingDirService = new TaskLogManagerService(null);
+        ReflectionUtils.setField(missingDirService, "path", tempDir.resolve("missing").toString());
 
-        Files.write(matchFile1, "log1".getBytes(StandardCharsets.UTF_8));
-        Files.write(matchFile2, "log2".getBytes(StandardCharsets.UTF_8));
-        Files.write(otherFile, "other".getBytes(StandardCharsets.UTF_8));
+        assertDoesNotThrow(() -> missingDirService.clean(123L));
+    }
 
-        service.clean(jobId);
+    @Test
+    void testCleanSkipsNullOrNonPositiveJobId() throws IOException {
+        Path activeFile = tempDir.resolve("job-123.log");
+        Files.write(activeFile, "active".getBytes(StandardCharsets.UTF_8));
 
-        assertFalse(Files.exists(matchFile1), "Log file containing jobId should be deleted");
-        assertFalse(Files.exists(matchFile2), "Log file containing jobId should be deleted");
-        assertTrue(Files.exists(otherFile), "Log file not matching jobId should be preserved");
+        service.clean(0);
+        service.clean(-1);
+
+        assertTrue(Files.exists(activeFile), "Active job log should remain for invalid jobId");
+    }
+
+    @Test
+    void testPruneDeletesOnlyExpiredRolledJobSegments() throws IOException {
+        Path expiredRolledFile = tempDir.resolve("job-123.log.2026-07-13-1");
+        Path freshRolledFile = tempDir.resolve("job-123.log.2026-07-14-1");
+        Path activeFile = tempDir.resolve("job-123.log");
+        Path sidecarFile = tempDir.resolve("job-123.log.unclassified");
+        Path systemRolledFile = tempDir.resolve("seatunnel.log.2026-07-13-1");
+
+        Files.write(expiredRolledFile, "expired".getBytes(StandardCharsets.UTF_8));
+        Files.write(freshRolledFile, "fresh".getBytes(StandardCharsets.UTF_8));
+        Files.write(activeFile, "active".getBytes(StandardCharsets.UTF_8));
+        Files.write(sidecarFile, "sidecar".getBytes(StandardCharsets.UTF_8));
+        Files.write(systemRolledFile, "system".getBytes(StandardCharsets.UTF_8));
+
+        long now = System.currentTimeMillis();
+        assertTrue(
+                expiredRolledFile.toFile().setLastModified(now - Duration.ofDays(10).toMillis()));
+        assertTrue(freshRolledFile.toFile().setLastModified(now - Duration.ofHours(1).toMillis()));
+        assertTrue(systemRolledFile.toFile().setLastModified(now - Duration.ofDays(10).toMillis()));
+
+        service.pruneRolledJobLogSegments(Duration.ofDays(7));
+
+        assertFalse(
+                Files.exists(expiredRolledFile), "Expired rolled job segment should be deleted");
+        assertTrue(Files.exists(freshRolledFile), "Fresh rolled job segment should remain");
+        assertTrue(Files.exists(activeFile), "Active job log should remain");
+        assertTrue(Files.exists(sidecarFile), "Unclassified sidecar should remain");
+        assertTrue(Files.exists(systemRolledFile), "Non-job rolled log should remain");
     }
 }
