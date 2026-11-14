@@ -255,7 +255,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 >对于json文件格式简单配置。
 
-```hcocn
+```hocon
 
    ObsFile {
        path = "/seatunnel/json"
@@ -272,7 +272,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 >对于excel文件格式简单配置。
 
-```hcocn
+```hocon
 
    ObsFile {
        path = "/seatunnel/excel"
@@ -289,7 +289,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 >对于csv文件格式简单配置。
 
-```hcocn
+```hocon
 
    ObsFile {
        path = "/seatunnel/csv"

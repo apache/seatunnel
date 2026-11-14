@@ -95,8 +95,12 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 | STRING | STRING |
 | BYTES | VARBINARY |
 | DATE | DATE |
-| TIME | TIME |
+| TIME | STRING |
 | TIMESTAMP | TIMESTAMP |
+| ARRAY | ARRAY(STRING) |
+| MAP | MAP(STRING, STRING) |
+| ROW | STRING |
+| NULL | NULL |
 
 ## 任务示例
 
