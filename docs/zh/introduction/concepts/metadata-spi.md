@@ -54,7 +54,7 @@ sink {
 当指定 `metadata_datasource_id` 时，连接器将：
 1. 使用 `metadata_datasource_id` 从外部元数据服务获取连接详细信息
 2. 将获取的配置与作业配置中的其他参数合并
-3. 作业级别的参数优先于获取的配置
+3. 获取的数据源配置优先于存在冲突的作业级别参数
 
 ## 使用 metadata_table_id
 
@@ -144,6 +144,8 @@ public interface MetadataProvider extends AutoCloseable {
 ```
 
 ### 生命周期
+
+`datasourceMap` 返回的键在合并时按 SeaTunnel 配置路径解析：`a->b` 会创建嵌套值，而点号保持字面含义。共享引用辅助方法会保留路径解析器拒绝的键（例如 `^metadata_.*$`）的字面含义；合法路径仍保留解析器现有的规范化行为。提供者实现不能假定所有返回的键都会按字面键处理。
 
 1. **发现**：提供者实例通过 `@AutoService(MetadataProvider.class)` 被发现并缓存
 2. **初始化**：使用来自 `seatunnel.yaml` 的配置调用 `init(Config)`
@@ -369,7 +371,7 @@ seatunnel:
 
 4. **配置合并**
    - 将获取的配置与作业级别的参数合并
-   - 作业级别的参数优先
+   - 获取的数据源配置优先于存在冲突的作业级别参数
 
 5. **结构检索**（如适用）
    - 调用 `provider.tableSchema(metaDataTableId)` 获取表结构

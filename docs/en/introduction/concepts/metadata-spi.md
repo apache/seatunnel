@@ -54,7 +54,7 @@ sink {
 When `metadata_datasource_id` is specified, the connector will:
 1. Use the `metadata_datasource_id` to fetch connection details from the external metadata service
 2. Merge the fetched configuration with any additional parameters in the job config
-3. Job-level parameters take precedence over fetched configuration
+3. Fetched datasource configuration takes precedence over conflicting job-level parameters
 
 ## Using metadata_table_id
 
@@ -145,6 +145,8 @@ public interface MetadataProvider extends AutoCloseable {
 ```
 
 ### Lifecycle
+
+Keys returned by `datasourceMap` are interpreted as SeaTunnel configuration paths during merging: `a->b` creates a nested value, while dots remain literal. The shared quoting helper preserves keys rejected by the path parser (such as `^metadata_.*$`); valid path forms retain the parser's existing normalization. Provider implementations must not assume that every returned key is treated literally.
 
 1. **Discovery**: Provider instances are discovered via `@AutoService(MetadataProvider.class)` and cached
 2. **Initialization**: `init(Config)` is called with configuration from `seatunnel.yaml`
@@ -370,7 +372,7 @@ seatunnel:
 
 4. **Configuration Merge**
    - Merges fetched configuration with job-level parameters
-   - Job-level parameters take precedence
+   - Fetched datasource configuration takes precedence over conflicting job-level parameters
 
 5. **Schema Retrieval** (when applicable)
    - Calls `provider.tableSchema(metaDataTableId)` to fetch table schema

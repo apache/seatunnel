@@ -93,6 +93,11 @@ public interface MetadataProvider extends AutoCloseable {
      * <p>This method retrieves metadata from the external system for the specified data source and
      * converts it into a configuration map compatible with the target connector.
      *
+     * <p>Keys are interpreted as SeaTunnel configuration paths during merging: {@code a->b} creates
+     * a nested value, while dots remain literal. Keys rejected by the path parser are quoted by the
+     * shared helper; valid paths retain the parser's existing normalization. Implementations must
+     * not assume that every returned key is treated literally.
+     *
      * @param connectorIdentifier the connector identifier (e.g., "Jdbc", "MySQL-CDC", "Kafka")
      * @param metaDataDatasourceId the data source ID in the external metadata system
      * @return configuration map for the connector, or null if mapping fails
