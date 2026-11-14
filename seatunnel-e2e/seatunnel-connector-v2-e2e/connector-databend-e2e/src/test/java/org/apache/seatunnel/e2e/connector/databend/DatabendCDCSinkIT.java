@@ -64,6 +64,10 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final int PORT = 8000;
     private static final String DATABASE = "default";
     private static final String DATABEND_CDC_JOB_CONFIG = "/databend/fake_to_databend_cdc.conf";
+    private static final String DATABEND_CDC_EXISTING_KEY_JOB_CONFIG =
+            "/databend/fake_to_databend_cdc_existing_key.conf";
+    private static final String DATABEND_CDC_ONE_MERGE_JOB_CONFIG =
+            "/databend/fake_to_databend_cdc_one_merge.conf";
     private static final int MAX_JOB_SUBMIT_ATTEMPTS = 2;
     private static final int JOB_SUBMIT_RETRY_INTERVAL_SECONDS = 10;
     private DatabendContainer container;
@@ -78,7 +82,7 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
                             + " while sink_table remains empty")
     public void testDatabendSinkCDC(TestContainer container) throws Exception {
         // Run the CDC test job
-        Container.ExecResult execResult = executeDatabendCdcJob(container);
+        Container.ExecResult execResult = executeDatabendCdcJob(container, DATABEND_CDC_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         Awaitility.await()
@@ -171,10 +175,86 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
         clearSinkTable();
     }
 
-    private Container.ExecResult executeDatabendCdcJob(TestContainer container) throws Exception {
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.FLINK_1_15},
+            disabledReason =
+                    "Flaky on GitHub-hosted Flink 1.15.3: the CDC job can exit successfully"
+                            + " while sink_table remains empty")
+    public void testInsertOverwritesAnExistingKey(TestContainer container) throws Exception {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "INSERT INTO sink_table VALUES"
+                            + " (5, 'old', 'old', 1, 1.0), (6, 'old', 'old', 1, 1.0)");
+        }
+        try {
+            Container.ExecResult execResult =
+                    executeDatabendCdcJob(container, DATABEND_CDC_EXISTING_KEY_JOB_CONFIG);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+            Awaitility.await()
+                    .atMost(180, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .ignoreExceptions()
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            Arrays.asList("5:new", "6:new", "7:new"),
+                                            readIdsAndNames()));
+        } finally {
+            clearSinkTable();
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.FLINK_1_15},
+            disabledReason =
+                    "Flaky on GitHub-hosted Flink 1.15.3: the CDC job can exit successfully"
+                            + " while sink_table remains empty")
+    public void testLatestEventOfAKeyWinsInOneMerge(TestContainer container) throws Exception {
+        StringBuilder values = new StringBuilder();
+        List<String> expected = new ArrayList<>();
+        for (int id = 10; id < 30; id++) {
+            values.append(id == 10 ? "" : ", ")
+                    .append(String.format("(%d, 'old', 'old', 1, 1.0)", id));
+            expected.add(id + ":new");
+        }
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("INSERT INTO sink_table VALUES " + values);
+        }
+        try {
+            Container.ExecResult execResult =
+                    executeDatabendCdcJob(container, DATABEND_CDC_ONE_MERGE_JOB_CONFIG);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+            Awaitility.await()
+                    .atMost(180, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .ignoreExceptions()
+                    .untilAsserted(() -> Assertions.assertEquals(expected, readIdsAndNames()));
+        } finally {
+            clearSinkTable();
+        }
+    }
+
+    private List<String> readIdsAndNames() throws SQLException {
+        List<String> rows = new ArrayList<>();
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery("SELECT id, name FROM sink_table ORDER BY id")) {
+            while (resultSet.next()) {
+                rows.add(resultSet.getInt("id") + ":" + resultSet.getString("name"));
+            }
+        }
+        return rows;
+    }
+
+    private Container.ExecResult executeDatabendCdcJob(TestContainer container, String jobConfig)
+            throws Exception {
         Container.ExecResult execResult = null;
         for (int attempt = 1; attempt <= MAX_JOB_SUBMIT_ATTEMPTS; attempt++) {
-            execResult = container.executeJob(DATABEND_CDC_JOB_CONFIG);
+            execResult = container.executeJob(jobConfig);
             if (execResult.getExitCode() == 0 || !isFlinkResourceNotReady(execResult)) {
                 return execResult;
             }

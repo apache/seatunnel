@@ -47,6 +47,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -93,6 +94,7 @@ public class DatabendSinkWriter
     private boolean hasUnmergedCdcRows = false;
     private String conflictKey;
     private boolean enableDelete;
+    private long lastAddTimeMicros = 0L;
 
     public DatabendSinkWriter(
             Context context,
@@ -268,7 +270,7 @@ public class DatabendSinkWriter
 
         sql.append("ON a.").append(conflictKey).append(" = b.").append(conflictKey).append(" ");
 
-        sql.append("WHEN MATCHED AND b.action = 'update' THEN UPDATE * ");
+        sql.append("WHEN MATCHED AND b.action IN ('insert', 'update') THEN UPDATE * ");
 
         if (enableDelete) {
             sql.append("WHEN MATCHED AND b.action = 'delete' THEN DELETE ");
@@ -417,10 +419,24 @@ public class DatabendSinkWriter
         cdcPreparedStatement.setString(1, conflictKeyValue);
         cdcPreparedStatement.setString(2, targetTableName);
         cdcPreparedStatement.setString(3, jsonData);
-        cdcPreparedStatement.setTimestamp(4, java.sql.Timestamp.valueOf(LocalDateTime.now()));
+        cdcPreparedStatement.setString(4, nextAddTime());
         cdcPreparedStatement.setString(5, action);
 
         cdcPreparedStatement.addBatch();
+    }
+
+    /**
+     * Returns the add_time of the next CDC row. The merge keeps the row with the latest add_time
+     * for each key, so rows of a burst must not share a value or an older event can win. It is a
+     * string because the driver's setTimestamp drops everything below milliseconds.
+     *
+     * @return a timestamp, in microseconds, later than the one returned by the previous call
+     */
+    String nextAddTime() {
+        lastAddTimeMicros = Math.max(System.currentTimeMillis() * 1000, lastAddTimeMicros + 1);
+        Timestamp addTime = new Timestamp(lastAddTimeMicros / 1000);
+        addTime.setNanos((int) (lastAddTimeMicros % 1_000_000) * 1000);
+        return addTime.toString();
     }
 
     private void processTraditionalRow(SeaTunnelRow row) throws SQLException {

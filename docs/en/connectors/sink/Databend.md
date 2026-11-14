@@ -169,6 +169,7 @@ sink {
 
 Set `conflict_key` to the primary-key column used to merge update/delete events. Set
 `enable_delete = true` only when DELETE events should remove rows from Databend.
+An INSERT event for a key that already exists updates that row, the same as an update event.
 If `conflict_key` is not configured, the sink writes normal insert-style batches.
 
 The following end-to-end example feeds CDC row kinds (`INSERT`, `UPDATE_BEFORE`,

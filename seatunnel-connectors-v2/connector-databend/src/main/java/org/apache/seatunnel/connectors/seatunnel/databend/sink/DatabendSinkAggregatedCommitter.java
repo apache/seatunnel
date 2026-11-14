@@ -208,7 +208,7 @@ public class DatabendSinkAggregatedCommitter
                 .append(databendSinkConfig.getConflictKey())
                 .append(" ");
 
-        sql.append("WHEN MATCHED AND b.action = 'update' THEN UPDATE * ");
+        sql.append("WHEN MATCHED AND b.action IN ('insert', 'update') THEN UPDATE * ");
 
         if (databendSinkConfig.isEnableDelete()) {
             sql.append("WHEN MATCHED AND b.action = 'delete' THEN DELETE ");
