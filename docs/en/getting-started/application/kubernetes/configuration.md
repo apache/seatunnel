@@ -58,6 +58,8 @@ Command-line overrides (`-Dkey=value`) may be visible to other users on the subm
 | `kubernetes.jvm-options-file` | string | no | `jvm_options` | Common JVM options file applied to master and workers before the role-specific file; `disabled` passes no common argument file. |
 | `kubernetes.log4j-config-file` | string | no | `log4j2_client.properties` | Log4j2 configuration passed as `-Dlog4j2.configurationFile`: a file name under `<seatunnel-home>/config` or an absolute path. The default keeps console logs; set `log4j2.properties` for the file-based server configuration. |
 | `kubernetes.seatunnel-config-file` | string | no | `config/seatunnel.yaml` | Engine configuration passed as `-Dseatunnel.config`: a path relative to `<seatunnel-home>` or an absolute `.yaml`/`.yml` path. |
+| `kubernetes.master.enable-http` | boolean | no | - | Overrides `enable-http` in `seatunnel.yaml` when set. Unset keeps the yaml value. `false` turns the master's HTTP server off. The Service publishes `http` only when HTTP is on. |
+| `kubernetes.master.http-port` | int | no | - | Overrides `port` in `seatunnel.yaml` when set. Unset keeps the yaml value. Rejected outside 1–65535 or when equal to `application.master.port`. |
 | `kubernetes.master.labels` | map | no | - | Additional master Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
 | `kubernetes.worker.labels` | map | no | - | Additional worker Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
 | `kubernetes.master.annotations` | map | no | - | Master Pod annotations as comma-separated `key:value` pairs. |
@@ -282,6 +284,22 @@ kubernetes {
 Keep connector credentials out of ConfigMaps: they are not confidential. Use a Secret with
 `kubernetes.env`/`${VAR}` when the job needs them.
 :::
+
+## Master HTTP
+
+Master HTTP comes from `seatunnel.yaml`. The file shipped with SeaTunnel sets `enable-http: true`
+and `port: 8080`, so the master listens on 8080 and the headless Service exposes that port. Workers
+do not serve HTTP. Set `enable-http: false` in `seatunnel.yaml` to turn it off.
+
+Each `kubernetes.master.*` key overrides only that setting. A key you leave unset keeps the value
+from `seatunnel.yaml`. `kubernetes.master.enable-http` overrides `enable-http`.
+`kubernetes.master.http-port` overrides `port`. `false` turns the server off.
+
+The Service port is chosen when you submit. ConfigMap `data` in the deployment file is used when
+that data is mounted at `kubernetes.seatunnel-config-file`. A ConfigMap `ref` is not read, so the
+Service port then comes from `seatunnel.yaml` on the submitting host while the master uses the file
+mounted in the Pod, and the submission logs a warning. Set the key for the setting that should
+differ.
 
 ## ConfigMaps and runtime files
 

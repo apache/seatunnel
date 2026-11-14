@@ -5,6 +5,21 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Application Mode: Master HTTP follows seatunnel.yaml
+
+- **Affected jobs**: Kubernetes deployments that run Zeta Application Mode.
+- **Behavior change**: The master no longer starts with HTTP turned off. It uses `enable-http` and
+  `port` from the `seatunnel.yaml` it loads. The file shipped with SeaTunnel sets `enable-http: true`
+  and `port: 8080`, so the master exposes REST, including `/submit-job`, and the headless Service
+  publishes that port. Workers do not serve HTTP.
+  `kubernetes.master.enable-http` overrides `enable-http`, and `kubernetes.master.http-port`
+  overrides `port`, only when that key is set. Other settings stay in `seatunnel.yaml`.
+  `enable-http=false` turns the server off.
+- **Migration**: To keep the master from serving HTTP, set `enable-http: false` in the `seatunnel.yaml`
+  the master loads, or set `kubernetes.master.enable-http` to `false`. Callers that assumed this mode
+  never exposed REST need to turn HTTP off or restrict who can reach the Service.
+
+
 ### Lance sink: BIGINT columns are created as int64
 
 - **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**
@@ -18,6 +33,7 @@ You need to check this document before you upgrade to related version.
   - **Description**: The Databend source takes every column type from `DatabendCatalog`. The catalog compared the type name the driver reports, such as `decimal(10, 2)`, with the bare name `DECIMAL`, so every decimal column fell back to `STRING` and its values were read as text. It now maps the column to `DECIMAL` with the column's own precision and scale. On a worker whose default locale is Turkish or Azerbaijani, `TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `TIMESTAMP` and `BINARY` columns also fell back to `STRING`; they now get their mapped types there too.
   - **Impact**: A job that reads a Databend `DECIMAL` column now emits decimal values. A sink table that SeaTunnel creates through `schema_save_mode` gets a decimal column instead of a string column, and a transform or sink that expected a string now receives a decimal.
   - **Migration Guide**: No configuration change is needed. If a downstream step needs text, convert the column explicitly, for example `CAST(price AS STRING)` in the SQL transform. A sink table that an earlier run already created with a string column keeps that type.
+
 
 ### JDBC Sink: fail safely after losing uncommitted work
 

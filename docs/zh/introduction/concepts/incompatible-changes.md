@@ -4,6 +4,20 @@
 
 ## dev
 
+### Application 模式：Master HTTP 跟随 seatunnel.yaml
+
+- **影响范围**：在 Kubernetes 上运行 Zeta Application 模式的部署。
+- **行为变化**：Master 不再以关闭 HTTP 的方式启动。它使用所加载 `seatunnel.yaml` 中的 `enable-http`
+  和 `port`。随 SeaTunnel 提供的文件是 `enable-http: true`、`port: 8080`，因此 Master 会暴露 REST，
+  包括 `/submit-job`，headless Service 也会发布该端口。Worker 不提供 HTTP。
+  设置了 `kubernetes.master.enable-http` 时覆盖 `enable-http`，设置了
+  `kubernetes.master.http-port` 时覆盖 `port`。没写的项仍留在 `seatunnel.yaml`。
+  `enable-http=false` 会关闭该服务。
+- **升级说明**：若要让 Master 不提供 HTTP，在 Master 加载的 `seatunnel.yaml` 中设置
+  `enable-http: false`，或把 `kubernetes.master.enable-http` 设为 `false`。原先假定此模式不会暴露
+  REST 的调用方需要关闭 HTTP，或限制谁能访问该 Service。
+
+
 ### Lance Sink：BIGINT 列创建为 int64
 
 - **行为变更：Lance Sink 创建的数据集中，`BIGINT` 列为 Arrow `int64`**
@@ -17,6 +31,7 @@
   - **描述**：Databend Source 的所有列类型都来自 `DatabendCatalog`。Catalog 此前用驱动上报的类型名（例如 `decimal(10, 2)`）与不带参数的 `DECIMAL` 比较，因此所有 decimal 列都回退为 `STRING`，其值按文本读取。现在该列会按其自身的 precision 和 scale 映射为 `DECIMAL`。在默认语言环境为土耳其语或阿塞拜疆语的工作节点上，`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`TIMESTAMP` 和 `BINARY` 列此前也会回退为 `STRING`，现在同样得到对应的映射类型。
   - **影响**：读取 Databend `DECIMAL` 列的作业现在输出 decimal 值。SeaTunnel 通过 `schema_save_mode` 创建的 Sink 表会得到 decimal 列而不是字符串列，原本期望字符串的 Transform 或 Sink 现在会收到 decimal。
   - **迁移指南**：无需修改配置。如果下游步骤需要文本，请显式转换该列，例如在 SQL Transform 中使用 `CAST(price AS STRING)`。早期运行中已创建为字符串列的 Sink 表会保留原有类型。
+
 
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
