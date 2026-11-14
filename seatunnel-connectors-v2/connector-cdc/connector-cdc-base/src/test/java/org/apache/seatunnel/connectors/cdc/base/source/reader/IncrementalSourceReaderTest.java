@@ -31,7 +31,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsAckEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
@@ -99,6 +101,13 @@ class IncrementalSourceReaderTest {
             new TableId("alpha_online", null, "account_interests");
     private static final TableId RUNTIME_TABLE =
             new TableId("alpha_online", null, "account_runtime");
+
+    private static SourceConfig incrementalSourceConfig() {
+        SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
+        Mockito.when(sourceConfig.getStartupConfig())
+                .thenReturn(new StartupConfig(StartupMode.INITIAL, null, null, null));
+        return sourceConfig;
+    }
 
     @Test
     void testFetcherFailureBeforeHandoffRestoresUnemittedBatch() throws Exception {
@@ -418,7 +427,7 @@ class IncrementalSourceReaderTest {
                             new IncrementalSourceRecordEmitter<>(schema, offsets, context),
                             new SourceReaderOptions(ReadonlyConfig.fromMap(Collections.emptyMap())),
                             context,
-                            Mockito.mock(SourceConfig.class),
+                            incrementalSourceConfig(),
                             schema);
         }
 
@@ -491,7 +500,7 @@ class IncrementalSourceReaderTest {
 
     @Test
     void testAddSplitsEnqueuesPrunedRestoredIncrementalSplit() {
-        SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
+        SourceConfig sourceConfig = incrementalSourceConfig();
         DataSourceDialect<SourceConfig> dialect =
                 Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
         Mockito.when(dialect.discoverDataCollections(sourceConfig))
@@ -516,7 +525,7 @@ class IncrementalSourceReaderTest {
 
     @Test
     void testAddSplitsKeepsRestoredSplitWhenDiscoveryReturnsEmpty() {
-        SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
+        SourceConfig sourceConfig = incrementalSourceConfig();
         DataSourceDialect<SourceConfig> dialect =
                 Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
         Mockito.when(dialect.discoverDataCollections(sourceConfig))
@@ -540,7 +549,7 @@ class IncrementalSourceReaderTest {
 
     @Test
     void testAddSplitsKeepsRestoredSplitWhenDiscoveryFails() {
-        SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
+        SourceConfig sourceConfig = incrementalSourceConfig();
         DataSourceDialect<SourceConfig> dialect =
                 Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
         Mockito.when(dialect.discoverDataCollections(sourceConfig))
@@ -564,7 +573,7 @@ class IncrementalSourceReaderTest {
 
     @Test
     void testAddSplitsDiscoversCapturedTablesOnlyOncePerBatch() {
-        SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
+        SourceConfig sourceConfig = incrementalSourceConfig();
         DataSourceDialect<SourceConfig> dialect =
                 Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
         Mockito.when(dialect.discoverDataCollections(sourceConfig))

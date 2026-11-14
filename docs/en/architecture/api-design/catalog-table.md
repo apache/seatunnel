@@ -80,65 +80,73 @@ public class TableSchema implements Serializable {
 
 ### 2.3 Column
 
-Column definition with type and constraints.
+Column definition with type and constraints. `Column` is abstract; regular table columns are
+`PhysicalColumn` instances (`MetadataColumn` is the other subclass).
 
 ```java
-public class Column implements Serializable {
-    private final String name;
-    private final SeaTunnelDataType<?> dataType;
-    private final String comment;
+public abstract class Column implements Serializable {
+    protected final String name;
+    protected final SeaTunnelDataType<?> dataType;
 
-    // Column options
-    private final Map<String, Object> options;
+    // Length / scale of the column, e.g. VARCHAR(255) or DECIMAL(10, 2)
+    protected final Long columnLength;
+    protected final Integer scale;
 
     // Constraints
-    private final boolean nullable;
-    private final Object defaultValue;
+    protected final boolean nullable;
+    protected final Object defaultValue;
+
+    protected final String comment;
+
+    // Original type in the source system, e.g. "varchar(255)"
+    protected final String sourceType;
+
+    // Column options
+    protected final Map<String, Object> options;
 }
 ```
 
 ### 2.4 SeaTunnelDataType
 
-Unified type system across connectors.
+Unified type system across connectors. Types are constants or classes in the
+`org.apache.seatunnel.api.table.type` package (there is no `DataTypes` factory class).
 
 **Basic Types**:
 ```java
 // Numeric
-DataTypes.TINYINT()
-DataTypes.SMALLINT()
-DataTypes.INT()
-DataTypes.BIGINT()
-DataTypes.FLOAT()
-DataTypes.DOUBLE()
-DataTypes.DECIMAL(precision, scale)
+BasicType.BYTE_TYPE      // TINYINT
+BasicType.SHORT_TYPE     // SMALLINT
+BasicType.INT_TYPE       // INT
+BasicType.LONG_TYPE      // BIGINT
+BasicType.FLOAT_TYPE     // FLOAT
+BasicType.DOUBLE_TYPE    // DOUBLE
+new DecimalType(precision, scale)
 
-// String
-DataTypes.STRING()
-DataTypes.CHAR(length)
-DataTypes.VARCHAR(length)
+// String (CHAR/VARCHAR length is kept in Column#columnLength, not in the type)
+BasicType.STRING_TYPE
 
 // Binary
-DataTypes.BYTES()
+PrimitiveByteArrayType.INSTANCE
 
 // Date/Time
-DataTypes.DATE()
-DataTypes.TIME()
-DataTypes.TIMESTAMP()
+LocalTimeType.LOCAL_DATE_TYPE        // DATE
+LocalTimeType.LOCAL_TIME_TYPE        // TIME
+LocalTimeType.LOCAL_DATE_TIME_TYPE   // TIMESTAMP
 
 // Boolean
-DataTypes.BOOLEAN()
+BasicType.BOOLEAN_TYPE
 ```
 
 **Complex Types**:
 ```java
 // Array
-DataTypes.ARRAY(elementType)
+ArrayType.of(elementType)          // or constants such as ArrayType.INT_ARRAY_TYPE
 
 // Map
-DataTypes.MAP(keyType, valueType)
+new MapType<>(keyType, valueType)
 
 // Row (Struct)
-DataTypes.ROW(fields)
+new SeaTunnelRowType(fieldNames, fieldTypes)
 ```
 
 ## 3. Schema Creation
@@ -149,11 +157,11 @@ DataTypes.ROW(fields)
 CatalogTable catalogTable = CatalogTable.of(
     TableIdentifier.of("my_catalog", "my_db", "my_table"),
     TableSchema.builder()
-        .column("id", DataTypes.BIGINT())
-        .column("name", DataTypes.STRING())
-        .column("age", DataTypes.INT())
-        .column("created_at", DataTypes.TIMESTAMP())
-        .primaryKey("id")
+        .column(PhysicalColumn.builder().name("id").dataType(BasicType.LONG_TYPE).build())
+        .column(PhysicalColumn.builder().name("name").dataType(BasicType.STRING_TYPE).nullable(true).build())
+        .column(PhysicalColumn.builder().name("age").dataType(BasicType.INT_TYPE).nullable(true).build())
+        .column(PhysicalColumn.builder().name("created_at").dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE).nullable(true).build())
+        .primaryKey(PrimaryKey.of("pk_id", Collections.singletonList("id")))
         .build(),
     Map.of("connector", "jdbc"),
     Collections.emptyList(), // No partitions
@@ -161,31 +169,38 @@ CatalogTable catalogTable = CatalogTable.of(
 );
 ```
 
+`TableSchema.Builder` only accepts `Column` objects (`column(Column)` / `columns(List<Column>)`)
+and a `PrimaryKey` object. Note that the `PhysicalColumn` builder leaves `nullable` as `false`
+unless it is set explicitly.
+
 ### 3.2 Column Builder
 
 ```java
-Column column = Column.builder()
+Column column = PhysicalColumn.builder()
     .name("user_id")
-    .dataType(DataTypes.BIGINT())
+    .dataType(BasicType.LONG_TYPE)
     .nullable(false)
     .defaultValue(0L)
     .comment("User identifier")
     .build();
 ```
 
+`PhysicalColumn.of(name, dataType, columnLength, nullable, defaultValue, comment)` is an
+equivalent factory method.
+
 ### 3.3 Primary Key and Constraints
 
 ```java
 TableSchema schema = TableSchema.builder()
-    .column("id", DataTypes.BIGINT())
-    .column("email", DataTypes.STRING())
-    .column("username", DataTypes.STRING())
+    .column(PhysicalColumn.builder().name("id").dataType(BasicType.LONG_TYPE).build())
+    .column(PhysicalColumn.builder().name("email").dataType(BasicType.STRING_TYPE).build())
+    .column(PhysicalColumn.builder().name("username").dataType(BasicType.STRING_TYPE).build())
 
     // Primary key
-    .primaryKey("id")
+    .primaryKey(PrimaryKey.of("pk_id", Collections.singletonList("id")))
 
     // Unique constraint
-    .constraint(ConstraintKey.of(
+    .constraintKey(ConstraintKey.of(
         ConstraintKey.ConstraintType.UNIQUE_KEY,
         "uk_email",
         Arrays.asList(
@@ -235,13 +250,17 @@ public class JdbcSource implements SeaTunnelSource<...> {
             int jdbcType = columns.getInt("DATA_TYPE");
             SeaTunnelDataType<?> type = JdbcTypeConverter.convert(jdbcType);
 
-            builder.column(columnName, type);
+            builder.column(
+                PhysicalColumn.builder().name(columnName).dataType(type).nullable(true).build());
         }
 
         return Collections.singletonList(
             CatalogTable.of(
                 TableIdentifier.of(catalog, database, schema, table),
-                builder.build()
+                builder.build(),
+                Collections.emptyMap(),   // options
+                Collections.emptyList(),  // partition keys
+                null                      // comment
             )
         );
     }
@@ -251,20 +270,30 @@ public class JdbcSource implements SeaTunnelSource<...> {
 ### 4.3 Transform Schema Transformation
 
 ```java
-public class SqlTransform implements SeaTunnelTransform {
+public class SqlTransform implements SeaTunnelTransform<SeaTunnelRow> {
     @Override
     public CatalogTable getProducedCatalogTable() {
         CatalogTable inputTable = getInputCatalogTable();
+        TableSchema inputSchema = inputTable.getTableSchema();
 
         // Parse SQL to infer output schema
         // Example: SELECT id, UPPER(name) as name_upper, age FROM input
         TableSchema outputSchema = TableSchema.builder()
-            .column("id", inputTable.getColumn("id").getDataType())
-            .column("name_upper", DataTypes.STRING()) // Transformed
-            .column("age", inputTable.getColumn("age").getDataType())
+            .column(inputSchema.getColumn("id").copy())
+            .column(PhysicalColumn.builder()
+                .name("name_upper")
+                .dataType(BasicType.STRING_TYPE) // Transformed
+                .nullable(true)
+                .build())
+            .column(inputSchema.getColumn("age").copy())
             .build();
 
-        return inputTable.copy(outputSchema);
+        return CatalogTable.of(
+            inputTable.getTableId(),
+            outputSchema,
+            inputTable.getOptions(),
+            inputTable.getPartitionKeys(),
+            inputTable.getComment());
     }
 }
 ```
@@ -276,15 +305,17 @@ public class JdbcSink implements SeaTunnelSink<...> {
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         // Validate input schema matches target table
-        CatalogTable inputTable = getInputCatalogTable();
         CatalogTable targetTable = readTargetTableSchema();
+        TableSchema inputSchema = getInputCatalogTable().getTableSchema();
+        TableSchema targetSchema = targetTable.getTableSchema();
 
         // Check column compatibility
-        for (Column inputColumn : inputTable.getColumns()) {
-            Column targetColumn = targetTable.getColumn(inputColumn.getName());
-            if (targetColumn == null) {
+        for (Column inputColumn : inputSchema.getColumns()) {
+            // getColumn() throws for an unknown name, so check contains() first
+            if (!targetSchema.contains(inputColumn.getName())) {
                 throw new SchemaException("Column not found: " + inputColumn.getName());
             }
+            Column targetColumn = targetSchema.getColumn(inputColumn.getName());
 
             if (!isCompatible(inputColumn.getDataType(), targetColumn.getDataType())) {
                 throw new SchemaException("Incompatible types for " + inputColumn.getName());
@@ -303,20 +334,34 @@ public class JdbcSink implements SeaTunnelSink<...> {
 Represents DDL changes captured by CDC sources.
 
 ```java
-public abstract class SchemaChangeEvent implements Serializable {
-    private final TableIdentifier tableId;
+public interface SchemaChangeEvent extends Event {
+    TableIdentifier tableIdentifier();
+
+    default TablePath tablePath() {
+        return tableIdentifier().toTablePath();
+    }
+
+    // Table schema after the change, filled in along the pipeline
+    CatalogTable getChangeAfter();
+
+    void setChangeAfter(CatalogTable table);
 }
 
-public class AlterTableAddColumnEvent extends SchemaChangeEvent {
+// TableEvent implements SchemaChangeEvent; AlterTableEvent and AlterTableColumnEvent extend it
+public class AlterTableAddColumnEvent extends AlterTableColumnEvent {
     private final Column column;
+    private final boolean first;
+    private final String afterColumn;
 }
 
-public class AlterTableDropColumnEvent extends SchemaChangeEvent {
-    private final String columnName;
+public class AlterTableDropColumnEvent extends AlterTableColumnEvent {
+    private final String column;
 }
 
-public class AlterTableModifyColumnEvent extends SchemaChangeEvent {
+public class AlterTableModifyColumnEvent extends AlterTableColumnEvent {
     private final Column column;
+    private final boolean first;
+    private final String afterColumn;
 }
 ```
 
@@ -329,9 +374,9 @@ public class MysqlCDCSource {
         if (ddl.contains("ADD COLUMN")) {
             Column newColumn = parseDDL(ddl);
 
-            // Create schema change event
-            SchemaChangeEvent event = new AlterTableAddColumnEvent(
-                tableId,
+            // Create schema change event (see also addFirst / addAfter)
+            SchemaChangeEvent event = AlterTableAddColumnEvent.add(
+                tableIdentifier,
                 newColumn
             );
 
@@ -354,8 +399,8 @@ public class SqlTransform {
             // Map column through transform logic
             Column transformedColumn = transformColumn(addEvent.getColumn());
 
-            return new AlterTableAddColumnEvent(
-                event.getTableId(),
+            return AlterTableAddColumnEvent.add(
+                event.tableIdentifier(),
                 transformedColumn
             );
         }
@@ -377,7 +422,7 @@ public class JdbcSink {
             // Generate DDL
             String ddl = String.format(
                 "ALTER TABLE %s ADD COLUMN %s %s",
-                event.getTableId().getTableName(),
+                event.tablePath().getTableName(),
                 column.getName(),
                 toSqlType(column.getDataType())
             );
@@ -395,44 +440,48 @@ public class JdbcSink {
 
 ### 6.1 JDBC Type Mapping
 
+Simplified illustration. Real connectors implement
+`org.apache.seatunnel.api.table.converter.TypeConverter`, for example the JDBC dialect converters
+such as `MySqlTypeConverter`, which return a whole `Column` so that length, precision and scale are
+kept on the column.
+
 ```java
 public class JdbcTypeConverter {
     public static SeaTunnelDataType<?> convert(int jdbcType) {
         switch (jdbcType) {
             case Types.TINYINT:
-                return DataTypes.TINYINT();
+                return BasicType.BYTE_TYPE;
             case Types.SMALLINT:
-                return DataTypes.SMALLINT();
+                return BasicType.SHORT_TYPE;
             case Types.INTEGER:
-                return DataTypes.INT();
+                return BasicType.INT_TYPE;
             case Types.BIGINT:
-                return DataTypes.BIGINT();
+                return BasicType.LONG_TYPE;
             case Types.FLOAT:
             case Types.REAL:
-                return DataTypes.FLOAT();
+                return BasicType.FLOAT_TYPE;
             case Types.DOUBLE:
-                return DataTypes.DOUBLE();
+                return BasicType.DOUBLE_TYPE;
             case Types.DECIMAL:
             case Types.NUMERIC:
-                return DataTypes.DECIMAL(precision, scale);
+                return new DecimalType(precision, scale);
             case Types.CHAR:
-                return DataTypes.CHAR(length);
             case Types.VARCHAR:
-                return DataTypes.VARCHAR(length);
             case Types.LONGVARCHAR:
-                return DataTypes.STRING();
+                // The declared length is kept in Column#columnLength
+                return BasicType.STRING_TYPE;
             case Types.DATE:
-                return DataTypes.DATE();
+                return LocalTimeType.LOCAL_DATE_TYPE;
             case Types.TIME:
-                return DataTypes.TIME();
+                return LocalTimeType.LOCAL_TIME_TYPE;
             case Types.TIMESTAMP:
-                return DataTypes.TIMESTAMP();
+                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case Types.BOOLEAN:
-                return DataTypes.BOOLEAN();
+                return BasicType.BOOLEAN_TYPE;
             case Types.BINARY:
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
-                return DataTypes.BYTES();
+                return PrimitiveByteArrayType.INSTANCE;
             default:
                 throw new UnsupportedTypeException("Unsupported JDBC type: " + jdbcType);
         }
@@ -447,36 +496,36 @@ public class AvroTypeConverter {
     public static SeaTunnelDataType<?> convert(Schema avroSchema) {
         switch (avroSchema.getType()) {
             case INT:
-                return DataTypes.INT();
+                return BasicType.INT_TYPE;
             case LONG:
-                return DataTypes.BIGINT();
+                return BasicType.LONG_TYPE;
             case FLOAT:
-                return DataTypes.FLOAT();
+                return BasicType.FLOAT_TYPE;
             case DOUBLE:
-                return DataTypes.DOUBLE();
+                return BasicType.DOUBLE_TYPE;
             case BOOLEAN:
-                return DataTypes.BOOLEAN();
+                return BasicType.BOOLEAN_TYPE;
             case STRING:
-                return DataTypes.STRING();
+                return BasicType.STRING_TYPE;
             case BYTES:
-                return DataTypes.BYTES();
+                return PrimitiveByteArrayType.INSTANCE;
             case ARRAY:
-                return DataTypes.ARRAY(convert(avroSchema.getElementType()));
+                return ArrayType.of(convert(avroSchema.getElementType()));
             case MAP:
-                return DataTypes.MAP(
-                    DataTypes.STRING(),
+                return new MapType<>(
+                    BasicType.STRING_TYPE,
                     convert(avroSchema.getValueType())
                 );
             case RECORD:
                 // Convert to ROW type
-                List<TableSchema.Column> fields = new ArrayList<>();
-                for (Schema.Field field : avroSchema.getFields()) {
-                    fields.add(new Column(
-                        field.name(),
-                        convert(field.schema())
-                    ));
+                List<Schema.Field> avroFields = avroSchema.getFields();
+                String[] fieldNames = new String[avroFields.size()];
+                SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType<?>[avroFields.size()];
+                for (int i = 0; i < avroFields.size(); i++) {
+                    fieldNames[i] = avroFields.get(i).name();
+                    fieldTypes[i] = convert(avroFields.get(i).schema());
                 }
-                return DataTypes.ROW(fields);
+                return new SeaTunnelRowType(fieldNames, fieldTypes);
             default:
                 throw new UnsupportedTypeException("Unsupported Avro type: " + avroSchema.getType());
         }
@@ -556,8 +605,8 @@ public class IcebergSink {
 ```java
 // ✅ GOOD: Explicit schema
 TableSchema schema = TableSchema.builder()
-    .column("id", DataTypes.BIGINT())
-    .column("name", DataTypes.STRING())
+    .column(PhysicalColumn.builder().name("id").dataType(BasicType.LONG_TYPE).build())
+    .column(PhysicalColumn.builder().name("name").dataType(BasicType.STRING_TYPE).nullable(true).build())
     .build();
 
 // ❌ BAD: Implicit schema (relies on inference)
@@ -567,12 +616,12 @@ TableSchema schema = TableSchema.builder()
 **Use Appropriate Types**:
 ```java
 // ✅ GOOD: Use specific types
-.column("price", DataTypes.DECIMAL(10, 2))
-.column("created_at", DataTypes.TIMESTAMP())
+PhysicalColumn.builder().name("price").dataType(new DecimalType(10, 2)).build();
+PhysicalColumn.builder().name("created_at").dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE).build();
 
 // ❌ BAD: Overly generic types
-.column("price", DataTypes.STRING()) // Should be DECIMAL
-.column("created_at", DataTypes.STRING()) // Should be TIMESTAMP
+PhysicalColumn.builder().name("price").dataType(BasicType.STRING_TYPE).build(); // Should be DECIMAL
+PhysicalColumn.builder().name("created_at").dataType(BasicType.STRING_TYPE).build(); // Should be TIMESTAMP
 ```
 
 ### 8.2 Schema Validation
@@ -615,13 +664,18 @@ public void open() {
 
 ### 9.1 Schema Override
 
+Sources that cannot read a schema from the external system accept a user-declared `schema` block.
+Sources such as `Jdbc` derive the schema from table or query metadata instead; for `Jdbc`, `schema`
+is a string option that names the database schema, not a field list.
+
 ```hocon
 source {
-  JDBC {
-    url = "..."
-    query = "SELECT * FROM users"
+  Kafka {
+    bootstrap.servers = "localhost:9092"
+    topic = "users"
+    format = json
 
-    # Override inferred schema
+    # Declare the schema of the JSON messages
     schema {
       fields {
         id = "BIGINT"
@@ -635,18 +689,37 @@ source {
 
 ### 9.2 Schema Evolution Control
 
-```hocon
-sink {
-  JDBC {
-    url = "..."
+There is no `schema-evolution` block. Schema evolution is enabled on CDC sources with
+`schema-changes.enabled` (disabled by default), and the sink's `schema_save_mode` decides how the
+target table is prepared when the job starts. See
+[Schema Evolution](../../introduction/configuration/schema-evolution.md) for the supported
+connectors and change types.
 
-    # Schema evolution options
-    schema-evolution {
-      enabled = true
-      auto-create-table = true
-      auto-add-column = true
-      auto-drop-column = false # Dangerous!
-    }
+```hocon
+source {
+  MySQL-CDC {
+    url = "jdbc:mysql://localhost:3306"
+    username = "..."
+    password = "..."
+    table-names = ["mydb.users"]
+
+    # Emit DDL changes downstream as SchemaChangeEvents
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:mysql://localhost:3306/target"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "..."
+    password = "..."
+    generate_sink_sql = true
+    database = "target"
+    table = "${table_name}"
+
+    # Create the target table when it does not exist
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
   }
 }
 ```

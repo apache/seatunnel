@@ -448,8 +448,9 @@ public class MultiTableSink
     /**
      * Registers an aggregated flush action on the parent context if a sub-writer needs timer flush.
      *
-     * <p>The registered action drains all blocking queues and then calls each sub-writer's flush
-     * action under the corresponding lock, ensuring safe execution from the engine timer thread.
+     * <p>The sink task invokes the action when it consumes a flush signal. The action drains
+     * pending writes and flushes independent queues in parallel, with child writers serialized
+     * under their queue lock.
      */
     private void registerAggregatedFlushIfNeeded(
             SinkWriter.Context context,
