@@ -323,7 +323,8 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourc
 REST API 不支持指定具体的 Savepoint 路径进行恢复。不存在 `restore.mode` 或 `savepoint.path` 之类的
 env 选项；恢复行为只由请求参数 `restoreMode` 和 `restoreSourceJobId` 控制，并且
 `restoreMode=SAVEPOINT` 总是选取所引用作业**最新**的 Savepoint（按 pipeline 取 checkpoint id 最高的那
-个）。REST API 没有选择更早 Savepoint 的受支持方式。
+个）。REST API 没有选择更早 Savepoint 的受支持方式。恢复来源也可由 CLI 的 `--restore` /
+`--restore-with-checkpoint` 参数指定。
 
 ---
 

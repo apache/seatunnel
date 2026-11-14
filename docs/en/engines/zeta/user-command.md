@@ -4,7 +4,7 @@ sidebar_position: 13
 
 # Client Command Line Tool
 
-The SeaTunnel Engine provides a command line tool for managing the jobs of the SeaTunnel Engine. You can use the command line tool to submit, stop, pause, resume, delete jobs, view job status and monitoring metrics, etc.
+The SeaTunnel Engine provides a command line tool for managing the jobs of the SeaTunnel Engine. You can use the command line tool to submit, stop, savepoint, restore jobs, view job status and monitoring metrics, etc. (There is no dedicated command for deleting jobs; finished job records are removed automatically after `history-job-expire-minutes` elapses.)
 
 You can obtain the help information of the command line tool through the following command:
 

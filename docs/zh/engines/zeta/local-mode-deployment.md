@@ -21,7 +21,7 @@ Local模式下每个任务都会启动一个独立的进程，任务运行完成
 ## 提交作业
 
 ```shell
-$SEATUNNEL_HOME/bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template -e local
+$SEATUNNEL_HOME/bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template -m local
 ```
 
 ### 配置本地模式的JVM参数
