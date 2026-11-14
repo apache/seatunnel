@@ -17,10 +17,14 @@
 
 package org.apache.seatunnel.transform.embedding;
 
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationException;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationOptions;
+import org.apache.seatunnel.transform.nlpmodel.embedding.remote.Model;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.custom.CustomModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.doubao.DoubaoModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.openai.OpenAIModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.qianfan.QianfanModel;
+import org.apache.seatunnel.transform.nlpmodel.embedding.remote.zhipu.ZhipuModel;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.ProtocolVersion;
@@ -36,17 +40,184 @@ import org.apache.http.util.EntityUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
+import com.sun.net.httpserver.HttpServer;
+
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class EmbeddingModelDimensionTest {
+
+    @ParameterizedTest
+    @CsvSource({
+        "OPENAI, false, 0",
+        "CUSTOM, false, 0",
+        "ZHIPU, false, 0",
+        "QIANFAN, false, 0",
+        "DOUBAO, false, 0",
+        "DOUBAO_MULTIMODAL, false, 0",
+        "OPENAI, true, 0",
+        "OPENAI, false, 3000"
+    })
+    void testHttpProvidersPropagateRetryAfterAndStopAtCap(
+            String provider, boolean largeRequest, long responseDelayMs) throws IOException {
+        AtomicInteger requests = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/embeddings",
+                exchange -> {
+                    try {
+                        int request = requests.incrementAndGet();
+                        byte[] requestBuffer = new byte[8192];
+                        while (exchange.getRequestBody().read(requestBuffer) != -1) {
+                            // Consume the POST before replying to avoid transport retries on close.
+                        }
+                        if (request == 1 && responseDelayMs > 0) {
+                            try {
+                                Thread.sleep(responseDelayMs);
+                            } catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
+                                throw new IOException(interrupted);
+                            }
+                        }
+                        exchange.getResponseHeaders().set("Retry-After", "2");
+                        byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
+                        exchange.sendResponseHeaders(429, body.length);
+                        exchange.getResponseBody().write(body);
+                    } finally {
+                        exchange.close();
+                    }
+                });
+        server.start();
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/embeddings";
+        // Keep socket I/O headroom separate from the retry cap being tested.
+        ModelInvocationOptions options = new ModelInvocationOptions(3, 0, 1000, 10_000);
+        String document = largeRequest ? "x".repeat(8 * 1024 * 1024) : "document";
+        try (Model model = httpModel(provider, endpoint, options)) {
+            ModelInvocationException exception =
+                    Assertions.assertThrows(
+                            ModelInvocationException.class,
+                            () -> {
+                                if ("DOUBAO_MULTIMODAL".equals(provider)) {
+                                    model.dimension();
+                                } else {
+                                    model.vectorization(new Object[] {document});
+                                }
+                            });
+            Assertions.assertEquals(2000L, exception.getRetryAfterMs());
+            Assertions.assertEquals(429, exception.getHttpStatus());
+            Assertions.assertEquals(1, requests.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    private static Model httpModel(String provider, String endpoint, ModelInvocationOptions options)
+            throws IOException {
+        switch (provider) {
+            case "OPENAI":
+                return new OpenAIModel("key", "model", endpoint, 1, options);
+            case "CUSTOM":
+                return new CustomModel(
+                        "model",
+                        endpoint,
+                        new HashMap<>(),
+                        new HashMap<>(),
+                        "$.data[*].embedding",
+                        1,
+                        options);
+            case "ZHIPU":
+                return new ZhipuModel("key", "model", endpoint, 3, 1, options);
+            case "QIANFAN":
+                return new QianfanModel(
+                        "key", "secret", "model", endpoint, 1, endpoint, "token", options);
+            case "DOUBAO":
+            case "DOUBAO_MULTIMODAL":
+                return new DoubaoModel(
+                        "key",
+                        "model",
+                        endpoint,
+                        1,
+                        "DOUBAO_MULTIMODAL".equals(provider),
+                        options,
+                        HttpClients.createDefault());
+            default:
+                throw new IllegalArgumentException(provider);
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false, 0", "true, 0", "false, 3000", "true, 3000"})
+    void testOpenAIWaitsForRetryAfterCooldown(boolean httpDate, long responseDelayMs)
+            throws IOException {
+        AtomicInteger requests = new AtomicInteger();
+        AtomicLong cooldownEnd = new AtomicLong();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/embeddings",
+                exchange -> {
+                    try {
+                        while (exchange.getRequestBody().read() != -1) {
+                            // Consume the request before reusing the HTTP connection.
+                        }
+                        int request = requests.incrementAndGet();
+                        if (request == 1 && responseDelayMs > 0) {
+                            try {
+                                Thread.sleep(responseDelayMs);
+                            } catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
+                                throw new IOException(interrupted);
+                            }
+                        }
+                        long now = System.currentTimeMillis();
+                        cooldownEnd.compareAndSet(
+                                0L, httpDate ? (now / 1000 + 2) * 1000 : now + 1000);
+                        boolean coolingDown = now < cooldownEnd.get();
+                        byte[] body =
+                                (coolingDown ? "{}" : embeddingResponse(1, 3))
+                                        .getBytes(StandardCharsets.UTF_8);
+                        String retryAfter =
+                                httpDate
+                                        ? DateTimeFormatter.RFC_1123_DATE_TIME
+                                                .withZone(ZoneOffset.UTC)
+                                                .format(Instant.ofEpochMilli(cooldownEnd.get()))
+                                        : "1";
+                        exchange.getResponseHeaders().set("Retry-After", retryAfter);
+                        exchange.sendResponseHeaders(coolingDown ? 429 : 200, body.length);
+                        exchange.getResponseBody().write(body);
+                    } finally {
+                        exchange.close();
+                    }
+                });
+        server.start();
+        try (OpenAIModel model =
+                new OpenAIModel(
+                        "test-key",
+                        "test-model",
+                        "http://127.0.0.1:" + server.getAddress().getPort() + "/embeddings",
+                        1,
+                        // Socket I/O must not consume the attempt reserved for the cooldown retry.
+                        new ModelInvocationOptions(2, 10L, 2000L, 10_000))) {
+            Assertions.assertEquals(1, model.vectorization(new Object[] {"document"}).size());
+            Assertions.assertEquals(2, requests.get());
+        } finally {
+            server.stop(0);
+        }
+    }
 
     @Test
     void testCustomModelDimension() throws IOException {
