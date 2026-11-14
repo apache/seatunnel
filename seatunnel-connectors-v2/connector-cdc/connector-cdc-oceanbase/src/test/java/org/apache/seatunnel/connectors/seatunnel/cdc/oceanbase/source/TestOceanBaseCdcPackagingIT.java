@@ -58,6 +58,19 @@ class TestOceanBaseCdcPackagingIT {
     }
 
     @Test
+    void packagedJarShipsStockDebeziumRuntime() throws Exception {
+        // connector-cdc-base only ships its patched Debezium classes, so the stock runtime must
+        // come from this jar or the source fails with NoClassDefFoundError at runtime.
+        Set<String> entries = debeziumClassEntries(packagedConnectorJar());
+        Assertions.assertTrue(
+                entries.contains("io/debezium/config/Configuration.class"),
+                "connector-cdc-oceanbase must bundle debezium-core");
+        Assertions.assertTrue(
+                entries.contains("io/debezium/engine/DebeziumEngine.class"),
+                "connector-cdc-oceanbase must bundle debezium-api");
+    }
+
+    @Test
     void tableIdIsSerializableWhenConnectorJarComesFirst() throws Exception {
         URL[] urls = {packagedConnectorJar().toUri().toURL(), cdcBaseJar().toUri().toURL()};
         try (URLClassLoader loader = new URLClassLoader(urls, null)) {
