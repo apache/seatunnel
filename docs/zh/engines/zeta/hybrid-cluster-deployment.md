@@ -182,7 +182,7 @@ seatunnel:
     job-schedule-strategy: WAIT
 ```
 
-当`dynamic-slot: ture`时，`job-schedule-strategy: WAIT` 配置会失效，将被强制修改为`job-schedule-strategy: REJECT`，因为动态Slot时该参数没有意义，可以直接提交。
+`job-schedule-strategy` 的行为不受 `dynamic-slot` 影响。当资源不足时，`WAIT` 会将作业保持在等待队列中并每隔 3 秒重试调度，`REJECT` 则直接使作业失败。
 
 ### 4.7 Coordinator Service
 

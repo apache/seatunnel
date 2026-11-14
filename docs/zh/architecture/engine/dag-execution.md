@@ -566,6 +566,15 @@ sink {
 - [架构概述](../overview.md)
 
 ## 12. 参考资料
+
+### 关键源码文件
+
+- [LogicalDag.java](../../../../seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/dag/logical/LogicalDag.java)
+- [PhysicalPlan.java](../../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/dag/physical/PhysicalPlan.java)
+- [SubPlan.java](../../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/dag/physical/SubPlan.java)
+- [PhysicalVertex.java](../../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/dag/physical/PhysicalVertex.java)
+- [TaskGroupDefaultImpl.java](../../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/execution/TaskGroupDefaultImpl.java)
+
 ### 进一步阅读
 
 - [Google Borg Paper](https://research.google/pubs/pub43438/) - 任务调度灵感
