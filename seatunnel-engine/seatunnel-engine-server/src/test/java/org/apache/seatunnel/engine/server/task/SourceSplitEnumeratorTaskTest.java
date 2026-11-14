@@ -17,13 +17,21 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressProvider;
+import org.apache.seatunnel.api.cdc.CdcProgressValue;
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportCdcProgress;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -32,6 +40,8 @@ import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOpera
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
@@ -44,6 +54,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -54,6 +65,139 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class SourceSplitEnumeratorTaskTest {
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testCdcProviderPublishedOnlyAfterEnumeratorOpen(boolean restore) throws Exception {
+        SeaTunnelSource source =
+                Mockito.mock(
+                        SeaTunnelSource.class,
+                        Mockito.withSettings().extraInterfaces(SupportCdcProgress.class));
+        SourceSplitEnumerator enumerator =
+                Mockito.mock(
+                        SourceSplitEnumerator.class,
+                        Mockito.withSettings().extraInterfaces(CdcProgressProvider.class));
+        CdcEnumeratorProgressReport report =
+                new CdcEnumeratorProgressReport(
+                        "test",
+                        CdcSnapshotAssignmentStatus.ASSIGNING,
+                        CdcProgressValue.exact(1),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(1),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        Collections.emptyList());
+        Mockito.doReturn(report).when((CdcProgressProvider<?>) enumerator).getCdcProgress();
+        DefaultSerializer<Serializable> serializer = new DefaultSerializer<>();
+        Mockito.when(source.getEnumeratorStateSerializer()).thenReturn(serializer);
+        Mockito.when(source.createEnumerator(Mockito.any())).thenReturn(enumerator);
+        Mockito.when(source.restoreEnumerator(Mockito.any(), Mockito.eq("restored-state")))
+                .thenReturn(enumerator);
+        SourceAction action =
+                new SourceAction<>(1, "cdc", source, new HashSet<>(), Collections.emptySet());
+        SourceSplitEnumeratorTask task = newEnumeratorTask(action);
+        Assertions.assertTrue(task.supportsCdcProgress());
+        Assertions.assertNull(task.getCdcProgressReport());
+        task.init();
+        Assertions.assertNull(task.getCdcProgressReport());
+        Mockito.doAnswer(
+                        invocation -> {
+                            Assertions.assertNull(
+                                    task.getCdcProgressReport(),
+                                    "the provider must not be published while open is in progress");
+                            return null;
+                        })
+                .when(enumerator)
+                .open();
+        List<ActionSubtaskState> state =
+                restore
+                        ? Collections.singletonList(
+                                new ActionSubtaskState(
+                                        ActionStateKey.of(action),
+                                        0,
+                                        Collections.singletonList(
+                                                serializer.serialize("restored-state"))))
+                        : Collections.emptyList();
+        try {
+            task.restoreState(state);
+            Assertions.assertSame(report, task.getCdcProgressReport());
+            Mockito.verify(enumerator).open();
+            if (restore) {
+                Mockito.verify(source)
+                        .restoreEnumerator(Mockito.any(), Mockito.eq("restored-state"));
+                Mockito.verify(source, Mockito.never()).createEnumerator(Mockito.any());
+            } else {
+                Mockito.verify(source).createEnumerator(Mockito.any());
+                Mockito.verify(source, Mockito.never())
+                        .restoreEnumerator(Mockito.any(), Mockito.any());
+            }
+        } finally {
+            task.close();
+        }
+        Mockito.verify(enumerator).close();
+    }
+
+    @Test
+    void testFailedEnumeratorOpenDoesNotPublishCdcProvider() throws Exception {
+        SeaTunnelSource source =
+                Mockito.mock(
+                        SeaTunnelSource.class,
+                        Mockito.withSettings().extraInterfaces(SupportCdcProgress.class));
+        SourceSplitEnumerator enumerator =
+                Mockito.mock(
+                        SourceSplitEnumerator.class,
+                        Mockito.withSettings().extraInterfaces(CdcProgressProvider.class));
+        Mockito.when(source.createEnumerator(Mockito.any())).thenReturn(enumerator);
+        IllegalStateException failure = new IllegalStateException("open failed");
+        Mockito.doThrow(failure).when(enumerator).open();
+        SourceSplitEnumeratorTask task =
+                newEnumeratorTask(
+                        new SourceAction<>(
+                                1, "cdc", source, new HashSet<>(), Collections.emptySet()));
+        task.init();
+        try {
+            Assertions.assertSame(
+                    failure,
+                    Assertions.assertThrows(
+                            IllegalStateException.class,
+                            () -> task.restoreState(Collections.emptyList())));
+            Assertions.assertNull(task.getCdcProgressReport());
+            Mockito.verify((CdcProgressProvider<?>) enumerator, Mockito.never()).getCdcProgress();
+        } finally {
+            task.close();
+        }
+    }
+
+    @Test
+    void testNonCdcEnumeratorHasNoProgressAfterOpen() throws Exception {
+        SeaTunnelSource source = Mockito.mock(SeaTunnelSource.class);
+        SourceSplitEnumerator enumerator = Mockito.mock(SourceSplitEnumerator.class);
+        Mockito.when(source.createEnumerator(Mockito.any())).thenReturn(enumerator);
+        SourceSplitEnumeratorTask task =
+                newEnumeratorTask(
+                        new SourceAction<>(
+                                1, "plain", source, new HashSet<>(), Collections.emptySet()));
+        Assertions.assertFalse(task.supportsCdcProgress());
+        task.init();
+        try {
+            task.restoreState(Collections.emptyList());
+            Mockito.verify(enumerator).open();
+            Assertions.assertNull(task.getCdcProgressReport());
+        } finally {
+            task.close();
+        }
+    }
+
+    private SourceSplitEnumeratorTask newEnumeratorTask(SourceAction action) {
+        SourceSplitEnumeratorTask task =
+                new SourceSplitEnumeratorTask<>(
+                        1, new TaskLocation(new TaskGroupLocation(1, 1, 1), 1, 1), action);
+        TaskExecutionContext context = Mockito.mock(TaskExecutionContext.class);
+        Mockito.when(context.getTaskExecutionService())
+                .thenReturn(Mockito.mock(TaskExecutionService.class));
+        task.setTaskExecutionContext(context);
+        return task;
+    }
 
     private static final class DummySplit implements SourceSplit {
         private static final long serialVersionUID = 1L;

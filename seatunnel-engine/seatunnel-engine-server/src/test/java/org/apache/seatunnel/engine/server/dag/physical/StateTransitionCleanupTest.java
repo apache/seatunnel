@@ -255,6 +255,7 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
                 mock(IMap.class);
         when(ownedSlotProfilesIMap.get(pipelineLocation)).thenReturn(slotProfiles);
         SeaTunnelServer seaTunnelServer = mock(SeaTunnelServer.class);
+        when(seaTunnelServer.getCdcProgressService()).thenReturn(server.getCdcProgressService());
 
         JobMaster jobMaster = newJobMaster(jobId, ownedSlotProfilesIMap, seaTunnelServer);
         jobMaster.clearPipelineMetricsForRestore(pipelineLocation);
@@ -295,6 +296,7 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         PipelineLocation location = new PipelineLocation(jobId, 1);
         SeaTunnelServer failingServer = mock(SeaTunnelServer.class);
+        when(failingServer.getCdcProgressService()).thenReturn(server.getCdcProgressService());
         doThrow(new IllegalStateException("metrics map unavailable"))
                 .when(failingServer)
                 .removeMetrics(location);
@@ -425,6 +427,7 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
         PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
 
         SubPlan subPlan = planWithStateMaps.physicalPlan.getPipelineList().get(0);
+        subPlan.setJobMaster(mockJobMaster());
         subPlan.initStateFuture();
         subPlan.updatePipelineState(PipelineStatus.CANCELING);
 
