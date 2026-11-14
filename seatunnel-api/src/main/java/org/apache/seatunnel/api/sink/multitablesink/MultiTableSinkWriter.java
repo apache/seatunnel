@@ -1317,9 +1317,7 @@ public class MultiTableSinkWriter
         }
     }
 
-    /**
-     * Flushes the registered child writers using the shared parallel flush path.
-     */
+    /** Flushes the registered child writers using the shared parallel flush path. */
     void aggregatedFlush() throws Exception {
         aggregatedFlush(proxyContexts);
     }
