@@ -4,6 +4,14 @@
 
 ## dev
 
+### MongoDB Sink：未配置的缓冲与重试选项使用文档中的默认值
+
+- **行为变更：未设置 `buffer-flush.*` 或 `retry.*` 选项的 MongoDB Sink 会按批写入，并重试失败的写入**
+  - **影响范围**：未设置 `buffer-flush.max-rows`、`buffer-flush.interval`、`retry.max`、`retry.interval` 中任意一个或多个选项的 MongoDB Sink。
+  - **描述**：`MongodbSinkFactory` 此前只在显式设置时才把这些选项传给 writer，未设置的选项实际为 `0` 而不是声明的默认值，因此每一行都单独执行一次 `bulkWrite`，失败的批量写入也不会重试。现在会使用声明并写入文档的默认值：`buffer-flush.max-rows = 1000`、`buffer-flush.interval = 30000` 毫秒、`retry.max = 3`、`retry.interval = 1000` 毫秒。
+  - **影响**：数据按批写入目标端，每批最多 1000 行，最迟在 30 秒后或下一次 checkpoint、定时 flush、关闭时写入，而不再逐行写入。写入远端服务器的吞吐量会大幅提升。失败的批量写入会在作业失败前最多重试 3 次，依次等待 1、2、3 秒。重试会重新发送整个有序批次，因此在 `upsert-enable = false` 时，如果批次已部分写入，重试可能因主键重复而失败；这与此前显式设置 `retry.max` 时的行为相同。显式设置了这些选项的作业不受影响。
+  - **迁移指南**：如需文档中描述的行为，无需修改配置。如需保持此前的行为，请显式设置 `buffer-flush.max-rows = 1` 和 `retry.max = 0`。(#13198)
+
 ### Lance Sink：BIGINT 列创建为 int64
 
 - **行为变更：Lance Sink 创建的数据集中，`BIGINT` 列为 Arrow `int64`**

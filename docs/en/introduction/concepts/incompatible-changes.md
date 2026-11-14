@@ -5,6 +5,14 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### MongoDB sink: omitted buffer and retry options now use their documented defaults
+
+- **Behavior change: a MongoDB sink without `buffer-flush.*` or `retry.*` options writes in batches and retries failed writes**
+  - **Affected jobs**: MongoDB sinks that do not set one or more of `buffer-flush.max-rows`, `buffer-flush.interval`, `retry.max` and `retry.interval`.
+  - **Description**: `MongodbSinkFactory` passed these options to the writer only when they were set explicitly. An omitted option was therefore `0` instead of its declared default, so every row was written with its own `bulkWrite` and a failed bulk write was not retried. The declared and documented defaults now apply: `buffer-flush.max-rows = 1000`, `buffer-flush.interval = 30000` ms, `retry.max = 3` and `retry.interval = 1000` ms.
+  - **Impact**: Rows reach the target in batches of up to 1000 rows, at the latest after 30 seconds or at the next checkpoint, timer flush or close, instead of row by row. Throughput against remote servers is much higher. A failed bulk write is retried up to 3 times, waiting 1, 2 and 3 seconds, before the job fails. A retry sends the whole ordered batch again, so with `upsert-enable = false` a retry after a partly applied batch can fail with duplicate-key errors, as it already could when `retry.max` was set explicitly. Jobs that set these options explicitly are not affected.
+  - **Migration Guide**: No change is needed to get the documented behavior. To keep the previous behavior, set `buffer-flush.max-rows = 1` and `retry.max = 0` explicitly. (#13198)
+
 ### Lance sink: BIGINT columns are created as int64
 
 - **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**
