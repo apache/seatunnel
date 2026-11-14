@@ -115,6 +115,7 @@ The following table lists the field data type mapping from SeaTunnel data type t
 | primary-key           | List     | No       | -             | The primary keys used for upsert/update. The list format is `["id","name",...]`.                                                                                                                                                                                                      |
 | transaction           | Boolean  | No       | false         | Whether to use transactions in MongoSink (requires MongoDB 4.2+).                                                                                                                                                                                                                      |
 | data_save_mode        | Enum     | No       | APPEND_DATA   | The data saving mode for the MongoDB collection. Supported values: `DROP_DATA` (truncate the collection before writing), `APPEND_DATA` (append to existing data), `ERROR_WHEN_DATA_EXISTS` (fail if the collection already has data).                                                    |
+| tls_ca_file           | String   | No       | -             | Path to a PEM file with the CA certificates trusted for TLS connections, for this job only. Setting it enables TLS. See [TLS With a Private CA](#tls-with-a-private-ca).                                                                                                              |
 | multi_table_sink_replica | Int   | No       | 1             | The number of sink writer replicas per table in a multi-table job. Must be at least 1.                                                                                                                                                                                                 |
 | common-options        |          | No       | -             | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                                                                                                                            |
 
@@ -287,6 +288,36 @@ mongodb://192.168.0.1:27017,192.168.0.2:27017,192.168.0.3:27017/mydb
 
 > Note: The username and password in the URI must be URL-encoded before being concatenated into
 > the connection string.
+
+### TLS With a Private CA
+
+The MongoDB Java driver ignores `tlsCAFile` in the connection string, so servers whose certificates
+are issued by a CA that is not in the JDK trust store (for example Amazon DocumentDB, which uses the
+Amazon RDS CA, or a self-managed MongoDB with a corporate CA) cannot be reached by setting it in
+`uri`. Use `tls_ca_file` instead:
+
+```hocon
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@docdb-cluster.cluster-xxxx.us-west-2.docdb.amazonaws.com:27017/?replicaSet=rs0&retryWrites=false"
+    database = "test_db"
+    collection = "test_collection"
+    tls_ca_file = "/opt/seatunnel/certs/global-bundle.pem"
+  }
+}
+```
+
+- The file is read on every node that runs the sink, so it must exist at the same path on each of
+  them. It may contain several certificates (a bundle); all of them are trusted.
+- Only the certificates of this file are trusted, and only for this sink. JVM-wide trust settings
+  such as `javax.net.ssl.trustStore` are neither used nor changed, so other jobs and connectors on
+  the same cluster are not affected.
+- Setting `tls_ca_file` enables TLS. It cannot be combined with `tls=false` or `ssl=false` in `uri`.
+- Hostname verification stays enabled. It can only be disabled explicitly with
+  `tlsAllowInvalidHostnames=true` in `uri`, as without `tls_ca_file`.
+- The same settings are used for writing, transaction commits, the save mode (`data_save_mode`)
+  and the connectivity dry run.
+- Amazon DocumentDB does not support retryable writes; keep `retryWrites=false` in `uri`.
 
 ### Buffer Flush
 

@@ -112,7 +112,10 @@ public class MongodbSink
             Optional<Catalog> catalogOptional =
                     Optional.of(
                             new MongodbCatalog(
-                                    MongodbSinkOptions.CONNECTOR_IDENTITY, url, database));
+                                    MongodbSinkOptions.CONNECTOR_IDENTITY,
+                                    url,
+                                    database,
+                                    options.getTlsCaFile()));
             try {
                 DataSaveMode dataSaveMode = options.getDataSaveMode();
                 Catalog catalog = catalogOptional.get();

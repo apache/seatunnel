@@ -68,6 +68,7 @@ public class MongodbSinkAggregatedCommitter
                         .connectionString(options.getConnectString())
                         .database(options.getDatabase())
                         .collection(options.getCollection())
+                        .tlsCaFile(options.getTlsCaFile())
                         .build();
     }
 
