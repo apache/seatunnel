@@ -1,6 +1,6 @@
 # Avro 格式
 
-Avro 在流式数据处理管道中非常流行。现在seatunnel在kafka连接器中支持Avro格式
+Avro 在流式数据处理管道中非常流行。现在seatunnel在 Kafka 和 Pulsar 连接器中支持 Avro 格式
 
 :::note 不支持 Confluent Schema Registry
 

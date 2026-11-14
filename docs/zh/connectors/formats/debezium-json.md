@@ -22,8 +22,11 @@ SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息解析为 Deb
 
 |                选项                 |  默认值   | 是否需要 |                  描述                  |
 |-----------------------------------|--------|------|--------------------------------------|
-| format                            | (none) | 是    | 指定要使用的格式，这里应该是 'debezium_json'.      |
-| debezium-json.ignore-parse-errors | false  | 否    | 跳过有解析错误的字段和行而不是失败。如果出现错误，字段将设置为 null |
+| format                            | json   | 是    | 指定要使用的格式，这里应该是 'debezium_json'.      |
+| debezium_record_include_schema    | true   | 否    | Kafka 数据源选项。Debezium JSON 记录是否携带 schema 信封。消费不带 schema 的 Debezium JSON 时设置为 `false`。 |
+| debezium_record_table_filter      | (none) | 否    | Kafka 数据源选项。按表标识过滤 Debezium 记录。      |
+
+> **注意：** 带前缀的 `debezium-json.ignore-parse-errors` 不是有效的配置项，配置后不会生效。是否跳过无法解析的记录由各连接器自行决定（例如 Kafka 读取 Debezium JSON 时始终跳过）。
 
 # 如何使用
 

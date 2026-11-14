@@ -10,6 +10,15 @@ A tombstone, a record that carries a key and a `null` value, produces no row. Th
 offset advances, so it is not treated as a parse error. A record whose value is present but zero length is a
 different case and is still a decode error.
 
+# Format Options
+
+|             Option              | Default | Required |                                       Description                                        |
+|---------------------------------|---------|----------|-------------------------------------------------------------------------------------------|
+| key_converter_schema_enabled    | true    | no       | Whether the Kafka Connect key converter carries its schema in the JSON payload.           |
+| value_converter_schema_enabled  | true    | no       | Whether the Kafka Connect value converter carries its schema in the JSON payload.         |
+
+> **Note:** With the defaults (`true`), the reader expects Kafka Connect JSON envelopes (`{"schema": ..., "payload": ...}`). Set the corresponding option to `false` to read plain JSON payloads without a schema envelope.
+
 # How To Use
 
 ## Kafka Sink Mysql
