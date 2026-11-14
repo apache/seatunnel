@@ -297,6 +297,12 @@ Both are intentionally excluded from persistent IMAP storage even when `map.engi
 restart, running-job metrics are rebuilt from subsequent reports and the checkpoint overview and
 history start again from the next checkpoint, instead of continuing from the pre-restart state.
 
+`engine_checkpoint-id-map` is excluded from persistent IMAP storage in the same way. It holds each
+pipeline's checkpoint ID counter, which is written on every checkpoint trigger. After an engine
+restart, restored jobs rebuild the counter from the latest completed checkpoint in checkpoint
+storage and continue the checkpoint IDs from there; a pipeline without a completed checkpoint starts
+again from 1.
+
 If you use OSS, you can configure it like this:
 
 ```yaml
