@@ -26,7 +26,7 @@
 
     <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel</artifactId>
-    <version>3.1.1-SNAPSHOT</version>
+    <version>3.1.0</version>
     <packaging>pom</packaging>
 
     <name>SeaTunnel :</name>
@@ -1190,7 +1190,7 @@
         <connection>scm:git:https://github.com/apache/seatunnel.git</connection>
         <developerConnection>scm:git:https://github.com/apache/seatunnel.git</developerConnection>
         <url>https://github.com/apache/seatunnel</url>
-        <tag>HEAD</tag>
+        <tag>3.1.0</tag>
     </scm>
 
     <issueManagement>
