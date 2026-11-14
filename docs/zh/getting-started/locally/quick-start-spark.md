@@ -27,7 +27,10 @@ sidebar_position: 4
 
 ## 步骤 3: 添加作业配置文件来定义作业
 
-编辑`config/v2.streaming.conf.template`，它决定了当SeaTunnel启动后数据输入、处理和输出的方式及逻辑。
+Spark 3.5 请编辑 `config/v2.batch.config.template`，并设置 `job.mode = "BATCH"`。
+Spark 3.5.8 的有界微批测试覆盖行编码器和流式 Sink 适配器。通过公共启动器执行流处理和
+检查点恢复仍未验证，因此流处理模板不是已验证的 Spark 3.5 示例。
+现有 Spark 2.4/3.3 部署可以继续使用下文所示的 `config/v2.streaming.conf.template`。
 下面是配置文件的示例，它与上面提到的示例应用程序相同。
 
 ```hocon
@@ -89,7 +92,7 @@ cd "apache-seatunnel-${version}"
 --config ./config/v2.streaming.conf.template
 ```
 
-Spark 3.x.x
+Spark 3.3.x
 
 ```shell
 cd "apache-seatunnel-${version}"
@@ -99,29 +102,49 @@ cd "apache-seatunnel-${version}"
 --config ./config/v2.streaming.conf.template
 ```
 
+Spark 3.4.x
+
+现有 Spark 3.4 部署应继续使用 `seatunnel-spark-3-starter.jar` 和上文所示的
+`start-seatunnel-spark-3-connector-v2` 启动脚本。本次变更不新增独立的 Spark 3.4
+启动器，也不新增 Spark 3.4 兼容性验证。
+
+Spark 3.5.x
+
+请先运行批处理作业。有界微批 Sink 适配器测试不验证通过公共启动器执行流处理或
+检查点恢复，因此 Spark 3.5 的快速开始不使用流处理模板。
+
+```shell
+cd "apache-seatunnel-${version}"
+./bin/start-seatunnel-spark-3.5-connector-v2.sh \
+--master local[4] \
+--deploy-mode client \
+--config ./config/v2.batch.config.template
+```
+
 **查看输出**: 当您运行该命令时，您可以在控制台中看到它的输出。您可以认为这是命令运行成功或失败的标志。
 
 SeaTunnel控制台将会打印一些如下日志信息:
 
+日志前缀（时间、线程、日志格式）以及 `tableId` 的取值取决于引擎的日志配置和具体作业，下面以 `...` 表示。`FieldMapper` 按 `field_mapper` 中的顺序输出字段，并把 `name` 重命名为 `new_name`，因此输出的 row type 为 `age<INT>, new_name<STRING>`。
+
 ```shell
-fields : name, age
-types : STRING, INT
-row=1 : elWaB, 1984352560
-row=2 : uAtnp, 762961563
-row=3 : TQEIB, 2042675010
-row=4 : DcFjo, 593971283
-row=5 : SenEb, 2099913608
-row=6 : DHjkg, 1928005856
-row=7 : eScCM, 526029657
-row=8 : sgOeE, 600878991
-row=9 : gwdvw, 1951126920
-row=10 : nSiKE, 488708928
-row=11 : xubpl, 1420202810
-row=12 : rHZqb, 331185742
-row=13 : rciGD, 1112878259
-row=14 : qLhdI, 1457046294
-row=15 : ZTkRx, 1240668386
-row=16 : SGZCr, 94186144
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - output rowType: age<INT>, new_name<STRING>
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=1:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1984352560, elWaB
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=2:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 762961563, uAtnp
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=3:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 2042675010, TQEIB
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=4:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 593971283, DcFjo
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=5:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 2099913608, SenEb
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=6:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1928005856, DHjkg
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=7:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 526029657, eScCM
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=8:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 600878991, sgOeE
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=9:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1951126920, gwdvw
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=10:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 488708928, nSiKE
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=11:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1420202810, xubpl
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=12:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 331185742, rHZqb
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=13:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1112878259, rciGD
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=14:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1457046294, qLhdI
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=15:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1240668386, ZTkRx
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=16:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 94186144, SGZCr
 ```
 
 ## 此外

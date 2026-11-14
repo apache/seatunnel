@@ -62,12 +62,12 @@
         <revision>3.1.0-SNAPSHOT</revision>
         <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <!-- The seatunnel shade version  e.g. ${seatunnel.shade.hazelcast.version}-${seatunnel.shade.version} -->
-        <seatunnel.shade.version>3.0.0</seatunnel.shade.version>
+        <seatunnel.shade.version>3.0.1</seatunnel.shade.version>
         <seatunnel.shade.arraw.version>15.0.1</seatunnel.shade.arraw.version>
         <seatunnel.shade.guava.version>27.0-jre</seatunnel.shade.guava.version>
         <seatunnel.shade.hadoop.version>3.1.4</seatunnel.shade.hadoop.version>
         <seatunnel.shade.hadoop-aws.version>3.1.4</seatunnel.shade.hadoop-aws.version>
-        <seatunnel.shade.hazelcast.version>5.1</seatunnel.shade.hazelcast.version>
+        <seatunnel.shade.hazelcast.version>5.1.7</seatunnel.shade.hazelcast.version>
         <seatunnel.shade.hikari.version>4.0.3</seatunnel.shade.hikari.version>
         <seatunnel.shade.jackson.version>2.15.4</seatunnel.shade.jackson.version>
         <seatunnel.shade.janino.version>3.1.12</seatunnel.shade.janino.version>
@@ -102,6 +102,7 @@
         <flink.1.20.1.version>1.20.1</flink.1.20.1.version>
         <spark.2.4.0.version>2.4.0</spark.2.4.0.version>
         <spark.3.3.0.version>3.3.0</spark.3.3.0.version>
+        <spark.3.5.8.version>3.5.8</spark.3.5.8.version>
         <spark.binary.2.4.version>2.4</spark.binary.2.4.version>
         <commons.beanutils.version>1.9.4</commons.beanutils.version>
         <commons.cli.version>1.4</commons.cli.version>
