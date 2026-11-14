@@ -74,6 +74,25 @@ public class LogicalDag implements IdentifiedDataSerializable {
     }
 
     public void addEdge(LogicalEdge logicalEdge) {
+        if (logicalEdge instanceof PortAwareLogicalEdge) {
+            PortAwareLogicalEdge candidate = (PortAwareLogicalEdge) logicalEdge;
+            edges.stream()
+                    .filter(PortAwareLogicalEdge.class::isInstance)
+                    .map(PortAwareLogicalEdge.class::cast)
+                    .filter(existing -> existing.getEdgeId() == candidate.getEdgeId())
+                    .filter(existing -> !existing.equals(candidate))
+                    .findFirst()
+                    .ifPresent(
+                            conflicting -> {
+                                throw new IllegalArgumentException(
+                                        "EDGE_IDENTITY_COLLISION: edgeId="
+                                                + candidate.getEdgeId()
+                                                + ", existing="
+                                                + conflicting
+                                                + ", candidate="
+                                                + candidate);
+                            });
+        }
         edges.add(logicalEdge);
     }
 
@@ -165,7 +184,7 @@ public class LogicalDag implements IdentifiedDataSerializable {
 
         for (int i = 0; i < edgeCount; i++) {
             LogicalEdge edge = in.readObject();
-            edges.add(edge);
+            addEdge(edge);
         }
 
         jobConfig = in.readObject();

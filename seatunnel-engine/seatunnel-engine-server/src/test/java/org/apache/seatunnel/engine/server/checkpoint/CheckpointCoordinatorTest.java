@@ -1321,10 +1321,66 @@ public class CheckpointCoordinatorTest
         }
     }
 
+    /** Rejects a lookup rescale while constructing the coordinator, before reader activation. */
+    @Test
+    void testDynamicLookupRestoreRejectsRescalingBeforeStateRemapping() {
+        ActionStateKey key = new ActionStateKey("lookup-restore");
+        for (int[] parallelism : new int[][] {{2, 1}, {1, 2}, {3, 2}}) {
+            Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtasks = new HashMap<>();
+            for (int i = 0; i < parallelism[1]; i++) {
+                subtasks.put(
+                        new TaskLocation(new TaskGroupLocation(1L, 1, 2 + i), 0, i),
+                        Collections.singleton(Tuple2.tuple2(key, i)));
+            }
+            TaskLocation lookup = subtasks.keySet().iterator().next();
+            CheckpointPlan plan =
+                    CheckpointPlan.builder()
+                            .subtaskActions(subtasks)
+                            .inputPortsByTask(
+                                    Collections.singletonMap(lookup, Collections.emptyList()))
+                            .build();
+            CompletedCheckpoint checkpoint =
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            1L,
+                            0L,
+                            CheckpointType.CHECKPOINT_TYPE,
+                            0L,
+                            Collections.singletonMap(key, new ActionState(key, parallelism[0])),
+                            Collections.emptyMap());
+            PipelineState saved =
+                    PipelineState.builder()
+                            .jobId("1")
+                            .pipelineId(1)
+                            .checkpointId(1L)
+                            .states(new ProtoStuffSerializer().serialize(checkpoint))
+                            .build();
+            CheckpointConfig config = new CheckpointConfig();
+            config.setStorage(new CheckpointStorageConfig());
+            IllegalArgumentException error =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () ->
+                                    new CheckpointCoordinator(
+                                            Mockito.mock(CheckpointManager.class),
+                                            Mockito.mock(CheckpointStorage.class),
+                                            config,
+                                            1L,
+                                            plan,
+                                            Mockito.mock(CheckpointIDCounter.class),
+                                            saved,
+                                            Mockito.mock(ExecutorService.class),
+                                            Mockito.mock(IMap.class),
+                                            true,
+                                            null));
+            Assertions.assertTrue(error.getMessage().contains("checkpoint=" + parallelism[0]));
+            Assertions.assertTrue(error.getMessage().contains("current=" + parallelism[1]));
+        }
+    }
+
     /**
-     * Restores a checkpoint taken at {@code oldParallelism} into a plan with {@code newParallelism}
-     * subtasks through the real {@code restoreTaskState} path and asserts the remap contract on the
-     * {@link NotifyTaskRestoreOperation}s sent to the member nodes.
+     * Restores through the real remap path and checks exactly-once assignment of every old state.
      */
     private void assertRestoreRemap(
             ExecutorService executorService, int oldParallelism, int newParallelism) {

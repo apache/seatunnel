@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionState;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
+import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpointCodec;
 import org.apache.seatunnel.engine.server.utils.CheckpointRestoreUtils;
 
 import lombok.Getter;
@@ -139,7 +140,7 @@ public class CheckpointService {
 
     private CompletedCheckpoint deserializeCheckpoint(PipelineState pipelineState) {
         try {
-            return serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
+            return CompletedCheckpointCodec.decode(pipelineState.getStates(), serializer);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

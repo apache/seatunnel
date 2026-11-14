@@ -237,7 +237,7 @@ public class CheckpointManager {
 
     private CompletedCheckpoint deserializeCheckpoint(PipelineState pipelineState) {
         try {
-            return serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
+            return CompletedCheckpointCodec.decode(pipelineState.getStates(), serializer);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

@@ -141,6 +141,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         }
         return new SourceFlowLifeCycle<>(
                 sourceAction,
+                config,
                 indexID,
                 config.getEnumeratorTask(),
                 this,
