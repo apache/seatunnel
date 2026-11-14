@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.metrics;
 import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
+import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.Unit;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
@@ -59,6 +60,28 @@ public class SeaTunnelMetricsContext extends AbstractMetricsContext
                                         + " data type");
                     }
                 });
+    }
+
+    /**
+     * Clears transient intermediate queue metrics loaded from a previous snapshot.
+     *
+     * <p>Intermediate queues are recreated on restore, so stale keys cause duplicate registrations
+     * when queue ownership changes (#13137).
+     */
+    public void cleanIntermediateQueueMetrics() {
+        metrics.keySet()
+                .removeIf(
+                        name ->
+                                matchesQueueMetric(name, MetricNames.INTERMEDIATE_QUEUE_SIZE)
+                                        || matchesQueueMetric(
+                                                name,
+                                                MetricNames.INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS)
+                                        || matchesQueueMetric(
+                                                name, MetricNames.INTERMEDIATE_QUEUE_CAPACITY));
+    }
+
+    private boolean matchesQueueMetric(String name, String metricName) {
+        return name.equals(metricName) || name.startsWith(metricName + "#");
     }
 
     private ProbeUnit toProbeUnit(Unit unit) {
