@@ -396,7 +396,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         if (pk != null) {
             for (String pkField : pk.getColumnNames()) {
                 Column column = columnMap.get(pkField);
-                if (isSupportSplitColumn(column)) {
+                if (isAutomaticSplitColumn(column, table)) {
                     return Optional.of(
                             new SeaTunnelRowType(
                                     new String[] {pkField},
@@ -420,7 +420,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                             uniqueKey.getColumnNames()) {
                         String uniqueKeyColumnName = uniqueKeyColumn.getColumnName();
                         Column column = columnMap.get(uniqueKeyColumnName);
-                        if (isSupportSplitColumn(column)) {
+                        if (isAutomaticSplitColumn(column, table)) {
                             return Optional.of(
                                     new SeaTunnelRowType(
                                             new String[] {uniqueKeyColumnName},
@@ -431,8 +431,30 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
             }
         }
 
-        log.warn("No split key found for table {}", table.getTablePath());
+        log.warn("No split key found for table {}, reading it as one split", table.getTablePath());
         return Optional.empty();
+    }
+
+    /**
+     * Whether the automatic selection may split by this primary key or unique key column. A
+     * nullable column is skipped: the range and hash split queries never match NULL, so the rows
+     * holding NULL in it would not be read. When no column is left, the table is read as one split.
+     */
+    private boolean isAutomaticSplitColumn(Column column, JdbcSourceTable table) {
+        if (!isSupportSplitColumn(column)) {
+            return false;
+        }
+        if (column.isNullable()) {
+            log.warn(
+                    "Skip column {} of table {} as split key: it is nullable, and rows with NULL in"
+                            + " it would not be read. To read the table in parallel, declare a NOT"
+                            + " NULL unique column, or set partition_column to a column without"
+                            + " NULL values.",
+                    column.getName(),
+                    table.getTablePath());
+            return false;
+        }
+        return true;
     }
 
     protected boolean isSupportSplitColumn(Column splitColumn) {

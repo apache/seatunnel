@@ -18,6 +18,13 @@
   - **影响**：读取 Databend `DECIMAL` 列的作业现在输出 decimal 值。SeaTunnel 通过 `schema_save_mode` 创建的 Sink 表会得到 decimal 列而不是字符串列，原本期望字符串的 Transform 或 Sink 现在会收到 decimal。
   - **迁移指南**：无需修改配置。如果下游步骤需要文本，请显式转换该列，例如在 SQL Transform 中使用 `CAST(price AS STRING)`。早期运行中已创建为字符串列的 Sink 表会保留原有类型。
 
+### JDBC Source：可空的键列不再被选为分片键
+
+- **行为变化：自动选择分片键时跳过可空列**
+  - **描述**：未配置 `partition_column` 时，JDBC Source 依次从主键和唯一索引中选择分片键。范围和哈希分片条件都不会匹配 NULL，而唯一索引可以包含 NULL 值，因此当选中可空的唯一索引列时，该列为 NULL 的行不会被任何分片读取，作业也不会报错。现在自动选择会跳过可空列，与 CDC Source 的做法一致。
+  - **影响**：之前按可空唯一键列分片的表，现在会按 NOT NULL 的唯一键列分片；如果没有这样的列，则作为一个分片读取。这样表中的所有行都会被读取，回退为单个分片时并行度会降低。按 NOT NULL 主键或唯一键列分片的表、未配置 `partition_column` 的 `query` 数据源，以及配置了 `partition_column` 的作业不受影响。从 checkpoint 恢复的作业会保留已生成的分片，此变化只作用于恢复后才分片的表。
+  - **迁移指南**：无需修改配置。如需重新并行读取这类表，请将该键列声明为 `NOT NULL`，或将 `partition_column` 设置为不含 NULL 值的列。如果下游表由受影响的作业写入，请重新加载以补齐被跳过的行。
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，

@@ -960,4 +960,113 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
             }
         }
     }
+
+    /**
+     * Range split queries never match NULL, so the automatic selection must not split by a nullable
+     * unique key: a table with only such a key is read as one split, and a table that also has a
+     * NOT NULL unique key is split by that one. Every row is read once in both cases.
+     */
+    @Test
+    public void testNullableUniqueKeyIsNotChosenAsSplitKey() throws Exception {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            String nullableOnly = "nullable_unique_key_only";
+            String withNotNull = "nullable_and_not_null_unique_keys";
+            try {
+                // No primary key; the unique key code is nullable and holds 10 NULL values.
+                statement.execute(
+                        "CREATE TABLE "
+                                + MYSQL_DATABASE
+                                + "."
+                                + nullableOnly
+                                + " (id INT NOT NULL, code INT NULL, UNIQUE KEY uk_code (code))");
+                statement.execute(
+                        "CREATE TABLE "
+                                + MYSQL_DATABASE
+                                + "."
+                                + withNotNull
+                                + " (id INT NOT NULL, code INT NULL, no INT NOT NULL,"
+                                + " UNIQUE KEY uk_code (code), UNIQUE KEY uk_no (no))");
+                insertRowsWithNullCodes(connection, nullableOnly, false);
+                insertRowsWithNullCodes(connection, withNotNull, true);
+
+                Map<String, Object> configMap = new HashMap<>();
+                configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+                configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+                configMap.put("username", MYSQL_USERNAME);
+                configMap.put("password", MYSQL_PASSWORD);
+                configMap.put("split.size", "10");
+
+                try (MySqlCatalog mySqlCatalog =
+                                new MySqlCatalog(
+                                        "mysql",
+                                        MYSQL_USERNAME,
+                                        MYSQL_PASSWORD,
+                                        mysqlUrlInfo,
+                                        null);
+                        DynamicChunkSplitter splitter = getDynamicChunkSplitter(configMap)) {
+                    mySqlCatalog.open();
+
+                    Collection<JdbcSourceSplit> splits =
+                            readEveryIdOnce(splitter, mySqlCatalog, nullableOnly);
+                    Assertions.assertEquals(1, splits.size());
+                    Assertions.assertNull(splits.iterator().next().getSplitKeyName());
+
+                    splits = readEveryIdOnce(splitter, mySqlCatalog, withNotNull);
+                    Assertions.assertTrue(splits.size() > 1, "splits: " + splits.size());
+                    for (JdbcSourceSplit split : splits) {
+                        Assertions.assertEquals("no", split.getSplitKeyName());
+                    }
+                }
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS " + MYSQL_DATABASE + "." + nullableOnly);
+                statement.execute("DROP TABLE IF EXISTS " + MYSQL_DATABASE + "." + withNotNull);
+            }
+        }
+    }
+
+    /** Inserts ids 1 to 100; every tenth row has a NULL code. */
+    private void insertRowsWithNullCodes(Connection connection, String table, boolean withNo)
+            throws SQLException {
+        String sql =
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + "."
+                        + table
+                        + (withNo ? " VALUES (?, ?, ?)" : " VALUES (?, ?)");
+        try (PreparedStatement insert = connection.prepareStatement(sql)) {
+            for (int id = 1; id <= 100; id++) {
+                insert.setInt(1, id);
+                insert.setObject(2, id % 10 == 0 ? null : id);
+                if (withNo) {
+                    insert.setInt(3, id);
+                }
+                insert.addBatch();
+            }
+            insert.executeBatch();
+        }
+    }
+
+    private Collection<JdbcSourceSplit> readEveryIdOnce(
+            DynamicChunkSplitter splitter, MySqlCatalog catalog, String tableName)
+            throws Exception {
+        TablePath tablePath = TablePath.of(MYSQL_DATABASE, tableName);
+        CatalogTable table = catalog.getTable(tablePath);
+        Collection<JdbcSourceSplit> splits =
+                splitter.generateSplits(
+                        JdbcSourceTable.builder().tablePath(tablePath).catalogTable(table).build());
+        Set<Integer> ids = new HashSet<>();
+        for (JdbcSourceSplit split : splits) {
+            try (PreparedStatement splitStatement =
+                            splitter.generateSplitStatement(split, table.getTableSchema());
+                    ResultSet resultSet = splitStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    int id = resultSet.getInt("id");
+                    Assertions.assertTrue(ids.add(id), "duplicated id: " + id);
+                }
+            }
+        }
+        Assertions.assertEquals(100, ids.size(), tableName);
+        return splits;
+    }
 }
