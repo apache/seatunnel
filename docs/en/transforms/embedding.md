@@ -49,7 +49,8 @@ you can choose `CUSTOM` to implement requests and retrievals for custom embeddin
 
 The API key for authenticating requests to the embedding service. This is typically provided by the model provider when
 you register for their service. For `AMAZON` this is the IAM access key. This option is required when `model_provider`
-is `AMAZON`, `OPENAI`, `DOUBAO` or `QIANFAN`, and not required for other providers.
+is `AMAZON`, `OPENAI`, `DOUBAO` or `QIANFAN`. It is not validated by the option rule for `ZHIPU`, but `ZHIPU` reads it
+at runtime, so it must be provided in practice. It is not used by `CUSTOM`.
 
 ### secret_key
 

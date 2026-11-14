@@ -225,6 +225,10 @@ sink {
     sink.label-prefix = "timer-flush"
     sink.enable-2pc = false
     doris.batch.size = 10000
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
   }
 }
 ```
@@ -675,6 +679,10 @@ sink {
     table = "mytable"
     sink.enable-2pc = "true"
     sink.label-prefix = "unique-job-label"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
   }
 }
 ```

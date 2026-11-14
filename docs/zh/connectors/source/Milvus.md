@@ -213,7 +213,7 @@ sink {
 ### 限制读取速度以保护共享集群
 
 当 Milvus 集群同时被其他任务共享时，可以调小 `rate_limit` 和 `batch_size`，
-避免 Source 超过集群的 gRPC 消息大小限制。
+避免 Source 超过该集合的查询限速（QPS）配额，同时降低单个请求的消息体积。
 
 ```bash
 env {
