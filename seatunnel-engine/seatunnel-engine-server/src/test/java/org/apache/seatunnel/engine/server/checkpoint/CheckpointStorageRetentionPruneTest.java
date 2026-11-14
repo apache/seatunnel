@@ -218,12 +218,12 @@ public class CheckpointStorageRetentionPruneTest extends AbstractSeaTunnelServer
                             // deletes the oldest max-retained entries in the same synchronized
                             // call, so the number of files must never exceed that bound.
                             Assertions.assertTrue(
-                                    onDisk.size() <= 2 * maxRetained,
-                                    "checkpoint files accumulate beyond the retention bound in "
-                                            + jobCheckpointDir
-                                            + ": "
-                                            + onDisk);
-                        });
+                            onDisk.size() <= maxRetained + 1,
+                            "checkpoint files accumulate beyond the retention bound in "
+                                    + jobCheckpointDir
+                                    + ": "
+                                    + onDisk);
+                                            });
 
         jobMaster.cancelJob();
         await().atMost(120000, TimeUnit.MILLISECONDS)
