@@ -20,9 +20,21 @@ package org.apache.seatunnel.connectors.seatunnel.file.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
+import java.util.Map;
+
 public class FileConnectorException extends SeaTunnelRuntimeException {
     public FileConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
+    }
+
+    public static FileConnectorException withParams(
+            SeaTunnelErrorCode seaTunnelErrorCode, Map<String, String> params) {
+        return new FileConnectorException(seaTunnelErrorCode, params);
+    }
+
+    private FileConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, Map<String, String> params) {
+        super(seaTunnelErrorCode, params);
     }
 
     public FileConnectorException(

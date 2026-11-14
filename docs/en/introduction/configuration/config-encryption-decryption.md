@@ -22,6 +22,11 @@ When SeaTunnel prints parsed configuration to logs, it also masks these options 
 configuration paths. The log masking matcher treats `.`, `_`, and `-` as equivalent separators, so
 for example `access.key`, `access_key`, and `access-key` can share the same masking rule.
 
+The core-starter log-mask defaults also include `account_key`, so parsed-configuration logs mask
+this option for every connector that uses it, including ADLSFile. This change only affects log
+output; it does not add `account_key` to the default encryption/decryption options. To encrypt or
+decrypt it, add it to `shade.options` explicitly.
+
 Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
 
 1. Add new option `shade.identifier` and `shade.options` in env block of config file, `shade.identifier` indicate what the encryption method that you want to use, while `shade.options` specifies which parameters should be encrypted/decrypted. In this example, we should add `shade.identifier = base64` in config as the following shown:

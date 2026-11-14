@@ -1,0 +1,177 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.file.adls.config;
+
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+
+import org.apache.hadoop.conf.Configuration;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.util.Map;
+
+class ADLSRuntimeCompatibilityTest {
+    @Test
+    void initializesSecureAbfsDriverAndAuthenticationClasses() {
+        ClassLoader classLoader = ADLSRuntimeCompatibilityTest.class.getClassLoader();
+        String[] classNames = {
+            ADLSRuntimeCompatibility.SECURE_ABFS_IMPLEMENTATION,
+            "org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem",
+            "org.apache.hadoop.fs.azurebfs.AbfsConfiguration",
+            "org.apache.hadoop.fs.azurebfs.services.AbfsClient",
+            "org.apache.hadoop.fs.azurebfs.services.SharedKeyCredentials",
+            "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider"
+        };
+
+        for (String className : classNames) {
+            Assertions.assertDoesNotThrow(
+                    () -> Class.forName(className, true, classLoader), className);
+        }
+    }
+
+    @Test
+    void validatesSecureAbfsDriverAndBaseConfiguration() {
+        ADLSRuntimeCompatibility.validateDriverAvailable();
+        Configuration configuration =
+                ADLSRuntimeCompatibility.newConfiguration("examplestorage", "analytics");
+
+        Assertions.assertEquals(
+                "abfss://analytics@examplestorage.dfs.core.windows.net",
+                configuration.get("fs.defaultFS"));
+        Assertions.assertEquals(
+                ADLSRuntimeCompatibility.SECURE_ABFS_IMPLEMENTATION,
+                configuration.get("fs.abfss.impl"));
+        Assertions.assertTrue(configuration.getBoolean("fs.abfss.impl.disable.cache", false));
+    }
+
+    @Test
+    void configuresAccountScopedSharedKeyWithoutChangingTheBaseUri() {
+        Configuration configuration =
+                ADLSRuntimeCompatibility.newConfiguration("examplestorage", "analytics");
+        ADLSRuntimeCompatibility.configureSharedKey(
+                configuration, "examplestorage", "sentinel-key");
+
+        Assertions.assertEquals(
+                "SharedKey",
+                configuration.get(
+                        "fs.azure.account.auth.type.examplestorage.dfs.core.windows.net"));
+        Assertions.assertEquals(
+                "sentinel-key",
+                configuration.get("fs.azure.account.key.examplestorage.dfs.core.windows.net"));
+        Assertions.assertEquals(
+                "abfss://analytics@examplestorage.dfs.core.windows.net",
+                configuration.get("fs.defaultFS"));
+    }
+
+    @Test
+    void configuresAccountScopedOAuthClientCredentials() {
+        Configuration configuration =
+                ADLSRuntimeCompatibility.newConfiguration("examplestorage", "analytics");
+        ADLSRuntimeCompatibility.configureClientCredentials(
+                configuration, "examplestorage", "example.onmicrosoft.com", "client", "secret");
+
+        Assertions.assertEquals(
+                "OAuth",
+                configuration.get(
+                        "fs.azure.account.auth.type.examplestorage.dfs.core.windows.net"));
+        Assertions.assertEquals(
+                "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider",
+                configuration.get(
+                        "fs.azure.account.oauth.provider.type.examplestorage.dfs.core.windows.net"));
+        Assertions.assertEquals(
+                "https://login.microsoftonline.com/example.onmicrosoft.com/oauth2/token",
+                configuration.get(
+                        "fs.azure.account.oauth2.client.endpoint.examplestorage.dfs.core.windows.net"));
+    }
+
+    @Test
+    void buildsConnectorOptionsForCustomAzureEndpoints() {
+        Assertions.assertEquals(
+                "abfss://analytics@examplestorage.dfs.example.test",
+                ADLSRuntimeCompatibility.secureAbfsUri(
+                        "examplestorage", "analytics", "dfs.example.test"));
+
+        Map<String, String> sharedKeyOptions =
+                ADLSRuntimeCompatibility.sharedKeyOptions(
+                        "examplestorage", "dfs.example.test", "sentinel-key");
+        Assertions.assertEquals(
+                "sentinel-key",
+                sharedKeyOptions.get("fs.azure.account.key.examplestorage.dfs.example.test"));
+
+        Map<String, String> oauthOptions =
+                ADLSRuntimeCompatibility.clientCredentialsOptions(
+                        "examplestorage",
+                        "dfs.example.test",
+                        "https://login.example.test/",
+                        "example.onmicrosoft.com",
+                        "client",
+                        "secret");
+        Assertions.assertEquals(
+                "https://login.example.test/example.onmicrosoft.com/oauth2/token",
+                oauthOptions.get(
+                        "fs.azure.account.oauth2.client.endpoint.examplestorage.dfs.example.test"));
+    }
+
+    @Test
+    void rejectsInvalidStorageLabelsAndMissingCredentials() {
+        Assertions.assertThrows(
+                FileConnectorException.class,
+                () -> ADLSRuntimeCompatibility.newConfiguration("Storage", "analytics"));
+        Assertions.assertThrows(
+                FileConnectorException.class,
+                () ->
+                        ADLSRuntimeCompatibility.configureSharedKey(
+                                ADLSRuntimeCompatibility.newConfiguration("account", "container"),
+                                "account",
+                                ""));
+    }
+
+    @Test
+    void rejectsInsecureOrRedirectedOAuthEndpoints() {
+        String[] authorities = {
+            "http://login.example.test",
+            "https://login.example.test/other",
+            "https://login.example.test?redirect=1",
+            "https://["
+        };
+        for (String authority : authorities) {
+            FileConnectorException error =
+                    Assertions.assertThrows(
+                            FileConnectorException.class,
+                            () ->
+                                    ADLSRuntimeCompatibility.clientCredentialsOptions(
+                                            "examplestorage",
+                                            "dfs.core.windows.net",
+                                            authority,
+                                            "example.onmicrosoft.com",
+                                            "client",
+                                            "secret"));
+            Assertions.assertTrue(
+                    error.getMessage().contains("authorityHost must be an HTTPS origin"),
+                    authority);
+        }
+        FileConnectorException error =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                ADLSRuntimeCompatibility.validateTenantId(
+                                        "example.onmicrosoft.com/other"));
+        Assertions.assertTrue(error.getMessage().contains("tenantId must be a GUID or DNS name"));
+    }
+}
