@@ -231,6 +231,24 @@ Normalizes a vector to unit length (magnitude = 1). Useful for computing cosine 
 SELECT id, VECTOR_NORMALIZE(embedding) AS unit_vec FROM t
 ```
 
+### JSON Functions
+
+#### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+Extracts a value from a JSON string using a JSON path and returns it as a string. Returns `NULL` when any argument is `NULL`.
+
+**Parameters:**
+- `json`: The JSON string to parse (STRING)
+- `path`: The JSON path, for example `$.field.subfield[0]` (STRING)
+
+**Example:**
+
+```sql
+SELECT GET_JSON_OBJECT('{"a":{"b":[1,2,3]}}', '$.a.b[1]') AS value FROM t
+```
+
 In addition to the UDFs listed above, all standard SQL functions provided by Apache Calcite are available (string, math, date/time, JSON, conditional, etc.). For the full function reference, see the [Apache Calcite SQL Reference](https://calcite.apache.org/docs/reference.html).
 
 ## Examples

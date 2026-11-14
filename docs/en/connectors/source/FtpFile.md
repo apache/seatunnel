@@ -26,6 +26,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 - [x] file format type
   - [x] text
   - [x] csv
+  - [x] parquet
+  - [x] orc
   - [x] json
   - [x] excel
   - [x] xml

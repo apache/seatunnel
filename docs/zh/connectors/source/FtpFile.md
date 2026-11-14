@@ -26,6 +26,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 - [x] 文件格式类型
   - [x] 文本
   - [x] CSV
+  - [x] Parquet
+  - [x] ORC
   - [x] JSON
   - [x] Excel
   - [x] XML
