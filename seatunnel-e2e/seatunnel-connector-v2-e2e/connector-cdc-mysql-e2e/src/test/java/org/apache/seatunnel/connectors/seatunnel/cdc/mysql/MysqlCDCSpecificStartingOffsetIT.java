@@ -109,6 +109,8 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                     + " f_json, cast(f_year as year) from %s.%s";
 
     private static final String SOURCE_TABLE_1 = "mysql_cdc_e2e_source_table";
+    private static final String SOURCE_TABLE_2 = "mysql_cdc_e2e_source_table2";
+    private static final String SINK_DATABASE = "mysql_cdc2";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table";
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
@@ -483,6 +485,124 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
         } catch (CompletionException e) {
             Assertions.fail("Streaming job failed before the sink assertion.", e);
         }
+    }
+
+    /**
+     * Verifies that mixed startup snapshots only the selected table, starts the other table from
+     * the configured binlog offset, and preserves both policies after savepoint restore.
+     */
+    @TestTemplate
+    public void testMysqlCdcMixedStartupWithRestore(TestContainer container) throws Exception {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String jobConfigFile = "/mysqlcdc_mixed_startup.conf";
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_2);
+        clearTable(SINK_DATABASE, SOURCE_TABLE_1);
+        clearTable(SINK_DATABASE, SOURCE_TABLE_2);
+        rotateAndPurgeBinaryLogs();
+
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.%s (id) VALUES (101)", MYSQL_DATABASE, SOURCE_TABLE_1));
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.%s (id) VALUES (201)", MYSQL_DATABASE, SOURCE_TABLE_2));
+        BinlogOffset startupOffset = getCurrentBinlogOffset();
+        String[] variables = {
+            "specific_offset_file=" + startupOffset.getFilename(),
+            "specific_offset_pos=" + startupOffset.getPosition()
+        };
+
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.%s (id) VALUES (102)", MYSQL_DATABASE, SOURCE_TABLE_1));
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.%s (id) VALUES (202)", MYSQL_DATABASE, SOURCE_TABLE_2));
+
+        CompletableFuture<Container.ExecResult> initialJob =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(jobConfigFile, jobId, variables);
+                            } catch (Exception e) {
+                                throw new CompletionException(e);
+                            }
+                        });
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            assertJobHasNotFinished(initialJob);
+                            Assertions.assertIterableEquals(
+                                    query(
+                                            String.format(
+                                                    "SELECT id FROM %s.%s ORDER BY id",
+                                                    MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                    query(
+                                            String.format(
+                                                    "SELECT id FROM %s.%s ORDER BY id",
+                                                    SINK_DATABASE, SOURCE_TABLE_1)));
+                            Assertions.assertIterableEquals(
+                                    Collections.singletonList(Collections.singletonList(202)),
+                                    query(
+                                            String.format(
+                                                    "SELECT id FROM %s.%s ORDER BY id",
+                                                    SINK_DATABASE, SOURCE_TABLE_2)));
+                        });
+
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        Assertions.assertEquals(0, initialJob.get(60, TimeUnit.SECONDS).getExitCode());
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.%s (id) VALUES (103)", MYSQL_DATABASE, SOURCE_TABLE_1));
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.%s (id) VALUES (203)", MYSQL_DATABASE, SOURCE_TABLE_2));
+
+        CompletableFuture<Container.ExecResult> restoredJob =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(jobConfigFile, jobId, variables);
+                            } catch (Exception e) {
+                                throw new CompletionException(e);
+                            }
+                        });
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.%s (id) VALUES (104)", MYSQL_DATABASE, SOURCE_TABLE_1));
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.%s (id) VALUES (204)", MYSQL_DATABASE, SOURCE_TABLE_2));
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            assertJobHasNotFinished(restoredJob);
+                            Assertions.assertIterableEquals(
+                                    query(
+                                            String.format(
+                                                    "SELECT id FROM %s.%s ORDER BY id",
+                                                    MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                    query(
+                                            String.format(
+                                                    "SELECT id FROM %s.%s ORDER BY id",
+                                                    SINK_DATABASE, SOURCE_TABLE_1)));
+                            Assertions.assertIterableEquals(
+                                    query(
+                                            String.format(
+                                                    "SELECT id FROM %s.%s WHERE id >= 202 ORDER BY id",
+                                                    MYSQL_DATABASE, SOURCE_TABLE_2)),
+                                    query(
+                                            String.format(
+                                                    "SELECT id FROM %s.%s ORDER BY id",
+                                                    SINK_DATABASE, SOURCE_TABLE_2)));
+                        });
+
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+        Assertions.assertEquals(0, restoredJob.get(60, TimeUnit.SECONDS).getExitCode());
     }
 
     @TestTemplate
