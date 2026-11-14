@@ -26,8 +26,10 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Getter
 @ToString
@@ -36,6 +38,12 @@ public class TiDBSourceCheckpointState implements Serializable {
     private boolean shouldEnumerate;
     private Map<Integer, List<TiDBSourceSplit>> pendingSplit;
     private int assignCount;
+    /**
+     * Tables already enumerated before this checkpoint, in {@code database_name.table_name} format.
+     * Null when deserialized from a legacy checkpoint written before this field existed; the
+     * enumerator reconstructs it from the restored splits before enumerating missing tables.
+     */
+    private Set<String> enumeratedTables;
 
     public TiDBSourceCheckpointState(boolean shouldEnumerate, Map<Integer, ?> pendingSplit) {
         this(shouldEnumerate, pendingSplit, 0);
@@ -43,9 +51,18 @@ public class TiDBSourceCheckpointState implements Serializable {
 
     public TiDBSourceCheckpointState(
             boolean shouldEnumerate, Map<Integer, ?> pendingSplit, int assignCount) {
+        this(shouldEnumerate, pendingSplit, assignCount, null);
+    }
+
+    public TiDBSourceCheckpointState(
+            boolean shouldEnumerate,
+            Map<Integer, ?> pendingSplit,
+            int assignCount,
+            Set<String> enumeratedTables) {
         this.shouldEnumerate = shouldEnumerate;
         this.pendingSplit = normalizePendingSplit(pendingSplit);
         this.assignCount = assignCount;
+        this.enumeratedTables = enumeratedTables == null ? null : new HashSet<>(enumeratedTables);
     }
 
     public void setShouldEnumerate(boolean shouldEnumerate) {
@@ -56,9 +73,21 @@ public class TiDBSourceCheckpointState implements Serializable {
         this.pendingSplit = normalizePendingSplit(pendingSplit);
     }
 
+    public void setEnumeratedTables(Set<String> enumeratedTables) {
+        this.enumeratedTables = enumeratedTables == null ? null : new HashSet<>(enumeratedTables);
+    }
+
+    public Set<String> getEnumeratedTables() {
+        return enumeratedTables == null ? null : new HashSet<>(enumeratedTables);
+    }
+
     public Map<Integer, List<TiDBSourceSplit>> getPendingSplit() {
         pendingSplit = normalizePendingSplit(pendingSplit);
         return pendingSplit;
+    }
+
+    Set<String> getEnumeratedTablesRef() {
+        return enumeratedTables;
     }
 
     private static Map<Integer, List<TiDBSourceSplit>> normalizePendingSplit(

@@ -35,7 +35,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.split.TiDBSourc
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -47,19 +46,20 @@ public class TiDBSource
     static final String IDENTIFIER = "TiDB-CDC";
 
     private TiDBSourceConfig config;
-    private final CatalogTable catalogTable;
+    private final List<CatalogTable> catalogTables;
 
-    public TiDBSource(ReadonlyConfig config, CatalogTable catalogTable) {
+    public TiDBSource(ReadonlyConfig config, List<CatalogTable> catalogTables) {
 
         this.config =
                 TiDBSourceConfig.builder()
                         .startupMode(config.get(TiDBSourceOptions.STARTUP_MODE))
                         .databaseName(config.get(TiDBSourceOptions.DATABASE_NAME))
                         .tableName(config.get(TiDBSourceOptions.TABLE_NAME))
+                        .tableNames(TiDBSourceOptions.getTableFullNames(config))
                         .batchSize(config.get(TiDBSourceOptions.BATCH_SIZE_PER_SCAN))
                         .tiConfiguration(TiDBSourceOptions.getTiConfiguration(config))
                         .build();
-        this.catalogTable = catalogTable;
+        this.catalogTables = catalogTables;
     }
 
     /**
@@ -100,7 +100,7 @@ public class TiDBSource
         } catch (Exception e) {
             log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
         }
-        return new TiDBSourceReader(context, config, catalogTable);
+        return new TiDBSourceReader(context, config, catalogTables);
     }
 
     /**
@@ -148,6 +148,6 @@ public class TiDBSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+        return catalogTables;
     }
 }
