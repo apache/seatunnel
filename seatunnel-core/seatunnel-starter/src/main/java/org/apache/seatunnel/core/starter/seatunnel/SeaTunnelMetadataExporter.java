@@ -23,6 +23,8 @@ import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.HELP_EXIT_CODE;
+
 /**
  * Entry point for the connector metadata export tool.
  *
@@ -37,7 +39,8 @@ public class SeaTunnelMetadataExporter {
 
     public static void main(String[] args) {
         MetadataExportCommandArgs commandArgs =
-                CommandLineUtils.parse(args, new MetadataExportCommandArgs(), SHELL_NAME, true);
+                CommandLineUtils.parse(
+                        args, new MetadataExportCommandArgs(), SHELL_NAME, true, HELP_EXIT_CODE);
         SeaTunnel.run(commandArgs.buildCommand());
     }
 }
