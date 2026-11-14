@@ -19,6 +19,22 @@ You need to check this document before you upgrade to related version.
   - **Impact**: A job that reads a Databend `DECIMAL` column now emits decimal values. A sink table that SeaTunnel creates through `schema_save_mode` gets a decimal column instead of a string column, and a transform or sink that expected a string now receives a decimal.
   - **Migration Guide**: No configuration change is needed. If a downstream step needs text, convert the column explicitly, for example `CAST(price AS STRING)` in the SQL transform. A sink table that an earlier run already created with a string column keeps that type.
 
+### Zeta OpenLineage: job send budgets are limited by trusted configuration
+
+Job-level `openlineage_timeout_ms` and `openlineage_retry_times` may no longer exceed their
+process-environment or cluster values, or the defaults of 10000 ms and 3 retries when no trusted
+value is configured. Larger job values now fail lineage configuration resolution. To migrate,
+remove or lower the job override, or have the administrator configure a suitable limit in the
+process environment or cluster configuration. No option name or default value changes.
+
+### OpenLineage: authenticated receiver overrides are restricted
+
+When an environment or cluster bearer token is configured, job-level `openlineage_url` and
+`openlineage_transport` must match the trusted receiver configuration. Conflicting job values now
+fail configuration resolution instead of redirecting trusted credentials. Move the receiver URL and
+transport into process environment or cluster configuration alongside the token, and remove conflicting
+job overrides. Unauthenticated receiver overrides and disabled-by-default reporting are unchanged.
+
 ### JDBC Sink: fail safely after losing uncommitted work
 
 - **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection
