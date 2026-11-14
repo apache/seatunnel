@@ -30,6 +30,11 @@
     <artifactId>connector-cdc-oracle-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : CDC Oracle</name>
 
+    <properties>
+        <!-- xmlparserv2 registers JAXP factories; pin the JDK factories so pom parsing still works. -->
+        <oracle.jaxp.args>-Djavax.xml.parsers.SAXParserFactory=com.sun.org.apache.xerces.internal.jaxp.SAXParserFactoryImpl -Djavax.xml.parsers.DocumentBuilderFactory=com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl</oracle.jaxp.args>
+    </properties>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -97,6 +102,18 @@
             <version>19.18.0.0</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.oracle.database.xml</groupId>
+            <artifactId>xdb</artifactId>
+            <version>19.18.0.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.oracle.database.xml</groupId>
+            <artifactId>xmlparserv2</artifactId>
+            <version>19.18.0.0</version>
+            <scope>test</scope>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -119,5 +136,17 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <argLine>${surefire.jvm.args} ${surefire.module.args} ${oracle.jaxp.args}</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

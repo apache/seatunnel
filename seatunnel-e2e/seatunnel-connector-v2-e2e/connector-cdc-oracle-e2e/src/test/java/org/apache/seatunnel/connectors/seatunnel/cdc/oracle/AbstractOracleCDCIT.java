@@ -18,7 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
@@ -26,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import oracle.sql.TIMESTAMP;
 import oracle.sql.TIMESTAMPLTZ;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.file.Files;
@@ -52,6 +55,18 @@ import static org.junit.Assert.assertNotNull;
 
 @Slf4j
 public class AbstractOracleCDCIT extends TestSuiteBase {
+
+    static {
+        // xmlparserv2 is on the test classpath so E2E can copy it into the engine. It also
+        // registers Oracle JAXP factories. Pin JDK factories before any DocumentBuilder use
+        // (ContainerUtil.getProjectVersion parses pom.xml). Same flags as Debezium's Oracle FAQ.
+        System.setProperty(
+                "javax.xml.parsers.SAXParserFactory",
+                "com.sun.org.apache.xerces.internal.jaxp.SAXParserFactoryImpl");
+        System.setProperty(
+                "javax.xml.parsers.DocumentBuilderFactory",
+                "com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl");
+    }
 
     protected static final String ORACLE_IMAGE = "seatunnelhub/oracle-19.3.0-ee:non-cdb";
 
@@ -82,6 +97,16 @@ public class AbstractOracleCDCIT extends TestSuiteBase {
     protected static final String SOURCE_TABLE2 = "FULL_TYPES2";
     protected static final String ORACLE_CDC_PLUGIN_LIB = "/tmp/seatunnel/plugins/Oracle-CDC/lib";
     protected static final String JDBC_PLUGIN_LIB = "/tmp/seatunnel/plugins/Jdbc/lib";
+
+    /** Copies ojdbc8, xdb, and xmlparserv2 into the engine for XMLTYPE JDBC reads. */
+    protected static void copyOracleCdcJdbcJars(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        DependencyJar.of(oracle.jdbc.driver.OracleDriver.class)
+                .copyTo(container, ORACLE_CDC_PLUGIN_LIB);
+        DependencyJar.ofClassName("oracle.xdb.XMLType").copyTo(container, ORACLE_CDC_PLUGIN_LIB);
+        DependencyJar.ofClassName("oracle.xml.parser.v2.XMLParser")
+                .copyTo(container, ORACLE_CDC_PLUGIN_LIB);
+    }
 
     protected static final OracleContainer ORACLE_CONTAINER =
             new OracleContainer(getImage())
