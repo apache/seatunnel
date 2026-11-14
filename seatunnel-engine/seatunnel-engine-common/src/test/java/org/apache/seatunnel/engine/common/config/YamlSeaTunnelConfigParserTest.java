@@ -61,6 +61,12 @@ public class YamlSeaTunnelConfigParserTest {
                 7000, config.getEngineConfig().getCheckpointConfig().getCheckpointTimeout());
 
         Assertions.assertEquals(
+                8000, config.getEngineConfig().getCheckpointConfig().getRestoreProgressTimeout());
+
+        Assertions.assertTrue(
+                config.getEngineConfig().getCheckpointConfig().isRestoreProgressFailFast());
+
+        Assertions.assertEquals(
                 64, config.getEngineConfig().getCheckpointConfig().getMonitorHistorySize());
 
         Assertions.assertEquals(

@@ -93,6 +93,16 @@ seatunnel:
 
 连续检查点之间的最小暂停时间(以毫秒为单位)，确保检查点不会频繁触发。
 
+**restore-progress-timeout**
+
+用于诊断恢复后的 Pipeline 未恢复检查点进度的超时时间（毫秒）。默认值为 `0`，会使用 `interval + timeout` 推导超时时间。设置为不小于 `10` 的正数时使用显式超时时间。
+
+该超时时间分别应用于两个阶段：等待所有任务就绪，以及等待首个检查点完成。任务就绪后会重新开始完整的超时窗口，因此从恢复开始到诊断的总时间可能接近配置值的两倍。开启 fail-fast 前，应同时考虑最慢状态恢复时间与检查点完成时间。仅告警模式每次恢复只输出一次诊断，不会周期性重复告警。
+
+**restore-progress-fail-fast**
+
+任一恢复阶段超过 `restore-progress-timeout` 时，是否将 Pipeline 置为失败。默认值为 `false`，仅记录恢复诊断告警。
+
 **monitor-history-size**
 
 监控为 `/jobs/checkpoints/{jobId}` REST 接口按 pipeline 保留的 checkpoint 历史条数，取值 1 到 4096，默认 32。超过 256 的值仍然可用，但 master 启动时会打印一条警告——因为下面提到的开销是每次 checkpoint 事件都要付的。已完成和失败的 checkpoint 共用这个窗口。
@@ -114,6 +124,8 @@ seatunnel:
             interval: 300000
             timeout: 10000
             min-pause: 5000
+            restore-progress-timeout: 0
+            restore-progress-fail-fast: false
             monitor-history-size: 32
 ```
 
