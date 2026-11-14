@@ -19,12 +19,21 @@ package org.apache.seatunnel.core.starter.spark;
 
 import org.apache.seatunnel.common.constants.EngineType;
 import org.apache.seatunnel.core.starter.SeaTunnel;
+import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 public class SeaTunnelSpark {
 
+    /**
+     * Runs the job on the Spark driver.
+     *
+     * <p>In local mode the tasks run in this JVM. A failed task leaves its sink writer open,
+     * because closing it could write the rows it still buffers, so non-daemon threads of the writer
+     * could keep the JVM alive after this method ends. A failed job therefore ends the JVM here.
+     * {@link SeaTunnel#run} has already logged the failure.
+     */
     public static void main(String[] args) throws CommandException {
         SparkCommandArgs sparkCommandArgs =
                 CommandLineUtils.parse(
@@ -32,6 +41,16 @@ public class SeaTunnelSpark {
                         new SparkCommandArgs(),
                         EngineType.SPARK3.getStarterShellName(),
                         true);
-        SeaTunnel.run(sparkCommandArgs.buildCommand());
+        Command<?> command = sparkCommandArgs.buildCommand();
+        try {
+            SeaTunnel.run(command);
+        } catch (Exception e) {
+            if (System.getProperty("spark.master", "").startsWith("local")) {
+                // The JVM prints this only when the exception leaves main.
+                e.printStackTrace();
+                System.exit(1);
+            }
+            throw e;
+        }
     }
 }
