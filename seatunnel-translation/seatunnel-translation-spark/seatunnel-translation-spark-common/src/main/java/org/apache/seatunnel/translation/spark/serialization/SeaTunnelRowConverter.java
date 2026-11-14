@@ -19,6 +19,7 @@ package org.apache.seatunnel.translation.spark.serialization;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -27,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.translation.serialization.RowConverter;
 import org.apache.seatunnel.translation.spark.utils.OffsetDateTimeUtils;
+import org.apache.seatunnel.translation.spark.utils.WideDecimalUtils;
 
 import org.apache.spark.sql.catalyst.expressions.GenericRow;
 import org.apache.spark.unsafe.types.UTF8String;
@@ -76,7 +78,11 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
         fields[0] = seaTunnelRow.getRowKind().toByteValue();
         fields[1] = seaTunnelRow.getTableId();
         for (int i = 0; i < indexes.length; i++) {
-            Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(indexes[i]));
+            Object fieldValue =
+                    convert(
+                            seaTunnelRow.getField(i),
+                            rowType.getFieldType(indexes[i]),
+                            rowType.getFieldName(indexes[i]));
             if (fieldValue != null) {
                 fields[indexes[i] + 2] = fieldValue;
             }
@@ -85,6 +91,14 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
     }
 
     private Object convert(Object field, SeaTunnelDataType<?> dataType) {
+        return convert(field, dataType, null);
+    }
+
+    /**
+     * @param column the field name, used in error messages; {@code null} inside an ARRAY or MAP. A
+     *     nested ROW adds its own name only when an error passes through it.
+     */
+    private Object convert(Object field, SeaTunnelDataType<?> dataType, String column) {
         if (field == null) {
             return null;
         }
@@ -92,7 +106,17 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
             case ROW:
                 SeaTunnelRow seaTunnelRow = (SeaTunnelRow) field;
                 SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
-                return convertRow(seaTunnelRow, rowType);
+                try {
+                    return convertRow(seaTunnelRow, rowType);
+                } catch (WideDecimalUtils.InvalidWideDecimalException e) {
+                    throw e.withParent(column);
+                }
+            case DECIMAL:
+                if (WideDecimalUtils.isWideDecimal(dataType)) {
+                    return WideDecimalUtils.toCarrierText(
+                            (BigDecimal) field, (DecimalType) dataType, column);
+                }
+                return field;
             case DATE:
                 return Date.valueOf((LocalDate) field);
             case TIMESTAMP:
@@ -138,7 +162,11 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
         int arity = rowType.getTotalFields();
         Object[] values = new Object[arity];
         for (int i = 0; i < arity; i++) {
-            Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(i));
+            Object fieldValue =
+                    convert(
+                            seaTunnelRow.getField(i),
+                            rowType.getFieldType(i),
+                            rowType.getFieldName(i));
             if (fieldValue != null) {
                 values[i] = fieldValue;
             }
@@ -197,7 +225,11 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
         Object[] fields = new Object[indexes.length];
         for (int i = 0; i < indexes.length; i++) {
             int fieldIndex = indexes[i];
-            fields[i] = reconvert(engineRow.get(fieldIndex + 2), rowType.getFieldType(fieldIndex));
+            fields[i] =
+                    reconvert(
+                            engineRow.get(fieldIndex + 2),
+                            rowType.getFieldType(fieldIndex),
+                            rowType.getFieldName(fieldIndex));
         }
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
         seaTunnelRow.setRowKind(rowKind);
@@ -206,15 +238,35 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
     }
 
     private Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
+        return reconvert(field, dataType, null);
+    }
+
+    /**
+     * @param column the field name, used in error messages; {@code null} inside an ARRAY or MAP. A
+     *     nested ROW adds its own name only when an error passes through it.
+     */
+    private Object reconvert(Object field, SeaTunnelDataType<?> dataType, String column) {
         if (field == null) {
             return null;
         }
         switch (dataType.getSqlType()) {
             case ROW:
-                if (field instanceof GenericRow) {
-                    return createFromGenericRow((GenericRow) field, (SeaTunnelRowType) dataType);
+                try {
+                    if (field instanceof GenericRow) {
+                        return createFromGenericRow(
+                                (GenericRow) field, (SeaTunnelRowType) dataType);
+                    }
+                    return reconvert((SeaTunnelRow) field, (SeaTunnelRowType) dataType);
+                } catch (WideDecimalUtils.InvalidWideDecimalException e) {
+                    throw e.withParent(column);
                 }
-                return reconvert((SeaTunnelRow) field, (SeaTunnelRowType) dataType);
+            case DECIMAL:
+                if (WideDecimalUtils.isWideDecimal(dataType)
+                        && (field instanceof String || field instanceof UTF8String)) {
+                    return WideDecimalUtils.fromCarrierText(
+                            field.toString(), (DecimalType) dataType, column);
+                }
+                return field;
             case DATE:
                 return ((Date) field).toLocalDate();
             case TIMESTAMP:
@@ -241,7 +293,7 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
         Object[] fields = row.values();
         Object[] newFields = new Object[fields.length];
         for (int idx = 0; idx < fields.length; idx++) {
-            newFields[idx] = reconvert(fields[idx], type.getFieldType(idx));
+            newFields[idx] = reconvert(fields[idx], type.getFieldType(idx), type.getFieldName(idx));
         }
         return new SeaTunnelRow(newFields);
     }
@@ -250,7 +302,11 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
         int num = engineRow.getFields().length;
         Object[] fields = new Object[num];
         for (int i = 0; i < num; i++) {
-            fields[i] = reconvert(engineRow.getFields()[i], rowType.getFieldType(i));
+            fields[i] =
+                    reconvert(
+                            engineRow.getFields()[i],
+                            rowType.getFieldType(i),
+                            rowType.getFieldName(i));
         }
         return new SeaTunnelRow(fields);
     }
