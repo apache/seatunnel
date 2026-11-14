@@ -501,7 +501,12 @@ public class ClusterFaultToleranceIT {
             // Change only this job's coordinator config. Delaying its first post-restore barrier
             // creates a deterministic stall without blocking tasks or relaxing data assertions.
             CheckpointConfig checkpointConfig =
-                    (CheckpointConfig) ReflectionUtils.getField(coordinator, "coordinatorConfig");
+                    ReflectionUtils.getField(coordinator, "coordinatorConfig")
+                            .map(CheckpointConfig.class::cast)
+                            .orElseThrow(
+                                    () ->
+                                            new AssertionError(
+                                                    "Missing coordinator checkpoint config"));
             checkpointConfig.setRestoreProgressFailFast(true);
             checkpointConfig.setRestoreProgressTimeout(stallAfterRestore ? 30_000L : 60_000L);
             if (stallAfterRestore) {
