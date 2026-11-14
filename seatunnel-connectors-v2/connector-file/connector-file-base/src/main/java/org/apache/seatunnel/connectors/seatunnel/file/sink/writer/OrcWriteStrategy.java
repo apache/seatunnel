@@ -349,7 +349,30 @@ public class OrcWriteStrategy extends AbstractWriteStrategy<Writer> {
     private void setDecimalColumnVector(
             Object value, DecimalColumnVector decimalColumnVector, int row) {
         if (value instanceof BigDecimal) {
-            decimalColumnVector.set(row, HiveDecimal.create((BigDecimal) value));
+            BigDecimal decimal = (BigDecimal) value;
+            // Both of these return null rather than throwing, and DecimalColumnVector.set then
+            // just marks the cell null, so an unchecked conversion writes the row with the value
+            // silently gone. HiveDecimal.create returns null above ORC's maximum precision of 38;
+            // enforcePrecisionScale returns null when the value does not fit the column actually
+            // declared, which is the reachable case for an inferred or narrow precision. The
+            // Parquet sink in this module already refuses the same overflow loudly.
+            HiveDecimal hiveDecimal = HiveDecimal.create(decimal);
+            HiveDecimal enforced =
+                    hiveDecimal == null
+                            ? null
+                            : HiveDecimal.enforcePrecisionScale(
+                                    hiveDecimal,
+                                    decimalColumnVector.precision,
+                                    decimalColumnVector.scale);
+            if (enforced == null) {
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        String.format(
+                                "Decimal value [%s] does not fit the target ORC column decimal(%d,%d). "
+                                        + "Widen the declared precision or scale, or round the value before writing.",
+                                decimal, decimalColumnVector.precision, decimalColumnVector.scale));
+            }
+            decimalColumnVector.set(row, enforced);
         } else {
             String errorMsg =
                     String.format(

@@ -38,6 +38,14 @@
                 <include>seatunnel-edge-agent/**</include>
             </includes>
             <excludes>
+                <!-- Maven build and release files -->
+                <exclude>**/.flattened-pom.xml</exclude>
+                <exclude>**/dependency-reduced-pom.xml</exclude>
+                <exclude>**/pom.xml.releaseBackup</exclude>
+                <exclude>**/pom.xml.tag</exclude>
+                <exclude>**/pom.xml.next</exclude>
+                <exclude>**/release.properties</exclude>
+                <exclude>**/*.gpg</exclude>
                 <exclude>**/target/**</exclude>
                 <exclude>**/.settings/**</exclude>
                 <exclude>**/.project</exclude>

@@ -46,6 +46,8 @@ Socket source reads each incoming line as a string record.
 |----------------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------------|
 | host           | String  | Yes      | -       | socket server host                                                                                                 |
 | port           | Integer | Yes      | -       | socket server port                                                                                                 |
+| connect_timeout_ms | Integer | No   | 10000   | Connect timeout in milliseconds. `0` disables the application-level timeout and leaves the OS default, which is what this connector used to do unconditionally. |
+| read_timeout_ms | Integer | No      | 0       | `SO_TIMEOUT` for reads in milliseconds. `0` (default) keeps the blocking-read behaviour long-lived socket sources rely on. |
 | common-options |         | no       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details. |
 
 :::tip

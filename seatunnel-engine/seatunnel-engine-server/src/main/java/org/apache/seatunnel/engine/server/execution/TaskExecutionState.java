@@ -23,6 +23,12 @@ import java.io.Serializable;
 
 public class TaskExecutionState implements Serializable {
 
+    // Same as the previously computed value. Keep this UID for compatible field additions; new
+    // reference fields deserialize as null when absent from old instances; consumers must handle
+    // that null explicitly. Constructors do not supply defaults during deserialization.
+    // Incompatible state changes need an explicit versioned serialization contract.
+    private static final long serialVersionUID = -108652017022658969L;
+
     private final TaskGroupLocation taskGroupLocation;
 
     private final ExecutionState executionState;

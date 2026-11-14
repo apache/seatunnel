@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.options.table.FormatOptions;
@@ -37,6 +38,10 @@ public class MaxcomputeSinkFactory implements TableSinkFactory {
         return MaxcomputeSinkOptions.PLUGIN_NAME;
     }
 
+    /**
+     * Declares sink retry bounds before client creation while retaining runtime guards for source
+     * and catalog entry points.
+     */
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
@@ -60,11 +65,15 @@ public class MaxcomputeSinkFactory implements TableSinkFactory {
                         MaxcomputeSinkOptions.TUNNEL_NAME,
                         MaxcomputeSinkOptions.CONNECT_TIMEOUT_MS,
                         MaxcomputeSinkOptions.READ_TIMEOUT_MS,
-                        MaxcomputeSinkOptions.RETRY_TIMES,
                         MaxcomputeSinkOptions.TUNNEL_CONNECT_TIMEOUT_MS,
                         MaxcomputeSinkOptions.TUNNEL_READ_TIMEOUT_MS,
-                        MaxcomputeSinkOptions.TUNNEL_RETRY_TIMES,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .optional(
+                        MaxcomputeSinkOptions.RETRY_TIMES,
+                        Conditions.greaterOrEqual(MaxcomputeSinkOptions.RETRY_TIMES, 0))
+                .optional(
+                        MaxcomputeSinkOptions.TUNNEL_RETRY_TIMES,
+                        Conditions.greaterOrEqual(MaxcomputeSinkOptions.TUNNEL_RETRY_TIMES, 0))
                 .build();
     }
 

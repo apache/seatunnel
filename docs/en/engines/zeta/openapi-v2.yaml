@@ -1,0 +1,190 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+openapi: 3.1.0
+info:
+  title: SeaTunnel Zeta REST v2 (read-only subset)
+  version: 0.1.0
+  description: >-
+    This initial contract covers only GET /overview and GET /resource/workers.
+    Other REST v2 endpoints are not yet described. The YAML is maintained with
+    the Jetty servlet routes and response tests in this repository.
+servers:
+  - url: http://localhost:8080
+    description: >-
+      Example only. Set the scheme, host, port, and configured context path for
+      your running Zeta REST service before using a generated client. Use HTTPS
+      when sending Basic authentication credentials beyond localhost.
+security:
+  - basicAuth: []
+  - {}
+paths:
+  /overview:
+    get:
+      operationId: getOverview
+      summary: Get cluster overview
+      description: >-
+        Optional query keys filter the worker and slot totals by worker tags.
+        Job counts are cluster-wide. Count fields are JSON strings in this
+        servlet's current response, even though their source fields are numeric.
+      parameters:
+        - name: tags
+          in: query
+          required: false
+          description: >-
+            Free-form worker tag keys and string values, serialized as
+            key=value pairs such as region=west&team=data. There is no literal
+            tags query key.
+          style: form
+          explode: true
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+      responses:
+        '200':
+          description: Current cluster overview.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Overview'
+        '401':
+          description: Basic authentication is enabled and credentials are missing or invalid.
+        '500':
+          description: The server could not complete the request; error bodies vary.
+  /resource/workers:
+    get:
+      operationId: getWorkerResources
+      summary: Get worker resource snapshot
+      description: >-
+        Returns the latest worker resource projection. During a master
+        transition, available is false and workers is empty; HTTP 200 still
+        indicates a successfully delivered snapshot.
+      responses:
+        '200':
+          description: Point-in-time worker resource snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerResourceSnapshot'
+        '401':
+          description: Basic authentication is enabled and credentials are missing or invalid.
+        '500':
+          description: The server could not complete the request; error bodies vary.
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: Optional; configured on the Zeta Jetty service.
+  schemas:
+    Overview:
+      type: object
+      required:
+        - projectVersion
+        - gitCommitAbbrev
+        - totalSlot
+        - unassignedSlot
+        - runningJobs
+        - finishedJobs
+        - failedJobs
+        - pendingJobs
+        - cancelledJobs
+        - workers
+      properties:
+        projectVersion:
+          type: string
+        gitCommitAbbrev:
+          type: string
+        totalSlot:
+          $ref: '#/components/schemas/DecimalCountString'
+        unassignedSlot:
+          $ref: '#/components/schemas/DecimalCountString'
+        runningJobs:
+          $ref: '#/components/schemas/DecimalCountString'
+        finishedJobs:
+          $ref: '#/components/schemas/DecimalCountString'
+        failedJobs:
+          $ref: '#/components/schemas/DecimalCountString'
+        pendingJobs:
+          $ref: '#/components/schemas/DecimalCountString'
+        cancelledJobs:
+          $ref: '#/components/schemas/DecimalCountString'
+        workers:
+          $ref: '#/components/schemas/DecimalCountString'
+    DecimalCountString:
+      type: string
+      pattern: '^[0-9]+$'
+      description: A non-negative count serialized as a decimal JSON string.
+    WorkerResourceSnapshot:
+      type: object
+      required: [available, collectedAt, workers]
+      properties:
+        available:
+          type: boolean
+          description: False when the resource projection could not be collected.
+        collectedAt:
+          type: integer
+          format: int64
+          description: Snapshot collection time in Unix epoch milliseconds.
+        workers:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkerResourceDiagnostic'
+    WorkerResourceDiagnostic:
+      type: object
+      required: [address, tags, totalSlots, freeSlots, usedSlots, dynamicSlot, runningJobIds]
+      properties:
+        address:
+          type: string
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+        totalSlots:
+          type: integer
+          format: int32
+          description: For dynamic slots, current assigned plus unassigned slots.
+        freeSlots:
+          type: integer
+          format: int32
+        usedSlots:
+          type: integer
+          format: int32
+        dynamicSlot:
+          type: boolean
+        totalCpuCores:
+          type: integer
+          format: int32
+        availableCpuCores:
+          type: integer
+          format: int32
+        totalHeapMemoryBytes:
+          type: integer
+          format: int64
+        availableHeapMemoryBytes:
+          type: integer
+          format: int64
+        cpuUsage:
+          type: number
+          format: double
+        memUsage:
+          type: number
+          format: double
+        runningJobIds:
+          type: array
+          items:
+            type: integer
+            format: int64

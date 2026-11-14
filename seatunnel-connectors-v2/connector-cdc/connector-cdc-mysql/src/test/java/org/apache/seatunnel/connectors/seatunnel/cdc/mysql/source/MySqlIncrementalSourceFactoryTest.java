@@ -19,8 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.Expression;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.configuration.util.RequiredOption;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
 
 import org.junit.jupiter.api.Assertions;
@@ -28,8 +32,10 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.apache.seatunnel.connectors.cdc.base.option.SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE;
 import static org.apache.seatunnel.connectors.cdc.base.option.SourceOptions.STARTUP_SPECIFIC_OFFSET_POS;
@@ -51,6 +57,37 @@ public class MySqlIncrementalSourceFactoryTest {
     @Test
     public void testOptionRule() {
         Assertions.assertNotNull((new MySqlIncrementalSourceFactory()).optionRule());
+    }
+
+    @Test
+    public void testSnapshotOnlyAllowsExactlyOnce() {
+        RequiredOption.ConditionalRequiredOptions exactlyOnceRule =
+                new MySqlIncrementalSourceFactory()
+                        .optionRule().getRequiredOptions().stream()
+                                .filter(RequiredOption.ConditionalRequiredOptions.class::isInstance)
+                                .map(RequiredOption.ConditionalRequiredOptions.class::cast)
+                                .filter(
+                                        rule ->
+                                                rule.getRequiredOption()
+                                                        .contains(SourceOptions.EXACTLY_ONCE))
+                                .findFirst()
+                                .orElseThrow(
+                                        () ->
+                                                new AssertionError(
+                                                        "exactly_once conditional rule is missing"));
+        Set<Object> startupModes = new HashSet<>();
+        Expression expression = exactlyOnceRule.getExpression();
+        while (expression != null) {
+            Assertions.assertEquals(
+                    MySqlIncrementalSourceOptions.STARTUP_MODE,
+                    expression.getCondition().getOption());
+            startupModes.add(expression.getCondition().getExpectValue());
+            expression = expression.getNext();
+        }
+
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList(StartupMode.INITIAL, StartupMode.SNAPSHOT_ONLY)),
+                startupModes);
     }
 
     @Test
@@ -185,6 +222,78 @@ public class MySqlIncrementalSourceFactoryTest {
                             && error.getMessage().contains("must be greater than or equal to 0"),
                     () -> "negative skip must be rejected: " + error.getMessage());
         }
+    }
+
+    @Test
+    public void testSnapshotOnlyWithoutStreamingOptionsIsValid() {
+        assertValid(snapshotOnlyOptions());
+
+        Map<String, Object> explicitNever = snapshotOnlyOptions();
+        explicitNever.put(MySqlIncrementalSourceOptions.STOP_MODE.key(), "never");
+        assertValid(explicitNever);
+    }
+
+    @Test
+    public void testSnapshotOnlyRejectsStopMode() {
+        for (String stopMode : Arrays.asList("latest", "specific")) {
+            Map<String, Object> options = snapshotOnlyOptions();
+            options.put(MySqlIncrementalSourceOptions.STOP_MODE.key(), stopMode);
+            if ("specific".equals(stopMode)) {
+                options.put(SourceOptions.STOP_SPECIFIC_OFFSET_FILE.key(), "mysql-bin.000004");
+                options.put(SourceOptions.STOP_SPECIFIC_OFFSET_POS.key(), 8937L);
+            }
+            OptionValidationException error = assertValidationFails(options);
+            Assertions.assertTrue(
+                    error.getMessage().contains("'stop.mode = " + stopMode + "'"),
+                    () ->
+                            "snapshot-only must reject stop.mode "
+                                    + stopMode
+                                    + ": "
+                                    + error.getMessage());
+        }
+    }
+
+    @Test
+    public void testSnapshotOnlyRejectsStartupTimestamp() {
+        Map<String, Object> options = snapshotOnlyOptions();
+        options.put(SourceOptions.STARTUP_TIMESTAMP.key(), 1L);
+
+        OptionValidationException error = assertValidationFails(options);
+        Assertions.assertTrue(
+                error.getMessage()
+                        .contains(
+                                "startup offset option '"
+                                        + SourceOptions.STARTUP_TIMESTAMP.key()
+                                        + "' is not allowed"),
+                () -> "snapshot-only must reject startup.timestamp: " + error.getMessage());
+    }
+
+    @Test
+    public void testSnapshotOnlyRejectsEverySpecificOffset() {
+        for (String optionKey : SPECIFIC_OFFSET_OPTION_KEYS) {
+            Map<String, Object> options = snapshotOnlyOptions();
+            options.put(optionKey, sampleValue(optionKey));
+            OptionValidationException error = assertValidationFails(options);
+            Assertions.assertTrue(
+                    error.getMessage().contains("current mode is 'SNAPSHOT_ONLY'"),
+                    () -> "snapshot-only must reject '" + optionKey + "': " + error.getMessage());
+        }
+    }
+
+    @Test
+    public void testTimestampModeStillRequiresStartupTimestamp() {
+        Map<String, Object> options = basicOptions();
+        options.put(MySqlIncrementalSourceOptions.STARTUP_MODE.key(), "timestamp");
+        assertValidationFails(options);
+
+        options.put(SourceOptions.STARTUP_TIMESTAMP.key(), 1L);
+        assertValid(options);
+    }
+
+    private static Map<String, Object> snapshotOnlyOptions() {
+        Map<String, Object> options = basicOptions();
+        options.put(MySqlIncrementalSourceOptions.STARTUP_MODE.key(), "snapshot-only");
+        return options;
     }
 
     private static Map<String, Object> basicOptions() {

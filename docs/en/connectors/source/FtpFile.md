@@ -59,6 +59,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | connection_mode             | string  | no       | active_local                |
 | remote_verification_enabled | boolean | no       | true                        |
 | control_encoding            | string  | no       | UTF-8                       |
+| control_timeout             | int     | no       | 60000                       |
 | delimiter/field_delimiter   | string  | no       | \001                        |
 | row_delimiter               | string  | no       | \n                          |
 | read_columns                | list    | no       | -                           |
@@ -515,8 +516,9 @@ The encoding of the file to read. This param will be parsed by `Charset.forName(
 
 ### null_format [string]
 
-Only used when file_format_type is text.
-null_format to define which strings can be represented as null.
+Used when `file_format_type` is `text` or `csv`. Defines which field value represents null.
+For CSV with a configured `schema.columns[].defaultValue`, a matching `null_format` value or a column absent from the file header uses that default. An empty CSV field still produces null unless it matches `null_format`; columns without a default keep their existing behavior.
+CSV defaults are converted to the column type when the reader is created. A default that cannot be converted fails the job even if no field needs it. DATE and TIMESTAMP defaults may use a different supported format from the file data.
 
 e.g: `\N`
 

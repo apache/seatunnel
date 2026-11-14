@@ -20,7 +20,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户自定义切分](../../introduction/concepts/connector-v2-features.md)

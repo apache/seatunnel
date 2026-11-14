@@ -46,7 +46,10 @@ This guide documents an overview of the current Apache SeaTunnel modules and bes
    try {
        // read logic
    } catch (IOException e) {
-       throw SeaTunnelORCFormatException("This orc file is corrupted, please check it", e);
+       throw new FileConnectorException(
+               FileConnectorErrorCode.FILE_READ_FAILED,
+               "This orc file is corrupted, please check it",
+               e);
    }
    ```
 

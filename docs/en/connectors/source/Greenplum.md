@@ -60,7 +60,7 @@ Only Greenplum-specific commonly used options are listed here. Other JDBC source
 | driver | String | Yes | - | JDBC driver class name, usually `org.postgresql.Driver` or `com.pivotal.jdbc.GreenplumDriver`. |
 | username | String | No | - | Greenplum username. |
 | password | String | No | - | Greenplum password. |
-| query | String | Yes | - | SQL used to read data. Select only the columns you need; the source uses the SELECT column list as the output schema. |
+| query | String | No | - | SQL used to read data. Select only the columns you need; the source uses the SELECT column list as the output schema. Required when neither `table_path` nor `table_list` is configured. |
 | partition_column | String | No | - | Column used to split data for parallel reading. Can be numeric or string. Numeric columns are split into `partition_num` numeric ranges; string columns are split by hash (`split.string_split_mode = sample`, the default) or by lexicographic range (`split.string_split_mode = charset_based`). |
 | partition_lower_bound | String | No | - | Lower bound of `partition_column`. If not set, SeaTunnel queries the minimum value. |
 | partition_upper_bound | String | No | - | Upper bound of `partition_column`. If not set, SeaTunnel queries the maximum value. |

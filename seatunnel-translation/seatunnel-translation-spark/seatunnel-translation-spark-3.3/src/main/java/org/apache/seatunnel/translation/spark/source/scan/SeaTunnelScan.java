@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.source.scan;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.source.partition.batch.SeaTunnelBatch;
@@ -68,6 +69,16 @@ public class SeaTunnelScan implements Scan {
 
     @Override
     public MicroBatchStream toMicroBatchStream(String checkpointLocation) {
+        if (source instanceof SupportCoordinate) {
+            throw new UnsupportedOperationException(
+                    String.format(
+                            "Source [%s] coordinates its readers through source events (SupportCoordinate), "
+                                    + "which Spark micro-batch reading does not support yet because it "
+                                    + "cannot restore the source state between micro-batches. Read it with "
+                                    + "Spark batch reading, which the SeaTunnel Spark starter uses for both "
+                                    + "BATCH and STREAMING jobs, or run the job on Zeta or Flink.",
+                            source.getPluginName()));
+        }
         return new SeaTunnelMicroBatch(
                 source,
                 parallelism,

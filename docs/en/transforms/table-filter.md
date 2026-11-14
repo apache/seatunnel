@@ -14,6 +14,9 @@ TableFilter transform plugin for filter tables.
 |  schema_pattern  | string | no       |               | Specify schema filter pattern, the default value is null, which means no filtering. If you want to filter the schema name, please set it to a regular expression.     |
 |  table_pattern   | string | no       |               | Specify table filter pattern, the default value is null, which means no filtering. If you want to filter the table name, please set it to a regular expression.       |
 |   pattern_mode   | enum   | no       | INCLUDE       | Specify pattern mode, the default value is INCLUDE, which means include the matched table. If you want to exclude the matched table, please set it to EXCLUDE.        |
+| table_match_regex | string | no       | `.*`          | Regex matched against the upstream table path. The transform level rule only applies to matching tables.                                                               |
+| table_transform   | array  | no       | -             | Per-table rules, see [Multi-Table Transform](transform-multi-table.md). Each entry holds the filter patterns of a single table (`table_path` plus the options above).  |
+| rule_match_mode   | string | no       | `FIRST_MATCH` | How multiple `table_transform` entries with the same `table_path` are evaluated.                                                                                       |
 
 ## Examples
 

@@ -25,8 +25,10 @@ import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParameters;
@@ -46,7 +48,19 @@ import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.Cassand
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSourceOptions.USERNAME;
 
 @AutoService(Factory.class)
-public class CassandraSourceFactory implements TableSourceFactory {
+public class CassandraSourceFactory implements TableSourceFactory, SupportSourceDryRunValidation {
+
+    @Override
+    public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context)
+            throws InterruptedException {
+        return CassandraSourceDryRunValidator.inferSchema(context.getOptions());
+    }
+
+    @Override
+    public void validateConnectionForDryRun(
+            TableSourceFactoryContext context, List<CatalogTable> catalogTables) {
+        // Schema inference already connects and prepares each SELECT without executing it.
+    }
 
     private static final String CONSISTENCY_LEVEL_REGEX =
             "^(ANY|ONE|TWO|THREE|QUORUM|ALL|LOCAL_QUORUM|EACH_QUORUM|SERIAL|LOCAL_SERIAL|LOCAL_ONE)$";

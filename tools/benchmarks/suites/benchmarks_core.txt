@@ -17,6 +17,8 @@
 SeaTunnelPipelineBenchmark.sourceSink$
 SeaTunnelPipelineBenchmark.sourceTransformSink$
 SeaTunnelPipelineBenchmark.sourceTransformSinkWithObservabilityAndTrace$
+MultiTableSinkBenchmark.recordHandoff$
+MultiTableSinkBenchmark.timerFlush$
 
 # Checkpoint coordination.
 CheckpointingTimeBenchmark.checkpointSingleInput$

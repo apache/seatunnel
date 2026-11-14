@@ -46,6 +46,8 @@ libfb303-xxx.jar
 | SeaTunnel Data type | Iceberg Data type |
 |---------------------|-------------------|
 | BOOLEAN             | BOOLEAN           |
+| TINYINT             | INTEGER           |
+| SMALLINT            | INTEGER           |
 | INT                 | INTEGER           |
 | BIGINT              | LONG              |
 | FLOAT               | FLOAT             |

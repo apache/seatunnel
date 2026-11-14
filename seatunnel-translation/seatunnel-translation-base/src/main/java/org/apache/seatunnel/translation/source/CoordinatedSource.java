@@ -45,6 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -80,10 +81,19 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
     protected transient Map<Integer, SourceReader<T, SplitT>> readerMap = new ConcurrentHashMap<>();
     protected final Map<Integer, AtomicBoolean> readerRunningMap;
     protected final AtomicInteger completedReader = new AtomicInteger(0);
+    protected final AtomicReference<RuntimeException> readerFailure = new AtomicReference<>();
     protected transient volatile ScheduledThreadPoolExecutor executorService;
 
     /** Flag indicating whether the consumer is still running. */
     protected volatile boolean running = true;
+
+    /** Flag indicating that {@link #close()} has begun, after which reader failures are ignored. */
+    protected volatile boolean closing = false;
+
+    /**
+     * Id of the last enumerator-only checkpoint, see {@link #getEnumeratorCheckpointInterval()}.
+     */
+    private long enumeratorCheckpointId = 0L;
 
     public CoordinatedSource(
             SeaTunnelSource<T, SplitT, StateT> source,
@@ -104,7 +114,28 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
             createSplitEnumerator();
             createReaders();
         } catch (Exception e) {
-            log.warn("create split enumerator or readers failed", e);
+            RuntimeException failure =
+                    new RuntimeException("Failed to create split enumerator or readers.", e);
+            closeCreatedResources(failure);
+            throw failure;
+        }
+    }
+
+    /** Releases the enumerator and readers created before the construction failed. */
+    private void closeCreatedResources(RuntimeException failure) {
+        for (SourceReader<T, SplitT> reader : readerMap.values()) {
+            try {
+                reader.close();
+            } catch (Exception e) {
+                failure.addSuppressed(e);
+            }
+        }
+        if (splitEnumerator != null) {
+            try {
+                splitEnumerator.close();
+            } catch (Exception e) {
+                failure.addSuppressed(e);
+            }
         }
     }
 
@@ -180,15 +211,17 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                         entry -> {
                             final AtomicBoolean flag = readerRunningMap.get(entry.getKey());
                             final SourceReader<T, SplitT> reader = entry.getValue();
+                            final Collector<T> readerCollector =
+                                    getReaderCollector(entry.getKey(), collector);
                             executorService.execute(
                                     () -> {
                                         while (flag.get()) {
                                             try {
-                                                reader.pollNext(collector);
-                                                if (collector.isEmptyThisPollNext()) {
+                                                reader.pollNext(readerCollector);
+                                                if (readerCollector.isEmptyThisPollNext()) {
                                                     Thread.sleep(100);
                                                 } else {
-                                                    collector.resetEmptyThisPollNext();
+                                                    readerCollector.resetEmptyThisPollNext();
                                                     /**
                                                      * sleep(0) is used to prevent the current
                                                      * thread from occupying CPU resources for a
@@ -200,6 +233,15 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                                                     Thread.sleep(0L);
                                                 }
                                             } catch (Exception e) {
+                                                if (!closing) {
+                                                    readerFailure.compareAndSet(
+                                                            null,
+                                                            new RuntimeException(
+                                                                    String.format(
+                                                                            "SourceReader of subtask %s failed.",
+                                                                            entry.getKey()),
+                                                                    e));
+                                                }
                                                 running = false;
                                                 flag.set(false);
                                                 throw new RuntimeException(e);
@@ -208,13 +250,69 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                                     });
                         });
         splitEnumerator.run();
+        final long enumeratorCheckpointInterval = getEnumeratorCheckpointInterval();
+        long nextEnumeratorCheckpoint = System.currentTimeMillis() + enumeratorCheckpointInterval;
         while (running) {
             Thread.sleep(SLEEP_TIME_INTERVAL);
+            if (!running || closing) {
+                break;
+            }
+            if (enumeratorCheckpointInterval > 0
+                    && System.currentTimeMillis() >= nextEnumeratorCheckpoint) {
+                checkpointEnumerator();
+                nextEnumeratorCheckpoint =
+                        System.currentTimeMillis() + enumeratorCheckpointInterval;
+            }
         }
+        // The readers run on pooled threads, so their failures must be rethrown here to fail the
+        // source instead of letting it end as if all readers had completed.
+        RuntimeException failure = readerFailure.get();
+        if (failure != null && !closing) {
+            throw failure;
+        }
+    }
+
+    /**
+     * Returns the interval in milliseconds of the enumerator-only checkpoints taken by {@link
+     * #run(Collector)}, or a non-positive value to take none (the default).
+     *
+     * <p>Engines that never checkpoint the source can enable them so that enumerators which wait
+     * for a completed checkpoint before moving on, such as the CDC snapshot split assigner at a
+     * parallelism above one, still make progress. Only the enumerator takes part: its state is
+     * snapshotted and discarded, and reader state is neither snapshotted nor committed.
+     *
+     * @return the interval in milliseconds, or a non-positive value to disable them
+     */
+    protected long getEnumeratorCheckpointInterval() {
+        return 0L;
+    }
+
+    private void checkpointEnumerator() throws Exception {
+        long checkpointId = ++enumeratorCheckpointId;
+        try {
+            splitEnumerator.snapshotState(checkpointId);
+            splitEnumerator.notifyCheckpointComplete(checkpointId);
+        } catch (Exception e) {
+            if (!closing) {
+                throw e;
+            }
+        }
+    }
+
+    /**
+     * Returns the collector that the reader of the given subtask emits its records to.
+     *
+     * @param subtaskId the subtask index of the reader
+     * @param collector the collector passed to {@link #run(Collector)}
+     * @return the collector used by that reader
+     */
+    protected Collector<T> getReaderCollector(int subtaskId, Collector<T> collector) {
+        return collector;
     }
 
     @Override
     public void close() throws IOException {
+        closing = true;
         running = false;
 
         for (Map.Entry<Integer, SourceReader<T, SplitT>> entry : readerMap.entrySet()) {
@@ -309,7 +407,6 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
 
     protected void handleNoMoreElement(int subtaskId) {
         readerRunningMap.get(subtaskId).set(false);
-        readerContextMap.remove(subtaskId);
         if (completedReader.incrementAndGet() == this.parallelism) {
             this.running = false;
         }
@@ -327,8 +424,9 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
     // Enumerator context methods
     // --------------------------------------------------------------------------------------------
 
+    /** Returns the number of readers that have not signalled the end of their input yet. */
     public int currentReaderCount() {
-        return readerContextMap.size();
+        return parallelism - completedReader.get();
     }
 
     public Set<Integer> registeredReaders() {

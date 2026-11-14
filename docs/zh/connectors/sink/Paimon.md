@@ -663,6 +663,64 @@ sink {
 }
 ```
 
+### 使用 Hive catalog 在启动时清空目标表
+
+该示例在每次作业启动时依据上游 schema 重建 Hive catalog 中的 Paimon 表
+（`schema_save_mode = "RECREATE_SCHEMA"`），并清空已有数据，使 sink 表现为全新覆写。
+适用于需要全量刷新的批处理作业。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+      primaryKey {
+        name = "pk_id"
+        columnNames = [pk_id]
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "A", 100] }
+      { kind = INSERT, fields = [2, "B", 100] }
+      { kind = INSERT, fields = [3, "C", 100] }
+      { kind = UPDATE_BEFORE, fields = [1, "A", 100] }
+      { kind = UPDATE_AFTER,  fields = [1, "A_1", 100] }
+      { kind = DELETE,        fields = [2, "B", 100] }
+    ]
+  }
+}
+
+sink {
+  Paimon {
+    warehouse = "hdfs:///tmp/paimon"
+    catalog_type = "hive"
+    catalog_uri = "thrift://hadoop04:9083"
+    database = "seatunnel_namespace12"
+    table = "st_test"
+    schema_save_mode = "RECREATE_SCHEMA"
+    data_save_mode = "DROP_DATA"
+    paimon.hadoop.conf = {
+      fs.defaultFS = "hdfs://nameservice1"
+      dfs.nameservices = "nameservice1"
+      dfs.ha.namenodes.nameservice1 = "nn1,nn2"
+      dfs.namenode.rpc-address.nameservice1.nn1 = "hadoop03:8020"
+      dfs.namenode.rpc-address.nameservice1.nn2 = "hadoop04:8020"
+      dfs.client.failover.proxy.provider.nameservice1 = "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider"
+      dfs.client.use.datanode.hostname = "true"
+    }
+  }
+}
+```
+
 ## FAQ
 
 ### Paimon Sink 连接器是否支持自动建表？

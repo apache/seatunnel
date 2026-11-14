@@ -53,7 +53,7 @@ public class JdbcConnectionConfig implements Serializable {
     private boolean decimalTypeNarrowing = JdbcCommonOptions.DECIMAL_TYPE_NARROWING.defaultValue();
     private boolean intTypeNarrowing = JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue();
     private boolean numericSpecialValueAsNull =
-            JdbcCommonOptions.NUMERIC_SPECIAL_VALUE_AS_NULL.defaultValue();
+            JdbcSourceOptions.NUMERIC_SPECIAL_VALUE_AS_NULL.defaultValue();
 
     private int maxCommitAttempts = JdbcSinkOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
 
@@ -114,7 +114,7 @@ public class JdbcConnectionConfig implements Serializable {
                 .ifPresent(builder::decimalTypeNarrowing);
         config.getOptional(JdbcCommonOptions.INT_TYPE_NARROWING)
                 .ifPresent(builder::intTypeNarrowing);
-        config.getOptional(JdbcCommonOptions.NUMERIC_SPECIAL_VALUE_AS_NULL)
+        config.getOptional(JdbcSourceOptions.NUMERIC_SPECIAL_VALUE_AS_NULL)
                 .ifPresent(builder::numericSpecialValueAsNull);
         config.getOptional(JdbcCommonOptions.DIALECT).ifPresent(builder::dialect);
         config.getOptional(JdbcCommonOptions.ACCESS_KEY_ID).ifPresent(builder::accessKeyId);
@@ -159,7 +159,7 @@ public class JdbcConnectionConfig implements Serializable {
                 JdbcCommonOptions.DECIMAL_TYPE_NARROWING.defaultValue();
         private boolean intTypeNarrowing = JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue();
         private boolean numericSpecialValueAsNull =
-                JdbcCommonOptions.NUMERIC_SPECIAL_VALUE_AS_NULL.defaultValue();
+                JdbcSourceOptions.NUMERIC_SPECIAL_VALUE_AS_NULL.defaultValue();
         private boolean handleBlobAsString = JdbcCommonOptions.HANDLE_BLOB_AS_STRING.defaultValue();
         private int maxCommitAttempts = JdbcSinkOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
         private int transactionTimeoutSec = JdbcSinkOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();

@@ -17,4 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket.config;
 
-public class SocketSourceOptions extends SocketCommonOptions {}
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
+public class SocketSourceOptions extends SocketCommonOptions {
+
+    public static final int DEFAULT_READ_TIMEOUT_MS = 0;
+
+    /**
+     * SO_TIMEOUT for the source's blocking read. Defaults to 0, which keeps the historical blocking
+     * behaviour that long-lived socket sources rely on. This option is source-only: the sink never
+     * reads from its socket, so a read timeout would be a no-op there.
+     */
+    public static final Option<Integer> READ_TIMEOUT_MS =
+            Options.key("read_timeout_ms")
+                    .intType()
+                    .defaultValue(DEFAULT_READ_TIMEOUT_MS)
+                    .withDescription(
+                            "Socket read (SO_TIMEOUT) in milliseconds for the source. A value of 0 "
+                                    + "(default) means no application-level timeout is applied, so "
+                                    + "the read blocks until data arrives or the socket closes; "
+                                    + "the OS default then governs the connection.");
+}

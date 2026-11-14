@@ -17,11 +17,17 @@
 
 package org.apache.seatunnel.format.csv;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -33,14 +39,23 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
@@ -296,6 +311,393 @@ public class CsvTextFormatSchemaTest {
             Assertions.assertDoesNotThrow(
                     () -> Integer.parseInt(amountField),
                     "Amount should be a valid integer at line " + (i + 1));
+        }
+    }
+
+    @Test
+    public void testConfiguredDefaultsForNullMarkerAndMissingColumn() throws Exception {
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.DEFAULT),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id",
+                                                BasicType.INT_TYPE,
+                                                (Long) null,
+                                                false,
+                                                7,
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "name",
+                                                BasicType.STRING_TYPE,
+                                                (Long) null,
+                                                false,
+                                                "unknown",
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "optional",
+                                                BasicType.STRING_TYPE,
+                                                (Long) null,
+                                                true,
+                                                null,
+                                                null))
+                                .build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "test");
+        CsvDeserializationSchema schema =
+                CsvDeserializationSchema.builder()
+                        .seaTunnelRowType(catalogTable.getSeaTunnelRowType())
+                        .setCatalogTable(catalogTable)
+                        .nullFormat("NULL")
+                        .build();
+
+        SeaTunnelRow row = schema.getSeaTunnelRow(Collections.singletonMap(0, "NULL"));
+        Assertions.assertEquals(7, row.getField(0));
+        Assertions.assertEquals("unknown", row.getField(1));
+        Assertions.assertNull(row.getField(2));
+
+        Map<Integer, String> emptyValues = new HashMap<>();
+        emptyValues.put(0, "");
+        emptyValues.put(1, "");
+        SeaTunnelRow emptyRow = schema.getSeaTunnelRow(emptyValues);
+        Assertions.assertNull(emptyRow.getField(0));
+        Assertions.assertNull(emptyRow.getField(1));
+
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+            output.writeObject(schema);
+        }
+        CsvDeserializationSchema restored;
+        try (ObjectInputStream input =
+                new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            restored = (CsvDeserializationSchema) input.readObject();
+        }
+        Assertions.assertEquals(
+                7, restored.getSeaTunnelRow(Collections.singletonMap(0, "NULL")).getField(0));
+    }
+
+    @Test
+    public void testDateDefaultBeforeDataWithDifferentFormat() {
+        assertTemporalDefaultWithDifferentDataFormat(LocalTimeType.LOCAL_DATE_TYPE, true);
+    }
+
+    @Test
+    public void testDateDefaultAfterDataWithDifferentFormat() {
+        assertTemporalDefaultWithDifferentDataFormat(LocalTimeType.LOCAL_DATE_TYPE, false);
+    }
+
+    @Test
+    public void testTimestampDefaultBeforeDataWithDifferentFormat() {
+        assertTemporalDefaultWithDifferentDataFormat(LocalTimeType.LOCAL_DATE_TIME_TYPE, true);
+    }
+
+    @Test
+    public void testTimestampDefaultAfterDataWithDifferentFormat() {
+        assertTemporalDefaultWithDifferentDataFormat(LocalTimeType.LOCAL_DATE_TIME_TYPE, false);
+    }
+
+    private void assertTemporalDefaultWithDifferentDataFormat(
+            SeaTunnelDataType<?> type, boolean defaultFirst) {
+        boolean date = type.equals(LocalTimeType.LOCAL_DATE_TYPE);
+        CsvDeserializationSchema schema =
+                schemaWithDefault(type, date ? "2020-01-01" : "2020-01-01 12:34:56");
+        Object expectedDefault =
+                date ? LocalDate.of(2020, 1, 1) : LocalDateTime.of(2020, 1, 1, 12, 34, 56);
+        String data = date ? "2024/02/03" : "2024/02/03 04:05:06";
+        Object expectedData =
+                date ? LocalDate.of(2024, 2, 3) : LocalDateTime.of(2024, 2, 3, 4, 5, 6);
+        if (defaultFirst) {
+            assertEquals(
+                    expectedDefault, schema.getSeaTunnelRow(Collections.emptyMap()).getField(0));
+        }
+        assertEquals(
+                expectedData,
+                schema.getSeaTunnelRow(Collections.singletonMap(0, data)).getField(0));
+        assertEquals(
+                expectedDefault,
+                schema.getSeaTunnelRow(Collections.singletonMap(0, "NULL")).getField(0));
+        assertEquals(
+                expectedData,
+                schema.getSeaTunnelRow(Collections.singletonMap(0, data)).getField(0));
+    }
+
+    @Test
+    public void testTemporalDefaultsSurviveSerializationAfterData() throws Exception {
+        for (boolean date : new boolean[] {true, false}) {
+            CsvDeserializationSchema schema =
+                    schemaWithDefault(
+                            date
+                                    ? LocalTimeType.LOCAL_DATE_TYPE
+                                    : LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            date ? "2020-01-01" : "2020-01-01 12:34:56");
+            Map<Integer, String> data =
+                    Collections.singletonMap(0, date ? "2024/02/03" : "2024/02/03 04:05:06");
+            Object expectedDefault =
+                    date ? LocalDate.of(2020, 1, 1) : LocalDateTime.of(2020, 1, 1, 12, 34, 56);
+            assertEquals(
+                    expectedDefault,
+                    roundTrip(schema).getSeaTunnelRow(Collections.emptyMap()).getField(0));
+            SeaTunnelRow expected = schema.getSeaTunnelRow(data);
+            CsvDeserializationSchema restored = roundTrip(schema);
+            assertEquals(expected.getField(0), restored.getSeaTunnelRow(data).getField(0));
+            assertEquals(
+                    expectedDefault, restored.getSeaTunnelRow(Collections.emptyMap()).getField(0));
+            assertEquals(
+                    expected.getField(0), roundTrip(restored).getSeaTunnelRow(data).getField(0));
+        }
+    }
+
+    @Test
+    public void testTypedTemporalDefaultsArePreserved() throws Exception {
+        SeaTunnelDataType<?>[] types = {
+            LocalTimeType.LOCAL_DATE_TYPE,
+            LocalTimeType.LOCAL_TIME_TYPE,
+            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+            LocalTimeType.OFFSET_DATE_TIME_TYPE
+        };
+        Object[] values = {
+            LocalDate.of(2020, 1, 1),
+            LocalTime.of(12, 34),
+            LocalDateTime.of(2020, 1, 1, 12, 34),
+            OffsetDateTime.of(2020, 1, 1, 12, 34, 0, 0, ZoneOffset.ofHours(9))
+        };
+        for (int i = 0; i < types.length; i++) {
+            CsvDeserializationSchema schema = schemaWithDefault(types[i], values[i]);
+            Assertions.assertSame(
+                    values[i], schema.getSeaTunnelRow(Collections.emptyMap()).getField(0));
+            assertEquals(
+                    values[i],
+                    roundTrip(schema).getSeaTunnelRow(Collections.emptyMap()).getField(0));
+        }
+    }
+
+    @Test
+    public void testStructuredTemporalDefaultsUseIndependentFormats() {
+        ArrayType<LocalDate[], LocalDate> dates =
+                new ArrayType<>(LocalDate[].class, LocalTimeType.LOCAL_DATE_TYPE);
+        LocalDate[] expected = {LocalDate.of(2020, 1, 1), LocalDate.of(2020, 2, 3)};
+        for (Object value :
+                new Object[] {
+                    Arrays.asList("2020-01-01", "2020/02/03"), "2020-01-01\u00022020/02/03"
+                }) {
+            CsvDeserializationSchema schema = schemaWithDefault(dates, value);
+            Assertions.assertArrayEquals(
+                    expected,
+                    (LocalDate[]) schema.getSeaTunnelRow(Collections.emptyMap()).getField(0));
+            Assertions.assertArrayEquals(
+                    new LocalDate[] {LocalDate.of(2024, 2, 3)},
+                    (LocalDate[])
+                            schema.getSeaTunnelRow(Collections.singletonMap(0, "2024.02.03"))
+                                    .getField(0));
+        }
+    }
+
+    @Test
+    public void testTimestampTzDefaultDoesNotAffectDataParser() {
+        CsvDeserializationSchema schema =
+                schemaWithDefault(LocalTimeType.OFFSET_DATE_TIME_TYPE, "2020-01-01T12:34:56+09:00");
+        OffsetDateTime expectedDefault = OffsetDateTime.parse("2020-01-01T12:34:56+09:00");
+        assertEquals(expectedDefault, schema.getSeaTunnelRow(Collections.emptyMap()).getField(0));
+        assertEquals(
+                OffsetDateTime.of(2024, 2, 3, 4, 5, 6, 0, ZoneOffset.UTC),
+                schema.getSeaTunnelRow(Collections.singletonMap(0, "2024/02/03 04:05:06"))
+                        .getField(0));
+        assertEquals(expectedDefault, schema.getSeaTunnelRow(Collections.emptyMap()).getField(0));
+    }
+
+    @Test
+    public void testInvalidTemporalDefaultDoesNotExposeValue() {
+        for (SeaTunnelDataType<?> type :
+                new SeaTunnelDataType<?>[] {
+                    LocalTimeType.LOCAL_DATE_TYPE, LocalTimeType.LOCAL_DATE_TIME_TYPE
+                }) {
+            String sensitiveDefault = "secret-invalid-temporal-default";
+            IllegalArgumentException exception =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () -> schemaWithDefault(type, sensitiveDefault));
+            StringWriter stackTrace = new StringWriter();
+            exception.printStackTrace(new PrintWriter(stackTrace));
+            Assertions.assertTrue(stackTrace.toString().contains("value"));
+            Assertions.assertTrue(stackTrace.toString().contains(type.toString()));
+            Assertions.assertFalse(stackTrace.toString().contains(sensitiveDefault));
+        }
+    }
+
+    private CsvDeserializationSchema schemaWithDefault(SeaTunnelDataType<?> type, Object value) {
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.DEFAULT),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "value", type, (Long) null, true, value, null))
+                                .build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "test");
+        return CsvDeserializationSchema.builder()
+                .seaTunnelRowType(table.getSeaTunnelRowType())
+                .setCatalogTable(table)
+                .nullFormat("NULL")
+                .build();
+    }
+
+    private CsvDeserializationSchema roundTrip(CsvDeserializationSchema schema) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+            output.writeObject(schema);
+        }
+        try (ObjectInputStream input =
+                new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            return (CsvDeserializationSchema) input.readObject();
+        }
+    }
+
+    @Test
+    public void testInvalidConfiguredDefaultIsReportedWithColumnContext() {
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.DEFAULT),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "enabled",
+                                                BasicType.BOOLEAN_TYPE,
+                                                (Long) null,
+                                                false,
+                                                "not-a-boolean",
+                                                null))
+                                .build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "test");
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                CsvDeserializationSchema.builder()
+                                        .seaTunnelRowType(catalogTable.getSeaTunnelRowType())
+                                        .setCatalogTable(catalogTable)
+                                        .build());
+        Assertions.assertTrue(exception.getMessage().contains("enabled"));
+        Assertions.assertFalse(exception.getMessage().contains("not-a-boolean"));
+    }
+
+    @Test
+    public void testInvalidNumericDefaultDoesNotExposeValueInStackTrace() {
+        String sensitiveDefault = "secret-csv-default";
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.DEFAULT),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "count",
+                                                BasicType.INT_TYPE,
+                                                (Long) null,
+                                                false,
+                                                sensitiveDefault,
+                                                null))
+                                .build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "test");
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                CsvDeserializationSchema.builder()
+                                        .seaTunnelRowType(catalogTable.getSeaTunnelRowType())
+                                        .setCatalogTable(catalogTable)
+                                        .build());
+        StringWriter stackTrace = new StringWriter();
+        exception.printStackTrace(new PrintWriter(stackTrace));
+        Assertions.assertTrue(stackTrace.toString().contains("count"));
+        Assertions.assertTrue(stackTrace.toString().contains("INT"));
+        Assertions.assertFalse(stackTrace.toString().contains(sensitiveDefault));
+    }
+
+    @Test
+    public void testStructuredDefaultsAreIndependentBetweenRows() throws Exception {
+        SeaTunnelRowType nestedRowType =
+                new SeaTunnelRowType(
+                        new String[] {"numbers"},
+                        new SeaTunnelDataType<?>[] {ArrayType.INT_ARRAY_TYPE});
+        Map<String, Object> mapDefault = new HashMap<>();
+        mapDefault.put("count", 3);
+        Map<String, Object> rowDefault = new HashMap<>();
+        rowDefault.put("numbers", Arrays.asList(4, 5));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.DEFAULT),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "arrays",
+                                                new ArrayType<>(
+                                                        Integer[][].class,
+                                                        ArrayType.INT_ARRAY_TYPE),
+                                                (Long) null,
+                                                true,
+                                                Arrays.asList(
+                                                        Arrays.asList(1, 2), Arrays.asList(3)),
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "map",
+                                                new MapType<>(
+                                                        BasicType.STRING_TYPE, BasicType.INT_TYPE),
+                                                (Long) null,
+                                                true,
+                                                mapDefault,
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "row",
+                                                nestedRowType,
+                                                (Long) null,
+                                                true,
+                                                rowDefault,
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "bytes",
+                                                PrimitiveByteArrayType.INSTANCE,
+                                                (Long) null,
+                                                true,
+                                                new byte[] {1, 2},
+                                                null))
+                                .build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "test");
+        CsvDeserializationSchema schema =
+                CsvDeserializationSchema.builder()
+                        .seaTunnelRowType(catalogTable.getSeaTunnelRowType())
+                        .setCatalogTable(catalogTable)
+                        .build();
+        mapDefault.clear();
+        rowDefault.clear();
+
+        SeaTunnelRow first = schema.getSeaTunnelRow(Collections.emptyMap());
+        ((Integer[][]) first.getField(0))[0][0] = 99;
+        ((Map<?, ?>) first.getField(1)).clear();
+        ((Integer[]) ((SeaTunnelRow) first.getField(2)).getField(0))[0] = 99;
+        ((byte[]) first.getField(3))[0] = 99;
+
+        for (CsvDeserializationSchema copy :
+                new CsvDeserializationSchema[] {schema, roundTrip(schema)}) {
+            SeaTunnelRow second = copy.getSeaTunnelRow(Collections.emptyMap());
+            Assertions.assertEquals(1, ((Integer[][]) second.getField(0))[0][0]);
+            Assertions.assertEquals(3, ((Map<?, ?>) second.getField(1)).get("count"));
+            Assertions.assertEquals(
+                    4, ((Integer[]) ((SeaTunnelRow) second.getField(2)).getField(0))[0]);
+            Assertions.assertArrayEquals(new byte[] {1, 2}, (byte[]) second.getField(3));
         }
     }
 

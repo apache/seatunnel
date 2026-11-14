@@ -16,6 +16,7 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.http;
 
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -38,9 +39,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -246,5 +250,35 @@ public class HttpSourceReaderInternalPollNextTest {
     @AfterEach
     public void tearDown() throws Exception {
         mock.close();
+    }
+
+    /**
+     * The response body reaches the format deserializer as bytes, and those bytes must always be
+     * UTF-8: the format deserializers decode with UTF-8, so encoding the body with the JVM default
+     * charset corrupts non-ASCII values whenever that default is not UTF-8 (the Windows CI legs run
+     * JDK 8/11, whose default charset is Cp1252).
+     */
+    @Test
+    public void testResponseBodyIsCollectedAsUtf8RegardlessOfDefaultCharset() throws Exception {
+        String body = "[{\"key1\":\"\u4e2d\u6587\u503c\",\"key2\":\"v2\"}]";
+        when(httpClientProvider.execute(
+                        anyString(), anyString(), any(), any(), any(), anyBoolean()))
+                .thenReturn(new HttpResponse(200, body));
+
+        DeserializationSchema<SeaTunnelRow> schema = Mockito.mock(DeserializationSchema.class);
+        HttpSourceReader reader =
+                new HttpSourceReader(httpParameter, context, schema, null, null, null);
+        reader.open();
+        reader.setHttpClient(httpClientProvider);
+
+        reader.internalPollNext(collector);
+
+        ArgumentCaptor<byte[]> message = ArgumentCaptor.forClass(byte[].class);
+        verify(schema).deserialize(message.capture());
+        Assertions.assertEquals(
+                body,
+                new String(message.getValue(), StandardCharsets.UTF_8),
+                "the response body must reach the deserializer as UTF-8 bytes");
+        reader.close();
     }
 }

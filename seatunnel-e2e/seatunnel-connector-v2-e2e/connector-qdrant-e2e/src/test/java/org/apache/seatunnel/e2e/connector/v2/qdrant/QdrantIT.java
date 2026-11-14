@@ -36,6 +36,7 @@ import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.QdrantGrpcClient;
 import io.qdrant.client.grpc.Collections;
+import io.qdrant.client.grpc.JsonWithInt;
 import io.qdrant.client.grpc.Points;
 import lombok.extern.slf4j.Slf4j;
 
@@ -64,6 +65,7 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
     private static final String AUTH_API_KEY = "seatunnel-test-key";
     private static final String SOURCE_COLLECTION = "source_collection";
     private static final String SINK_COLLECTION = "sink_collection";
+    private static final String NUMERIC_PAYLOAD_COLLECTION = "numeric_payload_collection";
     /**
      * Fixed Qdrant at v1.15.0 for stability; upgrading to v1.17.0+ requires ensuring the SeaTunnel
      * Qdrant connector is compatible with the latest breaking changes.
@@ -110,6 +112,16 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
     private void initSourceData(QdrantClient client) throws Exception {
         client.createCollectionAsync(
                         SOURCE_COLLECTION,
+                        ImmutableMap.of(
+                                "my_vector",
+                                Collections.VectorParams.newBuilder()
+                                        .setSize(4)
+                                        .setDistance(Collections.Distance.Cosine)
+                                        .build()))
+                .get();
+
+        client.createCollectionAsync(
+                        NUMERIC_PAYLOAD_COLLECTION,
                         ImmutableMap.of(
                                 "my_vector",
                                 Collections.VectorParams.newBuilder()
@@ -170,5 +182,45 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/qdrant-auth-to-qdrant.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(10, authenticatedClient.countAsync(SINK_COLLECTION).get());
+    }
+
+    /**
+     * Numeric payloads must keep the shape their declared SeaTunnel type maps to: BIGINT becomes a
+     * Qdrant integer and FLOAT/DOUBLE become Qdrant doubles. Before the fix the sink parsed every
+     * numeric payload with the wrong primitive parser, so any fractional double failed the job with
+     * a NumberFormatException and a BIGINT above the int range failed as well.
+     */
+    @TestTemplate
+    public void testQdrantNumericPayload(TestContainer container)
+            throws IOException, InterruptedException, ExecutionException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_qdrant_numeric_payload.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        Assertions.assertEquals(5, qdrantClient.countAsync(NUMERIC_PAYLOAD_COLLECTION).get());
+
+        Points.ScrollResponse response =
+                qdrantClient
+                        .scrollAsync(
+                                Points.ScrollPoints.newBuilder()
+                                        .setCollectionName(NUMERIC_PAYLOAD_COLLECTION)
+                                        .setLimit(10)
+                                        .build())
+                        .get();
+        List<Points.RetrievedPoint> points = response.getResultList();
+        Assertions.assertEquals(5, points.size());
+        for (Points.RetrievedPoint point : points) {
+            Assertions.assertEquals(
+                    JsonWithInt.Value.KindCase.INTEGER_VALUE,
+                    point.getPayloadOrThrow("id").getKindCase(),
+                    "BIGINT payload must be stored as a Qdrant integer");
+            Assertions.assertEquals(
+                    JsonWithInt.Value.KindCase.DOUBLE_VALUE,
+                    point.getPayloadOrThrow("score").getKindCase(),
+                    "DOUBLE payload must be stored as a Qdrant double");
+            Assertions.assertEquals(
+                    JsonWithInt.Value.KindCase.DOUBLE_VALUE,
+                    point.getPayloadOrThrow("ratio").getKindCase(),
+                    "FLOAT payload must be stored as a Qdrant double");
+        }
     }
 }

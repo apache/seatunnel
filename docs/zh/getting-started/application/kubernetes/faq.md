@@ -71,5 +71,5 @@ Job 会一直处于 `Active`，`status --wait` 会持续轮询；可以用 `--wa
 - 私有镜像凭据通过 ServiceAccount 或集群配置管理。
 - 限制 application Secret 的读取权限；集群安全策略要求时，为 Kubernetes Secret 启用静态加密。
 - 不在日志中暴露 Connector 凭据，优先使用 Connector、文件系统或集群支持的凭据机制。
-- 将 `kubernetes.kubeconfig` 写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认配置。不要通过 `-i` 传递，因为提交主机上的其他用户可能看到命令行参数。
+- 将 `kubernetes.kubeconfig` 写入权限受限的部署配置文件，或使用 Kubernetes SDK 默认配置。不要通过 `-D` 传递，因为提交主机上的其他用户可能看到命令行参数。
 - 使用 NetworkPolicy 时仅放行需要的 Hazelcast 与外部数据系统流量。

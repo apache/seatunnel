@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ### 适用于SeaTunnel Zeta引擎
 
-1. 您必须确保在`${SEATUNNEL_HOME}/lib/`目录中有`seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`、`aliyun-sdk-oss-3.4.1.jar`、`hadoop-aliyun-3.1.4.jar`和`jdom-1.1.jar`。
+1. 使用发行包自带的 `seatunnel-shade-hadoop3-uber-*.jar`，并将 `aliyun-sdk-oss-3.4.1.jar`、`hadoop-aliyun-3.1.4.jar` 和 `jdom-1.1.jar` 添加到 `${SEATUNNEL_HOME}/lib/` 目录。
 
 ## 关键特性
 

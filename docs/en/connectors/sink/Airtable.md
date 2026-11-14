@@ -28,6 +28,7 @@ Used to write data to Airtable.
 | request_interval_ms      | int     | No       | 220                    | Minimum interval in milliseconds between API requests. Default 220ms (to stay within Airtable's 5 requests/second limit). Must be `>= 0`. |
 | rate_limit_backoff_ms    | int     | No       | 30000                  | Base backoff time in milliseconds when receiving a 429 (rate limit) response. Default 30000ms. Must be `>= 0`. |
 | rate_limit_max_retries   | int     | No       | 3                      | Maximum number of retries after receiving a 429 response. Default 3. Must be `>= 0`. |
+| multi_table_sink_replica | int     | No       | 1                      | Number of sink writer replicas for each table in a multi-table job. |
 | common-options           |         | No       | -                      | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ## Usage Notes

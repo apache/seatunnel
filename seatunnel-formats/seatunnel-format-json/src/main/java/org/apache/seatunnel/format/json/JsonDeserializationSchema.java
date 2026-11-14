@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.CompositeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -109,9 +110,20 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         objectMapper.configure(JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature(), true);
     }
 
+    /**
+     * Checks whether a DECIMAL type is reachable from {@code dataType}, so that floating-point JSON
+     * numbers can be parsed as {@link java.math.BigDecimal} and keep their precision.
+     *
+     * @param dataType declared type of a column or of a nested element/field
+     * @return true if {@code dataType} is DECIMAL or contains a DECIMAL somewhere below it
+     */
     private static boolean hasDecimalType(SeaTunnelDataType<?> dataType) {
         if (dataType.getSqlType() == SqlType.DECIMAL) {
             return true;
+        }
+        // ArrayType is not a CompositeType, so its elements have to be visited explicitly.
+        if (dataType instanceof ArrayType) {
+            return hasDecimalType(((ArrayType<?, ?>) dataType).getElementType());
         }
         if (dataType instanceof CompositeType) {
             CompositeType<?> compositeType = (CompositeType<?>) dataType;

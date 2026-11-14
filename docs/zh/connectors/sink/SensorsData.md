@@ -254,26 +254,26 @@ sink {
 
 ### 项目跟踪
 
+物品记录必须设置 `entity_name = items`。`entity_name` 的默认值是 `users`，在该默认值下
+`record_type = items` 会在写入器启动时以 `UNSUPPORTED_RECORD_TYPE` 报错。物品记录只使用
+`item_id_column`、`item_type_column`、`property_fields` 以及可选的 `time_column`；`schema`、
+`event_name`、`distinct_id_column`、`identity_fields` 等仅用于用户记录的参数无需配置。
+
 ```hocon
 sink {
   SensorsData {
     server_url = "http://10.1.136.63:8106/sa?project=default"
     time_free = true
 
+    entity_name = items
     record_type = items
-    schema = items
-    event_name = "$ItemViewed"
+    item_id_column = product_id
+    item_type_column = product_type
     time_column = view_time
-    distinct_id_column = user_id
-    identity_fields = [
-      { source = user_id, target = "$identity_login_id" }
-    ]
     property_fields = [
       { target = "view_duration", source = duration, type = INT }
       { target = "referrer", source = referrer_url, type = STRING }
     ]
-    item_id_column = product_id
-    item_type_column = product_type
   }
 }
 ```
@@ -340,6 +340,9 @@ sink {
 
 ### 控制台输出（用于测试）
 
+这里 `entity_name` 保持默认值 `users`，因此和其他用户记录示例一样必须配置 `identity_fields`；
+缺少该参数时作业会在参数校验阶段失败。
+
 ```hocon
 sink {
   SensorsData {
@@ -350,6 +353,9 @@ sink {
     event_name = "$TestEvent"
     time_column = timestamp
     distinct_id_column = test_id
+    identity_fields = [
+      { source = test_id, target = "$identity_distinct_id" }
+    ]
     property_fields = [
       { target = "test", source = test_field, type = STRING }
     ]

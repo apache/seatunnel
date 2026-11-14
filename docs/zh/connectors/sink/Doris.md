@@ -115,7 +115,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 默认模板：
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
 ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
@@ -133,7 +133,7 @@ DISTRIBUTED BY HASH (${rowtype_primary_key})
 如果模板中填写了自定义字段，例如添加 id 字段
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}`
 (   
     id,
     ${rowtype_fields}
@@ -699,7 +699,8 @@ Doris 通过 Stream Load label 去重，防止重复提交。开启 2PC 后重�
 
 ### Doris Stream Load 使用什么数据格式？
 
-默认使用 JSON 格式，可按需显式配置：
+Doris Sink 必须在 `doris.config` 中显式配置 Stream Load 的 `format`（`json` 或 `csv`）；
+该项没有默认值，缺少时作业会启动失败：
 
 ```hocon
 doris.config {

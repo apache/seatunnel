@@ -76,6 +76,8 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_TABLE = "source_table";
     private static final String SINK_TABLE = "sink_table";
     private static final String INSERT_SQL = "insert_sql";
+    private static final String TYPE_MAPPING_TABLE = "type_mapping_table";
+    private static final String TYPE_MAPPING_INSERT_SQL = "type_mapping_insert_sql";
     private static final Config CONFIG = getInitDatabendConfig();
     private DatabendContainer container;
     private GenericContainer<?> minioContainer;
@@ -129,6 +131,20 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
     public void testDatabendSource(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/databend/databend_source.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    /**
+     * Reads a table holding a DECIMAL(10, 2) column with no schema declared in the job, so the
+     * column type comes from DatabendCatalog. Databend reports the type with its precision and
+     * scale attached, which the catalog used to resolve to STRING. The Assert sink checks that the
+     * column is a decimal(10, 2) holding 1234.56.
+     */
+    @TestTemplate
+    public void testDatabendTypeMapping(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/databend/databend_type_mapping.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -383,7 +399,9 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
                     "INSERT INTO source_table (name, age, score) VALUES ('Charlie', 35, 92.5)";
             stmt.execute(sql3);
 
-            LOG.info("Successfully inserted 3 test records");
+            stmt.execute(CONFIG.getString(TYPE_MAPPING_INSERT_SQL));
+
+            LOG.info("Successfully inserted 3 test records and 1 type mapping record");
         } catch (SQLException e) {
             LOG.error("Failed to insert test data", e);
             throw new RuntimeException("Failed to insert test data", e);
@@ -408,6 +426,7 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
                 Statement statement = connection.createStatement(); ) {
             statement.execute(CONFIG.getString(SOURCE_TABLE));
             statement.execute(CONFIG.getString(SINK_TABLE));
+            statement.execute(CONFIG.getString(TYPE_MAPPING_TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Databend tables failed!", e);
         }
@@ -435,7 +454,9 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
         Config config = ConfigFactory.parseFile(file);
         assert config.hasPath(SOURCE_TABLE)
                 && config.hasPath(SINK_TABLE)
-                && config.hasPath(INSERT_SQL);
+                && config.hasPath(INSERT_SQL)
+                && config.hasPath(TYPE_MAPPING_TABLE)
+                && config.hasPath(TYPE_MAPPING_INSERT_SQL);
         return config;
     }
 

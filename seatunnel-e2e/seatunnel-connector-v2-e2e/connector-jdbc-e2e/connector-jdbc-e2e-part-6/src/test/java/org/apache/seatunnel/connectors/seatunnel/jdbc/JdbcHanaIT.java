@@ -22,12 +22,17 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana.SapHanaDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana.SapHanaTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.FieldNamedPreparedStatement;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -39,6 +44,8 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.SneakyThrows;
 
 import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -300,5 +307,130 @@ public class JdbcHanaIT extends AbstractJdbcIT {
         Assertions.assertEquals(
                 1, catalogTable.getTableSchema().getPrimaryKey().getColumnNames().size());
         Assertions.assertEquals(25, catalogTable.getTableSchema().getColumns().size());
+    }
+
+    @Test
+    void testAliasFreeMergeWithSchemaAndCompositeKey() throws Exception {
+        SapHanaDialect dialect = new SapHanaDialect();
+        String tableName = "MERGE_ALIAS_PAYLOAD";
+        String table = dialect.tableIdentifier(DATABASE, tableName);
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "PAYLOAD", BasicType.STRING_TYPE, 20L, true, null, null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "PART", BasicType.INT_TYPE, 0L, false, null, null))
+                        .column(PhysicalColumn.of("ID", BasicType.INT_TYPE, 0L, false, null, null))
+                        .build();
+        try (Statement ddl = connection.createStatement()) {
+            ddl.execute(
+                    "CREATE TABLE "
+                            + table
+                            + " (ID INT, PART INT, PAYLOAD NVARCHAR(20), "
+                            + "KEEP_VALUE INT DEFAULT 7, PRIMARY KEY (ID, PART))");
+            try {
+                ddl.execute("INSERT INTO " + table + " VALUES (90, 90, 'keep', 9)");
+                String merge =
+                        dialect.getUpsertStatement(
+                                        DATABASE,
+                                        tableName,
+                                        schema.getFieldNames(),
+                                        new String[] {"ID", "PART"})
+                                .get();
+                try (PreparedStatement statement =
+                        FieldNamedPreparedStatement.prepareStatement(
+                                connection, merge, schema.getFieldNames())) {
+                    for (String payload : new String[] {"old", "new", null, "", ""}) {
+                        dialect.getRowConverter()
+                                .toExternal(
+                                        schema,
+                                        null,
+                                        new SeaTunnelRow(new Object[] {payload, 2, 1}),
+                                        statement);
+                        statement.executeUpdate();
+                        try (ResultSet row =
+                                ddl.executeQuery(
+                                        "SELECT PAYLOAD, KEEP_VALUE FROM "
+                                                + table
+                                                + " WHERE ID = 1 AND PART = 2")) {
+                            Assertions.assertTrue(row.next());
+                            Assertions.assertEquals(payload, row.getString(1));
+                            Assertions.assertEquals(7, row.getInt(2));
+                            Assertions.assertFalse(row.next());
+                        }
+                    }
+                }
+                try (ResultSet row =
+                        ddl.executeQuery(
+                                "SELECT ID, PART, PAYLOAD, KEEP_VALUE FROM "
+                                        + table
+                                        + " ORDER BY ID")) {
+                    Assertions.assertTrue(row.next());
+                    Assertions.assertEquals(1, row.getInt(1));
+                    Assertions.assertTrue(row.next());
+                    Assertions.assertEquals(90, row.getInt(1));
+                    Assertions.assertEquals(90, row.getInt(2));
+                    Assertions.assertEquals("keep", row.getString(3));
+                    Assertions.assertEquals(9, row.getInt(4));
+                    Assertions.assertFalse(row.next());
+                }
+            } finally {
+                ddl.execute("DROP TABLE " + table);
+                connection.commit();
+            }
+        }
+    }
+
+    @Test
+    void testAliasFreeMergeForSingleAndCompositeAllKeyTables() throws Exception {
+        SapHanaDialect dialect = new SapHanaDialect();
+        for (boolean composite : new boolean[] {false, true}) {
+            String tableName = composite ? "MERGE_ALIAS_COMPOSITE" : "MERGE_ALIAS_SINGLE";
+            String table = dialect.tableIdentifier(DATABASE, tableName);
+            String[] fields = composite ? new String[] {"ID", "PART"} : new String[] {"ID"};
+            try (Statement ddl = connection.createStatement()) {
+                ddl.execute(
+                        "CREATE TABLE "
+                                + table
+                                + (composite
+                                        ? " (ID INT, PART INT, PRIMARY KEY (ID, PART))"
+                                        : " (ID INT PRIMARY KEY)"));
+                try {
+                    String merge =
+                            dialect.getUpsertStatement(DATABASE, tableName, fields, fields).get();
+                    try (PreparedStatement statement =
+                            FieldNamedPreparedStatement.prepareStatement(
+                                    connection, merge, fields)) {
+                        for (int value : new int[] {1, 2, 1}) {
+                            statement.setInt(1, composite ? 1 : value);
+                            if (composite) {
+                                statement.setInt(2, value);
+                            }
+                            statement.executeUpdate();
+                        }
+                    }
+                    try (ResultSet rows =
+                            ddl.executeQuery(
+                                    "SELECT * FROM "
+                                            + table
+                                            + " ORDER BY "
+                                            + (composite ? "PART" : "ID"))) {
+                        for (int value : new int[] {1, 2}) {
+                            Assertions.assertTrue(rows.next());
+                            Assertions.assertEquals(composite ? 1 : value, rows.getInt(1));
+                            if (composite) {
+                                Assertions.assertEquals(value, rows.getInt(2));
+                            }
+                        }
+                        Assertions.assertFalse(rows.next());
+                    }
+                } finally {
+                    ddl.execute("DROP TABLE " + table);
+                    connection.commit();
+                }
+            }
+        }
     }
 }

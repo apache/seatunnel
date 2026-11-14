@@ -31,7 +31,7 @@ Write data to Greenplum using the [Jdbc connector](Jdbc.md). Greenplum uses the 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -45,6 +45,30 @@ Greenplum sink does not support exactly-once semantics because XA transaction is
 |------------|--------|-----|-------|
 | Greenplum by PostgreSQL driver | `org.postgresql.Driver` | `jdbc:postgresql://localhost:5432/testdb` | [Download](https://mvnrepository.com/artifact/org.postgresql/postgresql) |
 | Greenplum native driver | `com.pivotal.jdbc.GreenplumDriver` | `jdbc:pivotal:greenplum://localhost:5432;DatabaseName=testdb` | Download from Greenplum |
+
+## Data Type Mapping
+
+Greenplum reuses the PostgreSQL JDBC driver mapping. The table below lists the commonly used types:
+
+| SeaTunnel Data Type | Greenplum Data Type |
+|---------------------|---------------------|
+| BOOLEAN | BOOLEAN |
+| TINYINT / SMALLINT | SMALLINT |
+| INT | INTEGER |
+| BIGINT | BIGINT |
+| FLOAT | REAL |
+| DOUBLE | DOUBLE PRECISION |
+| DECIMAL(p, s) | NUMERIC(p, s) |
+| STRING | TEXT (VARCHAR(n) when a column length is set) |
+| DATE | DATE |
+| TIME | TIME(p) |
+| TIMESTAMP | TIMESTAMP(p) |
+| TIMESTAMP_TZ | TIMESTAMPTZ(p) |
+| BYTES | BYTEA |
+
+The table above lists the sink direction (`PostgresTypeConverter.reconvert`). A `DECIMAL` column is
+written as `NUMERIC(p, s)`; the `MONEY` type is only produced when the column's source type was
+already `money`, so a plain `DECIMAL(30,2)` column lands as `NUMERIC(30,2)`, not `MONEY`.
 
 ## Options
 

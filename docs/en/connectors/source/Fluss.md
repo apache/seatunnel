@@ -88,7 +88,7 @@ Fluss databases or tables. The table schema is read automatically from the Fluss
 | database | string | yes | - | The Fluss database to read from. |
 | table | string | yes | - | The Fluss table to read from. |
 | client.config | map | no | - | Extra Fluss client options passed to the Fluss connection. |
-| start_mode | string | no | earliest | The offset each bucket starts reading from: `earliest` (whole log) or `latest` (only records appended after the job starts). `latest` is rejected in `BATCH` mode. |
+| start_mode | enum | no | earliest | The offset each bucket starts reading from: `earliest` (whole log) or `latest` (only records appended after the job starts). `latest` is rejected in `BATCH` mode. |
 | poll.timeout.ms | long | no | 10000 | The maximum time, in milliseconds, to block in a single Fluss log scanner poll. |
 | common-options | - | no | - | Source common options. See [Source Common Options](../common-options/source-common-options.md). |
 

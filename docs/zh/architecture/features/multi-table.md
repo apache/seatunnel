@@ -516,4 +516,15 @@ if (table.getWriteRate() > threshold) {
 
 ## 14. 参考资料
 
+### 关键源码文件
+
+- [MultiTableSink.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/multitablesink/MultiTableSink.java)
+- [SinkIdentifier.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/multitablesink/SinkIdentifier.java)
+- [TablePath.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/TablePath.java)
+
+### 示例实现
+
+- MySQL CDC Source：`seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql/`
+- JDBC Sink：`seatunnel-connectors-v2/connector-jdbc/`
+
 如需进一步了解 Schema、Sink 语义与 DAG 执行，请从“相关资源”章节继续阅读。

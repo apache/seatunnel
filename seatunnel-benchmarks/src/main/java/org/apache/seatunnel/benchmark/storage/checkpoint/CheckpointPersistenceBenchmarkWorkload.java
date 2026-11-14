@@ -77,13 +77,16 @@ public class CheckpointPersistenceBenchmarkWorkload {
         }
     }
 
-    /** Validates all three durable effects outside measured time, then removes the fixed phase. */
+    /**
+     * Validates durable checkpoint state and the overview kept in memory outside measured time,
+     * then removes the fixed phase.
+     */
     @TearDown(Level.Iteration)
     public void validateAndCleanIteration() throws Exception {
         try {
             requireCompletedInvocation();
             fixture.reloadCounterSamples(operations);
-            fixture.reloadOverviewSamples(operations);
+            // Checkpoint overviews are not persisted, so validate them without evicting them.
             for (int index = 0; index < CHECKPOINT_OPERATIONS_PER_INVOCATION; index++) {
                 fixture.validateCounter(operations[index], allocatedCheckpointIds[index]);
                 fixture.validateStoredCheckpoint(operations[index]);

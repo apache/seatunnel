@@ -49,6 +49,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -221,7 +222,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         // e.g. tinyint(1) unsigned
         String columnType = resultSet.getString("COLUMN_TYPE");
         // e.g. tinyint
-        String dataType = resultSet.getString("DATA_TYPE").toUpperCase();
+        String dataType = resultSet.getString("DATA_TYPE").toUpperCase(Locale.ROOT);
         String comment = resultSet.getString("COLUMN_COMMENT");
         Object defaultValue = resultSet.getObject("COLUMN_DEFAULT");
         String isNullableStr = resultSet.getString("IS_NULLABLE");

@@ -241,7 +241,7 @@ Workflow 会在同一个 Worker 上按以下顺序交替运行，降低机器状
 Baseline → Candidate → Candidate → Baseline
 ```
 
-Java 8 和 Java 11 分别执行这组对比，报告汇总每个版本的两轮结果。
+Java 11 和 Java 17 分别执行这组对比，报告汇总每个版本的两轮结果。
 
 运行完成后，确认 Job 已执行到 JMH 测量，并核对 Summary 中的 SHA、方法和参数。各字段及
 变化公式见[对比报告指标](#对比报告指标)；结论不明确时应重新运行。原始 JMH JSON、标准化

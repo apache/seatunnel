@@ -183,7 +183,7 @@ sequenceDiagram
 **契约要点**：
 - `commit(commitInfos)`：对一批提交信息执行提交；必须支持重试，因此要求幂等
 - 返回值语义：返回“仍需重试/未完成”的提交信息集合（框架会在后续 checkpoint 或恢复路径中重试）
-- `abort(commitInfos)`（可选）：放弃提交并做资源清理（例如回滚事务、删除临时文件）
+- `abort(commitInfos)`：放弃提交并做资源清理（例如回滚事务、删除临时文件）。这是抽象方法，每个 committer 都必须实现；Spark 在写入任务中止时调用，SeaTunnel Engine 在 checkpoint 中止时调用
 
 **关键要求**：
 - `commit()` **必须**是幂等的（使用相同的 commitInfo 调用两次应该是安全的）

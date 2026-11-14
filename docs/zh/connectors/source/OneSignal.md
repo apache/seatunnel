@@ -15,7 +15,7 @@ OneSignal 源连接器用于从 OneSignal 的 REST API 读取数据。它基于 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行性](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
 
@@ -125,6 +125,10 @@ source {
   }
 }
 ```
+
+> 注意：HTTP source 的 `pageing` 选项每次请求只会把页码加 1，无法表达步长。OneSignal 的 `offset`
+是记录偏移量而不是页码——与 `pageing` 组合会请求到相互重叠的窗口（offset 0、1、2……），因此上面的示例
+改为单次请求。
 
 ### 通过 JSONPath 抽取字段
 

@@ -176,24 +176,16 @@ seatunnel:
 
 Master 节点负责 IMap 状态存储。生产环境建议启用 MapStore，并将数据写入共享存储或对象存储。分离集群模式下只需要在 `hazelcast-master.yaml` 中配置 MapStore，Worker 不需要配置。
 
-MapStore 使用 `FileMapStoreFactory`。其中 `type: hdfs` 是 IMap 文件存储工厂的标识，使用 S3 或 OSS 时也保持不变；真正的底层存储由 `storage.type` 决定，当前支持 `hdfs`、`s3` 和 `oss`。
+MapStore 使用 `FileMapStoreFactory`。其中 `type: hdfs` 是 IMap 文件存储工厂的标识，使用 S3、OSS 或 GCS 时也保持不变；真正的底层存储由 `storage.type` 决定，当前支持 `hdfs`、`s3`、`oss` 和 `gcs`。
 
 ### Checkpoint Monitor MapStore
 
-如果不希望持久化 checkpoint monitor 数据，可以为 `engine_checkpoint_monitor` 添加显式覆盖：
-
-```yaml
-hazelcast:
-  map:
-    engine_checkpoint_monitor:
-      map-store:
-        enabled: false
-```
+即使 `engine*` 启用了 MapStore，`engine_checkpoint_monitor` 也不会写入 MapStore，因此无需为它添加覆盖。
 
 :::info 说明
 这个 IMap 存储的是 REST API 和 UI 观测使用的 checkpoint overview/history 数据，并不是用于恢复的权威 checkpoint 状态。真正的 checkpoint 恢复状态由 `seatunnel.engine.checkpoint.storage` 写入 HDFS、S3、OSS 或其他已配置的 checkpoint 存储后端。
 
-这个覆盖是可选的。需要避免持久化仅用于观测的数据、减少 MapStore/WAL 写放大时可以使用；如果希望 checkpoint monitor 的 overview/history 与其他 `engine*` IMap 使用相同的 MapStore 配置，可以不添加该覆盖。
+与 `engine_runningJobMetrics` 一样，它被排除在 MapStore 持久化之外，以避免 MapStore/WAL 写放大。所有节点重启后，checkpoint overview/history 会从下一次 checkpoint 开始重新记录。已有的 `enabled: false` 的 `engine_checkpoint_monitor` 覆盖不再需要，可以删除。
 :::
 
 ### HDFS

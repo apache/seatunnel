@@ -380,6 +380,53 @@ IoTDB> DESC "test_database"."0700HK";
 +-----------+---------+-------+
 ```
 
+#### 案例 4：同时组合 TAG、ATTRIBUTE 和 FIELD 列
+
+本案例一次性配置全部三类列：TAG 列用于高基数的可过滤元数据，ATTRIBUTE 列用于低基数的画像类元数据，FIELD 列显式指定度量值。要完成一次完整标记的 IoTDB table 写入，这三类都需要配置。
+
+```hocon
+sink {
+  IoTDBv2 {
+    node_urls = ["localhost:6667"]
+    username = "root"
+    password = "root"
+    sql_dialect = "table"
+    storage_group = "test_database"
+    key_device = "region"
+    key_timestamp = "ts"
+    key_tag_fields = ["tag"]
+    key_attribute_fields = ["model_id"]
+    key_measurement_fields = ["status", "arrival_date", "temperature"]
+  }
+}
+```
+
+IoTDB 的输出数据格式如下：
+
+```shell
+IoTDB> SELECT * FROM "test_database"."0700HK";
++-----------------------------+----+--------+------+------------+-----------+
+|                         time| tag|model_id|status|arrival_date|temperature|
++-----------------------------+----+--------+------+------------+-----------+
+|2025-07-30T17:52:34.851+08:00|tag1|     id1|  true|  2024-11-12|       4.34|
+|2025-07-29T17:51:34.851+08:00|tag2|     id2| false|  2024-12-01|       5.54|
+|2025-07-28T17:50:34.851+08:00|tag3|     id3| false|  2024-12-22|       7.34|
++-----------------------------+----+--------+------+------------+-----------+
+```
+```shell
+IoTDB> DESC "test_database"."0700HK";
++-------------+---------+---------+
+|    ColumnName| DataType| Category|
++-------------+---------+---------+
+|         time|TIMESTAMP|     TIME|
+|          tag|   STRING|      TAG|
+|     model_id|   STRING|ATTRIBUTE|
+|       status|  BOOLEAN|    FIELD|
+| arrival_date|     DATE|    FIELD|
+|  temperature|   DOUBLE|    FIELD|
++-------------+---------+---------+
+```
+
 ## 变更日志
 
 <ChangeLog />

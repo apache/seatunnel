@@ -72,55 +72,67 @@ Read the rest of this page when you want the combined view of shared translation
 
 ### 2.1 FlinkSource Adapter
 
-Adapts `SeaTunnelSource` to Flink's `Source` interface.
+Adapts `SeaTunnelSource` to Flink's `Source` interface. The Flink-side record type is always
+`SeaTunnelRow`, splits are wrapped in `SplitWrapper`, and the enumerator state type is passed to
+Flink as is.
 
 ```java
-public class FlinkSource<T, SplitT extends SourceSplit, StateT>
-    implements Source<T, SplitWrapper<SplitT>, EnumeratorStateWrapper<StateT>> {
+public class FlinkSource<SplitT extends SourceSplit, EnumStateT extends Serializable>
+    implements Source<SeaTunnelRow, SplitWrapper<SplitT>, EnumStateT>,
+        ResultTypeQueryable<SeaTunnelRow> {
 
     // Wrapped SeaTunnel source
-    private final SeaTunnelSource<T, SplitT, StateT> seaTunnelSource;
+    private final SeaTunnelSource<SeaTunnelRow, SplitT, EnumStateT> source;
+    private final Config envConfig;
 
     @Override
     public Boundedness getBoundedness() {
         // Delegate to SeaTunnel source
-        return seaTunnelSource.getBoundedness() == Boundedness.BOUNDED
+        return source.getBoundedness() == org.apache.seatunnel.api.source.Boundedness.BOUNDED
             ? Boundedness.BOUNDED
             : Boundedness.CONTINUOUS_UNBOUNDED;
     }
 
     @Override
-    public SourceReader<T, SplitWrapper<SplitT>> createReader(
+    public SourceReader<SeaTunnelRow, SplitWrapper<SplitT>> createReader(
         SourceReaderContext readerContext
-    ) {
+    ) throws Exception {
         // Create SeaTunnel reader with adapted context
-        org.apache.seatunnel.api.source.SourceReader<T, SplitT> seaTunnelReader =
-            seaTunnelSource.createReader(new FlinkSourceReaderContext(readerContext));
+        org.apache.seatunnel.api.source.SourceReader.Context context =
+            new FlinkSourceReaderContext(readerContext, source);
+        org.apache.seatunnel.api.source.SourceReader<SeaTunnelRow, SplitT> reader =
+            source.createReader(context);
 
         // Wrap in Flink adapter
-        return new FlinkSourceReader<>(seaTunnelReader, readerContext);
+        return new FlinkSourceReader<>(reader, context, envConfig);
     }
 
     @Override
-    public SplitEnumerator<SplitWrapper<SplitT>, EnumeratorStateWrapper<StateT>>
-        createEnumerator(SplitEnumeratorContext<SplitWrapper<SplitT>> context) {
+    public SplitEnumerator<SplitWrapper<SplitT>, EnumStateT> createEnumerator(
+        SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext) throws Exception {
+
+        // Readers that were told "no more splits", re-signaled after a failover
+        Set<Integer> noMoreSplitsSignaledReaders = ConcurrentHashMap.newKeySet();
 
         // Create SeaTunnel enumerator with adapted context
-        SourceSplitEnumerator<SplitT, StateT> seaTunnelEnumerator =
-            seaTunnelSource.createEnumerator(
-                new FlinkSourceSplitEnumeratorContext<>(context)
-            );
+        SourceSplitEnumerator<SplitT, EnumStateT> enumerator =
+            source.createEnumerator(
+                new FlinkSourceSplitEnumeratorContext<>(
+                    enumContext, noMoreSplitsSignaledReaders::add));
 
         // Wrap in Flink adapter
-        return new FlinkSourceEnumerator<>(seaTunnelEnumerator, context);
+        return new FlinkSourceEnumerator<>(enumerator, enumContext, noMoreSplitsSignaledReaders);
     }
 
     @Override
     public SimpleVersionedSerializer<SplitWrapper<SplitT>> getSplitSerializer() {
         // Adapt SeaTunnel serializer to Flink serializer
-        return new FlinkSimpleVersionedSerializer<>(
-            seaTunnelSource.getSplitSerializer()
-        );
+        return new SplitWrapperSerializer<>(source.getSplitSerializer());
+    }
+
+    @Override
+    public SimpleVersionedSerializer<EnumStateT> getEnumeratorCheckpointSerializer() {
+        return new FlinkSimpleVersionedSerializer<>(source.getEnumeratorStateSerializer());
     }
 }
 ```
@@ -128,71 +140,63 @@ public class FlinkSource<T, SplitT extends SourceSplit, StateT>
 ### 2.2 FlinkSourceReader Adapter
 
 ```java
-public class FlinkSourceReader<T, SplitT extends SourceSplit>
-    implements SourceReader<T, SplitWrapper<SplitT>> {
+public class FlinkSourceReader<SplitT extends SourceSplit>
+    implements SourceReader<SeaTunnelRow, SplitWrapper<SplitT>> {
 
-    private final org.apache.seatunnel.api.source.SourceReader<T, SplitT> seaTunnelReader;
-    private final SourceReaderContext flinkContext;
+    private final org.apache.seatunnel.api.source.SourceReader<SeaTunnelRow, SplitT> sourceReader;
+    private final org.apache.seatunnel.api.source.SourceReader.Context context;
+
+    // Adapts Flink's ReaderOutput to SeaTunnel's Collector
+    private final FlinkRowCollector flinkRowCollector;
+
+    private InputStatus inputStatus = InputStatus.MORE_AVAILABLE;
 
     @Override
     public void start() {
         // Delegate to SeaTunnel reader
         try {
-            seaTunnelReader.open();
+            sourceReader.open();
         } catch (Exception e) {
-            throw new FlinkRuntimeException("Failed to open SeaTunnel reader", e);
+            throw new RuntimeException(e);
         }
     }
 
     @Override
-    public InputStatus pollNext(ReaderOutput<T> output) {
-        try {
-            // Adapt output collector
-            CollectorAdapter<T> collector = new CollectorAdapter<>(output);
+    public InputStatus pollNext(ReaderOutput<SeaTunnelRow> output) throws Exception {
+        // Poll from SeaTunnel reader through the adapted collector
+        sourceReader.pollNext(flinkRowCollector.withReaderOutput(output));
 
-            // Poll from SeaTunnel reader
-            seaTunnelReader.pollNext(collector);
-
-            if (collector.hasRecords()) {
-                return InputStatus.MORE_AVAILABLE;
-            } else {
-                return InputStatus.NOTHING_AVAILABLE;
-            }
-        } catch (Exception e) {
-            throw new FlinkRuntimeException("Failed to poll from SeaTunnel reader", e);
+        if (flinkRowCollector.isEmptyThisPollNext()) {
+            // Schedules the availability future to complete after a short wait
+            return InputStatus.NOTHING_AVAILABLE;
         }
+        // Switched to END_OF_INPUT once the enumerator relays NoMoreElementEvent back
+        return inputStatus;
     }
 
     @Override
     public void addSplits(List<SplitWrapper<SplitT>> splits) {
         // Unwrap and delegate
-        List<SplitT> unwrappedSplits = splits.stream()
-            .map(SplitWrapper::getSplit)
-            .collect(Collectors.toList());
-
-        seaTunnelReader.addSplits(unwrappedSplits);
+        sourceReader.addSplits(
+            splits.stream().map(SplitWrapper::getSourceSplit).collect(Collectors.toList()));
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-        try {
-            seaTunnelReader.notifyCheckpointComplete(checkpointId);
-        } catch (Exception e) {
-            throw new FlinkRuntimeException("Failed to notify checkpoint complete", e);
-        }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        sourceReader.notifyCheckpointComplete(checkpointId);
     }
 
     @Override
     public List<SplitWrapper<SplitT>> snapshotState(long checkpointId) {
         try {
-            List<SplitT> state = seaTunnelReader.snapshotState(checkpointId);
+            List<SplitT> state = sourceReader.snapshotState(checkpointId);
 
             // Wrap splits for Flink
             return state.stream()
                 .map(SplitWrapper::new)
                 .collect(Collectors.toList());
         } catch (Exception e) {
-            throw new FlinkRuntimeException("Failed to snapshot state", e);
+            throw new RuntimeException(e);
         }
     }
 }
@@ -201,51 +205,49 @@ public class FlinkSourceReader<T, SplitT extends SourceSplit>
 ### 2.3 FlinkSourceEnumerator Adapter
 
 ```java
-public class FlinkSourceEnumerator<SplitT extends SourceSplit, StateT>
-    implements SplitEnumerator<SplitWrapper<SplitT>, EnumeratorStateWrapper<StateT>> {
+public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
+    implements SplitEnumerator<SplitWrapper<SplitT>, EnumStateT> {
 
-    private final SourceSplitEnumerator<SplitT, StateT> seaTunnelEnumerator;
-    private final SplitEnumeratorContext<SplitWrapper<SplitT>> flinkContext;
+    private final SourceSplitEnumerator<SplitT, EnumStateT> sourceSplitEnumerator;
+    private final SplitEnumeratorContext<SplitWrapper<SplitT>> enumeratorContext;
 
     @Override
     public void start() {
-        try {
-            seaTunnelEnumerator.open();
-            seaTunnelEnumerator.run();
-        } catch (Exception e) {
-            throw new FlinkRuntimeException("Failed to start enumerator", e);
-        }
+        // Only opens the enumerator; run() is deferred until all readers have registered
+        sourceSplitEnumerator.open();
     }
 
     @Override
     public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {
         // Delegate to SeaTunnel enumerator
-        seaTunnelEnumerator.handleSplitRequest(subtaskId);
+        sourceSplitEnumerator.handleSplitRequest(subtaskId);
     }
 
     @Override
     public void addSplitsBack(List<SplitWrapper<SplitT>> splits, int subtaskId) {
         // Unwrap and delegate
         List<SplitT> unwrappedSplits = splits.stream()
-            .map(SplitWrapper::getSplit)
+            .map(SplitWrapper::getSourceSplit)
             .collect(Collectors.toList());
 
-        seaTunnelEnumerator.addSplitsBack(unwrappedSplits, subtaskId);
+        sourceSplitEnumerator.addSplitsBack(unwrappedSplits, subtaskId);
     }
 
     @Override
     public void addReader(int subtaskId) {
-        seaTunnelEnumerator.addReader(subtaskId);
+        sourceSplitEnumerator.registerReader(subtaskId);
+
+        // Once every reader (one per parallel subtask) has registered,
+        // run() is called a single time
+        if (allReadersRegistered()) {
+            sourceSplitEnumerator.run();
+        }
     }
 
     @Override
-    public EnumeratorStateWrapper<StateT> snapshotState(long checkpointId) {
-        try {
-            StateT state = seaTunnelEnumerator.snapshotState(checkpointId);
-            return new EnumeratorStateWrapper<>(state);
-        } catch (Exception e) {
-            throw new FlinkRuntimeException("Failed to snapshot enumerator state", e);
-        }
+    public EnumStateT snapshotState(long checkpointId) throws Exception {
+        // The SeaTunnel enumerator state is checkpointed directly
+        return sourceSplitEnumerator.snapshotState(checkpointId);
     }
 }
 ```
@@ -257,22 +259,22 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, StateT>
 public class FlinkSourceReaderContext
     implements org.apache.seatunnel.api.source.SourceReader.Context {
 
-    private final SourceReaderContext flinkContext;
+    private final SourceReaderContext readerContext;
 
     @Override
     public int getIndexOfSubtask() {
-        return flinkContext.getIndexOfThisSubtask();
+        return readerContext.getIndexOfSubtask();
     }
 
     @Override
     public void sendSplitRequest() {
-        // Flink automatically handles split requests
-        // No explicit API needed
+        // Forward the request to Flink's SourceReaderContext
+        readerContext.sendSplitRequest();
     }
 
     @Override
     public void sendSourceEventToEnumerator(SourceEvent event) {
-        flinkContext.sendSourceEventToCoordinator(
+        readerContext.sendSourceEventToCoordinator(
             new SourceEventWrapper(event)
         );
     }
@@ -322,44 +324,57 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
 
 ### 2.5 FlinkSink Adapter
 
+The snippet below follows `seatunnel-translation-flink-common` (Flink 1.x `Sink` API). Flink's
+committable and writer-state types are wrappers around the SeaTunnel types (`CommitWrapper`,
+`FlinkWriterState`), and the input record is a `SeaTunnelRow`. `seatunnel-translation-flink-20`
+implements Flink's sink2 interfaces (`SupportsCommitter`, `SupportsWriterState`) instead.
+
 ```java
-public class FlinkSink<IN, CommitInfoT, WriterStateT, AggregatedCommitInfoT>
-    implements Sink<IN, CommitInfoT, WriterStateT, AggregatedCommitInfoT> {
+public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
+    implements Sink<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>, GlobalCommT> {
 
-    private final SeaTunnelSink<IN, WriterStateT, CommitInfoT, AggregatedCommitInfoT> seaTunnelSink;
+    private final SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink;
+    private final int parallelism;
 
     @Override
-    public SinkWriter<IN, CommitInfoT, WriterStateT> createWriter(InitContext context) {
+    public SinkWriter<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>> createWriter(
+        Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states) throws IOException {
         // Create SeaTunnel writer with adapted context
-        org.apache.seatunnel.api.sink.SinkWriter<IN, CommitInfoT, WriterStateT> seaTunnelWriter =
-            seaTunnelSink.createWriter(new FlinkSinkWriterContext(context));
+        org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
+            new FlinkSinkWriterContext(context, parallelism);
 
-        // Wrap in Flink adapter
-        return new FlinkSinkWriter<>(seaTunnelWriter);
+        if (states == null || states.isEmpty()) {
+            return new FlinkSinkWriter<>(sink.createWriter(stContext), 1, stContext);
+        }
+        // Restore the SeaTunnel writer from the unwrapped states
+        List<WriterStateT> restoredState =
+            states.stream().map(FlinkWriterState::getState).collect(Collectors.toList());
+        return new FlinkSinkWriter<>(
+            sink.restoreWriter(stContext, restoredState),
+            states.get(0).getCheckpointId() + 1,
+            stContext);
     }
 
     @Override
-    public Optional<Committer<CommitInfoT>> createCommitter() {
-        return seaTunnelSink.createCommitter()
-            .map(FlinkCommitter::new);
+    public Optional<Committer<CommitWrapper<CommT>>> createCommitter() throws IOException {
+        return sink.createCommitter().map(FlinkCommitter::new);
     }
 
     @Override
-    public Optional<GlobalCommitter<CommitInfoT, AggregatedCommitInfoT>> createGlobalCommitter() {
-        return seaTunnelSink.createAggregatedCommitter()
-            .map(FlinkGlobalCommitter::new);
+    public Optional<GlobalCommitter<CommitWrapper<CommT>, GlobalCommT>> createGlobalCommitter()
+        throws IOException {
+        return sink.createAggregatedCommitter().map(FlinkGlobalCommitter::new);
     }
 
     @Override
-    public Optional<SimpleVersionedSerializer<CommitInfoT>> getCommittableSerializer() {
-        return seaTunnelSink.getCommitInfoSerializer()
-            .map(FlinkSimpleVersionedSerializer::new);
+    public Optional<SimpleVersionedSerializer<CommitWrapper<CommT>>> getCommittableSerializer() {
+        return sink.getCommitInfoSerializer().map(CommitWrapperSerializer::new);
     }
 
     @Override
-    public Optional<SimpleVersionedSerializer<WriterStateT>> getWriterStateSerializer() {
-        return seaTunnelSink.getWriterStateSerializer()
-            .map(FlinkSimpleVersionedSerializer::new);
+    public Optional<SimpleVersionedSerializer<FlinkWriterState<WriterStateT>>>
+        getWriterStateSerializer() {
+        return sink.getWriterStateSerializer().map(FlinkWriterStateSerializer::new);
     }
 }
 ```
@@ -367,33 +382,54 @@ public class FlinkSink<IN, CommitInfoT, WriterStateT, AggregatedCommitInfoT>
 ### 2.6 FlinkSinkWriter Adapter
 
 ```java
-public class FlinkSinkWriter<IN, CommitInfoT, WriterStateT>
-    implements SinkWriter<IN, CommitInfoT, WriterStateT> {
+public class FlinkSinkWriter<InputT, CommT, WriterStateT>
+    implements SinkWriter<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>> {
 
-    private final org.apache.seatunnel.api.sink.SinkWriter<IN, CommitInfoT, WriterStateT> seaTunnelWriter;
+    private final org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter;
     private long checkpointId;
+    private List<FlinkWriterState<WriterStateT>> pendingStates;
 
     @Override
-    public void write(IN element, Context context) throws IOException {
+    public void write(InputT element, Context context) throws IOException {
         // Delegate to SeaTunnel writer
-        seaTunnelWriter.write(element);
+        sinkWriter.write((SeaTunnelRow) element);
     }
 
     @Override
-    public List<CommitInfoT> prepareCommit(boolean flush) throws IOException {
-        Optional<CommitInfoT> commitInfo = seaTunnelWriter.prepareCommit(checkpointId);
-        return commitInfo.map(Collections::singletonList)
+    public List<CommitWrapper<CommT>> prepareCommit(boolean flush) throws IOException {
+        Optional<CommT> commitInfo = sinkWriter.prepareCommit(checkpointId);
+
+        // Snapshot the state for the same checkpoint right after prepareCommit
+        pendingStates = sinkWriter.snapshotState(checkpointId).stream()
+            .map(state -> new FlinkWriterState<>(checkpointId, state))
+            .collect(Collectors.toList());
+        checkpointId++;
+
+        return commitInfo.map(CommitWrapper::new)
+            .map(Collections::singletonList)
             .orElse(Collections.emptyList());
     }
 
     @Override
-    public List<WriterStateT> snapshotState(long checkpointId) throws IOException {
-        return seaTunnelWriter.snapshotState(checkpointId);
+    public List<FlinkWriterState<WriterStateT>> snapshotState() throws IOException {
+        // Flink's snapshotState() takes no checkpoint ID; return the states taken in prepareCommit
+        if (pendingStates != null) {
+            List<FlinkWriterState<WriterStateT>> states = pendingStates;
+            pendingStates = null;
+            return states;
+        }
+
+        // Without a preceding prepareCommit (e.g. sinks without 2PC), snapshot directly
+        List<FlinkWriterState<WriterStateT>> states = sinkWriter.snapshotState(checkpointId).stream()
+            .map(state -> new FlinkWriterState<>(checkpointId, state))
+            .collect(Collectors.toList());
+        checkpointId++;
+        return states;
     }
 
     @Override
     public void close() throws Exception {
-        seaTunnelWriter.close();
+        sinkWriter.close();
     }
 }
 ```
@@ -402,193 +438,169 @@ public class FlinkSinkWriter<IN, CommitInfoT, WriterStateT>
 
 Note: Spark 2.4 and Spark 3.x use different datasource APIs. SeaTunnel maintains separate Spark translation modules/adapters per Spark major version, so the exact adapter types and lifecycle hooks may differ.
 
-### 3.1 SparkSource Adapter
+### 3.1 Source Entry Point
 
-Adapts `SeaTunnelSource` to Spark's `DataSourceReader` interface.
+The snippets in this section follow the Spark 2.4 DataSourceV2 adapters in
+`seatunnel-translation-spark-2.4`. `SeaTunnelSourceSupport` (`DataSourceV2`, `ReadSupport`,
+`MicroBatchReadSupport`) creates a `BatchSourceReader` for batch jobs. In Spark 3.3 the
+equivalents are `SeaTunnelSparkSource` (`TableProvider`), `SeaTunnelScan`, `SeaTunnelBatch`,
+`SeaTunnelBatchInputPartition` and `SeaTunnelBatchPartitionReader`.
+
+Splits are not enumerated on the driver. `planInputPartitions()` creates one virtual partition per
+subtask (or a single partition for sources that implement `SupportCoordinate`), and each partition
+runs the SeaTunnel enumerator and reader inside its executor task.
 
 ```java
-public class SparkSource<T, SplitT extends SourceSplit, StateT>
-    implements DataSourceReader {
+public class BatchSourceReader implements DataSourceReader {
 
-    private final SeaTunnelSource<T, SplitT, StateT> seaTunnelSource;
+    private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
+    private final Integer parallelism;
+    // jobId, envOptions and multiTableManager fields omitted
 
     @Override
     public StructType readSchema() {
-        // Convert SeaTunnel schema to Spark schema
-        CatalogTable catalogTable = seaTunnelSource.getProducedCatalogTables().get(0);
-        return SparkTypeConverter.convert(catalogTable.getTableSchema());
+        // Spark schema converted from the produced CatalogTables
+        return multiTableManager.getTableSchema();
     }
 
     @Override
     public List<InputPartition<InternalRow>> planInputPartitions() {
-        // Create enumerator and generate splits
-        SourceSplitEnumerator<SplitT, StateT> enumerator =
-            seaTunnelSource.createEnumerator(new SparkEnumeratorContext());
-
-        try {
-            enumerator.open();
-            enumerator.run();
-
-            // Collect all splits
-            List<SplitT> splits = collectAllSplits(enumerator);
-
-            // Wrap each split as Spark InputPartition
-            return splits.stream()
-                .map(split -> new SparkInputPartition<>(seaTunnelSource, split))
-                .collect(Collectors.toList());
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to plan input partitions", e);
+        List<InputPartition<InternalRow>> virtualPartitions;
+        if (source instanceof SupportCoordinate) {
+            // One partition runs one enumerator and all readers
+            virtualPartitions = new ArrayList<>(1);
+            virtualPartitions.add(
+                new BatchPartition(source, parallelism, jobId, 0, envOptions, multiTableManager));
+        } else {
+            // One partition per subtask; each one runs its own enumerator and reader
+            virtualPartitions = new ArrayList<>(parallelism);
+            for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
+                virtualPartitions.add(
+                    new BatchPartition(
+                        source, parallelism, jobId, subtaskId, envOptions, multiTableManager));
+            }
         }
+        return virtualPartitions;
     }
 }
 ```
 
-### 3.2 SparkInputPartition
+### 3.2 BatchPartition
 
 ```java
-public class SparkInputPartition<T, SplitT extends SourceSplit>
-    implements InputPartition<InternalRow> {
+public class BatchPartition implements InputPartition<InternalRow> {
 
-    private final SeaTunnelSource<T, SplitT, ?> seaTunnelSource;
-    private final SplitT split;
+    private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
+    private final Integer subtaskId;
+    // parallelism, jobId, envOptions and multiTableManager fields omitted
 
     @Override
     public InputPartitionReader<InternalRow> createPartitionReader() {
-        // Create SeaTunnel reader
-        org.apache.seatunnel.api.source.SourceReader<T, SplitT> seaTunnelReader =
-            seaTunnelSource.createReader(new SparkReaderContext());
+        // ParallelBatchPartitionReader drives a ParallelSource (local enumerator + reader for this
+        // subtask); CoordinatedBatchPartitionReader drives a CoordinatedSource
+        ParallelBatchPartitionReader partitionReader =
+            source instanceof SupportCoordinate
+                ? new CoordinatedBatchPartitionReader(
+                    source, parallelism, jobId, subtaskId, envOptions, multiTableManager)
+                : new ParallelBatchPartitionReader(
+                    source, parallelism, jobId, subtaskId, envOptions, multiTableManager);
 
         // Wrap in Spark adapter
-        return new SparkPartitionReader<>(seaTunnelReader, split);
+        return new SeaTunnelInputPartitionReader(partitionReader);
     }
 }
 ```
 
-### 3.3 SparkPartitionReader
+### 3.3 SeaTunnelInputPartitionReader
 
 ```java
-public class SparkPartitionReader<T, SplitT extends SourceSplit>
-    implements InputPartitionReader<InternalRow> {
+public class SeaTunnelInputPartitionReader implements InputPartitionReader<InternalRow> {
 
-    private final org.apache.seatunnel.api.source.SourceReader<T, SplitT> seaTunnelReader;
-    private final Queue<InternalRow> buffer = new LinkedList<>();
-
-    public SparkPartitionReader(
-        org.apache.seatunnel.api.source.SourceReader<T, SplitT> reader,
-        SplitT split
-    ) {
-        this.seaTunnelReader = reader;
-
-        try {
-            seaTunnelReader.open();
-            seaTunnelReader.addSplits(Collections.singletonList(split));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to open reader", e);
-        }
-    }
+    private final ParallelBatchPartitionReader partitionReader;
 
     @Override
     public boolean next() throws IOException {
-        if (!buffer.isEmpty()) {
-            return true;
-        }
-
-        // Poll from SeaTunnel reader
+        // The partition reader polls the SeaTunnel reader in a background thread and hands
+        // rows over (already converted to InternalRow) through a queue
         try {
-            seaTunnelReader.pollNext(new Collector<T>() {
-                @Override
-                public void collect(T record) {
-                    // Convert to Spark InternalRow
-                    InternalRow row = SparkTypeConverter.convert(record);
-                    buffer.offer(row);
-                }
-            });
-
-            return !buffer.isEmpty();
-
+            return partitionReader.next();
         } catch (Exception e) {
-            throw new IOException("Failed to poll next", e);
+            throw new RuntimeException(e);
         }
     }
 
     @Override
     public InternalRow get() {
-        return buffer.poll();
+        return partitionReader.get();
     }
 
     @Override
     public void close() throws IOException {
-        try {
-            seaTunnelReader.close();
-        } catch (Exception e) {
-            throw new IOException("Failed to close reader", e);
-        }
+        partitionReader.close();
     }
 }
 ```
 
 ### 3.4 SparkSink Adapter
 
+`SparkSink` is the `WriteSupport` / `StreamWriteSupport` entry point; the commit logic lives in
+`SparkDataSourceWriter` (driver side) and `SparkDataWriter` (executor side). Each `SparkDataWriter`
+calls `prepareCommit` and the per-writer `SinkCommitter` inside `DataWriter#commit()`, and returns a
+`SparkWriterCommitMessage`. The driver then runs the `SinkAggregatedCommitter`:
+
 ```java
-public class SparkSink<IN, WriterStateT, CommitInfoT>
+public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
+    implements WriteSupport, StreamWriteSupport, DataSourceV2 {
+
+    @Override
+    public Optional<DataSourceWriter> createWriter(
+        String writeUUID, StructType schema, SaveMode mode, DataSourceOptions options) {
+        return Optional.of(new SparkDataSourceWriter<>(sink, catalogTables, jobId, parallelism));
+    }
+}
+
+public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
     implements DataSourceWriter {
 
-    private final SeaTunnelSink<IN, WriterStateT, CommitInfoT, ?> seaTunnelSink;
+    private final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter;
 
     @Override
     public DataWriterFactory<InternalRow> createWriterFactory() {
-        return new SparkDataWriterFactory<>(seaTunnelSink);
-    }
-
-    @Override
-    public boolean useCommitCoordinator() {
-        // Use commit coordinator if sink has committer
-        return seaTunnelSink.createCommitter().isPresent();
+        return new SparkDataWriterFactory<>(sink, catalogTables, jobId, parallelism);
     }
 
     @Override
     public void commit(WriterCommitMessage[] messages) {
-        Optional<SinkCommitter<CommitInfoT>> committerOpt = seaTunnelSink.createCommitter();
-
-        if (committerOpt.isPresent()) {
-            SinkCommitter<CommitInfoT> committer = committerOpt.get();
-
-            // Extract commit infos from messages
-            List<CommitInfoT> commitInfos = Arrays.stream(messages)
-                .map(msg -> ((SparkCommitMessage<CommitInfoT>) msg).getCommitInfo())
-                .collect(Collectors.toList());
-
-            // Commit
+        if (sinkAggregatedCommitter != null) {
             try {
-                List<CommitInfoT> failed = committer.commit(commitInfos);
-                if (!failed.isEmpty()) {
-                    throw new IOException("Some commits failed: " + failed);
-                }
+                sinkAggregatedCommitter.commit(combineCommitMessage(messages));
             } catch (IOException e) {
-                throw new RuntimeException("Failed to commit", e);
+                throw new RuntimeException("SinkAggregatedCommitter commit failed in driver", e);
             }
         }
     }
 
     @Override
     public void abort(WriterCommitMessage[] messages) {
-        // Handle abort
-        Optional<SinkCommitter<CommitInfoT>> committerOpt = seaTunnelSink.createCommitter();
-
-        if (committerOpt.isPresent()) {
-            SinkCommitter<CommitInfoT> committer = committerOpt.get();
-
-            List<CommitInfoT> commitInfos = Arrays.stream(messages)
-                .map(msg -> ((SparkCommitMessage<CommitInfoT>) msg).getCommitInfo())
-                .collect(Collectors.toList());
-
+        if (sinkAggregatedCommitter != null) {
             try {
-                committer.abort(commitInfos);
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to abort", e);
+                sinkAggregatedCommitter.abort(combineCommitMessage(messages));
+            } catch (Exception e) {
+                throw new RuntimeException("SinkAggregatedCommitter abort failed in driver", e);
             }
         }
+    }
+
+    private List<AggregatedCommitInfoT> combineCommitMessage(WriterCommitMessage[] messages) {
+        if (messages.length == 0) {
+            return Collections.emptyList();
+        }
+        // Extract commit infos from messages and combine them into one aggregated commit info
+        List<CommitInfoT> commitInfos = Arrays.stream(messages)
+            .map(m -> ((SparkWriterCommitMessage<CommitInfoT>) m).getMessage())
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+        return Collections.singletonList(sinkAggregatedCommitter.combine(commitInfos));
     }
 }
 ```
@@ -605,8 +617,8 @@ public class FlinkSimpleVersionedSerializer<T>
 
     @Override
     public int getVersion() {
-        // Delegate to SeaTunnel serializer
-        return seaTunnelSerializer.getVersion();
+        // SeaTunnel's Serializer has no version, so the adapter always reports 0
+        return 0;
     }
 
     @Override
@@ -625,26 +637,19 @@ public class FlinkSimpleVersionedSerializer<T>
 
 ### 5.1 Spark Type Conversion
 
+`TypeConverterUtils` in `seatunnel-translation-spark-common` converts SeaTunnel types to Spark
+`DataType`s (simplified):
+
 ```java
-public class SparkTypeConverter {
-    public static StructType convert(TableSchema schema) {
-        List<StructField> fields = new ArrayList<>();
-
-        for (Column column : schema.getColumns()) {
-            StructField field = new StructField(
-                column.getName(),
-                convertDataType(column.getDataType()),
-                column.isNullable(),
-                Metadata.empty()
-            );
-            fields.add(field);
-        }
-
-        return new StructType(fields.toArray(new StructField[0]));
-    }
-
-    private static DataType convertDataType(SeaTunnelDataType<?> seaTunnelType) {
-        switch (seaTunnelType.getSqlType()) {
+public final class TypeConverterUtils {
+    public static DataType convert(SeaTunnelDataType<?> dataType) {
+        switch (dataType.getSqlType()) {
+            case NULL:
+                return DataTypes.NullType;
+            case STRING:
+                return DataTypes.StringType;
+            case BOOLEAN:
+                return DataTypes.BooleanType;
             case TINYINT:
                 return DataTypes.ByteType;
             case SMALLINT:
@@ -657,37 +662,34 @@ public class SparkTypeConverter {
                 return DataTypes.FloatType;
             case DOUBLE:
                 return DataTypes.DoubleType;
-            case DECIMAL:
-                DecimalType decimalType = (DecimalType) seaTunnelType;
-                return DataTypes.createDecimalType(
-                    decimalType.getPrecision(),
-                    decimalType.getScale()
-                );
-            case STRING:
-                return DataTypes.StringType;
-            case BOOLEAN:
-                return DataTypes.BooleanType;
-            case DATE:
-                return DataTypes.DateType;
-            case TIMESTAMP:
-                return DataTypes.TimestampType;
             case BYTES:
                 return DataTypes.BinaryType;
+            case DATE:
+                return DataTypes.DateType;
+            case TIME:
+                // Spark has no TIME type; stored as LongType and flagged in the field metadata
+                return DataTypes.LongType;
+            case TIMESTAMP:
+                return DataTypes.TimestampType;
+            case TIMESTAMP_TZ:
+                return OffsetDateTimeUtils.OFFSET_DATETIME_WITH_DECIMAL;
             case ARRAY:
-                ArrayType arrayType = (ArrayType) seaTunnelType;
                 return DataTypes.createArrayType(
-                    convertDataType(arrayType.getElementType())
-                );
+                    convert(((ArrayType<?, ?>) dataType).getElementType()));
             case MAP:
-                MapType mapType = (MapType) seaTunnelType;
+                MapType<?, ?> mapType = (MapType<?, ?>) dataType;
                 return DataTypes.createMapType(
-                    convertDataType(mapType.getKeyType()),
-                    convertDataType(mapType.getValueType())
-                );
+                    convert(mapType.getKeyType()), convert(mapType.getValueType()));
+            case DECIMAL:
+                DecimalType decimalType = (DecimalType) dataType;
+                return new org.apache.spark.sql.types.DecimalType(
+                    decimalType.getPrecision(), decimalType.getScale());
+            case ROW:
+                // Converted to a StructType; every StructField is nullable
+                return convert((SeaTunnelRowType) dataType);
             default:
-                throw new UnsupportedOperationException(
-                    "Unsupported type: " + seaTunnelType);
         }
+        throw new IllegalArgumentException("Unsupported SeaTunnel's data type: " + dataType);
     }
 }
 ```

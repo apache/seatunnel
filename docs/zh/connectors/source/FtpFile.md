@@ -58,6 +58,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | connection_mode             | string  | 否    | active_local        |
 | remote_verification_enabled | boolean | 否    | true                |
 | control_encoding            | string  | 否    | UTF-8               |
+| control_timeout             | int     | 否    | 60000               |
 | delimiter/field_delimiter   | string  | 否    | \001                |
 | row_delimiter               | string  | 否    | \n                  |
 | read_columns                | list    | 否    | -                   |
@@ -488,8 +489,9 @@ POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值
 
 ### null_format [string]
 
-仅在文件格式类型为 text 时使用。
-用于定义哪些字符串可以表示为 null。
+当 `file_format_type` 为 `text` 或 `csv` 时使用。指定表示 null 的字段值。
+对于配置了 `schema.columns[].defaultValue` 的 CSV，如果字段值匹配 `null_format`，或文件表头缺少该列，则使用配置的默认值。空 CSV 字段仍为 null，除非它与 `null_format` 匹配；未配置默认值的列保持原有行为。
+CSV 默认值在创建读取器时转换为列类型。无法转换的默认值会导致作业失败，即使没有字段需要使用该默认值。DATE 和 TIMESTAMP 默认值可以使用与文件数据不同的受支持格式。
 
 例如：`\N`
 

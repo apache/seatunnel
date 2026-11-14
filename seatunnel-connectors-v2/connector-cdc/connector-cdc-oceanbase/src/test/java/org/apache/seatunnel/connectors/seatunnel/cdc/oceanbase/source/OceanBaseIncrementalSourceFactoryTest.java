@@ -143,6 +143,26 @@ public class OceanBaseIncrementalSourceFactoryTest {
                                 .validate(new OceanBaseIncrementalSourceFactory().optionRule()));
     }
 
+    /** Verify the inherited MySQL rule accepts snapshot-only and keeps its stop.mode guard. */
+    @Test
+    public void testOptionRuleInheritsSnapshotOnlyGuards() {
+        OceanBaseIncrementalSourceFactory factory = new OceanBaseIncrementalSourceFactory();
+        Map<String, Object> options = requiredOptions();
+        options.put("startup.mode", "snapshot-only");
+        ConfigValidator.of(ReadonlyConfig.fromMap(options)).validate(factory.optionRule());
+
+        options.put("stop.mode", "latest");
+        OptionValidationException error =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                                        .validate(factory.optionRule()));
+        Assertions.assertTrue(
+                error.getMessage().contains("'stop.mode = latest'"),
+                () -> "snapshot-only guard must run for OceanBase: " + error.getMessage());
+    }
+
     private static Map<String, Object> requiredOptions() {
         Map<String, Object> options = new HashMap<>();
         options.put("username", "root");

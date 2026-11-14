@@ -341,7 +341,7 @@ source {
 ```hocon
 
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 
@@ -397,7 +397,7 @@ sink {
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 

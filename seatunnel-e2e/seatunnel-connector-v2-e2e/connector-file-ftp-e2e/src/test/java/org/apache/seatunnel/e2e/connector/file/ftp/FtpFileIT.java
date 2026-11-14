@@ -199,6 +199,28 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testFtpControlTimeoutIsHonouredThroughTheJobConfig(TestContainer container)
+            throws IOException, InterruptedException {
+        // The unit tests pin the value handed to FTPClient, but only a real job shows the option
+        // survives parsing, factory validation and connector instantiation on both sides. The
+        // config uses a distinct non-default timeout per side, so an option wired into only one
+        // connector would be visible here.
+        Container.ExecResult execResult = container.executeJob("/text/ftp_control_timeout.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        String homePath = ftpHomeDir + "/uploads/seatunnel-control-timeout";
+        Assertions.assertEquals(1, getFileListFromContainer(homePath).size());
+
+        // Same row count as the source file: the timeout must not have altered the transfer.
+        Container.ExecResult lineCount =
+                ftpContainer.execInContainer(
+                        "sh", "-c", "awk 'END {print NR}' " + homePath + "/e2e.txt");
+        Assertions.assertEquals("5", lineCount.getStdout().trim());
+
+        deleteFileFromContainer(homePath);
+    }
+
+    @TestTemplate
     public void testFtpToFtpForBinary(TestContainer container)
             throws IOException, InterruptedException {
 

@@ -21,10 +21,12 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
@@ -37,6 +39,7 @@ import org.junit.jupiter.api.condition.OS;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -241,5 +244,116 @@ public class OrcWriteStrategyTest {
                 return null;
             }
         };
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testOrcDecimalThatDoesNotFitTheColumnFailsInsteadOfBeingWrittenAsNull()
+            throws Exception {
+        // HiveDecimal.create returns null above ORC's maximum precision of 38, and
+        // DecimalColumnVector.set internally calls enforcePrecisionScale, which returns null when
+        // the value does not fit the column actually declared. Neither returns an error, so an
+        // unchecked conversion wrote the row with the value silently replaced by null.
+
+        // In range, the control: this must keep working unchanged.
+        Assertions.assertEquals(
+                new BigDecimal("123.45"),
+                writeOneDecimalAndReadItBack("fits", 10, 2, new BigDecimal("123.45")));
+
+        // Wider than the DECLARED column. This is the reachable case: an inferred or narrow
+        // precision from a JDBC catalog or a sampled schema, not a hand-written decimal(38,0).
+        FileConnectorException overDeclared =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                writeOneDecimalAndReadItBack(
+                                        "over-declared", 10, 2, new BigDecimal("12345678901234")),
+                        "a value wider than the declared column must fail, not be nulled");
+        Assertions.assertTrue(
+                overDeclared.getMessage().contains("12345678901234")
+                        && overDeclared.getMessage().contains("decimal(10,2)"),
+                "the failure must name the value and the target column, but was: "
+                        + overDeclared.getMessage());
+
+        // Beyond ORC's own maximum precision of 38.
+        FileConnectorException beyondOrcMax =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                writeOneDecimalAndReadItBack(
+                                        "beyond-orc-max",
+                                        38,
+                                        0,
+                                        new BigDecimal("123456789012345678901234567890123456789")),
+                        "a value beyond ORC's maximum precision of 38 must fail, not be nulled");
+        Assertions.assertTrue(
+                beyondOrcMax.getMessage().contains("decimal(38,0)"),
+                "the failure must name the target column, but was: " + beyondOrcMax.getMessage());
+    }
+
+    /**
+     * Writes one decimal into a declared {@code decimal(precision,scale)} column and reads back.
+     */
+    private static BigDecimal writeOneDecimalAndReadItBack(
+            String tag, int precision, int scale, BigDecimal value) throws Exception {
+        // A fresh directory per invocation, like testCloseWriterWhenRollingFile does, so output
+        // left behind by an earlier run cannot make the single-file assertion below depend on
+        // the state of /tmp.
+        String base = "file:///tmp/seatunnel/orc/decimal-" + tag + "-" + System.nanoTime();
+        String tmpPath = base + "/test";
+        Map<String, Object> writeConfig = new HashMap<>();
+        writeConfig.put("tmp_path", tmpPath);
+        writeConfig.put("path", base);
+        writeConfig.put("file_format_type", FileFormat.ORC.name());
+
+        SeaTunnelRowType writeRowType =
+                new SeaTunnelRowType(
+                        new String[] {"f1_decimal"},
+                        new SeaTunnelDataType[] {new DecimalType(precision, scale)});
+        FileSinkConfig writeSinkConfig =
+                new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
+        OrcWriteStrategy writeStrategy = new OrcWriteStrategy(writeSinkConfig);
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        writeStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
+        writeStrategy.init(hadoopConf, tag, tag, 0);
+        try {
+            writeStrategy.beginTransaction(1L);
+            writeStrategy.write(new SeaTunnelRow(new Object[] {value}));
+            writeStrategy.finishAndCloseFile();
+        } finally {
+            try {
+                writeStrategy.close();
+            } catch (Exception closeFailure) {
+                // The two failing cases leave the writer mid-transaction. Closing it can raise
+                // again, and that must not replace the FileConnectorException under assertion.
+                log.debug("closing the ORC write strategy after a failed write", closeFailure);
+            }
+        }
+
+        OrcReadStrategy readStrategy = new OrcReadStrategy();
+        readStrategy.init(hadoopConf);
+        List<String> readFiles = readStrategy.getFileNamesByPath(tmpPath);
+        Assertions.assertEquals(1, readFiles.size());
+        readStrategy.getSeaTunnelRowTypeInfo(readFiles.get(0));
+        List<SeaTunnelRow> readRows = new ArrayList<>();
+        readStrategy.read(
+                readFiles.get(0),
+                "test",
+                new Collector<SeaTunnelRow>() {
+                    @Override
+                    public void collect(SeaTunnelRow record) {
+                        readRows.add(record);
+                    }
+
+                    @Override
+                    public Object getCheckpointLock() {
+                        return null;
+                    }
+                });
+        readStrategy.close();
+        Assertions.assertEquals(1, readRows.size());
+        return (BigDecimal) readRows.get(0).getField(0);
     }
 }

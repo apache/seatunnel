@@ -26,6 +26,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.config.JoinConfig;
@@ -37,8 +39,11 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.EntryLoader.MetadataAwareValue;
 import com.hazelcast.map.IMap;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
@@ -114,23 +119,67 @@ public class FileMapStoreTest {
                 "Exception message should identify the unknown type. Got: " + msg);
     }
 
-    @Test
-    public void testMetricsSnapshotMapSkipsPersistentStorageInitialization() {
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                EngineStateStoreNames.RUNNING_JOB_METRICS,
+                EngineStateStoreNames.CHECKPOINT_MONITOR
+            })
+    public void testAuxiliaryObservabilityMapSkipsPersistentStorageInitialization(String mapName) {
         FileMapStore store = new FileMapStore();
         Properties props = new Properties();
         props.setProperty("type", "non-existent-storage-type");
 
         Assertions.assertDoesNotThrow(
-                () ->
-                        store.init(
-                                mock(HazelcastInstance.class),
-                                props,
-                                EngineStateStoreNames.RUNNING_JOB_METRICS));
+                () -> store.init(mock(HazelcastInstance.class), props, mapName));
         Assertions.assertEquals(Collections.emptySet(), store.loadAllKeys());
         Assertions.assertDoesNotThrow(() -> store.store("k", new MetadataAwareValue<>("v")));
         Assertions.assertDoesNotThrow(() -> store.delete("k"));
 
         store.destroy();
+    }
+
+    /**
+     * The auxiliary observability maps match the {@code engine*} map-store config like every other
+     * engine map. Verifies that they are not written to the IMap storage and so start empty after a
+     * restart, while an engine state map next to them is still persisted and loaded back.
+     */
+    @Test
+    public void testAuxiliaryObservabilityMapsAreNotPersistedAcrossRestart() {
+        String clusterName = "file-map-store-auxiliary-" + System.nanoTime();
+        String persistedMapName = Constant.IMAP_RUNNING_JOB_STATE;
+        List<String> auxiliaryMapNames =
+                Arrays.asList(
+                        EngineStateStoreNames.RUNNING_JOB_METRICS,
+                        EngineStateStoreNames.CHECKPOINT_MONITOR);
+
+        HazelcastInstance writer = Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName));
+        try {
+            writer.getMap(persistedMapName).put(1L, "persisted");
+            auxiliaryMapNames.forEach(mapName -> writer.getMap(mapName).put(1L, "auxiliary"));
+        } finally {
+            writer.shutdown();
+        }
+
+        Path storageRoot = tempDir.resolve("test-cluster");
+        Assertions.assertTrue(Files.isDirectory(storageRoot.resolve(persistedMapName)));
+        auxiliaryMapNames.forEach(
+                mapName ->
+                        Assertions.assertFalse(
+                                Files.exists(storageRoot.resolve(mapName)),
+                                mapName + " must not be written to the IMap storage"));
+
+        HazelcastInstance restarted = Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName));
+        try {
+            Assertions.assertEquals("persisted", restarted.getMap(persistedMapName).get(1L));
+            auxiliaryMapNames.forEach(
+                    mapName ->
+                            Assertions.assertTrue(
+                                    restarted.getMap(mapName).isEmpty(),
+                                    mapName + " must not be loaded again after a restart"));
+        } finally {
+            restarted.shutdown();
+        }
     }
 
     /**

@@ -92,10 +92,10 @@ flowchart TB
 ### 2.3 FlinkSourceEnumerator 适配器
 
 **适配点（语义级）**：
-- 生命周期：Flink enumerator 的 `start` 驱动 SeaTunnel enumerator 的 open/run
+- 生命周期：Flink enumerator 的 `start` 只调用 SeaTunnel enumerator 的 `open`；`run` 会在所有 reader 通过 `addReader`（内部调用 `registerReader`）注册完成后才执行一次
 - 分片请求：Flink 的 split request 透传给 SeaTunnel enumerator 的分片分配逻辑
 - 分片回退：把回退 split 解包并回交给 SeaTunnel enumerator
-- 状态快照：把 enumerator state 包装成 Flink 可持久化的 wrapper，以参与 checkpoint
+- 状态快照：SeaTunnel enumerator 的 state 不做包装，直接作为 Flink 的 enumerator checkpoint 类型（`EnumStateT`），由 `FlinkSimpleVersionedSerializer` 序列化
 
 ### 2.4 上下文适配器
 
@@ -103,7 +103,7 @@ flowchart TB
 
 - 下标与并行度：把 Flink 的 subtask index 映射为 SeaTunnel reader 的 index
 - 事件通道：把 SeaTunnel 的 SourceEvent 包装后发送到 Flink 的 coordinator/event channel
-- 分片请求：Flink 会在运行时自动触发 split request，SeaTunnel 侧通常不需要显式触发
+- 分片请求：`sendSplitRequest()` 直接转发给 Flink `SourceReaderContext` 的 `sendSplitRequest()`
 
 **FlinkSourceSplitEnumeratorContext**:
 
@@ -132,39 +132,44 @@ flowchart TB
 ### 3.1 SparkSource 适配器
 
 将 `SeaTunnelSource` 适配到 Spark 的数据源接口（Spark 2.4 与 Spark 3.x 使用的 DataSource API 形态不同，具体以对应版本适配模块实现为准）。
+Spark 2.4 的入口是 `SeaTunnelSourceSupport`（批处理由 `BatchSourceReader` 实现 `DataSourceReader`），Spark 3.3 的入口是
+`SeaTunnelSparkSource`（`SeaTunnelScan`、`SeaTunnelBatch`）。
 
 **适配点（语义级）**：
 - `readSchema`：把 SeaTunnel `CatalogTable/TableSchema` 映射为 Spark `StructType`
-- `planInputPartitions`：在 Spark 的批处理模型下，通常一次性生成全部 splits，并为每个 split 构造一个 `InputPartition`
+- `planInputPartitions`：分片不会在 Driver 侧枚举。它按并行度为每个 subtask 生成一个虚拟分区；如果 Source 实现了
+  `SupportCoordinate`，则只生成一个分区
 
-Spark 的执行模型偏“批式规划”，因此枚举器的职责更像是“规划阶段生成分片集合”，而不是长期运行的调度器。
+每个分区在 executor 任务中运行 SeaTunnel 的 enumerator 和 reader（通过 `ParallelSource` 或 `CoordinatedSource`），
+因此 split 的生成与分配发生在 executor 侧，而不是 Spark 的规划阶段。
 
-### 3.2 SparkInputPartition
-
-**适配点（语义级）**：
-- 每个 `InputPartition` 绑定一个 SeaTunnel split
-- `createPartitionReader` 创建 SeaTunnel reader，注入该 split，并把输出转换为 Spark `InternalRow`
-
-### 3.3 SparkPartitionReader
+### 3.2 BatchPartition
 
 **适配点（语义级）**：
-- 初始化：创建并打开 SeaTunnel reader，下发 split
+- 每个 `InputPartition`（Spark 2.4 为 `BatchPartition`，Spark 3.3 为 `SeaTunnelBatchInputPartition`）对应一个 subtask，而不是一个 split
+- `createPartitionReader` 创建 `ParallelBatchPartitionReader`（或 `CoordinatedBatchPartitionReader`），由它在本地创建 enumerator 和 reader，并把输出转换为 Spark `InternalRow`
+
+### 3.3 SeaTunnelInputPartitionReader
+
+**适配点（语义级）**：
+- 初始化：创建并打开本 subtask 的 SeaTunnel enumerator 和 reader，由 enumerator 分配 split
 - 读取循环：从 SeaTunnel reader 拉取记录并转换为 Spark `InternalRow`（必要时使用缓冲队列适配 pull-based API）
 - 资源释放：关闭 reader 并释放外部资源
 
 ### 3.4 SparkSink 适配器
 
 **适配点（语义级）**：
+- 入口：`SparkSink` 实现 `WriteSupport`/`StreamWriteSupport`，真正的 `DataSourceWriter` 是 `SparkDataSourceWriter`
 - writer factory：在 executor 侧创建写入器实例并接收 Spark `InternalRow`
-- commit coordinator：当目标端存在提交器时启用 Spark 的提交协调路径
-- commit/abort：把 Spark 的提交消息转换为 SeaTunnel 的 commitInfo 列表，并交由 SeaTunnel `SinkCommitter` 执行（要求幂等/可重试）
+- executor 侧提交：每个 `SparkDataWriter` 在 `DataWriter#commit()` 中调用 `prepareCommit`，并执行该 writer 的 SeaTunnel `SinkCommitter`，再把 commitInfo 放入 `SparkWriterCommitMessage` 返回
+- driver 侧 commit/abort：`SparkDataSourceWriter` 把提交消息中的 commitInfo 交给 SeaTunnel `SinkAggregatedCommitter` 的 `combine`，再执行 `commit`/`abort`（要求幂等/可重试）
 
 ## 4. 序列化适配器
 
 ### 4.1 FlinkSimpleVersionedSerializer
 
 **适配点（语义级）**：
-- 版本：将 SeaTunnel serializer 的版本号透传到 Flink 侧
+- 版本：SeaTunnel 的 `Serializer` 没有版本概念，适配器的 `getVersion()` 固定返回 `0`
 - 序列化/反序列化：直接委托给 SeaTunnel serializer，以保证跨引擎一致的状态编码
 
 ## 5. 类型转换

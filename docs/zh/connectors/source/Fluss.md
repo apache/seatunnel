@@ -70,7 +70,7 @@ Fluss Source 用于在批处理或流处理作业中，从已有的 Fluss 表读
 | database | string | 是 | - | 要读取的 Fluss database。 |
 | table | string | 是 | - | 要读取的 Fluss table。 |
 | client.config | map | 否 | - | 传递给 Fluss 连接的额外 Fluss 客户端选项。 |
-| start_mode | string | 否 | earliest | 每个 bucket 的起始读取位点：`earliest`（整个 log）或 `latest`（仅作业启动后新追加的记录）。`latest` 在 `BATCH` 模式下会被拒绝。 |
+| start_mode | enum | 否 | earliest | 每个 bucket 的起始读取位点：`earliest`（整个 log）或 `latest`（仅作业启动后新追加的记录）。`latest` 在 `BATCH` 模式下会被拒绝。 |
 | poll.timeout.ms | long | 否 | 10000 | 单次 Fluss log scanner poll 的最大阻塞时间，单位毫秒。 |
 | common-options | - | 否 | - | Source 通用选项，详见 [Source 通用选项](../common-options/source-common-options.md)。 |
 

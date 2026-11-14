@@ -46,7 +46,7 @@ Command-line overrides (`-Dkey=value`) may be visible to other users on the subm
 | `kubernetes.env.<NAME>` | map | no | - | One environment variable per name: a literal value, `secret:<name>/<key>` or `configmap:<name>/<key>`. |
 | `kubernetes.env-from.secret` | string | no | - | Existing Secret whose keys are all injected as environment variables (Kubernetes `envFrom.secretRef`). |
 | `kubernetes.env-from.configmap` | string | no | - | Existing ConfigMap whose keys are all injected as environment variables (Kubernetes `envFrom.configMapRef`). |
-| `kubernetes.kubeconfig` | string | no | SDK default | Local submitter kubeconfig; it is not sent to the master. Configure it in a permission-restricted deployment file rather than with `-i`. |
+| `kubernetes.kubeconfig` | string | no | SDK default | Local submitter kubeconfig; it is not sent to the master. Configure it in a permission-restricted deployment file rather than with `-D`. |
 | `kubernetes.finished-job-retention-seconds` | int | no | `86400` | Positive retention period for completed or failed Jobs. |
 | `kubernetes.active-deadline-seconds` | long | no | - | Absolute deadline in seconds counted from Job creation for the whole application, including master startup. Set it for unattended batch runs; unset keeps the Job active until the job finishes or is canceled. |
 | `kubernetes.checkpoint-pvc` | string | no | - | Existing PVC mounted at `kubernetes.checkpoint-directory` in the master. |

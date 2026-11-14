@@ -46,7 +46,7 @@ import ChangeLog from '../changelog/connector-http.md';
 | array_mode                  | Boolean| 否    | false | 为true时将数据作为JSON数组发送，为false时作为单个JSON对象发送（默认）                |
 | batch_size                  | Int    | 否    | 1     | 在一个HTTP请求中发送的记录批量大小。仅在array_mode为true时有效                   |
 | request_interval_ms         | Int    | 否    | 0     | 两次HTTP请求之间的间隔毫秒数，以避免请求过于频繁                                 |
-| multi_table_sink_replica    | Int    | 否    | -     | 多表写入时使用的 Sink 副本数，详情请参考 [Sink 常用选项](../common-options/sink-common-options.md)。 |
+| multi_table_sink_replica    | Int    | 否    | 1     | 多表写入时使用的 Sink 副本数，详情请参考 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options              |        | 否    | -     | Sink插件常用参数，请参考 [Sink常用选项 ](../common-options/sink-common-options.md) 了解详情 |
 
 ## 示例
@@ -78,6 +78,75 @@ Http {
     array_mode = true
     batch_size = 50
     request_interval_ms = 500
+}
+```
+
+### 多表模式
+
+#### 示例 1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Http {
+    ...
+    url = "http://localhost/test/${database_name}_test/${table_name}_test"
+  }
+}
+```
+
+#### 示例 2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  Http {
+    ...
+    url = "http://localhost/test/${schema_name}_test/${table_name}_test"
+  }
 }
 ```
 

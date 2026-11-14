@@ -67,7 +67,7 @@ import java.util.stream.Stream;
 @Slf4j
 public class SftpFileIT extends TestSuiteBase implements TestResource {
 
-    private static final String SFTP_IMAGE = "atmoz/sftp:alpine-3.7";
+    private static final String SFTP_IMAGE = "atmoz/sftp:alpine";
 
     private static final String SFTP_CONTAINER_HOST = "sftp";
 

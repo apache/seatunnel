@@ -25,7 +25,8 @@ public enum ElasticsearchVersion {
     ES5(5),
     ES6(6),
     ES7(7),
-    ES8(8);
+    ES8(8),
+    ES9(9);
 
     private int version;
 

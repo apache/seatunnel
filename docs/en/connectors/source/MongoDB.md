@@ -13,7 +13,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## Description
 
 The MongoDB source connector reads documents from a MongoDB collection and converts each BSON
-document into a SeaTunnel row. It supports both **batch** and **streaming** jobs, and reads in
+document into a SeaTunnel row. It runs as a **batch** (bounded) source and reads in
 parallel by splitting the source collection across `partition.split-key` ranges.
 
 You can narrow what is read and what columns are returned without scanning the whole collection:
@@ -32,8 +32,8 @@ You can narrow what is read and what columns are returned without scanning the w
 - Use `flat.sync-string` to capture the whole document as one JSON `STRING` column when no
   fixed schema is needed.
 
-In streaming mode the connector reads the assigned splits and tracks progress through checkpoints
-so a restarted job resumes from the last committed cursor.
+The connector tracks split progress through checkpoints, so a restarted job resumes from the
+last committed split instead of rescanning the whole collection.
 
 ## Supported DataSource Info
 

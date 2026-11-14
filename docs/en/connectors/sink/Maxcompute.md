@@ -230,7 +230,7 @@ Default: Not set (use default quota)
 
 ### retry_times [int]
 
-`retry_times` Maximum retry times for the ODPS REST client on transient failures. Default `4`.
+`retry_times` Maximum retry times for the ODPS REST client on transient failures. Must be a nonnegative integer; `0` is accepted. Negative values are rejected during configuration validation. Default `4`.
 
 ### tunnel_connect_timeout_ms [long]
 
@@ -242,7 +242,7 @@ Default: Not set (use default quota)
 
 ### tunnel_retry_times [int]
 
-`tunnel_retry_times` Maximum retry times for the Tunnel client on transient failures. Default `4`.
+`tunnel_retry_times` Maximum retry times for the Tunnel client on transient failures. Must be a nonnegative integer; `0` is accepted. Negative values are rejected during configuration validation. Default `4`.
 
 ### insert_strategy [string]
 

@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
@@ -27,11 +26,9 @@ import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter
 import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryWriter;
 
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
-import lombok.extern.slf4j.Slf4j;
 
 import java.util.Optional;
 
-@Slf4j
 public class BigQuerySinkStreamWriter extends AbstractBigQuerySinkWriter {
     public static final String STREAMING = "streaming";
 
@@ -50,11 +47,8 @@ public class BigQuerySinkStreamWriter extends AbstractBigQuerySinkWriter {
     }
 
     @Override
-    public void setMultiTableResourceManager(
-            MultiTableResourceManager<BigQueryWriteClient> manager, int queueIndex) {
-        log.info("Injecting shared client and initializing Streaming stream writer...");
-        this.client = manager.getSharedResource().get();
-        this.streamWriter = BigQueryStreamWriter.of(client, config);
+    protected BigQueryWriter openStreamWriter() {
+        return BigQueryStreamWriter.of(client, config);
     }
 
     @Override

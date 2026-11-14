@@ -104,7 +104,7 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | compress_codec             | String  | 否   | None                          | 文件的压缩编解码器                                                                      |
 | archive_compress_codec     | String  | 否   | none                          | 文件使用的归档压缩编解码器。支持：`none` `zip` `tar` `tar.gz` `gz`。 |
 | encoding                   | String  | 否   | UTF-8                         | 读取文件时使用的编码                                                                      |
-| null_format                | String  | 否   | -                             | 仅在 file_format_type 为 text 时使用。定义哪些字符串可以表示为 null，例如 `\N`                  |
+| null_format                | String  | 否   | -                             | 当 `file_format_type` 为 `text` 或 `csv` 时使用。指定表示 null 的字段值。 对于配置了 `schema.columns[].defaultValue` 的 CSV，如果字段值匹配 `null_format`，或文件表头缺少该列，则使用配置的默认值。空 CSV 字段仍为 null，除非它与 `null_format` 匹配；未配置默认值的列保持原有行为。 CSV 默认值在创建读取器时转换为列类型。无法转换的默认值会导致作业失败，即使没有字段需要使用该默认值。DATE 和 TIMESTAMP 默认值可以使用与文件数据不同的受支持格式。 例如：`\N` |
 | binary_chunk_size | int | 否 | 1024 | 仅在 file_format_type 为 binary 时使用。读取二进制文件的块大小（以字节为单位）。较大的值可能会提高大文件的性能，但会使用更多内存。 |
 | binary_complete_file_mode | boolean | 否 | false | 仅在 file_format_type 为 binary 时使用。是否将完整文件作为单个块读取，而不是分割成块。 |
 | filename_extension         | String  | 否   | -                             | 文件扩展名过滤，用于过滤特定扩展名的文件。例如：`csv` `.txt` `json` `.xml`                      |
