@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.options.MultiTableCommonOptions;
 import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
@@ -69,6 +70,27 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.awaitility.Awaitility.await;
 
 public class MultiTableSinkWriterTest {
+    @Test
+    public void testStableReplicaIndexesAcrossAttempts() {
+        for (int attempt : new int[] {99, 100, 101}) {
+            SinkWriter.Context parent =
+                    new DefaultSinkWriterContext("job", attempt, 4) {
+                        @Override
+                        public int getStableSubtaskIndex() {
+                            return 2;
+                        }
+                    };
+            for (int replica = 0; replica < 3; replica++) {
+                SinkContextProxy proxy = new SinkContextProxy(attempt * 3 + replica, 3, parent);
+                Assertions.assertEquals(attempt * 3 + replica, proxy.getIndexOfSubtask());
+                Assertions.assertEquals(6 + replica, proxy.getStableSubtaskIndex());
+                Assertions.assertEquals(12, proxy.getNumberOfParallelSubtasks());
+            }
+        }
+        SinkWriter.Context ordinary = new DefaultSinkWriterContext("job", 2, 4);
+        Assertions.assertEquals(2, ordinary.getStableSubtaskIndex());
+        Assertions.assertEquals(7, new SinkContextProxy(7, 3, ordinary).getStableSubtaskIndex());
+    }
 
     @Test
     public void testPrepareCommitState() throws IOException {

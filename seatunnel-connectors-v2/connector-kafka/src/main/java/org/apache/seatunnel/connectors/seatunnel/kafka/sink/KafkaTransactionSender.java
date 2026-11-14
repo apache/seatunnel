@@ -50,7 +50,13 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     private KafkaInternalProducer<K, V> kafkaProducer;
     private String transactionId;
+
+    /** Job-level prefix stored in {@link KafkaSinkState} across checkpoints and upgrades. */
     private final String transactionPrefix;
+
+    /** Writer-owned namespace used to create and clean up Kafka transactional IDs. */
+    private final String transactionIdPrefix;
+
     private final Properties kafkaProperties;
 
     /**
@@ -64,7 +70,18 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     private int recordNumInTransaction = 0;
 
     public KafkaTransactionSender(String transactionPrefix, Properties kafkaProperties) {
+        this(transactionPrefix, transactionPrefix, kafkaProperties);
+    }
+
+    /**
+     * Creates a sender that persists the job prefix while operating only in the supplied writer
+     * namespace. Keeping those lifetimes separate prevents restore from appending writer suffixes
+     * repeatedly and prevents parallel writers from cleaning up one another's transactions.
+     */
+    KafkaTransactionSender(
+            String transactionPrefix, String transactionIdPrefix, Properties kafkaProperties) {
         this.transactionPrefix = transactionPrefix;
+        this.transactionIdPrefix = transactionIdPrefix;
         this.kafkaProperties = kafkaProperties;
     }
 
@@ -102,7 +119,14 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     public void beginTransaction(String transactionId) {
         this.transactionId = transactionId;
         this.kafkaProducer = getTransactionProducer(transactionId);
-        kafkaProducer.beginTransaction();
+        try {
+            kafkaProducer.beginTransaction();
+        } catch (RuntimeException | Error failure) {
+            KafkaInternalProducer<K, V> failedProducer = kafkaProducer;
+            kafkaProducer = null;
+            closeProducerAfterFailure(failedProducer, failure);
+            throw failure;
+        }
         // Reset the per-transaction state. A new transaction always runs on a newly created
         // producer, so a failure recorded for the previous transaction no longer applies. Keeping
         // it would turn a single transient send error into a permanent checkpoint failure loop.
@@ -167,8 +191,15 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     @Override
     public void abortTransaction(long checkpointId) {
+        abortTransaction(this.transactionIdPrefix, checkpointId);
+    }
+
+    /**
+     * Fence unfinished transactions in either the current writer or a restored legacy namespace.
+     */
+    void abortTransaction(String transactionIdPrefix, long checkpointId) {
         for (long i = checkpointId; ; i++) {
-            String transactionId = generateTransactionId(this.transactionPrefix, i);
+            String transactionId = generateTransactionId(transactionIdPrefix, i);
             KafkaInternalProducer<K, V> producer = createTransactionProducer(transactionId);
             try {
                 if (log.isDebugEnabled()) {
@@ -222,8 +253,22 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
         transactionProperties.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
         KafkaInternalProducer<K, V> transactionProducer =
                 new KafkaInternalProducer<>(transactionProperties, transactionId);
-        transactionProducer.initTransactions();
-        return transactionProducer;
+        try {
+            transactionProducer.initTransactions();
+            return transactionProducer;
+        } catch (RuntimeException | Error failure) {
+            closeProducerAfterFailure(transactionProducer, failure);
+            throw failure;
+        }
+    }
+
+    private void closeProducerAfterFailure(
+            KafkaInternalProducer<K, V> producer, Throwable originalFailure) {
+        try {
+            closeTemporaryProducer(producer);
+        } catch (RuntimeException | Error closeFailure) {
+            originalFailure.addSuppressed(closeFailure);
+        }
     }
 
     private void closeTemporaryProducer(KafkaInternalProducer<K, V> producer) {
