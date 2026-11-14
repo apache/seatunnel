@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfigFactory;
@@ -36,6 +37,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -249,5 +251,57 @@ class SqlServerIncrementalSourceFactoryTest {
         // Forwarding of unrelated URL properties is still in effect.
         Assertions.assertEquals(
                 "true", sourceConfig.getDbzConfiguration().getString("database.encrypt"));
+    }
+
+    @Test
+    void testTablePathWithDottedDatabaseName() {
+        List<String> databaseNames = Arrays.asList("seatunnel", "LIS6.0");
+
+        Assertions.assertEquals(
+                TablePath.of("LIS6.0", "dbo", "LIS_ITEM"),
+                SqlServerIncrementalSourceFactory.toTablePath(
+                        "LIS6.0.dbo.LIS_ITEM", databaseNames, false));
+        Assertions.assertEquals(
+                TablePath.of("LIS6.0", "dbo", "LIS_ITEM"),
+                SqlServerIncrementalSourceFactory.toTablePath(
+                        "LIS6.0.dbo.LIS_ITEM", databaseNames, true));
+        Assertions.assertEquals(
+                TablePath.of("seatunnel", "dbo", "orders"),
+                SqlServerIncrementalSourceFactory.toTablePath(
+                        "seatunnel.dbo.orders", databaseNames, false));
+        Assertions.assertEquals(
+                TablePath.of(null, "dbo", "orders"),
+                SqlServerIncrementalSourceFactory.toTablePath("dbo.orders", databaseNames, true));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"LIS6.0.dbo.LIS_ITEM", "seatunnel.my.schema.orders"})
+    void testTablePathRejectsUnresolvableDottedName(String tableName) {
+        IllegalArgumentException error =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                SqlServerIncrementalSourceFactory.toTablePath(
+                                        tableName, Collections.singletonList("seatunnel"), false));
+
+        Assertions.assertTrue(error.getMessage().contains(tableName), error.getMessage());
+    }
+
+    @Test
+    void testTableIncludeListWithDottedDatabaseName() {
+        SqlServerSourceConfig sourceConfig =
+                ((SqlServerSourceConfigFactory)
+                                new SqlServerSourceConfigFactory()
+                                        .hostname("localhost")
+                                        .port(1433)
+                                        .username("sa")
+                                        .password("Password!")
+                                        .databaseList("LIS6.0", "seatunnel")
+                                        .tableList("LIS6.0.dbo.LIS_ITEM", "seatunnel.dbo.orders"))
+                        .create(0);
+
+        Assertions.assertEquals(
+                "dbo.LIS_ITEM,dbo.orders",
+                sourceConfig.getDbzConfiguration().getString("table.include.list"));
     }
 }
