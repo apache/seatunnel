@@ -325,11 +325,17 @@ public class AssertExecutor {
             return checkDecimalType(value, fieldType);
         }
 
+        // Vector type classes are ByteBuffer and Map, while runtime values are concrete classes
+        // such as HeapByteBuffer and HashMap, so they are checked with instanceof.
         if (fieldType.getSqlType() == SqlType.FLOAT_VECTOR
                 || fieldType.getSqlType() == SqlType.FLOAT16_VECTOR
                 || fieldType.getSqlType() == SqlType.BFLOAT16_VECTOR
                 || fieldType.getSqlType() == SqlType.BINARY_VECTOR) {
             return value instanceof ByteBuffer;
+        }
+
+        if (fieldType.getSqlType() == SqlType.SPARSE_FLOAT_VECTOR) {
+            return value instanceof Map;
         }
 
         return value.getClass().equals(fieldType.getTypeClass());
