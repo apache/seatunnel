@@ -58,6 +58,8 @@ public class IcebergRecordWriter implements RecordWriter {
     private volatile TaskWriter<Record> writer;
     private RowConverter recordConverter;
     private final IcebergWriterFactory writerFactory;
+    /** Rows written by the current task writer; it is rotated when this reaches the limit. */
+    private long rowsInWriter;
 
     public IcebergRecordWriter(
             Table table, IcebergWriterFactory writerFactory, IcebergSinkConfig config) {
@@ -90,6 +92,15 @@ public class IcebergRecordWriter implements RecordWriter {
             this.writer.write(icebergRecord);
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+        rowsInWriter++;
+        Long flushRowSize = config.getFlushRowSize();
+        if (flushRowSize != null && rowsInWriter >= flushRowSize) {
+            // A delta writer remembers every key it has inserted until it completes, so a long
+            // checkpoint interval keeps all of them in memory. Completing it here frees that
+            // memory. Each completed writer becomes its own WriteResult, and the committer keeps
+            // their order so that later equality deletes still apply to earlier rows.
+            flush();
         }
     }
 
@@ -191,5 +202,6 @@ public class IcebergRecordWriter implements RecordWriter {
                         Arrays.asList(writeResult.deleteFiles()),
                         table.spec().partitionType()));
         writer = null;
+        rowsInWriter = 0;
     }
 }
