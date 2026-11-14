@@ -53,6 +53,17 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
                             + "kubernetes-session, yarn-application, kubernetes-application]")
     private MasterType masterType;
 
+    /**
+     * Restore path forwarded to Flink without interpreting its filesystem or state contents.
+     *
+     * <p>The wrapper accepts one nonblank argument without line separators.
+     */
+    @Parameter(
+            names = {"-s", "--fromSavepoint", "--fromCheckpoint"},
+            description =
+                    "Path to a savepoint (or an externalized checkpoint) to restore the job from (equivalent to flink run -s ).")
+    protected String fromSavepoint;
+
     @Override
     public Command<?> buildCommand() {
         Common.setDeployMode(getDeployMode());
@@ -75,6 +86,8 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
                 + deployMode
                 + ", masterType="
                 + masterType
+                + ", fromSavepoint="
+                + fromSavepoint
                 + ", configFile='"
                 + configFile
                 + '\''
