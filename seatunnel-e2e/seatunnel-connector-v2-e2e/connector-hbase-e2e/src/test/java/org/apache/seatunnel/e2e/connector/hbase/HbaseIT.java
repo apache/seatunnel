@@ -262,6 +262,28 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testHbaseSinkWithCdcRows(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(table);
+        Container.ExecResult execResult = container.executeJob("/fake-to-hbase-with-cdc-rows.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Map<String, Map<String, byte[]>> rows = new HashMap<>();
+        for (Result result : readData(table)) {
+            Map<String, byte[]> cells = new HashMap<>();
+            for (Cell cell : result.listCells()) {
+                cells.put(Bytes.toString(CellUtil.cloneQualifier(cell)), CellUtil.cloneValue(cell));
+            }
+            rows.put(Bytes.toString(result.getRow()), cells);
+        }
+        // id 2 was updated in place, id 1 moved to id 4 and id 3 was deleted
+        Assertions.assertEquals(new HashSet<>(Arrays.asList("2", "4")), rows.keySet());
+        Assertions.assertEquals("B2", Bytes.toString(rows.get("2").get("name")));
+        Assertions.assertEquals(21, Bytes.toInt(rows.get("2").get("age")));
+        Assertions.assertEquals("A", Bytes.toString(rows.get("4").get("name")));
+        Assertions.assertEquals(10, Bytes.toInt(rows.get("4").get("age")));
+    }
+
+    @TestTemplate
     public void testHbaseSinkWithArray(TestContainer container)
             throws IOException, InterruptedException {
         deleteData(table);
