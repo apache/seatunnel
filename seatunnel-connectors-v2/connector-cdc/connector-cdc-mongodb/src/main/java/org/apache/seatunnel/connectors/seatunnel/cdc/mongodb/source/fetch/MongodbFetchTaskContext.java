@@ -97,13 +97,8 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
     }
 
     public void configure(@Nonnull SourceSplitBase sourceSplitBase) {
-        // If in the snapshot read phase and enable exactly-once, the queue needs to be set to a
-        // maximum size of `Integer.MAX_VALUE` (buffered a current snapshot all data). otherwise,
-        // use the configuration queue size.
-        final int queueSize =
-                sourceSplitBase.isSnapshotSplit() && isExactlyOnce()
-                        ? Integer.MAX_VALUE
-                        : sourceConfig.getBatchSize();
+        // Reconciliation drains concurrently into a bounded buffer; retain queue backpressure.
+        final int queueSize = sourceConfig.getBatchSize();
         this.changeEventQueue =
                 new ChangeEventQueue.Builder<DataChangeEvent>()
                         .pollInterval(Duration.ofMillis(sourceConfig.getPollAwaitTimeMillis()))

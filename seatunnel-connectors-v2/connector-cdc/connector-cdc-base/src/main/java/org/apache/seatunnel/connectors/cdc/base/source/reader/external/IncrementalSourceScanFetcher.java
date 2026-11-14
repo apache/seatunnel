@@ -31,16 +31,20 @@ import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isEndWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isHighWatermarkEvent;
@@ -60,6 +64,10 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
     private final ExecutorService executorService;
     private volatile ChangeEventQueue<DataChangeEvent> queue;
     private volatile Throwable readException;
+    private final Supplier<SnapshotBuffer> bufferFactory;
+    private volatile SnapshotState snapshotState;
+    private volatile SourceRecords pendingSnapshot;
+    private volatile boolean closed;
 
     // task to read snapshot for current split
     private FetchTask<SourceSplitBase> snapshotSplitReadTask;
@@ -68,7 +76,13 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
     private static final long READER_CLOSE_TIMEOUT_SECONDS = 30L;
 
     public IncrementalSourceScanFetcher(FetchTask.Context taskContext, int subtaskId) {
+        this(taskContext, subtaskId, SnapshotBuffer::new);
+    }
+
+    IncrementalSourceScanFetcher(
+            FetchTask.Context taskContext, int subtaskId, Supplier<SnapshotBuffer> bufferFactory) {
         this.taskContext = taskContext;
+        this.bufferFactory = bufferFactory;
         ThreadFactory threadFactory =
                 new ThreadFactoryBuilder()
                         .setNameFormat("debezium-snapshot-reader-" + subtaskId)
@@ -80,6 +94,8 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
 
     @Override
     public void submitTask(FetchTask<SourceSplitBase> fetchTask) {
+        checkState(!closed, "Snapshot fetcher is closed");
+        checkState(snapshotState == null, "Previous snapshot output has not been released");
         this.snapshotSplitReadTask = fetchTask;
         this.currentSnapshotSplit = fetchTask.getSplit().asSnapshotSplit();
         taskContext.configure(currentSnapshotSplit);
@@ -107,24 +123,42 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
 
     @Override
     public boolean isFinished() {
-        return currentSnapshotSplit == null
-                || !snapshotSplitReadTask.isRunning() && !hasNextElement.get() && reachEnd.get();
+        return snapshotState == null
+                && (currentSnapshotSplit == null
+                        || !snapshotSplitReadTask.isRunning()
+                                && !hasNextElement.get()
+                                && reachEnd.get());
     }
 
     @Override
     public Iterator<SourceRecords> pollSplitRecords()
             throws InterruptedException, SeaTunnelException {
-        checkReadException();
-
-        if (hasNextElement.get()) {
-            if (taskContext.isExactlyOnce()) {
-                return pollSplitRecordsIfExactlyOnce();
+        try {
+            checkState(!closed, "Snapshot fetcher is closed");
+            checkReadException();
+            if (pendingSnapshot != null) {
+                // Do not reconfigure the context while queued output still normalizes its rows.
+                return Collections.emptyIterator();
             }
-            return pollSplitRecordsIfNotExactlyOnce();
+            if (hasNextElement.get()) {
+                if (taskContext.isExactlyOnce()) {
+                    return pollSplitRecordsIfExactlyOnce();
+                }
+                return pollSplitRecordsIfNotExactlyOnce();
+            }
+            reachEnd.set(true);
+            return null;
+        } catch (InterruptedException | RuntimeException | Error failure) {
+            SnapshotState state = snapshotState;
+            if (state != null) {
+                try {
+                    releaseSnapshot(state);
+                } catch (Exception cleanupFailure) {
+                    failure.addSuppressed(cleanupFailure);
+                }
+            }
+            throw failure;
         }
-        // the data has been polled, no more data
-        reachEnd.compareAndSet(false, true);
-        return null;
     }
 
     public Iterator<SourceRecords> pollSplitRecordsIfNotExactlyOnce() throws InterruptedException {
@@ -146,60 +180,147 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
     }
 
     public Iterator<SourceRecords> pollSplitRecordsIfExactlyOnce() throws InterruptedException {
-        // eg:
-        // data input: [low watermark event][snapshot events][high watermark event][change
-        // events][end watermark event]
-        // data output: [low watermark event][normalized events][high watermark event]
-        boolean reachChangeLogStart = false;
-        boolean reachChangeLogEnd = false;
-        SourceRecord lowWatermark = null;
-        SourceRecord highWatermark = null;
-        Map<Struct, SourceRecord> outputBuffer = new LinkedHashMap<>();
-        while (!reachChangeLogEnd) {
-            checkReadException();
-            List<DataChangeEvent> batch = queue.poll();
-            for (DataChangeEvent event : batch) {
-                SourceRecord record = event.getRecord();
-                if (lowWatermark == null) {
-                    lowWatermark = record;
-                    assertLowWatermark(lowWatermark);
-                    continue;
-                }
-
-                if (highWatermark == null && isHighWatermarkEvent(record)) {
-                    highWatermark = record;
-                    // begin to capture binlog events
-                    reachChangeLogStart = true;
-                    continue;
-                }
-
-                if (reachChangeLogStart && isEndWatermarkEvent(record)) {
-                    // capture to end watermark events, stop the loop
-                    reachChangeLogEnd = true;
-                    break;
-                }
-
-                if (!reachChangeLogStart) {
-                    outputBuffer.put((Struct) record.key(), record);
-                } else {
-                    if (isChangeRecordInChunkRange(record)) {
-                        // rewrite overlapping snapshot records through the record key
-                        taskContext.rewriteOutputBuffer(outputBuffer, record);
+        SnapshotState state = snapshotState;
+        if (state == null) {
+            state = new SnapshotState(bufferFactory.get());
+            synchronized (this) {
+                if (closed) {
+                    try {
+                        state.buffer.close();
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
                     }
+                    throw new IllegalStateException("Snapshot fetcher is closed");
                 }
+                snapshotState = state;
             }
         }
-        // snapshot split return its data once
-        hasNextElement.set(false);
+        // Consume one bounded queue batch per fetch. This lets shutdown run even before END.
+        List<DataChangeEvent> batch = queue.poll();
+        for (DataChangeEvent event : batch) {
+            checkReadException();
+            SourceRecord record = event.getRecord();
+            if (state.lowWatermark == null) {
+                assertLowWatermark(record);
+                state.lowWatermark = record;
+            } else if (state.highWatermark == null && isHighWatermarkEvent(record)) {
+                state.highWatermark = record;
+            } else if (state.highWatermark != null && isEndWatermarkEvent(record)) {
+                try {
+                    state.buffer.seal();
+                } catch (IOException e) {
+                    throw new UncheckedIOException("Cannot seal CDC snapshot records", e);
+                }
+                SourceRecords output = new SourceRecords(new SnapshotRecordList(state));
+                synchronized (this) {
+                    checkState(!closed && snapshotState == state, "Snapshot fetcher is closed");
+                    pendingSnapshot = output;
+                    hasNextElement.set(false);
+                }
+                return Collections.singletonList(output).iterator();
+            } else if (state.highWatermark == null) {
+                state.buffer.put((Struct) record.key(), record);
+            } else if (isChangeRecordInChunkRange(record)) {
+                taskContext.rewriteOutputBuffer(state.buffer, record);
+            }
+        }
+        return Collections.emptyIterator();
+    }
 
-        final List<SourceRecord> normalizedRecords = new ArrayList<>();
-        normalizedRecords.add(lowWatermark);
-        normalizedRecords.addAll(taskContext.formatMessageTimestamp(outputBuffer.values()));
-        normalizedRecords.add(highWatermark);
+    private void releaseSnapshot(SnapshotState state) throws IOException {
+        state.buffer.close();
+        synchronized (this) {
+            if (snapshotState == state) {
+                snapshotState = null;
+                pendingSnapshot = null;
+            }
+        }
+    }
 
-        final List<SourceRecords> sourceRecordsSet = new ArrayList<>();
-        sourceRecordsSet.add(new SourceRecords(normalizedRecords));
-        return sourceRecordsSet.iterator();
+    private static final class SnapshotState {
+        private final SnapshotBuffer buffer;
+        private SourceRecord lowWatermark;
+        private SourceRecord highWatermark;
+
+        private SnapshotState(SnapshotBuffer buffer) {
+            this.buffer = buffer;
+        }
+    }
+
+    /** One checkpoint-atomic batch, with only one decoded/normalized row live at a time. */
+    private final class SnapshotRecordList extends AbstractList<SourceRecord>
+            implements AutoCloseable {
+        private final SnapshotState state;
+        private final int size;
+        private volatile boolean released;
+
+        private SnapshotRecordList(SnapshotState state) {
+            this.state = state;
+            this.size = Math.addExact(state.buffer.size(), 2);
+        }
+
+        private void checkAvailable() {
+            checkState(!released && !closed, "Snapshot output has been released");
+        }
+
+        @Override
+        public int size() {
+            return size;
+        }
+
+        @Override
+        public SourceRecord get(int index) {
+            if (index < 0 || index >= size) {
+                throw new IndexOutOfBoundsException("Snapshot record index: " + index);
+            }
+            Iterator<SourceRecord> iterator = iterator();
+            for (int i = 0; i < index; i++) {
+                iterator.next();
+            }
+            return iterator.next();
+        }
+
+        @Override
+        public Iterator<SourceRecord> iterator() {
+            checkAvailable();
+            Iterator<SourceRecord> rows = state.buffer.values().iterator();
+            return new Iterator<SourceRecord>() {
+                private int position;
+
+                @Override
+                public boolean hasNext() {
+                    checkAvailable();
+                    return position < size;
+                }
+
+                @Override
+                public SourceRecord next() {
+                    if (!hasNext()) {
+                        throw new NoSuchElementException();
+                    }
+                    if (position++ == 0) {
+                        return state.lowWatermark;
+                    }
+                    if (position == size) {
+                        checkState(!rows.hasNext(), "Unexpected records after snapshot output");
+                        return state.highWatermark;
+                    }
+                    List<SourceRecord> normalized =
+                            taskContext.formatMessageTimestamp(
+                                    Collections.singletonList(rows.next()));
+                    checkState(normalized.size() == 1, "Snapshot normalization changed row count");
+                    return normalized.get(0);
+                }
+            };
+        }
+
+        @Override
+        public synchronized void close() throws IOException {
+            if (!released) {
+                releaseSnapshot(state);
+                released = true;
+            }
+        }
     }
 
     private void assertLowWatermark(SourceRecord lowWatermark) {
@@ -222,33 +343,62 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
 
     @Override
     public void close() {
+        closed = true;
+        RuntimeException failure = null;
         try {
-            // 1. try close the split task
             if (snapshotSplitReadTask != null) {
-                try {
-                    snapshotSplitReadTask.shutdown();
-                } catch (Exception e) {
-                    log.error("Close snapshot split read task error", e);
+                snapshotSplitReadTask.shutdown();
+            }
+        } catch (RuntimeException e) {
+            failure = e;
+        }
+        executorService.shutdownNow();
+        SnapshotState state = snapshotState;
+        try {
+            if (state != null) {
+                releaseSnapshot(state);
+            }
+        } catch (IOException e) {
+            RuntimeException cleanup =
+                    new UncheckedIOException("Cannot clean CDC snapshot spill", e);
+            if (failure == null) {
+                failure = cleanup;
+            } else {
+                failure.addSuppressed(cleanup);
+            }
+        }
+        try {
+            // Close JDBC/binlog clients before waiting for a blocked snapshot query to stop.
+            taskContext.close();
+        } catch (RuntimeException e) {
+            if (failure == null) {
+                failure = e;
+            } else {
+                failure.addSuppressed(e);
+            }
+        }
+        try {
+            if (!executorService.awaitTermination(READER_CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                RuntimeException timeout =
+                        new IllegalStateException("CDC snapshot reader did not stop after close");
+                if (failure == null) {
+                    failure = timeout;
+                } else {
+                    failure.addSuppressed(timeout);
                 }
             }
-            // 2. close the fetcher thread
-            if (executorService != null) {
-                executorService.shutdown();
-                if (!executorService.awaitTermination(
-                        READER_CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                    log.warn(
-                            "Failed to close the scan fetcher in {} seconds. Service will execute force close(ExecutorService.shutdownNow)",
-                            READER_CLOSE_TIMEOUT_SECONDS);
-                    executorService.shutdownNow();
-                }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            RuntimeException interrupted =
+                    new RuntimeException("Interrupted closing CDC snapshot", e);
+            if (failure == null) {
+                failure = interrupted;
+            } else {
+                failure.addSuppressed(interrupted);
             }
-        } catch (Exception e) {
-            log.error("Close scan fetcher error", e);
-        } finally {
-            // 3. close the task context
-            if (taskContext != null) {
-                taskContext.close();
-            }
+        }
+        if (failure != null) {
+            throw failure;
         }
     }
 
