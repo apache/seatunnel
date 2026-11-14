@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -127,6 +126,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  jsonb_col jsonb NOT NULL,\n"
                     + "  xml_col xml NOT NULL\n"
                     + ");comment on column pg_e2e_source_table.uuid_col is '\"#¥%……&*（）;;'',,.\\.``````//''@特殊注释''\\\\''\"'";
+
     private static final String PG_SINK_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_sink_table (\n"
                     + "    gid SERIAL PRIMARY KEY,\n"
@@ -164,6 +164,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    jsonb_col jsonb NOT NULL,\n"
                     + "    xml_col xml NOT NULL\n"
                     + "  )";
+
     private static final String SOURCE_SQL =
             "select \n"
                     + "gid,\n"
@@ -200,6 +201,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "json_col,\n"
                     + "jsonb_col,\n"
                     + " cast(xml_col as varchar) \n"
+                    + "from pg_e2e_source_table";
+
                     + "from pg_e2e_source_table\n"
                     + "order by gid";
     private static final String SINK_SQL =
@@ -444,7 +447,9 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         TableSchema tableSchema = catalog.getTable(targetTablePath).getTableSchema();
         PrimaryKey primaryKey = tableSchema.getPrimaryKey();
         List<ConstraintKey> constraintKeys = tableSchema.getConstraintKeys();
-        if (primaryKey != null && StringUtils.isNotBlank(primaryKey.getPrimaryKey())) {
+        if (primaryKey != null
+                && primaryKey.getPrimaryKey() != null
+                && !primaryKey.getPrimaryKey().trim().isEmpty()) {
             return true;
         }
         if (!constraintKeys.isEmpty()) {
