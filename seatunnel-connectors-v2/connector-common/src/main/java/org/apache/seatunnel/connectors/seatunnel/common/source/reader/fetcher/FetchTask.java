@@ -41,6 +41,7 @@ class FetchTask<E, SplitT extends SourceSplit> implements SplitFetcherTask {
     private final BlockingQueue<RecordsWithSplitIds<E>> elementsQueue;
     private final Consumer<Collection<String>> splitFinishedCallback;
     private final int fetcherIndex;
+    private final Runnable availabilityNotifier;
 
     @Getter(value = AccessLevel.PRIVATE)
     private volatile boolean wakeup;
@@ -61,6 +62,7 @@ class FetchTask<E, SplitT extends SourceSplit> implements SplitFetcherTask {
                         splitFinishedCallback.accept(lastRecords.finishedSplits());
                     }
                     lastRecords = null;
+                    availabilityNotifier.run();
                     log.debug("Enqueued records from split fetcher {}", fetcherIndex);
                 } else {
                     log.debug(
