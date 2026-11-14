@@ -24,12 +24,45 @@ import org.apache.seatunnel.connectors.seatunnel.qdrant.exception.QdrantConnecto
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.qdrant.client.grpc.JsonWithInt;
+
 /**
- * Guards the payload mapping of the Qdrant sink against silent data loss: a JSON logical value has
- * no Qdrant payload mapping yet, so it must be rejected with an explicit unsupported-type error
- * instead of falling through to the {@code null} branch that drops the column.
+ * Verifies that payload values keep the shape their SeaTunnel type declares.
+ *
+ * <p>The sink documents {@code BIGINT -> payload integer} and {@code FLOAT/DOUBLE -> payload
+ * double}, so a numeric payload must be stored with the matching Qdrant value type and without
+ * losing range or precision.
  */
-class QdrantBatchWriterTest {
+public class QdrantBatchWriterTest {
+
+    @Test
+    public void testDoublePayloadKeepsFractionalPart() {
+        JsonWithInt.Value value = QdrantBatchWriter.buildPayload(BasicType.DOUBLE_TYPE, 1.5d);
+
+        Assertions.assertEquals(1.5d, value.getDoubleValue(), 0.0d);
+    }
+
+    @Test
+    public void testFloatPayloadKeepsFractionalPart() {
+        JsonWithInt.Value value = QdrantBatchWriter.buildPayload(BasicType.FLOAT_TYPE, 2.5f);
+
+        Assertions.assertEquals(2.5d, value.getDoubleValue(), 0.0d);
+    }
+
+    @Test
+    public void testBigintPayloadKeepsFullRange() {
+        JsonWithInt.Value value =
+                QdrantBatchWriter.buildPayload(BasicType.LONG_TYPE, 5_000_000_000L);
+
+        Assertions.assertEquals(5_000_000_000L, value.getIntegerValue());
+    }
+
+    @Test
+    public void testIntPayloadStaysInteger() {
+        JsonWithInt.Value value = QdrantBatchWriter.buildPayload(BasicType.INT_TYPE, 42);
+
+        Assertions.assertEquals(42L, value.getIntegerValue());
+    }
 
     @Test
     void jsonPayloadIsRejectedInsteadOfBeingDropped() {

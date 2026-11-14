@@ -77,7 +77,10 @@ The top-level interface that serves as a factory for creating writers and commit
 
 ```java
 public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
-    extends Serializable {
+    extends Serializable,
+        PluginIdentifierInterface, // requires String getPluginName()
+        SeaTunnelPluginLifeCycle,
+        SeaTunnelJobAware {
 
     /**
      * Create SinkWriter (called on worker)
@@ -226,21 +229,32 @@ public interface SinkWriter<IN, CommitInfoT, StateT> {
     void write(IN element) throws IOException;
 
     /**
-     * Prepare commit info during checkpoint.
+     * Prepare commit info during checkpoint (deprecated, but still the abstract method
+     * every writer must implement).
      *
      * Guideline: do not make data externally visible in this phase.
      */
-    Optional<CommitInfoT> prepareCommit(long checkpointId) throws IOException;
+    @Deprecated
+    Optional<CommitInfoT> prepareCommit() throws IOException;
 
     /**
-     * Abort prepared commit if checkpoint fails
+     * Checkpoint-aware variant called by the engine. Delegates to prepareCommit() by default.
+     */
+    default Optional<CommitInfoT> prepareCommit(long checkpointId) throws IOException {
+        return prepareCommit();
+    }
+
+    /**
+     * Abort prepared commit if prepareCommit fails
      */
     void abortPrepare();
 
     /**
-     * Snapshot writer state for checkpoint
+     * Snapshot writer state for checkpoint. Stateless writers can keep the default.
      */
-    List<StateT> snapshotState(long checkpointId) throws IOException;
+    default List<StateT> snapshotState(long checkpointId) throws IOException {
+        return Collections.emptyList();
+    }
 
     /**
      * Close writer
@@ -260,8 +274,9 @@ public interface SinkWriter<IN, CommitInfoT, StateT> {
 **Critical Requirements**:
 - `prepareCommit(checkpointId)` should not make data externally visible (commit is done in `SinkCommitter` / `SinkAggregatedCommitter`)
 - `prepareCommit(checkpointId)` returns commit info that will be passed to committer
+- The no-arg `prepareCommit()` is still abstract, so a writer that overrides `prepareCommit(checkpointId)` must implement it as well (the examples below omit it for brevity)
 - State returned by `snapshotState()` must capture all uncommitted writes
-- `abortPrepare()` is only used by Spark when `prepareCommit(...)` fails by throwing an exception
+- `abortPrepare()` is called when `prepareCommit(...)` fails by throwing an exception. Spark calls it, and the SeaTunnel Engine also calls it from the sink task before rethrowing the failure
 
 **Implementation Example (JDBC with XA Transactions)**:
 
@@ -381,26 +396,25 @@ public class FileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, 
 
 ### 3.2 SinkCommitter Interface
 
-The committer runs on master and coordinates commits from multiple writers.
+The committer completes the second phase of the commit for the commit infos produced by writers.
+Where it runs depends on the engine: in the SeaTunnel Engine each sink task creates its own
+committer on the worker side and calls `commit()` from `notifyCheckpointComplete` (see section 2.2).
 
 ```java
-public interface SinkCommitter<CommitInfoT> extends Closeable {
+public interface SinkCommitter<CommitInfoT> extends Serializable {
 
     /**
      * Commit multiple commit infos (from multiple writers or retries)
      * MUST be idempotent - may be called multiple times with same commitInfo
+     * Returns the commit infos that need to be retried
      */
     List<CommitInfoT> commit(List<CommitInfoT> commitInfos) throws IOException;
 
     /**
-     * Abort commit infos (optional)
+     * Abort commit infos. Abstract: every committer must implement it.
+     * Spark calls it when a write task is aborted; the SeaTunnel Engine calls it when a checkpoint is aborted.
      */
-    default void abort(List<CommitInfoT> commitInfos) throws IOException {}
-
-    /**
-     * Close committer
-     */
-    void close() throws IOException;
+    void abort(List<CommitInfoT> commitInfos) throws IOException;
 }
 ```
 
@@ -497,6 +511,14 @@ public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
 
         return failed;
     }
+
+    @Override
+    public void abort(List<FileCommitInfo> commitInfos) throws IOException {
+        // Remove the temporary files of the aborted commit
+        for (FileCommitInfo commitInfo : commitInfos) {
+            fileSystem.delete(new Path(commitInfo.getTempFilePath()), false);
+        }
+    }
 }
 ```
 
@@ -506,7 +528,28 @@ The aggregated committer performs single global commit for all writers.
 
 ```java
 public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>
-    extends Closeable {
+    extends Serializable {
+
+    /**
+     * Initialize the committer. Called on every (re)start, not only once.
+     */
+    default void init() {}
+
+    /**
+     * Re-commit restored aggregated commit infos after a failover.
+     * The default simply calls commit() again, so commit() MUST be idempotent.
+     */
+    default List<AggregatedCommitInfoT> restoreCommit(
+        List<AggregatedCommitInfoT> aggregatedCommitInfos) throws IOException {
+        return commit(aggregatedCommitInfos);
+    }
+
+    /**
+     * Commit aggregated info (single global operation)
+     * MUST be idempotent. Returns the infos that need to be retried.
+     */
+    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfos)
+        throws IOException;
 
     /**
      * Combine commit infos from multiple writers into single aggregated info
@@ -514,22 +557,9 @@ public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>
     AggregatedCommitInfoT combine(List<CommitInfoT> commitInfos);
 
     /**
-     * Commit aggregated info (single global operation)
-     * MUST be idempotent
+     * Abort aggregated commit infos. Abstract: every aggregated committer must implement it.
      */
-    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfos)
-        throws IOException;
-
-    /**
-     * Abort aggregated commit infos
-     */
-    default void abort(List<AggregatedCommitInfoT> aggregatedCommitInfos) throws IOException {}
-
-    /**
-     * Restore committer state from checkpoint
-     */
-    default void restoreCommit(List<AggregatedCommitInfoT> aggregatedCommitInfos)
-        throws IOException {}
+    void abort(List<AggregatedCommitInfoT> aggregatedCommitInfos) throws Exception;
 
     /**
      * Close committer
@@ -583,6 +613,14 @@ public class HiveAggregatedCommitter
 
         return failed;
     }
+
+    @Override
+    public void abort(List<HiveCommitInfo> aggregatedCommitInfos) {
+        // Clean up the files written for the aborted commit
+    }
+
+    @Override
+    public void close() {}
 }
 ```
 

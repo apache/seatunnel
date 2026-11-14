@@ -15,6 +15,13 @@ You need to check this document before you upgrade to related version.
   - **Opt-out**: Set `handle_json_as_string = true` on the Doris source or on the Jdbc source (Snowflake `VARIANT`) to keep exposing these columns as `STRING`, exactly as before this change. The StarRocks source always uses the user-declared `schema`, so declaring the column as `string` keeps the previous behavior there; the StarRocks mapping change only affects the StarRocks catalog (`StarRocksCatalog`) and automatic table creation.
   - **Migration Guide**: If a downstream component does not support `JSON`, add a Calcite Transform projection such as `SELECT CAST(payload AS VARCHAR) AS payload, ... FROM source_table` before that component. This restores the previous String-backed schema and value behavior. Do not cast when the destination is a supported native JSON/VARIANT column, because the cast intentionally removes the JSON type semantics.
 
+### Lance sink: BIGINT columns are created as int64
+
+- **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**
+  - **Description**: When the Lance sink created a dataset, it declared `BIGINT` columns as Arrow `int32` and wrote each value with `Number.intValue()`, so a value outside the signed 32-bit range was silently wrapped. For example, `3000000000` was stored as `-1294967296`, and the epoch millisecond `1739586083123` as `124328243`. The sink, and the catalog's `createTable`, now declare `BIGINT` as `int64` and store the value unchanged.
+  - **Impact**: A dataset created by this version has an `int64` column where an earlier version created `int32`. A dataset that already exists keeps its column types, because the sink writes to the schema it finds, so its `int32` column still wraps large values.
+  - **Migration Guide**: No configuration change is needed. If a consumer expects `int32` for these columns, update it to read `int64`. To store large values in a dataset created by an earlier version, recreate the dataset and write the rows again from the source.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**
@@ -333,6 +340,29 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     (`existingConfigMap`) and restrict the member port (5801) with a `NetworkPolicy`. Restart the pods
     after upgrading so the new configuration is applied.
 
+### JsonPath Transform
+
+- Recognized destination-type conversion failures now honor the existing column
+  and row error policies. Column `SKIP` yields a null field; column `SKIP_ROW` or
+  row `SKIP` (without a column override) drops the row. Explicit column `FAIL`
+  still takes precedence; the default remains `FAIL`.
+- Under `FAIL`, recognized conversion errors now surface as
+  `ErrorDataTransformException` with `JSONPATH_ERROR_CODE-07`, rather than the raw
+  converter exception or its `COMMON-*` code. Source records, extracted values
+  and raw causes are intentionally omitted from these diagnostics and skip logs.
+  Update alerts/runbooks keyed on the old exception text or code. Unsupported
+  conversions and unexpected failures retain their existing behavior; this does
+  not add `ROUTE_TO_TABLE` support or change checkpoint formats.
+- Path-reading error policies are unchanged. `ErrorDataTransformException` now
+  attaches a sanitized `JsonPathException` cause, rather than the original
+  exception, because its message or stack trace may contain source data or a
+  private path literal. Previously there was no cause. Diagnostics retain only
+  safe field identifiers and the original exception type; they omit source JSON,
+  configured paths and raw exception text. The cause chain remains available,
+  but the original cause subtype and stack detail are intentionally lost. Update
+  stack-trace parsers and alerts that assumed no nested cause or relied on the
+  previous message text.
+
 ### Replace Transform Schema Refresh
 
 - **Behavior change**: Replace resolves `replace_fields` against the refreshed input schema after schema changes and checkpoint restoration. Previously cached positions could replace an unrelated column or leave the configured field unchanged after column positions shifted.
@@ -401,6 +431,30 @@ The Zeta SQL ARRAY function now declares TINYINT elements as `ARRAY<TINYINT>`, m
     wire-compatible with the `FieldEncrypt` `AesCbcEncryptor`, supply the key with the `base64:`
     prefix (a bare key is derived as a passphrase via SHA-256 and is **not** interchangeable with
     `FieldEncrypt`). See [SQL Functions](../../transforms/sql-functions.md) for the full contract.
+
+### Zeta SQL Transform: built-in UNIX_TIMESTAMP
+
+- **Behavior change: UNIX_TIMESTAMP is now a built-in function**
+  - **Affected component**: `seatunnel-transforms-v2` (Zeta SQL transform).
+  - **Description**: `UNIX_TIMESTAMP()` / `UNIX_TIMESTAMP(string[, pattern])` /
+    `UNIX_TIMESTAMP(dateTime)` is now a built-in Zeta SQL function, dispatched before
+    user-registered `ZetaUDF`s, and its output type is resolved as `BIGINT`
+    (`BasicType.LONG_TYPE`).
+  - **Impact**: A job that registered a custom `ZetaUDF` named `UNIX_TIMESTAMP` (the
+    previous workaround for the missing built-in) will, after upgrading, silently start
+    using this built-in implementation instead of the UDF. The declared output type is
+    now forced to `BIGINT` regardless of what the UDF's `resultType` returned, which may
+    break the downstream sink schema if the UDF returned a different type.
+  - **Migration Guide**: Rename the existing UDF, or switch to the built-in function.
+    See [SQL Functions](../../transforms/sql-functions.md) for the full contract.
+
+### Zeta SQL Transform: FROM_UNIXTIME and UNIX_TIMESTAMP text patterns use English locale
+
+- **Behavior change: text pattern letters are now interpreted in English regardless of the worker JVM locale**
+  - **Affected component**: `seatunnel-transforms-v2` (Zeta SQL transform).
+  - **Description**: `getFormatter`, the shared `DateTimeFormatter` factory used by `FROM_UNIXTIME` (format path) and `UNIX_TIMESTAMP` (parse path), now passes `Locale.ENGLISH` to `DateTimeFormatter.ofPattern`. Previously the JVM default FORMAT locale was captured, so text pattern letters such as `MMM` (month name), `EEE` (weekday), or `a` (AM/PM) rendered or parsed in the worker's language.
+  - **Impact**: On a non-English worker (for example `de-DE`), `FROM_UNIXTIME(epoch, 'dd MMM yyyy')` previously produced `23 Okt 2026` and now produces `23 Oct 2026`; `UNIX_TIMESTAMP('23 Oct 2026', 'dd MMM yyyy')` previously returned `NULL` (parse failure) and now returns the correct epoch. English-locale workers are unaffected. This is consistent with `DAYNAME` and `MONTHNAME`, which already pin English via `DateFormatSymbols.getInstance(Locale.ENGLISH)`.
+  - **Migration Guide**: No action is needed for correctness — English was always the intended locale for text patterns. If a downstream consumer relied on localized month or weekday names in `FROM_UNIXTIME` output, update it to expect English names. See [SQL Functions](../../transforms/sql-functions.md) for the full pattern reference.
 
 ### RabbitMQ Connector
 
@@ -526,6 +580,12 @@ or state format migration is required.
   - **Affected component**: `seatunnel-formats/seatunnel-format-json` (`RowToJsonConverters`) - affects every connector that serializes rows with the JSON format (for example Kafka, RabbitMQ, Pulsar, and file JSON sinks)
   - **Description**: Previously, a field declared as a numeric type in the catalog (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `FLOAT`, `DOUBLE`, `DECIMAL`) was serialized by blindly casting the runtime value to the Java type implied by the declared type (for example `(long) value` for `BIGINT`). In multi-table jobs (for example CDC jobs writing JSON to RabbitMQ/Kafka) where several tables share one catalog schema but carry different physical column types, a `String` or `BigDecimal` runtime value in such a field threw a raw `ClassCastException` and killed the job. Now numeric fields are serialized according to their runtime type: any numeric wrapper (`Byte`, `Short`, `Integer`, `Long`, `Float`, `Double`, `BigInteger`, `BigDecimal`) becomes the corresponding JSON number; numeric character sequences are parsed into JSON numbers, while non-numeric text is emitted as a JSON string; `Float`/`Double` values in a field declared as `DECIMAL` are serialized via `BigDecimal.valueOf` to avoid floating-point representation artifacts.
   - **Impact**: Heterogeneous numeric values that previously crashed the job with `ClassCastException` now serialize successfully, and the emitted JSON numeric shape follows the runtime value rather than the declared column type (a `String` or `BigDecimal` value in a `BIGINT` column keeps its exact numeric value). Runtime values that can neither be represented as a number nor parsed from text (for example `byte[]`, `Map`, `LocalDateTime`) now fail fast with a typed `SeaTunnelJsonFormatException` (`UNSUPPORTED_DATA_TYPE`) instead of a raw `ClassCastException`. Downstream consumers that assume the JSON numeric shape always matches the declared column type should be reviewed. (#11415)
+
+- **Behavior change: JSON deserialization keeps the precision of `DECIMAL` values nested in arrays**
+  - **Affected component**: `seatunnel-formats/seatunnel-format-json` (`JsonDeserializationSchema`) - affects every connector that reads rows with the JSON format (for example Kafka, RabbitMQ, Pulsar, and file JSON sources)
+  - **Description**: A `DECIMAL` declared inside an `ARRAY` (for example `ARRAY<DECIMAL>`, `ARRAY<ARRAY<DECIMAL>>` or `ARRAY<ROW<DECIMAL>>`) was not found when deciding whether the numbers of a document must be parsed as `BigDecimal`, because an array is not a composite type. Its elements were parsed as `double` first and converted to `DECIMAL` afterwards, so they lost every digit beyond `double` precision, while a scalar `DECIMAL` column of the same schema kept them. A `DECIMAL` nested in an array now retains its numeric precision exactly like a scalar `DECIMAL`. No option, default value or row shape changed.
+  - **Impact**: Elements of a declared `DECIMAL` array are no longer rounded to about 17 significant digits. Since the underlying mapper setting applies to the whole document, in a schema that declares a `DECIMAL` inside an array a bare number assigned to a `STRING` field now keeps all of its digits (`3.14159265358979323846` instead of `3.141592653589793`). The same happens to floating-point numbers nested inside a JSON object or array that a `STRING` field captures as text: the object or array is re-rendered from the decimal values, so those numbers can keep more digits or switch to exponent notation (`1e-10` becomes `1E-10`), while numbers quoted as JSON strings inside the same object or array keep their original text. Quoted JSON strings, and schemas without any `DECIMAL`, are unaffected. (#12871)
+  - **Migration Guide**: If a downstream step compares the text of such numeric values, review those comparisons against the exact digits, or make the source provide quoted JSON strings for `STRING` columns that carry bare numbers. JSON objects or arrays stored in a `STRING` column belong to the same category: compare their serialized text (digits and exponent notation) before relying on it, or have the source send those values as quoted JSON strings. `DECIMAL` columns require no configuration change to retain their declared numeric precision.
 
 ### Engine Behavior Changes
 
