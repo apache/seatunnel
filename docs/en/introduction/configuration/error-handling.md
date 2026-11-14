@@ -12,6 +12,12 @@ Starting with this experimental capability, users can change this behavior, allo
 >
 > Currently this capability is wired only in the Zeta engine, and JDBC Sink is the validated Sink implementation. Flink/Spark translation paths do not use this mechanism yet. Error handling and row-level error routing are disabled by default, and the configuration and semantics may be adjusted in future versions.
 
+## Transform initialization failures
+
+In Zeta, an exception from a transform's `open()` fails task startup, even when the source produces no rows. The engine stops opening later transforms, releases transform-stage resources through their existing lifecycle owner, and preserves the initialization error if cleanup also fails. No rows are processed by that failed transform chain.
+
+`LOG` and `ROUTE` handle eligible row-level errors during processing. They do not turn an initialization failure into a recoverable row error.
+
 ## Use Cases
 
 Typical scenarios where enabling error handling is recommended include but are not limited to:

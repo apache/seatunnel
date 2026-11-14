@@ -12,6 +12,18 @@ You need to check this document before you upgrade to related version.
   - **Impact**: A dataset created by this version has an `int64` column where an earlier version created `int32`. A dataset that already exists keeps its column types, because the sink writes to the schema it finds, so its `int32` column still wraps large values.
   - **Migration Guide**: No configuration change is needed. If a consumer expects `int32` for these columns, update it to read `int64`. To store large values in a dataset created by an earlier version, recreate the dataset and write the rows again from the source.
 
+### Zeta: transform initialization failures fail task startup
+
+A transform whose `open()` method throws an exception now fails task startup instead of logging the
+exception and continuing. Previously, such a job could keep running with an uninitialized transform,
+or even finish successfully when the source produced no records. The original initialization
+exception is now propagated as the failure cause.
+
+Before upgrading, fix transform initialization errors in affected jobs, such as invalid configuration
+or unavailable startup dependencies. The `LOG` and `ROUTE` row-error handling strategies cannot
+recover from initialization failures because no row is being processed. Successful initialization,
+configuration options and checkpoint formats are unchanged.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**
