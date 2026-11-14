@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferReducedBatchStatementExecutor;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferedBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 
 import org.junit.jupiter.api.Assertions;
@@ -29,6 +31,7 @@ import org.mockito.Mockito;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.function.Function;
 
 class JdbcOutputFormatReconnectSafetyTest {
 
@@ -55,6 +58,129 @@ class JdbcOutputFormatReconnectSafetyTest {
         Assertions.assertEquals(1, executor.executeBatchCalls);
         Assertions.assertEquals(0, executor.closeStatementsCalls);
         Mockito.verify(provider, Mockito.never()).reestablishConnection();
+    }
+
+    @Test
+    void testDeadlockRetriesAfterRollbackAndBatchReset() throws Exception {
+        JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        Mockito.when(connection.getAutoCommit()).thenReturn(false);
+
+        TestDeadlockThenSuccessExecutor executor = new TestDeadlockThenSuccessExecutor();
+        NoSleepJdbcOutputFormat<SeaTunnelRow, TestDeadlockThenSuccessExecutor> outputFormat =
+                new NoSleepJdbcOutputFormat<>(
+                        provider, buildConnectionConfig(), () -> executor, true);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+
+        Assertions.assertDoesNotThrow(outputFormat::flush);
+        outputFormat.close();
+        Mockito.verify(connection, Mockito.times(1)).rollback();
+        Assertions.assertEquals(1, executor.prepareStatementsCalls);
+        Assertions.assertEquals(2, executor.executeBatchCalls);
+        Assertions.assertEquals(1, executor.closeStatementsCalls);
+    }
+
+    @Test
+    void testAutoCommitDeadlockKeepsGenericRetryBehavior() throws Exception {
+        JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        Mockito.when(provider.isConnectionValid()).thenReturn(true);
+        Mockito.when(connection.getAutoCommit()).thenReturn(true);
+
+        TestDeadlockThenSuccessExecutor executor = new TestDeadlockThenSuccessExecutor();
+        NoSleepJdbcOutputFormat<SeaTunnelRow, TestDeadlockThenSuccessExecutor> outputFormat =
+                new NoSleepJdbcOutputFormat<>(
+                        provider, buildConnectionConfig(), () -> executor, true);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+
+        Assertions.assertDoesNotThrow(outputFormat::flush);
+        Mockito.verify(connection, Mockito.never()).rollback();
+        Assertions.assertEquals(2, executor.executeBatchCalls);
+    }
+
+    @Test
+    void testDeadlockDoesNotReplayOnlyCurrentFlushInsideCheckpointTransaction() throws Exception {
+        JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        Mockito.when(connection.getAutoCommit()).thenReturn(false);
+
+        TestDeadlockThenSuccessExecutor executor = new TestDeadlockThenSuccessExecutor();
+        NoSleepJdbcOutputFormat<SeaTunnelRow, TestDeadlockThenSuccessExecutor> outputFormat =
+                new NoSleepJdbcOutputFormat<>(provider, buildConnectionConfig(), () -> executor);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
+        Assertions.assertEquals(1, executor.executeBatchCalls);
+        Mockito.verify(connection, Mockito.never()).rollback();
+    }
+
+    @Test
+    void testExhaustedDeadlockRetryDoesNotReplayBufferedBatchOnClose() throws Exception {
+        JdbcBatchStatementExecutor<SeaTunnelRow> child = deadlockThenSuccessExecutor();
+        assertExhaustedDeadlockRetryDoesNotReplayOnClose(
+                new BufferedBatchStatementExecutor(child, Function.identity()), child);
+    }
+
+    @Test
+    void testExhaustedDeadlockRetryDoesNotReplayReducedBatchOnClose() throws Exception {
+        JdbcBatchStatementExecutor<SeaTunnelRow> upsert = deadlockThenSuccessExecutor();
+        JdbcBatchStatementExecutor<SeaTunnelRow> delete =
+                Mockito.mock(JdbcBatchStatementExecutor.class);
+        assertExhaustedDeadlockRetryDoesNotReplayOnClose(
+                new BufferReducedBatchStatementExecutor(
+                        upsert, delete, Function.identity(), Function.identity()),
+                upsert);
+    }
+
+    private static JdbcBatchStatementExecutor<SeaTunnelRow> deadlockThenSuccessExecutor()
+            throws SQLException {
+        JdbcBatchStatementExecutor<SeaTunnelRow> executor =
+                Mockito.mock(JdbcBatchStatementExecutor.class);
+        Mockito.doThrow(new SQLException("deadlock detected", "40P01"))
+                .doNothing()
+                .when(executor)
+                .executeBatch();
+        return executor;
+    }
+
+    private static void assertExhaustedDeadlockRetryDoesNotReplayOnClose(
+            JdbcBatchStatementExecutor<SeaTunnelRow> executor,
+            JdbcBatchStatementExecutor<SeaTunnelRow> child)
+            throws Exception {
+        JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        Mockito.when(connection.getAutoCommit()).thenReturn(false);
+
+        JdbcConnectionConfig config =
+                JdbcConnectionConfig.builder()
+                        .url("jdbc:test")
+                        .batchSize(100)
+                        .batchIntervalMs(0)
+                        .maxRetries(0)
+                        .build();
+        NoSleepJdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>>
+                outputFormat =
+                        new NoSleepJdbcOutputFormat<>(provider, config, () -> executor, true);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::close);
+
+        Mockito.verify(connection).rollback();
+        Mockito.verify(child, Mockito.times(1)).executeBatch();
+        Mockito.verify(child, Mockito.times(2)).clearBatch();
     }
 
     @Test
@@ -150,6 +276,18 @@ class JdbcOutputFormatReconnectSafetyTest {
             super(connectionProvider, jdbcConnectionConfig, statementExecutorFactory);
         }
 
+        private NoSleepJdbcOutputFormat(
+                JdbcConnectionProvider connectionProvider,
+                JdbcConnectionConfig jdbcConnectionConfig,
+                StatementExecutorFactory<E> statementExecutorFactory,
+                boolean commitOnFlush) {
+            super(
+                    connectionProvider,
+                    jdbcConnectionConfig,
+                    statementExecutorFactory,
+                    commitOnFlush);
+        }
+
         @Override
         protected void sleepBeforeFlushRetry(long sleepMs) throws InterruptedException {}
     }
@@ -178,6 +316,42 @@ class JdbcOutputFormatReconnectSafetyTest {
             executeBatchCalls++;
             throw flushFailure;
         }
+
+        @Override
+        public void closeStatements() {
+            closeStatementsCalls++;
+        }
+    }
+
+    private static class TestDeadlockThenSuccessExecutor
+            implements JdbcBatchStatementExecutor<SeaTunnelRow> {
+        private int prepareStatementsCalls;
+        private int executeBatchCalls;
+        private int closeStatementsCalls;
+
+        @Override
+        public void prepareStatements(Connection connection) {
+            prepareStatementsCalls++;
+        }
+
+        @Override
+        public void addToBatch(SeaTunnelRow record) {}
+
+        @Override
+        public void executeBatch() throws SQLException {
+            executeBatchCalls++;
+            if (executeBatchCalls == 1) {
+                throw new SQLException("deadlock detected", "40P01");
+            }
+        }
+
+        @Override
+        public boolean supportsTransactionConflictRetry() {
+            return true;
+        }
+
+        @Override
+        public void resetForTransactionConflictRetry() {}
 
         @Override
         public void closeStatements() {
