@@ -210,6 +210,7 @@ public class TextSerializationSchema implements SerializationSchema {
             case DECIMAL:
                 BigDecimal bd = (BigDecimal) field;
                 return bd.stripTrailingZeros().toPlainString();
+            case JSON:
             case STRING:
                 byte[] bytes = field.toString().getBytes(StandardCharsets.UTF_8);
                 return new String(bytes, StandardCharsets.UTF_8);

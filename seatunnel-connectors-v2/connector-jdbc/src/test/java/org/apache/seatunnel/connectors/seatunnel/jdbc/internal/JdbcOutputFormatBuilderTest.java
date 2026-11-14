@@ -107,7 +107,9 @@ public class JdbcOutputFormatBuilderTest {
         Mockito.when(dialect.getRowConverter()).thenReturn(new SqlserverJdbcRowConverter());
         Mockito.when(
                         dialect.getInsertIntoStatement(
-                                Mockito.anyString(), Mockito.anyString(), Mockito.any()))
+                                Mockito.anyString(),
+                                Mockito.anyString(),
+                                Mockito.any(TableSchema.class)))
                 .thenReturn("");
 
         SimpleJdbcConnectionProvider provider = Mockito.mock(SimpleJdbcConnectionProvider.class);
@@ -128,7 +130,8 @@ public class JdbcOutputFormatBuilderTest {
         ArgumentCaptor<String> table = ArgumentCaptor.forClass(String.class);
 
         Mockito.verify(dialect)
-                .getInsertIntoStatement(database.capture(), table.capture(), Mockito.any());
+                .getInsertIntoStatement(
+                        database.capture(), table.capture(), Mockito.any(TableSchema.class));
 
         Assertions.assertEquals("databasewith.dot", database.getValue());
         Assertions.assertEquals("dbo.tableName", table.getValue());

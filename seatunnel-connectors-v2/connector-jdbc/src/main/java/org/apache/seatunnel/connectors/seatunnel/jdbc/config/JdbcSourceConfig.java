@@ -49,6 +49,13 @@ public class JdbcSourceConfig implements Serializable {
     private boolean splitSampleShardingAllow;
     private boolean decimalTypeNarrowing;
     private boolean handleBlobAsString;
+
+    /**
+     * When true, inferred JSON logical columns are exposed as STRING to keep the pre-JSON-type
+     * schema for existing pipelines. See {@link JdbcSourceOptions#HANDLE_JSON_AS_STRING}.
+     */
+    private boolean handleJsonAsString;
+
     private MultiTableFailurePolicy multiTableFailurePolicy;
 
     /**
@@ -90,6 +97,7 @@ public class JdbcSourceConfig implements Serializable {
 
         builder.decimalTypeNarrowing(config.get(JdbcSourceOptions.DECIMAL_TYPE_NARROWING));
         builder.handleBlobAsString(config.get(JdbcSourceOptions.HANDLE_BLOB_AS_STRING));
+        builder.handleJsonAsString(config.get(JdbcSourceOptions.HANDLE_JSON_AS_STRING));
         builder.multiTableFailurePolicy(
                 config.get(MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY));
         builder.enableConcurrentRead(config.get(JdbcSourceOptions.ENABLE_CONCURRENT_READ));

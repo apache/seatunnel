@@ -110,6 +110,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case MAP:
                 return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType);
             case STRING:
+            case JSON:
                 return UTF8String.fromString((String) field);
             case DECIMAL:
                 return Decimal.apply((BigDecimal) field);
@@ -124,7 +125,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                     }
                     return ArrayData.toArrayData(arrayMap);
                 }
-                if (elementType.equals(BasicType.STRING_TYPE)) {
+                if (elementType.equals(BasicType.STRING_TYPE)
+                        || elementType.equals(BasicType.JSON_TYPE)) {
                     Object[] fields = (Object[]) field;
                     UTF8String[] objects =
                             Arrays.stream(fields)
@@ -331,6 +333,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                                     field.getClass()));
                 }
             case STRING:
+            case JSON:
                 return field.toString();
             case DECIMAL:
                 if (field instanceof Decimal) {

@@ -73,6 +73,7 @@ public class TypeConverterUtils {
             case NULL:
                 return DataTypes.NullType;
             case STRING:
+            case JSON:
                 return DataTypes.StringType;
             case BOOLEAN:
                 return DataTypes.BooleanType;

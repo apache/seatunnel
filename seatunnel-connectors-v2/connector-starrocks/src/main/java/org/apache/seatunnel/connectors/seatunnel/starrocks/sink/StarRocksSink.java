@@ -27,15 +27,19 @@ import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,6 +47,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
@@ -63,6 +68,7 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         this.tableOptions = tableOptions;
         this.dataSaveMode = sinkConfig.getDataSaveMode();
         this.schemaSaveMode = sinkConfig.getSchemaSaveMode();
+        validateJsonColumnsAgainstLoadFormat(sinkConfig, this.tableSchema);
         // Load the JDBC driver in to DriverManager
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
@@ -131,5 +137,34 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                 SchemaChangeType.DROP_COLUMN,
                 SchemaChangeType.RENAME_COLUMN,
                 SchemaChangeType.UPDATE_COLUMN);
+    }
+
+    /**
+     * CSV Stream Load cannot carry a JSON logical column (the CSV serializer rejects it on the
+     * first flush), so the combination is rejected here, when the sink is created at job
+     * submission, instead of after the job has started.
+     */
+    private static void validateJsonColumnsAgainstLoadFormat(
+            SinkConfig sinkConfig, TableSchema tableSchema) {
+        if (sinkConfig.getLoadFormat() != SinkConfig.StreamLoadFormat.CSV) {
+            return;
+        }
+        List<String> jsonColumns =
+                tableSchema.getColumns().stream()
+                        .filter(column -> column.getDataType().getSqlType() == SqlType.JSON)
+                        .map(Column::getName)
+                        .collect(Collectors.toList());
+        if (jsonColumns.isEmpty()) {
+            return;
+        }
+        throw new StarRocksConnectorException(
+                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                String.format(
+                        "StarRocks sink table %s.%s has native JSON column(s) %s, but the Stream Load "
+                                + "format is CSV, which does not support JSON-formatted columns. Set "
+                                + "`starrocks.config.format = \"JSON\"` for this sink, or convert the "
+                                + "field(s) to STRING upstream (for example `CAST(field AS VARCHAR)` in a "
+                                + "Calcite Transform).",
+                        sinkConfig.getDatabase(), sinkConfig.getTable(), jsonColumns));
     }
 }

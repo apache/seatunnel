@@ -156,6 +156,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
         try {
             switch (inputDataType.getSqlType()) {
                 case STRING:
+                case JSON:
                     jsonString = value.toString();
                     break;
                 case BYTES:
