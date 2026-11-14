@@ -90,7 +90,7 @@ class JdbcSinkWriterTest {
     @Test
     void testRuntimeCreateHonorsSaveModeAndResolvedTarget() throws Exception {
         for (SchemaSaveMode mode : SchemaSaveMode.values()) {
-            JdbcSinkWriter writer = Mockito.spy(createWriterWithoutRowErrorCollector());
+            JdbcSinkWriter writer = Mockito.spy(createWriterWithoutRowErrorCollector(true));
             CatalogTable target = runtimeTable("test_db", "test_table", writer.tableSchema);
             CatalogTable source = runtimeTable("source_db", "source_table", writer.tableSchema);
             Map<TablePath, CatalogTable> tables = new HashMap<>();
@@ -125,7 +125,7 @@ class JdbcSinkWriterTest {
     @Test
     void testRuntimeCreateReplayKeepsExistingTarget() throws Exception {
         for (SchemaSaveMode mode : SchemaSaveMode.values()) {
-            JdbcSinkWriter writer = Mockito.spy(createWriterWithoutRowErrorCollector());
+            JdbcSinkWriter writer = Mockito.spy(createWriterWithoutRowErrorCollector(true));
             CatalogTable target = runtimeTable("test_db", "test_table", writer.tableSchema);
             CatalogTable existing = runtimeTable("test_db", "test_table", writer.tableSchema);
             Map<TablePath, CatalogTable> tables = new HashMap<>();
@@ -755,6 +755,11 @@ class JdbcSinkWriterTest {
     }
 
     private static JdbcSinkWriter createWriterWithoutRowErrorCollector() throws Exception {
+        return createWriterWithoutRowErrorCollector(false);
+    }
+
+    private static JdbcSinkWriter createWriterWithoutRowErrorCollector(boolean supportsSchemaChange)
+            throws Exception {
         JdbcConnectionConfig connectionConfig =
                 JdbcConnectionConfig.builder().batchSize(100).autoCommit(false).build();
         JdbcSinkConfig sinkConfig =
@@ -764,6 +769,7 @@ class JdbcSinkWriterTest {
                         .table("test_table")
                         .build();
         JdbcDialect dialect = mock(JdbcDialect.class);
+        when(dialect.supportsSchemaChange()).thenReturn(supportsSchemaChange);
         JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
         Connection connection = mock(Connection.class);
         when(connectionProvider.getOrEstablishConnection()).thenReturn(connection);
