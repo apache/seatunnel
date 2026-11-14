@@ -18,18 +18,15 @@
 package org.apache.seatunnel.translation.spark.serialization;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.translation.serialization.RowConverter;
 import org.apache.seatunnel.translation.spark.utils.OffsetDateTimeUtils;
 
 import org.apache.spark.sql.catalyst.expressions.GenericRow;
-import org.apache.spark.unsafe.types.UTF8String;
 
 import scala.Tuple2;
 import scala.collection.immutable.AbstractMap;
@@ -43,7 +40,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -114,17 +110,6 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
             case MAP:
                 return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType);
             case ARRAY:
-                // if string array, we need to covert every item in array from String to UTF8String
-                if (((ArrayType<?, ?>) dataType).getElementType().equals(BasicType.STRING_TYPE)) {
-                    Object[] fields = (Object[]) field;
-                    Object[] objects =
-                            Arrays.stream(fields)
-                                    .map(v -> UTF8String.fromString((String) v))
-                                    .toArray();
-                    return convertArray(objects, (ArrayType<?, ?>) dataType);
-                }
-                // except string, now only support convert boolean int tinyint smallint bigint float
-                // double, because SeaTunnel Array only support these types
                 return convertArray((Object[]) field, (ArrayType<?, ?>) dataType);
             default:
                 if (field instanceof scala.Some) {
@@ -167,21 +152,14 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
     }
 
     private WrappedArray.ofRef<?> convertArray(Object[] arrayData, ArrayType<?, ?> arrayType) {
-        if (arrayData.length == 0) {
-            return new WrappedArray.ofRef<>(new Object[0]);
-        }
         int num = arrayData.length;
-        if (SqlType.MAP.equals(arrayType.getElementType().getSqlType())) {
-            Object[] arrayMapData = new Object[num];
-            for (int i = 0; i < num; i++) {
-                arrayMapData[i] = convert(arrayData[i], arrayType.getElementType());
-            }
-            return new WrappedArray.ofRef<>(arrayMapData);
-        }
+        // Nested values may change their Java class (for example, SeaTunnelRow to GenericRow).
+        // Never store Spark values in the caller's typed array.
+        Object[] convertedArray = new Object[num];
         for (int i = 0; i < num; i++) {
-            arrayData[i] = convert(arrayData[i], arrayType.getElementType());
+            convertedArray[i] = convert(arrayData[i], arrayType.getElementType());
         }
-        return new WrappedArray.ofRef<>(arrayData);
+        return new WrappedArray.ofRef<>(convertedArray);
     }
 
     // GenericRow To SeaTunnel
@@ -292,12 +270,13 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
      * @see WrappedArray.ofRef
      */
     private Object reconvertArray(WrappedArray.ofRef<?> arrayData, ArrayType<?, ?> arrayType) {
-        if (arrayData == null || arrayData.size() == 0) {
-            return Collections.emptyList().toArray();
-        }
-        Object[] newArray = new Object[arrayData.size()];
+        Object[] newArray = SeaTunnelArrayType.newArray(arrayType, arrayData.size());
         for (int i = 0; i < arrayData.size(); i++) {
-            newArray[i] = reconvert(arrayData.apply(i), arrayType.getElementType());
+            SeaTunnelArrayType.setElement(
+                    newArray,
+                    i,
+                    reconvert(arrayData.apply(i), arrayType.getElementType()),
+                    arrayType);
         }
         return newArray;
     }
