@@ -21,7 +21,9 @@ import org.apache.seatunnel.api.metadata.MetadataConfig;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,5 +54,17 @@ public class YamlSeaTunnelDomConfigProcessorTest {
         assertEquals("http://127.0.0.1:8090", metadataConfig.getProperties().get("test_config1"));
         assertEquals("test_metalake", metadataConfig.getProperties().get("test_config2"));
         assertEquals("test", metadataConfig.getProperties().get("test_config3"));
+    }
+
+    @Test
+    public void testParseEngineConfigAllowsZeroJobMetricsInterval() {
+        String yaml = "seatunnel:\n" + "  engine:\n" + "    print-job-metrics-info-interval: 0\n";
+
+        SeaTunnelConfig config =
+                new YamlSeaTunnelConfigBuilder(
+                                new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)))
+                        .build();
+
+        assertEquals(0, config.getEngineConfig().getPrintJobMetricsInfoInterval());
     }
 }
