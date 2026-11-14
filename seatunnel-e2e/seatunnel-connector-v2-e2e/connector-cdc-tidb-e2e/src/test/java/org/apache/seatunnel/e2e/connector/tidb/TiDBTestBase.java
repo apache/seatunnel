@@ -117,6 +117,7 @@ public class TiDBTestBase extends TestSuiteBase {
     public void startContainers() throws Exception {
         log.info("Starting containers...");
         Startables.deepStart(Stream.of(PD, TIKV, TIDB)).join();
+        waitUntilTidbAnswersQueries();
         ContainerTcpProxy proxy =
                 startContainerTcpProxy(
                         Arrays.asList(
@@ -133,6 +134,35 @@ public class TiDBTestBase extends TestSuiteBase {
         DnsCacheManipulator.setDnsCache(PD_SERVICE_NAME, proxy.getLoopbackAddress());
         DnsCacheManipulator.setDnsCache(TIKV_SERVICE_NAME, proxy.getLoopbackAddress());
         log.info("Containers are started.");
+    }
+
+    /**
+     * The port wait of the TiDB container does not prove that TiDB serves connections: Docker
+     * accepts on the mapped port at once, and the wait does not fail when its check inside the
+     * container fails. A connection made too early is closed before TiDB sends anything, so wait
+     * until a query works.
+     */
+    private void waitUntilTidbAnswersQueries() {
+        long start = System.currentTimeMillis();
+        try {
+            Awaitility.await("TiDB answers queries")
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .until(this::tidbAnswersQuery);
+        } catch (ConditionTimeoutException e) {
+            throw new IllegalStateException("TiDB did not answer queries", e);
+        }
+        log.info("TiDB answered queries after {} ms", System.currentTimeMillis() - start);
+    }
+
+    private boolean tidbAnswersQuery() {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            return statement.execute("SELECT 1");
+        } catch (SQLException e) {
+            log.info("TiDB does not answer queries yet: {}", e.getMessage());
+            return false;
+        }
     }
 
     public static void stopContainers() {
