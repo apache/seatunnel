@@ -41,6 +41,7 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
@@ -146,6 +147,9 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     private final Counter sinkPrepareCommitNs;
     private final Counter sinkCommitNs;
     private final Counter sinkAbortNs;
+
+    /** Ensures sink DDL runs only after the schema-change-before checkpoint drains old rows. */
+    private final SchemaChangeDrainGuard schemaChangeDrainGuard = new SchemaChangeDrainGuard();
 
     private transient StageErrorConfig stageErrorConfig;
     private transient ErrorHandler<T> stageErrorHandler;
@@ -336,6 +340,19 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        notifyCheckpointComplete(checkpointId, null);
+    }
+
+    /**
+     * Commits sink committables and updates the schema-change drain guard with checkpoint type.
+     *
+     * @param checkpointId completed checkpoint id
+     * @param checkpointType completed checkpoint type
+     * @throws Exception if committing sink committables fails
+     */
+    @Override
+    public void notifyCheckpointComplete(long checkpointId, CheckpointType checkpointType)
+            throws Exception {
         if (committer.isPresent() && lastCommitInfo.isPresent()) {
             boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
             long commitStartNs = metricsEnabled ? System.nanoTime() : 0L;
@@ -345,6 +362,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             }
         }
         connectorMetricsCalcContext.commitPendingMetrics(checkpointId);
+        schemaChangeDrainGuard.checkpointCompleted(checkpointId, checkpointType);
         if (stageErrorHandler != null) {
             stageErrorHandler.notifyCheckpointComplete(checkpointId);
         }
@@ -352,6 +370,19 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
+        notifyCheckpointAborted(checkpointId, null);
+    }
+
+    /**
+     * Aborts sink committables and clears schema-change drain state for aborted schema checkpoints.
+     *
+     * @param checkpointId aborted checkpoint id
+     * @param checkpointType aborted checkpoint type
+     * @throws Exception if aborting sink committables fails
+     */
+    @Override
+    public void notifyCheckpointAborted(long checkpointId, CheckpointType checkpointType)
+            throws Exception {
         if (committer.isPresent() && lastCommitInfo.isPresent()) {
             boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
             long abortStartNs = metricsEnabled ? System.nanoTime() : 0L;
@@ -361,6 +392,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             }
         }
         connectorMetricsCalcContext.abortPendingMetrics(checkpointId);
+        schemaChangeDrainGuard.checkpointAborted(checkpointId, checkpointType);
         if (stageErrorHandler != null) {
             stageErrorHandler.notifyCheckpointAborted(checkpointId);
         }
@@ -864,6 +896,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                         .join();
             }
         }
+        schemaChangeDrainGuard.checkpointBarrierHandled(barrier);
         runningTask.ack(barrier);
 
         log.debug(
@@ -885,6 +918,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     }
 
     private void processSchemaChangeEvent(SchemaChangeEvent event) throws IOException {
+        schemaChangeDrainGuard.checkSchemaChangeCanApply(event);
         if (writer instanceof SupportSchemaEvolutionSinkWriter) {
             ((SupportSchemaEvolutionSinkWriter) writer).applySchemaChange(event);
         } else {
