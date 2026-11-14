@@ -323,6 +323,51 @@ class WebSocketSourceReaderTest {
     }
 
     /**
+     * The scenario of <a href="https://github.com/apache/seatunnel/issues/12713">#12713</a>: the
+     * first connection is dropped right after the handshake, so the open-message send races with
+     * the dying socket. With the default {@code poll_timeout_ms} (1000ms) and {@code
+     * reconnect_interval_ms} (3000ms) the reader re-checks for terminal errors twice before the
+     * reconnect even fires, so the task only survives if the rejected send is treated as a
+     * connection failure that the reconnect replaces, not as a terminal error. The reader must keep
+     * polling through that window and emit the row the reconnected subscription produces.
+     */
+    @Test
+    void shouldSurviveADroppedFirstConnectionWithDefaultPollAndReconnectOptions() throws Exception {
+        String url =
+                startServerWith(
+                        connectionDroppingListener(),
+                        subscriptionDrivenListener("{\"id\":1,\"name\":\"alice\"}"));
+        // deliberately not overriding poll_timeout_ms (1000) and reconnect_interval_ms (3000):
+        // the bug only shows on the default timing, where the reader rethrows long before the
+        // scheduled reconnect replaces the connection
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(WebSocketSourceOptions.URL.key(), url);
+        configMap.put(ConnectorCommonOptions.SCHEMA.key(), jsonSchema());
+        configMap.put(
+                WebSocketSourceOptions.OPEN_MESSAGES.key(),
+                Collections.singletonList(SUBSCRIBE_MESSAGE));
+        configMap.put(WebSocketSourceOptions.ENABLE_RECONNECT.key(), true);
+        configMap.put(WebSocketSourceOptions.MAX_RECORDS.key(), 1);
+
+        SourceReader.Context context = mockContext(Boundedness.BOUNDED);
+        AtomicBoolean noMoreElement = trackNoMoreElement(context);
+        TestCollector collector = new TestCollector();
+        try (AbstractSingleSplitReader<SeaTunnelRow> reader = createReader(configMap, context)) {
+            reader.open();
+            pollUntil(reader, collector, noMoreElement::get);
+        }
+
+        Assertions.assertTrue(
+                noMoreElement.get(), "The reconnected reader must reach the end of the stream");
+        Assertions.assertEquals(
+                SUBSCRIBE_MESSAGE,
+                reconnectedServerReceived.poll(AWAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS),
+                "The subscription must be sent on the replacement connection");
+        Assertions.assertEquals(1, collector.rows.size());
+        Assertions.assertEquals("alice", collector.rows.get(0).getField(1));
+    }
+
+    /**
      * Once the reconnect budget is exhausted the reader must fail the task instead of waiting for
      * messages that can never arrive. The failure message reaches job logs and alerts, so it must
      * identify the server without leaking the credentials that such endpoints commonly carry in the
