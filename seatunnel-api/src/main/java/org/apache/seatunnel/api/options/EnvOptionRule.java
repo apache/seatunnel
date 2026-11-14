@@ -50,7 +50,22 @@ public class EnvOptionRule implements Factory {
                         MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY,
                         EnvCommonOptions.CUSTOM_PARAMETERS,
                         EnvCommonOptions.NODE_TAG_FILTER,
-                        EnvCommonOptions.SINK_FLUSH_INTERVAL)
+                        EnvCommonOptions.SINK_FLUSH_INTERVAL,
+                        EnvCommonOptions.OPENLINEAGE_ENABLED,
+                        EnvCommonOptions.OPENLINEAGE_TRANSPORT,
+                        EnvCommonOptions.OPENLINEAGE_URL,
+                        EnvCommonOptions.OPENLINEAGE_NAMESPACE,
+                        // OPENLINEAGE_AUTH_TOKEN is not a supported job option. LineageConfig
+                        // rejects job-level tokens when resolving lineage configuration; engine
+                        // integrations must invoke that validation before persisting or serializing
+                        // job configuration.
+                        EnvCommonOptions.OPENLINEAGE_TIMEOUT_MS,
+                        EnvCommonOptions.OPENLINEAGE_RETRY_TIMES,
+                        EnvCommonOptions.OPENLINEAGE_RUN_FACET,
+                        EnvCommonOptions.OPENLINEAGE_RUN_PROPERTIES,
+                        EnvCommonOptions.OPENLINEAGE_HEARTBEAT_MIN_INTERVAL_MS,
+                        EnvCommonOptions.OPENLINEAGE_PRODUCER,
+                        EnvCommonOptions.OPENLINEAGE_JOB_NAME_PER_OUTPUT)
                 .build();
     }
 }
