@@ -34,6 +34,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointOverview;
 import org.apache.seatunnel.engine.core.checkpoint.PipelineCheckpointOverview;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
@@ -1023,7 +1024,6 @@ public class CheckpointCoordinatorFailoverIT {
         HazelcastInstanceImpl masterNode1 = null;
         HazelcastInstanceImpl masterNode2 = null;
         SeaTunnelClient engineClient = null;
-        ExecutorService savepointCaller = Executors.newSingleThreadExecutor();
         AtomicReference<Throwable> savepointCallFailure = new AtomicReference<>();
 
         SeaTunnelConfig config1 = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -1034,6 +1034,8 @@ public class CheckpointCoordinatorFailoverIT {
         config2.getHazelcastConfig().setClusterName(TestUtils.getClusterName(testClusterName));
         config2.getEngineConfig().getHttpConfig().setEnabled(false);
 
+        DeployMode originalDeployMode = Common.getDeployMode();
+        ExecutorService savepointCaller = Executors.newSingleThreadExecutor();
         try {
             masterNode1 = SeaTunnelServerStarter.createHazelcastInstance(config1);
             masterNode2 = SeaTunnelServerStarter.createHazelcastInstance(config2);
@@ -1146,8 +1148,15 @@ public class CheckpointCoordinatorFailoverIT {
             // Captured now so the savepoint that eventually ends the job can be told apart from
             // this one after the failover (see the assertions following SAVEPOINT_DONE below).
             long inFlightSavepointTriggeredAt = inFlightSavepoint.getCheckpointTimestamp();
+            PassiveCompletableFuture<CompletedCheckpoint> oldSavepointCompletion =
+                    inFlightSavepoint.getCompletableFuture();
             masterNode1.shutdown();
             masterNode1 = null;
+
+            // A reset or shutdown can resolve the pending checkpoint without a value or with
+            // an exception. A non-null result means the old coordinator received every ACK,
+            // even if the shutdown prevented its RPC response from reaching the client.
+            assertOldSavepointDidNotComplete(oldSavepointCompletion);
 
             HazelcastInstanceImpl finalMaster2 = masterNode2;
             Awaitility.await()
@@ -1219,7 +1228,12 @@ public class CheckpointCoordinatorFailoverIT {
                                     + inFlightSavepointTriggeredAt
                                     + "), so it was completed by the old master and not"
                                     + " redriven by the restored master");
+
+            // Recheck after the failed old RPC and the persisted redrive in case the old
+            // completion callback was racing the first observation.
+            assertOldSavepointDidNotComplete(oldSavepointCompletion);
         } finally {
+            Common.setDeployMode(originalDeployMode);
             savepointCaller.shutdownNow();
             if (engineClient != null) {
                 engineClient.close();
@@ -1230,6 +1244,15 @@ public class CheckpointCoordinatorFailoverIT {
             if (masterNode2 != null) {
                 masterNode2.shutdown();
             }
+        }
+    }
+
+    private static void assertOldSavepointDidNotComplete(
+            PassiveCompletableFuture<CompletedCheckpoint> completion) {
+        if (completion.isDone() && !completion.isCompletedExceptionally()) {
+            Assertions.assertNull(
+                    completion.getNow(null),
+                    "old master fully acknowledged the savepoint before shutdown");
         }
     }
 
