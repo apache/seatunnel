@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.MultiTableSinkReplicaMode;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -90,6 +91,18 @@ class JdbcSinkWriterTest {
                         Integer.class);
 
         Assertions.assertNotNull(constructor);
+    }
+
+    @Test
+    void testReplicaModeIsKeyedAndATableWithoutAKeyHasNoRoutingKey() {
+        JdbcSinkWriter keyed = createWriterWithoutRowErrorCollector(0);
+        Assertions.assertEquals(MultiTableSinkReplicaMode.KEYED, keyed.replicaMode());
+        Assertions.assertEquals(Optional.of(0), keyed.primaryKey());
+
+        // KEYED without a key: MultiTableSinkWriter rejects several replicas for this table.
+        JdbcSinkWriter withoutKey = createWriterWithoutRowErrorCollector();
+        Assertions.assertEquals(MultiTableSinkReplicaMode.KEYED, withoutKey.replicaMode());
+        Assertions.assertEquals(Optional.empty(), withoutKey.primaryKey());
     }
 
     @Test
@@ -651,6 +664,10 @@ class JdbcSinkWriterTest {
     }
 
     private static JdbcSinkWriter createWriterWithoutRowErrorCollector() {
+        return createWriterWithoutRowErrorCollector(null);
+    }
+
+    private static JdbcSinkWriter createWriterWithoutRowErrorCollector(Integer primaryKeyIndex) {
         JdbcConnectionConfig connectionConfig =
                 JdbcConnectionConfig.builder().batchSize(100).autoCommit(false).build();
         JdbcSinkConfig sinkConfig =
@@ -677,7 +694,7 @@ class JdbcSinkWriterTest {
                 sinkConfig,
                 schema,
                 schema,
-                null);
+                primaryKeyIndex);
     }
 
     private static final class WriterFixture {

@@ -273,7 +273,7 @@ sink {
     retry_backoff_multiplier_ms = 100
     max_retry_backoff_ms = 5000
     write_timeout = 10
-    multi_table_sink_replica = 2
+    multi_table_sink_replica = 1
   }
 }
 ```

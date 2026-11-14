@@ -19,6 +19,7 @@ The old configuration name `source_table_name` is deprecated, please migrate to 
 |---------------|--------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | plugin_input  | list   | No       | -       | When `plugin_input` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file <br/> When `plugin_input` is specified, the current plug-in processes the data set corresponding to this parameter. The value can be a single upstream dataset name or an array of names; with several names the Zeta engine unions those upstream data sets into this sink. |
 | metadata_datasource_id | String | No       | -       | The data source ID for retrieving connection configuration from Metadata Center. When specified, the connector will fetch connection details (e.g., URL, username, password) from the external metadata service instead of using direct configuration. See [Metadata SPI](../../introduction/concepts/metadata-spi.md) for more information. |
+| multi_table_sink_replica | int | No | 1 | The number of writers of each table in one subtask of a multi-table sink. A value above 1 needs a sink whose writer declares a replica mode, see the section below. |
 
 ### plugin_input [list]
 
@@ -29,6 +30,21 @@ When `plugin_input` is specified, the current plug-in processes the data set cor
 ### metadata_datasource_id [string]
 
 The data source ID for retrieving connection configuration from Metadata Center. When specified, the connector will fetch connection details (e.g., URL, username, password) from the external metadata service instead of using direct configuration. See [Metadata SPI](../../introduction/concepts/metadata-spi.md) for more information.
+
+### multi_table_sink_replica [int]
+
+The number of writers of each table in one subtask of a multi-table sink. The default is 1.
+With a value above 1, the rows of a table are spread over its writers, so the writer must
+declare through `SupportMultiTableSinkWriter.replicaMode()` how that can be done safely:
+
+- `KEYED`: rows are routed by the key from `primaryKey()`, so all changes of one key reach the
+  same writer in order. A writer that declares it without a key is rejected. Jdbc declares it,
+  except with `is_exactly_once`, so a Jdbc table needs a primary key in its schema or in
+  `primary_keys`.
+- `RANDOM`: rows may go to any writer. Only for writers whose result does not depend on the
+  write order.
+- `UNSUPPORTED`, the default: the job fails when the writer is created or restored, and the
+  error names the table, the connector and the writer class. Set the option to 1 for such a sink.
 
 # Important note
 

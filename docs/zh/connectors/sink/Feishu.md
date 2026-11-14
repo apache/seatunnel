@@ -141,7 +141,7 @@ Feishu {
 ```hocon
 Feishu {
   url = "https://open.feishu.cn/open-apis/bot/v2/hook/<your-hook-token>"
-  multi_table_sink_replica = 2
+  multi_table_sink_replica = 1
 }
 ```
 

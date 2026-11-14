@@ -89,7 +89,7 @@ libfb303-xxx.jar
 | paimon.hadoop.conf-path      | String  | No       | -                            | The specified loading path for `core-site.xml`, `hdfs-site.xml`, and `hive-site.xml` files.                                                                      |
 | paimon.table.non-primary-key | Boolean | No       | false                        | Switch to create `table with PK` or `table without PK`. `true`: table without PK, `false`: table with PK.                                                       |
 | branch                       | String  | No       | -                            | The branch name of the Paimon table to write data to. If omitted, data is written to the main branch. For non-main branches, the main table and target branch must already exist, and `schema_save_mode=RECREATE_SCHEMA` or `data_save_mode=DROP_DATA` is not supported. |
-| multi_table_sink_replica | int | No | 1 | The replica number of multi table sink writer. Use this when one upstream job writes to multiple Paimon tables and each table needs more than one sink writer. |
+| multi_table_sink_replica | int | No | 1 | The replica number of multi table sink writer. Keep it at 1: the Paimon writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### table_options [Map]
 
