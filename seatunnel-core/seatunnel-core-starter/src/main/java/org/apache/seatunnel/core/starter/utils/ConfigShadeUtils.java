@@ -62,7 +62,7 @@ public final class ConfigShadeUtils {
                 "client_secret",
                 "security_token",
                 "connection_string",
-                "account_key"
+                "account_key",
                 "consumer_key",
                 "consumer_secret"
             };
