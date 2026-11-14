@@ -34,6 +34,7 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 class ReadonlyConfigParserTest extends BaseConfigParserTest {
@@ -199,6 +200,45 @@ class ReadonlyConfigParserTest extends BaseConfigParserTest {
         VectorIndex vectorIndex = (VectorIndex) constraintKey.getColumnNames().get(0);
         Assertions.assertEquals(VectorIndex.IndexType.HNSW, vectorIndex.getIndexType());
         Assertions.assertEquals(VectorIndex.MetricType.L2, vectorIndex.getMetricType());
+    }
+
+    @Test
+    void parseVectorIndexKeyDoesNotDependOnTheDefaultLocale() {
+        Map<String, Object> column0 = new HashMap<>();
+        column0.put("columnName", "vec");
+        column0.put("indexName", "idx1");
+        column0.put("indexType", "ivf_flat");
+        column0.put("metricType", "cosine");
+        ReadonlyConfig config = buildVectorIndexConfig(column0);
+
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+        try {
+            for (Locale locale : new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
+                // Upper casing "i" gives a dotted capital I under these locales.
+                Locale.setDefault(locale);
+                TableSchema tableSchema = new ReadonlyConfigParser().parse(config);
+                VectorIndex vectorIndex =
+                        (VectorIndex)
+                                tableSchema.getConstraintKeys().get(0).getColumnNames().get(0);
+                Assertions.assertEquals(
+                        VectorIndex.IndexType.IVF_FLAT,
+                        vectorIndex.getIndexType(),
+                        locale.toString());
+                Assertions.assertEquals(
+                        VectorIndex.MetricType.COSINE,
+                        vectorIndex.getMetricType(),
+                        locale.toString());
+            }
+        } finally {
+            // The base locale first, because setting it overwrites both category defaults.
+            Locale.setDefault(saved[0]);
+            Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+            Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
+        }
     }
 
     private void assertPrimaryKey(TableSchema tableSchema) {
