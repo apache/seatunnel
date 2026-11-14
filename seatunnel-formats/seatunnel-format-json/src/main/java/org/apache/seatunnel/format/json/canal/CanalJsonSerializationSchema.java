@@ -88,10 +88,15 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
             if (!StringUtils.isEmpty(row.getTableId())) {
                 reuse.setField(3, TablePath.of(row.getTableId()).getDatabaseName());
                 reuse.setField(4, TablePath.of(row.getTableId()).getTableName());
+            } else {
+                reuse.setField(3, null);
+                reuse.setField(4, null);
             }
 
             if (row.getOptions() != null && row.getOptions().containsKey(EVENT_TIME.getName())) {
                 reuse.setField(5, row.getOptions().get(EVENT_TIME.getName()));
+            } else {
+                reuse.setField(5, null);
             }
 
             return jsonSerializer.serialize(reuse);

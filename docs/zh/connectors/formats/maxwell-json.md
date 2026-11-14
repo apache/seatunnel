@@ -11,6 +11,10 @@ SeaTunnel 能够解析 Maxwell 的 JSON 消息，并将其转化为 INSERT/UPDAT
 
 SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息编码为 Maxwell JSON 消息，并将其发送到类似 Kafka 这样的存储中。然而，目前 SeaTunnel 无法将 UPDATE_BEFORE 和 UPDATE_AFTER 合并为一个单一的 UPDATE 消息。因此，SeaTunnel 将 UPDATE_BEFORE 和 UPDATE_AFTER 编码为 Maxwell 的 DELETE 和 INSERT 消息。
 
+## 记录元数据
+
+SeaTunnel 编码一条记录时，`database`、`table` 和 `ts` 字段只取自该条记录：`database` 与 `table` 来自该记录的表标识，`ts` 来自该记录的事件时间。如果某条记录没有表标识或没有事件时间，则该条记录对应的字段输出为 `null`，不会沿用之前已编码记录中的元数据。
+
 ## 限制
 
 更新消息必须包含完整行数据；仅包含变更字段的部分更新暂不支持。
