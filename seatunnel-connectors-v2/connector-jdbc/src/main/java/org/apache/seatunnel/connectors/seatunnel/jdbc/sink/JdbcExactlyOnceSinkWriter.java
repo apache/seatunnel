@@ -46,9 +46,11 @@ import org.slf4j.LoggerFactory;
 import javax.transaction.xa.Xid;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
@@ -127,6 +129,13 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
             isOpen = true;
             try {
                 xidGenerator.open();
+                lastGeneratedTxId =
+                        Math.max(
+                                lastGeneratedTxId,
+                                xidGenerator.restoreState(
+                                        recoverStates.stream()
+                                                .map(JdbcSinkState::getXid)
+                                                .collect(Collectors.toList())));
                 xaFacade.open();
                 outputFormat.open();
                 if (!recoverStates.isEmpty()) {
@@ -299,7 +308,24 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
             LOG.warn(
                     "rollback prepared transaction failed, try to recover pending transactions for current subtask, xid={}",
                     failedRollbackXid);
-            xaGroupOps.recoverAndRollback(context, sinkcontext, xidGenerator, null);
+            // A live writer can own other prepared checkpoints that still need committing. Only
+            // retry the transaction whose rollback failed; a branch-wide sweep would discard them.
+            boolean stillPrepared =
+                    xaFacade.recover().stream()
+                            .anyMatch(
+                                    xid ->
+                                            xid.getFormatId() == failedRollbackXid.getFormatId()
+                                                    && Arrays.equals(
+                                                            xid.getGlobalTransactionId(),
+                                                            failedRollbackXid
+                                                                    .getGlobalTransactionId())
+                                                    && Arrays.equals(
+                                                            xid.getBranchQualifier(),
+                                                            failedRollbackXid
+                                                                    .getBranchQualifier()));
+            if (stillPrepared) {
+                xaFacade.rollback(failedRollbackXid);
+            }
         } catch (Exception recoveryException) {
             LOG.warn(
                     "recovery after rollback prepared transaction failure also failed, xid={}",
