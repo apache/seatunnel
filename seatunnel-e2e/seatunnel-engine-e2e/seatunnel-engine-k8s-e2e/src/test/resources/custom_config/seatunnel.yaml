@@ -1,0 +1,61 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Same as the shipped config/seatunnel.yaml, with the slot-service block deliberately
+# omitting the dynamic-slot key so this e2e exercises the engine's static default
+# (the flipped DYNAMIC_SLOT option) end-to-end, plus one addition for this e2e: an
+# explicit slot-num. The statefulset pods are limited to 1 CPU each, so the default
+# static slot pool would be 2 slots per worker, while the batch template job needs
+# 4 slots. KubernetesIT submits right after the StatefulSet reports both pods Ready -
+# at that point the second worker may not have registered with the master yet, so the
+# job can transiently face a single 2-slot worker and fail with
+# NoEnoughResourceException under the default REJECT strategy. A pinned slot-num of 8
+# keeps the cluster on the static default while giving a single registered worker
+# enough headroom for the job.
+seatunnel:
+  engine:
+    classloader-cache-mode: true
+    history-job-expire-minutes: 1440
+    backup-count: 1
+    queue-type: blockingqueue
+    print-execution-info-interval: 60
+    print-job-metrics-info-interval: 60
+    slot-service:
+      slot-num: 8
+    checkpoint:
+      interval: 10000
+      timeout: 60000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: /tmp/seatunnel/checkpoint_snapshot
+          storage.type: hdfs
+          fs.defaultFS: file:///tmp/ # Ensure that the directory has written permission
+    telemetry:
+      metric:
+        enabled: false
+      logs:
+        scheduled-deletion-enable: true
+    http:
+      enable-http: true
+      port: 8080
+      enable-dynamic-port: false
+      # Uncomment the following lines to enable basic authentication for web UI
+      # enable-basic-auth: true
+      # basic-auth-username: admin
+      # basic-auth-password: admin
