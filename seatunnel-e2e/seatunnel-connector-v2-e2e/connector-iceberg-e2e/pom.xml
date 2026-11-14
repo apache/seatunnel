@@ -100,6 +100,18 @@
             <scope>test</scope>
         </dependency>
 
+        <!--
+            The CDC connectors declare connector-cdc-base as a provided dependency. The host-side
+            tests below call FactoryUtil discovery, which loads every Factory service provider on
+            the test classpath, so the base module must be present at test runtime as well.
+        -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-cdc-base</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-mysql</artifactId>
