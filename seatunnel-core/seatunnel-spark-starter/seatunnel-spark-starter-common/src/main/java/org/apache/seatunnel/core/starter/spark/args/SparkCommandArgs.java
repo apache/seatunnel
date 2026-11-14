@@ -33,6 +33,7 @@ import lombok.EqualsAndHashCode;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
@@ -76,7 +77,7 @@ public class SparkCommandArgs extends AbstractCommandArgs {
 
         @Override
         public DeployMode convert(String value) {
-            DeployMode deployMode = DeployMode.valueOf(value.toUpperCase());
+            DeployMode deployMode = DeployMode.valueOf(value.toUpperCase(Locale.ROOT));
             if (DEPLOY_MODE_TYPE_LIST.contains(deployMode)) {
                 return deployMode;
             } else {

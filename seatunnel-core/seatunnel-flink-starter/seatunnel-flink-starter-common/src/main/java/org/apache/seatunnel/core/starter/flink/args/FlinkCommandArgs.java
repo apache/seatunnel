@@ -34,6 +34,7 @@ import lombok.EqualsAndHashCode;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
@@ -103,7 +104,8 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
 
         @Override
         public MasterType convert(String value) {
-            MasterType masterType = MasterType.valueOf(value.toUpperCase().replaceAll("-", "_"));
+            MasterType masterType =
+                    MasterType.valueOf(value.toUpperCase(Locale.ROOT).replaceAll("-", "_"));
             if (MASTER_TYPE_LIST.contains(masterType)) {
                 return masterType;
             } else {
@@ -125,7 +127,8 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
 
         @Override
         public DeployMode convert(String value) {
-            DeployMode deployMode = DeployMode.valueOf(value.toUpperCase().replaceAll("-", "_"));
+            DeployMode deployMode =
+                    DeployMode.valueOf(value.toUpperCase(Locale.ROOT).replaceAll("-", "_"));
             if (DEPLOY_MODE_TYPE_LIST.contains(deployMode)) {
                 return deployMode;
             } else {
