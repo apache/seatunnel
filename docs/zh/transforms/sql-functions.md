@@ -1339,6 +1339,18 @@ IFNULL(A, B)
 
 NULLIF(A, B)
 
+### IF
+
+```IF(condition, trueValue, falseValue) -> type(of values)```
+
+条件为真时返回 `trueValue`，否则返回 `falseValue`。null 条件视为假（即返回 `falseValue`）。非布尔条件会报错。只计算被选中的分支。
+
+两个值分支可以类型不同：结果类型取两者的公共类型。任一分支为字符串时结果为字符串，另一分支的值按 CAST 语义转换；否则取更宽的数值类型。NULL 分支保持另一分支的类型。
+
+示例:
+
+IF(A > 1, 'A', 'B')
+
 ### MULTI_IF
 
 ```MULTI_IF(condition1, value1, condition2, value2, ... conditionN, valueN, bValue) -> type(of values)```
