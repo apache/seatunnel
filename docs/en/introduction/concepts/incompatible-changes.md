@@ -12,6 +12,10 @@ You need to check this document before you upgrade to related version.
   - **Impact**: A dataset created by this version has an `int64` column where an earlier version created `int32`. A dataset that already exists keeps its column types, because the sink writes to the schema it finds, so its `int32` column still wraps large values.
   - **Migration Guide**: No configuration change is needed. If a consumer expects `int32` for these columns, update it to read `int64`. To store large values in a dataset created by an earlier version, recreate the dataset and write the rows again from the source.
 
+### Iceberg: ordered publication after writer rotation
+
+For v2/v3 CDC and upsert jobs, a schema change within a checkpoint may now produce multiple ordered snapshots instead of one. This fixes stale rows when a later writer's equality deletes previously shared the same data sequence number as earlier rows. Each group is atomic, but external readers may observe a prefix of the checkpoint between groups, including while a failed commit is recovered. Single-generation checkpoints and append-only rotations without equality-delete dependencies retain one snapshot. Retain snapshot history and pending files until recovery is no longer needed; checkpoint and group numbers alone are not publication identities.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**
