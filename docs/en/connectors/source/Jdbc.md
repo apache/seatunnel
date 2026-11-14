@@ -307,6 +307,12 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
 Dameng `TIMESTAMP WITH LOCAL TIME ZONE` source columns are mapped to `TIMESTAMP_TZ`, and `INTERVAL` source columns are mapped to `STRING`.
 
+#### Timestamp with time zone
+
+Upgrade note: the shared JDBC metadata fallback now maps JDBC `TIMESTAMP_WITH_TIMEZONE` (2014) to `TIMESTAMP_TZ`/`OffsetDateTime` instead of `TIMESTAMP`/`LocalDateTime`. Before upgrading an auto-discovered job, check downstream transform and sink schemas and migrate any assumptions about timezone-less timestamps. No option or checkpoint format changes.
+
+JDBC columns that natively carry timezone semantics are mapped to SeaTunnel `TIMESTAMP_TZ`. This includes the JDBC 4.2 `TIMESTAMP_WITH_TIMEZONE` type and dialect-specific types such as Db2 for z/OS and Teradata `TIMESTAMP WITH TIME ZONE`, Presto `timestamp(p) with time zone`, and Vertica `TIMESTAMPTZ`. The runtime value is represented by `java.time.OffsetDateTime`. Db2 LUW does not provide this native column type. Db2 for z/OS supports up to 12 fractional digits; digits beyond SeaTunnel's nanosecond precision are truncated.
+
 ### CockroachDB
 
 Use the existing PostgreSQL JDBC driver with `dialect = "CockroachDB"`. The dialect must be explicit: a `jdbc:postgresql:` URL without it continues to select PostgreSQL.

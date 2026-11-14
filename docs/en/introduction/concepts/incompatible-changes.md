@@ -5,6 +5,10 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### JDBC timezone timestamp discovery
+
+The shared JDBC metadata fallback now maps JDBC type 2014 (`TIMESTAMP_WITH_TIMEZONE`) to `TIMESTAMP_TZ` (`OffsetDateTime`) instead of `TIMESTAMP` (`LocalDateTime`). Existing auto-discovered jobs may therefore expose a different logical and Java type downstream. Check transform and sink schemas before upgrading, and explicitly convert values where a timezone-less timestamp is required. Configurations and checkpoint formats are unchanged. The JDBC sink still falls back to UTC `setTimestamp` when a driver rejects `setObject(OffsetDateTime)`; this does not guarantee retaining the original offset.
+
 ### Lance sink: BIGINT columns are created as int64
 
 - **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**
