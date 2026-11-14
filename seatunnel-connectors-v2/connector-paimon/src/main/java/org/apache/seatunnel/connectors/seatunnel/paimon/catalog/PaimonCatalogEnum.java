@@ -19,7 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.catalog;
 
 public enum PaimonCatalogEnum {
     FILESYSTEM("filesystem"),
-    HIVE("hive");
+    HIVE("hive"),
+    REST("rest");
 
     final String type;
 
