@@ -47,6 +47,7 @@ public class HiveSinkFactory
                 .optional(HiveSinkOptions.METASTORE_URI)
                 .optional(HiveSinkOptions.HIVE_SITE_PATH)
                 .optional(HiveSinkOptions.ABORT_DROP_PARTITION_METADATA)
+                .optional(HiveSinkOptions.USE_TABLE_COMPRESSION)
                 .optional(HiveSinkOptions.KERBEROS_PRINCIPAL)
                 .optional(HiveSinkOptions.KERBEROS_KEYTAB_PATH)
                 .optional(HiveSinkOptions.REMOTE_USER)

@@ -23,15 +23,19 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableUtils;
 
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.orc.CompressionKind;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -44,8 +48,130 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Unit tests for HiveSink config generation focusing on file_name_expression handling. */
+/** Unit tests for HiveSink config generation. */
 public class HiveSinkConfigTest {
+
+    @Test
+    void testTableCompressionDisabledByDefault() throws Exception {
+        Assertions.assertEquals(
+                CompressFormat.NONE,
+                compressionConfig(null, null, "SNAPPY", true).getCompressFormat());
+    }
+
+    @Test
+    void testTableCompressionExplicitlyDisabled() throws Exception {
+        Assertions.assertEquals(
+                CompressFormat.NONE,
+                compressionConfig(false, null, "SNAPPY", true).getCompressFormat());
+    }
+
+    @Test
+    void testInheritOrcCompression() throws Exception {
+        Assertions.assertEquals(
+                CompressFormat.SNAPPY,
+                compressionConfig(true, null, " snappy ", true).getCompressFormat());
+        for (CompressFormat codec : CompressFormat.values()) {
+            if (codec == CompressFormat.NONE || codec.getOrcCompression() != CompressionKind.NONE) {
+                Assertions.assertEquals(
+                        codec,
+                        compressionConfig(true, null, codec.name(), true).getCompressFormat());
+            }
+        }
+    }
+
+    @Test
+    void testExplicitCompressionOverridesTable() throws Exception {
+        Assertions.assertEquals(
+                CompressFormat.NONE,
+                compressionConfig(true, "NONE", "SNAPPY", true).getCompressFormat());
+        Assertions.assertEquals(
+                CompressFormat.ZLIB,
+                compressionConfig(true, "ZLIB", "invalid", true).getCompressFormat());
+    }
+
+    @Test
+    void testMissingOrBlankTableCompressionKeepsDefault() throws Exception {
+        for (String codec : new String[] {null, "", "   "}) {
+            Assertions.assertEquals(
+                    CompressFormat.NONE,
+                    compressionConfig(true, null, codec, true).getCompressFormat());
+        }
+    }
+
+    @Test
+    void testTableCompressionDoesNotApplyToOtherFormats() throws Exception {
+        Assertions.assertEquals(
+                CompressFormat.NONE,
+                compressionConfig(true, null, "SNAPPY", false).getCompressFormat());
+        Assertions.assertEquals(
+                CompressFormat.NONE,
+                compressionConfig(true, null, "invalid", FileFormat.PARQUET).getCompressFormat());
+    }
+
+    @Test
+    void testInvalidOrcCompressionRejected() {
+        for (String codec : new String[] {"invalid", "GZIP", "BROTLI"}) {
+            HiveConnectorException error =
+                    Assertions.assertThrows(
+                            HiveConnectorException.class,
+                            () -> compressionConfig(true, null, codec, true));
+            Assertions.assertTrue(error.getMessage().contains("orc.compress"));
+            Assertions.assertTrue(error.getMessage().contains("default.test_table"));
+        }
+        for (CompressFormat codec : CompressFormat.values()) {
+            if (codec != CompressFormat.NONE && codec.getOrcCompression() == CompressionKind.NONE) {
+                Assertions.assertThrows(
+                        HiveConnectorException.class,
+                        () -> compressionConfig(true, null, codec.name(), true));
+            }
+        }
+    }
+
+    private static FileSinkConfig compressionConfig(
+            Boolean enabled, String explicitCodec, String tableCodec, boolean orc)
+            throws Exception {
+        return compressionConfig(
+                enabled, explicitCodec, tableCodec, orc ? FileFormat.ORC : FileFormat.TEXT);
+    }
+
+    private static FileSinkConfig compressionConfig(
+            Boolean enabled, String explicitCodec, String tableCodec, FileFormat format)
+            throws Exception {
+        Map<String, Object> options = new HashMap<>();
+        options.put(HiveSinkOptions.TABLE_NAME.key(), "default.test_table");
+        if (enabled != null) {
+            options.put(HiveSinkOptions.USE_TABLE_COMPRESSION.key(), enabled);
+        }
+        if (explicitCodec != null) {
+            options.put(FileBaseSinkOptions.COMPRESS_CODEC.key(), explicitCodec);
+        }
+        Table table =
+                mockTextTable(
+                        "default",
+                        "test_table",
+                        "file:/tmp/hive/test_table",
+                        listOf(
+                                new FieldSchema("id", "string", null),
+                                new FieldSchema("name", "string", null)),
+                        new ArrayList<>());
+        if (format == FileFormat.ORC) {
+            table.getSd().setInputFormat("org.apache.hadoop.hive.ql.io.orc.OrcInputFormat");
+        } else if (format == FileFormat.PARQUET) {
+            table.getSd()
+                    .setInputFormat(
+                            "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat");
+        }
+        if (tableCodec != null) {
+            table.putToParameters("orc.compress", tableCodec);
+        }
+        try (MockedStatic<HiveTableUtils> mocked = Mockito.mockStatic(HiveTableUtils.class)) {
+            mocked.when(() -> HiveTableUtils.getTableInfo(Mockito.any())).thenReturn(table);
+            mocked.when(() -> HiveTableUtils.parseFileFormat(Mockito.any(Table.class)))
+                    .thenCallRealMethod();
+            return extractFileSinkConfig(
+                    new HiveSink(ReadonlyConfig.fromMap(options), buildCatalogTable()));
+        }
+    }
 
     @Test
     void testDefaultFileNameExpressionAppliedWhenAbsent() throws Exception {
