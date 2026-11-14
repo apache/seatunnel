@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 > Hive 源连接器
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 从 Hive 读取数据。连接器通过 Hive Metastore 获取表结构，并读取底层的数据文件。支持的表存储格式为文本、Parquet 和 ORC；文件格式根据 Hive 表的存储格式（`STORED AS`）自动识别，其他存储格式的表会被拒绝。
@@ -12,7 +18,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hive。测试过的 Hive 版本是 2.3.9 和 3.1.3。
 
-如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
+如果您使用 SeaTunnel 引擎，请使用发行包自带的 `seatunnel-shade-hadoop3-uber-*.jar`，并将 `hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 添加到 `$SEATUNNEL_HOME/lib/` 目录。
 :::
 
 ## 关键特性

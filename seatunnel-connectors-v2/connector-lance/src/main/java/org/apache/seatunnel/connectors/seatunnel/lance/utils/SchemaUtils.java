@@ -69,8 +69,11 @@ public class SchemaUtils {
                     case TINYINT:
                     case SMALLINT:
                     case INT:
-                    case BIGINT:
                         field = Field.nullable(fieldName, new ArrowType.Int(32, true));
+                        fieldList.add(field);
+                        break;
+                    case BIGINT:
+                        field = Field.nullable(fieldName, new ArrowType.Int(64, true));
                         fieldList.add(field);
                         break;
                     case FLOAT:

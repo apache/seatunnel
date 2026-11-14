@@ -28,6 +28,7 @@ import ChangeLog from '../changelog/connector-http-airtable.md';
 | request_interval_ms      | int     | 否  | 220                    | API 请求之间的最小间隔（毫秒），默认 220ms（以保持在 Airtable 每秒 5 次请求的限制内），必须 `>= 0`。                                       |
 | rate_limit_backoff_ms    | int     | 否  | 30000                  | 收到 429（限流）响应时的基础退避时间（毫秒），默认 30000ms，必须 `>= 0`。                                                      |
 | rate_limit_max_retries   | int     | 否  | 3                      | 收到 429 响应后的最大重试次数，默认 3，必须 `>= 0`。                                                                  |
+| multi_table_sink_replica | int     | 否  | 1                      | 多表任务中每张表的 sink writer 副本数。                                                                         |
 | common-options           |         | 否  | -                      | Sink 插件通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。                         |
 
 ## 使用提示

@@ -19,7 +19,6 @@ package org.apache.seatunnel.translation.spark.source.reader.batch;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
@@ -31,9 +30,10 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReader {
+
+    private static final long ENUMERATOR_CHECKPOINT_INTERVAL_MS = 1000L;
 
     protected final Map<Integer, InternalRowCollector> collectorMap;
 
@@ -75,47 +75,21 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
         }
 
         @Override
-        public void run(Collector<SeaTunnelRow> collector) throws Exception {
-            readerMap
-                    .entrySet()
-                    .parallelStream()
-                    .forEach(
-                            entry -> {
-                                final AtomicBoolean flag = readerRunningMap.get(entry.getKey());
-                                final SourceReader<SeaTunnelRow, SplitT> reader = entry.getValue();
-                                final Collector<SeaTunnelRow> rowCollector =
-                                        collectorMap.get(entry.getKey());
-                                executorService.execute(
-                                        () -> {
-                                            while (flag.get()) {
-                                                try {
-                                                    reader.pollNext(rowCollector);
-                                                    if (rowCollector.isEmptyThisPollNext()) {
-                                                        Thread.sleep(100);
-                                                    } else {
-                                                        rowCollector.resetEmptyThisPollNext();
-                                                        /**
-                                                         * sleep(0) is used to prevent the current
-                                                         * thread from occupying CPU resources for a
-                                                         * long time, thus blocking the checkpoint
-                                                         * thread for a long time. It is mentioned
-                                                         * in this
-                                                         * https://github.com/apache/seatunnel/issues/5694
-                                                         */
-                                                        Thread.sleep(0L);
-                                                    }
-                                                } catch (Exception e) {
-                                                    this.running = false;
-                                                    flag.set(false);
-                                                    throw new RuntimeException(e);
-                                                }
-                                            }
-                                        });
-                            });
-            splitEnumerator.run();
-            while (this.running) {
-                Thread.sleep(SLEEP_TIME_INTERVAL);
-            }
+        protected Collector<SeaTunnelRow> getReaderCollector(
+                int subtaskId, Collector<SeaTunnelRow> collector) {
+            return collectorMap.get(subtaskId);
+        }
+
+        /**
+         * The batch read never checkpoints the source, so checkpoint the enumerator alone to let
+         * enumerators that wait for a completed checkpoint, such as the CDC snapshot split assigner
+         * at a parallelism above one, move on. Every reader of this source emits into the same
+         * handover queue of this single partition, so records still reach the sink in the order
+         * they were emitted.
+         */
+        @Override
+        protected long getEnumeratorCheckpointInterval() {
+            return ENUMERATOR_CHECKPOINT_INTERVAL_MS;
         }
 
         @Override

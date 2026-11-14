@@ -49,7 +49,7 @@ HTTP 429 和 5xx（以及基础客户端中的 IOExceptions）的最大重试次
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = BATCH
 }
 

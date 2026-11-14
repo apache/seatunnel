@@ -52,6 +52,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | connection_mode                       | string  | 否    | active_local                               | 目标FTP连接模式                                                                 |
 | remote_verification_enabled           | boolean | 否    | true                                       | 是否启用FTP数据通道的远程主机验证                                                        |
 | control_encoding                      | string  | 否    | UTF-8                                      | FTP 控制连接的字符编码，路径包含空格或非 ASCII 字符时很有用                                      |
+| control_timeout                       | int     | 否    | 60000                                      | 读取 FTP 服务端控制连接应答的超时时间（毫秒），0 表示无限等待                                            |
 | custom_filename                       | boolean | 否    | false                                      | 是否需要自定义文件名                                                                |
 | file_name_expression                  | string  | 否    | "${transactionId}"                         | 仅在 `custom_filename` 为 `true` 时使用                                         |
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在 `custom_filename` 为 `true` 时使用                                         |
