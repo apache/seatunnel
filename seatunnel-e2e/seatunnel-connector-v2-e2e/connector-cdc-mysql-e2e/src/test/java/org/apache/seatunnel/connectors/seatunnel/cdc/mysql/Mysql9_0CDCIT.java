@@ -65,7 +65,7 @@ public class Mysql9_0CDCIT extends AbstractMysqlCDCITBase {
     @Override
     protected MySqlContainer createMySqlContainer(MySqlVersion version) {
         return new MySqlContainer(version)
-                .withConfigurationOverride("docker/server-gtids/my9-0.cnf")
+                .withConfigurationOverride("docker/server-9-0")
                 .withSetupSQL("docker/setup.sql")
                 .withNetwork(NETWORK)
                 .withNetworkAliases(MYSQL_HOST)

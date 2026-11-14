@@ -76,10 +76,11 @@ public abstract class AbstractMysqlCDCSmokeITBase extends TestSuiteBase implemen
 
     private final MySqlContainer mysqlContainer;
     private final String jobConfigFile;
+    private final boolean gtidExpected;
 
     /**
      * @param version server image version
-     * @param myCnf configuration override; it must enable row-based binary logging
+     * @param myCnf classpath directory containing my.cnf with row-based binary logging
      * @param networkAlias host name used by the job config to reach this server
      * @param jobConfigFile job config reading {@code mysql_smoke_source} on that host
      */
@@ -99,6 +100,7 @@ public abstract class AbstractMysqlCDCSmokeITBase extends TestSuiteBase implemen
                                         DockerLoggerFactory.getLogger(
                                                 "mysql-" + version.getVersion())));
         this.jobConfigFile = jobConfigFile;
+        this.gtidExpected = version != MySqlVersion.V5_5;
     }
 
     @TestContainerExtension
@@ -109,8 +111,24 @@ public abstract class AbstractMysqlCDCSmokeITBase extends TestSuiteBase implemen
 
     @BeforeAll
     @Override
-    public void startUp() {
+    public void startUp() throws SQLException {
         Startables.deepStart(Stream.of(mysqlContainer)).join();
+        try (Connection connection = openConnection();
+                Statement statement = connection.createStatement()) {
+            assertServerVariable(statement, "log_bin", "ON");
+            assertServerVariable(statement, "binlog_format", "ROW");
+            if (gtidExpected) {
+                assertServerVariable(statement, "gtid_mode", "ON");
+            }
+        }
+    }
+
+    private static void assertServerVariable(Statement statement, String name, String expected)
+            throws SQLException {
+        try (ResultSet rows = statement.executeQuery("SHOW VARIABLES LIKE '" + name + "'")) {
+            Assertions.assertTrue(rows.next(), "Missing MySQL server variable " + name);
+            Assertions.assertEquals(expected, rows.getString("Value"), name);
+        }
     }
 
     @AfterAll

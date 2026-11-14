@@ -25,7 +25,7 @@ public class Mysql5_6CDCIT extends AbstractMysqlCDCSmokeITBase {
     public Mysql5_6CDCIT() {
         super(
                 MySqlVersion.V5_6,
-                "docker/server-gtids/my5-6.cnf",
+                "docker/server-5-6",
                 "mysql_cdc_e2e_5_6",
                 "/mysqlcdc_to_mysql_5_6_smoke.conf");
     }
