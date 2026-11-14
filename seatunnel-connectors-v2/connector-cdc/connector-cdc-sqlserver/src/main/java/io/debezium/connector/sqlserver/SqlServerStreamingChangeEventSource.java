@@ -212,11 +212,12 @@ public class SqlServerStreamingChangeEventSource
             if (context.isRunning()) {
                 commitTransaction();
                 final Lsn toLsn =
-                        getToLsn(
-                                dataConnection,
-                                databaseName,
-                                lastProcessedPosition,
-                                maxTransactionsPerIteration);
+                        limitQueryUpperBound(
+                                getToLsn(
+                                        dataConnection,
+                                        databaseName,
+                                        lastProcessedPosition,
+                                        maxTransactionsPerIteration));
 
                 // Shouldn't happen if the agent is running, but it is better to guard against such
                 // situation
@@ -261,6 +262,7 @@ public class SqlServerStreamingChangeEventSource
                 if (tablesSlot.get() == null) {
                     tablesSlot.set(getChangeTablesToQuery(partition, offsetContext, toLsn));
                 }
+                validateQueryTables(tablesSlot.get(), fromLsn, toLsn);
                 try {
                     dataConnection.getChangesForTables(
                             databaseName,
@@ -478,7 +480,7 @@ public class SqlServerStreamingChangeEventSource
                     // Terminate the transaction otherwise CDC could not be disabled for tables
                     dataConnection.rollback();
                     // Determine whether to continue streaming in sqlserver cdc snapshot phase
-                    afterHandleLsn(partition, offsetContext.getOffset());
+                    afterQueryCompleted(partition, offsetContext.getOffset(), toLsn);
                 } catch (SQLException e) {
                     tablesSlot.set(
                             processErrorFromChangeTableQuery(databaseName, e, tablesSlot.get()));
@@ -817,6 +819,25 @@ public class SqlServerStreamingChangeEventSource
 
         return connection.getNthTransactionLsnFromLast(
                 databaseName, fromLsn, maxTransactionsPerIteration);
+    }
+
+    /** Allow bounded reads to limit every query in this iteration to their high watermark. */
+    protected Lsn limitQueryUpperBound(Lsn toLsn) {
+        return toLsn;
+    }
+
+    /**
+     * Allow bounded reads to reject a missing capture before treating an empty query as complete.
+     */
+    protected void validateQueryTables(SqlServerChangeTable[] tables, Lsn fromLsn, Lsn toLsn) {
+        // Regular streaming keeps the existing capture-instance handling.
+    }
+
+    /** Called only after all result sets and DDL have been consumed and rollback has succeeded. */
+    protected void afterQueryCompleted(
+            SqlServerPartition partition, Map<String, ?> offset, Lsn completedLsn)
+            throws InterruptedException {
+        afterHandleLsn(partition, offset);
     }
 
     /** expose control to the user to stop the connector. */

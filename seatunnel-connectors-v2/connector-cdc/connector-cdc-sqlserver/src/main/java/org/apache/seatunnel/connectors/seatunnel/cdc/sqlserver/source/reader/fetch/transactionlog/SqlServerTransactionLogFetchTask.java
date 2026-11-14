@@ -30,6 +30,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.debezium.DebeziumException;
+import io.debezium.connector.sqlserver.Lsn;
+import io.debezium.connector.sqlserver.SqlServerChangeTable;
 import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.connector.sqlserver.SqlServerDatabaseSchema;
@@ -38,12 +40,16 @@ import io.debezium.connector.sqlserver.SqlServerPartition;
 import io.debezium.connector.sqlserver.SqlServerStreamingChangeEventSource;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
+import io.debezium.relational.TableId;
 import io.debezium.util.Clock;
 
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.LsnOffset.NO_STOPPING_OFFSET;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.SqlServerUtils.getLsnPosition;
 
 public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBase> {
     private final IncrementalSplit split;
@@ -129,28 +135,97 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
 
         @Override
         public void afterHandleLsn(SqlServerPartition partition, Map<String, ?> offset) {
-            // check do we need to stop for fetch binlog for snapshot split.
-            if (isBoundedRead()) {
-                final LsnOffset currentRedoLogOffset = getLsnPosition(offset);
-                // reach the high watermark, the binlog fetcher should be finished
-                if (currentRedoLogOffset.isAtOrAfter(lsnSplit.getStopOffset())) {
-                    // send binlog end event
-                    try {
-                        dispatcher.dispatchWatermarkEvent(
-                                partition.getSourcePartition(),
-                                lsnSplit,
-                                currentRedoLogOffset,
-                                WatermarkKind.END);
-                    } catch (InterruptedException e) {
-                        LOG.error("Send signal event error.", e);
-                        errorHandler.setProducerThrowable(
-                                new DebeziumException("Error processing binlog signal event", e));
-                    }
-                    // tell fetcher the binlog task finished
-                    ((SqlServerSnapshotFetchTask.SnapshotBinlogSplitChangeEventSourceContext)
-                                    context)
-                            .finished();
+            // Row-event offsets cannot prove completion of an empty bounded query interval.
+            super.afterHandleLsn(partition, offset);
+        }
+
+        @Override
+        protected Lsn limitQueryUpperBound(Lsn toLsn) {
+            if (isBoundedRead() && toLsn.isAvailable()) {
+                final Lsn highWatermark = ((LsnOffset) lsnSplit.getStopOffset()).getCommitLsn();
+                if (toLsn.compareTo(highWatermark) > 0) {
+                    return highWatermark;
                 }
+            }
+            return toLsn;
+        }
+
+        @Override
+        protected void validateQueryTables(SqlServerChangeTable[] tables, Lsn fromLsn, Lsn toLsn) {
+            if (!isBoundedRead()) {
+                return;
+            }
+            for (TableId tableId : lsnSplit.getTableIds()) {
+                final List<SqlServerChangeTable> captures =
+                        Arrays.stream(tables)
+                                .filter(table -> tableId.equals(table.getSourceTableId()))
+                                .collect(Collectors.toList());
+                for (SqlServerChangeTable capture : captures) {
+                    if (capture.getStartLsn() == null || !capture.getStartLsn().isAvailable()) {
+                        throw new DebeziumException(
+                                "Cannot complete bounded backfill: capture start LSN is unavailable for "
+                                        + tableId);
+                    }
+                }
+                captures.sort(Comparator.comparing(SqlServerChangeTable::getStartLsn));
+                Lsn coveredUntil = fromLsn;
+                boolean covered = false;
+                for (SqlServerChangeTable capture : captures) {
+                    if (capture.getStartLsn().compareTo(coveredUntil) > 0) {
+                        break;
+                    }
+                    final Lsn stopLsn = capture.getStopLsn();
+                    if (stopLsn == null || !stopLsn.isAvailable()) {
+                        covered = true;
+                        break;
+                    }
+                    if (stopLsn.compareTo(coveredUntil) > 0) {
+                        coveredUntil = stopLsn;
+                    }
+                    // Capture stop is exclusive; an instance ending exactly at HIGH is
+                    // insufficient.
+                    if (coveredUntil.compareTo(toLsn) > 0) {
+                        covered = true;
+                        break;
+                    }
+                }
+                if (!covered) {
+                    throw new DebeziumException(
+                            "Cannot complete bounded backfill: active capture instances do not cover "
+                                    + tableId
+                                    + " from "
+                                    + fromLsn
+                                    + " through "
+                                    + toLsn);
+                }
+            }
+            if (lsnSplit.getTableIds().isEmpty()) {
+                throw new DebeziumException(
+                        "Cannot complete bounded backfill without a source table");
+            }
+        }
+
+        @Override
+        protected void afterQueryCompleted(
+                SqlServerPartition partition, Map<String, ?> offset, Lsn completedLsn)
+                throws InterruptedException {
+            if (!isBoundedRead()) {
+                super.afterQueryCompleted(partition, offset, completedLsn);
+                return;
+            }
+            final Lsn highWatermark = ((LsnOffset) lsnSplit.getStopOffset()).getCommitLsn();
+            if (completedLsn.compareTo(highWatermark) >= 0) {
+                // An empty result still proves this entire bounded interval was queried
+                // successfully.
+                // Keep row-event offsets untouched and emit END only after the complete HIGH
+                // transaction.
+                dispatcher.dispatchWatermarkEvent(
+                        partition.getSourcePartition(),
+                        lsnSplit,
+                        lsnSplit.getStopOffset(),
+                        WatermarkKind.END);
+                ((SqlServerSnapshotFetchTask.SnapshotBinlogSplitChangeEventSourceContext) context)
+                        .finished();
             }
         }
 

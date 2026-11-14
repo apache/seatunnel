@@ -31,6 +31,12 @@ When `startup.mode = initial`, the connector first reads the snapshot of each mo
 then switches to incremental streaming from the LSN recorded at the end of the snapshot. Downstream consumers should
 treat the snapshot phase as a one-time bootstrap and not rely on it for steady-state reads.
 
+Snapshot backfill reads the CDC interval between each split's LOW and HIGH watermarks. HIGH is a
+database-wide position, so changes in other tables can advance it while the selected table remains
+idle. Once the complete, valid interval has been read, backfill completes even when that table has
+no changes in the interval; it does not require a new write to the selected table. Changes beyond
+HIGH remain for subsequent incremental streaming.
+
 :::tip
 
 When discovering table columns via JDBC metadata, SeaTunnel filters metadata rows by the exact schema/table identifier to
