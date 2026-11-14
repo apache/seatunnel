@@ -255,10 +255,11 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
             case ACTIVE_LOCAL:
                 // Create a test directory to check if active mode is working
                 String pathName = "/.ftptest" + System.currentTimeMillis();
+                boolean created = false;
                 try {
                     client.enterLocalActiveMode();
                     // test active mode is working or not
-                    boolean created = client.makeDirectory(pathName);
+                    created = client.makeDirectory(pathName);
                     if (!created) {
                         LOG.warn("Active mode failed, switching to passive mode");
                         throw new IOException("FTP connection active mode test failed");
@@ -272,10 +273,13 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
                     getConf()
                             .set(FS_FTP_CONNECTION_MODE, FtpConnectionMode.PASSIVE_LOCAL.getMode());
                 } finally {
-                    // delete the test directory if it was created
-                    FTPFile[] files = client.listFiles(pathName);
-                    if (files != null && files.length > 0) {
-                        client.deleteFile(pathName);
+                    // remove the test directory again, otherwise every connection leaves an
+                    // empty directory behind on the server
+                    if (created && !client.removeDirectory(pathName)) {
+                        LOG.warn(
+                                String.format(
+                                        "Failed to remove FTP test directory %s, reply: %s",
+                                        pathName, client.getReplyString().trim()));
                     }
                 }
                 break;
