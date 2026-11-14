@@ -41,6 +41,7 @@ Maven central repository.
 | access_key_secret | String | Yes      | -                  | Alibaba Cloud AccessKey secret. Must not be empty or whitespace-only.                                                                |
 | source            | String | No       | `SeaTunnel-Source` | Source tag written to SLS log groups.                                                                   |
 | topic             | String | No       | `SeaTunnel-Topic`  | Topic tag written to SLS log groups.                                                                    |
+| log_group_size    | Int    | No       | 100                | SLS log group write size. Reserved: the connector reads this option, but the current implementation sends one log group per record, so it has no effect yet. |
 
 ## Notes
 
