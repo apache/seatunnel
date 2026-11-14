@@ -98,7 +98,8 @@ public class FlinkSource<SplitT extends SourceSplit, EnumStateT extends Serializ
                 new FlinkSourceSplitEnumeratorContext<>(
                         enumContext, noMoreSplitsSignaledReaders::add);
         SourceSplitEnumerator<SplitT, EnumStateT> enumerator = source.createEnumerator(context);
-        return new FlinkSourceEnumerator<>(enumerator, enumContext, noMoreSplitsSignaledReaders);
+        return new FlinkSourceEnumerator<>(
+                enumerator, enumContext, context, noMoreSplitsSignaledReaders);
     }
 
     @Override
@@ -111,7 +112,8 @@ public class FlinkSource<SplitT extends SourceSplit, EnumStateT extends Serializ
                         enumContext, noMoreSplitsSignaledReaders::add);
         SourceSplitEnumerator<SplitT, EnumStateT> enumerator =
                 source.restoreEnumerator(context, checkpoint);
-        return new FlinkSourceEnumerator<>(enumerator, enumContext, noMoreSplitsSignaledReaders);
+        return new FlinkSourceEnumerator<>(
+                enumerator, enumContext, context, noMoreSplitsSignaledReaders);
     }
 
     @Override
