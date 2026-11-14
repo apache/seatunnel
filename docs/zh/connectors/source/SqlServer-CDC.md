@@ -26,6 +26,10 @@ import ChangeLog from '../changelog/connector-cdc-sqlserver.md';
 
 Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量数据。本文档描述了如何设置 Sql Server CDC 连接器来对 SqlServer 数据库运行 SQL 查询。
 
+快照回补会读取各分片 LOW 与 HIGH 水位之间的 CDC 变更。HIGH 是数据库级的位置，因此其他表的变更可能推动 HIGH，
+而当前表在该区间没有变更。只要完整、有效的区间读取完成，当前表没有变更时回补也会正常结束，无需额外写入该表。
+超过 HIGH 的变更由后续增量阶段读取。
+
 :::tip
 
 在通过 JDBC 元数据发现表列信息时，SeaTunnel 会按精确的 schema/table 标识符对返回结果做二次过滤，以避免混入其他表的列（部分驱动会将
