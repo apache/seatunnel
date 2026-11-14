@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.IncrementalSplitState;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
 
 import org.junit.jupiter.api.Assertions;
@@ -118,6 +119,28 @@ class OracleIncrementalSourceFactoryTest {
                 () ->
                         OracleIncrementalSource.getOracleStartupConfig(
                                 ReadonlyConfig.fromMap(config)));
+    }
+
+    @Test
+    public void testSchemaChangeWithoutDebeziumPropertiesIsAccepted() {
+        Map<String, Object> config = baseConfig();
+        config.put(SourceOptions.SCHEMA_CHANGES_ENABLED.key(), true);
+
+        Assertions.assertDoesNotThrow(() -> validate(config));
+    }
+
+    private static Map<String, String> debeziumProperties(String schemaChanges, String strategy) {
+        Map<String, String> props = new HashMap<>();
+        if (schemaChanges != null) {
+            props.put(OracleSourceConfigFactory.SCHEMA_CHANGE_KEY, schemaChanges);
+        }
+        props.put(OracleSourceConfigFactory.LOG_MINING_STRATEGY_KEY, strategy);
+        return props;
+    }
+
+    private static void validate(Map<String, Object> config) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config))
+                .validate(new OracleIncrementalSourceFactory().optionRule());
     }
 
     @Test

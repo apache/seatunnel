@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
@@ -76,4 +77,17 @@ public class OracleIncrementalSourceOptions extends JdbcSourceOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Skip the analysis of table count in full stage");
+
+    /**
+     * Base rule for Oracle-CDC. Identical to {@link SourceOptions#getBaseRule()} except that {@code
+     * debezium} is left out — the factory declares it once with the log-mining-strategy constraint,
+     * and OptionRule rejects duplicate conditioned declarations.
+     */
+    public static OptionRule.Builder getBaseRule() {
+        return OptionRule.builder()
+                .optional(FORMAT)
+                .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
+                .optional(INCREMENTAL_PARALLELISM)
+                .optional(ENABLE_CONCURRENT_READ);
+    }
 }
