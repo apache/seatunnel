@@ -39,9 +39,9 @@ on:
         required: true
         type: choice
         options:
-          - '8'
           - '11'
-        default: '8'
+          - '17'
+        default: '11'
       profile:
         description: 'Profiler mode. all runs CPU, wall-clock, lock, and GC separately.'
         required: true
