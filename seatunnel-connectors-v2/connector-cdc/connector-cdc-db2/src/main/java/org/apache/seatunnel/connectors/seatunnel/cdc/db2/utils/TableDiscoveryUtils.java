@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.db2.utils;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.slf4j.Logger;
@@ -29,7 +30,9 @@ import io.debezium.relational.TableId;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /** Utilities to discovery matched tables. */
@@ -72,7 +75,10 @@ public class TableDiscoveryUtils {
                         .collect(Collectors.toSet());
         List<String> missingTables = new ArrayList<>();
         for (String configuredTable : configuredTables) {
-            if (!normalizedCapturedTables.contains(toConfiguredDb2TableId(configuredTable))) {
+            // Options already contain the resolved physical spelling. Accepting a folded twin
+            // here could validate capture for a different object than the catalog selected.
+            TableId configuredTableId = toConfiguredDb2TableId(configuredTable);
+            if (!normalizedCapturedTables.contains(configuredTableId)) {
                 missingTables.add(configuredTable);
             }
         }
@@ -100,6 +106,44 @@ public class TableDiscoveryUtils {
                 "",
                 configuredTable.substring(firstDot + 1, secondDot),
                 configuredTable.substring(secondDot + 1));
+    }
+
+    /**
+     * Folds unquoted schema/table names to uppercase, the spelling DB2 gives unquoted identifiers.
+     * The database is part of the SeaTunnel table identity and retains its configured spelling.
+     * Double quotes are not interpreted by the catalog lookup or the capture filter, so a name that
+     * contains a quote character is returned unchanged rather than partially folded.
+     */
+    public static String normalizeConfiguredTableName(String configuredTable) {
+        if (configuredTable.contains("\"")) {
+            return configuredTable;
+        }
+        int databaseEnd = configuredTable.indexOf('.') + 1;
+        return configuredTable.substring(0, databaseEnd)
+                + configuredTable.substring(databaseEnd).toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Resolves the spelling that catalog lookup, capture filtering and SeaTunnel table identity
+     * share for one configured table.
+     *
+     * <p>Releases up to 3.0.0 passed the configured text through unchanged. The configured spelling
+     * therefore wins whenever an object with exactly that spelling exists, so an upgraded or
+     * restored job keeps selecting the same table even when an object with the folded spelling
+     * exists as well. Only when the configured spelling does not exist is the DB2 folded
+     * (uppercase) spelling used, which lets an unquoted lowercase name select an ordinary uppercase
+     * object; if neither exists the folded name is returned and the existing lookups fail fast with
+     * it. Names that folding leaves unchanged, including names containing quotes, never consult
+     * {@code tableExists}.
+     */
+    public static String resolveConfiguredTableName(
+            String configuredTable, Predicate<TablePath> tableExists) {
+        String foldedTable = normalizeConfiguredTableName(configuredTable);
+        if (foldedTable.equals(configuredTable)
+                || tableExists.test(TablePath.of(configuredTable))) {
+            return configuredTable;
+        }
+        return foldedTable;
     }
 
     /**
