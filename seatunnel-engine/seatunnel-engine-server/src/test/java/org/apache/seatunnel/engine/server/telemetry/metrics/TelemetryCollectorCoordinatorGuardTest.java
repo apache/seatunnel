@@ -236,7 +236,7 @@ public class TelemetryCollectorCoordinatorGuardTest {
         TaskExecutionService taskExecutionService = Mockito.mock(TaskExecutionService.class);
         Mockito.when(mockServer.getTaskExecutionService()).thenReturn(taskExecutionService);
         Mockito.when(taskExecutionService.getReportMetricsOperationStats())
-                .thenReturn(new ReportMetricsOperationStats(3L, 1L, 1L, 9L, 15L, 27L));
+                .thenReturn(new ReportMetricsOperationStats(3L, 1L, 1L, 2L, 9L, 15L, 27L));
 
         ReportMetricsOperationExports exports = new ReportMetricsOperationExports(mockNode);
         List<Collector.MetricFamilySamples> result = exports.collect();
@@ -250,10 +250,11 @@ public class TelemetryCollectorCoordinatorGuardTest {
                         .findFirst()
                         .orElse(null);
         Assertions.assertNotNull(totalMetric);
-        Assertions.assertEquals(3, totalMetric.samples.size());
+        Assertions.assertEquals(4, totalMetric.samples.size());
         assertMetricSample(totalMetric, "report_metrics_operation_total", "success", 3D);
         assertMetricSample(totalMetric, "report_metrics_operation_total", "failure", 1D);
         assertMetricSample(totalMetric, "report_metrics_operation_total", "interrupted", 1D);
+        assertMetricSample(totalMetric, "report_metrics_operation_total", "rejected", 2D);
 
         Collector.MetricFamilySamples payloadMetric =
                 result.stream()
