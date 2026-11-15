@@ -80,6 +80,15 @@ public class SeaTunnelMetricsContext extends AbstractMetricsContext
                                                 name, MetricNames.INTERMEDIATE_QUEUE_CAPACITY));
     }
 
+    /**
+     * Matches either the exact metric name (e.g. {@code IntermediateQueueSize}) or its
+     * queue-ID-partitioned variant (e.g. {@code IntermediateQueueSize#-2}).
+     *
+     * <p>Queue metrics are partitioned by appending {@code "#" + queueId}. Matching with {@code
+     * name.equals(metricName) || name.startsWith(metricName + "#")} ensures both exact metric names
+     * and their queue-ID variants are removed, while strictly avoiding accidental removal of
+     * unrelated metrics that might share a common name prefix without the delimiter.
+     */
     private boolean matchesQueueMetric(String name, String metricName) {
         return name.equals(metricName) || name.startsWith(metricName + "#");
     }

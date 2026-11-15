@@ -32,6 +32,16 @@ public final class MetricsTestUtils {
 
     private MetricsTestUtils() {}
 
+    /**
+     * Exports long-valued dynamic counters from the provided {@link SeaTunnelMetricsContext}.
+     *
+     * <p>This test utility intentionally collects only long-valued counter metrics (via {@link
+     * MetricsCollectionContext#collect(MetricDescriptor, String, ProbeLevel, ProbeUnit, long)}). In
+     * SeaTunnel Zeta engine, intermediate-queue metrics (size, capacity, and blocked nanoseconds)
+     * are all modeled and registered as long-valued counters. Other metric types (such as double
+     * gauges or untyped objects) are ignored here because they are not used for intermediate-queue
+     * observability assertions in unit tests.
+     */
     public static Map<String, Long> exportDynamicCounters(
             SeaTunnelMetricsContext context, long jobId) {
         Map<String, Long> map = new HashMap<>();

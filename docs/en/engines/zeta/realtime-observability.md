@@ -612,6 +612,9 @@ In Job Detail's DAG view:
 3. **capacity Expressed Using Counter**: Current implementation uses counter fixed at capacity value, avoiding introducing new Gauge type; UI side needs to understand this metric as "constant".
 4. **bpRatio is Estimated**: Denominator uses measurement count as approximation of subtask count, will fluctuate during restart/scale up/down.
 5. **Only Master Side Aggregation Provides REST**: Worker nodes don't maintain time series store; non-master node access returns 404/unavailable.
+6. **Intermediate-Queue Metric Lifecycle Across Savepoint/Restore**:
+   - When a job is restored, transient intermediate-queue metric ownership is reset during task initialization. Stale intermediate-queue metric entries (`IntermediateQueueSize`, `IntermediateQueueCapacity`, `IntermediateQueuePutBlockedNs`) loaded from a previous task context snapshot are cleared before newly initialized queues register their owners. This prevents stale metric contributions or duplicate owners from accumulating in realtime queue statistics.
+   - Cumulative non-queue metrics (such as `SourceReceivedCount` or sink write counts) and historical running-job metrics retain their existing cumulative semantics across restores and are outside the scope of this realtime queue metrics cleanup.
 
 ---
 
