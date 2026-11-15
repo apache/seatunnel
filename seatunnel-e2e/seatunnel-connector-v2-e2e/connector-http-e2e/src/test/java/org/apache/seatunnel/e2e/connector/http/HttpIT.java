@@ -24,7 +24,9 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.mockserver.client.MockServerClient;
+import org.mockserver.matchers.Times;
 import org.mockserver.model.ClearType;
 import org.mockserver.model.Format;
 import org.postgresql.Driver;
@@ -65,12 +68,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.given;
 import static org.mockserver.model.HttpRequest.request;
+import static org.mockserver.model.HttpResponse.response;
 
 @Slf4j
 public class HttpIT extends TestSuiteBase implements TestResource {
@@ -89,6 +95,17 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE_1 = "sink";
     private static final Integer MAX_COUNT = 15;
     private static final String COUNT_QUERY = "select count(*) from sink";
+
+    private static final String ALWAYS_FAILING_PATH = "/example/restart/always-failing";
+    private static final String FAILING_AFTER_CHECKPOINT_PATH =
+            "/example/restart/failing-after-checkpoint";
+    /** Requests the server answers before it rejects every request of the checkpoint case. */
+    private static final int ANSWERED_BEFORE_FAILING = 8;
+    /** The first attempt and the two restarts that the job configs allow on Flink. */
+    private static final int FLINK_ATTEMPTS = 3;
+    /** The line of the Flink client that names the submitted job. */
+    private static final Pattern FLINK_JOB_ID =
+            Pattern.compile("Job has been submitted with JobID ([0-9a-f]{32})");
 
     private static final String PG_IMAGE = "postgres:14-alpine";
     private static final String PG_DRIVER_CONTAINER_PATH =
@@ -228,6 +245,107 @@ public class HttpIT extends TestSuiteBase implements TestResource {
             log.info("clear schema:{}", SINK_TABLE_1);
             clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
         }
+    }
+
+    /**
+     * A single-split source whose server rejects every request (#13253). On Flink the job is
+     * restarted twice, and each restart hands the split back to {@code SingleSplitEnumerator}:
+     * before the fix, the split was not assigned again and the second restart failed with an
+     * IndexOutOfBoundsException of the enumerator, which replaced the error of the source. The job
+     * must fail with the error of the source.
+     */
+    @TestTemplate
+    public void testRestartedSingleSplitSourceFailsWithItsOwnError(TestContainer container)
+            throws IOException, InterruptedException {
+        mockServerClient
+                .when(request().withPath(ALWAYS_FAILING_PATH))
+                .respond(response().withStatusCode(500).withBody("always failing"));
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/http_always_failing_source_restarted.conf");
+            assertFailedWithTheErrorOfTheSource(container, execResult, "always failing");
+            if (container.identifier().getEngineType() == EngineType.FLINK) {
+                // The HTTP client retries only on an IOException, so each attempt makes one
+                // request.
+                Assertions.assertEquals(FLINK_ATTEMPTS, requestsTo(ALWAYS_FAILING_PATH));
+            }
+        } finally {
+            mockServerClient.clear(request().withPath(ALWAYS_FAILING_PATH));
+        }
+    }
+
+    /**
+     * The same source failing after a completed checkpoint (#13253). The reader got its split
+     * before that checkpoint, so on a restart Flink hands an empty list back to {@code
+     * SingleSplitEnumerator}, which threw before the fix. The restored reader takes its split from
+     * the checkpoint, fails again, and the job must end with the error of the source after its two
+     * restarts.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SEATUNNEL, EngineType.SPARK},
+            disabledReason =
+                    "Only Flink hands back the splits assigned since the last checkpoint; the Zeta"
+                            + " restore order is covered by SingleSplitEnumeratorTest")
+    public void testSingleSplitSourceFailingAfterACheckpointFailsWithItsOwnError(
+            TestContainer container) throws IOException, InterruptedException {
+        mockServerClient
+                .when(
+                        request().withPath(FAILING_AFTER_CHECKPOINT_PATH),
+                        Times.exactly(ANSWERED_BEFORE_FAILING))
+                .respond(
+                        response()
+                                .withStatusCode(200)
+                                .withBody("[{\"c_string\":\"a\",\"c_int\":1}]"));
+        mockServerClient
+                .when(request().withPath(FAILING_AFTER_CHECKPOINT_PATH))
+                .respond(response().withStatusCode(500).withBody("failing after checkpoint"));
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/http_source_failing_after_checkpoint.conf");
+            String output =
+                    assertFailedWithTheErrorOfTheSource(
+                            container, execResult, "failing after checkpoint");
+            Matcher jobId = FLINK_JOB_ID.matcher(execResult.getStdout() + execResult.getStderr());
+            Assertions.assertTrue(jobId.find(), "the Flink client printed no job id");
+            Assertions.assertTrue(
+                    Pattern.compile("Completed checkpoint \\d+ for job " + jobId.group(1))
+                            .matcher(output)
+                            .find(),
+                    "no checkpoint of the job completed");
+            Assertions.assertEquals(
+                    ANSWERED_BEFORE_FAILING + FLINK_ATTEMPTS,
+                    requestsTo(FAILING_AFTER_CHECKPOINT_PATH));
+        } finally {
+            mockServerClient.clear(request().withPath(FAILING_AFTER_CHECKPOINT_PATH));
+        }
+    }
+
+    /**
+     * Asserts that the job failed, that its output or the server logs hold the error of the HTTP
+     * source for {@code responseBody}, which only this job receives, and that the enumerator never
+     * failed while a split was handed back. On Flink the client prints only one failure cause, so
+     * the error of the source is looked for in the server logs as well. No other test of this class
+     * restarts a job.
+     *
+     * @return the job output and the server logs
+     */
+    private static String assertFailedWithTheErrorOfTheSource(
+            TestContainer container, Container.ExecResult execResult, String responseBody) {
+        Assertions.assertNotEquals(0, execResult.getExitCode());
+        String output = execResult.getStdout() + execResult.getStderr() + container.getServerLogs();
+        Assertions.assertTrue(
+                output.contains("http response status code:[500], content:[" + responseBody + "]"),
+                "the error of the source is missing");
+        Assertions.assertFalse(
+                output.contains("SingleSplitEnumerator.addSplitsBack"),
+                "the enumerator failed when a split was handed back");
+        return output;
+    }
+
+    private int requestsTo(String path) {
+        return mockServerClient.retrieveRecordedRequests(request().withPath(path)).length;
     }
 
     private Long queryCount(String sql) {

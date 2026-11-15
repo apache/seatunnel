@@ -24,7 +24,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.util.ArrayList;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -32,8 +34,9 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.LockSupport;
 
 /**
  * Drives the enumerator through its context in the orders the engines use: on Flink, a failed
@@ -188,15 +191,17 @@ public class SingleSplitEnumeratorTest {
     /**
      * On Zeta, a split given back and a reader registration reach the enumerator under different
      * engine locks. While the split is being assigned, another reader registers from a second
-     * thread; it must wait and then find the split assigned, so the split is assigned once.
+     * thread. The assignment goes on only once that thread is blocked on the enumerator, held by
+     * the assigning thread, or has finished its registration, so the test does not depend on
+     * timing: with the lock, the registration waits and then finds the split assigned; without it,
+     * the registration assigns the split a second time and the test fails.
      */
     @Test
     public void testReaderRegisteringDuringAnAssignmentDoesNotAssignTheSplitAgain()
             throws Exception {
         readers.add(READER);
         readers.add(OTHER_READER);
-        CountDownLatch registered = new CountDownLatch(1);
-        List<Throwable> failures = new ArrayList<>();
+        List<Throwable> failures = new CopyOnWriteArrayList<>();
         Thread otherReader =
                 new Thread(
                         () -> {
@@ -204,27 +209,59 @@ public class SingleSplitEnumeratorTest {
                                 enumerator.registerReader(OTHER_READER);
                             } catch (Throwable t) {
                                 failures.add(t);
-                            } finally {
-                                registered.countDown();
                             }
-                        });
+                        },
+                        "other-reader");
+        otherReader.setDaemon(true);
+        Thread assigningThread = Thread.currentThread();
+        AtomicBoolean otherReaderStarted = new AtomicBoolean();
         duringFirstAssignment =
                 () -> {
-                    otherReader.start();
-                    try {
-                        // Without synchronization the registration completes in this window.
-                        registered.await(300, TimeUnit.MILLISECONDS);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
+                    if (otherReaderStarted.compareAndSet(false, true)) {
+                        otherReader.start();
+                        awaitRegistrationAttempt(otherReader, assigningThread);
                     }
                 };
 
-        enumerator.addSplitsBack(Collections.singletonList(new SingleSplit(null)), READER);
-        otherReader.join(TimeUnit.SECONDS.toMillis(10));
+        try {
+            enumerator.addSplitsBack(Collections.singletonList(new SingleSplit(null)), READER);
+        } finally {
+            otherReader.join(TimeUnit.SECONDS.toMillis(10));
+        }
 
-        Assertions.assertFalse(otherReader.isAlive());
+        Assertions.assertTrue(otherReaderStarted.get());
+        Assertions.assertFalse(otherReader.isAlive(), "the other reader did not finish");
         Assertions.assertEquals(Collections.emptyList(), failures);
         assertAssignments(READER);
+    }
+
+    /**
+     * Waits until the other reader is blocked on the monitor of the enumerator while the assigning
+     * thread holds it, or has finished its registration. Fails after 10 seconds otherwise.
+     */
+    private static void awaitRegistrationAttempt(Thread otherReader, Thread assigningThread) {
+        ThreadMXBean threads = ManagementFactory.getThreadMXBean();
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (System.nanoTime() < deadline) {
+            Thread.State state = otherReader.getState();
+            if (state == Thread.State.TERMINATED) {
+                return;
+            }
+            if (state == Thread.State.BLOCKED) {
+                ThreadInfo info = threads.getThreadInfo(otherReader.getId());
+                if (info != null
+                        && info.getLockOwnerId() == assigningThread.getId()
+                        && info.getLockInfo() != null
+                        && SingleSplitEnumerator.class
+                                .getName()
+                                .equals(info.getLockInfo().getClassName())) {
+                    return;
+                }
+            }
+            LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
+        }
+        throw new AssertionError(
+                "the other reader neither blocked on the enumerator nor finished its registration");
     }
 
     private void start() throws Exception {
