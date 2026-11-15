@@ -101,14 +101,14 @@ public class MetadataUtil {
         if (row.getTableId() == null) {
             return null;
         }
-        return TablePath.of(row.getTableId()).getDatabaseName();
+        return TablePath.ofTableId(row.getTableId()).getDatabaseName();
     }
 
     public static String getTable(SeaTunnelRowAccessor row) {
         if (row.getTableId() == null) {
             return null;
         }
-        return TablePath.of(row.getTableId()).getTableName();
+        return TablePath.ofTableId(row.getTableId()).getTableName();
     }
 
     public static String getRowKind(SeaTunnelRowAccessor row) {

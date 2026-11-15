@@ -905,6 +905,43 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testDatabaseNameWithDot(TestContainer container) {
+        initializeSqlServerTable("test_dotted_db_name");
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/sqlservercdc_dotted_db_name.conf");
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        String sourceTable = "[LIS6.0].dbo.LIS_ITEM";
+        String sinkTable = "[LIS6.0].dbo.LIS_ITEM_SINK";
+        String selectSql = "select id, name, value from %s order by id asc";
+
+        // snapshot rows, then an incremental row, must both reach the sink
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        querySql(selectSql, sourceTable),
+                                        querySql(selectSql, sinkTable)));
+
+        executeSql("INSERT INTO [LIS6.0].dbo.LIS_ITEM VALUES (4, 'test4', 400)");
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<List<Object>> sink = querySql(selectSql, sinkTable);
+                            Assertions.assertEquals(4, sink.size());
+                            Assertions.assertIterableEquals(querySql(selectSql, sourceTable), sink);
+                        });
+    }
+
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},

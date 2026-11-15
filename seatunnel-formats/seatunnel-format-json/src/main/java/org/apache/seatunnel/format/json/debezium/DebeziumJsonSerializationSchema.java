@@ -134,7 +134,7 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
         String tableId = row.getTableId();
         if (!StringUtils.isEmpty(tableId)) {
             if (!tableId.equals(cachedTableId)) {
-                TablePath tablePath = TablePath.of(tableId);
+                TablePath tablePath = TablePath.ofTableId(tableId);
                 cachedTableId = tableId;
                 cachedDatabase = tablePath.getDatabaseName();
                 cachedSchema = tablePath.getSchemaName();

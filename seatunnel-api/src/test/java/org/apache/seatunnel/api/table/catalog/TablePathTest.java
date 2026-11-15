@@ -23,6 +23,16 @@ import org.junit.jupiter.api.Test;
 public class TablePathTest {
 
     @Test
+    public void testOfTableIdKeepsDottedDatabaseName() {
+        TablePath path = TablePath.ofTableId("LIS6.0.dbo.LIS_ITEM");
+        Assertions.assertEquals("LIS6.0", path.getDatabaseName());
+        Assertions.assertEquals("dbo", path.getSchemaName());
+        Assertions.assertEquals("LIS_ITEM", path.getTableName());
+        Assertions.assertEquals(TablePath.of("db.sch.t"), TablePath.ofTableId("db.sch.t"));
+        Assertions.assertEquals(TablePath.of("db.t"), TablePath.ofTableId("db.t"));
+    }
+
+    @Test
     public void testRejectMalformedStructuredTableNameWithTooManyParts() {
         Assertions.assertThrows(
                 IllegalArgumentException.class,
