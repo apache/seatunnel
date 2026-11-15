@@ -31,6 +31,8 @@ import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1Service;
+import okhttp3.Request;
+import okhttp3.Response;
 
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
@@ -357,7 +359,7 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
     }
 
     @Test
-    void ownedConfigMapSeatunnelYamlEnablesMasterHttpWithoutCrashing() throws Exception {
+    void ownedConfigMapSeatunnelYamlEnablesMasterHttp() throws Exception {
         try (KubernetesApplicationClient application =
                 deployApplication("configuration-owned-http")) {
             try {
@@ -387,6 +389,34 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                                                 "http".equals(port.getName())
                                                         && Integer.valueOf(18080)
                                                                 .equals(port.getPort())));
+                // Declaring a Service port does not start a listener; request /overview through
+                // the apiserver's Pod proxy so the test only passes while the master really
+                // serves HTTP on the declared port.
+                Awaitility.await()
+                        .atMost(120, TimeUnit.SECONDS)
+                        .pollInterval(2, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () -> {
+                                    Request request =
+                                            new Request.Builder()
+                                                    .url(
+                                                            apiClient.getBasePath()
+                                                                    + "/api/v1/namespaces/"
+                                                                    + namespace
+                                                                    + "/pods/"
+                                                                    + master.getMetadata().getName()
+                                                                    + ":18080/proxy/overview")
+                                                    .build();
+                                    try (Response response =
+                                            apiClient.getHttpClient().newCall(request).execute()) {
+                                        assertEquals(200, response.code());
+                                        assertNotNull(response.body());
+                                        assertTrue(
+                                                response.peekBody(Long.MAX_VALUE)
+                                                        .string()
+                                                        .contains("projectVersion"));
+                                    }
+                                });
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
             } finally {
                 cancelAndAwait(application);
