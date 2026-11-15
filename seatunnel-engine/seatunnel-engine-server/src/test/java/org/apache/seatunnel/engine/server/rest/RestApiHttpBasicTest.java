@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -30,6 +32,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -47,15 +50,20 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Base64.Encoder;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OVERVIEW;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_WORKER_RESOURCES;
 
 /** Test for Rest API with Basic. */
 class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
 
     private static final int HTTP_PORT = 18081;
+    private static final int HTTP_TIMEOUT_MILLIS = 10_000;
     private static final Long JOB_1 = System.currentTimeMillis() + 1L;
     private static final String USER = "admin";
     private static final String PASS = "admin";
@@ -63,6 +71,7 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BASIC_PREFIX = "Basic ";
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     @Override
     @BeforeAll
@@ -125,6 +134,97 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    void testDocumentedReadOnlyEndpoints() throws IOException {
+        for (String path : new String[] {REST_URL_OVERVIEW, REST_URL_WORKER_RESOURCES}) {
+            HttpURLConnection unauthenticated = null;
+            try {
+                unauthenticated = (HttpURLConnection) new URL(DOMAIN + path).openConnection();
+                unauthenticated.setConnectTimeout(HTTP_TIMEOUT_MILLIS);
+                unauthenticated.setReadTimeout(HTTP_TIMEOUT_MILLIS);
+                Assertions.assertEquals(401, unauthenticated.getResponseCode(), path);
+                Assertions.assertTrue(
+                        unauthenticated.getHeaderField("WWW-Authenticate").startsWith("Basic "),
+                        path);
+            } finally {
+                if (unauthenticated != null) {
+                    unauthenticated.disconnect();
+                }
+            }
+        }
+
+        JsonNode overview = getAuthenticatedJson(REST_URL_OVERVIEW);
+        Assertions.assertEquals(
+                Set.of(
+                        "projectVersion",
+                        "gitCommitAbbrev",
+                        "totalSlot",
+                        "unassignedSlot",
+                        "runningJobs",
+                        "finishedJobs",
+                        "failedJobs",
+                        "pendingJobs",
+                        "cancelledJobs",
+                        "workers"),
+                fields(overview));
+        overview.fields()
+                .forEachRemaining(
+                        field ->
+                                Assertions.assertTrue(
+                                        field.getValue().isTextual(), field.getKey()));
+
+        JsonNode filteredOverview = getAuthenticatedJson(REST_URL_OVERVIEW + "?region=unmatched");
+        Assertions.assertEquals("0", filteredOverview.path("workers").asText());
+
+        JsonNode snapshot =
+                Awaitility.await()
+                        .atMost(30, TimeUnit.SECONDS)
+                        .until(
+                                () -> getAuthenticatedJson(REST_URL_WORKER_RESOURCES),
+                                value ->
+                                        value.path("available").asBoolean()
+                                                && !value.path("workers").isEmpty());
+        Assertions.assertEquals(Set.of("available", "collectedAt", "workers"), fields(snapshot));
+        Assertions.assertTrue(snapshot.path("available").isBoolean());
+        Assertions.assertTrue(snapshot.path("collectedAt").isIntegralNumber());
+        Assertions.assertTrue(snapshot.path("workers").isArray());
+        Assertions.assertFalse(snapshot.path("workers").isEmpty());
+        snapshot.path("workers")
+                .forEach(
+                        worker -> {
+                            Assertions.assertTrue(worker.path("address").isTextual());
+                            Assertions.assertTrue(worker.path("tags").isObject());
+                            Assertions.assertTrue(worker.path("totalSlots").isIntegralNumber());
+                            Assertions.assertTrue(worker.path("freeSlots").isIntegralNumber());
+                            Assertions.assertTrue(worker.path("usedSlots").isIntegralNumber());
+                            Assertions.assertTrue(worker.path("dynamicSlot").isBoolean());
+                            Assertions.assertTrue(worker.path("runningJobIds").isArray());
+                        });
+    }
+
+    private JsonNode getAuthenticatedJson(String path) throws IOException {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(DOMAIN + path).openConnection();
+            connection.setConnectTimeout(HTTP_TIMEOUT_MILLIS);
+            connection.setReadTimeout(HTTP_TIMEOUT_MILLIS);
+            setBasicAuth(connection);
+            Assertions.assertEquals(200, connection.getResponseCode(), path);
+            Assertions.assertTrue(connection.getContentType().startsWith("application/json"), path);
+            return JSON.readTree(connection.getInputStream());
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private static Set<String> fields(JsonNode node) {
+        Set<String> names = new HashSet<>();
+        node.fieldNames().forEachRemaining(names::add);
+        return names;
+    }
+
+    @Test
     void testLogRestApiResponseFailure() throws IOException {
         startJob();
         HttpURLConnection conn = null;
@@ -144,6 +244,42 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
     void testLogRestApiResponseSuccess() throws IOException {
         startJob();
         testLogRestApiResponse("JSON");
+    }
+
+    /**
+     * The Web UI fragment redirect has to stay behind authentication: an unauthenticated request
+     * for a percent-encoded hash route answers 401, and only an authenticated one is redirected to
+     * the route the client meant to open.
+     */
+    @Test
+    void testFragmentRedirectRequiresAuthentication() throws IOException {
+        HttpURLConnection unauthenticated = null;
+        HttpURLConnection authenticated = null;
+        try {
+            unauthenticated = openEncodedFragmentRoute();
+            Assertions.assertEquals(401, unauthenticated.getResponseCode());
+
+            authenticated = openEncodedFragmentRoute();
+            setBasicAuth(authenticated);
+            Assertions.assertEquals(302, authenticated.getResponseCode());
+            Assertions.assertEquals("/#/overview", authenticated.getHeaderField("Location"));
+        } finally {
+            if (unauthenticated != null) {
+                unauthenticated.disconnect();
+            }
+            if (authenticated != null) {
+                authenticated.disconnect();
+            }
+        }
+    }
+
+    private HttpURLConnection openEncodedFragmentRoute() throws IOException {
+        // A client that escaped the whole URL sends the fragment as part of the path, so the
+        // redirect itself has to stay observable here instead of being followed.
+        HttpURLConnection connection =
+                (HttpURLConnection) new URL(DOMAIN + "/%23/overview").openConnection();
+        connection.setInstanceFollowRedirects(false);
+        return connection;
     }
 
     public void setBasicAuth(HttpURLConnection connection) {

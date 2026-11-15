@@ -21,8 +21,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
@@ -36,6 +39,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.AbstractMap;
 import java.util.List;
 
@@ -48,6 +54,9 @@ public class XmlWriter {
     private final Document document;
     private final Element rootElement;
     private final String fieldDelimiter;
+    private final DateUtils.Formatter dateFormat;
+    private final DateTimeUtils.Formatter dateTimeFormat;
+    private final TimeUtils.Formatter timeFormat;
     private OutputFormat format;
 
     public XmlWriter(
@@ -59,6 +68,9 @@ public class XmlWriter {
         this.seaTunnelRowType = seaTunnelRowType;
 
         this.fieldDelimiter = fileSinkConfig.getFieldDelimiter();
+        this.dateFormat = fileSinkConfig.getDateFormat();
+        this.dateTimeFormat = fileSinkConfig.getDatetimeFormat();
+        this.timeFormat = fileSinkConfig.getTimeFormat();
 
         setXmlOutputFormat();
         document = DocumentHelper.createDocument();
@@ -96,9 +108,6 @@ public class XmlWriter {
 
         switch (fieldType.getSqlType()) {
             case STRING:
-            case DATE:
-            case TIME:
-            case TIMESTAMP:
             case TINYINT:
             case SMALLINT:
             case INT:
@@ -108,6 +117,12 @@ public class XmlWriter {
             case DECIMAL:
             case BOOLEAN:
                 return fieldValue.toString();
+            case DATE:
+                return DateUtils.toString((LocalDate) fieldValue, dateFormat);
+            case TIME:
+                return TimeUtils.toString((LocalTime) fieldValue, timeFormat);
+            case TIMESTAMP:
+                return DateTimeUtils.toString((LocalDateTime) fieldValue, dateTimeFormat);
             case NULL:
                 return "";
             case ROW:

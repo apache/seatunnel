@@ -260,4 +260,15 @@ public class TestDynamicCompileIT extends TestSuiteBase implements TestResource 
                 "Mixed three languages (Java + Groovy + Scala) compilation test failed. Error: "
                         + execResult.getStderr());
     }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        basePath
+                                + "single_dynamic_java_compile_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

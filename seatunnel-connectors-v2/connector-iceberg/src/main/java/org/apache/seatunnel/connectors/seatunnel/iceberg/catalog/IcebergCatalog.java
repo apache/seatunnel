@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
 
@@ -50,6 +51,7 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
+import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import lombok.extern.slf4j.Slf4j;
@@ -292,11 +294,18 @@ public class IcebergCatalog implements Catalog {
                             String name = nestedField.name();
                             SeaTunnelDataType<?> seaTunnelType =
                                     SchemaUtils.toSeaTunnelType(name, nestedField.type());
+                            // timestamp_ns / timestamptz_ns keep their precision as scale 9 so
+                            // that sinks, including this one, can create nanosecond columns
+                            Integer scale =
+                                    nestedField.type().typeId() == Type.TypeID.TIMESTAMP_NANO
+                                            ? IcebergTypeMapper.NANOSECOND_SCALE
+                                            : null;
                             PhysicalColumn physicalColumn =
                                     PhysicalColumn.of(
                                             name,
                                             seaTunnelType,
                                             (Long) null,
+                                            scale,
                                             nestedField.isOptional(),
                                             null,
                                             nestedField.doc());

@@ -140,19 +140,26 @@ public class DmdbDialect implements JdbcDialect {
         // This is compatible with the case that the schema is written or not written in the conf
         // configuration file
         String databaseName = tableIdentifier(database, tableName);
+        // When there are no non-unique-key fields to update (e.g. all fields are unique keys),
+        // the "WHEN MATCHED THEN UPDATE SET" clause must be omitted, otherwise the database reports
+        // a syntax error because "UPDATE SET" would have an empty body.
+        String matchedClause =
+                StringUtils.isNotBlank(updateSetClause)
+                        ? String.format(" WHEN MATCHED THEN UPDATE SET %s ", updateSetClause)
+                        : "";
+
         String upsertSQL =
                 String.format(
                         " MERGE INTO %s TARGET"
                                 + " USING (%s) SOURCE"
                                 + " ON (%s) "
-                                + " WHEN MATCHED THEN"
-                                + " UPDATE SET %s"
+                                + "%s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s)",
                         databaseName,
                         usingClause,
                         onConditions,
-                        updateSetClause,
+                        matchedClause,
                         insertFields,
                         insertValues);
 

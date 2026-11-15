@@ -40,6 +40,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 class CalciteSQLEngineTest {
@@ -4056,6 +4057,42 @@ class CalciteSQLEngineTest {
                 });
     }
 
+    @Test
+    void testFiniteVectorArithmetic() {
+        double value = Float.MAX_VALUE;
+        String[] expressions = {
+            "VECTOR_NORM(vec1)",
+            "INNER_PRODUCT(vec1, vec2)",
+            "COSINE_DISTANCE(vec1, vec2)",
+            "L1_DISTANCE(vec1, vec2)",
+            "L2_DISTANCE(vec1, vec2)",
+            "VECTOR_NORM(VECTOR_NORMALIZE(vec1))"
+        };
+        double[] expected = {value, -value * value, 2.0, 2 * value, 2 * value, 1.0};
+        for (int i = 0; i < expressions.length; i++) {
+            CalciteSQLEngine engine =
+                    createAndInit(
+                            "SELECT " + expressions[i] + " AS vector_result FROM t",
+                            "t",
+                            twoVectorRowType());
+            try {
+                Object actual =
+                        singleField(
+                                engine,
+                                new Object[] {
+                                    floatVec(Float.MAX_VALUE), floatVec(-Float.MAX_VALUE)
+                                });
+                Assertions.assertEquals(
+                        expected[i],
+                        ((Number) actual).doubleValue(),
+                        Math.abs(expected[i]) * 1e-14,
+                        expressions[i]);
+            } finally {
+                engine.close();
+            }
+        }
+    }
+
     private SeaTunnelRowType singleVectorRowType() {
         return new SeaTunnelRowType(
                 new String[] {"vec"}, new SeaTunnelDataType[] {VectorType.VECTOR_FLOAT_TYPE});
@@ -4248,5 +4285,31 @@ class CalciteSQLEngineTest {
         Assertions.assertEquals("p0", output.getOptions().get("partition"));
         Assertions.assertEquals("42", output.getOptions().get("offset"));
         engine.close();
+    }
+
+    @Test
+    void testVectorReduceMethodIsLocaleIndependent() {
+        // VECTOR_REDUCE upper-cases the method before matching it, so a lower-case method must
+        // resolve. Under a Turkish default locale "random_projection" upper-cases to
+        // "RANDOM_PROJECTION" only when the conversion is locale independent; otherwise the i
+        // becomes a dotted capital I, no case matches and eval throws.
+        Locale original = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            // try-with-resources rather than a trailing close(), so a failed assertion below
+            // still releases the engine.
+            try (CalciteSQLEngine engine =
+                    createAndInit(
+                            "SELECT VECTOR_REDUCE(vec, 2, 'random_projection') AS reduced FROM t",
+                            "t",
+                            singleVectorRowType())) {
+                Object result =
+                        singleField(engine, new Object[] {floatVec(1.0f, 2.0f, 3.0f, 4.0f)});
+                Assertions.assertNotNull(result);
+                Assertions.assertEquals(2, VectorUtils.toFloatArray((ByteBuffer) result).length);
+            }
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }

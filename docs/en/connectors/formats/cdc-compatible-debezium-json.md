@@ -4,6 +4,10 @@ SeaTunnel supports to interpret cdc record as Debezium-JSON messages publish to 
 
 This is useful in many cases to leverage this feature, such as compatible with the debezium ecosystem.
 
+## Limitations
+
+UPDATE messages must contain a complete row image; partial updates containing only changed fields are not supported.
+
 # How To Use
 
 ## MySQL-CDC Sink Kafka

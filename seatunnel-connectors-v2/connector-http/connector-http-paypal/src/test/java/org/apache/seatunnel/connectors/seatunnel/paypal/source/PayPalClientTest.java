@@ -183,14 +183,21 @@ class PayPalClientTest {
                 arrived.countDown();
                 release.await(5, TimeUnit.SECONDS);
             } else {
-                exchange.getResponseBody().write(reply.body);
+                // Release the latch before the body write. PayPalClient does not read the body
+                // of a transient status (it returns as soon as it has the status line and then
+                // aborts the request), so on Windows the peer close can turn this write into an
+                // IOException, and the countDown that used to follow it was skipped.
                 arrived.countDown();
+                exchange.getResponseBody().write(reply.body);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (IOException ignored) {
             /* Cancellation intentionally closes the peer socket. */
         } finally {
+            // The request reached the server whichever branch failed above, so a test must
+            // never keep waiting on the latch only because the response could not be written.
+            arrived.countDown();
             exchange.close();
         }
     }

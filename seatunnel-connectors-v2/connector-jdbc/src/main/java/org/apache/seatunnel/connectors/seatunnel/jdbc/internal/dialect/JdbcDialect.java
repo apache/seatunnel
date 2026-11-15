@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
@@ -330,6 +332,14 @@ public interface JdbcDialect extends Serializable {
                 });
     }
 
+    /**
+     * Applies dialect-specific connection parameters for JDBC source connections without changing
+     * sink connection behavior.
+     */
+    default void configureSourceConnection(String url, Map<String, String> info) {
+        connectionUrlParse(url, info, defaultParameter());
+    }
+
     default TablePath parse(String tablePath) {
         return TablePath.of(tablePath);
     }
@@ -367,6 +377,17 @@ public interface JdbcDialect extends Serializable {
     }
 
     default boolean supportHashSplitter() {
+        return true;
+    }
+
+    /**
+     * Whether this dialect can safely create split boundaries by sampling a table column.
+     *
+     * <p>Sampling remains enabled by default to preserve existing connector behavior. Dialects
+     * whose drivers may eagerly buffer the complete sampling result set in memory should disable it
+     * and let the splitter fall back to bounded chunk-boundary queries.
+     */
+    default boolean supportsSamplingSharding() {
         return true;
     }
 
@@ -498,6 +519,14 @@ public interface JdbcDialect extends Serializable {
      */
     default String convertType(String columnName, String columnType) {
         return columnName;
+    }
+
+    /** Validates save modes before the sink is created; unrestricted dialects need no check. */
+    default void validateSaveModes(DataSaveMode dataSaveMode, SchemaSaveMode schemaSaveMode) {}
+
+    /** Whether this dialect can apply schema-change events to a physical sink table. */
+    default boolean supportsSchemaChange() {
+        return true;
     }
 
     /**

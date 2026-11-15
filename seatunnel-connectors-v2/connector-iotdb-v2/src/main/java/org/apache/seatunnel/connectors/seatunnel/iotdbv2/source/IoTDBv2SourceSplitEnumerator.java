@@ -109,7 +109,7 @@ public class IoTDBv2SourceSplitEnumerator
 
     /**
      * split the time range into numPartitions parts if numPartitions is 1, use the whole time range
-     * if numPartitions < (end - start), use (start-end) partitions
+     * if (end - start) < numPartitions, use (end - start) partitions
      *
      * <p>eg: start = 1, end = 10, numPartitions = 2 sql = "select * from test where age > 0 and age
      * < 10"

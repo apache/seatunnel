@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.org.eclipse.jetty.server.Connector;
 import org.apache.seatunnel.shade.org.eclipse.jetty.server.ServerConnector;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
@@ -49,6 +51,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -111,6 +114,12 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
     }
 
     @Test
+    public void testFixtureStartsWithoutDiscovery() {
+        Assertions.assertEquals(1, instance.getCluster().getMembers().size());
+        Assertions.assertNull(instance.node.getJoiner());
+    }
+
+    @Test
     public void testSubmitJobWithHoconFormatDecryptsConfig() throws Exception {
         String requestUrl =
                 "http://localhost:"
@@ -122,6 +131,77 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
         Assertions.assertTrue(
                 response.body.contains("jobId"),
                 "Response should contain jobId, got: " + response.body);
+    }
+
+    /**
+     * The HOCON branch of {@code JobInfoService.submitJob} parses the body and then runs it through
+     * {@link ConfigShadeUtils#decryptConfig}, which renders the config to JSON and re-parses the
+     * resulting map. A quoted key such as {@code "$systemId"} is a literal key in HOCON, so the
+     * re-parse must not interpret it as a path expression.
+     */
+    @Test
+    public void testHoconDecryptPreservesQuotedFieldMapperKey() {
+        String body = buildQuotedLiteralKeyHoconBody(true);
+
+        org.apache.seatunnel.shade.com.typesafe.config.Config decrypted =
+                ConfigShadeUtils.decryptConfig(ConfigFactory.parseString(body));
+
+        Map<String, Object> fields =
+                decrypted
+                        .getConfigList("source")
+                        .get(0)
+                        .getConfig("schema")
+                        .getConfig("fields")
+                        .root()
+                        .unwrapped();
+        Assertions.assertEquals("string", fields.get("$systemId"));
+
+        Map<String, Object> fieldMapper =
+                decrypted
+                        .getConfigList("transform")
+                        .get(0)
+                        .getConfig("field_mapper")
+                        .root()
+                        .unwrapped();
+        Assertions.assertEquals("nova_system_id", fieldMapper.get("$systemId"));
+    }
+
+    /**
+     * Regression for the REST {@code format=hocon} flow: the quoted {@code "$systemId"} key must
+     * survive the decrypt step of the submit path. The repository's engine-server test classpath
+     * only ships FakeSource/Console, so the literal key is exercised as a schema field here and as
+     * a FieldMapper key in {@link #testHoconDecryptPreservesQuotedFieldMapperKey()}.
+     */
+    @Test
+    public void testSubmitJobWithHoconFormatPreservesQuotedLiteralKey() throws Exception {
+        String requestUrl =
+                "http://localhost:"
+                        + restPort
+                        + "/submit-job?format=hocon&jobName=hocon_literal_key_test";
+
+        HttpResponse response =
+                post(requestUrl, "text/plain", buildQuotedLiteralKeyHoconBody(false));
+        Assertions.assertEquals(200, response.code, () -> "responseBody=" + response.body);
+        Assertions.assertTrue(
+                response.body.contains("jobId"),
+                "Response should contain jobId, got: " + response.body);
+    }
+
+    @Test
+    public void testSubmitJobWithRegexFieldInJson() throws Exception {
+        String body =
+                "{\"env\":{\"job.mode\":\"BATCH\"},"
+                        + "\"source\":[{\"plugin_name\":\"FakeSource\",\"row.num\":2,"
+                        + "\"schema\":{\"fields\":{\"^t_nova_.*$\":\"string\"}}}],"
+                        + "\"sink\":[{\"plugin_name\":\"Console\"}]}";
+
+        HttpResponse response =
+                post(
+                        "http://localhost:" + restPort + "/submit-job?jobName=regex_json_test",
+                        "application/json",
+                        body);
+        Assertions.assertEquals(200, response.code, () -> "responseBody=" + response.body);
+        Assertions.assertTrue(response.body.contains("jobId"));
     }
 
     @Test
@@ -308,6 +388,33 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
         }
     }
 
+    /**
+     * HOCON body with a quoted {@code "$systemId"} key. The key must be quoted because {@code $} is
+     * a reserved HOCON character, and because the key is not a SeaTunnel path expression it has to
+     * stay literal while the config is re-parsed after decryption.
+     */
+    private String buildQuotedLiteralKeyHoconBody(boolean withFieldMapper) {
+        String body =
+                "env {\n"
+                        + "  job.mode = \"BATCH\"\n"
+                        + "}\n"
+                        + "source {\n"
+                        + "  FakeSource {\n"
+                        + "    row.num = 2\n"
+                        + "    schema { fields { name = \"string\", \"$systemId\" = \"string\" } }\n"
+                        + "  }\n"
+                        + "}\n";
+        if (withFieldMapper) {
+            body +=
+                    "transform {\n"
+                            + "  FieldMapper {\n"
+                            + "    field_mapper { \"$systemId\" = \"nova_system_id\" }\n"
+                            + "  }\n"
+                            + "}\n";
+        }
+        return body + "sink { Console {} }";
+    }
+
     private String buildHoconBody() {
         return "env {\n"
                 + "  job.mode = \"BATCH\"\n"
@@ -357,6 +464,7 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
     }
 
     private static String getHazelcastConfig() {
+        // This single-member fixture must not scan nearby ports used by its REST service.
         return "hazelcast:\n"
                 + "  cluster-name: seatunnel\n"
                 + "  network:\n"
@@ -366,10 +474,12 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
                 + "        CLUSTER_WRITE:\n"
                 + "          enabled: true\n"
                 + "    join:\n"
+                + "      auto-detection:\n"
+                + "        enabled: false\n"
+                + "      multicast:\n"
+                + "        enabled: false\n"
                 + "      tcp-ip:\n"
-                + "        enabled: true\n"
-                + "        member-list:\n"
-                + "          - 127.0.0.1\n"
+                + "        enabled: false\n"
                 + "    port:\n"
                 + "      auto-increment: true\n"
                 + "      port-count: 100\n"
@@ -379,7 +489,7 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
                 + "\n"
                 + "  properties:\n"
                 + "    hazelcast.invocation.max.retry.count: 200\n"
-                + "    hazelcast.tcp.join.port.try.count: 30\n"
+                + "    hazelcast.tcp.join.port.try.count: 100\n"
                 + "    hazelcast.invocation.retry.pause.millis: 2000\n"
                 + "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n"
                 + "    hazelcast.logging.type: log4j2\n"

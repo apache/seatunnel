@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.common.container.spark;
 
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.util.EngineImageJdkUpgrader;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
@@ -44,9 +45,15 @@ public class Spark2Container extends AbstractTestSparkContainer {
         return "seatunnel-spark-starter" + File.separator + "seatunnel-spark-2-starter";
     }
 
+    /**
+     * The published image bundles a Java 8 runtime, which cannot load the Java 11 bytecode
+     * SeaTunnel is built to, so it is derived into a Java 11 flavour. Note that Spark 2.4 predates
+     * Spark's own Java 11 support (SPARK-24417, released in Spark 3.0), so this lane is expected to
+     * stay the weakest signal of the matrix.
+     */
     @Override
     protected String getDockerImage() {
-        return "tyrantlucifer/spark:2.4.6";
+        return EngineImageJdkUpgrader.toJava11("tyrantlucifer/spark:2.4.6");
     }
 
     @Override
