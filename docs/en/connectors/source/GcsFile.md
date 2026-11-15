@@ -61,19 +61,28 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | schema | config | conditional | - | Required for `text`, `json`, `excel`, `csv`, and `xml`. See [Schema Feature](../../introduction/concepts/schema-feature.md). |
 | read_columns | list | no | - | Columns to project from the source. |
 | read_partitions | list | no | - | The partitions that the user wants to read, e.g. `["year=2024"]`. When set, only these partitions are read. |
-| field_delimiter | string | no | `\001` for text, `,` for CSV | Field delimiter for text and CSV files. `delimiter` is an alias. |
+| field_delimiter | string | no | `\001` | Field delimiter for text and CSV files. `delimiter` is an alias. |
 | row_delimiter | string | no | `\n` | Row delimiter for text files. |
 | skip_header_row_number | long | no | `0` | Number of initial text or CSV rows to skip. |
+| csv_use_header_line | boolean | no | `false` | Use the header line to parse the file, only used when the file format is `csv` and the file contains an RFC 4180 header line. |
 | encoding | string | no | `UTF-8` | Character encoding for text, JSON, CSV, and XML files. |
+| date_format | string | no | `yyyy-MM-dd` | Date type format, used to tell the connector how to convert string to date. |
+| datetime_format | string | no | `yyyy-MM-dd HH:mm:ss` | Datetime type format, used to tell the connector how to convert string to datetime. |
+| time_format | string | no | `HH:mm:ss` | Time type format, used to tell the connector how to convert string to time. |
 | parse_partition_from_path | boolean | no | `true` | Adds partition values parsed from paths such as `/year=2026/month=08`. |
 | recursive_file_scan | boolean | no | `true` | Whether to scan subdirectories recursively. |
 | file_filter_pattern | string | no | - | File name filter pattern. |
+| file_filter_modified_start | string | no | - | File modification time filter. Filters files based on the last modification start time (inclusive). The default format is `yyyy-MM-dd HH:mm:ss`. |
+| file_filter_modified_end | string | no | - | File modification time filter. Filters files based on the last modification end time (exclusive). The default format is `yyyy-MM-dd HH:mm:ss`. |
+| sort_files_by_modification_time | boolean | no | `false` | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file. |
 | filename_extension | string | no | - | File extension filter, for example `csv` or `.json`. |
 | compress_codec | string | no | `none` | Compression codec for a single compressed file. |
 | archive_compress_codec | string | no | `none` | Archive compression codec. |
 | enable_file_split | boolean | no | `false` | Enables logical splitting for uncompressed text, CSV, JSON, and Parquet files. |
 | file_split_size | long | conditional | `134217728` | Split size in bytes when `enable_file_split=true`. |
 | null_format | string | no | - | Text representation of null values. |
+| binary_chunk_size | int | no | 1024 | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Larger values may improve performance for large files but use more memory. |
+| binary_complete_file_mode | boolean | no | false | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. |
 | quote_char | string | no | `"` | CSV quote character. |
 | escape_char | string | no | - | CSV escape character. |
 | sheet_name | string | no | - | Excel worksheet to read. |
@@ -81,6 +90,7 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | poi_excel_max_file_size | long | no | `52428800` | Maximum Excel file size in bytes for the POI engine. |
 | xml_row_tag | string | conditional | - | XML element representing one row. |
 | xml_use_attr_format | boolean | conditional | - | Whether XML values are read from attributes. |
+| csv_use_header_line | boolean | no | false | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180. |
 | discovery_mode | string | no | `once` | `once` or `continuous`. Continuous mode currently requires update sync and binary format. |
 | scan_interval | string | no | `10S` | Poll interval for continuous discovery. |
 | start_mode | string | no | `earliest` | `earliest` processes existing files; `latest` starts with later changes. |
@@ -95,6 +105,10 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | backup_path | string | conditional | - | Required for `post_sync_action=backup`. Must not overlap the source path. |
 | retention_max_age | string | no | - | Maximum age for SeaTunnel backup objects. |
 | retention_check_interval | string | no | `1H` | Backup retention scan interval. |
+| file_filter_modified_start | string | no | - | File modification time filter. The connector will filter files based on the last modification start time (inclusive). Default format: `yyyy-MM-dd HH:mm:ss`. |
+| file_filter_modified_end | string | no | - | File modification time filter. The connector will filter files based on the last modification end time (exclusive). Default format: `yyyy-MM-dd HH:mm:ss`. |
+| sort_files_by_modification_time | boolean | no | false | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file. |
+| metalake_type | string | no | `gravitino` | The type of metalake service, currently supports `gravitino`. |
 | common-options | | no | - | See [Source Common Options](../common-options/source-common-options.md). |
 
 ## Example

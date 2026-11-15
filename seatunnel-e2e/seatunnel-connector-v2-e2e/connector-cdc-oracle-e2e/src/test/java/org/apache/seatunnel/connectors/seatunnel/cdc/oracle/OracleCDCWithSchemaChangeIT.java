@@ -162,9 +162,9 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                     }
                 });
 
-        // Waiting to job running for auto create sink table
-        Thread.sleep(10000L);
-
+        // The sink table is auto-created once the job reaches RUNNING; the data wait
+        // inside assertSchemaEvolution tolerates the table not existing yet, so no
+        // fixed pre-wait is needed here.
         assertSchemaEvolution(
                 ORACLE_CONTAINER.getJdbcUrl(),
                 ORACLE_CONTAINER.getJdbcUrl(),
@@ -214,7 +214,10 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
             String sinkTableName,
             boolean oracle2Mysql)
             throws Exception {
+        // Tolerate transient SQL errors while the CDC job is still creating the
+        // sink table, instead of relying on a fixed pre-wait before this call.
         await().atMost(300, TimeUnit.SECONDS)
+                .ignoreExceptions()
                 .untilAsserted(
                         () ->
                                 checkData(

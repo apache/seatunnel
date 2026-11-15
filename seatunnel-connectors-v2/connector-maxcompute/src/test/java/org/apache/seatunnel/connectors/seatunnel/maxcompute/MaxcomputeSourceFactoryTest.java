@@ -17,16 +17,171 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.sink.MaxcomputeSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.source.MaxcomputeSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class MaxcomputeSourceFactoryTest {
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "http://service.odps.aliyun.com/api",
+                " \thttp://service.odps.aliyun.com/api\r\n "
+            })
+    void acceptsNonblankEndpointWithoutTrimming(String endpoint) {
+        Map<String, Object> config = sourceConfig();
+        config.put(MaxcomputeSourceOptions.ENDPOINT.key(), endpoint);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.of(readonlyConfig)
+                                .validate(new MaxcomputeSourceFactory().optionRule()));
+        Assertions.assertEquals(endpoint, readonlyConfig.get(MaxcomputeSourceOptions.ENDPOINT));
+    }
+
+    @Test
+    void rejectsMissingEndpoint() {
+        Map<String, Object> config = sourceConfig();
+        config.remove(MaxcomputeSourceOptions.ENDPOINT.key());
+        assertInvalidEndpoint(config);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "\t", "\n", "\r", " \t\r\n "})
+    void rejectsBlankEndpoint(String endpoint) {
+        Map<String, Object> config = sourceConfig();
+        config.put(MaxcomputeSourceOptions.ENDPOINT.key(), endpoint);
+        assertInvalidEndpoint(config);
+    }
+
+    @Test
+    void acceptsSinkRetryDefaultsWhenAbsent() {
+        ReadonlyConfig config = ReadonlyConfig.fromMap(sinkConfig());
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.of(config)
+                                .validate(new MaxcomputeSinkFactory().optionRule()));
+        Assertions.assertEquals(4, config.get(MaxcomputeSinkOptions.RETRY_TIMES));
+        Assertions.assertEquals(4, config.get(MaxcomputeSinkOptions.TUNNEL_RETRY_TIMES));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 4, Integer.MAX_VALUE})
+    void acceptsNonnegativeSinkRetryCountsWithoutChangingValues(int retries) {
+        Map<String, Object> options = sinkConfig();
+        options.put(MaxcomputeSinkOptions.RETRY_TIMES.key(), retries);
+        options.put(MaxcomputeSinkOptions.TUNNEL_RETRY_TIMES.key(), retries);
+        ReadonlyConfig config = ReadonlyConfig.fromMap(options);
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.of(config)
+                                .validate(new MaxcomputeSinkFactory().optionRule()));
+        Assertions.assertEquals(retries, config.get(MaxcomputeSinkOptions.RETRY_TIMES));
+        Assertions.assertEquals(retries, config.get(MaxcomputeSinkOptions.TUNNEL_RETRY_TIMES));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-1, Integer.MIN_VALUE})
+    void rejectsNegativeSinkRestRetryCounts(int retries) {
+        assertInvalidSinkRetryCount(MaxcomputeSinkOptions.RETRY_TIMES, retries);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-1, Integer.MIN_VALUE})
+    void rejectsNegativeSinkTunnelRetryCounts(int retries) {
+        assertInvalidSinkRetryCount(MaxcomputeSinkOptions.TUNNEL_RETRY_TIMES, retries);
+    }
+
     @Test
     void optionRule() {
         Assertions.assertNotNull((new MaxcomputeSourceFactory()).optionRule());
         Assertions.assertNotNull((new MaxcomputeSinkFactory()).optionRule());
+    }
+
+    /**
+     * The six client timeout / retry options (3 for the ODPS REST client, 3 for the Tunnel client)
+     * must be declared as optional in both the source and sink factory option rules, otherwise
+     * users cannot override them from job configs.
+     */
+    @Test
+    void optionRuleRegistersTimeoutAndRetryOptions() {
+        assertTimeoutAndRetryOptionsRegistered(new MaxcomputeSourceFactory().optionRule());
+        assertTimeoutAndRetryOptionsRegistered(new MaxcomputeSinkFactory().optionRule());
+    }
+
+    private void assertTimeoutAndRetryOptionsRegistered(OptionRule rule) {
+        Set<String> optionalKeys = new HashSet<>();
+        for (Option<?> option : rule.getOptionalOptions()) {
+            optionalKeys.add(option.key());
+        }
+        // REST client (control plane)
+        Assertions.assertTrue(
+                optionalKeys.contains("connect_timeout_ms"), "connect_timeout_ms not registered");
+        Assertions.assertTrue(
+                optionalKeys.contains("read_timeout_ms"), "read_timeout_ms not registered");
+        Assertions.assertTrue(optionalKeys.contains("retry_times"), "retry_times not registered");
+        // Tunnel client (data plane)
+        Assertions.assertTrue(
+                optionalKeys.contains("tunnel_connect_timeout_ms"),
+                "tunnel_connect_timeout_ms not registered");
+        Assertions.assertTrue(
+                optionalKeys.contains("tunnel_read_timeout_ms"),
+                "tunnel_read_timeout_ms not registered");
+        Assertions.assertTrue(
+                optionalKeys.contains("tunnel_retry_times"), "tunnel_retry_times not registered");
+    }
+
+    private Map<String, Object> sinkConfig() {
+        Map<String, Object> config = sourceConfig();
+        config.put(MaxcomputeSinkOptions.PROJECT.key(), "test_project");
+        return config;
+    }
+
+    private void assertInvalidSinkRetryCount(Option<Integer> option, int retries) {
+        Map<String, Object> config = sinkConfig();
+        config.put(option.key(), retries);
+        OptionValidationException error =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.of(ReadonlyConfig.fromMap(config))
+                                        .validate(new MaxcomputeSinkFactory().optionRule()));
+        Assertions.assertTrue(error.getMessage().contains(option.key()));
+    }
+
+    private Map<String, Object> sourceConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(MaxcomputeSourceOptions.ENDPOINT.key(), "http://service.odps.aliyun.com/api");
+        config.put(MaxcomputeSourceOptions.TABLE_NAME.key(), "test_table");
+        return config;
+    }
+
+    private void assertInvalidEndpoint(Map<String, Object> config) {
+        OptionValidationException error =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.of(ReadonlyConfig.fromMap(config))
+                                        .validate(new MaxcomputeSourceFactory().optionRule()));
+        Assertions.assertTrue(error.getMessage().contains(MaxcomputeSourceOptions.ENDPOINT.key()));
     }
 }

@@ -56,4 +56,21 @@ class WorkerResourceServletTest {
         verify(response).setCharacterEncoding("UTF-8");
         verify(response).setContentType("application/json; charset=UTF-8");
     }
+
+    @Test
+    void shouldWriteUnavailableSnapshotAsSuccessfulJsonResponse() throws Exception {
+        WorkerResourceService service = mock(WorkerResourceService.class);
+        when(service.getWorkerResources())
+                .thenReturn(new WorkerResourceSnapshot(false, 5678L, Collections.emptyList()));
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter output = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(output));
+
+        new WorkerResourceServlet(mock(NodeEngineImpl.class), service)
+                .doGet(mock(HttpServletRequest.class), response);
+
+        assertEquals(
+                "{\"available\":false,\"collectedAt\":5678,\"workers\":[]}", output.toString());
+        verify(response).setContentType("application/json; charset=UTF-8");
+    }
 }

@@ -131,7 +131,16 @@ public class JobExecutionIT {
 
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
-            Thread.sleep(1000);
+
+            // Cancel a running job instead of waiting a fixed time, so the cancel is still
+            // exercised against a started job when job startup is slower than usual.
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .ignoreExceptions()
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, clientJobProxy.getJobStatus()));
+
             clientJobProxy.cancelJob();
 
             await().atMost(20000, TimeUnit.MILLISECONDS)

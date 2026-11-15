@@ -12,8 +12,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Description
 
-Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
-semantics (using XA transaction guarantee).
+Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing. Exactly-once
+semantics (XA transaction guarantee) is not supported because Vertica has no JDBC XA data source.
 
 ## Using Dependency
 

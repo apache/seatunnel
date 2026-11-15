@@ -84,6 +84,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | parquet_avro_write_timestamp_as_int96 | boolean | 否   | false                                      | parquet 格式使用 |
 | parquet_avro_write_fixed_as_int96     | array   | 否   | -                                          | parquet 格式使用 |
 | encoding                              | string  | 否   | "UTF-8"                                    | json/text/csv/xml 格式使用 |
+| common-options                        | object  | 否   | -                                          | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) |
 
 ## 示例
 

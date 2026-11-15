@@ -66,7 +66,6 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | CHAR | STRING |
 | TIMESTAMP | TIMESTAMP |
 | DATE | DATE |
-| TIME | TIME |
 | BINARY | BYTES |
 
 ## Source Options

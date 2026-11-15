@@ -76,6 +76,30 @@ const sidebars = {
                         "getting-started/kubernetes/operations",
                         "getting-started/kubernetes/helm"
                     ]
+                },
+                {
+                    "type": "category",
+                    "label": "Application Mode (Experimental)",
+                    "items": [
+                        "getting-started/application/overview",
+                        "getting-started/application/cli",
+                        {
+                            "type": "category",
+                            "label": "Kubernetes",
+                            "link": {
+                                "type": "doc",
+                                "id": "getting-started/application/kubernetes/overview"
+                            },
+                            "items": [
+                                "getting-started/application/kubernetes/architecture",
+                                "getting-started/application/kubernetes/quick-start",
+                                "getting-started/application/kubernetes/commands",
+                                "getting-started/application/kubernetes/configuration",
+                                "getting-started/application/kubernetes/checkpoint-recovery",
+                                "getting-started/application/kubernetes/faq"
+                            ]
+                        }
+                    ]
                 }
             ]
         },
@@ -173,6 +197,7 @@ const sidebars = {
                         "getting-started/recipes/kafka-to-iceberg",
                         "getting-started/recipes/postgresql-cdc-to-iceberg",
                         "getting-started/recipes/http-to-jdbc",
+                        "getting-started/recipes/jdbc-to-jdbc",
                         "getting-started/recipes/file-to-starrocks",
                         "getting-started/recipes/multi-table-cdc"
                     ]
@@ -283,6 +308,8 @@ const sidebars = {
                         "engines/zeta/user-command",
                         "engines/zeta/logging",
                         "engines/zeta/log-analysis-with-ai",
+                        "engines/zeta/stain-trace",
+                        "engines/zeta/stain-trace-quickstart",
                         "engines/zeta/telemetry",
                         "engines/zeta/busyness-and-backpressure",
                         "engines/zeta/live-metrics-chart",

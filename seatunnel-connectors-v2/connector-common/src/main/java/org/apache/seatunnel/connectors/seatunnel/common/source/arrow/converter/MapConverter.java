@@ -40,6 +40,9 @@ public class MapConverter implements Converter<MapVector> {
     @Override
     public Object convert(
             int rowIndex, MapVector fieldVector, Map<String, Function> genericsConverters) {
+        if (fieldVector.isNull(rowIndex)) {
+            return null;
+        }
         UnionMapReader reader = fieldVector.getReader();
         reader.setPosition(rowIndex);
         Map<Object, Object> mapValue = new HashMap<>();

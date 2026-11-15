@@ -34,6 +34,10 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 默认情况下，我们使用2PC commit来确保 `精确一次`
 
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
 - [x] 文件格式类型
   - [x] text
   - [x] csv

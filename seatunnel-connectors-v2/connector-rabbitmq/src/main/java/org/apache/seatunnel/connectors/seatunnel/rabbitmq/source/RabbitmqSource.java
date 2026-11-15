@@ -20,18 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
@@ -64,60 +60,9 @@ public class RabbitmqSource
         initializeCatalogTables(config);
     }
 
-    /**
-     * Parses the configuration to initialize the CatalogTables. Determines whether the source is
-     * operating in Single-Table or Multi-Table mode.
-     *
-     * @param config The plugin configuration.
-     */
     private void initializeCatalogTables(ReadonlyConfig config) {
-        boolean hasTableConfigs =
-                config.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent();
-        boolean hasSchema = config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent();
-
-        if (hasTableConfigs) {
-            // Multi-Table Mode: Parse multiple queue configurations
-            List<Map<String, Object>> tableConfigList =
-                    config.get(ConnectorCommonOptions.TABLE_CONFIGS);
-            for (Map<String, Object> item : tableConfigList) {
-                ReadonlyConfig tableConfig = ReadonlyConfig.fromMap(item);
-                CatalogTable table = buildCatalogTable(tableConfig);
-                String queueName = tableConfig.get(RabbitmqBaseOptions.QUEUE_NAME);
-
-                this.catalogTables.add(table);
-                this.queueToTableMap.put(queueName, table);
-            }
-        } else if (hasSchema) {
-            CatalogTable table = buildCatalogTable(config);
-            String queueName = config.get(RabbitmqBaseOptions.QUEUE_NAME);
-            if (queueName == null) {
-                queueName = rabbitmqConfig.getQueueName();
-            }
-            this.catalogTables.add(table);
-            this.queueToTableMap.put(queueName, table);
-        }
-    }
-
-    private CatalogTable buildCatalogTable(ReadonlyConfig config) {
-        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
-        Map<String, String> options = new HashMap<>(catalogTable.getOptions());
-        options.put(
-                RabbitmqBaseOptions.FORMAT.key(), config.get(RabbitmqBaseOptions.FORMAT).name());
-        config.getOptional(RabbitmqBaseOptions.PROTOBUF_SCHEMA)
-                .ifPresent(value -> options.put(RabbitmqBaseOptions.PROTOBUF_SCHEMA.key(), value));
-        config.getOptional(RabbitmqBaseOptions.PROTOBUF_MESSAGE_NAME)
-                .ifPresent(
-                        value ->
-                                options.put(
-                                        RabbitmqBaseOptions.PROTOBUF_MESSAGE_NAME.key(), value));
-        return CatalogTable.of(
-                TableIdentifier.of(catalogTable.getCatalogName(), catalogTable.getTablePath()),
-                catalogTable.getTableSchema(),
-                options,
-                catalogTable.getPartitionKeys(),
-                catalogTable.getComment(),
-                catalogTable.getCatalogName(),
-                catalogTable.getMetadataSchema());
+        RabbitmqSourceSchema.initializeCatalogTables(
+                config, rabbitmqConfig, catalogTables, queueToTableMap);
     }
 
     @Override

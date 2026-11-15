@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ### 适用于SeaTunnel Zeta引擎
 
-1. 您必须确保在`${SEATUNNEL_HOME}/lib/`目录中有`seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`、`aliyun-sdk-oss-3.4.1.jar`、`hadoop-aliyun-3.1.4.jar`和`jdom-1.1.jar`。
+1. 使用发行包自带的 `seatunnel-shade-hadoop3-uber-*.jar`，并将 `aliyun-sdk-oss-3.4.1.jar`、`hadoop-aliyun-3.1.4.jar` 和 `jdom-1.1.jar` 添加到 `${SEATUNNEL_HOME}/lib/` 目录。
 
 ## 关键特性
 
@@ -109,6 +109,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 | file_name_expression                  | string  | 否  | "${transactionId}"                         | 仅在custom_filename为true时使用                                                                                                                            |
 | filename_time_format                  | string  | 否  | "yyyy.MM.dd"                               | 仅在custom_filename为true时使用                                                                                                                            |
 | file_format_type                      | string  | 否  | "csv"                                      | 文件格式类型，支持：`text`、`csv`、`parquet`、`orc`、`json`、`excel`、`xml`、`binary`、`canal_json`、`debezium_json`、`maxwell_json`。                                              |
+| filename_extension                    | string  | 否  | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。例如：`.xml`、`.json`、`dat`、`.customtype`。                                     |
 | field_delimiter                       | string  | 否  | '\001' for text and ',' for csv            | 仅当file_format_type为文本时使用                                                                                                                            |
 | row_delimiter                         | string  | 否  | "\n"                                       | 仅当file_format_type为 `text`、`csv`、`json` 时使用                                                                                                            |
 | have_partition                        | boolean | 否  | false                                      | 是否需要处理分区。                                                                                                                                              |

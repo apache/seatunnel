@@ -21,6 +21,17 @@ seatunnel:
 
 ## Metrics
 
+> [!NOTE]
+> The metrics endpoints are served through the Hazelcast REST API, which is **disabled by default** in the shipped
+> `config/hazelcast.yaml`. Before scraping, enable it in `hazelcast.yaml` on every node:
+>
+> ```yaml
+> hazelcast:
+>   network:
+>     rest-api:
+>       enabled: true
+> ```
+
 The metric text of prometheus can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`.
 
 The metric text of openMetrics can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
@@ -146,7 +157,7 @@ These metrics are exported by the active master only; scraping a worker node's e
 | job_thread_pool_queueTaskCount      | Gauge   | **address**, server instance address,for example: "127.0.0.1:5801" | The queueTaskCount of seatunnel coordinator job's executor cached thread pool  |
 | job_thread_pool_completedTask_total | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The completedTask of seatunnel coordinator job's executor cached thread pool   |
 | job_thread_pool_task_total          | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The taskCount of seatunnel coordinator job's executor cached thread pool       |
-| job_thread_pool_rejection_total     | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The rejectionCount of seatunnel coordinator job's executor cached thread pool  |                                                                        |
+| job_thread_pool_rejection_total     | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The rejectionCount of seatunnel coordinator job's executor cached thread pool  |
 
 ### Report Metrics Operation
 
@@ -196,7 +207,7 @@ This metric is exported by the active master only. It reports only an aggregate 
 
 | MetricName | Type  | Labels                                                                                                                      | DESCRIPTION                         |
 |------------|-------|-----------------------------------------------------------------------------------------------------------------------------|-------------------------------------|
-| job_count  | Gauge | **type**, the type of job, including: "canceled" "cancelling" "created" "failed" "failing" "finished" "running" "scheduled" | All job counts of seatunnel cluster |
+| job_count  | Gauge | **type**, the type of job, including: "canceled" "cancelling" "created" "failed" "failing" "finished" "pending" "running" "scheduled" | All job counts of seatunnel cluster |
 
 ### JVM Metrics
 
@@ -215,7 +226,7 @@ This metric is exported by the active master only. It reports only an aggregate 
 | jvm_memory_pool_allocated_bytes_total      | Counter | **pool**,including: "Code Cache" "PS Eden Space" "PS Old Ge" "PS Survivor Space" "Compressed Class Space" "Metaspace"                                 | Total bytes allocated in a given JVM memory pool. Only updated after GC, not continuously              |
 | jvm_gc_collection_seconds_count            | Summary | **gc**,including: "PS Scavenge" "PS MarkSweep"                                                                                                        | Time spent in a given JVM garbage collector in seconds                                                 |
 | jvm_gc_collection_seconds_sum              | Summary | **gc**,including: "PS Scavenge" "PS MarkSweep"                                                                                                        | Time spent in a given JVM garbage collector in seconds                                                 |
-| jvm_info                                   | Gauge   | **runtime**, for example: "Java(TM) SE Runtime Environment". **vendor**, for example: "Oracle Corporation". **version** ,for example: "1.8.0_212-b10" | VM version info                                                                                        |
+| jvm_info                                   | Gauge   | **runtime**, for example: "Java(TM) SE Runtime Environment". **vendor**, for example: "Oracle Corporation". **version** ,for example: "11.0.22+7"    | VM version info                                                                                        |
 | process_cpu_seconds_total                  | Counter | -                                                                                                                                                     | Total user and system CPU time spent in seconds                                                        |
 | process_start_time_seconds                 | Gauge   | -                                                                                                                                                     | Start time of the process since unix epoch in seconds                                                  |
 | process_open_fds                           | Gauge   | -                                                                                                                                                     | Number of open file descriptors                                                                        |

@@ -23,13 +23,13 @@ connector-jdbc
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(cdc-mysql|jdbc)'
+ls connectors | grep -E 'connector-(cdc-mysql|jdbc)'
 ```
 
 3. If you use SeaTunnel Zeta, place both the MySQL JDBC driver and the PostgreSQL JDBC driver into `${SEATUNNEL_HOME}/lib`, then confirm they are visible:
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector|postgresql'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'mysql-connector|postgresql'
 ```
 
 4. Prepare the MySQL source tables. Each upstream table should have a stable primary key because this recipe routes CDC changes to downstream upsert tables automatically.

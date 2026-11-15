@@ -1,0 +1,23 @@
+{
+  "members": [
+    {
+      "id": "member1",
+      "email_address": "member1@example.invalid",
+      "status": "subscribed",
+      "last_changed": "2026-01-01T00:00:00Z",
+      "merge_fields": {
+        "FNAME": "Example"
+      }
+    },
+    {
+      "id": "member2",
+      "email_address": "member2@example.invalid",
+      "status": "subscribed",
+      "last_changed": "2026-01-01T00:00:00Z",
+      "merge_fields": {
+        "FNAME": "Example"
+      }
+    }
+  ],
+  "total_items": 3
+}

@@ -36,6 +36,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAccumulator;
 
 public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
@@ -48,7 +49,24 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private static final AssertExecutor ASSERT_EXECUTOR = new AssertExecutor();
     private static final Map<String, LongAccumulator> LONG_ACCUMULATOR = new ConcurrentHashMap<>();
     private static final Set<String> TABLE_NAMES = new CopyOnWriteArraySet<>();
+
+    /**
+     * Number of writers still open in this JVM, per table. The row counters above are shared by
+     * every parallel writer of a table (Flink subtasks, Zeta parallel tasks in one node), so the
+     * MIN_ROW / MAX_ROW rules describe the whole table and can only be judged once all of its
+     * writers have finished. The last writer of a table to close evaluates them; an earlier close
+     * would see a partial total and fail spuriously, which is the flaky behaviour reported for
+     * Flink in apache/seatunnel#12116.
+     */
+    private static final Map<String, AtomicInteger> OPEN_WRITERS = new ConcurrentHashMap<>();
+
     private final String catalogTableName;
+
+    /** Key of this writer in {@link #OPEN_WRITERS}; ConcurrentHashMap does not accept null. */
+    private final String openWritersKey;
+
+    /** Guards the open-writer count so a repeated close releases it exactly once. */
+    private boolean closed;
 
     public AssertSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
@@ -61,6 +79,8 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         this.assertRowRules = assertRowRules;
         this.assertTableRule = assertTableRule;
         this.catalogTableName = catalogTableName;
+        this.openWritersKey = catalogTableName == null ? "" : catalogTableName;
+        OPEN_WRITERS.computeIfAbsent(openWritersKey, key -> new AtomicInteger()).incrementAndGet();
     }
 
     @Override
@@ -102,6 +122,16 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        if (!releaseAndCheckLastWriter()) {
+            // Another writer of this table is still running in this JVM and may still add rows,
+            // so the shared counters are not final yet. That writer evaluates the rules when it
+            // closes.
+            return;
+        }
         if (!assertRowRules.isEmpty()) {
             assertRowRules.entrySet().stream()
                     .filter(
@@ -169,5 +199,21 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                             + " is not equal to "
                             + assertTableRule.getTableNames());
         }
+    }
+
+    /**
+     * Releases this writer's slot in {@link #OPEN_WRITERS} and reports whether it was the last open
+     * writer of its table in this JVM. The entry is dropped at zero so a writer recreated later,
+     * for example after a restart, starts a fresh count instead of reusing a stale one.
+     *
+     * @return true when no other writer of the same table is still open
+     */
+    private boolean releaseAndCheckLastWriter() {
+        AtomicInteger openWriters = OPEN_WRITERS.get(openWritersKey);
+        if (openWriters == null || openWriters.decrementAndGet() > 0) {
+            return openWriters == null;
+        }
+        OPEN_WRITERS.remove(openWritersKey, openWriters);
+        return true;
     }
 }

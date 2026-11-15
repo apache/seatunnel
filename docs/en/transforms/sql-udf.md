@@ -11,7 +11,7 @@ Use UDF SPI to extend the SQL transform functions lib.
 ```java
 package org.apache.seatunnel.transform.sql.zeta;
 
-public interface ZetaUDF {
+public interface ZetaUDF extends Serializable {
     /**
      * Function name
      *
