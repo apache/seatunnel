@@ -101,6 +101,24 @@ public class EnvOptionsPropagationIT {
                 Arrays.asList(1, "hello"), EnvProbeSinkFactory.receivedRows().get(0));
     }
 
+    /**
+     * Real-scenario pipeline: source, transform and sink factories of one job all read env, and the
+     * env value is materialized into the actual data that reaches the sink. The final row checked
+     * at the sink carries the original source data plus the env probe appended by the transform,
+     * proving env flowed through factory -> serialized plugin -> runtime -> data.
+     */
+    @Test
+    public void testFullPipelineAllFactoriesReadEnvInOneJob() throws Exception {
+        runJobAndWaitForFinished("env_options_full_pipeline.conf");
+
+        Assertions.assertEquals(EXPECTED_PROBE, EnvFakeSourceFactory.capturedEnv());
+        Assertions.assertEquals(EXPECTED_PROBE, EnvProbeSinkFactory.capturedEnv());
+        Assertions.assertEquals(1, EnvProbeSinkFactory.receivedRows().size());
+        Assertions.assertEquals(
+                Arrays.asList(1, "hello", EXPECTED_PROBE),
+                EnvProbeSinkFactory.receivedRows().get(0));
+    }
+
     private void runJobAndWaitForFinished(String confFile) throws Exception {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource(confFile);
