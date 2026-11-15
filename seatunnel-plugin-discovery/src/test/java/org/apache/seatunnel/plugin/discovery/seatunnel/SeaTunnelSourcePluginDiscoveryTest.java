@@ -326,18 +326,24 @@ class SeaTunnelSourcePluginDiscoveryTest {
             // Under tr-TR, "sink".toUpperCase() turns the 'i' into a dotted capital I
             // (U+0130), so the result no longer matches the PluginType.SINK constant.
             Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            // Jdbc matches two jars in the fixture, so it also covers the selectPluginJar path.
             List<PluginIdentifier> pluginIdentifiers =
-                    Collections.singletonList(
+                    Lists.newArrayList(
                             PluginIdentifier.of(
-                                    "seatunnel", PluginType.SINK.getType(), "Clickhouse"));
+                                    "seatunnel", PluginType.SINK.getType(), "Clickhouse"),
+                            PluginIdentifier.of("seatunnel", PluginType.SINK.getType(), "Jdbc"));
             SeaTunnelSinkPluginDiscovery seaTunnelSinkPluginDiscovery =
                     new SeaTunnelSinkPluginDiscovery();
             List<URL> pluginJarPaths =
                     seaTunnelSinkPluginDiscovery.getPluginJarPaths(pluginIdentifiers);
-            Assertions.assertEquals(1, pluginJarPaths.size());
+            Assertions.assertEquals(2, pluginJarPaths.size());
             Assertions.assertEquals(
                     Paths.get(seatunnelHome, "connectors", "connector-clickhouse.jar").toString(),
                     new File(pluginJarPaths.get(0).toURI()).getPath());
+            Assertions.assertEquals(
+                    Paths.get(seatunnelHome, "connectors", "connector-jdbc-release-1.1.jar")
+                            .toString(),
+                    new File(pluginJarPaths.get(1).toURI()).getPath());
         } finally {
             Locale.setDefault(originalLocale);
         }

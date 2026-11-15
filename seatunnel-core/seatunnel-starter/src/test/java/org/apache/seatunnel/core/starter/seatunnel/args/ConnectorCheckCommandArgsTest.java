@@ -22,6 +22,9 @@ import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
+
+import java.util.Locale;
 
 public class ConnectorCheckCommandArgsTest {
     @Test
@@ -43,5 +46,24 @@ public class ConnectorCheckCommandArgsTest {
                                 new ConnectorCheckCommandArgs(),
                                 "seatunnel-connector.sh",
                                 false));
+    }
+
+    @Test
+    @ResourceLock("default-locale")
+    public void testSinkPluginTypeUnderTurkishLocale() {
+        Locale originalLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            String[] args = {"-l", "-pt", "sink"};
+            ConnectorCheckCommandArgs connectorCheckCommandArgs =
+                    CommandLineUtils.parse(
+                            args, new ConnectorCheckCommandArgs(), "seatunnel-connector.sh", false);
+            Assertions.assertEquals(PluginType.SINK, connectorCheckCommandArgs.getPluginType());
+            Assertions.assertEquals(
+                    PluginType.SINK,
+                    new MetadataExportCommandArgs.PluginTypeConverter().convert("sink"));
+        } finally {
+            Locale.setDefault(originalLocale);
+        }
     }
 }

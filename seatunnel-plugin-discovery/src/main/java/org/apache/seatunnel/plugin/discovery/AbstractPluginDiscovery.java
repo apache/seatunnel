@@ -427,9 +427,9 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     protected abstract Class<T> getPluginBaseClass();
 
     private Optional<String> getPluginMappingPrefix(PluginIdentifier pluginIdentifier) {
-        final String engineType = pluginIdentifier.getEngineType().toLowerCase();
-        final String pluginType = pluginIdentifier.getPluginType().toLowerCase();
-        final String pluginName = pluginIdentifier.getPluginName().toLowerCase();
+        final String engineType = pluginIdentifier.getEngineType().toLowerCase(Locale.ROOT);
+        final String pluginType = pluginIdentifier.getPluginType().toLowerCase(Locale.ROOT);
+        final String pluginName = pluginIdentifier.getPluginName().toLowerCase(Locale.ROOT);
         if (!pluginMappingConfig.hasPath(engineType)) {
             return Optional.empty();
         }
@@ -456,8 +456,8 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         if (!pluginPrefix.isPresent()) {
             return Optional.empty();
         }
-        final String pluginName = pluginIdentifier.getPluginName().toLowerCase();
-        final String pluginType = pluginIdentifier.getPluginType().toLowerCase();
+        final String pluginName = pluginIdentifier.getPluginName().toLowerCase(Locale.ROOT);
+        final String pluginType = pluginIdentifier.getPluginType().toLowerCase(Locale.ROOT);
         File[] targetPluginFiles =
                 pluginDir
                         .toFile()
