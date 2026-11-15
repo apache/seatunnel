@@ -180,16 +180,14 @@
     - 只有在使用 `--check` / `--dry-run=static` / `--dry-run=connect` 校验配置时（会执行 `validateUnknownKeys`），`Prometheus` sink 中残留的 `flush_interval` 键才会被拒绝。直接提交的作业会静默忽略该残留键；连接器会在每个 Sink 写入器启动时各打印一次告警作为替代提示（因此并行度为 N、多表或多副本的作业会多次打印）。
   - **迁移指南**：从 `Prometheus` sink 中移除 `flush_interval`。如需在 Zeta 上继续使用定时刷新，请在作业 `env` 中设置 `sink.flush.interval`（毫秒）。在 Spark 和 Flink 上，缓存会在每个检查点被刷新；如需降低检查点之间的延迟，请调整 `batch_size`。`batch_size` 触发和写入器关闭时的最后一次刷新在所有引擎上保持不变。
 
-- **FIXME: translation pending, English text follows.**
-- **Behavior change: File connectors no longer resolve external resources in XML input**
-  - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (`XmlReadStrategy`), and every file source built on it: LocalFile, HdfsFile, S3File, OssFile, OssJindoFile, CosFile, FtpFile, SftpFile (`file_format_type = xml`)
-  - **Description**: The XML reader now parses every file with a reader obtained from [Apache Commons Secure XML](https://commons.apache.org/proper/commons-secure-xml/).
-    External DTDs and external entities are never fetched and resolve to empty content, and entity expansion is bounded.
-  - **Impact**: XML files that rely on external content (an external DTD subset, or entities declared with `SYSTEM`/`PUBLIC` identifiers) are parsed as if that content were empty.
-    Files that do not depend on external content are unaffected.
-    This includes the common case of a `<!DOCTYPE ...>` declaration that merely points to an external DTD used for validation, as well as declarations that only define internal entities.
-    There is no configuration option to enable external resource resolution.
-  - **Migration Guide**: Inline the content of external DTDs and entities into the XML file before ingesting it with SeaTunnel. (#11250)
+- **行为变更：File 连接器不再解析 XML 输入中的外部资源**
+  - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（`XmlReadStrategy`）及基于该模块的所有 File Source：LocalFile、HdfsFile、S3File、OssFile、OssJindoFile、CosFile、FtpFile、SftpFile（`file_format_type = xml`）
+  - **变更说明**：读取 XML 文件时，使用 [Apache Commons Secure XML](https://commons.apache.org/proper/commons-secure-xml/) 提供的解析器。
+    解析器不会获取外部 DTD 或外部实体，会将这些引用视为空内容，并限制实体展开。
+  - **影响**：XML 文件依赖外部内容（外部 DTD 子集，或使用 `SYSTEM` / `PUBLIC` 标识符声明的实体）时，解析器会将这些内容视为空。
+    不依赖外部内容的文件不受影响。例如，`<!DOCTYPE ...>` 声明仅指向用于校验的外部 DTD，或仅定义内部实体。
+    没有配置项可以开启外部资源解析。
+  - **迁移指南**：用 SeaTunnel 读取前，将文件所需的外部 DTD 和实体内容内联到 XML 文件中。（#11250）
 
 ### 转换变更
 

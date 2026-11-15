@@ -109,10 +109,9 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 
 :::caution
 
-FIXME: translation pending, English text follows.
-External resources referenced by XML files (`file_format_type = xml`), such as external DTDs and external entities, are never resolved and are replaced with empty content.
-XML files with a `<!DOCTYPE ...>` declaration are tolerated as long as they do not rely on any external content.
-There is no configuration option to enable external resource resolution.
+读取 XML 文件（`file_format_type = xml`）时，不会获取文件引用的外部资源（如外部 DTD 和外部实体），解析时会将这些引用视为空内容。
+只要不依赖外部内容，带有 `<!DOCTYPE ...>` 声明的 XML 文件仍可读取。
+没有配置项可以开启外部资源解析。
 
 :::
 
