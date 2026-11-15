@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.rocketmq.source;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqAdminUtil;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.StartMode;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorException;
 
 import org.apache.rocketmq.common.admin.TopicOffset;
 import org.apache.rocketmq.common.message.MessageQueue;
@@ -44,6 +46,7 @@ import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 
 class RocketMqSourceSplitEnumeratorTest {
 
@@ -311,6 +314,54 @@ class RocketMqSourceSplitEnumeratorTest {
                 newQueueLastOffset,
                 splitsByQueue.get("topic_mixed-1").getStartOffset(),
                 "New split must use the configured start mode offset");
+    }
+
+    /**
+     * A failed group-offset lookup must not be mistaken for "this group has committed nothing".
+     * Reporting it that way would send CONSUME_FROM_GROUP_OFFSETS down the first-offset fallback
+     * and silently re-deliver the whole topic, so the failure has to propagate instead.
+     */
+    @Test
+    void testRun_doesNotFallBackToFirstOffsetWhenGroupOffsetLookupFails() {
+        ConsumerMetadata metadata = new ConsumerMetadata();
+        metadata.setTopics(Collections.singletonList("topic_group"));
+        metadata.setStartMode(StartMode.CONSUME_FROM_GROUP_OFFSETS);
+
+        MessageQueue messageQueue = new MessageQueue("topic_group", "broker-group", 0);
+
+        SourceSplitEnumerator.Context<RocketMqSourceSplit> context = mockContext();
+
+        try (MockedStatic<RocketMqAdminUtil> mockedAdmin =
+                Mockito.mockStatic(RocketMqAdminUtil.class)) {
+            mockedAdmin
+                    .when(() -> RocketMqAdminUtil.offsetTopics(any(), eq(metadata.getTopics())))
+                    .thenReturn(
+                            Collections.singletonList(
+                                    topicOffsets(queueOffset(messageQueue, 5L, 18L))));
+            mockedAdmin
+                    .when(
+                            () ->
+                                    RocketMqAdminUtil.currentOffsets(
+                                            any(),
+                                            eq(metadata.getTopics()),
+                                            eq(Collections.singleton(messageQueue))))
+                    .thenThrow(
+                            new RocketMqConnectorException(
+                                    RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR,
+                                    "simulated route lookup failure"));
+
+            RocketMqSourceSplitEnumerator enumerator =
+                    new RocketMqSourceSplitEnumerator(
+                            metadata, Collections.emptyMap(), context, -1L);
+
+            Assertions.assertThrows(RocketMqConnectorException.class, enumerator::run);
+
+            mockedAdmin.verify(
+                    () -> RocketMqAdminUtil.flatOffsetTopics(any(), eq(metadata.getTopics())),
+                    never());
+        }
+
+        Mockito.verify(context, never()).assignSplit(Mockito.anyInt(), Mockito.anyList());
     }
 
     private SourceSplitEnumerator.Context<RocketMqSourceSplit> mockContext() {

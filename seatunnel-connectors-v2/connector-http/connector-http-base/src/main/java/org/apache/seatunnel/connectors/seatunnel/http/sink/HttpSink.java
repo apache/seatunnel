@@ -57,6 +57,7 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void>
             httpParameter.setRequestIntervalMs(
                     pluginConfig.get(HttpSinkOptions.REQUEST_INTERVAL_MS));
         }
+        httpParameter.validateCredentialScheme();
         this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }

@@ -61,6 +61,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `schema_save_mode`         | Enum    | 否       | `mappings` 为 `CREATE_SCHEMA_WHEN_NOT_EXIST`；legacy 为 `ERROR_WHEN_SCHEMA_NOT_EXIST` | Schema 管理模式。 |
 | `data_save_mode`           | Enum    | 否       | `APPEND_DATA` | 写入前如何处理已有数据。`APPEND_DATA` 保留已有数据；`DROP_DATA` 在任务开始时**仅**删除本任务涉及的 label 的数据（先边后点），保留其 schema 以及其他 label 的数据；删除按 label 隔离（某张表的 DROP 不会波及其他表），且在 checkpoint 重启时不会重复执行。 |
 | `delete_vertex_with_edges` | Boolean | 否       | `mappings` 为 `false`；legacy 为 `true` | 为 true 时，顶点 DELETE 行会同时删除关联边。 |
+| `allow_cascade_delete_unmapped_edges` | Boolean | 否 | `false` | 当 `data_save_mode = DROP_DATA` 时，删除顶点会级联删除其关联的边——包括未在本作业 `mappings` 中列出的边 label。默认 `false`：作业快速失败并列出未映射的边 label。设为 `true` 表示接受该破坏性级联删除。 |
 | `schema_config`            | Object  | 否       | -      | 已废弃的 legacy 映射对象。请使用 `mappings`。必须配置 `mappings` 或 `schema_config` 之一。 |
 | `selected_fields`          | List    | 否       | -      | 已废弃。Legacy `schema_config` 仍会应用；新任务请使用 mapping 内的 `properties`。 |
 | `ignored_fields`           | List    | 否       | -      | 已废弃。Legacy `schema_config` 仍会应用；新任务请使用 mapping 内的 `properties`。 |

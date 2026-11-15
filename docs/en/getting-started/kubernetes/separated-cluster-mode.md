@@ -324,7 +324,7 @@ spec:
       serviceAccountName: seatunnel
       containers:
         - name: app
-          image: seatunnel:3.0.0
+          image: seatunnel:3.1.0
           imagePullPolicy: IfNotPresent
           command:
             - /opt/seatunnel/bin/seatunnel-cluster.sh
@@ -334,8 +334,6 @@ spec:
           env:
             - name: SEATUNNEL_HOME
               value: /opt/seatunnel
-            - name: HAZELCAST_CLUSTER_NAME
-              value: seatunnel-cluster
           ports:
             - containerPort: 8080
               name: rest-api
@@ -397,7 +395,7 @@ spec:
       serviceAccountName: seatunnel
       containers:
         - name: app
-          image: seatunnel:3.0.0
+          image: seatunnel:3.1.0
           imagePullPolicy: IfNotPresent
           command:
             - /opt/seatunnel/bin/seatunnel-cluster.sh
@@ -407,8 +405,6 @@ spec:
           env:
             - name: SEATUNNEL_HOME
               value: /opt/seatunnel
-            - name: HAZELCAST_CLUSTER_NAME
-              value: seatunnel-cluster
           ports:
             - containerPort: 8080
               name: rest-api
@@ -446,9 +442,9 @@ spec:
 
 Custom plugins are not included in the base StatefulSet. If extra plugins are required, see [Plugin Loading](configuration.md#plugin-loading) and manage them separately with a custom image, initContainer overlay, PersistentVolume, or object storage.
 
-## Health Check and Graceful Shutdown
+## Health Check and Shutdown
 
-Add the following container fragment to both Master and Worker. `startupProbe` avoids killing slow starts. `preStop` calls the SeaTunnel stop script first, then waits for the `SeaTunnelServer` process to exit. Together with `terminationGracePeriodSeconds`, this reduces the impact of rolling updates and node eviction on running jobs.
+Add the following probes to both Master and Worker. `startupProbe` avoids killing slow starts.
 
 ```yaml
 startupProbe:
@@ -470,6 +466,19 @@ livenessProbe:
   periodSeconds: 30
   timeoutSeconds: 5
   failureThreshold: 3
+```
+
+On pod deletion Kubernetes sends SIGTERM to PID 1 and sends SIGKILL after `terminationGracePeriodSeconds`. The Master and Worker StatefulSets above already set the two things a clean exit needs:
+
+- `command` runs `seatunnel-cluster.sh` directly, not through `/bin/sh -c`. The script `exec`s the JVM, so the JVM is PID 1 and receives the SIGTERM. A `/bin/sh -c` wrapper as PID 1 ignores SIGTERM, and the pod is killed only after the grace period.
+- `terminationGracePeriodSeconds` gives the JVM time to run its shutdown hook before SIGKILL.
+
+On SIGTERM the Hazelcast shutdown hook runs with `hazelcast.shutdownhook.policy`, the node stops its running tasks and leaves the cluster within seconds, and those tasks recover from their last checkpoint. This is a fast, clean exit from the cluster, not a graceful stop of running jobs. `GRACEFUL` only lets Hazelcast migrate partition data before the member leaves; if you use it, keep `hazelcast.graceful.shutdown.max.wait` below `terminationGracePeriodSeconds`.
+
+:::tip Optional preStop
+A `preStop` hook is only needed when the container cannot run the script directly, for example when `command` must stay `/bin/sh -c`. `stop-seatunnel-cluster.sh` sends SIGTERM to the `SeaTunnelServer` process itself, and the hook then waits for the process to exit:
+
+```yaml
 lifecycle:
   preStop:
     exec:
@@ -482,6 +491,7 @@ lifecycle:
             sleep 1
           done
 ```
+:::
 
 ## Apply Manifests
 

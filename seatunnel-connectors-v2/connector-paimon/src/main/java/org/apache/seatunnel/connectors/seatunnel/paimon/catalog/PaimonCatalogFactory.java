@@ -47,8 +47,10 @@ public class PaimonCatalogFactory implements CatalogFactory {
         return OptionRule.builder()
                 .required(
                         PaimonBaseOptions.WAREHOUSE,
-                        PaimonBaseOptions.DATABASE,
-                        PaimonBaseOptions.TABLE)
+                        Conditions.notBlank(PaimonBaseOptions.WAREHOUSE))
+                .required(
+                        PaimonBaseOptions.DATABASE, Conditions.notBlank(PaimonBaseOptions.DATABASE))
+                .required(PaimonBaseOptions.TABLE, Conditions.notBlank(PaimonBaseOptions.TABLE))
                 .optional(
                         PaimonBaseOptions.CATALOG_NAME,
                         PaimonBaseOptions.HDFS_SITE_PATH,

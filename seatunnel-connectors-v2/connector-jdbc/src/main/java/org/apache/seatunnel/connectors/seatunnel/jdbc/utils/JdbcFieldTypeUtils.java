@@ -16,6 +16,8 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
+import javax.annotation.Nullable;
+
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
@@ -87,7 +89,58 @@ public final class JdbcFieldTypeUtils {
 
     public static BigDecimal getBigDecimal(ResultSet resultSet, int columnIndex)
             throws SQLException {
-        return resultSet.getBigDecimal(columnIndex);
+        return getBigDecimal(resultSet, columnIndex, false);
+    }
+
+    /**
+     * Reads a DECIMAL/NUMERIC column value as {@link BigDecimal}.
+     *
+     * <p>PostgreSQL and its derivatives (e.g. Kingbase) allow the special numeric values {@code
+     * NaN}, {@code Infinity} and {@code -Infinity} (supported since PostgreSQL 14), which have no
+     * {@code BigDecimal} representation. The driver fails in that case with {@code PSQLException:
+     * Bad value for type BigDecimal : NaN} (text protocol) or with a {@code ClassCastException}
+     * (binary protocol, where the driver returns a {@code Double}). When {@code
+     * numericSpecialValueAsNull} is enabled, these special values are read as {@code null}, so that
+     * a single special value does not abort the whole job. Otherwise the original error is thrown.
+     */
+    public static BigDecimal getBigDecimal(
+            ResultSet resultSet, int columnIndex, boolean numericSpecialValueAsNull)
+            throws SQLException {
+        try {
+            return resultSet.getBigDecimal(columnIndex);
+        } catch (SQLException | ClassCastException e) {
+            if (numericSpecialValueAsNull && isNumericSpecialValue(resultSet, columnIndex)) {
+                return null;
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Checks whether the value at the given column is a numeric special value that cannot be
+     * represented as {@link BigDecimal}.
+     *
+     * <p>PostgreSQL allows the special numeric values {@code NaN}, {@code Infinity} and {@code
+     * -Infinity} (supported since PostgreSQL 14). This method reads the raw value as a string and
+     * reports whether it is one of those special values; it never throws.
+     */
+    public static boolean isNumericSpecialValue(ResultSet resultSet, int columnIndex) {
+        try {
+            return isNumericSpecialValueString(resultSet.getString(columnIndex));
+        } catch (SQLException | RuntimeException e) {
+            // The raw value cannot be read, so it cannot be identified as a special value
+            return false;
+        }
+    }
+
+    private static boolean isNumericSpecialValueString(@Nullable String value) {
+        if (value == null) {
+            return false;
+        }
+        String trimmed = value.trim();
+        return "NaN".equalsIgnoreCase(trimmed)
+                || "Infinity".equalsIgnoreCase(trimmed)
+                || "-Infinity".equalsIgnoreCase(trimmed);
     }
 
     public static Date getDate(ResultSet resultSet, int columnIndex) throws SQLException {

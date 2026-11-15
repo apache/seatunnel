@@ -14,7 +14,12 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 [Qdrant](https://qdrant.tech/) 是一个高性能的向量搜索引擎和向量数据库。
 
-Qdrant source 用来从一个已经存在的 Qdrant collection 读取 point。point 的 payload 字段会读成普通 SeaTunnel 列，Qdrant 向量会读成 SeaTunnel 向量列。
+Qdrant source 用来从一个已经存在的 Qdrant collection 读取 point。point 的 payload 字段会读成
+普通 SeaTunnel 列，Qdrant 向量会读成 SeaTunnel 向量列。它是一个有界的批处理源，因此适合做快照式读取
+（例如从一个 collection 加载数据来初始化另一个向量索引，或者写入其他存储）；如果需要持续捕获变更，
+可以把 CDC 源和这个 sink 连接器配合使用。
+
+作业启动前，collection、它的向量名以及向量维度必须已经存在；source 不会创建 collection 或向量索引。
 
 ## 主要特性
 
@@ -86,6 +91,7 @@ Qdrant 实例的 gRPC 端口。
 ### api_key [string]
 
 连接需要认证的 Qdrant 部署时使用的 API key。如果 Qdrant 服务不需要认证，可以保持为空。
+通过不可信网络传输 API key 时，请设置 `use_tls = true`；否则密钥会通过未加密的 gRPC 连接发送。
 
 ### use_tls [bool]
 

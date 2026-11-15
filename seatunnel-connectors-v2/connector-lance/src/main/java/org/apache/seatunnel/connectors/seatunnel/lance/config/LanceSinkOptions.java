@@ -25,6 +25,13 @@ import java.util.Map;
 
 public class LanceSinkOptions extends LanceCommonOptions {
 
+    public static final Option<Integer> WRITE_BATCH_SIZE =
+            Options.key("lance.write.batch-size")
+                    .intType()
+                    .defaultValue(10000)
+                    .withDescription(
+                            "Rows buffered in the sink writer before flushing one Lance fragment.");
+
     public static final Option<Integer> WRITE_MAX_ROWS_PER_FILE =
             Options.key("lance.write.max-rows-per-file")
                     .intType()

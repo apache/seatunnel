@@ -19,11 +19,29 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.LocalTime;
+
 @Slf4j
 public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
+
+    @Override
+    protected LocalTime readTime(ResultSet resultSet, int index) throws SQLException {
+        // java.sql.Time discards DuckDB TIME's fractional seconds.
+        return JdbcFieldTypeUtils.getLocalTime(resultSet, index);
+    }
+
+    @Override
+    protected void writeTime(PreparedStatement statement, int index, LocalTime time)
+            throws SQLException {
+        statement.setObject(index, time);
+    }
 
     @Override
     public String converterName() {
