@@ -22,7 +22,7 @@ connector-jdbc
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-jdbc'
+ls connectors | grep -E 'connector-jdbc'
 ```
 
 `Sql` transform 已包含在 SeaTunnel 发布包中，不需要再添加 connector 配置。
@@ -30,7 +30,7 @@ ls connectors | rg 'connector-jdbc'
 3. 把两个数据库的驱动都放入 `${SEATUNNEL_HOME}/lib`，然后确认 SeaTunnel 可以看到它们：
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector|postgresql'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'mysql-connector|postgresql'
 ```
 
 4. 创建 MySQL 源表，并插入三条固定数据：

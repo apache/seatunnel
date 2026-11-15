@@ -55,8 +55,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -71,6 +73,15 @@ public class ExpressionUtils {
                     .append(ISO_LOCAL_DATE)
                     .appendLiteral(' ')
                     .append(ISO_LOCAL_TIME)
+                    .toFormatter();
+
+    private static final DateTimeFormatter OFFSET_DATE_TIME_FORMATTER =
+            new DateTimeFormatterBuilder()
+                    .append(LOCAL_DATE_TIME_FORMATTER)
+                    .optionalStart()
+                    .appendOffsetId()
+                    .optionalEnd()
+                    .parseDefaulting(ChronoField.OFFSET_SECONDS, 0)
                     .toFormatter();
 
     public static List<String> parseSelectColumns(String selectQuery) {
@@ -274,6 +285,12 @@ public class ExpressionUtils {
                 }
             case TIMESTAMP:
                 if (valueExpression instanceof StringValue) {
+                    if (((Types.TimestampType) icebergColumn.type()).shouldAdjustToUTC()) {
+                        return DateTimeUtil.microsFromTimestamptz(
+                                OffsetDateTime.parse(
+                                        ((StringValue) valueExpression).getValue(),
+                                        OFFSET_DATE_TIME_FORMATTER));
+                    }
                     LocalDateTime dateTime =
                             LocalDateTime.parse(
                                     ((StringValue) valueExpression).getValue(),

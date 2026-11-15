@@ -22,6 +22,7 @@ package org.apache.seatunnel.engine.imap.storage.file.common;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.ClassUtils;
 
+import org.apache.seatunnel.engine.imap.storage.api.ExpirableValue;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
@@ -29,7 +30,6 @@ import org.apache.seatunnel.engine.imap.storage.file.wal.DiscoveryWalFileFactory
 import org.apache.seatunnel.engine.imap.storage.file.wal.reader.IFileReader;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
@@ -37,13 +37,48 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
+
+import static org.apache.seatunnel.engine.imap.storage.file.common.LatestMutationAccumulator.SerializedKey;
 
 public class WALReader {
+    /**
+     * Maps the fully-qualified class names recorded in WAL entries written by SeaTunnel versions
+     * older than #9689 (which moved the job status model from {@code seatunnel-engine-core} to
+     * {@code seatunnel-engine-common}) to their current class names.
+     *
+     * <p>Without this mapping, restarting a cluster that persists job state through the file-based
+     * IMap storage fails with {@code ClassNotFoundException} while replaying existing WAL entries,
+     * see #9928. Removing an entry from this table breaks upgrades from any release that still
+     * wrote the old class name, so keep it in place and extend it whenever a persisted job model
+     * class is moved again.
+     *
+     * <p>Resolution is single-level: each entry rewrites one legacy name to its current location.
+     * If a target class is relocated again later, add an entry for every intermediate name so WAL
+     * files written between relocations still resolve; do not rely on the map being followed
+     * transitively.
+     */
+    private static final Map<String, String> LEGACY_CLASS_NAME_MAPPINGS;
+
+    static {
+        Map<String, String> legacyClassNameMappings = new HashMap<>();
+        legacyClassNameMappings.put(
+                "org.apache.seatunnel.engine.core.job.JobResult",
+                "org.apache.seatunnel.engine.common.job.JobResult");
+        legacyClassNameMappings.put(
+                "org.apache.seatunnel.engine.core.job.JobStatus",
+                "org.apache.seatunnel.engine.common.job.JobStatus");
+        legacyClassNameMappings.put(
+                "org.apache.seatunnel.engine.core.job.JobStatusData",
+                "org.apache.seatunnel.engine.common.job.JobStatusData");
+        LEGACY_CLASS_NAME_MAPPINGS = Collections.unmodifiableMap(legacyClassNameMappings);
+    }
+
     private final Serializer serializer;
-    private final IFileReader fileReader;
+    private final IFileReader<IMapFileData> fileReader;
 
     public WALReader(FileSystem fs, FileConfiguration configuration, Serializer serializer)
             throws IOException {
@@ -52,81 +87,135 @@ public class WALReader {
         this.fileReader.initialize(fs, serializer);
     }
 
-    private List<IMapFileData> readAllData(Path parentPath) throws IOException {
-        return this.fileReader.readAllData(parentPath);
-    }
-
+    /** Returns the keys whose latest mutation is neither a delete nor expired. */
     public Set<Object> loadAllKeys(Path parentPath) throws IOException {
-        List<IMapFileData> allData = readAllData(parentPath);
-        if (CollectionUtils.isEmpty(allData)) {
-            return new HashSet<>();
-        }
-        Collections.sort(allData);
-        Set<Object> result = new HashSet<>(allData.size());
-        Map<Object, Long> deleteMap = new HashMap<>();
-        for (IMapFileData data : allData) {
-            Object key = deserializeData(data.getKey(), data.getKeyClassName());
-            if (deleteMap.containsKey(key)) {
-                continue;
+        LatestMutationAccumulator accumulator = readLatestMutations(parentPath, null);
+        long now = System.currentTimeMillis();
+        Set<Object> result = new HashSet<>(accumulator.size());
+        Iterator<IMapFileData> mutations = accumulator.iterator();
+        while (mutations.hasNext()) {
+            IMapFileData mutation = mutations.next();
+            mutations.remove();
+            if (isLive(mutation, now)) {
+                result.add(deserializeData(mutation.getKey(), mutation.getKeyClassName()));
             }
-            if (data.isDeleted()) {
-                deleteMap.put(key, data.getTimestamp());
-                continue;
-            }
-            if (result.contains(key)) {
-                continue;
-            }
-            result.add(key);
         }
         return result;
     }
 
+    /** Returns the latest value of each key that is neither deleted nor expired. */
     public Map<Object, Object> loadAllData(Path parentPath, Set<Object> searchKeys)
             throws IOException {
-        List<IMapFileData> allData = readAllData(parentPath);
-        if (CollectionUtils.isEmpty(allData)) {
-            return new HashMap<>();
-        }
-        Collections.sort(allData);
-        Map<Object, Object> result = new HashMap<>(allData.size());
-        Map<Object, Long> deleteMap = new HashMap<>();
-        boolean searchByKeys = CollectionUtils.isNotEmpty(searchKeys);
-        for (IMapFileData data : allData) {
-            Object key = deserializeData(data.getKey(), data.getKeyClassName());
-            if (searchByKeys && !searchKeys.contains(data.getKey())) {
+        return loadLiveData(parentPath, searchKeys, (value, mutation) -> value);
+    }
+
+    /**
+     * Returns the latest value of each key that is neither deleted nor expired, together with the
+     * time at which it expires.
+     */
+    public Map<Object, ExpirableValue> loadAllDataWithExpirationTime(
+            Path parentPath, Set<Object> searchKeys) throws IOException {
+        return loadLiveData(
+                parentPath,
+                searchKeys,
+                (value, mutation) ->
+                        new ExpirableValue(
+                                value,
+                                mutation.getExpirationTime() == null
+                                        ? ExpirableValue.NO_EXPIRATION_TIME
+                                        : mutation.getExpirationTime()));
+    }
+
+    private <V> Map<Object, V> loadLiveData(
+            Path parentPath,
+            Set<Object> searchKeys,
+            BiFunction<Object, IMapFileData, V> valueMapper)
+            throws IOException {
+        Set<SerializedKey> serializedSearchKeys = serializeSearchKeys(searchKeys);
+        LatestMutationAccumulator accumulator =
+                readLatestMutations(parentPath, serializedSearchKeys);
+        long now = System.currentTimeMillis();
+        Map<Object, V> result = new HashMap<>(accumulator.size());
+        Iterator<IMapFileData> mutations = accumulator.iterator();
+        while (mutations.hasNext()) {
+            IMapFileData mutation = mutations.next();
+            mutations.remove();
+            if (!isLive(mutation, now)) {
                 continue;
             }
-            if (deleteMap.containsKey(key)) {
-                continue;
-            }
-            if (data.isDeleted()) {
-                deleteMap.put(key, data.getTimestamp());
-                continue;
-            }
-            if (result.containsKey(key)) {
-                continue;
-            }
-            Object value = deserializeData(data.getValue(), data.getValueClassName());
-            result.put(key, value);
+            Object key = deserializeData(mutation.getKey(), mutation.getKeyClassName());
+            Object value = deserializeData(mutation.getValue(), mutation.getValueClassName());
+            result.put(key, valueMapper.apply(value, mutation));
         }
         return result;
+    }
+
+    /**
+     * An entry stays in the WAL after it expires because Hazelcast does not delete expired entries
+     * from the map store, so its latest put is skipped here instead of being loaded again.
+     */
+    private static boolean isLive(IMapFileData mutation, long now) {
+        if (mutation.isDeleted()) {
+            return false;
+        }
+        Long expirationTime = mutation.getExpirationTime();
+        return expirationTime == null || expirationTime > now;
+    }
+
+    private LatestMutationAccumulator readLatestMutations(
+            Path parentPath, Set<SerializedKey> serializedSearchKeys) throws IOException {
+        LatestMutationAccumulator accumulator = new LatestMutationAccumulator(serializedSearchKeys);
+        fileReader.forEachData(parentPath, accumulator::accept);
+        return accumulator;
+    }
+
+    private Set<SerializedKey> serializeSearchKeys(Set<Object> searchKeys) throws IOException {
+        if (searchKeys == null || searchKeys.isEmpty()) {
+            return null;
+        }
+
+        Set<SerializedKey> serializedKeys = new HashSet<>(searchKeys.size());
+        for (Object key : searchKeys) {
+            serializedKeys.add(
+                    SerializedKey.of(serializer.serialize(key), key.getClass().getName()));
+        }
+        return serializedKeys;
     }
 
     private Object deserializeData(byte[] data, String className) {
         try {
-            Class<?> clazz = ClassUtils.getClass(className);
+            Class<?> clazz = ClassUtils.getClass(resolveClassName(className));
             try {
                 return serializer.deserialize(data, clazz);
             } catch (IOException e) {
                 // log.error("deserialize data error, data is {}, className is {}", data, className,
                 // e);
+                // IMapStorageException formats the message with String.format, so use %s
+                // placeholders instead of {} to keep the data and class name visible.
                 throw new IMapStorageException(
-                        e, "deserialize data error: data is s%, className is s%", data, className);
+                        e, "deserialize data error: data is %s, className is %s", data, className);
             }
         } catch (ClassNotFoundException e) {
-            //  log.error("deserialize data error, class name is {}", className, e);
+            //  log.error("deserialize data error, class name is {}, resolved class name is {}",
+            // className, resolveClassName(className), e);
+            // IMapStorageException formats the message with String.format, so use %s
+            // placeholders instead of {} to keep both class names visible.
             throw new IMapStorageException(
-                    e, "deserialize data error, class name is {}", className);
+                    e,
+                    "deserialize data error, class name is %s, resolved class name is %s",
+                    className,
+                    resolveClassName(className));
         }
+    }
+
+    /**
+     * Resolves class names written by SeaTunnel versions before the job model moved to
+     * engine-common.
+     *
+     * @param className class name recorded in the WAL
+     * @return class name available in the current distribution
+     */
+    private static String resolveClassName(String className) {
+        return LEGACY_CLASS_NAME_MAPPINGS.getOrDefault(className, className);
     }
 }

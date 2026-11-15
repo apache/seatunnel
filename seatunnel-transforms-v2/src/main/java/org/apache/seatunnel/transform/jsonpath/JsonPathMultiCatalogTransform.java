@@ -44,6 +44,12 @@ public class JsonPathMultiCatalogTransform extends AbstractMultiCatalogMapTransf
                 JsonPathTransformConfig.of(config, inputCatalogTable), inputCatalogTable);
     }
 
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
+    @Override
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(config, JsonPathTransformConfig.COLUMNS);
+    }
+
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
         return new IdentityMapTransform(catalogTable);

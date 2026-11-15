@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [多模态](../../introduction/concepts/connector-v2-features.md#multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用 binary 格式读写任意类型文件（视频、图片等），可将任意文件同步到目标位置。
 
@@ -62,7 +62,8 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | secret_key                 | string  | 是   | -                           |
 | endpoint                   | string  | 是   | -                           |
 | read_columns               | list    | 否   | -                           |
-| delimiter/field_delimiter  | string  | 否   | text 为 \001，csv 为 ,      |
+| read_partitions | list | 否 | - |
+| delimiter/field_delimiter  | string  | 否   | \001                        |
 | row_delimiter              | string  | 否   | \n                          |
 | parse_partition_from_path  | boolean | 否   | true                        |
 | skip_header_row_number     | long    | 否   | 0                           |
@@ -89,6 +90,35 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | escape_char                | string  | 否   | -                           |
 | recursive_file_scan        | boolean | 否   | true                        |
 | sort_files_by_modification_time | boolean | 否   | false                       |
+| common-options             |         | 否   | -                           |
+
+### path [string]
+
+桶下的源文件路径。
+
+### bucket [string]
+
+BOS 桶地址，例如 `bos://my-bucket`。
+
+### access_key [string]
+
+百度云 BOS 的 access key。
+
+### secret_key [string]
+
+百度云 BOS 的 secret key。
+
+### endpoint [string]
+
+BOS 的 endpoint，例如 `http://bj.bcebos.com`。
+
+### file_format_type [string]
+
+支持的文件类型：`text`、`csv`、`parquet`、`orc`、`json`、`excel`、`xml`、`binary`、`markdown`、`pdf`。
+
+### common-options
+
+Source 插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md)。
 
 ## 示例
 
@@ -116,6 +146,7 @@ source {
     access_key = "your-access-key"
     secret_key = "your-secret-key"
     endpoint = "http://bj.bcebos.com"
+    binary_chunk_size = 2048
   }
 }
 
@@ -127,6 +158,28 @@ sink {
     access_key = "your-access-key"
     secret_key = "your-secret-key"
     endpoint = "http://bj.bcebos.com"
+  }
+}
+```
+
+### 文件过滤
+
+```hocon
+source {
+  BosFile {
+    bucket = "bos://source-bucket"
+    path = "/read/data/"
+    file_format_type = "text"
+    access_key = "your-access-key"
+    secret_key = "your-secret-key"
+    endpoint = "http://bj.bcebos.com"
+    file_filter_pattern = "abc[DX]*.*"
+    schema {
+      fields {
+        id = int
+        name = string
+      }
+    }
   }
 }
 ```

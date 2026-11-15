@@ -58,4 +58,13 @@ public class TestReplaceIT extends TestSuiteBase {
                 container.executeJob("/replace/replace_transform_multi_table_multi_field.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testReplaceTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/replace/replace_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

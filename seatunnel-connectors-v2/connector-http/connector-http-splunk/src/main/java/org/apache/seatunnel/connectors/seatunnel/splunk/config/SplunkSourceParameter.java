@@ -1,0 +1,68 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.splunk.config;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpSourceOptions;
+
+import java.util.HashMap;
+
+public class SplunkSourceParameter extends HttpParameter {
+
+    private long maxResponseSizeBytes;
+
+    public long getMaxResponseSizeBytes() {
+        return maxResponseSizeBytes;
+    }
+
+    /**
+     * Overrides buildWithConfig to accept an explicit apiKey parameter. Splunk's REST API requires
+     * the API key to be passed specifically as an Authorization header, so this method ensures the
+     * key is properly extracted and configured.
+     */
+    public void buildWithConfig(ReadonlyConfig pluginConfig, String apiKey) {
+        super.buildWithConfig(pluginConfig);
+
+        if (!pluginConfig.getOptional(HttpSourceOptions.METHOD).isPresent()) {
+            this.setMethod(HttpRequestMethod.POST);
+        }
+
+        if (this.headers == null) {
+            this.headers = new HashMap<>();
+        }
+        this.headers.put("Authorization", apiKey);
+
+        // HttpClientProvider.addBody(HttpPost, String) always wraps a non-empty `body` string in
+        // application/json, which breaks Splunk's export endpoint (it requires search/output_mode
+        // as URL-encoded form fields). Users must supply them via the `params` block, not `body`.
+        this.headers.put("Content-Type", "application/x-www-form-urlencoded");
+
+        if (this.params == null) {
+            this.params = new HashMap<>();
+        }
+        // Defensive default: this connector's response parser (SplunkSourceReader) only handles
+        // JSON. Don't override if the user explicitly set something else in `params`.
+        this.params.putIfAbsent("output_mode", "json");
+        this.setKeepParamsAsForm(pluginConfig.get(SplunkSourceOptions.KEEP_PARAMS_AS_FORM));
+
+        this.setEnableMultilines(true);
+        this.maxResponseSizeBytes = pluginConfig.get(SplunkSourceOptions.MAX_RESPONSE_SIZE_BYTES);
+    }
+}

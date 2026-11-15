@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
+import org.apache.seatunnel.transform.common.TransformLevelRuleAssertions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,12 @@ import java.util.List;
 import java.util.Map;
 
 public class TextChunkTransformFactoryTest {
+
+    @Test
+    public void testTransformLevelRuleDetectionMatchesTheTableRule() {
+        TransformLevelRuleAssertions.assertMatchesFactoryRule(
+                new TextChunkTransformFactory(), TextChunkTransformConfig.TEXT_FIELD);
+    }
 
     @Test
     public void testFactoryIdentifierAndOptionRule() {
@@ -244,5 +251,72 @@ public class TextChunkTransformFactoryTest {
         cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Arrays.asList(goodTable));
         Assertions.assertDoesNotThrow(
                 () -> ConfigValidator.of(ReadonlyConfig.fromMap(cfg)).validate(rule));
+    }
+
+    /** The entry relies on the default chunk_size, so the check has to apply the defaults. */
+    @Test
+    public void testPerTableOverlapAtOrAboveDefaultChunkSizeFails() {
+        Map<String, Object> entry = tableRule();
+        entry.put(TextChunkTransformConfig.OVERLAP_SIZE.key(), 1500); // default chunk_size is 1000
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertTrue(ex.getMessage().contains("overlap_size"), ex.getMessage());
+    }
+
+    @Test
+    public void testPerTableOverlapBelowDefaultChunkSizePasses() {
+        Map<String, Object> entry = tableRule();
+        entry.put(TextChunkTransformConfig.OVERLAP_SIZE.key(), 500);
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformOnlyConfigPasses() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(tableRule()));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformEntryWithoutTablePathFails() {
+        Map<String, Object> entry = tableRule();
+        entry.remove(TransformCommonOptions.TABLE_PATH.key());
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformEntryMustSatisfyTheRule() {
+        Map<String, Object> entry = tableRule();
+        entry.remove("text_field");
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testIncompleteTransformLevelRuleWithTableTransformFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(tableRule()));
+        cfg.put("chunk_size", 8);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    /** A complete rule for a single table, used as a {@code table_transform} entry. */
+    private Map<String, Object> tableRule() {
+        Map<String, Object> entry = new HashMap<>();
+        entry.put(TransformCommonOptions.TABLE_PATH.key(), "test.xyz");
+        entry.put("text_field", "content");
+        return entry;
+    }
+
+    private void validate(Map<String, Object> config) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config))
+                .validate(new TextChunkTransformFactory().optionRule());
     }
 }

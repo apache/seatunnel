@@ -20,6 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
@@ -28,6 +32,8 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.PullPolicy;
@@ -36,6 +42,8 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -43,6 +51,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
@@ -283,6 +292,113 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
     @Override
     String getFullTableName(String tableName) {
         return buildTableInfoWithSchema(OCEANBASE_DATABASE, tableName);
+    }
+
+    /**
+     * Regression test for <a href="https://github.com/apache/seatunnel/issues/10451">#10451</a>.
+     *
+     * <p>An ENUM value list containing the word "unsigned" used to be read as the UNSIGNED
+     * attribute of the column. The catalog then handed {@code ENUM UNSIGNED} to the type converter,
+     * which has no mapping for it, so discovery of the whole table failed.
+     *
+     * <p>The MySQL variant of this test also covers a SET column. {@code
+     * OceanBaseMySqlTypeConverter} has no SET mapping at all, so a SET column cannot be discovered
+     * on OceanBase either way and only the ENUM shape is exercised here.
+     */
+    @Test
+    public void testEnumColumnWithUnsignedWordInValueList() throws SQLException {
+        String tableName = "enum_unsigned_source";
+        String createSql =
+                "CREATE TABLE IF NOT EXISTS `"
+                        + OCEANBASE_DATABASE
+                        + "`.`"
+                        + tableName
+                        + "` ("
+                        + "  `c_int` int DEFAULT NULL,"
+                        + "  `c_int_unsigned` int unsigned DEFAULT NULL,"
+                        + "  `c_enum` enum('unsigned','other') DEFAULT NULL)";
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createSql);
+            try {
+                TableSchema tableSchema =
+                        catalog.getTable(TablePath.of(OCEANBASE_DATABASE, tableName))
+                                .getTableSchema();
+
+                // The synthetic " UNSIGNED" suffix must not be attached to the ENUM column anymore.
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE, tableSchema.getColumn("c_enum").getDataType());
+                // A genuinely unsigned numeric column keeps its attribute: INT UNSIGNED widens to
+                // LONG, while a plain INT stays INT.
+                Assertions.assertEquals(
+                        BasicType.LONG_TYPE, tableSchema.getColumn("c_int_unsigned").getDataType());
+                Assertions.assertEquals(
+                        BasicType.INT_TYPE, tableSchema.getColumn("c_int").getDataType());
+            } finally {
+                statement.execute(
+                        "DROP TABLE IF EXISTS `" + OCEANBASE_DATABASE + "`.`" + tableName + "`");
+            }
+        }
+    }
+
+    /**
+     * OceanBase reports {@code DATA_TYPE} in lower case, for example {@code int} or {@code
+     * datetime}. Under {@code tr-TR} and {@code az-AZ}, upper casing it with the default locale
+     * gave {@code İNT}, which matched no type, so reading the table from the catalog failed.
+     */
+    @Test
+    public void testCatalogReadsColumnTypesUnderTurkishLocale() throws SQLException {
+        String tableName = "locale_type_source";
+        String createSql =
+                "CREATE TABLE IF NOT EXISTS `"
+                        + OCEANBASE_DATABASE
+                        + "`.`"
+                        + tableName
+                        + "` ("
+                        + "  `c_int` int DEFAULT NULL,"
+                        + "  `c_int_unsigned` int unsigned DEFAULT NULL,"
+                        + "  `c_bigint` bigint DEFAULT NULL,"
+                        + "  `c_datetime` datetime DEFAULT NULL)";
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createSql);
+            try {
+                for (Locale locale :
+                        new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
+                    // Upper casing "i" gives a dotted capital I under these locales.
+                    Locale.setDefault(locale);
+                    TableSchema tableSchema =
+                            catalog.getTable(TablePath.of(OCEANBASE_DATABASE, tableName))
+                                    .getTableSchema();
+                    Assertions.assertEquals(
+                            BasicType.INT_TYPE,
+                            tableSchema.getColumn("c_int").getDataType(),
+                            locale.toString());
+                    Assertions.assertEquals(
+                            BasicType.LONG_TYPE,
+                            tableSchema.getColumn("c_int_unsigned").getDataType(),
+                            locale.toString());
+                    Assertions.assertEquals(
+                            BasicType.LONG_TYPE,
+                            tableSchema.getColumn("c_bigint").getDataType(),
+                            locale.toString());
+                    Assertions.assertEquals(
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            tableSchema.getColumn("c_datetime").getDataType(),
+                            locale.toString());
+                }
+            } finally {
+                // The base locale first, because setting it overwrites both category defaults.
+                Locale.setDefault(saved[0]);
+                Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+                Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
+                statement.execute(
+                        "DROP TABLE IF EXISTS `" + OCEANBASE_DATABASE + "`.`" + tableName + "`");
+            }
+        }
     }
 
     @Override

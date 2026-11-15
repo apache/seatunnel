@@ -34,11 +34,11 @@ Maven central repository.
 
 | Name              | Type   | Required | Default            | Description                                                                                             |
 |-------------------|--------|----------|--------------------|---------------------------------------------------------------------------------------------------------|
-| endpoint          | String | Yes      | -                  | Alibaba Cloud SLS endpoint, for example `cn-hangzhou.log.aliyuncs.com` or an intranet endpoint.         |
-| project           | String | Yes      | -                  | [Alibaba Cloud SLS project](https://help.aliyun.com/zh/sls/user-guide/manage-a-project).                |
-| logstore          | String | Yes      | -                  | [Alibaba Cloud SLS logstore](https://help.aliyun.com/zh/sls/user-guide/manage-a-logstore).              |
-| access_key_id     | String | Yes      | -                  | Alibaba Cloud AccessKey ID.                                                                             |
-| access_key_secret | String | Yes      | -                  | Alibaba Cloud AccessKey secret.                                                                         |
+| endpoint          | String | Yes      | -                  | Alibaba Cloud SLS endpoint, for example `cn-hangzhou.log.aliyuncs.com` or an intranet endpoint. Must not be empty or whitespace-only. |
+| project           | String | Yes      | -                  | [Alibaba Cloud SLS project](https://help.aliyun.com/zh/sls/user-guide/manage-a-project). Must not be empty or whitespace-only.        |
+| logstore          | String | Yes      | -                  | [Alibaba Cloud SLS logstore](https://help.aliyun.com/zh/sls/user-guide/manage-a-logstore). Must not be empty or whitespace-only.      |
+| access_key_id     | String | Yes      | -                  | Alibaba Cloud AccessKey ID. Must not be empty or whitespace-only.                                                                    |
+| access_key_secret | String | Yes      | -                  | Alibaba Cloud AccessKey secret. Must not be empty or whitespace-only.                                                                |
 | source            | String | No       | `SeaTunnel-Source` | Source tag written to SLS log groups.                                                                   |
 | topic             | String | No       | `SeaTunnel-Topic`  | Topic tag written to SLS log groups.                                                                    |
 

@@ -98,6 +98,15 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
         return new SeaTunnelSparkDataWriterFactory<>(sink, catalogTables, jobId, parallelism);
     }
 
+    /**
+     * Explicitly resolves the {@link BatchWrite} and {@link StreamingWrite} default method when
+     * this Spark 3.3-compiled implementation runs with Spark 3.5.
+     */
+    @Override
+    public boolean useCommitCoordinator() {
+        return true;
+    }
+
     @Override
     public void commit(WriterCommitMessage[] messages) {
         if (aggregatedCommitter != null) {

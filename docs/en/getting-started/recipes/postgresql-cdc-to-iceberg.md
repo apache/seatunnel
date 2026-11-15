@@ -141,7 +141,7 @@ source {
     username = "seatunnel_cdc"
     password = "change_me"
     database-names = ["sales"]
-    schema-names = ["inventory"]
+    schema-name = ["inventory"]
     table-names = ["sales.inventory.customer_orders"]
     startup.mode = "initial"
     decoding.plugin.name = "pgoutput"
