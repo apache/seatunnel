@@ -34,6 +34,7 @@ public class CreateTableParserTest {
                         + "`level` VARCHAR(10) COMMENT 'low,medium,high',\n"
                         + "`unit` INT COMMENT 'seconds)',\n"
                         + "`note` STRING COMMENT 'it\\'s a, b',\n"
+                        + "`creator`,\n"
                         + "`create_time` DATETIME NOT NULL,\n"
                         + "${rowtype_fields}\n"
                         + ") ENGINE=OLAP";
@@ -42,7 +43,8 @@ public class CreateTableParserTest {
                 CreateTableParser.getColumnList(template);
 
         Assertions.assertEquals(
-                new HashSet<>(Arrays.asList("id", "level", "unit", "note", "create_time")),
+                new HashSet<>(
+                        Arrays.asList("id", "level", "unit", "note", "creator", "create_time")),
                 columns.keySet());
         Assertions.assertEquals(
                 "VARCHAR(10) COMMENT 'low,medium,high'", columns.get("level").getInfo());
@@ -50,5 +52,48 @@ public class CreateTableParserTest {
         CreateTableParser.ColumnInfo id = columns.get("id");
         Assertions.assertEquals("id", template.substring(id.getStartIndex(), id.getEndIndex()));
         Assertions.assertEquals("", id.getInfo());
+
+        CreateTableParser.ColumnInfo creator = columns.get("creator");
+        Assertions.assertEquals(
+                "creator", template.substring(creator.getStartIndex(), creator.getEndIndex()));
+        Assertions.assertEquals("", creator.getInfo());
+    }
+
+    @Test
+    public void testDoubleQuotesBackticksAndDoubledQuotes() {
+        String template =
+                "CREATE TABLE `db`.`tbl` (\n"
+                        + "`level` STRING COMMENT \"low,medium)\",\n"
+                        + "`note` STRING COMMENT 'it''s, a',\n"
+                        + "`p,q` INT,\n"
+                        + "`path\\` INT,\n"
+                        + "`creator`,\n"
+                        + "${rowtype_fields}\n"
+                        + ") ENGINE=OLAP";
+
+        Map<String, CreateTableParser.ColumnInfo> columns =
+                CreateTableParser.getColumnList(template);
+
+        Assertions.assertEquals("STRING COMMENT \"low,medium)\"", columns.get("level").getInfo());
+        Assertions.assertEquals("STRING COMMENT 'it''s, a'", columns.get("note").getInfo());
+        Assertions.assertFalse(columns.containsKey("q"));
+        Assertions.assertTrue(columns.containsKey("path"));
+
+        CreateTableParser.ColumnInfo creator = columns.get("creator");
+        Assertions.assertEquals(
+                "creator", template.substring(creator.getStartIndex(), creator.getEndIndex()));
+    }
+
+    @Test
+    public void testUnterminatedQuoteFails() {
+        String template =
+                "CREATE TABLE `db`.`tbl` (\n"
+                        + "`id`,\n"
+                        + "`level` STRING COMMENT 'user's level',\n"
+                        + "${rowtype_fields}\n"
+                        + ") ENGINE=OLAP";
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class, () -> CreateTableParser.getColumnList(template));
     }
 }

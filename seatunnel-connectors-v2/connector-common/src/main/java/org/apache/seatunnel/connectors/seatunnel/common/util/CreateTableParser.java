@@ -28,6 +28,20 @@ public class CreateTableParser {
 
     private static final Pattern COLUMN_PATTERN = Pattern.compile("`?(\\w+)`?\\s*([\\w|\\W]*)");
 
+    /**
+     * Parses the column definitions between the first {@code (} of a create table template and the
+     * matching top-level {@code )}.
+     *
+     * <p>Text inside {@code '...'}, {@code "..."} or {@code `...`} is kept as is, so commas and
+     * parentheses in it do not end a column definition. Inside {@code '...'} and {@code "..."} a
+     * backslash escapes the next character. A doubled quote, such as {@code ''} or {@code ``},
+     * closes the quoted text and opens it again, so it needs no special handling.
+     *
+     * <p>The start and end index of each {@link ColumnInfo} are offsets of the column name in the
+     * original template.
+     *
+     * @throws IllegalArgumentException if a quote is not closed before the end of the template
+     */
     public static Map<String, ColumnInfo> getColumnList(String createTableSql) {
         Map<String, ColumnInfo> columns = new HashMap<>();
         StringBuilder columnBuilder = new StringBuilder();
@@ -42,7 +56,7 @@ public class CreateTableParser {
                 // Commas and parentheses inside quoted text, such as COMMENT 'low,medium,high',
                 // are part of the column definition and must not end it.
                 columnBuilder.append(c);
-                if (c == '\\' && i + 1 < createTableSql.length()) {
+                if (c == '\\' && quote != '`' && i + 1 < createTableSql.length()) {
                     columnBuilder.append(createTableSql.charAt(++i));
                 } else if (c == quote) {
                     quote = 0;
@@ -65,6 +79,10 @@ public class CreateTableParser {
             } else {
                 columnBuilder.append(c);
             }
+        }
+        if (quote != 0) {
+            throw new IllegalArgumentException(
+                    "Unterminated " + quote + " quote in save_mode_create_template");
         }
         return columns;
     }
