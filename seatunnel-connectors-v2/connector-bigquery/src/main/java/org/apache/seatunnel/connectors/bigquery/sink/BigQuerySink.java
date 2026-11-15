@@ -27,9 +27,11 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.bigquery.catalog.BigQueryCatalog;
@@ -39,6 +41,7 @@ import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitInf
 import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitInfoSerializer;
 import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitter;
 
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -47,7 +50,8 @@ public class BigQuerySink
         implements SeaTunnelSink<
                         SeaTunnelRow, BigQuerySinkState, BigQueryCommitInfo, BigQueryCommitInfo>,
                 SupportSaveMode,
-                SupportMultiTableSink {
+                SupportMultiTableSink,
+                SupportSchemaEvolutionSink {
 
     private final ReadonlyConfig config;
     private final boolean isBatch;
@@ -72,10 +76,14 @@ public class BigQuerySink
     public AbstractBigQuerySinkWriter createWriter(SinkWriter.Context context) {
         if (isBatch) {
             return new BigQuerySinkBatchWriter(
-                    config, new BigQuerySerializer(catalogTable, config));
+                    config,
+                    new BigQuerySerializer(catalogTable, config),
+                    catalogTable.getTableSchema());
         } else {
             return new BigQuerySinkStreamWriter(
-                    config, new BigQuerySerializer(catalogTable, config));
+                    config,
+                    new BigQuerySerializer(catalogTable, config),
+                    catalogTable.getTableSchema());
         }
     }
 
@@ -88,15 +96,20 @@ public class BigQuerySink
                 return new BigQuerySinkBatchWriter(
                         config,
                         new BigQuerySerializer(catalogTable, config),
+                        catalogTable.getTableSchema(),
                         latestState.getStreamName(),
                         latestState.getNextOffset());
             } else {
                 return new BigQuerySinkBatchWriter(
-                        config, new BigQuerySerializer(catalogTable, config));
+                        config,
+                        new BigQuerySerializer(catalogTable, config),
+                        catalogTable.getTableSchema());
             }
         } else {
             return new BigQuerySinkStreamWriter(
-                    config, new BigQuerySerializer(catalogTable, config));
+                    config,
+                    new BigQuerySerializer(catalogTable, config),
+                    catalogTable.getTableSchema());
         }
     }
 
@@ -123,6 +136,14 @@ public class BigQuerySink
     @Override
     public String getPluginName() {
         return BigQuerySinkOptions.IDENTIFIER;
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        if (!config.get(BigQuerySinkOptions.SCHEMA_EVOLUTION_ENABLED)) {
+            return Collections.emptyList();
+        }
+        return Collections.singletonList(SchemaChangeType.ADD_COLUMN);
     }
 
     @Override

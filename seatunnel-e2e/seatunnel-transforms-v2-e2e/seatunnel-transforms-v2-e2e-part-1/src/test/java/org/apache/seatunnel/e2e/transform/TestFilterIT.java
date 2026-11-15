@@ -40,4 +40,13 @@ public class TestFilterIT extends TestSuiteBase {
                 container.executeJob("/filter_transform_multi_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    /** A transform configured only through {@code table_transform} entries must be accepted. */
+    @TestTemplate
+    public void testFilterTableTransformOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/filter_transform_table_transform_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

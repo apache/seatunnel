@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 
   Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 - [x] file format type
@@ -57,41 +57,45 @@ It only supports hadoop version **2.9.X+**.
 
 ## Options
 
-| name                       | type    | required | default value               |
-|----------------------------|---------|----------|-----------------------------|
-| path                       | string  | yes      | -                           |
-| file_format_type           | string  | yes      | -                           |
-| bucket                     | string  | yes      | -                           |
-| access_key                 | string  | yes      | -                           |
-| access_secret              | string  | yes      | -                           |
-| endpoint                   | string  | yes      | -                           |
-| read_columns               | list    | no       | -                           |
-| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
-| row_delimiter              | string  | no       | \n                          |
-| parse_partition_from_path  | boolean | no       | true                        |
-| date_format                | string  | no       | yyyy-MM-dd                  |
-| datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss         |
-| time_format                | string  | no       | HH:mm:ss                    |
-| skip_header_row_number     | long    | no       | 0                           |
-| schema                     | config  | no       | -                           |
-| sheet_name                 | string  | no       | -                           |
-| excel_engine               | string  | no       | POI                         |
-| poi_excel_max_file_size    | long    | no       | 52428800                    |
-| xml_row_tag                | string  | no       | -                           |
-| xml_use_attr_format        | boolean | no       | -                           |
-| csv_use_header_line        | boolean | no       | false                       |
-| file_filter_pattern        | string  | no       |                             |
-| compress_codec             | string  | no       | none                        |
-| archive_compress_codec     | string  | no       | none                        |
-| encoding                   | string  | no       | UTF-8                       |
-| null_format                | string  | no       | -                           |
-| common-options             |         | no       | -                           |
-| file_filter_modified_start | string  | no       | -                           | 
-| file_filter_modified_end   | string  | no       | -                           | 
-| quote_char                 | string  | no       | "                           | 
-| escape_char                | string  | no       | -                           |
-| recursive_file_scan        | boolean | no       | true                        |
-| sort_files_by_modification_time | boolean | no       | false                       |
+| name                       | type    | required | default value               | description |
+|----------------------------|---------|----------|-----------------------------|-------------|
+| path                       | string  | yes      | -                           | Target directory path. |
+| file_format_type           | string  | yes      | -                           | File type. Supported types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`. |
+| bucket                     | string  | yes      | -                           | The bucket address of the OSS file system. |
+| access_key                 | string  | yes      | -                           | The access key of the OSS file system. |
+| access_secret              | string  | yes      | -                           | The access secret of the OSS file system. |
+| endpoint                   | string  | yes      | -                           | The endpoint of the OSS file system. |
+| read_columns               | list    | no       | -                           | The list of columns to read from the data source. |
+| read_partitions            | list    | no       | -                           | The partitions the user wants to read, e.g. `["year=2024"]`. Only these partitions are read when set. |
+| delimiter/field_delimiter  | string  | no       | \001                        | Field delimiter. |
+| row_delimiter              | string  | no       | \n                          | Row delimiter. |
+| parse_partition_from_path  | boolean | no       | true                        | Whether to parse partition keys and values from the file path. |
+| date_format                | string  | no       | yyyy-MM-dd                  | Format for date types. |
+| datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss         | Format for datetime types. |
+| time_format                | string  | no       | HH:mm:ss                    | Format for time types. |
+| skip_header_row_number     | long    | no       | 0                           | The number of leading rows to skip. |
+| schema                     | config  | no       | -                           | Information of upstream data schema. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md). |
+| sheet_name                 | string  | no       | -                           | The sheet name to read; only valid for excel files. |
+| excel_engine               | string  | no       | POI                         | Only used when `file_format` is excel. Supported engines include `POI` and `EasyExcel`. |
+| poi_excel_max_file_size    | long    | no       | 52428800                    | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size (default 50 MB) that the POI engine allows reading. |
+| xml_row_tag                | string  | no       | -                           | Specifies the tag name of the data rows within the XML file. |
+| xml_use_attr_format        | boolean | no       | -                           | Specifies whether to process data using the tag attribute format. |
+| csv_use_header_line        | boolean | no       | false                       | Whether to use the header line to parse the file; only used when `file_format` is csv. |
+| file_filter_pattern        | string  | no       | -                           | File pattern. The connector will filter files based on the pattern. |
+| filename_extension         | string  | no       | -                           | Filter files by the specified filename extension, e.g. `csv`, `.txt`, `json` or `.xml`. |
+| compress_codec             | string  | no       | none                        | The compression codec used when reading files. |
+| archive_compress_codec     | string  | no       | none                        | The archive compression codec used when reading archive files. |
+| encoding                   | string  | no       | UTF-8                       | The character encoding used when reading `json`, `text`, `csv` or `xml` files. |
+| null_format                | string  | no       | -                           | Only used in `text` format; specifies the string that should be parsed as `null`. |
+| binary_chunk_size          | int     | no       | 1024                        | Only used when `file_format_type` is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory. |
+| binary_complete_file_mode  | boolean | no       | false                       | Only used when `file_format_type` is binary. Whether to read the complete file as a single chunk instead of splitting it into chunks. |
+| common-options             |         | no       | -                           | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details. |
+| file_filter_modified_start | string  | no       | -                           | File modification time filter start time (inclusive). The connector will filter files based on the last modification start time. The default data format is yyyy-MM-dd HH:mm:ss. |
+| file_filter_modified_end   | string  | no       | -                           | File modification time filter end time (exclusive). The connector will filter files based on the last modification end time. The default data format is yyyy-MM-dd HH:mm:ss. |
+| quote_char                 | string  | no       | "                           | A single character used to enclose CSV fields, so that fields containing commas, line breaks or quotes are parsed correctly. |
+| escape_char                | string  | no       | -                           | A single character used to escape quotes or other special characters inside a CSV field so they do not end the field. |
+| recursive_file_scan        | boolean | no       | true                        | Whether to recursively scan subdirectories. If set to `false`, subdirectories are ignored and only files under the specified path are scanned. |
+| sort_files_by_modification_time | boolean | no       | false                       | Whether to sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file. Disabled by default to avoid performance overhead for large file directories. |
 
 ### path [string]
 
@@ -200,7 +204,7 @@ Each extracted element is converted to a document-element row with the following
 - `page_number`: Page number (default: 1)
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
-- `child_ids`: Comma-separated list of child element IDs
+- `child_ids`: Direct child element IDs as an `ARRAY<STRING>`; an empty array for a leaf element
 
 When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
@@ -450,8 +454,9 @@ The encoding of the file to read. This param will be parsed by `Charset.forName(
 
 ### null_format [string]
 
-Only used when file_format_type is text.
-null_format to define which strings can be represented as null.
+Used when `file_format_type` is `text` or `csv`. Defines which field value represents null.
+For CSV with a configured `schema.columns[].defaultValue`, a matching `null_format` value or a column absent from the file header uses that default. An empty CSV field still produces null unless it matches `null_format`; columns without a default keep their existing behavior.
+CSV defaults are converted to the column type when the reader is created. A default that cannot be converted fails the job even if no field needs it. DATE and TIMESTAMP defaults may use a different supported format from the file data.
 
 e.g: `\N`
 

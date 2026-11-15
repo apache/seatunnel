@@ -37,6 +37,7 @@ import com.lancedb.lance.Fragment;
 import com.lancedb.lance.FragmentMetadata;
 import com.lancedb.lance.WriteParams;
 
+import java.util.Collections;
 import java.util.List;
 
 /** The converter for converting {@link Fragment} and {@link SeaTunnelRow} * */
@@ -45,34 +46,71 @@ public class FragmentConverter {
     private FragmentConverter() {}
 
     public static List<FragmentMetadata> reconvert(
-            SeaTunnelRow seaTunnelRow,
+            List<SeaTunnelRow> rows,
             SeaTunnelRowType seaTunnelRowType,
             Schema schema,
             BufferAllocator allocator,
             String datasetPath) {
+        if (rows == null || rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+        try (VectorSchemaRoot root =
+                convertToVectorSchemaRoot(rows, seaTunnelRowType, schema, allocator)) {
+            return Fragment.create(
+                    datasetPath,
+                    allocator,
+                    root,
+                    new WriteParams.Builder().withMaxRowsPerFile(Integer.MAX_VALUE).build());
+        }
+    }
 
-        List<FragmentMetadata> fragmentMetas;
-        try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+    static VectorSchemaRoot convertToVectorSchemaRoot(
+            SeaTunnelRow seaTunnelRow,
+            SeaTunnelRowType seaTunnelRowType,
+            Schema schema,
+            BufferAllocator allocator) {
+        return convertToVectorSchemaRoot(
+                Collections.singletonList(seaTunnelRow), seaTunnelRowType, schema, allocator);
+    }
+
+    static VectorSchemaRoot convertToVectorSchemaRoot(
+            List<SeaTunnelRow> rows,
+            SeaTunnelRowType seaTunnelRowType,
+            Schema schema,
+            BufferAllocator allocator) {
+        VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+        try {
+            List<Field> fields = schema.getFields();
+            int fieldCount = fields.size();
+            FieldVector[] vectors = new FieldVector[fieldCount];
+            int[] fieldIndexes = new int[fieldCount];
+            for (int i = 0; i < fieldCount; i++) {
+                vectors[i] = root.getVector(fields.get(i).getName());
+                fieldIndexes[i] = seaTunnelRowType.indexOf(fields.get(i).getName(), false);
+            }
+
+            int rowCount = rows.size();
             root.allocateNew();
-            int rowIndex = 0;
-            for (Field field : schema.getFields()) {
-                FieldVector vector = root.getVector(field.getName());
-                int fieldIndex = seaTunnelRowType.indexOf(field.getName());
-                if (fieldIndex >= 0) {
-                    Object fieldValue = seaTunnelRow.getField(fieldIndex);
-                    setVectorValue(vector, field, fieldValue, rowIndex, allocator);
+            for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                SeaTunnelRow seaTunnelRow = rows.get(rowIndex);
+                for (int i = 0; i < fieldCount; i++) {
+                    if (fieldIndexes[i] >= 0) {
+                        Object fieldValue = seaTunnelRow.getField(fieldIndexes[i]);
+                        setVectorValue(vectors[i], fields.get(i), fieldValue, rowIndex, allocator);
+                    } else {
+                        // The persisted dataset can be ahead of the restored checkpoint schema when
+                        // a failover occurs after the physical schema change but before the
+                        // checkpoint. Keep the dataset layout and explicitly materialize the
+                        // missing runtime field.
+                        vectors[i].setNull(rowIndex);
+                    }
                 }
             }
-            root.setRowCount(1);
-            fragmentMetas =
-                    Fragment.create(
-                            datasetPath,
-                            allocator,
-                            root,
-                            new WriteParams.Builder()
-                                    .withMaxRowsPerFile(Integer.MAX_VALUE)
-                                    .build());
-            return fragmentMetas;
+            root.setRowCount(rowCount);
+            return root;
+        } catch (RuntimeException | Error e) {
+            root.close();
+            throw e;
         }
     }
 

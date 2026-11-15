@@ -34,6 +34,15 @@
         <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-resource-manager-kubernetes</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
     <build>
         <finalName>apache-seatunnel-${project.version}</finalName>
         <plugins>
@@ -180,6 +189,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-spark-3.5-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-starter</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -250,6 +265,30 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-http-asana</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-http-intercom</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-http-typeform</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-http-mailchimp</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-kafka</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -310,6 +349,18 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-http-linear</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-http-splunk</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-http-zendesk</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -317,6 +368,18 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-http-stripe</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-http-paypal</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-http-woocommerce</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -371,6 +434,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-socket</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-syslog</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -443,6 +512,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-file-sftp</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-file-smb</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -544,6 +619,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-azure-event-hubs</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-google-bigtable</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -551,6 +632,24 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-google-ads</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-google-analytics4</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-facebook-ads</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-tiktok-ads</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -682,6 +781,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-mem0</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-rabbitmq</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -719,6 +824,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-cdc-mysql</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-oceanbase</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -908,6 +1019,13 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-bigquery</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-websocket</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -1268,6 +1386,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-spark-3-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-spark-3.5-starter</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>

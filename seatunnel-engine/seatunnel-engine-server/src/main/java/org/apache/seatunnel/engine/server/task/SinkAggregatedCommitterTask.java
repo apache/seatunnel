@@ -303,6 +303,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         List<AggregatedCommitInfoT> aggregatedCommitInfo = new ArrayList<>();
+        checkpointBarrierCounter.keySet().removeIf(key -> key <= checkpointId);
         checkpointCommitInfoMap.forEach(
                 (key, value) -> {
                     if (key > checkpointId) {
@@ -311,7 +312,6 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                     aggregatedCommitInfo.addAll(value);
                     checkpointCommitInfoMap.remove(key);
                     commitInfoCache.remove(key);
-                    checkpointBarrierCounter.remove(key);
                 });
         List<AggregatedCommitInfoT> commit = aggregatedCommitter.commit(aggregatedCommitInfo);
         tryClose(checkpointId);

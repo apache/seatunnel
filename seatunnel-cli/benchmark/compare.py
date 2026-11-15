@@ -49,6 +49,22 @@ def _run_issues(baseline: dict, candidate: dict) -> list[str]:
     for name, run in (("baseline", baseline), ("candidate", candidate)):
         if not isinstance(run, dict):
             raise ValueError(f"{name} results must be an object")
+        # Results predating suite selection are baseline runs. Older paraphrase
+        # results carry task provenance, so require a marker instead of guessing.
+        suite = run.get("suite", "baseline")
+        if suite not in ("baseline", "paraphrase"):
+            issues.append(f"{name}: suite metadata invalid")
+        models = run.get("models", [])
+        if isinstance(models, list):
+            for model in models:
+                tasks = model.get("tasks", []) if isinstance(model, dict) else []
+                if isinstance(tasks, list) and any(
+                    isinstance(task, dict)
+                    and ("parent_id" in task) != (suite == "paraphrase")
+                    for task in tasks
+                ):
+                    issues.append(f"{name}: suite metadata does not match task provenance")
+                    break
         if (
             not isinstance(run.get("cli"), dict)
             or not isinstance(run["cli"].get("cli_commit"), str)
@@ -65,6 +81,8 @@ def _run_issues(baseline: dict, candidate: dict) -> list[str]:
     for field in ("levels", "trials", "max_repairs"):
         if baseline.get(field) != candidate.get(field):
             issues.append(f"{field} differs between runs")
+    if baseline.get("suite", "baseline") != candidate.get("suite", "baseline"):
+        issues.append("suite differs between runs")
     return issues
 
 

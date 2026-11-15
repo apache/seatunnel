@@ -33,6 +33,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
+import org.apache.seatunnel.format.avro.AvroFormatOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -65,6 +66,7 @@ public class KafkaSourceFactory implements TableSourceFactory, SupportSourceDryR
                         KafkaSourceOptions.SCHEMA,
                         KafkaSourceOptions.FORMAT,
                         KafkaSourceOptions.AVRO_SCHEMA,
+                        AvroFormatOptions.AVRO_ROW_NULLABLE,
                         KafkaSourceOptions.DEBEZIUM_RECORD_INCLUDE_SCHEMA,
                         KafkaSourceOptions.DEBEZIUM_RECORD_TABLE_FILTER,
                         KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,

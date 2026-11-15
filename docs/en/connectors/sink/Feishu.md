@@ -56,7 +56,7 @@ Feishu webhook URLs and custom authentication headers are sensitive. Do not prin
 
 | Name                        | Type    | Required | Default | Description                                                                                                             |
 |-----------------------------|---------|----------|---------|-------------------------------------------------------------------------------------------------------------------------|
-| url                         | String  | Yes      | -       | Feishu webhook URL. The current sink writer sends requests to this fixed URL and does not replace table-name placeholders. |
+| url                         | String  | Yes      | -       | Feishu webhook URL. Must not be empty or whitespace-only. The current sink writer sends requests to this fixed URL and does not replace table-name placeholders. |
 | headers                     | Map     | No       | -       | HTTP request headers. Use it when the webhook gateway requires extra headers.                                           |
 | params                      | Map     | No       | -       | Accepted by the option rule, but the current sink writer does not pass it to requests. Put non-sensitive query parameters directly in `url` when needed. |
 | retry                       | Int     | No       | -       | The maximum retry times when the HTTP request fails with an `IOException`.                                              |

@@ -96,7 +96,8 @@ class JdbcSinkWriterSharedPhysicalTableSchemaChangeTest {
                         sinkConfig,
                         schemaBeforeDrop,
                         schemaBeforeDrop,
-                        null);
+                        null,
+                        true);
         JdbcSinkWriter writerB =
                 new JdbcSinkWriter(
                         SHARED_SINK_TABLE,
@@ -105,7 +106,8 @@ class JdbcSinkWriterSharedPhysicalTableSchemaChangeTest {
                         sinkConfig,
                         schemaBeforeDrop,
                         schemaBeforeDrop,
-                        null);
+                        null,
+                        true);
 
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new LinkedHashMap<>();
         writers.put(SinkIdentifier.of(SOURCE_A, 0), writerA);

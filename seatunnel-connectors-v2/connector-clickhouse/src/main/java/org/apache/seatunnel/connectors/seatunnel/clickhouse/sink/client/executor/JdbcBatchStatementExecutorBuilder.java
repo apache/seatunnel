@@ -183,12 +183,12 @@ public class JdbcBatchStatementExecutorBuilder {
             JdbcRowConverter rowConverter) {
         return new InsertOrUpdateBatchStatementExecutor(
                 connection ->
-                        FieldNamedPreparedStatement.prepareStatement(
+                        rowConverter.prepareStatement(
                                 connection,
                                 SqlUtils.getInsertIntoStatement(table, rowType.getFieldNames()),
                                 rowType.getFieldNames()),
                 connection ->
-                        FieldNamedPreparedStatement.prepareStatement(
+                        rowConverter.prepareStatement(
                                 connection,
                                 SqlUtils.getAlterTableUpdateStatement(
                                         table, rowType.getFieldNames(), pkNames),
@@ -205,17 +205,17 @@ public class JdbcBatchStatementExecutorBuilder {
             JdbcRowConverter valueConverter) {
         return new InsertOrUpdateBatchStatementExecutor(
                 connection ->
-                        FieldNamedPreparedStatement.prepareStatement(
+                        keyConverter.prepareStatement(
                                 connection,
                                 SqlUtils.getRowExistsStatement(table, pkNames),
                                 pkNames),
                 connection ->
-                        FieldNamedPreparedStatement.prepareStatement(
+                        valueConverter.prepareStatement(
                                 connection,
                                 SqlUtils.getInsertIntoStatement(table, rowType.getFieldNames()),
                                 rowType.getFieldNames()),
                 connection ->
-                        FieldNamedPreparedStatement.prepareStatement(
+                        valueConverter.prepareStatement(
                                 connection,
                                 SqlUtils.getAlterTableUpdateStatement(
                                         table, rowType.getFieldNames(), pkNames),
@@ -230,7 +230,7 @@ public class JdbcBatchStatementExecutorBuilder {
         String insertSQL = SqlUtils.getInsertIntoStatement(table, rowType.getFieldNames());
         return new SimpleBatchStatementExecutor(
                 connection ->
-                        FieldNamedPreparedStatement.prepareStatement(
+                        rowConverter.prepareStatement(
                                 connection, insertSQL, rowType.getFieldNames()),
                 rowConverter);
     }
@@ -244,9 +244,7 @@ public class JdbcBatchStatementExecutorBuilder {
                 SqlUtils.getDeleteStatement(
                         table, primaryKeys, enableExperimentalLightweightDelete);
         return new SimpleBatchStatementExecutor(
-                connection ->
-                        FieldNamedPreparedStatement.prepareStatement(
-                                connection, deleteSQL, primaryKeys),
+                connection -> rowConverter.prepareStatement(connection, deleteSQL, primaryKeys),
                 rowConverter);
     }
 
@@ -255,8 +253,7 @@ public class JdbcBatchStatementExecutorBuilder {
         String alterTableDeleteSQL = SqlUtils.getAlterTableDeleteStatement(table, primaryKeys);
         return new SimpleBatchStatementExecutor(
                 connection ->
-                        FieldNamedPreparedStatement.prepareStatement(
-                                connection, alterTableDeleteSQL, primaryKeys),
+                        rowConverter.prepareStatement(connection, alterTableDeleteSQL, primaryKeys),
                 rowConverter);
     }
 

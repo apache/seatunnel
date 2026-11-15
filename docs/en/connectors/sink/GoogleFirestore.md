@@ -42,22 +42,22 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 
 | name           | type   | required | default value | description |
 |----------------|--------|----------|---------------|-------------|
-| project_id     | string | yes      | -             | Google Cloud project ID that owns the Firestore database. |
-| collection     | string | yes      | -             | Firestore collection name to write to. |
-| credentials    | string | no       | -             | Base64-encoded Google Cloud service account JSON. |
+| project_id     | string | yes      | -             | Nonblank Google Cloud project ID that owns the Firestore database. |
+| collection     | string | yes      | -             | Nonblank Firestore collection name to write to. |
+| credentials    | string | no       | -             | Base64-encoded Google Cloud service account JSON. If set, the value must not be blank. |
 | common-options |        | no       | -             | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### project_id [string]
 
-The Google Cloud project ID that owns the Firestore database.
+The Google Cloud project ID that owns the Firestore database. This option is required and must not be blank.
 
 ### collection [string]
 
-The Firestore collection to write to. Each sink block writes to one collection.
+The Firestore collection to write to. This option is required and must not be blank. Each sink block writes to one collection.
 
 ### credentials [string]
 
-Base64-encoded Google Cloud service account JSON.
+Optional Base64-encoded Google Cloud service account JSON. If configured, the value must not be blank.
 
 If this option is not set, the connector uses Google Application Default Credentials. In that case, make sure `GOOGLE_APPLICATION_CREDENTIALS` points to the service account JSON file or the runtime environment already provides default credentials.
 

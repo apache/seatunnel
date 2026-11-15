@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -61,6 +62,7 @@ import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -70,6 +72,15 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
+/**
+ * Concurrency contract: {@code write}/{@code finishAndCloseFile} (declared per-format in
+ * subclasses) and {@code prepareCommit}/{@code snapshotState}/{@code applySchemaChange}/{@code
+ * abortPrepare} (here in the base class) all synchronize on the strategy instance monitor so that a
+ * checkpoint can never close, snapshot, or delete a transaction's files while a row write is still
+ * in flight (see #10523). Java does not require an override to keep a superclass method's {@code
+ * synchronized} modifier, so every subclass that overrides one of these methods MUST also declare
+ * it {@code synchronized}, or it silently drops out of this lock and reopens the race.
+ */
 public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     protected final Logger log = LoggerFactory.getLogger(this.getClass());
     protected final FileSinkConfig fileSinkConfig;
@@ -225,8 +236,9 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     // ── Schema Evolution ──────────────────────────────────────────────────────────
 
     @Override
-    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
-        if (!fileSinkConfig.isSchemaEvolutionEnabled()) {
+    public synchronized void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        if (!fileSinkConfig.isSchemaEvolutionEnabled()
+                && !(event instanceof RestoreTableSchemaEvent)) {
             throw new UnsupportedOperationException(
                     "Received AlterTableEvent but schema_evolution_enabled=false at this sink. "
                             + "Either set schema_evolution_enabled=true to handle schema changes, "
@@ -256,6 +268,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         // append new cols at the end of the sink's catalog, but upstream's actual row has new
         // cols at the position upstream put them. Reading changeAfter directly aligns the sink's
         // catalog with the actual row layout.
+        TableSchema previousTableSchema = this.tableSchema;
         if (event.getChangeAfter() != null) {
             this.tableSchema = event.getChangeAfter().getTableSchema();
         } else {
@@ -266,7 +279,12 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         this.seaTunnelRowType = tableSchema.toPhysicalRowDataType();
 
         // Step 3: update sinkColumnNames to reflect the structural change.
-        updateSinkColumnNames(event);
+        if (event instanceof RestoreTableSchemaEvent) {
+            this.sinkColumnNames =
+                    restoreSinkColumnNames(previousTableSchema, tableSchema, sinkColumnNames);
+        } else {
+            updateSinkColumnNames(event);
+        }
 
         // Step 4: rebuild sinkColumnsIndexInRow from sinkColumnNames + new seaTunnelRowType.
         this.sinkColumnsIndexInRow = rebuildSinkColumnsIndex();
@@ -386,6 +404,27 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
                 updateSinkColumnNames(sub);
             }
         }
+    }
+
+    private static List<String> restoreSinkColumnNames(
+            TableSchema previousSchema,
+            TableSchema restoredSchema,
+            List<String> previousSinkColumnNames) {
+        List<String> previousFields = Arrays.asList(previousSchema.getFieldNames());
+        List<String> restoredFields = Arrays.asList(restoredSchema.getFieldNames());
+        List<String> restoredSinkColumns = new ArrayList<>();
+        for (String restoredField : restoredFields) {
+            boolean previouslySelected =
+                    previousSinkColumnNames.stream()
+                            .anyMatch(column -> column.equalsIgnoreCase(restoredField));
+            boolean newlyAdded =
+                    previousFields.stream()
+                            .noneMatch(column -> column.equalsIgnoreCase(restoredField));
+            if (previouslySelected || newlyAdded) {
+                restoredSinkColumns.add(restoredField);
+            }
+        }
+        return restoredSinkColumns;
     }
 
     /** Case-insensitive indexOf for a list of column names. Returns -1 if not found. */
@@ -550,7 +589,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
      */
     @SneakyThrows
     @Override
-    public Optional<FileCommitInfo> prepareCommit() {
+    public synchronized Optional<FileCommitInfo> prepareCommit() {
         if (this.needMoveFiles.isEmpty() && fileSinkConfig.isCreateEmptyFileWhenNoData()) {
             String filePath = createFilePathWithoutPartition();
             this.getOrCreateOutputStream(filePath);
@@ -570,16 +609,19 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
 
     /** abort prepare commit operation */
     @Override
-    public void abortPrepare() {
+    public synchronized void abortPrepare() {
         abortPrepare(transactionId);
     }
 
     /**
-     * abort prepare commit operation using transaction directory
+     * Abort prepare commit operation using transaction directory. Synchronized so a checkpoint
+     * abort cannot delete the transaction directory (and clear in-flight file bookkeeping) while a
+     * row write is still in progress on this strategy instance; see the class-level concurrency
+     * contract note.
      *
      * @param transactionId transaction id
      */
-    public void abortPrepare(String transactionId) {
+    public synchronized void abortPrepare(String transactionId) {
         String transactionDir = getTransactionDir(transactionId);
         try {
             hadoopFileSystemProxy.deleteFile(transactionDir);
@@ -648,7 +690,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
      * @return the list of states
      */
     @Override
-    public List<FileSinkState> snapshotState(long checkpointId) {
+    public synchronized List<FileSinkState> snapshotState(long checkpointId) {
         LinkedHashMap<String, List<String>> commitMap =
                 this.partitionDirAndValuesMap.entrySet().stream()
                         .collect(

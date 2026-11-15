@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 - 4.9.0 or newer
 
-## Support These Engines
+## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
@@ -103,7 +103,7 @@ entry can set its own `tags` filter.
 
 Use `tables_configs` when different topics have different schemas. Each item must contain `topics` and can define its own `schema`, `format`, `tags`, and startup position. If `schema.table` is not set, the output table name defaults to the topic name.
 
-`topics`, `tables_configs`, and the deprecated `table_list` are mutually exclusive. In `tables_configs`, options that are not set on an item inherit the top-level defaults, so each item only needs to override the topic-specific schema, tags, or startup position.
+`topics`, `tables_configs`, and the deprecated `table_list` are mutually exclusive. Each `tables_configs` item is parsed independently: `schema`, `format`, `tags`, and `ignore_parse_errors` must be set on the item itself — unset ones fall back to the option defaults (`json` / `false`), not to the job-level values. Only `start.mode` (with `start.mode.timestamp`/`start.mode.offsets`) inherits the top-level value when an item does not set it.
 
 When a `tables_configs` item uses `start.mode = CONSUME_FROM_TIMESTAMP`, it must also set `start.mode.timestamp`. When it uses `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`, it must also set a non-empty `start.mode.offsets` map.
 
@@ -282,6 +282,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### How does RocketMQ source handle multi-topic reads with different schemas?
+
+Use the `tables_configs` configuration array. Each item defines its own `topics`, `schema`, `format`, and optional `tags`, allowing SeaTunnel to deserialize messages from distinct topics into independent table structures.
+
+### Which starting offset modes are supported?
+
+RocketMQ source supports five `start.mode` values: `CONSUME_FROM_GROUP_OFFSETS` (the default), `CONSUME_FROM_FIRST_OFFSET`, `CONSUME_FROM_LAST_OFFSET`, `CONSUME_FROM_TIMESTAMP`, and `CONSUME_FROM_SPECIFIC_OFFSETS`. See the `start.mode` option description above for details.
+
+### How is fault tolerance achieved during job failover?
+
+SeaTunnel checkpoints consumer queue offsets at regular intervals. In case of node or task failure, the source automatically rolls back to the last committed checkpoint offsets to guarantee message delivery integrity.
 
 ## Changelog
 

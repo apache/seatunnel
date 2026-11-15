@@ -257,7 +257,11 @@ public class LoggerLevelService extends BaseService {
     }
 
     private String nodeId() {
-        return nodeEngine.getThisAddress().getHost() + ":" + httpConfig().getPort();
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
+        if (seaTunnelServer == null) {
+            throw new IllegalStateException("SeaTunnel server is not available on this node.");
+        }
+        return nodeEngine.getThisAddress().getHost() + ":" + seaTunnelServer.getHttpPort();
     }
 
     /**

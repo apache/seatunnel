@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -32,12 +33,16 @@ import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceCommonOptions
 import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceSinkConfig;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+@DisabledOnOs(OS.WINDOWS)
 public class LanceSinkTest {
 
     private LanceCatalog lanceCatalog;
@@ -188,5 +193,24 @@ public class LanceSinkTest {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Test
+    public void restoreRuntimeSchemaBeforeWritingRowsWithCheckpointLayout() throws IOException {
+        TableSchema restoredSchema =
+                TableSchema.builder()
+                        .columns(schemaBuilder.build().getColumns().subList(0, 8))
+                        .build();
+        CatalogTable restoredTable =
+                CatalogTable.of(
+                        TableIdentifier.of(CATALOG_NAME, DATABASE_NAME, TABLE_NAME),
+                        restoredSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "test table");
+
+        sinkWriter.applySchemaChange(new RestoreTableSchemaEvent(restoredTable));
+        sinkWriter.write(new SeaTunnelRow(new Object[] {"restored", true, 1, 2, 3, 4L, 5.0f, 6.0}));
+        sinkWriter.prepareCommit();
     }
 }

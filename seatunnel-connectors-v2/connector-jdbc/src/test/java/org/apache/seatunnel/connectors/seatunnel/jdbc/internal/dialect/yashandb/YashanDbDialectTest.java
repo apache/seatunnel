@@ -224,4 +224,37 @@ public class YashanDbDialectTest {
         Assertions.assertTrue(deleteStatement.contains("\"test_table\""));
         Assertions.assertTrue(deleteStatement.contains("\"id\""));
     }
+
+    @Test
+    public void testAllKeyTableOmitsEmptyUpdateSet() {
+        String[] allFields = {"id", "name", "age"};
+        Optional<String> upsertStatement =
+                DIALECT.getUpsertStatement("test_db", "test_table", allFields, allFields);
+        Assertions.assertTrue(upsertStatement.isPresent(), "upsert statement should be present");
+        String sql = upsertStatement.get().toUpperCase();
+        Assertions.assertFalse(
+                sql.contains("WHEN MATCHED THEN UPDATE SET"),
+                "all-key table must NOT emit an empty 'WHEN MATCHED THEN UPDATE SET' (got: "
+                        + sql
+                        + ")");
+        Assertions.assertTrue(
+                sql.contains("WHEN NOT MATCHED"), "all-key table must still insert unmatched rows");
+        Assertions.assertTrue(
+                sql.contains("INSERT"), "all-key table statement must contain an INSERT branch");
+    }
+
+    @Test
+    public void testPartialKeyTableStillUpdates() {
+        String[] allFields = {"id", "name", "age"};
+        String[] uniqueKeyFields = {"id"};
+        Optional<String> upsertStatement =
+                DIALECT.getUpsertStatement("test_db", "test_table", allFields, uniqueKeyFields);
+        Assertions.assertTrue(upsertStatement.isPresent(), "upsert statement should be present");
+        String sql = upsertStatement.get().toUpperCase();
+        Assertions.assertTrue(
+                sql.contains("WHEN MATCHED THEN UPDATE SET"),
+                "partial-key table must still emit 'WHEN MATCHED THEN UPDATE SET' (got: "
+                        + sql
+                        + ")");
+    }
 }

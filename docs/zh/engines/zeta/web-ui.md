@@ -30,6 +30,15 @@ http://<host>:8080/#/overview
 http://<host>:8080/<context-path>/#/overview
 ```
 
+路由存放在 URL fragment 中，正常情况下只保留在客户端。但有些客户端会对整条 URL 做百分号编码，
+把 fragment 当作路径的一部分发送——Safari 重新请求 hash 路由时就是这样，聊天工具、wiki 页面和
+Markdown 预览也有同样行为——`/#/overview` 于是变成 `/%23/overview`。对于这类 `GET` 或 `HEAD`
+请求，SeaTunnel 会返回 `302` 以及 `Location: <context-path>/#<route>`，Web UI 依然可以正常打开。
+不带 fragment 的路径走的是 REST API，例如 `GET /overview` 返回的是集群 JSON 而不是 UI。
+
+重定向地址是根据配置的 `context-path` 生成的，因此当 Web UI 通过某个前缀对外暴露时，请配置
+`context-path`；反向代理在转发前剥掉的前缀不会体现在重定向地址里。
+
 ## 概述
 
 Apache SeaTunnel 的 Web UI 是 SeaTunnel Engine 的可视化巡检控制台。它可以帮助运维人员查看集群概览、运行中和已完成作业、作业详情页、日志、实时 DAG 指标，以及 worker 和 master 节点状态。
@@ -93,7 +102,43 @@ Web UI 不负责提交作业，也不提供 cancel、stop、savepoint、restore 
 
 “工作节点”模块展示 worker 节点的系统监控信息。可以用它查看 worker 地址、资源状态和引擎暴露的运行时健康信号。
 
-![workers.png](../../../images/ui/workers.png)
+表格展示进程 CPU、堆内存已用/上限、物理内存、GC 次数、线程数和槽位。
+点击**详情**可查看全部系统监控字段，以及资源管理器快照中的可用/总计 CPU
+和堆内存资源、心跳 CPU/内存使用率、标签和运行中作业数。
+
+窄屏下可横向滚动工作节点表格。详情列随数据一起滚动，不再遮挡数据，较长的
+槽位说明会在列内换行。仍可使用现有的侧边栏折叠控件。
+
+- 固定槽位 Worker 展示已用/总计及空闲槽位；动态槽位 Worker 仅展示已用
+  槽位并标注“动态”，已跟踪槽位数量并不代表容量。
+- 缺失值显示为 `—`，而非零。只有监控或只有资源快照的 Worker 仍会显示；
+  接口不可用时会显示警告并清除旧值。资源快照不可用不代表集群为空。
+- 上次请求完成后每 30 秒刷新一次，同时最多执行一轮刷新。点击**刷新**
+  可立即更新。浏览器标签页隐藏时暂停轮询，恢复可见时重新刷新；若已有
+  请求正在执行，则等待该轮完成后再开始新一轮。离开页面后停止轮询。
+  表格在客户端分页，Worker 页面每轮刷新由浏览器发送两个 HTTP 请求。
+  服务端监控接口会并发向每个集群成员发送一次 RPC，因此 n 个成员
+  对应 O(n) 次 RPC，而非固定成本。响应使用同一个截止时间收集
+  （`seatunnel.engine.health-metrics-timeout-seconds`，默认 3 秒）；
+  超时的成员会以带有 `timeout` 错误标记的条目返回。浏览器的 6 秒
+  超时不会取消服务端操作。此 UI 变更不修改后端 RPC 或超时行为。
+- 监控与资源管理器数据为独立采样。**资源响应时间**为 Master 构建响应的
+  时间，并非 Worker 最近一次心跳的时间，不能用于判断心跳新鲜度。
+
+这是基于现有系统监控和 [`/resource/workers`](./rest-api-v2.md) 接口的只读视图。
+暂不包含任务与 Worker 的关联下钻或历史指标。管理节点页面仅展示系统监控
+详情，不请求 Worker 资源数据。
+
+以下截图展示实际 UI，使用确定性的 Cypress REST 测试数据，并非真实集群。
+表格包含固定槽位和动态槽位 Worker；缺失的监控值显示为不可用，而不是零。
+
+![使用测试数据的 Worker 表格](../../../images/ui/workers.png)
+
+![使用测试数据的 Worker 详情](../../../images/ui/workers-details.png)
+
+在窄屏上，可以收起侧边栏并水平滚动表格，查看槽位信息或访问详情按钮。
+
+![使用测试数据的窄屏 Worker 表格](../../../images/ui/workers-narrow.png)
 
 ## 管理节点
 

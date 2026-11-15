@@ -59,6 +59,7 @@ public class PostHogSourceParameter extends HttpParameter {
         setHeader(headers, ACCEPT, APPLICATION_JSON);
         setHeader(headers, CONTENT_TYPE, APPLICATION_JSON);
         setHeaders(headers);
+        validateCredentialScheme();
 
         Map<String, Object> queryRequest = new LinkedHashMap<>();
         queryRequest.put("kind", "HogQLQuery");

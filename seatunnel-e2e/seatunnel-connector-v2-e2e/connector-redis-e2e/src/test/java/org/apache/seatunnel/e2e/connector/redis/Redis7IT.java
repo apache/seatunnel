@@ -17,11 +17,57 @@
 package org.apache.seatunnel.e2e.connector.redis;
 
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.parallel.ResourceLock;
+import org.testcontainers.containers.Container;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 @ResourceLock("redis-standalone-e2e")
 public class Redis7IT extends RedisTestCaseTemplateIT {
+
+    @TestTemplate
+    public void testNamedUserSourceAndSink(TestContainer container)
+            throws IOException, InterruptedException {
+        jedis.aclSetUser(
+                "seatunnel_reader",
+                "reset",
+                "on",
+                ">reader-password",
+                "~acl:source:*",
+                "+select",
+                "+info",
+                "+scan",
+                "+type",
+                "+get",
+                "+mget");
+        jedis.aclSetUser(
+                "seatunnel_writer",
+                "reset",
+                "on",
+                ">writer-password",
+                "~acl:result",
+                "+select",
+                "+info",
+                "+lpush");
+        List<String> aclBefore = jedis.aclList();
+        jedis.set("acl:source:1", "{\"value\":\"named-user\"}");
+        try {
+            Container.ExecResult result = container.executeJob("/redis-named-user.conf");
+            Assertions.assertEquals(0, result.getExitCode());
+            Assertions.assertEquals(
+                    Collections.singletonList("named-user"), jedis.lrange("acl:result", 0, -1));
+            Assertions.assertEquals(aclBefore, jedis.aclList());
+        } finally {
+            jedis.del("acl:source:1", "acl:result");
+            jedis.aclDelUser("seatunnel_reader", "seatunnel_writer");
+        }
+    }
 
     @Override
     public RedisContainerInfo getRedisContainerInfo() {

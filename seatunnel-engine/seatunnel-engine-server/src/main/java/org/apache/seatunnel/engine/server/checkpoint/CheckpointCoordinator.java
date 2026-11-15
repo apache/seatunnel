@@ -43,6 +43,8 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestore
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
@@ -111,6 +113,18 @@ public class CheckpointCoordinator {
      * value: the parallelism of the task;
      */
     private final Map<Long, Integer> pipelineTasks;
+
+    /**
+     * Current parallelism of every action in this pipeline, keyed by {@link ActionStateKey}.
+     *
+     * <p>Used exclusively by the checkpoint-state remap in {@link #restoreTaskState(TaskLocation)}.
+     * It is intentionally kept separate from {@link #pipelineTasks}: that map is keyed by {@link
+     * TaskLocation#getTaskVertexId()}, which encodes the subtask's own parallelism index and is
+     * therefore unique per subtask (see the {@link TaskLocation} constructor), so grouping by it
+     * can never recover how many subtasks currently run a given action. See {@link
+     * #getActionParallelism(Map)} for how this is derived instead.
+     */
+    private final Map<ActionStateKey, Integer> actionParallelism;
 
     private final Map<Long, SeaTunnelTaskState> pipelineTaskStatus;
 
@@ -238,6 +252,7 @@ public class CheckpointCoordinator {
         this.scheduler = MDCTracer.tracing(scheduler);
         this.serializer = new ProtoStuffSerializer();
         this.pipelineTasks = getPipelineTasks(plan.getPipelineSubtasks());
+        this.actionParallelism = getActionParallelism(plan.getSubtaskActions());
         this.pipelineTaskStatus = new ConcurrentHashMap<>();
         this.checkpointIdCounter = checkpointIdCounter;
         this.readyToCloseStartingTask = new CopyOnWriteArraySet<>();
@@ -378,7 +393,6 @@ public class CheckpointCoordinator {
             if (!latestCompletedCheckpoint.isRestored()) {
                 latestCompletedCheckpoint.setRestored(true);
             }
-            final Integer currentParallelism = pipelineTasks.get(taskLocation.getTaskVertexId());
             plan.getSubtaskActions()
                     .get(taskLocation)
                     .forEach(
@@ -396,6 +410,12 @@ public class CheckpointCoordinator {
                                     states.add(actionState.getCoordinatorState());
                                     return;
                                 }
+                                // The remap step must be the CURRENT parallelism of this
+                                // specific action, not of the task/vertex: a single subtask can
+                                // carry several chained actions, and pipelineTasks is keyed by
+                                // TaskLocation#getTaskVertexId(), which is unique per subtask (see
+                                // actionParallelism's javadoc), so it can never be reused here.
+                                final int currentParallelism = actionParallelism.get(tuple.f0());
                                 for (int i = tuple.f1();
                                         i < actionState.getParallelism();
                                         i += currentParallelism) {
@@ -530,7 +550,20 @@ public class CheckpointCoordinator {
     protected void scheduleTriggerPendingCheckpoint(
             CheckpointType checkpointType, long delayMills) {
         scheduler.schedule(
-                () -> tryTriggerPendingCheckpoint(checkpointType),
+                () -> {
+                    try {
+                        tryTriggerPendingCheckpoint(checkpointType);
+                    } catch (Throwable e) {
+                        // A thrown trigger would otherwise drop the scheduled checkpoint chain
+                        // silently; fail the coordinator so the job can handle the error.
+                        handleCoordinatorError(
+                                String.format(
+                                        "Failed to trigger %s for job id: %s, pipeline id: %s",
+                                        checkpointType, jobId, pipelineId),
+                                e,
+                                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
+                    }
+                },
                 delayMills,
                 TimeUnit.MILLISECONDS);
     }
@@ -693,7 +726,28 @@ public class CheckpointCoordinator {
         }
 
         if (alreadyStarted) {
+            // SubPlan accepts FINISHED physical groups only for unbounded readers while every
+            // coordinator is RUNNING. Rebuild their idle-close bookkeeping before triggering a
+            // checkpoint: those groups no longer run and cannot acknowledge another barrier.
+            // This is a second read of the execution state after SubPlan's decision. A group that
+            // turns FINISHED between the two reads is treated as closed as well; a running
+            // pipeline only finishes an unbounded reader group through the idle-close handshake.
+            Set<TaskGroupLocation> finishedGroups =
+                    plan.getPipelineSubtasks().stream()
+                            .map(TaskLocation::getTaskGroupLocation)
+                            .distinct()
+                            .filter(
+                                    group ->
+                                            ExecutionState.FINISHED.equals(
+                                                    runningJobStateIMap.get(group)))
+                            .collect(Collectors.toSet());
+            plan.getPipelineSubtasks().stream()
+                    .filter(task -> finishedGroups.contains(task.getTaskGroupLocation()))
+                    .forEach(closedIdleTask::add);
             isAllTaskReady.set(true);
+            // Finished groups still receive CheckpointFinishedOperation here: the hosting worker
+            // resolves them through its finishedExecutionContexts fallback. If that worker is
+            // gone, the send fails and the error path restarts the pipeline as before.
             if (!notifyCompleted(latestCompletedCheckpoint)) {
                 return;
             }
@@ -827,6 +881,35 @@ public class CheckpointCoordinator {
                 .entrySet()
                 .stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().size()));
+    }
+
+    /**
+     * Derives the current parallelism of every action from the subtask-to-action mapping of the
+     * checkpoint plan.
+     *
+     * <p>{@code
+     * org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanGenerator#fillCheckpointPlan}
+     * (and the enumerator/committer task wiring around it) records, for every subtask, one {@code
+     * (ActionStateKey, index)} tuple per action that subtask participates in, where {@code index}
+     * is that subtask's own parallelism index (or {@link CheckpointPlan#COORDINATOR_INDEX} for
+     * coordinator-only tasks such as the split enumerator). Counting, per action, how many tuples
+     * carry a real (non-coordinator) index therefore yields exactly the number of subtasks
+     * currently running that action, i.e. its current parallelism.
+     *
+     * <p>This must NOT be approximated via {@link #getPipelineTasks(Set)}: that map is keyed by
+     * {@link TaskLocation#getTaskVertexId()}, which folds in the subtask's own parallelism index
+     * and is therefore unique per subtask (see the {@link TaskLocation} constructor), so grouping
+     * by it always yields a group size of 1 regardless of the action's real parallelism.
+     *
+     * @param subtaskActions the subtask-to-action mapping of the checkpoint plan
+     * @return the current parallelism of every action key found in {@code subtaskActions}
+     */
+    public static Map<ActionStateKey, Integer> getActionParallelism(
+            Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions) {
+        return subtaskActions.values().stream()
+                .flatMap(Set::stream)
+                .filter(tuple -> !COORDINATOR_INDEX.equals(tuple.f1()))
+                .collect(Collectors.groupingBy(Tuple2::f0, Collectors.summingInt(tuple -> 1)));
     }
 
     @SneakyThrows

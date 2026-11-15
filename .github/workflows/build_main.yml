@@ -23,6 +23,10 @@ on:
   push:
     branches-ignore:
       - 'gh-readonly-queue/**'
+  # Lets a contributor start the build by hand from their fork's Actions tab when
+  # GitHub does not create a run for a push (e.g. a lost push event); the scheduled
+  # Update build status workflow then adopts the run for the PR's Build check.
+  workflow_dispatch:
 
 jobs:
   call-build-and-test:

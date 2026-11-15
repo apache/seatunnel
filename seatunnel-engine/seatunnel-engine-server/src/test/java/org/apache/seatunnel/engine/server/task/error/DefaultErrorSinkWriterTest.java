@@ -40,10 +40,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -184,6 +190,77 @@ public class DefaultErrorSinkWriterTest {
         assertTrue(ex.getMessage().contains("worker failed"));
     }
 
+    @Test
+    @Timeout(3)
+    public void testCloseWaitsForWorkerWhenCloserIsInterrupted() throws Exception {
+        DefaultErrorSinkWriter<SeaTunnelRow> writer =
+                new DefaultErrorSinkWriter<>(
+                        StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
+                        ErrorSinkConfig.empty(),
+                        1L,
+                        0,
+                        null);
+        CountingWriter sinkWriter = new CountingWriter();
+        CountDownLatch workerInterrupted = new CountDownLatch(1);
+        CountDownLatch releaseWorker = new CountDownLatch(1);
+        CountDownLatch closeFinished = new CountDownLatch(1);
+        AtomicBoolean closerInterruptedAfterClose = new AtomicBoolean();
+        AtomicReference<Throwable> closeFailure = new AtomicReference<>();
+        Thread worker =
+                new Thread(
+                        () -> {
+                            try {
+                                new CountDownLatch(1).await();
+                            } catch (InterruptedException ignored) {
+                                workerInterrupted.countDown();
+                                boolean interrupted = false;
+                                while (true) {
+                                    try {
+                                        releaseWorker.await();
+                                        break;
+                                    } catch (InterruptedException e) {
+                                        interrupted = true;
+                                    }
+                                }
+                                if (interrupted) {
+                                    Thread.currentThread().interrupt();
+                                }
+                            }
+                        },
+                        "error-sink-worker-test");
+        worker.start();
+
+        setField(writer, "writer", sinkWriter);
+        setField(writer, "workerThread", worker);
+        Thread closer =
+                new Thread(
+                        () -> {
+                            try {
+                                Thread.currentThread().interrupt();
+                                writer.close();
+                                closerInterruptedAfterClose.set(
+                                        Thread.currentThread().isInterrupted());
+                            } catch (Throwable t) {
+                                closeFailure.set(t);
+                            } finally {
+                                closeFinished.countDown();
+                            }
+                        },
+                        "error-sink-closer-test");
+        closer.start();
+
+        assertTrue(workerInterrupted.await(1, TimeUnit.SECONDS));
+        assertFalse(closeFinished.await(100, TimeUnit.MILLISECONDS));
+        releaseWorker.countDown();
+        assertTrue(closeFinished.await(1, TimeUnit.SECONDS));
+        closer.join(1000L);
+        worker.join(1000L);
+
+        assertNull(closeFailure.get());
+        assertTrue(closerInterruptedAfterClose.get());
+        assertEquals(1, sinkWriter.closes.get());
+    }
+
     private static SeaTunnelRowType errorRowType() {
         return new SeaTunnelRowType(
                 new String[] {
@@ -300,6 +377,7 @@ public class DefaultErrorSinkWriterTest {
 
     private static class CountingWriter extends NoopWriter {
 
+        private final AtomicInteger closes = new AtomicInteger();
         private final AtomicInteger noArgPrepareCommits = new AtomicInteger();
         private final AtomicInteger checkpointPrepareCommits = new AtomicInteger();
         private long lastCheckpointId = -1L;
@@ -315,6 +393,11 @@ public class DefaultErrorSinkWriterTest {
             checkpointPrepareCommits.incrementAndGet();
             lastCheckpointId = checkpointId;
             return Optional.empty();
+        }
+
+        @Override
+        public void close() {
+            closes.incrementAndGet();
         }
     }
 

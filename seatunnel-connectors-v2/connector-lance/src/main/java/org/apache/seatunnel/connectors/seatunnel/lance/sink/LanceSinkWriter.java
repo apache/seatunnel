@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -54,10 +55,8 @@ public class LanceSinkWriter
                 SupportMultiTableSinkWriter<Void>,
                 SupportSchemaEvolutionSinkWriter {
 
-    private static final int DEFAULT_BATCH_SIZE = 1000;
-
-    private final SeaTunnelRowType seaTunnelRowType;
-    private final TableSchema sourceTableSchema;
+    private SeaTunnelRowType seaTunnelRowType;
+    private TableSchema sourceTableSchema;
     private final LanceSinkConfig config;
     private final LanceCatalog catalog;
     private final int batchSize;
@@ -78,8 +77,8 @@ public class LanceSinkWriter
         this.sourceTableSchema = sourceTableSchema;
         this.config = config;
         this.catalog = catalog;
-        this.batchSize = DEFAULT_BATCH_SIZE;
-        this.batchBuffer = new ArrayList<>(batchSize);
+        this.batchSize = config.getBatchSize();
+        this.batchBuffer = new ArrayList<>();
         this.allocator = new RootAllocator(Long.MAX_VALUE);
     }
 
@@ -138,14 +137,13 @@ public class LanceSinkWriter
         }
 
         try {
-            List<FragmentMetadata> allFragments = new ArrayList<>();
-
-            for (SeaTunnelRow row : batchBuffer) {
-                List<FragmentMetadata> fragmentMetadata =
-                        FragmentConverter.reconvert(
-                                row, seaTunnelRowType, schema, allocator, config.getDatasetPath());
-                allFragments.addAll(fragmentMetadata);
-            }
+            List<FragmentMetadata> allFragments =
+                    FragmentConverter.reconvert(
+                            batchBuffer,
+                            seaTunnelRowType,
+                            schema,
+                            allocator,
+                            config.getDatasetPath());
 
             if (!allFragments.isEmpty()) {
                 Transaction transaction =
@@ -177,6 +175,17 @@ public class LanceSinkWriter
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        if (event instanceof RestoreTableSchemaEvent && event.getChangeAfter() != null) {
+            // Finish rows using the old runtime layout before switching to checkpoint state.
+            flushBatch();
+            this.sourceTableSchema = event.getChangeAfter().getTableSchema();
+            this.seaTunnelRowType = sourceTableSchema.toPhysicalRowDataType();
+            log.info(
+                    "Restored runtime schema for Lance dataset {}: {}",
+                    config.getDatasetPath(),
+                    sourceTableSchema);
+            return;
+        }
         SinkWriter.super.applySchemaChange(event);
     }
 

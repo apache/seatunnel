@@ -116,7 +116,8 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 | file_name_expression                  | string  | 否    | "${transactionId}"                                    | 仅当 custom_filename 为 true 时使用                                                                                                       |
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                                          | 仅当 custom_filename 为 true 时使用                                                                                                       |
 | file_format_type                      | string  | 否    | "csv"                                                 |                                                                                                                                     |
-| field_delimiter                       | string  | 否    | '\001'                                                | 仅当 file_format 为 text 时使用                                                                                                           |
+| filename_extension                    | string  | 否    | -                                                     | 使用自定义的文件扩展名覆盖默认的文件扩展名。例如：`.xml`、`.json`、`dat`、`.customtype`                                                          |
+| field_delimiter                       | string  | 否    | '\001' for text and ',' for csv                       | 仅当 file_format 为 text 和 csv 时使用                                                                                                           |
 | row_delimiter                         | string  | 否    | "\n"                                                  | 仅当 file_format 为 `text`、`csv`、`json` 时使用                                                                                            |
 | have_partition                        | boolean | 否    | false                                                 | 是否需要处理分区。                                                                                                                           |
 | partition_by                          | array   | 否    | -                                                     | 仅当 have_partition 为 true 时使用                                                                                                        |
@@ -126,9 +127,11 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 | is_enable_transaction                 | boolean | 否    | true                                                  |                                                                                                                                     |
 | batch_size                            | int     | 否    | 1000000                                               |                                                                                                                                     |
 | compress_codec                        | string  | 否    | none                                                  |                                                                                                                                     |
+| multi_table_sink_replica              | int     | 否    | 1                                                     | 多表 sink 作业中每张表使用的 sink writer 副本数量。                                                                                              |
 | common-options                        | object  | 否    | -                                                     |                                                                                                                                     |
 | max_rows_in_memory                    | int     | 否    | -                                                     | 仅当 file_format 为 excel 时使用                                                                                                          |
-| sheet_name                            | string  | 否    | Sheet${Random number}                                 | 仅当 file_format 为 excel 时使用                                                                                                          |
+| sheet_max_rows                        | int     | 否    | 1048576                                               | 仅当 file_format 为 excel 时使用，每个工作表允许写入的最大行数。                                                                                          |
+| sheet_name                            | string  | 否    | Sheet0                                 | 仅当 file_format 为 excel 时使用                                                                                                          |
 | csv_string_quote_mode                 | enum    | 否    | MINIMAL                                               | 仅当 file_format 为 csv 时使用                                                                                                            |
 | xml_root_tag                          | string  | 否    | RECORDS                                               | 仅当 file_format 为 xml 时使用，指定 XML 文件中根元素的标签名称。                                                                                        |
 | xml_row_tag                           | string  | 否    | RECORD                                                | 仅当 file_format 为 xml 时使用，指定 XML 文件中数据行的标签名称。                                                                                        |
@@ -143,7 +146,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 | data_save_mode                        | Enum    | 否    | APPEND_DATA                                           | 在开启同步任务之前，对目标路径中的数据文件进行不同的处理                                                                                                        |
 | enable_header_write                   | boolean | 否    | false                                                 | 仅当 file_format_type 为 text,csv 时使用。<br/> false: 不写入表头, true: 写入表头。                                                                  |
 | encoding                              | string  | 否    | "UTF-8"                                               | 仅当 file_format_type 为 json,text,csv,xml 时使用。                                                                                        |
-| merge_update_event                    | boolean | 否    | false                                                 | 仅当file_format_type为canal_json、debezium_json、maxwell_json.                                                                           |
+| merge_update_event                    | boolean | 否    | false                                                 | 仅当 file_format_type 为 canal_json、debezium_json、maxwell_json 时使用。<br/> 设置为 true 时，UPDATE_AFTER 和 UPDATE_BEFORE 事件会合并为 UPDATE 事件数据。                                                                                                |
 
 ### path [string]
 
@@ -198,7 +201,7 @@ hadoop_s3_properties {
 
 ### field_delimiter [string]
 
-行数据中列之间的分隔符。仅在 `text` 文件格式中需要。
+行数据中列之间的分隔符。仅在 `text` 和 `csv` 文件格式中需要。
 
 ### row_delimiter [string]
 
@@ -266,6 +269,10 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-c
 ### max_rows_in_memory [int]
 
 当文件格式为 Excel 时，内存中可以缓存的最大数据项数。
+
+### sheet_max_rows [int]
+
+当文件格式为 Excel 时，每个工作表允许写入的最大行数。
 
 ### sheet_name [string]
 
@@ -370,7 +377,6 @@ source {
   }
 # 如果您想了解更多关于如何配置SeaTunnel以及查看完整的源插件列表，
 # 请访问 https://seatunnel.apache.org/docs/connectors/source
-source {
 }
 
 transform {

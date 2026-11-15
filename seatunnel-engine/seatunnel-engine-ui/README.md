@@ -39,6 +39,11 @@ npm run test:unit
 
 ### Run End-to-End Tests with [Cypress]
 
+The Cypress specs, including the worker resource fixtures, are manual/optional
+checks. The `seatunnel-ui` job in `.github/workflows/backend.yml` runs lint, unit
+tests and the build, but does not run Cypress. These REST-contract fixtures do
+not validate a deployed cluster.
+
 ```sh
 npm run test:e2e:dev
 ```

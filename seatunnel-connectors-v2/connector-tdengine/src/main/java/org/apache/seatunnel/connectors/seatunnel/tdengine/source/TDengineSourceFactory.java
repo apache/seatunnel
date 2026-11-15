@@ -30,6 +30,8 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 public class TDengineSourceFactory implements TableSourceFactory {
 
@@ -41,14 +43,17 @@ public class TDengineSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .required(TDengineSourceOptions.URL, notBlank(TDengineSourceOptions.URL))
+                .required(TDengineSourceOptions.USERNAME, notBlank(TDengineSourceOptions.USERNAME))
+                .required(TDengineSourceOptions.PASSWORD, notBlank(TDengineSourceOptions.PASSWORD))
+                .required(TDengineSourceOptions.DATABASE, notBlank(TDengineSourceOptions.DATABASE))
+                .required(TDengineSourceOptions.STABLE, notBlank(TDengineSourceOptions.STABLE))
                 .required(
-                        TDengineSourceOptions.URL,
-                        TDengineSourceOptions.USERNAME,
-                        TDengineSourceOptions.PASSWORD,
-                        TDengineSourceOptions.DATABASE,
-                        TDengineSourceOptions.STABLE,
                         TDengineSourceOptions.LOWER_BOUND,
-                        TDengineSourceOptions.UPPER_BOUND)
+                        notBlank(TDengineSourceOptions.LOWER_BOUND))
+                .required(
+                        TDengineSourceOptions.UPPER_BOUND,
+                        notBlank(TDengineSourceOptions.UPPER_BOUND))
                 .build();
     }
 
