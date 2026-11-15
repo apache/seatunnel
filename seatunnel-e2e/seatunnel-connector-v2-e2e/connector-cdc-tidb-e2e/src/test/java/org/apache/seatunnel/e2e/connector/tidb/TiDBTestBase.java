@@ -39,6 +39,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -62,6 +63,18 @@ public class TiDBTestBase extends TestSuiteBase {
     public static final int TIDB_PORT = 4000;
     public static final int TIKV_PORT_ORIGIN = 20160;
     public static final int PD_PORT_ORIGIN = 2379;
+
+    /** How long to wait after the containers start until TiDB answers a query. */
+    private static final Duration TIDB_QUERY_WAIT = Duration.ofSeconds(120);
+
+    /** How often to try a query while waiting for TiDB. */
+    private static final Duration TIDB_QUERY_POLL_INTERVAL = Duration.ofSeconds(1);
+
+    /**
+     * Connect timeout and socket read timeout of one attempt. The read timeout also ends an attempt
+     * on a connection that TiDB accepts but never greets, and one whose query gets no answer.
+     */
+    private static final Duration TIDB_QUERY_ATTEMPT_TIMEOUT = Duration.ofSeconds(10);
 
     public static final GenericContainer<?> PD =
             new GenericContainer<>("pingcap/pd:v6.1.0")
@@ -146,8 +159,8 @@ public class TiDBTestBase extends TestSuiteBase {
         long start = System.currentTimeMillis();
         try {
             Awaitility.await("TiDB answers queries")
-                    .atMost(120, TimeUnit.SECONDS)
-                    .pollInterval(1, TimeUnit.SECONDS)
+                    .atMost(TIDB_QUERY_WAIT)
+                    .pollInterval(TIDB_QUERY_POLL_INTERVAL)
                     .until(this::tidbAnswersQuery);
         } catch (ConditionTimeoutException e) {
             throw new IllegalStateException("TiDB did not answer queries", e);
@@ -156,7 +169,13 @@ public class TiDBTestBase extends TestSuiteBase {
     }
 
     private boolean tidbAnswersQuery() {
-        try (Connection connection = getJdbcConnection();
+        String attemptTimeoutMillis = String.valueOf(TIDB_QUERY_ATTEMPT_TIMEOUT.toMillis());
+        Properties properties = new Properties();
+        properties.setProperty("user", TIDB_USER);
+        properties.setProperty("password", TIDB_PASSWORD);
+        properties.setProperty("connectTimeout", attemptTimeoutMillis);
+        properties.setProperty("socketTimeout", attemptTimeoutMillis);
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), properties);
                 Statement statement = connection.createStatement()) {
             return statement.execute("SELECT 1");
         } catch (SQLException e) {
