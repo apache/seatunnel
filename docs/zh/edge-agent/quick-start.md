@@ -31,7 +31,7 @@ cd "$EDGE_AGENT_HOME"
 
 ### 前提
 
-- 边缘主机已安装 Java 8 或 11，并设置 JAVA_HOME。
+- 边缘主机已安装 Java 11 或 17，并设置 JAVA_HOME。
 - 不需要 SeaTunnel Engine，也不需要 EdgeSocket 网络连通。
 - 安装根目录可写（默认持久化文件 data、日志、edge-agent.id）。
 
@@ -181,5 +181,4 @@ sh bin/seatunnel-edge-agent.sh stop
 ## 下一步
 
 快速开始完成后，建议继续阅读 [部署指南](deployment-guide.md) 进行生产部署，或查看 [配置参数说明](configuration.md) 了解完整参数。全部文档导航见 [关于 Edge Agent](about.md#推荐阅读顺序)。
-
 

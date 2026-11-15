@@ -688,9 +688,22 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery);
     }
 
+    /**
+     * Truncates the table on the connection of the database that the table path points to.
+     *
+     * <p>Most catalogs render the truncate DDL with schema and table only (no database qualifier),
+     * so the connection URL is what decides which database is truncated. A table path that carries
+     * an explicit database different from the catalog database must therefore be truncated through
+     * that database's URL, like the other DDL siblings in this class. A table path without a
+     * database keeps using the catalog default URL.
+     */
     protected void truncateTableInternal(TablePath tablePath) throws CatalogException {
+        String dbUrl =
+                StringUtils.isNotBlank(tablePath.getDatabaseName())
+                        ? getUrlFromDatabaseName(tablePath.getDatabaseName())
+                        : defaultUrl;
         try {
-            executeInternal(defaultUrl, getTruncateTableSql(tablePath));
+            executeInternal(dbUrl, getTruncateTableSql(tablePath));
         } catch (Exception e) {
             throw new CatalogException(
                     String.format(

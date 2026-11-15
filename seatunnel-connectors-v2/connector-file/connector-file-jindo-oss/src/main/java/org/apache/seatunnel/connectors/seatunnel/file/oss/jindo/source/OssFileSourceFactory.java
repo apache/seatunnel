@@ -87,12 +87,14 @@ public class OssFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.TIME_FORMAT_LEGACY)
                 .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
                 .optional(FileBaseSourceOptions.COMPRESS_CODEC)
+                .optional(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC)
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
                 .optional(
                         FileBaseSourceOptions.SHEET_NAME,
                         FileBaseSourceOptions.EXCEL_ENGINE,
+                        FileBaseSourceOptions.EXCEL_USE_HEADER_LINE,
                         FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
@@ -105,6 +107,15 @@ public class OssFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
                 .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
+                .optional(
+                        FileBaseSourceOptions.READ_PARTITIONS,
+                        FileBaseSourceOptions.FILE_FILTER_MODIFIED_START,
+                        FileBaseSourceOptions.FILE_FILTER_MODIFIED_END,
+                        FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME)
+                .optional(
+                        FileBaseSourceOptions.CSV_USE_HEADER_LINE,
+                        FileBaseSourceOptions.BINARY_CHUNK_SIZE,
+                        FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE)
                 .build();
     }
 

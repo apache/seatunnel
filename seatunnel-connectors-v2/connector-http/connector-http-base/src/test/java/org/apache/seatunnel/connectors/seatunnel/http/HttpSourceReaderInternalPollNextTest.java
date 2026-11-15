@@ -16,6 +16,7 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.http;
 
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -38,11 +39,19 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -183,8 +192,93 @@ public class HttpSourceReaderInternalPollNextTest {
         httpSourceReader.close();
     }
 
+    @Test
+    public void testPollIntervalDoesNotHoldCheckpointLock() throws Exception {
+        httpParameter.setPollIntervalMillis(60_000);
+        when(context.getBoundedness()).thenReturn(Boundedness.UNBOUNDED);
+        CountDownLatch polled = new CountDownLatch(1);
+        when(httpClientProvider.execute(
+                        anyString(), anyString(), any(), any(), any(), anyBoolean()))
+                .thenAnswer(
+                        invocation -> {
+                            polled.countDown();
+                            return new HttpResponse(200, "[]");
+                        });
+        Object checkpointLock = new Object();
+        Collector<SeaTunnelRow> lockingCollector =
+                new Collector<SeaTunnelRow>() {
+                    @Override
+                    public void collect(SeaTunnelRow record) {}
+
+                    @Override
+                    public Object getCheckpointLock() {
+                        return checkpointLock;
+                    }
+                };
+
+        httpSourceReader =
+                new HttpSourceReader(
+                        httpParameter, context, deserializationSchema, jsonField, null);
+        httpSourceReader.open();
+        httpSourceReader.setHttpClient(httpClientProvider);
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            executor.submit(
+                    () -> {
+                        httpSourceReader.pollNext(lockingCollector);
+                        return null;
+                    });
+            // The request runs while pollNext holds the checkpoint lock
+            Assertions.assertTrue(polled.await(10, TimeUnit.SECONDS));
+            // A checkpoint barrier must get the lock during the 60 s poll
+            // interval, not only after it
+            Future<Boolean> barrier =
+                    executor.submit(
+                            () -> {
+                                synchronized (checkpointLock) {
+                                    return true;
+                                }
+                            });
+            Assertions.assertTrue(barrier.get(10, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+            httpSourceReader.close();
+        }
+    }
+
     @AfterEach
     public void tearDown() throws Exception {
         mock.close();
+    }
+
+    /**
+     * The response body reaches the format deserializer as bytes, and those bytes must always be
+     * UTF-8: the format deserializers decode with UTF-8, so encoding the body with the JVM default
+     * charset corrupts non-ASCII values whenever that default is not UTF-8 (the Windows CI legs run
+     * JDK 8/11, whose default charset is Cp1252).
+     */
+    @Test
+    public void testResponseBodyIsCollectedAsUtf8RegardlessOfDefaultCharset() throws Exception {
+        String body = "[{\"key1\":\"\u4e2d\u6587\u503c\",\"key2\":\"v2\"}]";
+        when(httpClientProvider.execute(
+                        anyString(), anyString(), any(), any(), any(), anyBoolean()))
+                .thenReturn(new HttpResponse(200, body));
+
+        DeserializationSchema<SeaTunnelRow> schema = Mockito.mock(DeserializationSchema.class);
+        HttpSourceReader reader =
+                new HttpSourceReader(httpParameter, context, schema, null, null, null);
+        reader.open();
+        reader.setHttpClient(httpClientProvider);
+
+        reader.internalPollNext(collector);
+
+        ArgumentCaptor<byte[]> message = ArgumentCaptor.forClass(byte[].class);
+        verify(schema).deserialize(message.capture());
+        Assertions.assertEquals(
+                body,
+                new String(message.getValue(), StandardCharsets.UTF_8),
+                "the response body must reach the deserializer as UTF-8 bytes");
+        reader.close();
     }
 }

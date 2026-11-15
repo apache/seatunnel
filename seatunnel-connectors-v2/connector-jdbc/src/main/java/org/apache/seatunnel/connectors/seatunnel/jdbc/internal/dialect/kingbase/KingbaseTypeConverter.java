@@ -36,6 +36,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.Types;
+
 // reference https://help.kingbase.com.cn/v8/development/sql-plsql/sql/datatype.html#id2
 @Slf4j
 @AutoService(TypeConverter.class)
@@ -51,6 +53,12 @@ public class KingbaseTypeConverter extends PostgresTypeConverter {
     @Override
     public String identifier() {
         return DatabaseIdentifier.KINGBASE;
+    }
+
+    @Override
+    protected boolean isUserDefinedStringType(int sqlType) {
+        // VARCHAR type names unknown to PostgreSQL keep the Kingbase handling below.
+        return sqlType == Types.OTHER;
     }
 
     @Override

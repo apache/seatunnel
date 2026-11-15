@@ -37,6 +37,7 @@ Pulsar Sink 用于将 SeaTunnel 数据写入 Apache Pulsar topic。它既可以�
 | auth.params              | String | 否       | -                   | 认证插件参数。需要和 `auth.plugin-class` 一起配置。                   |
 | format                   | String | 否       | json                | 数据格式。默认格式为 json。可选 text 和 avro 格式。                                    |
 | field_delimiter          | String | 否       | ,                   | 当 `format = "text"` 时使用的字段分隔符。                             |
+| avro_row_nullable        | Boolean | 否      | false               | 当 `format = "avro"` 时生效。当 ROW 字段（含嵌套在另一个 ROW、ARRAY 或 MAP 中的 ROW）可能为 `null` 时设为 `true`，此时 ROW 以可空 Avro union 而非裸 record 写入；读取端必须开启同一选项。详见 [Avro 格式](../formats/avro.md#avro_row_nullable)。 |
 | semantics                | Enum   | 否       | AT_LEAST_ONCE       | 写入一致性语义。可选值：`NON`、`AT_LEAST_ONCE`、`EXACTLY_ONCE`。       |
 | transaction_timeout      | Int    | 否       | 600                 | Pulsar 事务超时时间，单位为秒。用于 `EXACTLY_ONCE`。                  |
 | pulsar.config            | Map    | 否       | -                   | 传给 Pulsar 生产者客户端的额外参数。                                  |

@@ -38,6 +38,7 @@ import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertCon
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.COLUMN_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.COLUMN_NULLABLE;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.COLUMN_RULE;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.COLUMN_SINK_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.COLUMN_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.CONSTRAINT_KEY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.CONSTRAINT_KEY_COLUMN_NAME;
@@ -110,14 +111,20 @@ public class AssertCatalogTableRuleParser {
                                                     COLUMN_COMMENT,
                                                     ConnectorCommonOptions.COLUMN_COMMENT
                                                             .defaultValue());
-                                    return PhysicalColumn.of(
-                                            name,
-                                            SeaTunnelDataTypeConvertorUtil
-                                                    .deserializeSeaTunnelDataType(name, type),
-                                            columnLength,
-                                            nullable,
-                                            object,
-                                            comment);
+                                    PhysicalColumn column =
+                                            PhysicalColumn.of(
+                                                    name,
+                                                    SeaTunnelDataTypeConvertorUtil
+                                                            .deserializeSeaTunnelDataType(
+                                                                    name, type),
+                                                    columnLength,
+                                                    nullable,
+                                                    object,
+                                                    comment);
+                                    if (config.hasPath(COLUMN_SINK_TYPE)) {
+                                        column.setSinkType(config.getString(COLUMN_SINK_TYPE));
+                                    }
+                                    return column;
                                 })
                         .collect(Collectors.toList());
         return Optional.of(new AssertCatalogTableRule.AssertColumnRule(columns));

@@ -41,6 +41,8 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 @Slf4j
 public class Db2IncrementalSourceFactory implements TableSourceFactory {
@@ -56,9 +58,9 @@ public class Db2IncrementalSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return Db2IncrementalSourceOptions.getBaseRule()
                 .required(
-                        Db2IncrementalSourceOptions.USERNAME,
-                        Db2IncrementalSourceOptions.PASSWORD,
-                        Db2IncrementalSourceOptions.URL)
+                        Db2IncrementalSourceOptions.USERNAME, Db2IncrementalSourceOptions.PASSWORD)
+                .required(
+                        Db2IncrementalSourceOptions.URL, notBlank(Db2IncrementalSourceOptions.URL))
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
                         Db2IncrementalSourceOptions.DATABASE_NAMES,

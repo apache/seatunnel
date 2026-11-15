@@ -97,7 +97,7 @@ start.mode.timestamp = 1667179890315
 
 当不同 topic 的字段结构不一样时，使用 `tables_configs`。每一项都必须包含 `topics`，并且可以单独配置 `schema`、`format`、`tags` 和启动消费位置。如果没有配置 `schema.table`，输出表名默认使用 topic 名称。
 
-`topics`、`tables_configs` 和已废弃的 `table_list` 互斥，只能配置其中一个。在 `tables_configs` 中，单个条目未配置的参数会沿用顶层默认值，因此每个条目只需要覆盖该 topic 特有的 schema、tag 或启动位置。
+`topics`、`tables_configs` 和已废弃的 `table_list` 互斥，只能配置其中一个。每个 `tables_configs` 条目都是独立解析的：`schema`、`format`、`tags` 和 `ignore_parse_errors` 必须在该条目上单独配置，未配置时使用的是选项自身的默认值（`json` / `false`），而不是任务顶层的配置值。只有 `start.mode`（及其 `start.mode.timestamp`/`start.mode.offsets`）在条目未配置时会沿用顶层的值。
 
 如果某个 `tables_configs` 条目使用 `start.mode = CONSUME_FROM_TIMESTAMP`，必须同时配置 `start.mode.timestamp`。如果使用 `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`，必须同时配置非空的 `start.mode.offsets`。
 
@@ -285,7 +285,7 @@ sink {
 
 ### RocketMQ 源连接器支持哪些起始消费位点模式？
 
-通过 `start.mode` 参数支持从最早位点（`CONSUME_FROM_FIRST_OFFSET`）、最新位点（`CONSUME_FROM_LAST_OFFSET`）或指定时间戳位点（`CONSUME_FROM_TIMESTAMP`）开始读取数据。
+通过 `start.mode` 参数支持 5 种启动方式：`CONSUME_FROM_GROUP_OFFSETS`（默认值）、`CONSUME_FROM_FIRST_OFFSET`、`CONSUME_FROM_LAST_OFFSET`、`CONSUME_FROM_TIMESTAMP` 和 `CONSUME_FROM_SPECIFIC_OFFSETS`，详见上方 `start.mode` 选项说明。
 
 ### 作业发生故障恢复时如何保证消费位点一致性？
 

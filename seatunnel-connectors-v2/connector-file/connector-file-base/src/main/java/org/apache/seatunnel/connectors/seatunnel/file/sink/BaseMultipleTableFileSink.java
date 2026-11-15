@@ -104,7 +104,9 @@ public abstract class BaseMultipleTableFileSink
     @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
             createAggregatedCommitter() {
-        return Optional.of(new FileSinkAggregatedCommitter(hadoopConf));
+        boolean appendData =
+                FileSinkAggregatedCommitter.shouldAppendData(hadoopConf, fileSinkConfig);
+        return Optional.of(new FileSinkAggregatedCommitter(hadoopConf, appendData));
     }
 
     @Override

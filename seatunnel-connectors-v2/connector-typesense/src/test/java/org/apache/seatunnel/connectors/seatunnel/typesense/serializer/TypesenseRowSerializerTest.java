@@ -62,4 +62,54 @@ public class TypesenseRowSerializerTest {
         String data = "{\"name\":\"jack\",\"id\":\"0001\"}";
         Assertions.assertEquals(typesenseRowSerializer.serializeRow(row), data);
     }
+
+    @Test
+    public void testCompositeKeyEncodingPreservesLegacyIdsByDefault() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"first", "second"},
+                        new SeaTunnelDataType[] {STRING_TYPE, STRING_TYPE});
+        SeaTunnelRow left = new SeaTunnelRow(new Object[] {"1_1", "2"});
+        SeaTunnelRow right = new SeaTunnelRow(new Object[] {"1", "1_2"});
+        TypesenseRowSerializer legacy = serializer(schema, null);
+        TypesenseRowSerializer safe = serializer(schema, "LENGTH_PREFIXED");
+
+        Assertions.assertEquals("1_1_2", legacy.serializeRowForDelete(left));
+        Assertions.assertEquals(
+                legacy.serializeRowForDelete(left), legacy.serializeRowForDelete(right));
+        Assertions.assertEquals("3:1_11:2", safe.serializeRowForDelete(left));
+        Assertions.assertEquals("1:13:1_2", safe.serializeRowForDelete(right));
+        Assertions.assertTrue(safe.serializeRow(left).contains("\"id\":\"3:1_11:2\""));
+        Assertions.assertTrue(safe.serializeRow(right).contains("\"id\":\"1:13:1_2\""));
+    }
+
+    @Test
+    public void testSingleKeyEncodingKeepsTheExistingId() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"first", "second"},
+                        new SeaTunnelDataType[] {STRING_TYPE, STRING_TYPE});
+        Map<String, Object> confMap = new HashMap<>();
+        confMap.put(TypesenseBaseOptions.COLLECTION.key(), "id_probe");
+        confMap.put(TypesenseSinkOptions.PRIMARY_KEYS.key(), Arrays.asList("first"));
+        confMap.put(TypesenseSinkOptions.KEY_ENCODING.key(), "LENGTH_PREFIXED");
+        TypesenseRowSerializer serializer =
+                new TypesenseRowSerializer(
+                        new CollectionInfo("id_probe", ReadonlyConfig.fromMap(confMap)), schema);
+
+        Assertions.assertEquals(
+                "1_1",
+                serializer.serializeRowForDelete(new SeaTunnelRow(new Object[] {"1_1", "2"})));
+    }
+
+    private static TypesenseRowSerializer serializer(SeaTunnelRowType schema, String encoding) {
+        Map<String, Object> confMap = new HashMap<>();
+        confMap.put(TypesenseBaseOptions.COLLECTION.key(), "id_probe");
+        confMap.put(TypesenseSinkOptions.PRIMARY_KEYS.key(), Arrays.asList("first", "second"));
+        if (encoding != null) {
+            confMap.put(TypesenseSinkOptions.KEY_ENCODING.key(), encoding);
+        }
+        return new TypesenseRowSerializer(
+                new CollectionInfo("id_probe", ReadonlyConfig.fromMap(confMap)), schema);
+    }
 }

@@ -112,6 +112,25 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testLLMWithOpenAIStrictBoolean(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/llm_openai_transform_boolean_strict.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testLLMWithOpenAIStrictBooleanRejectsInvalidOutput(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/llm_openai_transform_boolean_strict_invalid.conf");
+        Assertions.assertNotEquals(0, execResult.getExitCode());
+        String output = execResult.getStdout() + execResult.getStderr();
+        Assertions.assertTrue(output.contains("strict_boolean_output"), output);
+        Assertions.assertTrue(output.contains("exactly one non-null true or false"), output);
+    }
+
+    @TestTemplate
     public void testLLMWithOpenAIColumns(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =

@@ -34,8 +34,11 @@ public class SeaTunnelRowType implements CompositeType<SeaTunnelRow> {
         checkArgument(
                 fieldNames.length == fieldTypes.length,
                 "The number of field names must be the same as the number of field types.");
-        this.fieldNames = fieldNames;
-        this.fieldTypes = fieldTypes;
+        // Copy the arrays so later mutation of the caller's arrays cannot change this
+        // immutable type definition. Getters keep returning the internal arrays directly
+        // to preserve the existing behavior callers rely on.
+        this.fieldNames = Arrays.copyOf(fieldNames, fieldNames.length);
+        this.fieldTypes = Arrays.copyOf(fieldTypes, fieldTypes.length);
     }
 
     @Override

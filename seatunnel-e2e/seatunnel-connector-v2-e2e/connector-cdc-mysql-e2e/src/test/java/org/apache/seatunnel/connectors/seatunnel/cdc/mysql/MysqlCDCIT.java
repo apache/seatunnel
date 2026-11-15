@@ -20,15 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+
+import org.junit.jupiter.api.TestTemplate;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK},
-        disabledReason = "Currently SPARK do not support cdc")
 public class MysqlCDCIT extends AbstractMysqlCDCITBase {
 
     public MysqlCDCIT() {
@@ -37,5 +36,26 @@ public class MysqlCDCIT extends AbstractMysqlCDCITBase {
         this.inventoryDatabase =
                 new UniqueDatabase(
                         MYSQL_CONTAINER, MYSQL_DATABASE, "mysqluser", "mysqlpw", MYSQL_DATABASE);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SEATUNNEL, EngineType.FLINK},
+            disabledReason = "Covered by testMysqlCdcCheckDataE2e")
+    public void testMysqlCdcCheckDataE2eOnSpark(TestContainer container) {
+        checkSnapshotThenIncrementalData(container, "/mysqlcdc_to_mysql_on_spark.conf");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SEATUNNEL, EngineType.FLINK},
+            disabledReason =
+                    "Covers Spark running all readers of a parallel CDC source in one task, "
+                            + "where the snapshot phase ends without an engine checkpoint")
+    public void testMysqlCdcCheckDataE2eWithParallelismOnSpark(TestContainer container) {
+        checkSnapshotThenIncrementalData(
+                container, "/mysqlcdc_to_mysql_with_parallelism_on_spark.conf");
     }
 }

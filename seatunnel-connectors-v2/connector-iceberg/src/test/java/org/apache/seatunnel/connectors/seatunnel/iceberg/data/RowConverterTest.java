@@ -49,6 +49,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 public class RowConverterTest {
@@ -223,5 +224,63 @@ public class RowConverterTest {
         assertNotNull(result);
         assertEquals(null, result.getField("int_field"));
         assertEquals(null, result.getField("string_field"));
+    }
+
+    @Test
+    public void testConvertTimestampNanos() {
+        LocalDateTime nanos = LocalDateTime.parse("2024-03-10T10:00:00.123456789");
+        assertEquals(
+                nanos,
+                converter.convertValue(
+                        nanos,
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        Types.TimestampNanoType.withoutZone(),
+                        1,
+                        null));
+        assertEquals(
+                nanos,
+                converter.convertValue(
+                        "2024-03-10 10:00:00.123456789",
+                        BasicType.STRING_TYPE,
+                        Types.TimestampNanoType.withoutZone(),
+                        1,
+                        null));
+        OffsetDateTime offsetNanos = OffsetDateTime.parse("2024-03-10T10:00:00.123456789+08:00");
+        assertEquals(
+                offsetNanos,
+                converter.convertValue(
+                        offsetNanos,
+                        LocalTimeType.OFFSET_DATE_TIME_TYPE,
+                        Types.TimestampNanoType.withZone(),
+                        1,
+                        null));
+    }
+
+    @Test
+    public void testConvertTimestampNanosOutOfRange() {
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                converter.convertValue(
+                                        LocalDateTime.parse("9999-12-31T23:59:59"),
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        Types.TimestampNanoType.withoutZone(),
+                                        1,
+                                        null));
+        assertTrue(exception.getMessage().contains("outside the range of Iceberg timestamp_ns"));
+    }
+
+    @Test
+    public void testConvertUnknownAcceptsOnlyNull() {
+        assertEquals(
+                null,
+                converter.convertValue(
+                        null, BasicType.STRING_TYPE, Types.UnknownType.get(), 1, null));
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        converter.convertValue(
+                                "x", BasicType.STRING_TYPE, Types.UnknownType.get(), 1, null));
     }
 }
