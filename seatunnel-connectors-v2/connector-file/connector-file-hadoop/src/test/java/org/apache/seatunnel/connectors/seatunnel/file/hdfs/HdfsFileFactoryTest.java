@@ -99,6 +99,61 @@ class HdfsFileFactoryTest {
         Assertions.assertDoesNotThrow(() -> validate(backupConfig, optionRule));
     }
 
+    @Test
+    void sinkOptionRuleRequiresDefaultFs() {
+        OptionRule optionRule = (new HdfsFileSinkFactory()).optionRule();
+        Map<String, Object> config = new HashMap<>();
+        config.put(FileBaseOptions.FILE_PATH.key(), "/sink");
+
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> validate(config, optionRule));
+
+        config.put(FileBaseOptions.DEFAULT_FS.key(), "hdfs://localhost:9000");
+        Assertions.assertDoesNotThrow(() -> validate(config, optionRule));
+    }
+
+    @Test
+    void sinkOptionRuleRequiresFilePath() {
+        OptionRule optionRule = (new HdfsFileSinkFactory()).optionRule();
+        Map<String, Object> config = new HashMap<>();
+        config.put(FileBaseOptions.DEFAULT_FS.key(), "hdfs://localhost:9000");
+
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> validate(config, optionRule));
+
+        config.put(FileBaseOptions.FILE_PATH.key(), "/sink");
+        Assertions.assertDoesNotThrow(() -> validate(config, optionRule));
+    }
+
+    @Test
+    void consumedOptionsAreDeclared() {
+        OptionRule optionRule = (new HdfsFileSourceFactory()).optionRule();
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.READ_PARTITIONS));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.CSV_USE_HEADER_LINE));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.BINARY_CHUNK_SIZE));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.FILE_FILTER_MODIFIED_START));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.FILE_FILTER_MODIFIED_END));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME));
+    }
+
     private static Map<String, Object> sourceConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put(FileBaseOptions.FILE_PATH.key(), "/source");

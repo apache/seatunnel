@@ -23,7 +23,7 @@ source: changes that happen after the scan starts are not delivered.
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [x] [schema projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
@@ -72,7 +72,7 @@ The caching parameter sets the number of rows fetched per server trip during sca
 
 ### batch
 
-The batch parameter sets the maximum number of columns returned per scan. This is useful for rows with many columns to avoid fetching excessive data at once, thus saving memory and improving performance.
+The batch parameter sets the maximum number of cells returned per scan. This is useful for rows with many columns to avoid fetching excessive data at once, thus saving memory and improving performance.
 
 ### cache_blocks
 
@@ -117,7 +117,7 @@ End timestamp (exclusive) for scan time range. Unit: milliseconds since epoch. T
 
 **Notes:**
 
-- `start_timestamp` / `end_timestamp` must be >= 0. If both are set, `start_timestamp` must be < `end_timestamp` (time range is [start, end), so `start_timestamp == end_timestamp` produces an empty scan).
+- `start_timestamp` must be >= 0 and `end_timestamp` must be > 0. If both are set, `start_timestamp` must be < `end_timestamp` (time range is [start, end), so `start_timestamp == end_timestamp` produces an empty scan).
 - When `start_rowkey` / `end_rowkey` and `start_timestamp` / `end_timestamp` are configured together, both the rowkey range and the time range constraints are applied (intersection).
 
 ### common-options

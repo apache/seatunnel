@@ -17,15 +17,69 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sentry;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.sentry.config.SentrySinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.sentry.sink.SentrySinkFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.ServiceLoader;
+
 class SentryFactoryTest {
 
     @Test
+    void testSourceDiscovery() {
+        boolean found = false;
+        for (Factory factory : ServiceLoader.load(Factory.class)) {
+            if (factory instanceof TableSourceFactory
+                    && "Sentry".equals(factory.factoryIdentifier())) {
+                found = true;
+            }
+        }
+        Assertions.assertTrue(found, "Sentry must expose a source factory");
+    }
+
+    private final OptionRule optionRule = new SentrySinkFactory().optionRule();
+
+    @Test
     void optionRule() {
-        Assertions.assertNotNull((new SentrySinkFactory()).optionRule());
+        Assertions.assertNotNull(optionRule);
+    }
+
+    @Test
+    void testValidDsn() {
+        Assertions.assertDoesNotThrow(
+                () -> validate(configWithDsn("https://public@example.com/1")));
+    }
+
+    @Test
+    void testEmptyDsnRejected() {
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(configWithDsn("")));
+    }
+
+    @Test
+    void testWhitespaceOnlyDsnRejected() {
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> validate(configWithDsn("   \t")));
+    }
+
+    private void validate(Map<String, Object> config) {
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
+        ConfigValidator.validateUnknownKeys(readonlyConfig, optionRule, "SentrySink");
+        ConfigValidator.of(readonlyConfig).validate(optionRule);
+    }
+
+    private Map<String, Object> configWithDsn(String dsn) {
+        Map<String, Object> config = new HashMap<>();
+        config.put(SentrySinkOptions.DSN.key(), dsn);
+        return config;
     }
 }

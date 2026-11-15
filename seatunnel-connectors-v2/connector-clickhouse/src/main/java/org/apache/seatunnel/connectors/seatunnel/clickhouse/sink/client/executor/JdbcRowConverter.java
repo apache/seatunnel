@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executo
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.ArrayInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.BigDecimalInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.ClickhouseFieldInjectFunction;
@@ -29,11 +30,13 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.FloatInj
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.IntInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.LongInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.MapInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.OffsetDateTimeInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.StringInjectFunction;
 
 import lombok.NonNull;
 
 import java.io.Serializable;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -60,7 +63,35 @@ public class JdbcRowConverter implements Serializable {
         this.projectionFields = projectionFields;
         this.fieldInjectFunctionMap =
                 createFieldInjectFunctionMap(projectionFields, clickhouseTableSchema);
+        for (String field : projectionFields) {
+            if (rowType.getFieldType(rowType.indexOf(field)).getSqlType() == SqlType.TIMESTAMP_TZ
+                    && fieldInjectFunctionMap.get(field) instanceof DateTimeInjectFunction) {
+                fieldInjectFunctionMap.put(
+                        field,
+                        new OffsetDateTimeInjectFunction(
+                                unwrapCommonPrefix(clickhouseTableSchema.get(field))));
+            }
+        }
         this.fieldGetterMap = createFieldGetterMap(projectionFields, rowType);
+    }
+
+    PreparedStatement prepareStatement(Connection connection, String sql, String[] fields)
+            throws SQLException {
+        if (sql.contains("?")
+                && fieldInjectFunctionMap.values().stream()
+                        .anyMatch(OffsetDateTimeInjectFunction.class::isInstance)) {
+            throw new IllegalArgumentException("TIMESTAMP_TZ requires named SQL parameters");
+        }
+        return FieldNamedPreparedStatement.prepareStatement(
+                connection,
+                sql,
+                fields,
+                field -> {
+                    ClickhouseFieldInjectFunction function = fieldInjectFunctionMap.get(field);
+                    return function instanceof OffsetDateTimeInjectFunction
+                            ? ((OffsetDateTimeInjectFunction) function).getParameterExpression()
+                            : "?";
+                });
     }
 
     public PreparedStatement toExternal(SeaTunnelRow row, PreparedStatement statement)

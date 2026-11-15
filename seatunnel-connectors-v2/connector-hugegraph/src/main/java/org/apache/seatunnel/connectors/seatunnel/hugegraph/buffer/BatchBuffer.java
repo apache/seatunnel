@@ -39,16 +39,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
  * Dual-bucket batch buffer that independently accumulates and flushes vertices and edges. Each
- * bucket triggers flush when reaching batch_size; both buckets are flushed on timer, prepareCommit,
- * or close.
+ * bucket triggers flush when reaching batch_size; both buckets are flushed by the engine timer,
+ * prepareCommit, or close.
  *
  * <p>Vertex-before-edge ordering is enforced only when {@code check_vertex} is true — the server
  * then rejects edges whose endpoint vertices do not yet exist, so a filling edge bucket first
@@ -63,11 +59,7 @@ public class BatchBuffer implements AutoCloseable {
     private final List<GraphElementEnvelope> vertexBuffer = new ArrayList<>();
     private final List<GraphElementEnvelope> edgeBuffer = new ArrayList<>();
     private final int batchSize;
-    private final ScheduledExecutorService scheduler;
-    private final ScheduledFuture<?> scheduledFuture;
-
     private volatile boolean closed = false;
-    private volatile Exception flushException;
     private final HugeGraphClient client;
     private final boolean batchFailureFallback;
     private final boolean checkVertex;
@@ -116,6 +108,8 @@ public class BatchBuffer implements AutoCloseable {
             int maxInsertErrors,
             String failureDataPath,
             int subtaskIndex) {
+        // batchIntervalMs remains in the public signature for source compatibility. Timer flush is
+        // registered by HugeGraphSinkWriter with the engine instead of creating a connector thread.
         this.batchSize = batchSize;
         this.client = client;
         this.batchFailureFallback = batchFailureFallback;
@@ -124,35 +118,9 @@ public class BatchBuffer implements AutoCloseable {
         this.failureDataPath = failureDataPath;
         this.subtaskIndex = subtaskIndex;
         this.insertFailureCount = 0;
-
-        if (batchIntervalMs > 0) {
-            this.scheduler =
-                    Executors.newSingleThreadScheduledExecutor(
-                            runnable -> {
-                                Thread thread = new Thread(runnable, "hugegraph-sink-flusher");
-                                thread.setDaemon(true);
-                                return thread;
-                            });
-            this.scheduledFuture =
-                    this.scheduler.scheduleAtFixedRate(
-                            () -> {
-                                try {
-                                    flush();
-                                } catch (Exception e) {
-                                    flushException = e;
-                                }
-                            },
-                            batchIntervalMs,
-                            batchIntervalMs,
-                            TimeUnit.MILLISECONDS);
-        } else {
-            this.scheduler = null;
-            this.scheduledFuture = null;
-        }
     }
 
     public synchronized void add(GraphElementEnvelope envelope) throws IOException {
-        checkFlushException();
         if (closed) {
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.BUFFER_ADD_FAILED,
@@ -199,7 +167,6 @@ public class BatchBuffer implements AutoCloseable {
     }
 
     public synchronized void flush() throws IOException {
-        checkFlushException();
         if (closed && vertexBuffer.isEmpty() && edgeBuffer.isEmpty()) {
             return;
         }
@@ -456,24 +423,9 @@ public class BatchBuffer implements AutoCloseable {
             closed = true;
         }
 
-        if (scheduledFuture != null) {
-            scheduledFuture.cancel(false);
-        }
-        if (scheduler != null) {
-            scheduler.shutdown();
-            try {
-                if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                    scheduler.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                scheduler.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-        }
         LOG.info("Closing BatchBuffer, performing final flush...");
         try {
             flush();
-            checkFlushException();
         } finally {
             closeFailureWriter();
         }
@@ -489,13 +441,6 @@ public class BatchBuffer implements AutoCloseable {
             } finally {
                 failureWriter = null;
             }
-        }
-    }
-
-    private void checkFlushException() {
-        if (flushException != null) {
-            throw new HugeGraphConnectorException(
-                    HugeGraphConnectorErrorCode.ASYNCHRONOUS_FLUSH_FAILED, flushException);
         }
     }
 }

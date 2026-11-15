@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -40,6 +41,11 @@ import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.Cassand
 
 @AutoService(Factory.class)
 public class CassandraSinkFactory implements TableSinkFactory {
+
+    private static final String CONSISTENCY_LEVEL_REGEX =
+            "^(ANY|ONE|TWO|THREE|QUORUM|ALL|LOCAL_QUORUM|EACH_QUORUM|SERIAL|LOCAL_SERIAL|LOCAL_ONE)$";
+    private static final String BATCH_TYPE_REGEX = "^(LOGGED|UNLOGGED|COUNTER)$";
+
     @Override
     public String factoryIdentifier() {
         return "Cassandra";
@@ -48,10 +54,15 @@ public class CassandraSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOST, KEYSPACE, TABLE)
+                .required(HOST, Conditions.notBlank(HOST))
+                .required(KEYSPACE, Conditions.notBlank(KEYSPACE))
+                .required(TABLE, Conditions.notBlank(TABLE))
                 .bundled(USERNAME, PASSWORD)
+                .optional(DATACENTER, FIELDS, BATCH_SIZE, ASYNC_WRITE)
                 .optional(
-                        DATACENTER, CONSISTENCY_LEVEL, FIELDS, BATCH_SIZE, BATCH_TYPE, ASYNC_WRITE)
+                        CONSISTENCY_LEVEL,
+                        Conditions.matches(CONSISTENCY_LEVEL, CONSISTENCY_LEVEL_REGEX))
+                .optional(BATCH_TYPE, Conditions.matches(BATCH_TYPE, BATCH_TYPE_REGEX))
                 .build();
     }
 

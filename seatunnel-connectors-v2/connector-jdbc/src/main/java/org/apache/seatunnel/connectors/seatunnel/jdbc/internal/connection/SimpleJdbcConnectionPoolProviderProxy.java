@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Optional;
 
 @Slf4j
 public class SimpleJdbcConnectionPoolProviderProxy implements JdbcConnectionProvider {
@@ -44,6 +45,13 @@ public class SimpleJdbcConnectionPoolProviderProxy implements JdbcConnectionProv
         return poolManager.getConnection(queueIndex);
     }
 
+    /**
+     * Note that this is not a pure predicate. {@code getConnection} validates the cached connection
+     * and replaces it when it is no longer usable, so calling this can repair the cached connection
+     * as a side effect and then report it valid. That is intended: for a connection held per queue
+     * index there is nothing a caller could usefully do with "invalid" other than ask for a new
+     * one.
+     */
     @Override
     public boolean isConnectionValid() throws SQLException {
         return poolManager.containsConnection(queueIndex)
@@ -71,5 +79,11 @@ public class SimpleJdbcConnectionPoolProviderProxy implements JdbcConnectionProv
     public Connection reestablishConnection() {
         closeConnection();
         return getOrEstablishConnection();
+    }
+
+    /** Writers on one queue index share a connection, so they also share its transaction state. */
+    @Override
+    public Optional<JdbcTransactionStateManager> getTransactionStateManager() {
+        return Optional.of(poolManager.getTransactionStateManager(queueIndex));
     }
 }

@@ -52,6 +52,8 @@ public class MongodbSourceConstants {
 
     public static final String DOCUMENT_KEY = "documentKey";
 
+    public static final String SHARD_KEY_FIELD = "key";
+
     public static final String NS_FIELD = "ns";
 
     public static final String OPERATION_TYPE = "operationType";

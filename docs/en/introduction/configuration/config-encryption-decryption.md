@@ -6,7 +6,7 @@ In most production environments, sensitive configuration items such as passwords
 
 ## How to use
 
-SeaTunnel comes with the function of base64 encryption and decryption, but it is not recommended for production use, it is recommended that users implement custom encryption and decryption logic. You can refer to this chapter [How to implement user-defined encryption and decryption](#How to implement user-defined encryption and decryption) get more details about it.
+SeaTunnel comes with the function of base64 encryption and decryption, but it is not recommended for production use, it is recommended that users implement custom encryption and decryption logic. You can refer to this chapter [How to implement user-defined encryption and decryption](#how-to-implement-user-defined-encryption-and-decryption) get more details about it.
 
 Base64 encryption support encrypt the following parameters by default:
 - username
@@ -18,9 +18,13 @@ Base64 encryption support encrypt the following parameters by default:
 
 And users can add custom parameters to `shade.options` for encryption and decryption.
 
+When SeaTunnel prints parsed configuration to logs, it also masks these options in nested
+configuration paths. The log masking matcher treats `.`, `_`, and `-` as equivalent separators, so
+for example `access.key`, `access_key`, and `access-key` can share the same masking rule.
+
 Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
 
-1. And new option `shade.identifier` and `shade.options` in env block of config file, `shade.identifier` indicate what the encryption method that you want to use, while `shade.options` specifies which parameters should be encrypted/decrypted. In this example, we should add `shade.identifier = base64` in config as the following shown:
+1. Add new option `shade.identifier` and `shade.options` in env block of config file, `shade.identifier` indicate what the encryption method that you want to use, while `shade.options` specifies which parameters should be encrypted/decrypted. In this example, we should add `shade.identifier = base64` in config as the following shown:
 
    ```hocon
    #

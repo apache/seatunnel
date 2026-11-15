@@ -6,21 +6,17 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过 JDBC 读取外部数据源数据。
+通过 JDBC 接口从 Amazon Redshift 读取数据。连接器使用 Redshift JDBC 驱动
+（`com.amazon.redshift.jdbc.Driver`），提交配置的 `query` 获取行结果。
+Redshift 兼容 PostgreSQL，因此连接器可以读取 JDBC 用户有权访问的所有表，
+包括列式 `SUPER` 字段以及标准标量类型。支持通过 `partition_column` 进行并行
+读取，也支持通过 `table_list` 进行多表读取。
 
 ## 支持这些引擎
 
 > Spark<br/>
 > Flink<br/>
 > Seatunnel Zeta<br/>
-
-### 对于 Spark/Flink 引擎
-
-> 1. 您需要确保 [jdbc 驱动程序 jar 包](https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42) 已放置在目录 `${SEATUNNEL_HOME}/plugins/` 中。
-
-### 对于 SeaTunnel Zeta 引擎
-
-> 1. 您需要确保 [jdbc 驱动程序 jar 包](https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42) 已放置在目录 `${SEATUNNEL_HOME}/lib/` 中。
 
 ## 关键特性
 
@@ -32,11 +28,42 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 > 支持查询 SQL 并可以实现投影效果。
 
+## 数据源依赖
+
+### 对于 Spark/Flink 引擎
+
+> 1. 您需要确保 [jdbc 驱动程序 jar 包](https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42) 已放置在目录 `${SEATUNNEL_HOME}/plugins/` 中。
+
+### 对于 SeaTunnel Zeta 引擎
+
+> 1. 您需要确保 [jdbc 驱动程序 jar 包](https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42) 已放置在目录 `${SEATUNNEL_HOME}/lib/` 中。
+
 ## 支持的数据源列表
 
 | 数据源 | 支持的版本 | 驱动 | 连接串 | Maven |
 |--------|-----------|------|--------|-------|
 | redshift | 不同的依赖版本有不同的驱动类 | com.amazon.redshift.jdbc.Driver | jdbc:redshift://localhost:5439/database | [下载](https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42) |
+
+## 源选项
+
+| 名称 | 类型 | 是否必填 | 默认值 | 描述 |
+| --- | --- | --- | --- | --- |
+| url | String | 是 | - | JDBC 连接 URL，例如 `jdbc:redshift://localhost:5439/database`。 |
+| driver | String | 是 | - | 用于连接 Redshift 的 JDBC 类名，固定为 `com.amazon.redshift.jdbc.Driver`。 |
+| username | String | 否 | - | 连接实例的用户名。 |
+| password | String | 否 | - | 连接实例的密码。 |
+| query | String | 否 | - | SELECT 语句。与 `table_path`/`table_list` 配合使用，查询的列列表决定输出 schema。 |
+| table_path | String | 否 | - | 要读取的完整表名，例如 `public.table2`。单表读取时可直接使用。 |
+| table_list | Array | 否 | - | 要读取的表列表，每一项可以覆盖 `table_path` 和 `query`。用于开启多表读取与自动分片。 |
+| connection_check_timeout_sec | Int | 否 | 30 | 用于校验连接的数据库操作超时时间，单位秒。 |
+| partition_column | String | 否 | - | 用于并行读取的拆分列。支持数值、字符串和日期类型的列；只能配置一列。 |
+| partition_lower_bound | String | 否 | - | `partition_column` 的最小扫描值。未配置时连接器从数据库中查询最小值。 |
+| partition_upper_bound | String | 否 | - | `partition_column` 的最大扫描值。未配置时连接器从数据库中查询最大值。 |
+| partition_num | Int | 否 | 10 | 分片数量，仅支持正整数，默认值为 10。 |
+| fetch_size | Int | 否 | 0 | 大结果集查询时的 JDBC 拉取行数，`0` 表示使用驱动默认。 |
+| where_condition | String | 否 | - | 对所有表/查询生效的统一行过滤条件，必须以 `where` 开头，例如 `where id > 100`。 |
+| split.size | Int | 否 | 8096 | 使用 `table_path` 或 `table_list` 时自动分片的行数。 |
+| common-options |  | 否 | - | 源插件通用参数，详情请参考 [Source 通用选项](../common-options/source-common-options.md)。 |
 
 ## 数据库依赖
 
@@ -50,14 +77,15 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | SMALLINT<br />INT2 | SHORT |
 | INTEGER<br />INT<br />INT4 | INT |
 | BIGINT<br />INT8<br />OID | LONG |
-| DECIMAL<br />NUMERIC | DECIMAL |
+| DECIMAL<br />NUMERIC | DECIMAL(precision, scale) |
 | REAL<br />FLOAT4 | FLOAT |
 | DOUBLE_PRECISION<br />FLOAT8<br />FLOAT | DOUBLE |
 | BOOLEAN<br />BOOL | BOOLEAN |
 | CHAR<br />CHARACTER<br />NCHAR<br />BPCHAR<br />VARCHAR<br />CHARACTER_VARYING<br />NVARCHAR<br />TEXT<br />SUPER | STRING |
 | VARBYTE<br />BINARY_VARYING | BYTES |
 | TIME<br />TIME_WITH_TIME_ZONE<br />TIMETZ | LOCALTIME |
-| TIMESTAMP<br />TIMESTAMP_WITH_OUT_TIME_ZONE<br />TIMESTAMPTZ | LOCALDATETIME |
+| TIMESTAMP<br />TIMESTAMP_WITH_OUT_TIME_ZONE | LOCALDATETIME |
+| TIMESTAMPTZ | TIMESTAMP_TZ |
 
 ## 示例
 

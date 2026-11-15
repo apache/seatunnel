@@ -21,9 +21,11 @@ import org.apache.seatunnel.api.common.error.RowErrorClassification;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -38,10 +40,13 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class SQLTransformTest {
 
@@ -91,6 +96,40 @@ public class SQLTransformTest {
                         getCatalogTable());
         TableSchema tableSchema = sqlTransform.transformTableSchema();
         Assertions.assertEquals(4, tableSchema.getColumns().size());
+    }
+
+    @Test
+    void testRestoreSchemaEventRebuildsProducedSchema() {
+        CatalogTable initialTable = getCatalogTable();
+        SQLTransform sqlTransform =
+                new SQLTransform(
+                        ReadonlyConfig.fromMap(
+                                Collections.singletonMap("query", "select * from dual")),
+                        initialTable);
+        CatalogTable restoredTable =
+                CatalogTable.of(
+                        initialTable.getTableId(),
+                        TableSchema.builder()
+                                .columns(initialTable.getTableSchema().getColumns())
+                                .column(
+                                        PhysicalColumn.of(
+                                                "email",
+                                                BasicType.STRING_TYPE,
+                                                128L,
+                                                true,
+                                                null,
+                                                null))
+                                .build(),
+                        initialTable.getOptions(),
+                        initialTable.getPartitionKeys(),
+                        initialTable.getComment());
+
+        RestoreTableSchemaEvent event = new RestoreTableSchemaEvent(restoredTable);
+        sqlTransform.mapSchemaChangeEvent(event);
+
+        Assertions.assertEquals(5, event.getChangeAfter().getTableSchema().getColumns().size());
+        Assertions.assertEquals(
+                "email", event.getChangeAfter().getTableSchema().getFieldNames()[4]);
     }
 
     @Test
@@ -1199,5 +1238,29 @@ public class SQLTransformTest {
         // age = -1 -> ARRAY(-1,1,2) but filtered out by age >= 0
         result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {-1}));
         Assertions.assertNull(result);
+    }
+
+    @Test
+    public void testEngineOptionValueIsLocaleIndependent() {
+        Locale original = Locale.getDefault();
+        try {
+            // In tr-TR "internal".toUpperCase() is "\u0130NTERNAL", which EngineType.valueOf
+            // rejects.
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+
+            HashMap<String, Object> options = new HashMap<>();
+            options.put("query", "select id, name, age from dual");
+            options.put("engine", "internal");
+
+            SQLTransform sqlTransform =
+                    new SQLTransform(ReadonlyConfig.fromMap(options), getCatalogTable());
+            Assertions.assertEquals(
+                    Arrays.asList("id", "name", "age"),
+                    sqlTransform.transformTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .collect(Collectors.toList()));
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }

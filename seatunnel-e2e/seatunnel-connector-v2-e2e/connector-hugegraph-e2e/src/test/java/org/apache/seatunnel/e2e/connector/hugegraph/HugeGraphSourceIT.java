@@ -27,6 +27,7 @@ import org.apache.hugegraph.structure.constant.IdStrategy;
 import org.apache.hugegraph.structure.graph.Edge;
 import org.apache.hugegraph.structure.graph.Vertex;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -231,7 +232,16 @@ public class HugeGraphSourceIT extends TestSuiteBase implements TestResource {
     }
 
     private void clearGraphWithoutSchema() {
-        hugeClient.graphs().clearGraph(GRAPH_NAME, "I'm sure to delete all data");
+        // The server can close its REST connection while completing a previous graph mutation.
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(Duration.ofSeconds(2))
+                .atMost(Duration.ofMinutes(2))
+                .untilAsserted(
+                        () ->
+                                hugeClient
+                                        .graphs()
+                                        .clearGraph(GRAPH_NAME, "I'm sure to delete all data"));
     }
 
     private void setupSchema() {

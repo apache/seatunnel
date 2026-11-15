@@ -46,10 +46,19 @@ public class ProtoStuffSerializer implements Serializer {
     /** At the moment it looks like we only have one Schema. */
     private static final Map<Class<?>, Schema<?>> SCHEMA_CACHE = new ConcurrentHashMap<>();
 
+    static {
+        // Configure null preservation once, before creating the first runtime schema.
+        System.setProperty("protostuff.runtime.preserve_null_elements", "true");
+    }
+
     @SuppressWarnings("unchecked")
     private static <T> Schema<T> getSchema(Class<T> clazz) {
-        System.setProperty("protostuff.runtime.preserve_null_elements", "true");
-        return (Schema<T>) SCHEMA_CACHE.computeIfAbsent(clazz, RuntimeSchema::createFrom);
+        // Return cached schemas directly, using computeIfAbsent only on cache misses.
+        Schema<?> schema = SCHEMA_CACHE.get(clazz);
+        if (schema == null) {
+            return (Schema<T>) SCHEMA_CACHE.computeIfAbsent(clazz, RuntimeSchema::createFrom);
+        }
+        return (Schema<T>) schema;
     }
 
     private static final Set<Class<?>> WRAPPERS = new HashSet<>();

@@ -191,6 +191,15 @@ public class ServerConfigOptions {
         // The options about Hazelcast IMAP store end
         /////////////////////////////////////////////////
 
+        public static final Option<Integer> HEALTH_METRICS_TIMEOUT_SECONDS =
+                Options.key("health-metrics-timeout-seconds")
+                        .intType()
+                        .defaultValue(3)
+                        .withDescription(
+                                "The shared deadline (in seconds) for collecting health metrics from all cluster members "
+                                        + "for the system-monitoring-information REST API. Members that do not answer in time "
+                                        + "are reported with a timeout marker instead of blocking the response.");
+
         /////////////////////////////////////////////////
         // The options for checkpoint start
         public static final Option<Integer> CHECKPOINT_INTERVAL =
@@ -205,6 +214,45 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(30000)
                         .withDescription("The timeout (in milliseconds) for a checkpoint.");
+
+        /**
+         * Upper bound for {@link #CHECKPOINT_MONITOR_HISTORY_SIZE}. The history lives in the
+         * cluster-wide checkpoint overview IMap, whose whole value is re-serialised on every
+         * checkpoint event, so an unbounded value would multiply master CPU, replication and
+         * listener traffic rather than just heap. A few thousand entries is far beyond any useful
+         * comparison window while staying well clear of that cost.
+         */
+        public static final int MAX_CHECKPOINT_MONITOR_HISTORY_SIZE = 4096;
+
+        /**
+         * Above this, {@link #CHECKPOINT_MONITOR_HISTORY_SIZE} is legal but worth a word at
+         * startup. The hard cap stops the pathological case; this catches the merely expensive one,
+         * where an operator has chosen a window large enough to be felt on a cluster with many
+         * pipelines or a short checkpoint interval. A warning rather than a rejection, because
+         * whether the cost is acceptable depends on the cluster, not on the number.
+         */
+        public static final int CHECKPOINT_MONITOR_HISTORY_SIZE_WARN_THRESHOLD = 256;
+
+        public static final Option<Integer> CHECKPOINT_MONITOR_HISTORY_SIZE =
+                Options.key("monitor-history-size")
+                        .intType()
+                        .defaultValue(32)
+                        .withDescription(
+                                "How many checkpoint history entries the monitor keeps per pipeline "
+                                        + "for the /jobs/checkpoints endpoint. Completed and failed "
+                                        + "checkpoints share the window. This is a count, not a "
+                                        + "duration: how much time it covers depends on each job's "
+                                        + "own checkpoint.interval, while this option is "
+                                        + "cluster-wide, so the same value covers about 2.5 hours at "
+                                        + "the default interval of 300000ms but only about 5 minutes "
+                                        + "at an interval of 10000ms. The history is stored in the "
+                                        + "cluster-wide checkpoint overview map, and every "
+                                        + "checkpoint event rewrites the whole overview entry, so a "
+                                        + "larger window costs master CPU, network and backup "
+                                        + "traffic as well as heap. Read once at master startup, so "
+                                        + "a change needs a restart. Must be between 1 and "
+                                        + MAX_CHECKPOINT_MONITOR_HISTORY_SIZE
+                                        + ".");
 
         public static final Option<Integer> CHECKPOINT_MIN_PAUSE =
                 Options.key("min-pause")
@@ -373,6 +421,27 @@ public class ServerConfigOptions {
                         .stringType()
                         .defaultValue("admin")
                         .withDescription("The password for basic authentication.");
+
+        public static final Option<Integer> UPLOAD_MAX_FILE_SIZE_MB =
+                Options.key("upload-max-file-size-mb")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription(
+                                "The maximum size in MB of a single file uploaded to the http server. A value <= 0 means unlimited.");
+
+        public static final Option<Integer> UPLOAD_MAX_REQUEST_SIZE_MB =
+                Options.key("upload-max-request-size-mb")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription(
+                                "The maximum total size in MB of a multipart request sent to the http server. A value <= 0 means unlimited.");
+
+        public static final Option<Integer> LOG_RESPONSE_MAX_SIZE_MB =
+                Options.key("log-response-max-size-mb")
+                        .intType()
+                        .defaultValue(64)
+                        .withDescription(
+                                "The maximum size in MB of a log file returned by the log endpoints. Larger files are truncated to their last log-response-max-size-mb of content. A value <= 0 means unlimited.");
 
         public static final Option<HttpConfig> HTTP =
                 Options.key("http")

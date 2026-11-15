@@ -59,14 +59,17 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     public AssertSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
-        if (!pluginConfig.getOptional(RULES).isPresent()) {
-            Throwables.throwIfUnchecked(new ConfigException.Missing(RULES.key()));
-        }
         assertFieldRules = new ConcurrentHashMap<>();
         assertRowRules = new ConcurrentHashMap<>();
         assertCatalogTableRule = new ConcurrentHashMap<>();
         catalogTableName = catalogTable.getTablePath().getFullName();
-        Config ruleConfig = ConfigFactory.parseMap(pluginConfig.get(RULES));
+
+        // Factory validation rejects missing rules; keep a safeguard for direct construction.
+        Map<String, Object> rules = pluginConfig.get(RULES);
+        if (rules == null) {
+            throw new ConfigException.Missing(RULES.key());
+        }
+        Config ruleConfig = ConfigFactory.parseMap(rules);
         if (ruleConfig.hasPath(ConnectorCommonOptions.TABLE_CONFIGS.key())) {
             List<? extends Config> tableConfigs =
                     ruleConfig.getConfigList(ConnectorCommonOptions.TABLE_CONFIGS.key());

@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
@@ -112,15 +113,12 @@ public class ShardRouter implements Serializable {
             return shards.lowerEntry(threadLocalRandom.nextInt(shardWeightCount) + 1).getValue();
         }
         int offset =
-                (int)
-                        ((HASH_INSTANCE.hash(
-                                                ByteBuffer.wrap(
-                                                        shardValue
-                                                                .toString()
-                                                                .getBytes(StandardCharsets.UTF_8)),
-                                                0)
-                                        & Long.MAX_VALUE)
-                                % shardWeightCount);
+                HashUtils.bucketIndex(
+                        HASH_INSTANCE.hash(
+                                ByteBuffer.wrap(
+                                        shardValue.toString().getBytes(StandardCharsets.UTF_8)),
+                                0),
+                        shardWeightCount);
         return shards.lowerEntry(offset + 1).getValue();
     }
 

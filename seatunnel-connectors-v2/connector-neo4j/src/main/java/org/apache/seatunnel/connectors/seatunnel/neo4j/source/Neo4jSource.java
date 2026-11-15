@@ -21,12 +21,12 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceQueryInfo;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -35,14 +35,28 @@ import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSource
 public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow>
         implements SupportColumnProjection {
 
-    private final CatalogTable catalogTable;
+    private final List<CatalogTable> catalogTables;
     private final Neo4jSourceQueryInfo neo4jSourceQueryInfo;
-    private final SeaTunnelRowType rowType;
+    private final List<Neo4jSourceTableConfig> tableConfigs;
 
     public Neo4jSource(CatalogTable catalogTable, Neo4jSourceQueryInfo neo4jSourceQueryInfo) {
-        this.catalogTable = catalogTable;
+        this.catalogTables = Collections.singletonList(catalogTable);
         this.neo4jSourceQueryInfo = neo4jSourceQueryInfo;
-        this.rowType = catalogTable.getSeaTunnelRowType();
+        this.tableConfigs =
+                Collections.singletonList(
+                        new Neo4jSourceTableConfig(
+                                neo4jSourceQueryInfo.getQuery(),
+                                catalogTable.getSeaTunnelRowType(),
+                                null));
+    }
+
+    Neo4jSource(
+            List<CatalogTable> catalogTables,
+            Neo4jSourceQueryInfo neo4jSourceQueryInfo,
+            List<Neo4jSourceTableConfig> tableConfigs) {
+        this.catalogTables = Collections.unmodifiableList(new ArrayList<>(catalogTables));
+        this.neo4jSourceQueryInfo = neo4jSourceQueryInfo;
+        this.tableConfigs = Collections.unmodifiableList(new ArrayList<>(tableConfigs));
     }
 
     @Override
@@ -57,12 +71,12 @@ public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow>
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+        return catalogTables;
     }
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
             SingleSplitReaderContext readerContext) throws Exception {
-        return new Neo4jSourceReader(readerContext, neo4jSourceQueryInfo, rowType);
+        return new Neo4jSourceReader(readerContext, neo4jSourceQueryInfo, tableConfigs);
     }
 }

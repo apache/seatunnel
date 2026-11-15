@@ -24,7 +24,7 @@ This connector supports writing data as vertices or edges, providing flexible ma
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-The connector writes rows as either vertices or edges. It supports insert, update, and delete row kinds, and it can flush buffered records by `batch_size` or `batch_interval_ms`.
+The connector writes rows as either vertices or edges. It supports insert, update, and delete row kinds, and it flushes buffered records by `batch_size`, checkpoint, or close.
 
 :::caution
 
@@ -44,9 +44,9 @@ New `mappings` configurations default to `schema_save_mode = CREATE_SCHEMA_WHEN_
 | `username`          | String  | No       | -             | The username for HugeGraph authentication.                                     |
 | `password`          | String  | No       | -             | The password for HugeGraph authentication.                                     |
 | `batch_size`        | Integer | No       | 500           | The number of records to buffer before writing to HugeGraph in a single batch. |
-| `batch_interval_ms` | Integer | No       | 5000          | The maximum time in milliseconds to wait before flushing a batch.              |
-| `batch_failure_fallback` | Boolean | No  | true          | When a batch insert fails, fall back to inserting the batch record by record so a single bad ("poison") record no longer fails the whole batch. Failed records are logged and skipped; the rest succeed. If every record fails (systemic error), it is surfaced. Set to `false` to fail the whole batch instead. |
-| `max_insert_errors` | Integer | No       | 500           | Maximum number of records that may be skipped by the single-record fallback (`batch_failure_fallback=true`) before the task is failed. Bounds the otherwise unlimited silent skipping of poison records. Set to `-1` for unlimited. Only applies when `batch_failure_fallback` is enabled. |
+| `batch_interval_ms` | Integer | No       | 5000          | Retained for compatibility. To schedule timer flush on Zeta, configure `sink.flush.interval` in the job `env` block. |
+| `batch_failure_fallback` | Boolean | No  | false         | When a batch insert fails, fall back to inserting the batch record by record so a single bad ("poison") record no longer fails the whole batch. Failed records are logged and skipped; the rest succeed. If every record fails (systemic error), it is surfaced. Set to `false` to fail the whole batch instead. |
+| `max_insert_errors` | Integer | No       | 0             | Maximum number of records that may be skipped by the single-record fallback (`batch_failure_fallback=true`) before the task is failed. Default `0`: any skipped record fails the task. Set to `-1` for unlimited. Only applies when `batch_failure_fallback` is enabled. |
 | `failure_data_path` | String  | No       | -             | Optional local directory. When set, every record skipped by the single-record fallback is appended (mapped id, label, properties and the server error) to a per-subtask file (`hugegraph-sink-failures-subtask-N.log`) for offline investigation. In cluster mode the file is created on the worker node running the sink subtask. |
 | `check_vertex`      | Boolean | No       | false         | Whether the server verifies that an edge's source/target vertices exist when writing edges. When `false`, edges whose endpoints were never loaded are written as orphan edges (or trigger server-side phantom vertex auto-creation). Enable to reject such edges. |
 | `max_retries`       | Integer | No       | 3             | Retries after the initial attempt. Set to `0` to disable retries.               |
@@ -61,11 +61,24 @@ New `mappings` configurations default to `schema_save_mode = CREATE_SCHEMA_WHEN_
 | `schema_save_mode`         | Enum    | No       | `CREATE_SCHEMA_WHEN_NOT_EXIST` for `mappings`; `ERROR_WHEN_SCHEMA_NOT_EXIST` for legacy `schema_config` | Schema management mode. |
 | `data_save_mode`           | Enum    | No       | `APPEND_DATA` | How pre-existing data is handled before writing. `APPEND_DATA` keeps existing data. `DROP_DATA` deletes, once at job start, only the data of the labels this job targets (edges then vertices), preserving their schema and any other labels' data; the drop is scoped per label (so one table's drop does not wipe another) and is not re-run on checkpoint restart. |
 | `delete_vertex_with_edges` | Boolean | No       | `false` for `mappings`; `true` for legacy `schema_config` | When true, DELETE rows for vertices also delete associated edges. |
+| `allow_cascade_delete_unmapped_edges` | Boolean | No | `false` | When `data_save_mode = DROP_DATA`, dropping vertices cascades to their incident edges — including edge labels not listed in this job's `mappings`. Default `false`: the job fails fast and lists the unmapped edge labels. Set to `true` to accept the destructive cascade. |
 | `schema_config`            | Object  | No       | -             | Deprecated legacy mapping object. Use `mappings` instead. Either `mappings` or `schema_config` must be specified. |
 | `selected_fields`          | List    | No       | -             | Deprecated. Still honored with legacy `schema_config`; use mapping `properties` for new jobs. |
 | `ignored_fields`           | List    | No       | -             | Deprecated. Still honored with legacy `schema_config`; use mapping `properties` for new jobs. |
 
 If both `mappings` and `schema_config` are configured, `mappings` wins and `schema_config` is ignored with a warning.
+
+## Timer Flush
+
+Timer flush is an engine-level feature supported only by Zeta. Configure `sink.flush.interval` in the job `env` block to write pending HugeGraph records even when `batch_size` has not been reached. Spark and Flink do not inject `FlushSignal` records and therefore do not trigger this scheduled flush.
+
+```hocon
+env {
+  sink.flush.interval = 5000
+}
+```
+
+HugeGraph timer flush reuses the connector's synchronized batch flush. Failures are propagated to the engine instead of being delayed in a connector-owned background thread.
 
 ### Mapping Configuration (`mappings`)
 

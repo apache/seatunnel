@@ -34,6 +34,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class StringFunctionTest {
 
@@ -320,6 +321,32 @@ public class StringFunctionTest {
     }
 
     @Test
+    public void testMd5WithBytesInput() {
+        List<Object> args = new ArrayList<>();
+        args.add("abc".getBytes(StandardCharsets.UTF_8));
+        Assertions.assertEquals("900150983cd24fb0d6963f7d28e17f72", StringFunction.md5(args));
+    }
+
+    @Test
+    public void testMd5RejectsArrayInput() {
+        // SeaTunnel ARRAY<BYTE> columns are boxed Byte[] at runtime, which must not silently be
+        // hashed as their JVM identity string
+        List<Object> args = new ArrayList<>();
+        args.add(new Byte[] {97, 98, 99});
+        IllegalArgumentException boxedArray =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class, () -> StringFunction.md5(args));
+        Assertions.assertEquals(
+                "MD5 expects a scalar string or binary argument, unsupported array type: "
+                        + "[Ljava.lang.Byte;",
+                boxedArray.getMessage());
+
+        args.clear();
+        args.add(new String[] {"a", "b"});
+        Assertions.assertThrows(IllegalArgumentException.class, () -> StringFunction.md5(args));
+    }
+
+    @Test
     public void testToBase64BytesInputRejectsCharset() {
         IllegalArgumentException bytesWithCharset =
                 Assertions.assertThrows(
@@ -424,6 +451,19 @@ public class StringFunctionTest {
         args.add(null);
         Assertions.assertNull(StringFunction.lower(args));
         Assertions.assertNull(StringFunction.upper(args));
+    }
+
+    @Test
+    public void testLowerAndUpperAreLocaleIndependent() {
+        Locale originalLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+
+            Assertions.assertEquals("i", StringFunction.lower(Collections.singletonList("I")));
+            Assertions.assertEquals("I", StringFunction.upper(Collections.singletonList("i")));
+        } finally {
+            Locale.setDefault(originalLocale);
+        }
     }
 
     @Test

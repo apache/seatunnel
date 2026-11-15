@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.source;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -31,6 +32,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
+import org.apache.seatunnel.format.avro.AvroFormatOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -48,9 +50,14 @@ public class PulsarSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(
                         PulsarSourceOptions.CLIENT_SERVICE_URL,
-                        PulsarSourceOptions.ADMIN_SERVICE_URL)
+                        Conditions.notBlank(PulsarSourceOptions.CLIENT_SERVICE_URL))
+                .required(
+                        PulsarSourceOptions.ADMIN_SERVICE_URL,
+                        Conditions.notBlank(PulsarSourceOptions.ADMIN_SERVICE_URL))
                 .optional(
                         PulsarSourceOptions.SUBSCRIPTION_NAME,
+                        Conditions.notBlank(PulsarSourceOptions.SUBSCRIPTION_NAME))
+                .optional(
                         PulsarSourceOptions.CURSOR_STARTUP_MODE,
                         PulsarSourceOptions.CURSOR_STOP_MODE,
                         PulsarSourceOptions.TOPIC_DISCOVERY_INTERVAL,
@@ -58,7 +65,8 @@ public class PulsarSourceFactory implements TableSourceFactory {
                         PulsarSourceOptions.POLL_INTERVAL,
                         PulsarSourceOptions.POLL_BATCH_SIZE,
                         PulsarSourceOptions.FORMAT,
-                        PulsarSourceOptions.SCHEMA)
+                        PulsarSourceOptions.SCHEMA,
+                        AvroFormatOptions.AVRO_ROW_NULLABLE)
                 .exclusive(
                         PulsarSourceOptions.TOPIC,
                         PulsarSourceOptions.TOPIC_PATTERN,

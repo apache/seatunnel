@@ -19,9 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
 // TODO: more field
 
-import org.apache.pulsar.shade.com.google.common.base.Preconditions;
-import org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils;
-
 import java.io.Serializable;
 
 public class PulsarConsumerConfig implements Serializable {
@@ -52,9 +49,6 @@ public class PulsarConsumerConfig implements Serializable {
         }
 
         public PulsarConsumerConfig build() {
-            Preconditions.checkArgument(
-                    StringUtils.isNotBlank(subscriptionName),
-                    "Pulsar subscription name is required.");
             return new PulsarConsumerConfig(subscriptionName);
         }
     }

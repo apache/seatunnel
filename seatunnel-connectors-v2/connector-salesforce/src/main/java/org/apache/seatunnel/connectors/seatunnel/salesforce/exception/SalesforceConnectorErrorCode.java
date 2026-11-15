@@ -26,7 +26,8 @@ public enum SalesforceConnectorErrorCode implements SeaTunnelErrorCode {
     BULK_JOB_FAILED("SALESFORCE-04", "Salesforce Bulk API query job failed or was aborted"),
     BULK_RESULTS_FAILED("SALESFORCE-05", "Failed to retrieve Salesforce Bulk API job results"),
     INVALID_TABLE_PATH("SALESFORCE-06", "Invalid table_path; expected format: database.ObjectName"),
-    DUPLICATE_OBJECT("SALESFORCE-07", "Duplicate object found in tables_configs");
+    DUPLICATE_OBJECT("SALESFORCE-07", "Duplicate object found in tables_configs"),
+    WRITE_FAILED("SALESFORCE-08", "Failed to upsert Salesforce records");
 
     private final String code;
     private final String description;

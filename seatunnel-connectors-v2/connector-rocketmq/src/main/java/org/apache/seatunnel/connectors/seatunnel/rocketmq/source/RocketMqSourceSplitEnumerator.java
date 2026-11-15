@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Sets;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqAdminUtil;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorErrorCode;
@@ -135,7 +136,7 @@ public class RocketMqSourceSplitEnumerator
     }
 
     private static int getSplitOwner(MessageQueue messageQueue, int numReaders) {
-        int startIndex = ((messageQueue.getQueueId() * 31) & 0x7FFFFFFF) % numReaders;
+        int startIndex = HashUtils.bucketIndex(messageQueue.getQueueId() * 31, numReaders);
         return (startIndex + messageQueue.getQueueId()) % numReaders;
     }
 

@@ -19,101 +19,108 @@ package org.apache.seatunnel.connectors.seatunnel.openmldb.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbParameters;
-import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbSqlExecutor;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.exception.OpenMldbConnectorException;
 
-import com._4paradigm.openmldb.sdk.impl.SqlClusterExecutor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.sql.Date;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @Slf4j
 public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-    private final OpenMldbParameters openMldbParameters;
-    private final SeaTunnelRowType seaTunnelRowType;
+    private final List<OpenMldbParameters> tableParameters;
+    private final List<SeaTunnelRowType> rowTypes;
+    private final List<String> tableIds;
     private final SingleSplitReaderContext readerContext;
+    private OpenMldbReadClient client;
+    private boolean finished;
 
     public OpenMldbSourceReader(
             OpenMldbParameters openMldbParameters,
             SeaTunnelRowType seaTunnelRowType,
             SingleSplitReaderContext readerContext) {
-        this.openMldbParameters = openMldbParameters;
-        this.seaTunnelRowType = seaTunnelRowType;
+        this.tableParameters = Collections.singletonList(openMldbParameters);
+        this.rowTypes = Collections.singletonList(seaTunnelRowType);
+        this.tableIds = Collections.singletonList(null);
+        this.readerContext = readerContext;
+    }
+
+    OpenMldbSourceReader(
+            List<OpenMldbParameters> tableParameters,
+            List<CatalogTable> catalogTables,
+            boolean multiTable,
+            SingleSplitReaderContext readerContext) {
+        this.tableParameters = new ArrayList<>(tableParameters);
+        this.rowTypes = new ArrayList<>();
+        this.tableIds = new ArrayList<>();
+        for (CatalogTable table : catalogTables) {
+            rowTypes.add(table.getSeaTunnelRowType());
+            tableIds.add(multiTable ? table.getTableId().toTablePath().toString() : null);
+        }
         this.readerContext = readerContext;
     }
 
     @Override
     public void open() throws Exception {
-        OpenMldbSqlExecutor.initSdkOption(openMldbParameters);
+        client = new OpenMldbReadClient(tableParameters.get(0));
     }
 
     @Override
     public void close() throws IOException {
-        OpenMldbSqlExecutor.close();
+        if (client != null) {
+            client.close();
+            client = null;
+        }
     }
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        int totalFields = seaTunnelRowType.getTotalFields();
-        Object[] objects = new Object[totalFields];
-        SqlClusterExecutor sqlExecutor = OpenMldbSqlExecutor.getSqlExecutor();
-        try (ResultSet resultSet =
-                sqlExecutor.executeSQL(
-                        openMldbParameters.getDatabase(), openMldbParameters.getSql())) {
-            while (resultSet.next()) {
-                for (int i = 0; i < totalFields; i++) {
-                    objects[i] = getObject(resultSet, i, seaTunnelRowType.getFieldType(i));
-                }
-                output.collect(new SeaTunnelRow(objects));
-            }
-        } finally {
-            if (Boundedness.BOUNDED.equals(readerContext.getBoundedness())) {
-                // signal to the source that we have reached the end of the data.
-                log.info("Closed the bounded openmldb source");
-                readerContext.signalNoMoreElement();
-            }
+        if (finished) {
+            return;
+        }
+        for (int i = 0; i < tableParameters.size(); i++) {
+            readTable(output, tableParameters.get(i), rowTypes.get(i), tableIds.get(i));
+        }
+        if (Boundedness.BOUNDED.equals(readerContext.getBoundedness())) {
+            finished = true;
+            log.info("Finished reading the bounded OpenMldb source");
+            readerContext.signalNoMoreElement();
         }
     }
 
-    private Object getObject(ResultSet resultSet, int index, SeaTunnelDataType<?> dataType)
+    private void readTable(
+            Collector<SeaTunnelRow> output,
+            OpenMldbParameters parameters,
+            SeaTunnelRowType rowType,
+            String tableId)
             throws SQLException {
-        index = index + 1;
-        switch (dataType.getSqlType()) {
-            case BOOLEAN:
-                return resultSet.getBoolean(index);
-            case INT:
-                return resultSet.getInt(index);
-            case SMALLINT:
-                return resultSet.getShort(index);
-            case BIGINT:
-                return resultSet.getLong(index);
-            case FLOAT:
-                return resultSet.getFloat(index);
-            case DOUBLE:
-                return resultSet.getDouble(index);
-            case STRING:
-                return resultSet.getString(index);
-            case DATE:
-                Date date = resultSet.getDate(index);
-                return date.toLocalDate();
-            case TIMESTAMP:
-                Timestamp timestamp = resultSet.getTimestamp(index);
-                return timestamp.toLocalDateTime();
-            default:
-                throw new OpenMldbConnectorException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported this data type");
+        try (OpenMldbReadClient.Query query =
+                client.execute(
+                        parameters.getDatabase(), parameters.getSql(), rowType, tableId != null)) {
+            while (query.next()) {
+                SeaTunnelRow row = query.readRow();
+                if (tableId != null) {
+                    row.setTableId(tableId);
+                }
+                output.collect(row);
+            }
+        } catch (SQLException | RuntimeException e) {
+            throw new OpenMldbConnectorException(
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
+                    "Failed to read OpenMldb table '"
+                            + (tableId == null ? parameters.getDatabase() : tableId)
+                            + "'",
+                    e);
         }
     }
 }

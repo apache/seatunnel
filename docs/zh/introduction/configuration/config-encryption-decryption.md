@@ -18,10 +18,12 @@ Base64编码默认支持加密以下参数：
 
 用户也可以在 `shade.options` 指定要用于加解密的参数.
 
+当 SeaTunnel 将解析后的配置打印到日志时，也会在嵌套配置路径中对这些参数做脱敏展示。日志脱敏匹配会将
+`.`、`_` 和 `-` 视为等价分隔符，因此 `access.key`、`access_key` 和 `access-key` 可以复用同一条脱敏规则。
+
 接下来，将展示如何快速使用 SeaTunnel 自带的 `base64` 加密功能：
 
-1. 在配置文件的环境变量（env）部分新增了选项 `shade.identifier` 和 `shade.options`。`shade.identifier`用于表示您想要使用的加密方法，`shade.options`用于指定您想加解密的参数。
-   2. 在这个示例中，我们在配置文件中添加了 `shade.identifier = base64`，如下所示：
+1. 在配置文件的环境变量（env）部分新增了选项 `shade.identifier` 和 `shade.options`。`shade.identifier`用于表示您想要使用的加密方法，`shade.options`用于指定您想加解密的参数。在这个示例中，我们在配置文件中添加了 `shade.identifier = base64`，如下所示：
 
       ```hocon
       #
@@ -44,7 +46,7 @@ Base64编码默认支持加密以下参数：
       env {
         parallelism = 1
         shade.identifier = "base64"
-        shade.options = ["username", "password", "f1", "config.f1", "config2.list"]
+        shade.options = ["username", "password", "f1", "config1.f1", "config2.list"]
       }
 
       source {
@@ -84,7 +86,7 @@ Base64编码默认支持加密以下参数：
         }
       }
       ```
-3. 通过Shell脚本调用不同的计算引擎来对配置文件进行加密操作。在本示例中，我们使用 Zeta 引擎对配置文件进行加密。
+2. 通过Shell脚本调用不同的计算引擎来对配置文件进行加密操作。在本示例中，我们使用 Zeta 引擎对配置文件进行加密。
 
    ```shell
    ${SEATUNNEL_HOME}/bin/seatunnel.sh --config config/v2.batch.template --encrypt
@@ -132,7 +134,7 @@ Base64编码默认支持加密以下参数：
        ]
    }
    ```
-4. 当然，不仅支持加密配置文件，还支持对配置文件的解密。如果用户想要查看解密后的配置文件，可以执行以下命令：
+3. 当然，不仅支持加密配置文件，还支持对配置文件的解密。如果用户想要查看解密后的配置文件，可以执行以下命令：
 
    ```shell
    ${SEATUNNEL_HOME}/bin/seatunnel.sh --config config/v2.batch.template --decrypt

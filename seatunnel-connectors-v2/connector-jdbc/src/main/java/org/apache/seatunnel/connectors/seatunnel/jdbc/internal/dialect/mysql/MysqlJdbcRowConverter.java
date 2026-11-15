@@ -19,8 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,10 +35,22 @@ public class MysqlJdbcRowConverter extends AbstractJdbcRowConverter {
     }
 
     @Override
+    protected LocalTime readTime(ResultSet rs, int resultSetIndex) throws SQLException {
+        return JdbcFieldTypeUtils.getLocalTime(rs, resultSetIndex);
+    }
+
+    @Override
     protected void writeTime(PreparedStatement statement, int index, LocalTime time)
             throws SQLException {
         // Write to time column using timestamp retains milliseconds
         statement.setTimestamp(
                 index, java.sql.Timestamp.valueOf(LocalDateTime.of(LocalDate.now(), time)));
+    }
+
+    /** Binds DATETIME fields without interpreting them in the JVM default time zone. */
+    @Override
+    protected void writeTimestamp(PreparedStatement statement, int index, LocalDateTime value)
+            throws SQLException {
+        statement.setObject(index, value);
     }
 }

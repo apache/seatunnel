@@ -17,8 +17,9 @@
 
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import { createApp } from 'vue'
+import { createApp, h } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
+import { NMessageProvider } from 'naive-ui'
 import i18n from '@/locales'
 import detail from '@/views/jobs/detail'
 import { getJobInfo } from '@/service/job'
@@ -37,6 +38,28 @@ vi.mock('vue-router', () => ({
 vi.mock('@/components/directed-acyclic-graph', () => ({
   default: { template: '<div></div>' }
 }))
+
+vi.mock('@/components/live-metrics-chart', () => ({
+  default: { template: '<div></div>' }
+}))
+
+vi.mock('@/components/live-metrics-chart/board', () => ({
+  default: { template: '<div></div>' }
+}))
+
+vi.mock('@/service/realtime-metrics', async () => {
+  const actual = await vi.importActual<typeof import('@/service/realtime-metrics')>(
+    '@/service/realtime-metrics'
+  )
+  return {
+    ...actual,
+    fetchJobRealtimeMetrics: vi.fn().mockResolvedValue({
+      edges: { bucketMs: 5000, fromMs: 0, toMs: 0, edges: [] },
+      vertices: { bucketMs: 5000, fromMs: 0, toMs: 0, vertices: [] },
+      windowMs: actual.REALTIME_WINDOW_MS_DEFAULT
+    })
+  }
+})
 
 describe('detail', () => {
   const app = createApp({})
@@ -95,11 +118,20 @@ describe('detail', () => {
 
     vi.mocked(getJobInfo).mockResolvedValue(mockJob)
 
-    const wrapper = mount(detail, {
-      global: {
-        plugins: [i18n]
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const wrapper = mount(
+      {
+        setup() {
+          return () => h(NMessageProvider, null, { default: () => h(detail) })
+        }
+      },
+      {
+        global: {
+          plugins: [i18n, pinia]
+        }
       }
-    })
+    )
 
     await flushPromises()
 

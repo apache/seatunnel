@@ -155,8 +155,8 @@ partition[5] 从 be_node_3 读取 tablet 数据：tablet[14,15]
 source {
   StarRocks {
     nodeUrls = ["starrocks_e2e:8030"]
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_source"
     scan_batch_rows = 10
@@ -191,8 +191,8 @@ source {
 source {
   StarRocks {
     nodeUrls = ["starrocks_e2e:8030"]
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table_list = [
     {

@@ -113,6 +113,7 @@ These plugins are especially important in CDC pipelines because they help preser
 ### Programmable Or AI-Oriented Processing
 
 - [DynamicCompile](../transforms/dynamic-compile.md)
+- [Python](../transforms/python.md)
 - [LLM](../transforms/llm.md)
 - [Embedding](../transforms/embedding.md)
 

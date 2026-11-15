@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.couchbase.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -56,11 +57,13 @@ public class CouchbaseSinkFactory implements TableSinkFactory {
                 .optional(
                         CouchbaseSinkOptions.SCOPE,
                         CouchbaseSinkOptions.BUFFER_FLUSH_MAX_ROWS,
-                        CouchbaseSinkOptions.BUFFER_FLUSH_INTERVAL,
                         CouchbaseSinkOptions.RETRY_MAX,
                         CouchbaseSinkOptions.RETRY_INTERVAL,
                         CouchbaseSinkOptions.UPSERT_ENABLE,
                         CouchbaseSinkOptions.PRIMARY_KEY)
+                .optional(
+                        CouchbaseSinkOptions.READY_TIMEOUT,
+                        Conditions.greaterThan(CouchbaseSinkOptions.READY_TIMEOUT, 0))
                 .build();
     }
 
@@ -89,13 +92,12 @@ public class CouchbaseSinkFactory implements TableSinkFactory {
                         .withUsername(config.get(CouchbaseSinkOptions.USERNAME))
                         .withPassword(config.get(CouchbaseSinkOptions.PASSWORD))
                         .withBucket(config.get(CouchbaseSinkOptions.BUCKET))
+                        .withReadyTimeout(config.get(CouchbaseSinkOptions.READY_TIMEOUT))
                         .withScope(config.get(CouchbaseSinkOptions.SCOPE))
                         .withCollection(config.get(CouchbaseSinkOptions.COLLECTION));
 
         config.getOptional(CouchbaseSinkOptions.BUFFER_FLUSH_MAX_ROWS)
                 .ifPresent(builder::withFlushSize);
-        config.getOptional(CouchbaseSinkOptions.BUFFER_FLUSH_INTERVAL)
-                .ifPresent(builder::withBatchIntervalMs);
         config.getOptional(CouchbaseSinkOptions.RETRY_MAX).ifPresent(builder::withRetryMax);
         config.getOptional(CouchbaseSinkOptions.RETRY_INTERVAL)
                 .ifPresent(builder::withRetryInterval);

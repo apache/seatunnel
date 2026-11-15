@@ -10,7 +10,7 @@ The Encrypt transform plugin is used to encrypt or decrypt specified fields in r
 
 | name               | type    | required | default value | description                                      |
 |--------------------|---------|----------|---------------|--------------------------------------------------|
-| `fields`           | Array   | Yes      | -             | List of fields to encrypt/decrypt                |
+| `fields`           | Array   | Yes      | -             | List of fields to encrypt/decrypt. All configured fields must be of string type; configuring a non-string field makes the job fail at startup with an unsupported data type error |
 | `algorithm`        | String  | No       | `AES_GCM`     | Encryption algorithm                             |
 | `key`              | String  | Yes      | -             | Base64-encoded encryption key                    |
 | `mode`             | String  | No       | `encrypt`     | `encrypt` or `decrypt`                           |

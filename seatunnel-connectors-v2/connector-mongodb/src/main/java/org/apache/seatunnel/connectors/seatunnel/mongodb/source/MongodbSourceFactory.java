@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -25,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -34,9 +36,24 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit
 import com.google.auto.service.AutoService;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @AutoService(Factory.class)
-public class MongodbSourceFactory implements TableSourceFactory {
+public class MongodbSourceFactory implements TableSourceFactory, SupportSourceDryRunValidation {
+    /** Uses the same configured schema as runtime without opening a MongoDB connection. */
+    @Override
+    public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context) {
+        return Collections.singletonList(sourceTable(context.getOptions()));
+    }
+
+    /** Checks metadata visibility only; document-read permissions are not exercised. */
+    @Override
+    public void validateConnectionForDryRun(
+            TableSourceFactoryContext context, List<CatalogTable> catalogTables) throws Exception {
+        MongodbSourceDryRunValidator.validate(context.getOptions());
+    }
+
     @Override
     public String factoryIdentifier() {
         return MongodbSourceOptions.CONNECTOR_IDENTITY;
@@ -56,8 +73,10 @@ public class MongodbSourceFactory implements TableSourceFactory {
                         MongodbSourceOptions.SPLIT_SIZE,
                         MongodbSourceOptions.SPLIT_KEY,
                         MongodbSourceOptions.CURSOR_NO_TIMEOUT,
-                        MongodbSourceOptions.FETCH_SIZE,
                         MongodbSourceOptions.MAX_TIME_MIN)
+                .optional(
+                        MongodbSourceOptions.FETCH_SIZE,
+                        Conditions.greaterThan(MongodbSourceOptions.FETCH_SIZE, 0))
                 .build();
     }
 
@@ -72,13 +91,13 @@ public class MongodbSourceFactory implements TableSourceFactory {
             TableSourceFactoryContext context) {
         return () -> {
             ReadonlyConfig options = context.getOptions();
-            CatalogTable table;
-            if (options.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
-                table = CatalogTableUtil.buildWithConfig(options);
-            } else {
-                table = CatalogTableUtil.buildSimpleTextTable();
-            }
-            return new MongodbSource(table, options);
+            return new MongodbSource(sourceTable(options), options);
         };
+    }
+
+    private static CatalogTable sourceTable(ReadonlyConfig options) {
+        return options.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()
+                ? CatalogTableUtil.buildWithConfig(options)
+                : CatalogTableUtil.buildSimpleTextTable();
     }
 }

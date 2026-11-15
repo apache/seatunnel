@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.typesense.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -43,7 +44,12 @@ public class TypesenseSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(TypesenseSourceOptions.HOSTS, TypesenseSourceOptions.APIKEY)
+                .required(
+                        TypesenseSourceOptions.HOSTS,
+                        Conditions.notEmpty(TypesenseSourceOptions.HOSTS))
+                .required(
+                        TypesenseSourceOptions.APIKEY,
+                        Conditions.notBlank(TypesenseSourceOptions.APIKEY))
                 .optional(TypesenseSourceOptions.PROTOCOL)
                 .optional(TypesenseSourceOptions.QUERY)
                 .optional(TypesenseSourceOptions.QUERY_BATCH_SIZE)

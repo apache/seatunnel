@@ -313,17 +313,22 @@ public class SFTPFileSystem extends FileSystem implements StreamingFileSystem {
             created = parent == null || mkdirs(client, parent, FsPermission.getDefault());
             if (created) {
                 String parentDir = parent.toUri().getPath();
-                boolean succeeded = true;
                 try {
-                    final String previousCwd = client.pwd();
-                    client.cd(parentDir);
                     LOG.debug("Creating directory " + pathName);
-                    client.mkdir(pathName);
-                    client.cd(previousCwd);
+                    client.mkdir(absolute.toUri().getPath());
                 } catch (SftpException e) {
-                    throw new IOException(String.format(E_MAKE_DIR_FORPATH, pathName, parentDir));
+                    // Another writer may have created the shared parent since the existence check.
+                    // Only accept a directory; a missing path or a file must still fail.
+                    try {
+                        if (getFileStatus(client, absolute).isDirectory()) {
+                            return true;
+                        }
+                    } catch (IOException statusFailure) {
+                        e.addSuppressed(statusFailure);
+                    }
+                    throw new IOException(
+                            String.format(E_MAKE_DIR_FORPATH, pathName, parentDir), e);
                 }
-                created = created & succeeded;
             }
         } else if (isFile(client, absolute)) {
             throw new IOException(String.format(E_DIR_CREATE_FROMFILE, absolute));

@@ -127,21 +127,24 @@ MultiTableSink 是一个“按表路由 + 可多副本并行写入”的 Sink:
 ### 4.2 写入器: 带副本的多表写入
 
 写入器的关键流程:
-1. 从输入记录中解析 TablePath(tableId)
-2. 为该表选择一个 writer 副本(replicaIndex)
-3. 路由到 (TablePath, replicaIndex) 对应的底层 writer 执行写入
+1. 从输入记录中读取 tableId（`SeaTunnelRow.getTableId()`）
+2. 依据该表登记的主键字段信息选择一个队列下标（即副本下标 replicaIndex）
+3. 将记录投递到对应的 `blockingQueues`，由 `MultiTableWriterRunnable` 工作线程消费并调用底层 writer 写入
+
+注意：记录并非在 `write()` 中同步写入底层 writer，而是先入队、再由工作线程异步写出。队列下标即副本下标。
 
 副本选择需要兼顾两类诉求:
 - **顺序性/一致落点**: 对同一主键（或唯一键）相关的记录尽量路由到同一副本，降低乱序与写入冲突风险
 - **吞吐量**: 在不破坏顺序性要求的前提下，尽量分散写入压力
 
-在当前 MultiTableSinkWriter 的实现中，副本选择主要依据“主键信息是否可用”：
-- 有主键：对主键字段做哈希，稳定映射到某个副本
-- 无主键：使用随机策略在副本间分配
+在当前 MultiTableSinkWriter 的实现中，副本选择分为三个分支：
+- **有主键**：对主键字段值做哈希，稳定映射到某个队列
+- **无主键**：使用随机策略（`Random.nextInt`）在队列间分配
+- **该表未登记 writer**：按 `MultiTableFailurePolicy` 处理——或隔离该表并继续写入其他表，或直接抛出异常终止作业
 
 这意味着“是否按 rowKind（INSERT/UPDATE/DELETE）切换策略”不是该实现的默认行为；如果需要按 rowKind 细分策略，应以 connector/实现代码为准。
 
-在 checkpoint 边界:
+在 checkpoint 边界（两者都先调用 `checkQueueRemain()` 排空队列）:
 - prepareCommit: 汇总所有表/所有副本的 CommitInfo，并打包为多表级提交信息
 - snapshotState: 快照所有 writer 状态；恢复时必须能通过 SinkIdentifier 将状态路由回正确的(表,副本)
 
@@ -185,17 +188,31 @@ sink {
 
 ### 5.3 副本选择策略
 
+两种策略都在 `[0, blockingQueues.size())` 范围内选择队列下标，完整分支结构参见
+`MultiTableSinkWriter.write(SeaTunnelRow)`。
+
 **基于主键哈希（稳定路由）**:
 
 要点:
 - 以主键（或业务唯一键）做哈希，将同一键稳定映射到同一副本
-- 典型映射: $replica = hash(pk) \bmod replicaNum$
+- 当前实现: $replica = (hash(pk) \mathbin{\&} \mathrm{Integer.MAX\_VALUE}) \bmod replicaNum$
+
+:::note
+
+这里用 `& Integer.MAX_VALUE` 清除符号位，而不是用 `Math.abs`：`Math.abs(Integer.MIN_VALUE)`
+仍返回 `Integer.MIN_VALUE`（负数）。否则当主键哈希恰好为 `Integer.MIN_VALUE` 且副本数不是
+2 的幂时会得到负的下标，随后的 `blockingQueues.get(index)` 会抛出
+`IndexOutOfBoundsException`。掩码写法无分支，且对任意输入都成立。相关记录见
+[#11720](https://github.com/apache/seatunnel/issues/11720)。
+
+:::
 
 **随机（无主键兜底）**:
 
 要点:
 - 当记录缺少主键字段信息时，无法提供稳定落点
-- 使用随机分配在副本间扩散压力，但不保证同一键的顺序性
+- 使用 `Random.nextInt(blockingQueues.size())` 在副本间扩散压力，但不保证同一键的顺序性
+- 不使用 `System.nanoTime() % replicaNum` 之类的写法：`nanoTime()` 可能为负，会产生负下标，原因与上面哈希需要掩码相同
 
 ## 6. 多表中的模式管理
 
@@ -210,8 +227,12 @@ sink {
 
 模式演化需要被路由到“正确的表”，并应用到该表的所有 writer 副本:
 1. 从 SchemaChangeEvent 中解析出 TablePath
-2. 选择该表对应的 schema/元数据更新逻辑
-3. 将变更广播到该表的所有副本 writer，保证后续写入使用一致的 schema
+2. 若当前 writer 不服务该表（`hasSourceMatchedWriter` 返回 false），直接返回，不唤醒队列工作线程
+3. 将变更以**屏障（`SchemaChangeBarrier`）**的形式投递到所有 `blockingQueues`
+4. 每个工作线程在各自行流的同一位置应用该变更，保证不会有记录跨越 schema 变更乱序写出
+
+注意：模式变更并非直接遍历各副本 writer 同步调用，而是与普通行记录共用同一条队列路径，
+以此保证变更与行记录之间的相对顺序。
 
 ## 7. 数据流示例
 
@@ -432,6 +453,60 @@ env {
 
 该配置不处理共享故障，例如 source 连接中断、checkpoint 协调失败、插件加载失败或 OOM；这类异常仍会导致整个作业失败。
 
+## 11. 限制与注意事项
+
+### 11.1 当前限制
+
+**并行度共享**：
+- 所有表共享同一并行度
+- 无法为每张表单独设置并行度
+
+**副本数固定**：
+- 所有表使用相同的副本数
+- 高吞吐表和低吞吐表被同等对待
+
+**内存开销**：
+- 每个写入器维护独立的缓冲区
+- 100 张表 × 4 个副本 = 内存中 400 个写入器
+
+### 11.2 应对方法
+
+**高吞吐表**：
+```hocon
+# 方案一：为热点表拆分独立作业
+job-1 { source { table-name = "orders" } } # 独立作业
+
+job-2 { source { table-name = "user_.*|product_.*" } } # 其余表
+```
+
+**内存优化**：
+```hocon
+# 减小每个写入器的缓冲区
+sink {
+  JDBC {
+    batch-size = 500 # 更小的批次
+  }
+}
+```
+
+## 12. 后续增强
+
+### 12.1 动态副本
+
+当前的 `multi_table_sink_replica` 参数不支持按表覆盖副本数（它对所有表生效）。如果需要按表设置副本数，
+还需要额外的 connector/框架能力支持。
+
+### 12.2 自适应副本
+
+```java
+// 根据吞吐量自动调整副本数
+if (table.getWriteRate() > threshold) {
+    increaseReplicas(table);
+} else if (table.getWriteRate() < lowThreshold) {
+    decreaseReplicas(table);
+}
+```
+
 ## 13. 相关资源
 
 - [CatalogTable 和元数据](../api-design/catalog-table.md)
@@ -440,5 +515,16 @@ env {
 - [模式演化](../../introduction/configuration/schema-evolution.md)
 
 ## 14. 参考资料
+
+### 关键源码文件
+
+- [MultiTableSink.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/multitablesink/MultiTableSink.java)
+- [SinkIdentifier.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/multitablesink/SinkIdentifier.java)
+- [TablePath.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/TablePath.java)
+
+### 示例实现
+
+- MySQL CDC Source：`seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql/`
+- JDBC Sink：`seatunnel-connectors-v2/connector-jdbc/`
 
 如需进一步了解 Schema、Sink 语义与 DAG 执行，请从“相关资源”章节继续阅读。

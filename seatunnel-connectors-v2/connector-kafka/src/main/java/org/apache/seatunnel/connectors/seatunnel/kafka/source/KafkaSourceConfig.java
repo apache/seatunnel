@@ -44,6 +44,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.TableIdentifierConfig;
 import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
+import org.apache.seatunnel.format.avro.AvroFormatOptions;
 import org.apache.seatunnel.format.compatible.kafka.connect.json.CompatibleKafkaConnectDeserializationSchema;
 import org.apache.seatunnel.format.compatible.kafka.connect.json.KafkaConnectJsonFormatOptions;
 import org.apache.seatunnel.format.compatible.kafka.connect.json.NativeKafkaConnectDeserializationSchema;
@@ -424,13 +425,24 @@ public class KafkaSourceConfig implements Serializable {
                     break;
                 case AVRO:
                     Optional<String> avroSchema = readonlyConfig.getOptional(AVRO_SCHEMA);
+                    boolean stripAvroSchemaRegistryHeader =
+                            readonlyConfig.get(STRIP_SCHEMA_REGISTRY_HEADER);
+                    if (stripAvroSchemaRegistryHeader && !avroSchema.isPresent()) {
+                        throw new SeaTunnelJsonFormatException(
+                                CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                "avro_schema must be configured when strip_schema_registry_header is enabled for avro format");
+                    }
+                    // An explicit avro_schema describes the actual wire layout and stays
+                    // authoritative; the nullable row flag only shapes the schema derived from
+                    // the configured schema block when avro_schema is absent.
+                    boolean avroRowNullable =
+                            readonlyConfig.get(AvroFormatOptions.AVRO_ROW_NULLABLE);
                     schema =
-                            avroSchema
-                                    .map(
-                                            writerSchema ->
-                                                    new AvroDeserializationSchema(
-                                                            catalogTable, writerSchema))
-                                    .orElseGet(() -> new AvroDeserializationSchema(catalogTable));
+                            new AvroDeserializationSchema(
+                                    catalogTable,
+                                    avroSchema.orElse(null),
+                                    stripAvroSchemaRegistryHeader,
+                                    avroRowNullable);
                     break;
                 case PROTOBUF:
                     boolean stripSchemaRegistryHeader =

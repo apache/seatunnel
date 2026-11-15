@@ -30,7 +30,8 @@ Write data to Greenplum using the [Jdbc connector](Jdbc.md). Greenplum uses the 
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -45,22 +46,51 @@ Greenplum sink does not support exactly-once semantics because XA transaction is
 | Greenplum by PostgreSQL driver | `org.postgresql.Driver` | `jdbc:postgresql://localhost:5432/testdb` | [Download](https://mvnrepository.com/artifact/org.postgresql/postgresql) |
 | Greenplum native driver | `com.pivotal.jdbc.GreenplumDriver` | `jdbc:pivotal:greenplum://localhost:5432;DatabaseName=testdb` | Download from Greenplum |
 
+## Data Type Mapping
+
+Greenplum reuses the PostgreSQL JDBC driver mapping. The table below lists the commonly used types:
+
+| SeaTunnel Data Type | Greenplum Data Type |
+|---------------------|---------------------|
+| BOOLEAN | BOOLEAN |
+| TINYINT / SMALLINT | SMALLINT |
+| INT | INTEGER |
+| BIGINT | BIGINT |
+| FLOAT | REAL |
+| DOUBLE | DOUBLE PRECISION |
+| DECIMAL(p, s) | NUMERIC(p, s) |
+| STRING | TEXT (VARCHAR(n) when a column length is set) |
+| DATE | DATE |
+| TIME | TIME(p) |
+| TIMESTAMP | TIMESTAMP(p) |
+| TIMESTAMP_TZ | TIMESTAMPTZ(p) |
+| BYTES | BYTEA |
+
+The table above lists the sink direction (`PostgresTypeConverter.reconvert`). A `DECIMAL` column is
+written as `NUMERIC(p, s)`; the `MONEY` type is only produced when the column's source type was
+already `money`, so a plain `DECIMAL(30,2)` column lands as `NUMERIC(30,2)`, not `MONEY`.
+
 ## Options
 
 Only Greenplum-specific commonly used options are listed here. Other JDBC sink options, such as `batch_size`, `max_retries`, `generate_sink_sql`, `database`, `table`, `primary_keys`, and `properties`, are inherited from [Jdbc Sink](Jdbc.md).
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| url | String | Yes | - | JDBC connection URL. Use `jdbc:postgresql://host:port/database` with PostgreSQL driver, or `jdbc:pivotal:greenplum://host:port;DatabaseName=database` with Greenplum native driver. |
+| url | String | Yes | - | JDBC connection URL. Use `jdbc:postgresql://host:port/database` with the PostgreSQL driver, or `jdbc:pivotal:greenplum://host:port;DatabaseName=database` with the Greenplum native driver. |
 | driver | String | Yes | - | JDBC driver class name, usually `org.postgresql.Driver` or `com.pivotal.jdbc.GreenplumDriver`. |
 | username | String | No | - | Greenplum username. |
 | password | String | No | - | Greenplum password. |
-| query | String | No | - | SQL used to write upstream rows, for example `insert into sink(age, name) values(?, ?)`. `query` has higher priority than generated sink SQL. |
-| batch_size | Int | No | 1000 | Maximum records buffered before flushing to Greenplum. |
+| query | String | No | - | SQL used to write upstream rows, for example `insert into sink(age, name) values(?, ?)`. `query` has higher priority than generated sink SQL. When unset, the sink expects `generate_sink_sql = true` together with `database` and `table`. |
+| batch_size | Int | No | 1000 | Maximum records buffered before flushing to Greenplum. The buffer is also flushed at each checkpoint. |
 | max_retries | Int | No | 0 | Retry times after `executeBatch` fails. |
-| generate_sink_sql | Boolean | No | false | Generate insert SQL automatically from `database` and `table`. |
+| generate_sink_sql | Boolean | No | false | Generate the insert SQL automatically from `database` and `table`. When `true`, the column order must match the upstream schema. |
 | database | String | No | - | Database name used when `generate_sink_sql = true`. |
 | table | String | No | - | Target table name used when `generate_sink_sql = true`. |
+| primary_keys | Array | No | - | Primary key fields used for upsert semantics when the sink SQL is generated automatically. |
+| connection_check_timeout_sec | Int | No | 30 | The time (seconds) to wait for database operation used to validate the connection. |
+| max_commit_attempts | Int | No | 3 | Retry times when a transaction commit fails. |
+| transaction_timeout_sec | Int | No | -1 | Transaction timeout in seconds. `-1` means unlimited. |
+| enable_upsert | Boolean | No | true | Enable upsert write by primary keys. |
 | common-options | | No | - | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. |
 
 :::tip

@@ -16,15 +16,20 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
+import javax.annotation.Nullable;
+
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.OffsetTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
@@ -84,7 +89,58 @@ public final class JdbcFieldTypeUtils {
 
     public static BigDecimal getBigDecimal(ResultSet resultSet, int columnIndex)
             throws SQLException {
-        return resultSet.getBigDecimal(columnIndex);
+        return getBigDecimal(resultSet, columnIndex, false);
+    }
+
+    /**
+     * Reads a DECIMAL/NUMERIC column value as {@link BigDecimal}.
+     *
+     * <p>PostgreSQL and its derivatives (e.g. Kingbase) allow the special numeric values {@code
+     * NaN}, {@code Infinity} and {@code -Infinity} (supported since PostgreSQL 14), which have no
+     * {@code BigDecimal} representation. The driver fails in that case with {@code PSQLException:
+     * Bad value for type BigDecimal : NaN} (text protocol) or with a {@code ClassCastException}
+     * (binary protocol, where the driver returns a {@code Double}). When {@code
+     * numericSpecialValueAsNull} is enabled, these special values are read as {@code null}, so that
+     * a single special value does not abort the whole job. Otherwise the original error is thrown.
+     */
+    public static BigDecimal getBigDecimal(
+            ResultSet resultSet, int columnIndex, boolean numericSpecialValueAsNull)
+            throws SQLException {
+        try {
+            return resultSet.getBigDecimal(columnIndex);
+        } catch (SQLException | ClassCastException e) {
+            if (numericSpecialValueAsNull && isNumericSpecialValue(resultSet, columnIndex)) {
+                return null;
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Checks whether the value at the given column is a numeric special value that cannot be
+     * represented as {@link BigDecimal}.
+     *
+     * <p>PostgreSQL allows the special numeric values {@code NaN}, {@code Infinity} and {@code
+     * -Infinity} (supported since PostgreSQL 14). This method reads the raw value as a string and
+     * reports whether it is one of those special values; it never throws.
+     */
+    public static boolean isNumericSpecialValue(ResultSet resultSet, int columnIndex) {
+        try {
+            return isNumericSpecialValueString(resultSet.getString(columnIndex));
+        } catch (SQLException | RuntimeException e) {
+            // The raw value cannot be read, so it cannot be identified as a special value
+            return false;
+        }
+    }
+
+    private static boolean isNumericSpecialValueString(@Nullable String value) {
+        if (value == null) {
+            return false;
+        }
+        String trimmed = value.trim();
+        return "NaN".equalsIgnoreCase(trimmed)
+                || "Infinity".equalsIgnoreCase(trimmed)
+                || "-Infinity".equalsIgnoreCase(trimmed);
     }
 
     public static Date getDate(ResultSet resultSet, int columnIndex) throws SQLException {
@@ -93,6 +149,41 @@ public final class JdbcFieldTypeUtils {
 
     public static Time getTime(ResultSet resultSet, int columnIndex) throws SQLException {
         return resultSet.getTime(columnIndex);
+    }
+
+    /**
+     * Reads a JDBC TIME as LocalTime, falling back from JDBC 4.2 to plain and offset time text.
+     *
+     * <p>MySQL TIME values outside the 24-hour clock range are not representable as LocalTime; a
+     * fallback parse failure is reported as SQLException instead of silently changing the value.
+     */
+    public static LocalTime getLocalTime(ResultSet resultSet, int columnIndex) throws SQLException {
+        try {
+            return resultSet.getObject(columnIndex, LocalTime.class);
+        } catch (SQLException | AbstractMethodError e) {
+            String value = resultSet.getString(columnIndex);
+            if (value == null) {
+                return null;
+            }
+            try {
+                return LocalTime.parse(value.trim());
+            } catch (DateTimeException ignored) {
+                try {
+                    return OffsetTime.parse(value.trim().replaceFirst("([+-]\\d{2})$", "$1:00"))
+                            .toLocalTime();
+                } catch (DateTimeException parseException) {
+                    SQLException exception =
+                            new SQLException(
+                                    "Unable to parse JDBC TIME value at column "
+                                            + columnIndex
+                                            + ": "
+                                            + value,
+                                    e);
+                    exception.addSuppressed(parseException);
+                    throw exception;
+                }
+            }
+        }
     }
 
     public static Timestamp getTimestamp(ResultSet resultSet, int columnIndex) throws SQLException {

@@ -46,12 +46,10 @@ docker exec "${MYSQL_CONTAINER_NAME}" \
 docker exec -i "${MYSQL_CONTAINER_NAME}" \
     mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" < "${SCENARIO_DIR}/mysql.sql"
 
-"${ROOT_DIR}/mvnw" --batch-mode dependency:get \
-    -Dtransitive=false \
-    -DgroupId=com.mysql \
-    -DartifactId=mysql-connector-j \
-    -Dversion="${MYSQL_DRIVER_VERSION}" \
-    -Ddest="${MYSQL_DRIVER_JAR}"
+"${ROOT_DIR}/mvnw" --batch-mode dependency:copy \
+    -Dartifact="com.mysql:mysql-connector-j:${MYSQL_DRIVER_VERSION}" \
+    -DoutputDirectory="${RUN_DIR}" \
+    -Dmdep.stripVersion=false
 
 install_driver() {
     local dist_dir="$1"

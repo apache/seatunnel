@@ -30,6 +30,8 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 public class SlsSourceFactory implements TableSourceFactory {
     @Override
@@ -45,12 +47,13 @@ public class SlsSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .required(SlsSourceOptions.ENDPOINT, notBlank(SlsSourceOptions.ENDPOINT))
+                .required(SlsSourceOptions.PROJECT, notBlank(SlsSourceOptions.PROJECT))
+                .required(SlsSourceOptions.LOGSTORE, notBlank(SlsSourceOptions.LOGSTORE))
+                .required(SlsSourceOptions.ACCESS_KEY_ID, notBlank(SlsSourceOptions.ACCESS_KEY_ID))
                 .required(
-                        SlsSourceOptions.ENDPOINT,
-                        SlsSourceOptions.PROJECT,
-                        SlsSourceOptions.LOGSTORE,
-                        SlsSourceOptions.ACCESS_KEY_ID,
-                        SlsSourceOptions.ACCESS_KEY_SECRET)
+                        SlsSourceOptions.ACCESS_KEY_SECRET,
+                        notBlank(SlsSourceOptions.ACCESS_KEY_SECRET))
                 .optional(
                         SlsSourceOptions.BATCH_SIZE,
                         SlsSourceOptions.START_MODE,

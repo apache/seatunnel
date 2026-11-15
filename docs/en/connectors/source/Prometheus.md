@@ -22,7 +22,7 @@ SeaTunnel automatically uses the Prometheus query endpoint for `Instant` queries
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
@@ -161,8 +161,9 @@ source {
 ## Streaming Range Query Example
 
 Run a range query continuously against a Prometheus or VictoriaMetrics server. The
-source re-runs the same range query every `poll_interval_millis` and forwards the
-newest samples to downstream operators.
+source re-runs the same fixed time-window query every `poll_interval_millis`.
+`start` and `end` are resolved when the job starts, so the time window does not
+advance between polls.
 
 ```hocon
 env {

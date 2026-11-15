@@ -20,7 +20,7 @@ Prometheus 数据源连接器通过 Prometheus 兼容 HTTP API 读取指标查�
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行处理](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
@@ -142,6 +142,76 @@ source {
     url = "http://victoria-metrics:8428"
     query = "up"
     query_type = "Instant"
+    content_field = "$.data.result.*"
+    format = "json"
+    schema = {
+      fields {
+        metric = "map<string, string>"
+        value = double
+        time = long
+      }
+    }
+  }
+}
+```
+
+## 流式范围查询示例
+
+持续对 Prometheus 或 VictoriaMetrics 发起范围查询。Source 会按 `poll_interval_millis`
+周期性地重新执行同一个固定时间窗口的范围查询。`start` 和 `end` 会在作业启动时解析，
+因此时间窗口不会随着轮询推进。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Prometheus {
+    plugin_output = "live_metrics"
+    url = "http://prometheus:9090"
+    query = "rate(node_cpu_seconds_total{mode!=\"idle\"}[1m])"
+    query_type = "Range"
+    start = "2026-08-10T00:00:00Z"
+    end = CURRENT_TIMESTAMP
+    step = "30s"
+    content_field = "$.data.result.*"
+    format = "json"
+    poll_interval_millis = 15000
+    retry = 3
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 5000
+    schema = {
+      fields {
+        metric = "map<string, string>"
+        value = double
+        time = long
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+## 使用 Unix 时间戳的范围查询
+
+`start` 和 `end` 也支持填写以秒为单位的 Unix 时间戳。当需要从一个已知时间点回填一段固定窗口时，这种写法会更直接。
+
+```hocon
+source {
+  Prometheus {
+    plugin_output = "backfill"
+    url = "http://prometheus:9090"
+    query = "sum(up) by (job)"
+    query_type = "Range"
+    start = "1754851200"
+    end = "1754937600"
+    step = "60s"
     content_field = "$.data.result.*"
     format = "json"
     schema = {

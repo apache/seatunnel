@@ -107,6 +107,24 @@ public class AbstractSchemaChangeResolverTest {
     }
 
     @Test
+    void testNormalizeTableCommentIdentifierFromSourceRecordPath() {
+        AbstractSchemaChangeResolver resolver = createResolver();
+        AlterTableCommentEvent parsedEvent =
+                AlterTableCommentEvent.of(
+                        TableIdentifier.of(null, null, "products"), null, "new comment");
+
+        AlterTableCommentEvent normalizedEvent =
+                (AlterTableCommentEvent)
+                        resolver.normalizeTableIdentifiers(
+                                        Collections.singletonList(parsedEvent),
+                                        TablePath.of("shop", "products"))
+                                .get(0);
+
+        Assertions.assertEquals(TablePath.of("shop", "products"), normalizedEvent.tablePath());
+        Assertions.assertEquals("new comment", normalizedEvent.getNewComment());
+    }
+
+    @Test
     void testCompletionEventConvertsModifyColumnToColumnCommentEvent() {
         AbstractSchemaChangeResolver resolver = createResolver();
         AlterTableModifyColumnEvent modifyColumnEvent =
@@ -172,6 +190,90 @@ public class AbstractSchemaChangeResolverTest {
                                                 .name("description")
                                                 .dataType(BasicType.STRING_TYPE)
                                                 .columnLength(512L)
+                                                .nullable(true)
+                                                .comment("old column comment")
+                                                .build())
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null,
+                        null);
+
+        List<AlterTableEvent> events =
+                resolver.completeSchemaChangeEvents(
+                        Collections.singletonList(modifyColumnEvent),
+                        Collections.singletonList(catalogTable),
+                        TablePath.of("test_db", "test_table"));
+
+        Assertions.assertSame(modifyColumnEvent, events.get(0));
+    }
+
+    @Test
+    void testCompletionEventUsesCanonicalSourceTypeForColumnComment() {
+        AbstractSchemaChangeResolver resolver = createResolver();
+        AlterTableModifyColumnEvent modifyColumnEvent =
+                AlterTableModifyColumnEvent.modify(
+                        TableIdentifier.of(null, "test_db", "test_table"),
+                        PhysicalColumn.builder()
+                                .name("description")
+                                .dataType(BasicType.STRING_TYPE)
+                                .columnLength(512L)
+                                .sourceType("VARCHAR(512)")
+                                .nullable(true)
+                                .comment("new column comment")
+                                .build());
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of(null, "test_db", "test_table"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("description")
+                                                .dataType(BasicType.STRING_TYPE)
+                                                .columnLength(2048L)
+                                                .sourceType("VARCHAR(512)")
+                                                .nullable(true)
+                                                .comment("old column comment")
+                                                .build())
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null,
+                        null);
+
+        List<AlterTableEvent> events =
+                resolver.completeSchemaChangeEvents(
+                        Collections.singletonList(modifyColumnEvent),
+                        Collections.singletonList(catalogTable),
+                        TablePath.of("test_db", "test_table"));
+
+        Assertions.assertInstanceOf(AlterColumnCommentEvent.class, events.get(0));
+    }
+
+    @Test
+    void testCompletionEventKeepsSourceTypeLengthChangeStructural() {
+        AbstractSchemaChangeResolver resolver = createResolver();
+        AlterTableModifyColumnEvent modifyColumnEvent =
+                AlterTableModifyColumnEvent.modify(
+                        TableIdentifier.of(null, "test_db", "test_table"),
+                        PhysicalColumn.builder()
+                                .name("description")
+                                .dataType(BasicType.STRING_TYPE)
+                                .columnLength(1024L)
+                                .sourceType("VARCHAR(1024)")
+                                .nullable(true)
+                                .comment("new column comment")
+                                .build());
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of(null, "test_db", "test_table"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("description")
+                                                .dataType(BasicType.STRING_TYPE)
+                                                .columnLength(2048L)
+                                                .sourceType("VARCHAR(512)")
                                                 .nullable(true)
                                                 .comment("old column comment")
                                                 .build())

@@ -35,10 +35,17 @@ public class TiDBSourceCheckpointState implements Serializable {
     private static final long serialVersionUID = 6292978509042158791L;
     private boolean shouldEnumerate;
     private Map<Integer, List<TiDBSourceSplit>> pendingSplit;
+    private int assignCount;
 
     public TiDBSourceCheckpointState(boolean shouldEnumerate, Map<Integer, ?> pendingSplit) {
+        this(shouldEnumerate, pendingSplit, 0);
+    }
+
+    public TiDBSourceCheckpointState(
+            boolean shouldEnumerate, Map<Integer, ?> pendingSplit, int assignCount) {
         this.shouldEnumerate = shouldEnumerate;
         this.pendingSplit = normalizePendingSplit(pendingSplit);
+        this.assignCount = assignCount;
     }
 
     public void setShouldEnumerate(boolean shouldEnumerate) {

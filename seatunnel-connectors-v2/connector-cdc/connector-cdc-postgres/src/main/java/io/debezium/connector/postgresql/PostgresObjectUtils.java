@@ -43,15 +43,15 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.postgres.exception.P
 public class PostgresObjectUtils {
 
     /** Create a new PostgresSchema and initialize the content of the schema. */
-    public static PostgresSchema newSchema(
+    public static RelationAwarePostgresSchema newSchema(
             PostgresConnection connection,
             PostgresConnectorConfig config,
             TypeRegistry typeRegistry,
             TopicSelector<TableId> topicSelector,
             PostgresValueConverter valueConverter)
             throws SQLException {
-        PostgresSchema schema =
-                new PostgresSchema(
+        RelationAwarePostgresSchema schema =
+                new RelationAwarePostgresSchema(
                         config,
                         typeRegistry,
                         connection.getDefaultValueConverter(),

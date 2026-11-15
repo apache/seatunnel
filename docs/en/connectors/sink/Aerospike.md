@@ -71,9 +71,9 @@ Note:
 
 ### data_format Options
 
-- **map**: Store all non-key fields as a map in `bin_name`
-- **string**: Store all non-key fields as a JSON string in `bin_name`
-- **kv**: Store each non-key field as a separate bin. `bin_name` is not used
+- **map**: Store the selected fields as a map in `bin_name`
+- **string**: Store the selected fields as a JSON string in `bin_name`
+- **kv**: Store each selected field as a separate bin. `bin_name` is not used
 
 When `data_format` is `map` or `string`, configure `bin_name`; otherwise the writer does not know which Aerospike bin should receive the packed row data.
 The `key` field must be present in the input schema because it is used as the Aerospike record key for every write.
@@ -148,6 +148,48 @@ sink {
         c_name = "STRING"
         c_money = "DOUBLE"
         c_birth = "LONG"
+      }
+    }
+  }
+}
+```
+
+### Stream CDC Records Into Aerospike With `kv` Format
+
+For streaming jobs (for example MySQL CDC), use `data_format = "kv"` to write each configured
+field as an independent Aerospike bin. This makes downstream lookups cheaper because each field
+is stored separately instead of being packed into a single JSON or map bin.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.user"]
+  }
+}
+
+sink {
+  Aerospike {
+    host = "aerospike-host"
+    port = 3000
+    namespace = "test"
+    set = "user"
+    key = "id"
+    data_format = "kv"
+    write_timeout = 500
+    schema {
+      field {
+        id = "INTEGER"
+        name = "STRING"
+        email = "STRING"
       }
     }
   }

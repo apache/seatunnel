@@ -72,6 +72,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,6 +85,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.getCurrentClusterTime;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.with;
 import static org.testcontainers.shaded.org.awaitility.Durations.TWO_SECONDS;
@@ -115,6 +118,8 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
     private static final String MYSQL_DATABASE = "mongodb_cdc";
 
     private static final String DEFAULT_CHECKPOINT_PATH = "/tmp/seatunnel/checkpoint_snapshot";
+
+    private static final String SNAPSHOT_READ_FAIL_POINT = "waitInFindBeforeMakingBatch";
 
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer();
 
@@ -156,6 +161,10 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
 
         log.info("The second stage:Starting Mongodb containers...");
         mongodbContainer = new MongoDBContainer(NETWORK);
+        mongodbContainer.withCommand(
+                MongoDBContainer.ShardingClusterRole.startupCommand(
+                                MongoDBContainer.ShardingClusterRole.NONE)
+                        + " --setParameter enableTestCommands=1");
         mongodbContainer.withLogConsumer(
                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger("Mongodb-Docker-Image")));
 
@@ -163,6 +172,172 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         mongodbContainer.executeCommandFileInSeparateDatabase(MONGODB_DATABASE);
         initConnection();
         log.info("Mongodb Container are started");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "This regression test requires Zeta job status and cancellation APIs")
+    public void testMongodbCdcNonExactlyOnceSnapshotWithConcurrentChanges(TestContainer container)
+            throws Exception {
+        assertSnapshotWithConcurrentChanges(container, false);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "This regression test requires Zeta job status and cancellation APIs")
+    public void testMongodbCdcExactlyOnceSnapshotWithConcurrentChanges(TestContainer container)
+            throws Exception {
+        assertSnapshotWithConcurrentChanges(container, true);
+    }
+
+    private void assertSnapshotWithConcurrentChanges(TestContainer container, boolean exactlyOnce)
+            throws Exception {
+        cleanSourceTable();
+        String collectionName = "snapshot_products_" + exactlyOnce;
+        MongoCollection<Document> products =
+                client.getDatabase(MONGODB_DATABASE).getCollection(collectionName);
+        products.drop();
+        int snapshotSize = 512;
+        List<Document> snapshotDocuments = new ArrayList<>();
+        for (int i = 0; i < snapshotSize; i++) {
+            snapshotDocuments.add(
+                    new Document("_id", new ObjectId(String.format("%024x", i + 1)))
+                            .append("name", "snapshot-" + i)
+                            .append("description", "snapshot regression")
+                            .append("weight", "1"));
+        }
+        products.insertMany(snapshotDocuments);
+        long failPointCount =
+                ((Number) configureSnapshotReadFailPoint(collectionName, true).get("count"))
+                        .longValue();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/mongodbcdc_snapshot_with_concurrent_changes.conf",
+                                        jobId,
+                                        "collection=" + collectionName,
+                                        "exactly_once=" + exactlyOnce);
+                            } catch (Exception e) {
+                                throw new CompletionException(e);
+                            }
+                        });
+        try {
+            await().pollInterval(50, TimeUnit.MILLISECONDS)
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertFalse(
+                                        jobFuture.isDone(),
+                                        () ->
+                                                "Snapshot job exited: "
+                                                        + jobFuture.join().getStderr());
+                                Assertions.assertTrue(
+                                        snapshotWatermarkLogged(
+                                                container, collectionName, "Snapshot step 1"));
+                            });
+
+            client.getDatabase("admin")
+                    .runCommand(
+                            new Document("waitForFailPoint", SNAPSHOT_READ_FAIL_POINT)
+                                    .append("timesEntered", failPointCount + 1)
+                                    .append("maxTimeMS", 10_000));
+            try {
+                // The snapshot find is paused after LOW. Generate more changes than the
+                // 32-slot queue can hold before allowing the snapshot to reach HIGH.
+                products.updateMany(
+                        Filters.in(
+                                "_id",
+                                snapshotDocuments.subList(0, 128).stream()
+                                        .map(document -> document.getObjectId("_id"))
+                                        .collect(Collectors.toList())),
+                        Updates.set("weight", "2"));
+                Assertions.assertFalse(
+                        snapshotWatermarkLogged(container, collectionName, "Snapshot step 3"),
+                        "Concurrent changes must finish before the snapshot HIGH watermark");
+            } finally {
+                configureSnapshotReadFailPoint(collectionName, false);
+            }
+
+            await().atMost(120, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertFalse(
+                                        jobFuture.isDone(),
+                                        () ->
+                                                "Snapshot job exited: "
+                                                        + jobFuture.join().getStderr());
+                                Assertions.assertEquals(
+                                        Collections.singletonList(
+                                                Collections.singletonList((long) snapshotSize)),
+                                        querySql("select count(*) from products"));
+                                Assertions.assertEquals(
+                                        Collections.singletonList(Collections.singletonList(128L)),
+                                        querySql(
+                                                "select count(*) from products where weight = '2'"));
+                            });
+
+            products.insertOne(
+                    new Document("_id", new ObjectId("200000000000000000000001"))
+                            .append("name", "after-snapshot")
+                            .append("description", "incremental regression")
+                            .append("weight", "1"));
+            products.updateOne(
+                    Filters.eq("_id", snapshotDocuments.get(0).getObjectId("_id")),
+                    Updates.set("weight", "3"));
+            products.deleteOne(Filters.eq("_id", snapshotDocuments.get(1).getObjectId("_id")));
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                                Assertions.assertEquals(
+                                        Collections.singletonList(
+                                                Collections.singletonList((long) snapshotSize)),
+                                        querySql("select count(*) from products"));
+                                Assertions.assertEquals(
+                                        Arrays.asList(
+                                                Arrays.asList("after-snapshot", "1"),
+                                                Arrays.asList("snapshot-0", "3")),
+                                        querySql(
+                                                "select name, weight from products "
+                                                        + "where name in ('after-snapshot', 'snapshot-0', 'snapshot-1') order by name"));
+                            });
+        } finally {
+            try {
+                configureSnapshotReadFailPoint(collectionName, false);
+                if (!jobFuture.isDone()) {
+                    Container.ExecResult cancelled = container.cancelJob(jobId);
+                    Assertions.assertEquals(0, cancelled.getExitCode(), cancelled.getStderr());
+                }
+                jobFuture.get(60, TimeUnit.SECONDS);
+            } finally {
+                products.drop();
+            }
+        }
+    }
+
+    /** Pauses snapshot reads of the test collection until concurrent writes have completed. */
+    private Document configureSnapshotReadFailPoint(String collectionName, boolean enabled) {
+        return client.getDatabase("admin")
+                .runCommand(
+                        new Document("configureFailPoint", SNAPSHOT_READ_FAIL_POINT)
+                                .append("mode", enabled ? "alwaysOn" : "off")
+                                .append(
+                                        "data",
+                                        new Document("nss", MONGODB_DATABASE + "." + collectionName)
+                                                .append("shouldCheckForInterrupt", true)));
+    }
+
+    private boolean snapshotWatermarkLogged(
+            TestContainer container, String collectionName, String step) {
+        return Arrays.stream(container.getServerLogs().split("\n"))
+                .anyMatch(line -> line.contains(step) && line.contains(collectionName));
     }
 
     @TestTemplate
@@ -188,6 +363,123 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         cleanSourceTable();
         TimeUnit.SECONDS.sleep(20);
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "Currently FLINK and SPARK do not support restore and bounded incremental split termination")
+    public void testMongodbCdcTimestampStopMode(TestContainer container) throws Exception {
+        cleanSourceTable();
+
+        long startupTimestamp = currentClusterTimeMillis();
+
+        MongoCollection<Document> products =
+                client.getDatabase(MONGODB_DATABASE).getCollection(MONGODB_COLLECTION_1);
+        products.insertMany(
+                Arrays.asList(
+                        new Document("_id", new ObjectId("100000000000000000000130"))
+                                .append("name", "bounded-before-1")
+                                .append("description", "before stop timestamp")
+                                .append("weight", "10"),
+                        new Document("_id", new ObjectId("100000000000000000000131"))
+                                .append("name", "bounded-before-2")
+                                .append("description", "before stop timestamp")
+                                .append("weight", "20")));
+
+        long stopTimestamp = currentClusterTimeMillis() + TimeUnit.SECONDS.toMillis(240);
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String[] variables = {
+            "startup_timestamp=" + startupTimestamp, "stop_timestamp=" + stopTimestamp
+        };
+
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/mongodbcdc_stop_mode_timestamp.conf", jobId, variables);
+                            } catch (Exception e) {
+                                throw new CompletionException(e);
+                            }
+                        });
+
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            if (jobFuture.isDone()) {
+                                Container.ExecResult jobResult = jobFuture.get();
+                                Assertions.fail(
+                                        "The bounded MongoDB CDC job terminated before reaching RUNNING: "
+                                                + jobResult.getStderr());
+                            }
+                            Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                        });
+
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        Arrays.asList(
+                                                Collections.singletonList("bounded-before-1"),
+                                                Collections.singletonList("bounded-before-2")),
+                                        querySql(
+                                                "select name from products where name like 'bounded-before-%' order by name")));
+
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        products.insertOne(
+                new Document("_id", new ObjectId("100000000000000000000133"))
+                        .append("name", "bounded-after-restore")
+                        .append("description", "after savepoint restore")
+                        .append("weight", "25"));
+
+        CompletableFuture<Container.ExecResult> restoredJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(
+                                        "/mongodbcdc_stop_mode_timestamp.conf", jobId, variables);
+                            } catch (Exception e) {
+                                throw new CompletionException(e);
+                            }
+                        });
+
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        Collections.singletonList(
+                                                Collections.singletonList("bounded-after-restore")),
+                                        querySql(
+                                                "select name from products where name = 'bounded-after-restore'")));
+
+        await().atMost(240, TimeUnit.SECONDS)
+                .until(() -> currentClusterTimeMillis() > stopTimestamp);
+        products.insertOne(
+                new Document("_id", new ObjectId("100000000000000000000132"))
+                        .append("name", "bounded-after")
+                        .append("description", "after stop timestamp")
+                        .append("weight", "30"));
+
+        Container.ExecResult result = restoredJobFuture.get(120, TimeUnit.SECONDS);
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("FINISHED", container.getJobStatus(jobId)));
+        Assertions.assertIterableEquals(
+                Arrays.asList(
+                        Collections.singletonList("bounded-after-restore"),
+                        Collections.singletonList("bounded-before-1"),
+                        Collections.singletonList("bounded-before-2")),
+                querySql("select name from products where name like 'bounded-%' order by name"),
+                "the bounded result must contain only events before the stop timestamp");
+    }
+
+    private long currentClusterTimeMillis() {
+        // Use the MongoDB server clock and retain its second precision to match the stop offset.
+        return Integer.toUnsignedLong(getCurrentClusterTime(client).getTime()) * 1000L;
     }
 
     @TestTemplate

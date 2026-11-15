@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 
 ## Support Iceberg Version
 
-- 1.6.1
+- 1.10.2, reading tables of format version 1, 2 and 3
 
 ## Support Those Engines
 
@@ -64,12 +64,20 @@ libfb303-xxx.jar
 | DATE              | DATE                |
 | TIME              | TIME                |
 | TIMESTAMP         | TIMESTAMP           |
+| TIMESTAMPTZ       | TIMESTAMP_TZ        |
+| TIMESTAMP_NS      | TIMESTAMP, scale 9  |
+| TIMESTAMPTZ_NS    | TIMESTAMP_TZ, scale 9 |
+| UNKNOWN           | NULL                |
 | STRING            | STRING              |
 | FIXED<br/>BINARY  | BYTES               |
 | DECIMAL           | DECIMAL             |
 | STRUCT            | ROW                 |
 | LIST              | ARRAY               |
 | MAP               | MAP                 |
+
+Lists (`LIST`) are only read when the element type is one of `BOOLEAN`, `INT`, `BIGINT`, `FLOAT`, `DOUBLE` or `STRING`; lists with other element types (such as nested structs or decimals) fail the job.
+
+`TIMESTAMP_NS`, `TIMESTAMPTZ_NS` and `UNKNOWN` only exist in format version 3 tables. Nanosecond timestamps keep their nanoseconds and are reported with column scale 9. `VARIANT`, `GEOMETRY` and `GEOGRAPHY` columns are not supported yet and fail the job; leave them out with the `query` option, for example `select id, ts from table`. Rows removed by deletion vectors are not returned. Row lineage fields (`_row_id`, `_last_updated_sequence_number`) are not read.
 
 ## Source Options
 
@@ -78,7 +86,7 @@ libfb303-xxx.jar
 | catalog_name             | string  | no       | default              | User-specified catalog name.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | namespace                | string  | no       | default              | The iceberg database name in the backend catalog.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | table                    | string  | no       | -                    | The Iceberg table name in the backend catalog. Configure exactly one of `table` and `table_list`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| table_list               | list    | no       | -                    | The Iceberg table list in the backend catalog. Configure exactly one of `table` and `table_list`. Each item can set `table`, `query`, and snapshot/stream scan options for that table.                                                                                                                                                                                                                                                                                                                                                                      |
+| table_list               | list    | no       | -                    | The Iceberg table list in the backend catalog. Configure exactly one of `table` and `table_list`. Each item can set `table`, `query`, and snapshot/stream scan options for that table. Note: item keys use camelCase (e.g. `startSnapshotId`, `streamScanStrategy`), see [Multi-Table Read](#multi-table-read).                                                                                                                                                                                               |
 | iceberg.catalog.config   | map     | yes      | -                    | Specify the properties for initializing the Iceberg catalog, which can be referenced in this file: [CatalogProperties.java](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java)                                                                                                                                                                                                                                                                                                                                                                                                             |
 | hadoop.config            | map     | no       | -                    | Properties passed through to the Hadoop configuration                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | iceberg.hadoop-conf-path | string  | no       | -                    | The specified loading paths for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -90,13 +98,26 @@ libfb303-xxx.jar
 | use_snapshot_id          | long    | no       | -                    | Instructs this scan to look for use the given snapshot ID.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | use_snapshot_timestamp   | long    | no       | -                    | Instructs this scan to look for use the most recent snapshot as of the given time in milliseconds. timestamp – the timestamp in millis since the Unix epoch                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | stream_scan_strategy     | enum    | no       | FROM_LATEST_SNAPSHOT | Starting strategy for stream mode execution, Default to use `FROM_LATEST_SNAPSHOT` if don't specify any value,The optional values are:<br/>TABLE_SCAN_THEN_INCREMENTAL: Do a regular table scan then switch to the incremental mode.<br/>FROM_LATEST_SNAPSHOT: Start incremental mode from the latest snapshot inclusive.<br/>FROM_EARLIEST_SNAPSHOT: Start incremental mode from the earliest snapshot inclusive.<br/>FROM_SNAPSHOT_ID: Start incremental mode from a snapshot with a specific id inclusive.<br/>FROM_SNAPSHOT_TIMESTAMP: Start incremental mode from a snapshot with a specific timestamp inclusive. |
-| increment.scan-interval  | long    | no       | 2000                 | The interval of increment scan(mills)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| increment.scan-interval  | long    | no       | 2000                 | The interval of increment scan(mills). Must be a positive value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | common-options           |         | no       | -                    | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | query                    | String  | no       | -                    | The select DML used to filter or project Iceberg data. Use the literal placeholder table name `table`, and do not use table aliases. For example: `select * from table where f1 > 100`, `select fn from table where f1 > 100`. The current LIKE support is limited: the LIKE pattern should not start with `%`; for example, `select f1 from table where f2 like 'tom%'` is supported.                                                                                                                                                                      |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | The path to the `krb5.conf` file for Kerberos authentication.                                                                                                                                                                                                                                                                |
 | kerberos_principal                     | string  | no       | -                            | The principal for Kerberos authentication.                                                                                                                                                                                                                                                                               |
 | kerberos_keytab_path                   | string  | no       | -                            | The path to the keytab file for Kerberos authentication.                                                                                                                                                                                                                                                                         |
 
+## Source Option descriptions
+
+### krb5_path [string]
+
+The path to the `krb5.conf` file for Kerberos authentication.
+
+### kerberos_principal [string]
+
+The principal for Kerberos authentication.
+
+### kerberos_keytab_path [string]
+
+The path to the keytab file for Kerberos authentication.
 
 ## Task Example
 
@@ -136,6 +157,23 @@ sink {
 
 Use `table_list` when one Iceberg source needs to read more than one table. Do not set `table` at the same time.
 
+Each `table_list` item is parsed as a standalone config and supports the following per-table keys (note that, unlike the root-level options, these keys are camelCase):
+
+| Item key                | Type   | Description                                                                        |
+|-------------------------|--------|------------------------------------------------------------------------------------|
+| namespace               | string | Ignored: each item is overwritten with the root-level `namespace`, so this key has no effect. To read from another database, use a qualified `db.table` value in `table`. |
+| table                   | string | The Iceberg table name.                                                            |
+| query                   | string | Filter query for this table, same as the root-level `query` option.                 |
+| startSnapshotTimestamp  | long   | Millis since the Unix epoch; scan changes starting from the latest snapshot at this timestamp. |
+| startSnapshotId         | long   | Scan changes starting from this snapshot (exclusive).                              |
+| endSnapshotId           | long   | Scan changes up to this snapshot (inclusive).                                      |
+| useSnapshotId           | long   | Read this snapshot in batch mode.                                                  |
+| useSnapshotTimestamp    | long   | Millis since the Unix epoch; read the latest snapshot as of this timestamp in batch mode. |
+| streamScanStrategy      | enum   | Stream scan strategy for this table. Supported values: `FROM_LATEST_SNAPSHOT` (default), `TABLE_SCAN_THEN_INCREMENTAL`, `FROM_EARLIEST_SNAPSHOT`, `FROM_SNAPSHOT_ID`, `FROM_SNAPSHOT_TIMESTAMP`. |
+| splitSize               | long   | Target split size in bytes for this table (Iceberg `read.split.target-size`).      |
+| splitLookback           | int    | How many manifests to look back when combining splits (Iceberg `read.split.planning-lookback`). |
+| splitOpenFileCost       | long   | Estimated cost to open a file, used when combining splits (Iceberg `read.split.openfile-cost`). |
+
 ```hocon
 source {
   Iceberg {
@@ -164,7 +202,7 @@ source {
 
 ```hocon
 source {
-  iceberg {
+  Iceberg {
     catalog_name = "seatunnel"
     iceberg.catalog.config={
       "type"="hadoop"

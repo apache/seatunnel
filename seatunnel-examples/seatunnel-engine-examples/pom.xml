@@ -66,8 +66,8 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-            <version>${project.version}</version>
+            <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <!--   seatunnel connectors   -->

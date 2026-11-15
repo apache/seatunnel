@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.telemetry.metrics;
 
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
@@ -118,6 +120,36 @@ public class TelemetryCollectorCoordinatorGuardTest {
                 "collect() must return empty when coordinator is not ready"
                         + " to avoid blocking Hazelcast operation threads");
         Mockito.verify(mockServer, Mockito.never()).getCoordinatorService();
+    }
+
+    @Test
+    void testJobMetricExportsReturnsEmptyWhenCoordinatorBecomesUnavailable() {
+        Mockito.when(mockNode.isMaster()).thenReturn(true);
+        Mockito.when(mockServer.isCoordinatorActive()).thenReturn(true);
+        Mockito.when(mockServer.getCoordinatorService())
+                .thenThrow(new SeaTunnelEngineRetryableException("coordinator is starting"));
+
+        JobMetricExports exports = new JobMetricExports(mockNode);
+        List<Collector.MetricFamilySamples> result = exports.collect();
+
+        Assertions.assertTrue(
+                result.isEmpty(),
+                "collect() must not fail a metrics scrape when the coordinator changes state");
+    }
+
+    @Test
+    void testJobMetricExportsReturnsEmptyWhenNodeLosesMasterRole() {
+        Mockito.when(mockNode.isMaster()).thenReturn(true);
+        Mockito.when(mockServer.isCoordinatorActive()).thenReturn(true);
+        Mockito.when(mockServer.getCoordinatorService())
+                .thenThrow(new SeaTunnelEngineException("This is not a master node now."));
+
+        JobMetricExports exports = new JobMetricExports(mockNode);
+        List<Collector.MetricFamilySamples> result = exports.collect();
+
+        Assertions.assertTrue(
+                result.isEmpty(),
+                "collect() must not fail a metrics scrape when the master changes");
     }
 
     @Test
@@ -281,6 +313,36 @@ public class TelemetryCollectorCoordinatorGuardTest {
                 "collect() must return empty when coordinator is not ready"
                         + " to avoid initializing resource manager from scrape path");
         Mockito.verify(mockServer, Mockito.never()).getCoordinatorService();
+    }
+
+    @Test
+    void testRequestSlotOperationExportsReturnsEmptyWhenCoordinatorBecomesUnavailable() {
+        Mockito.when(mockNode.isMaster()).thenReturn(true);
+        Mockito.when(mockServer.isCoordinatorActive()).thenReturn(true);
+        Mockito.when(mockServer.getCoordinatorService())
+                .thenThrow(new SeaTunnelEngineRetryableException("coordinator is starting"));
+
+        RequestSlotOperationExports exports = new RequestSlotOperationExports(mockNode);
+        List<Collector.MetricFamilySamples> result = exports.collect();
+
+        Assertions.assertTrue(
+                result.isEmpty(),
+                "collect() must not fail a metrics scrape when the coordinator changes state");
+    }
+
+    @Test
+    void testRequestSlotOperationExportsReturnsEmptyWhenNodeLosesMasterRole() {
+        Mockito.when(mockNode.isMaster()).thenReturn(true);
+        Mockito.when(mockServer.isCoordinatorActive()).thenReturn(true);
+        Mockito.when(mockServer.getCoordinatorService())
+                .thenThrow(new SeaTunnelEngineException("This is not a master node now."));
+
+        RequestSlotOperationExports exports = new RequestSlotOperationExports(mockNode);
+        List<Collector.MetricFamilySamples> result = exports.collect();
+
+        Assertions.assertTrue(
+                result.isEmpty(),
+                "collect() must not fail a metrics scrape when the master changes");
     }
 
     @Test

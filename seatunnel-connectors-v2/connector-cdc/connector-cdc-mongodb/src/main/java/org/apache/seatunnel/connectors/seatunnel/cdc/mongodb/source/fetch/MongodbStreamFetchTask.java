@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.fetch;
 
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
@@ -202,7 +203,7 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                     if (changeRecord != null) {
                         currentOffset = new ChangeStreamOffset(getResumeToken(changeRecord));
                         // The log after the high watermark won't emit.
-                        if (currentOffset.isAtOrBefore(streamSplit.getStopOffset())) {
+                        if (shouldEmit(currentOffset, streamSplit.getStopOffset())) {
                             queue.enqueue(new DataChangeEvent(changeRecord));
                         }
                     } else {
@@ -211,7 +212,7 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                     }
 
                     // Reach the high watermark, the binlog fetcher should be finished
-                    if (currentOffset.isAtOrAfter(streamSplit.getStopOffset())) {
+                    if (hasReachedStop(currentOffset, streamSplit.getStopOffset())) {
                         // send watermark end event
                         SourceRecord watermark =
                                 WatermarkEvent.create(
@@ -235,6 +236,14 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                 changeStreamCursor.close();
             }
         }
+    }
+
+    static boolean shouldEmit(ChangeStreamOffset currentOffset, Offset stopOffset) {
+        return currentOffset.isAtOrBefore(stopOffset);
+    }
+
+    static boolean hasReachedStop(ChangeStreamOffset currentOffset, Offset stopOffset) {
+        return currentOffset.isAtOrAfter(stopOffset);
     }
 
     @Override

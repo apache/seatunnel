@@ -37,7 +37,7 @@ import ChangeLog from '../changelog/connector-http.md';
 | 名称                          | 类型    | 是否必须 | 默认值      | 描述                                                                                                                                                                       |
 |-------------------------------|---------|----------|-------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                           | String  | 是       | -           | Http 请求 URL。                                                                                                                                                                 |
-| schema                        | Config  | 否       | -           | Http 和 seatunnel 数据结构映射。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                         |
+| schema                        | Config  | 条件必填    | -           | Http 和 seatunnel 数据结构映射。当 `format` 为 `json` 时必填。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                         |
 | schema.fields                 | Config  | 否       | -           | 上游数据的 schema 字段                                                                                                                                                                |
 | json_field                    | Config  | 否       | -           | 此参数帮助您配置 schema，因此此参数必须与 schema 一起使用。                                                                                         |
 | pageing                       | Config  | 否       | -           | 此参数用于分页查询                                                                                                                                                         |
@@ -45,7 +45,7 @@ import ChangeLog from '../changelog/connector-http.md';
 | pageing.use_placeholder_replacement | Boolean | 否 | false | 如果为 true，则使用占位符替换（${field}）用于 headers、parameters 和 body 值，否则使用基于键的替换。                                                  |
 | pageing.total_page_size       | Long    | 否       | 0           | 用于控制总页数。`0` 表示总页数未知，连接器会在返回行数小于 `pageing.batch_size` 时停止。                                                                                                                       |
 | pageing.batch_size            | Int     | 否       | 100         | 每个请求返回的批量大小，用于在总页数未知时判断是否继续。                                                            |
-| pageing.start_page_number     | Int     | 否       | 1           | 指定同步开始的页码                                                                                                                         |
+| pageing.start_page_number     | Long    | 否       | 1           | 指定同步开始的页码                                                                                                                         |
 | pageing.page_type             | String  | 否       | PageNumber  | 此参数用于指定页面类型，如果未设置则为 PageNumber，仅支持 `PageNumber` 和 `Cursor`。                                  |
 | pageing.cursor_field          | String  | 否       | -           | 此参数用于指定请求参数中的游标字段名称。                                                                                       |
 | pageing.cursor_response_field | String  | 否       | -           | 此参数指定从中检索游标的响应字段。                                                                                            |
@@ -720,6 +720,73 @@ source {
 }
 
 ```
+
+## 流处理模式
+
+在 `STREAMING` 任务中，连接器会以固定间隔轮询配置的 URL，使 Source 表现为持续运行的拉取任务。
+`poll_interval_millis` 控制两次请求之间的间隔；`retry`、`retry_backoff_multiplier_ms`、`retry_backoff_max_ms`
+共同决定遇到 `IOException` 时的重试行为。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Http {
+    url = "https://api.example.com/events"
+    method = "GET"
+    format = "json"
+    poll_interval_millis = 5000
+    retry = 3
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 5000
+    schema = {
+      fields {
+        id = string
+        type = string
+        timestamp = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+## 常见问题
+
+### 如何通过 HTTP 下载二进制文件（PDF、图片、ZIP）？
+
+将 `format` 设置为 `binary`。响应体会按 `binary_chunk_size` 字节（默认 10 MiB）切分，并以
+`(data: bytes, relativePath: string, partIndex: long)` 三列的形式输出。在 BATCH 模式下配合 `LocalFile`
+接收端即可写入磁盘。
+
+### 如何让分页字段作为 URL 参数传递？
+
+将 `keep_page_param_as_http_param` 设置为 `true`，连接器会把分页字段写入 `params`，作为查询串参数出现在每次
+请求中。设置为 `false` 时，连接器只会更新 `headers`、`params`、`body` 中已存在的键或 `${page}` 占位符。
+
+### `use_placeholder_replacement` 的实际作用是什么？
+
+为 `true` 时，连接器会在 headers、params 和 body 中识别 `${page}` 和 `${cursor}` 占位符并替换为真实值，
+也支持带前缀/后缀的形式（如 `"10${page}"` 在 `page=5` 时变为 `"105"`）。为 `false` 时，仅按键名替换：
+分页字段必须已经作为键存在于目标 map 中。
+
+### 为什么 `method = POST` 且没有设置 `body` 时请求体看起来是空的？
+
+`keep_params_as_form = false` 时默认走非表单分支，会将 `body` 序列化为 JSON。当未配置 `body` 时，连接器仍
+会发送 JSON 对象 `{}` 作为请求体，因此 HTTP 服务端能收到合法的 JSON 负载。如需切换到表单分支，可将
+`keep_params_as_form` 设为 `true`（并按需设置 `Content-Type: application/x-www-form-urlencoded`）。
+
+### 如何限制重试并放慢重连节奏？
+
+`retry` 用于设置 `IOException` 时的最大重试次数；`retry_backoff_multiplier_ms`（默认 `100`）是退避基准
+（毫秒）；`retry_backoff_max_ms`（默认 `10000`）用于限制最大退避，避免误配置导致任务长时间等待。
 
 ## 变更日志
 

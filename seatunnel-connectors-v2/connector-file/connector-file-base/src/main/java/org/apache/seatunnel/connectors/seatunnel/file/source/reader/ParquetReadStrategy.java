@@ -33,6 +33,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.FileSystemInputFile;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.avro.Conversions;
@@ -41,18 +42,25 @@ import org.apache.avro.data.TimeConversions;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
-import org.apache.parquet.avro.AvroParquetReader;
+import org.apache.parquet.HadoopReadOptions;
+import org.apache.parquet.avro.AvroReadSupport;
+import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.simple.NanoTime;
 import org.apache.parquet.hadoop.ParquetFileReader;
+import org.apache.parquet.hadoop.ParquetInputFormat;
 import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.api.InitContext;
+import org.apache.parquet.hadoop.api.ReadSupport;
 import org.apache.parquet.hadoop.example.GroupReadSupport;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
-import org.apache.parquet.hadoop.util.HadoopInputFile;
+import org.apache.parquet.io.InputFile;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.io.api.RecordMaterializer;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
@@ -75,8 +83,10 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
@@ -94,7 +104,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
-        this.read(new FileSourceSplit(path), output);
+        this.read(new FileSourceSplit(tableId, path), output);
     }
 
     @Override
@@ -128,10 +138,11 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         }
         Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        HadoopInputFile hadoopInputFile =
+        InputFile hadoopInputFile =
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         (configuration, userGroupInformation) ->
-                                HadoopInputFile.fromPath(filePath, configuration));
+                                FileSystemInputFile.fromPath(
+                                        hadoopFileSystemProxy.getFileSystem(), filePath));
         int fieldsCount = seaTunnelRowType.getTotalFields();
         GenericData dataModel = new GenericData();
         dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
@@ -140,9 +151,19 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         final boolean useSplitRange =
                 enableSplitFile && split.getStart() >= 0 && split.getLength() > 0;
         GenericRecord record;
-        AvroParquetReader.Builder<GenericData.Record> builder =
-                AvroParquetReader.<GenericData.Record>builder(hadoopInputFile)
-                        .withDataModel(dataModel);
+        ParquetReader.Builder<GenericData.Record> builder =
+                new ProjectedParquetReaderBuilder<>(
+                        hadoopInputFile,
+                        new AvroReadSupport<>(dataModel),
+                        seaTunnelRowType.getFieldNames());
+        // HadoopConf carries READ_INT96_AS_FIXED / ADD_LIST_ELEMENT_RECORDS. ParquetReader lifts
+        // those automatically only from a HadoopInputFile, so set them explicitly here. withConf()
+        // rebuilds the read options, so it must run before withFileRange() below.
+        Configuration readConfiguration =
+                new Configuration(hadoopFileSystemProxy.getConfiguration());
+        // AvroParquetReader's GenericData builder uses the non-compatible materializer.
+        readConfiguration.setBoolean(AvroReadSupport.AVRO_COMPATIBILITY, false);
+        builder.withConf(readConfiguration);
         if (useSplitRange) {
             long start = split.getStart();
             long end = start + split.getLength();
@@ -184,9 +205,20 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         ParquetReader<Group> reader =
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         (configuration, userGroupInformation) -> {
+                            // ParquetReader.builder(ReadSupport, Path) resolves its own
+                            // FileSystem inside build() (twice: path.getFileSystem plus
+                            // HadoopInputFile.fromStatus), which leaks with the FS cache
+                            // disabled. Bind to the connector's FileSystem instead.
                             ParquetReader.Builder<Group> builder =
-                                    ParquetReader.builder(new GroupReadSupport(), filePath)
-                                            .withConf(configuration);
+                                    new ProjectedParquetReaderBuilder<>(
+                                            FileSystemInputFile.fromPath(
+                                                    hadoopFileSystemProxy.getFileSystem(),
+                                                    filePath),
+                                            new GroupReadSupport(),
+                                            seaTunnelRowType.getFieldNames());
+                            // withConf() rebuilds the read options, so it must precede
+                            // withFileRange() below.
+                            builder.withConf(hadoopFileSystemProxy.getConfiguration());
                             if (useSplitRange) {
                                 long start = split.getStart();
                                 long end = start + split.getLength();
@@ -750,9 +782,10 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         try (ParquetFileReader reader =
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         ((configuration, userGroupInformation) -> {
-                            HadoopInputFile hadoopInputFile =
-                                    HadoopInputFile.fromPath(new Path(path), configuration);
-                            return ParquetFileReader.open(hadoopInputFile);
+                            return ParquetFileReader.open(
+                                    FileSystemInputFile.fromPath(
+                                            hadoopFileSystemProxy.getFileSystem(), new Path(path)),
+                                    HadoopReadOptions.builder(configuration).build());
                         }))) {
             metadata = reader.getFooter();
         } catch (IOException e) {
@@ -996,5 +1029,79 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         int fieldIndex = Arrays.asList(configRowType.getFieldNames()).indexOf(fieldName);
 
         return fieldIndex == -1 ? null : configRowType.getFieldType(fieldIndex);
+    }
+
+    /**
+     * Binds a Parquet reader to an already-open {@link org.apache.hadoop.fs.FileSystem}. {@code
+     * ParquetReader.Builder(InputFile)} is protected and there is no public {@code
+     * builder(ReadSupport, InputFile)}, so this mirrors what {@code AvroParquetReader.Builder} does
+     * for the Avro path.
+     */
+    private static final class ProjectedParquetReaderBuilder<T> extends ParquetReader.Builder<T> {
+        private final ReadSupport<T> readSupport;
+
+        private ProjectedParquetReaderBuilder(
+                InputFile file, ReadSupport<T> delegate, String[] fields) {
+            super(file);
+            this.readSupport = new ProjectedReadSupport<>(delegate, fields);
+        }
+
+        @Override
+        protected ReadSupport<T> getReadSupport() {
+            return readSupport;
+        }
+    }
+
+    /** Prunes whole top-level fields while retaining the library's decoding and schema metadata. */
+    private static final class ProjectedReadSupport<T> extends ReadSupport<T> {
+        private final ReadSupport<T> delegate;
+        private final Set<String> fields;
+
+        private ProjectedReadSupport(ReadSupport<T> delegate, String[] fields) {
+            this.delegate = delegate;
+            this.fields = new HashSet<>(Arrays.asList(fields));
+        }
+
+        @Override
+        public ReadContext init(InitContext context) {
+            ReadContext original = delegate.init(context);
+            Configuration configuration = context.getConfiguration();
+            // Explicit schemas and filters may require columns outside the output schema.
+            if (configuration.get(ReadSupport.PARQUET_READ_SCHEMA) != null
+                    || configuration.get(AvroReadSupport.AVRO_REQUESTED_PROJECTION) != null
+                    || configuration.get("parquet.avro.read.schema") != null
+                    || configuration.get(ParquetInputFormat.FILTER_PREDICATE) != null
+                    || configuration.get(ParquetInputFormat.UNBOUND_RECORD_FILTER) != null) {
+                return original;
+            }
+            MessageType schema = original.getRequestedSchema();
+            List<Type> selected = new ArrayList<>();
+            for (Type field : schema.getFields()) {
+                if (fields.contains(field.getName())) {
+                    selected.add(field);
+                }
+            }
+            // Preserve cardinality/decoding for zero-column and all-missing output schemas.
+            if (selected.isEmpty() || selected.size() == schema.getFieldCount()) {
+                return original;
+            }
+            if (delegate instanceof AvroReadSupport
+                    && !context.getKeyValueMetadata().containsKey("parquet.avro.schema")
+                    && !context.getKeyValueMetadata().containsKey("avro.schema")) {
+                // Keep the native fallback for illegal names even in unselected file fields.
+                new AvroSchemaConverter(configuration).convert(context.getFileSchema());
+            }
+            return new ReadContext(
+                    new MessageType(schema.getName(), selected), original.getReadSupportMetadata());
+        }
+
+        @Override
+        public RecordMaterializer<T> prepareForRead(
+                Configuration configuration,
+                Map<String, String> metadata,
+                MessageType fileSchema,
+                ReadContext readContext) {
+            return delegate.prepareForRead(configuration, metadata, fileSchema, readContext);
+        }
     }
 }

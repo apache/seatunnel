@@ -31,7 +31,39 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.Arrays;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 public class DmdbTypeConverterTest {
+    @Test
+    public void testMapResultSetMetadataTypes() throws SQLException {
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(metadata.getColumnLabel(1)).thenReturn("LTZ_VALUE");
+        when(metadata.getColumnTypeName(1)).thenReturn("TIMESTAMP(6) WITH LOCAL TIME ZONE");
+        when(metadata.isNullable(1)).thenReturn(ResultSetMetaData.columnNullable);
+        when(metadata.getPrecision(1)).thenReturn(26);
+        when(metadata.getScale(1)).thenReturn(6);
+
+        Column localTimeZoneColumn = new DmdbTypeMapper().mappingColumn(metadata, 1);
+
+        Assertions.assertEquals(
+                LocalTimeType.OFFSET_DATE_TIME_TYPE, localTimeZoneColumn.getDataType());
+        Assertions.assertEquals(
+                "TIMESTAMP(6) WITH LOCAL TIME ZONE", localTimeZoneColumn.getSourceType());
+
+        when(metadata.getColumnLabel(1)).thenReturn("INTERVAL_VALUE");
+        when(metadata.getColumnTypeName(1)).thenReturn("INTERVAL DAY(3) TO SECOND(6)");
+
+        Column intervalColumn = new DmdbTypeMapper().mappingColumn(metadata, 1);
+
+        Assertions.assertEquals(BasicType.STRING_TYPE, intervalColumn.getDataType());
+        Assertions.assertEquals("INTERVAL DAY(3) TO SECOND(6)", intervalColumn.getSourceType());
+    }
+
     @Test
     public void testConvertUnsupported() {
         BasicTypeDefine<Object> typeDefine =
@@ -360,6 +392,35 @@ public class DmdbTypeConverterTest {
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(8, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("nvarchar2(2)")
+                        .dataType("nvarchar2")
+                        .length(2L)
+                        .build();
+        column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(8, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+    }
+
+    @Test
+    public void testConvertNchar() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("nchar(2)")
+                        .dataType("nchar")
+                        .length(2L)
+                        .build();
+        Column column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(8, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
     }
 
     @Test
@@ -632,6 +693,46 @@ public class DmdbTypeConverterTest {
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+    }
+
+    @Test
+    public void testConvertTimestampWithLocalTimeZone() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("timestamp with local time zone")
+                        .dataType("timestamp with local time zone")
+                        .scale(6)
+                        .build();
+
+        Column column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
+
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+        Assertions.assertEquals(typeDefine.getScale(), column.getScale());
+    }
+
+    @Test
+    public void testConvertIntervalTypes() {
+        for (String intervalType :
+                Arrays.asList(
+                        "INTERVAL YEAR TO MONTH",
+                        "INTERVAL YEAR",
+                        "INTERVAL DAY TO SECOND",
+                        "INTERVAL HOUR TO MINUTE",
+                        "INTERVAL MINUTE TO SECOND")) {
+            BasicTypeDefine<Object> typeDefine =
+                    BasicTypeDefine.builder()
+                            .name("test")
+                            .columnType(intervalType)
+                            .dataType(intervalType.toLowerCase())
+                            .build();
+
+            Column column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
+
+            Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType(), intervalType);
+            Assertions.assertEquals(intervalType, column.getSourceType(), intervalType);
+        }
     }
 
     @Test

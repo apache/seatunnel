@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
@@ -27,8 +28,12 @@ import org.apache.seatunnel.api.configuration.ConfigShade;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.beust.jcommander.internal.Lists;
@@ -41,6 +46,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -55,6 +61,16 @@ public class ConfigShadeTest {
 
     private static final String ACCESS_KEY = "access_key";
     private static final String SECRET_KEY = "secret_key";
+
+    @BeforeEach
+    void setUp() {
+        ConfigFactory.invalidateCaches();
+    }
+
+    @AfterEach
+    void tearDown() {
+        ConfigFactory.invalidateCaches();
+    }
 
     @Test
     public void testParseConfig() throws URISyntaxException {
@@ -80,6 +96,94 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("access_key"), ACCESS_KEY);
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("secret_key"), SECRET_KEY);
+    }
+
+    @Test
+    public void testLogOnlySensitiveOptionsDoNotChangeDefaultDecryptOptions() {
+        String jaasConfig =
+                "org.apache.kafka.common.security.scram.ScramLoginModule required "
+                        + "username=\"alice\" password=\"plain\";";
+
+        Map<String, Object> env = new LinkedHashMap<>();
+        env.put("shade.identifier", "base64");
+
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put("plugin_name", "FakeSource");
+        source.put(
+                "username",
+                Base64.getEncoder().encodeToString(USERNAME.getBytes(StandardCharsets.UTF_8)));
+        source.put("sasl.jaas.config", jaasConfig);
+
+        Map<String, Object> sink = new LinkedHashMap<>();
+        sink.put("plugin_name", "Console");
+
+        Map<String, Object> configMap = new LinkedHashMap<>();
+        configMap.put("env", env);
+        configMap.put("source", Arrays.asList(source));
+        configMap.put("sink", Arrays.asList(sink));
+
+        Config config = ConfigShadeUtils.decryptConfig(ConfigFactory.parseMap(configMap));
+
+        Assertions.assertEquals(
+                USERNAME, config.getConfigList("source").get(0).getString("username"));
+        Assertions.assertEquals(
+                jaasConfig, config.getConfigList("source").get(0).getString("sasl.jaas.config"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "AzureEventHubs,false",
+        "AzureQueueStorage,false",
+        "AzureEventHubs,true",
+        "AzureQueueStorage,true"
+    })
+    public void testAzureConnectionStringsRemainPlaintextUnlessExplicitlyShaded(
+            String plugin, boolean explicitShade) {
+        Map<String, String> connections = new LinkedHashMap<>();
+        connections.put(
+                "AzureEventHubs",
+                "Endpoint=sb://example.servicebus.windows.net/;SharedAccessKeyName=listen;"
+                        + "SharedAccessKey=c3ludGhldGljLXNlY3JldA==");
+        connections.put(
+                "AzureQueueStorage",
+                "DefaultEndpointsProtocol=https;AccountName=example;"
+                        + "AccountKey=c3ludGhldGljLXNlY3JldA==;EndpointSuffix=core.windows.net");
+        String connectionString = connections.get(plugin);
+        Map<String, Object> env = new LinkedHashMap<>();
+        env.put("shade.identifier", "base64");
+        if (explicitShade) {
+            env.put("shade.options", Arrays.asList("connection_string"));
+        }
+        Map<String, Object> connector = new LinkedHashMap<>();
+        connector.put("plugin_name", plugin);
+        connector.put("connection_string", connectionString);
+        Map<String, Object> configMap = new LinkedHashMap<>();
+        configMap.put("env", env);
+        configMap.put("source", Arrays.asList(connector));
+        configMap.put("sink", Arrays.asList(connector));
+        Config plaintext = ConfigFactory.parseMap(configMap);
+
+        Config encrypted = ConfigShadeUtils.encryptConfig(plaintext);
+        Config decrypted = ConfigShadeUtils.decryptConfig(explicitShade ? encrypted : plaintext);
+        for (String role : Arrays.asList("source", "sink")) {
+            Assertions.assertEquals(
+                    connectionString,
+                    decrypted.getConfigList(role).get(0).getString("connection_string"));
+            Assertions.assertEquals(
+                    explicitShade
+                            ? Base64.getEncoder()
+                                    .encodeToString(
+                                            connectionString.getBytes(StandardCharsets.UTF_8))
+                            : connectionString,
+                    encrypted.getConfigList(role).get(0).getString("connection_string"));
+        }
+        String logConfig =
+                ConfigBuilder.mapToString(
+                        ConfigBuilder.configDesensitization(
+                                decrypted.root().unwrapped(),
+                                ConfigShadeUtils.getLogDesensitizationOptions(decrypted)));
+        Assertions.assertFalse(logConfig.contains(connectionString));
+        Assertions.assertFalse(logConfig.contains("c3ludGhldGljLXNlY3JldA=="));
     }
 
     @Test
@@ -328,6 +432,72 @@ public class ConfigShadeTest {
                 Assertions.assertFalse(
                         nestedList.get(0).contains("${test_placeholder}"),
                         "Nested list should not contain unreplaced placeholder");
+            }
+        }
+    }
+
+    @Test
+    public void testVariableReplacementWithJsonParams() throws URISyntaxException {
+        List<String> variables = new ArrayList<>();
+        variables.add(
+                "mysql_properties={"
+                        + "\"useSSL\":\"false\","
+                        + "\"allowPublicKeyRetrieval\":\"true\"}");
+        variables.add(
+                "mysql_tables=[{\"table_path\":\"test.t_*\",\"use_regex\":\"true\"},{\"table_path\":\"test.tt\"}]");
+
+        URL resource = ConfigShadeTest.class.getResource("/config_json_variables.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
+
+        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
+        for (ConfigObject configObject : sourceConfigs) {
+            Config sourceConfig = configObject.toConfig();
+
+            if (sourceConfig.hasPath("properties")) {
+                Map<String, Object> mysqlProperties =
+                        sourceConfig.getObject("properties").unwrapped();
+                Assertions.assertTrue(
+                        mysqlProperties.containsKey("allowPublicKeyRetrieval"),
+                        "properties should contain key: 'allowPublicKeyRetrieval'");
+
+                List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
+                boolean useRegex =
+                        tableList.stream()
+                                .map(tableObject -> tableObject.toConfig().getBoolean("use_regex"))
+                                .findFirst()
+                                .get();
+
+                Assertions.assertTrue(
+                        useRegex,
+                        "useRegex should contain replaced placeholder value: " + useRegex);
+            }
+        }
+    }
+
+    @Test
+    public void testVariableReplacementWithWrongJsonFormatParams() throws URISyntaxException {
+        List<String> variables = new ArrayList<>();
+        // missing closing brace,will be treated as String and throw ConfigException when calling
+        // getObject() as a map type
+        variables.add(
+                "mysql_properties={"
+                        + "\"useSSL\":\"false\","
+                        + "\"allowPublicKeyRetrieval\":\"true\"");
+        variables.add(
+                "mysql_tables=[{\"table_path\":\"test.t_*\",\"use_regex\":\"true\"},{\"table_path\":\"test.tt\"}]");
+
+        URL resource = ConfigShadeTest.class.getResource("/config_json_variables.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
+
+        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
+        for (ConfigObject configObject : sourceConfigs) {
+            Config sourceConfig = configObject.toConfig();
+
+            if (sourceConfig.hasPath("properties")) {
+                Assertions.assertThrows(
+                        ConfigException.class, () -> sourceConfig.getObject("properties"));
             }
         }
     }

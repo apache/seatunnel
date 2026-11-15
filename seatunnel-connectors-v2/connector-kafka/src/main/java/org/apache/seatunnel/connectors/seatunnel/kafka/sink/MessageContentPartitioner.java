@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
+import org.apache.seatunnel.common.utils.HashUtils;
+
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.PartitionInfo;
@@ -49,7 +51,7 @@ public class MessageContentPartitioner implements Partitioner {
             }
         }
         // Choose one of the remaining partitions according to the hashcode.
-        return ((message.hashCode() & Integer.MAX_VALUE) % (numPartitions - assignPartitionsSize))
+        return HashUtils.bucketIndex(message.hashCode(), numPartitions - assignPartitionsSize)
                 + assignPartitionsSize;
     }
 

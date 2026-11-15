@@ -1,0 +1,1 @@
+License: {Name: The Apache Software License, Version 2.0, URL: https://www.apache.org/licenses/LICENSE-2.0.txt, Distribution: repo, Comments: SNMP4J (org.snmp4j:snmp4j) }

@@ -42,7 +42,7 @@ import java.util.Collections;
 
 class BaseServletTest extends AbstractSeaTunnelServerTest {
 
-    private static final int HTTP_PORT = 18080;
+    private static final int HTTP_PORT = TestUtils.getAvailablePort();
 
     private static final Long JOB_1 = System.currentTimeMillis() + 1L;
 

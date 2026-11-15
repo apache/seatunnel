@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.engine.common.job;
 
+import java.util.Locale;
+
 /** Possible states of a job once it has been accepted by the dispatcher. */
 public enum JobStatus {
     /**
@@ -84,6 +86,6 @@ public enum JobStatus {
     }
 
     public static JobStatus fromString(String status) {
-        return JobStatus.valueOf(status.toUpperCase());
+        return JobStatus.valueOf(status.toUpperCase(Locale.ROOT));
     }
 }

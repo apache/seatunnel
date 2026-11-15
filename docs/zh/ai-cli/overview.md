@@ -21,7 +21,7 @@ AI CLI 以 `seatunnel-cli` 模块的形式内置在 SeaTunnel 主仓库中，并
 ## 核心能力
 
 - **自然语言生成配置** —— 中英文输入，输出完整 HOCON 配置
-- **多 LLM 提供商** —— AWS Bedrock（含通过 `bedrock-mantle` 端点接入的 OpenAI 系模型）、Anthropic API、OpenAI 及兼容 API
+- **多 LLM 提供商** —— AWS Bedrock（含通过 `bedrock-mantle` 端点接入的 OpenAI 系模型）、Anthropic API、OpenAI 及兼容 API、OrcaRouter AI 网关
 - **多智能体流水线** —— Planner → 配置生成 → 校验 → 自动修复，最多 3 轮纠错
 - **连接器知识库** —— 150+ 连接器的完整选项规则与取值约束，来自运行中引擎或内置元数据
 - **校验与修复** —— 本地检查、引擎 `--check`/dry-run，`/check` 或 `/run` 失败时由 LLM 自动诊断修复

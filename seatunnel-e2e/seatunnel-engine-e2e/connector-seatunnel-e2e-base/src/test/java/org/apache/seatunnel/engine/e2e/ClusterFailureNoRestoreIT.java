@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
+import org.apache.seatunnel.engine.client.job.JobMetricsRunner.JobMetricsSummary;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -66,11 +67,10 @@ public class ClusterFailureNoRestoreIT {
     private static final long PRE_SHUTDOWN_RUNNING_TIMEOUT_SECONDS = 30L;
 
     /**
-     * Give the running batch topology a short warm-up window before shutting down a worker. The
-     * LocalFile sink used by this test commits files transactionally, so intermediate file lines
-     * are not a reliable progress signal while the job is still running.
+     * Wait for job metrics to show that the bounded fake source has started consuming records but
+     * has not yet drained its full input before shutting a worker down.
      */
-    private static final long PRE_SHUTDOWN_RUNNING_GRACE_SECONDS = 5L;
+    private static final long PRE_SHUTDOWN_PROGRESS_TIMEOUT_SECONDS = 30L;
 
     private static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
@@ -86,6 +86,7 @@ public class ClusterFailureNoRestoreIT {
         String testClusterName = "ClusterFailureNoRestoreIT_batch_no_restore";
         long testRowNumber = NO_RESTORE_BATCH_ROW_NUM_PER_PARALLELISM;
         int testParallelism = 6;
+        long expectedSourceReadCount = testRowNumber * testParallelism;
 
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
@@ -129,8 +130,8 @@ public class ClusterFailureNoRestoreIT {
                             () ->
                                     Assertions.assertEquals(
                                             JobStatus.RUNNING, clientJobProxy.getJobStatus()));
-
-            TimeUnit.SECONDS.sleep(PRE_SHUTDOWN_RUNNING_GRACE_SECONDS);
+            awaitSourceProgressBeforeShutdown(
+                    engineClient, clientJobProxy.getJobId(), expectedSourceReadCount);
 
             CompletableFuture<JobResult> waitForCompleteFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobCompleteV2);
@@ -174,6 +175,28 @@ public class ClusterFailureNoRestoreIT {
                 node2.shutdown();
             }
         }
+    }
+
+    /**
+     * Wait until the runtime metrics confirm that the batch source is actively producing data and
+     * has not already consumed the full bounded input before the worker shutdown is injected.
+     */
+    private void awaitSourceProgressBeforeShutdown(
+            SeaTunnelClient engineClient, long jobId, long expectedSourceReadCount) {
+        Awaitility.await()
+                .atMost(PRE_SHUTDOWN_PROGRESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            JobMetricsSummary jobMetricsSummary =
+                                    engineClient.getJobMetricsSummary(jobId);
+                            Assertions.assertTrue(
+                                    jobMetricsSummary.getSourceReadCount() > 0,
+                                    "Expected the fake source to emit records before worker shutdown");
+                            Assertions.assertTrue(
+                                    jobMetricsSummary.getSourceReadCount()
+                                            < expectedSourceReadCount,
+                                    "The bounded fake source finished before worker shutdown was injected");
+                        });
     }
 
     private ImmutablePair<String, String> createTestResources(

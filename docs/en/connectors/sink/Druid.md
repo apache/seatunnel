@@ -36,7 +36,7 @@ Write data to Apache Druid through the Druid indexing task API.
 |----------------|--------|----------|---------------|-------------|
 | coordinatorUrl | string | yes      | -             | Druid coordinator or router host and port. |
 | datasource     | string | yes      | -             | Druid datasource name. Supports placeholders such as `${table_name}`. |
-| batchSize      | int    | no       | 10000         | Number of rows buffered before one indexing task is submitted. |
+| batchSize      | int    | no       | 10000         | Number of rows buffered before one indexing task is submitted. Must be greater than `0`. |
 | common-options |        | no       | -             | Sink common options. |
 
 ### coordinatorUrl [string]
@@ -53,7 +53,7 @@ When the upstream source has multiple tables, you can use placeholders such as `
 
 ### batchSize [int]
 
-The number of rows buffered before SeaTunnel sends one indexing task to Druid. The default value is `10000`.
+The number of rows buffered before SeaTunnel sends one indexing task to Druid. The default value is `10000`, and the configured value must be greater than `0`.
 
 SeaTunnel also flushes the remaining buffered rows when the writer closes.
 
@@ -78,6 +78,8 @@ The sink is designed for append-style batch ingestion. It does not interpret CDC
 Only the data types listed in [Data Type Mapping](#data-type-mapping) are supported. Other SeaTunnel types fail during write planning.
 
 Because the connector submits inline CSV data to Druid, string values should not contain raw commas or line breaks unless they are normalized before the Druid sink.
+
+A null field is written as an empty CSV value, so it keeps its column. Druid stores it according to `druid.generic.useDefaultValueForNull`: with the default `true`, as `''` for string columns and `0` for numeric columns; with `false`, as a SQL null.
 
 ## Example
 

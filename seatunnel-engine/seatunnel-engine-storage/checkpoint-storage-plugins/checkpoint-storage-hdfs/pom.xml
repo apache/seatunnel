@@ -31,15 +31,16 @@
     <name>SeaTunnel : Engine : Storage : Checkpoint Storage Plugins : HDFS</name>
 
     <properties>
-        <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
+        <hadoop-aliyun.version>3.1.4</hadoop-aliyun.version>
+        <hadoop-cos.version>3.4.1</hadoop-cos.version>
+        <aws-java-sdk.version>1.11.271</aws-java-sdk.version>
+        <aliyun.sdk.oss.version>3.4.1</aliyun.sdk.oss.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-            <version>${project.version}</version>
-            <classifier>optional</classifier>
+            <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -52,19 +53,25 @@
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-aws</artifactId>
-            <version>3.1.4</version>
+            <version>${hadoop-aws.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-bundle</artifactId>
-            <version>1.11.271</version>
+            <version>${aws-java-sdk.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-cos</artifactId>
-            <version>3.4.1</version>
+            <version>${hadoop-cos.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>${aliyun.sdk.oss.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

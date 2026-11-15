@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -28,6 +29,9 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.sink.RedisSink;
 import org.apache.seatunnel.connectors.seatunnel.redis.sink.RedisSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.redis.source.RedisSourceFactory;
 
@@ -36,19 +40,98 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.MockedConstruction;
+import org.mockito.Mockito;
 
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.exceptions.JedisDataException;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 class RedisFactoryTest {
 
     private static final OptionRule SOURCE_RULE = new RedisSourceFactory().optionRule();
     private static final OptionRule SINK_RULE = new RedisSinkFactory().optionRule();
+
+    @Test
+    void namedAuthenticationDoesNotAdministerUsers() {
+        try (MockedConstruction<Jedis> construction = Mockito.mockConstruction(Jedis.class)) {
+            RedisParameters parameters = singleConnectionParameters();
+            parameters.setUser("named-user");
+            parameters.setAuth("named-password");
+            parameters.setDbNum(3);
+            Jedis connection = parameters.buildJedis();
+            Assertions.assertSame(construction.constructed().get(0), connection);
+            Mockito.verify(connection).auth("named-user", "named-password");
+            Mockito.verify(connection).select(3);
+            Mockito.verifyNoMoreInteractions(connection);
+            connection.close();
+        }
+    }
+
+    @Test
+    void authenticationFailureClosesConnectionAndPreservesCause() {
+        JedisDataException failure = new JedisDataException("Authentication failed");
+        RuntimeException closeFailure = new RuntimeException("Close failed");
+        try (MockedConstruction<Jedis> construction =
+                Mockito.mockConstruction(
+                        Jedis.class,
+                        (connection, context) -> {
+                            Mockito.when(connection.auth("named-user", "wrong")).thenThrow(failure);
+                            Mockito.doThrow(closeFailure).when(connection).close();
+                        })) {
+            RedisParameters parameters = singleConnectionParameters();
+            parameters.setUser("named-user");
+            parameters.setAuth("wrong");
+            Assertions.assertSame(
+                    failure,
+                    Assertions.assertThrows(JedisDataException.class, parameters::buildJedis));
+            Mockito.verify(construction.constructed().get(0)).close();
+            Assertions.assertArrayEquals(new Throwable[] {closeFailure}, failure.getSuppressed());
+        }
+    }
+
+    @Test
+    void versionInitializationFailureClosesConnection() {
+        for (String info : Arrays.asList("redis_version:not-a-version", "no-version")) {
+            RedisParameters parameters = Mockito.spy(singleConnectionParameters());
+            Jedis connection = Mockito.mock(Jedis.class);
+            Mockito.doReturn(connection).when(parameters).buildJedis();
+            Mockito.when(connection.info()).thenReturn(info);
+            Assertions.assertThrows(RuntimeException.class, parameters::buildRedisClient);
+            Mockito.verify(connection).close();
+        }
+        RedisParameters parameters = Mockito.spy(singleConnectionParameters());
+        Jedis connection = Mockito.mock(Jedis.class);
+        Mockito.doReturn(connection).when(parameters).buildJedis();
+        JedisDataException denied = new JedisDataException("INFO denied");
+        Mockito.when(connection.info()).thenThrow(denied);
+        Assertions.assertSame(
+                denied,
+                Assertions.assertThrows(JedisDataException.class, parameters::buildRedisClient));
+        Mockito.verify(connection).close();
+    }
+
+    private RedisParameters singleConnectionParameters() {
+        RedisParameters parameters = new RedisParameters();
+        parameters.setHost("localhost");
+        parameters.setPort(6379);
+        parameters.setMode(RedisBaseOptions.RedisMode.SINGLE);
+        return parameters;
+    }
 
     @Test
     void optionRule() {
@@ -142,6 +225,109 @@ class RedisFactoryTest {
                         catalogTable(), config, Thread.currentThread().getContextClassLoader());
         Assertions.assertDoesNotThrow(
                 () -> new RedisSinkFactory().createSink(context).createSink());
+    }
+
+    @Test
+    void sinkExposesSchemaWriterStateSerializer() throws IOException {
+        RedisSink sink = new RedisSink(ReadonlyConfig.fromMap(singleSinkConfig()), catalogTable());
+
+        Assertions.assertTrue(sink.getWriterStateSerializer().isPresent());
+        @SuppressWarnings("unchecked")
+        Serializer<TableSchema> serializer =
+                (Serializer<TableSchema>) (Serializer<?>) sink.getWriterStateSerializer().get();
+        TableSchema tableSchema = catalogTable().getTableSchema();
+
+        Assertions.assertEquals(
+                tableSchema, serializer.deserialize(serializer.serialize(tableSchema)));
+    }
+
+    // connect dry-run
+
+    @Test
+    void sourceDryRunInfersConfiguredSchemaForSingleTable() {
+        Map<String, Object> config = singleSourceConfig();
+        config.put("format", "JSON");
+        config.put("schema", schema("db.users"));
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(
+                        ReadonlyConfig.fromMap(config),
+                        Thread.currentThread().getContextClassLoader());
+
+        // No Redis instance is running, so passing here proves no value is read.
+        List<CatalogTable> tables = new RedisSourceFactory().inferSchemaForDryRun(context);
+
+        Assertions.assertEquals(1, tables.size());
+        Assertions.assertEquals(
+                Arrays.asList("id", "name"),
+                Arrays.asList(tables.get(0).getTableSchema().getFieldNames()));
+    }
+
+    @Test
+    void sourceDryRunInfersOneTablePerTableConfig() {
+        Map<String, Object> first = tableEntry("key_a*");
+        first.put("schema", schema("db.a"));
+        Map<String, Object> second = tableEntry("key_b*");
+        second.put("schema", schema("db.b"));
+        Map<String, Object> config = multiTableSourceConfig();
+        config.put("tables_configs", Arrays.asList(first, second));
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(
+                        ReadonlyConfig.fromMap(config),
+                        Thread.currentThread().getContextClassLoader());
+
+        List<CatalogTable> tables = new RedisSourceFactory().inferSchemaForDryRun(context);
+
+        Assertions.assertEquals(
+                Arrays.asList("db.a", "db.b"),
+                tables.stream()
+                        .map(table -> table.getTablePath().toString())
+                        .collect(Collectors.toList()));
+        for (CatalogTable table : tables) {
+            Assertions.assertEquals(
+                    Arrays.asList("id", "name"),
+                    Arrays.asList(table.getTableSchema().getFieldNames()));
+        }
+    }
+
+    @Test
+    void sourceDryRunValidatesConnectionWithoutReadingKeys() throws Exception {
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(
+                        ReadonlyConfig.fromMap(singleSourceConfig()),
+                        Thread.currentThread().getContextClassLoader());
+        try (MockedConstruction<Jedis> clients = mockConstruction(Jedis.class)) {
+            new RedisSourceFactory().validateConnectionForDryRun(context, Collections.emptyList());
+
+            Jedis jedis = clients.constructed().get(0);
+            verify(jedis).select(0);
+            verify(jedis).ping();
+            verify(jedis).close();
+            verifyNoMoreInteractions(jedis);
+        }
+    }
+
+    @Test
+    void sinkDryRunIgnoresFieldOptionsMissingFromUpstreamSchema() {
+        // Missing field names are literal values at runtime, so they must not fail the dry run.
+        Map<String, Object> config = singleSinkConfig();
+        config.put("data_type", "HASH");
+        config.put("key", "missing_key_field");
+        config.put("hash_key_field", "missing_hash_key");
+        config.put("hash_value_field", "missing_hash_value");
+        TableSinkFactoryContext context =
+                new TableSinkFactoryContext(
+                        catalogTable(),
+                        ReadonlyConfig.fromMap(config),
+                        Thread.currentThread().getContextClassLoader());
+        try (MockedConstruction<Jedis> clients = mockConstruction(Jedis.class)) {
+            new RedisSinkFactory().validateConnectionForDryRun(context);
+
+            Jedis jedis = clients.constructed().get(0);
+            verify(jedis).select(0);
+            verify(jedis).ping();
+            verify(jedis).close();
+            verifyNoMoreInteractions(jedis);
+        }
     }
 
     // parameterized-case providers
@@ -239,6 +425,16 @@ class RedisFactoryTest {
                 new ArrayList<>(),
                 null,
                 "catalog");
+    }
+
+    private static Map<String, Object> schema(String table) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("id", "bigint");
+        fields.put("name", "string");
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("table", table);
+        schema.put("fields", fields);
+        return schema;
     }
 
     private static Map<String, Object> singleSourceConfig() {

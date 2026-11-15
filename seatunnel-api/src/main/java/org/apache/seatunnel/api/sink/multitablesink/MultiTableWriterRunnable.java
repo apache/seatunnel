@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -46,6 +47,9 @@ import java.util.function.Consumer;
 @Slf4j
 public class MultiTableWriterRunnable implements Runnable {
 
+    private static final long HANDOFF_COALESCE_NANOS = TimeUnit.MICROSECONDS.toNanos(50);
+    private static final long HANDOFF_BURST_NANOS = TimeUnit.MICROSECONDS.toNanos(200);
+
     /** Writers that belong to this queue, keyed by logical source-table identifier. */
     private final Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap;
     /** Ordered requests for this queue: data rows or schema-change barrier markers. */
@@ -60,6 +64,8 @@ public class MultiTableWriterRunnable implements Runnable {
     private final int tableRetryTimes;
     /** Sleep interval between write retries for continue-other-tables mode. */
     private final int tableRetryIntervalSeconds;
+
+    private final boolean coalesceHandoffs;
     /** First fatal worker failure surfaced back to the coordinator. */
     private volatile Throwable throwable;
     /** Table currently being written, used in fail-fast diagnostics. */
@@ -122,6 +128,24 @@ public class MultiTableWriterRunnable implements Runnable {
             BiConsumer<String, Throwable> failureHandler,
             int tableRetryTimes,
             int tableRetryIntervalSeconds) {
+        this(
+                tableIdWriterMap,
+                queue,
+                continueOnTableFailure,
+                failureHandler,
+                tableRetryTimes,
+                tableRetryIntervalSeconds,
+                false);
+    }
+
+    MultiTableWriterRunnable(
+            Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
+            BlockingQueue<QueueElement> queue,
+            boolean continueOnTableFailure,
+            BiConsumer<String, Throwable> failureHandler,
+            int tableRetryTimes,
+            int tableRetryIntervalSeconds,
+            boolean coalesceHandoffs) {
         this.tableIdWriterMap = tableIdWriterMap;
         this.queue = queue;
         this.allowSingleWriterFallback = tableIdWriterMap.size() == 1;
@@ -129,6 +153,7 @@ public class MultiTableWriterRunnable implements Runnable {
         this.failureHandler = failureHandler;
         this.tableRetryTimes = Math.max(0, tableRetryTimes);
         this.tableRetryIntervalSeconds = Math.max(0, tableRetryIntervalSeconds);
+        this.coalesceHandoffs = coalesceHandoffs;
     }
 
     /** Installs the row-level error handler used to bypass bad rows instead of failing the job. */
@@ -150,6 +175,7 @@ public class MultiTableWriterRunnable implements Runnable {
      */
     @Override
     public void run() {
+        long lastEmptyQueueNanos = System.nanoTime();
         while (true) {
             QueueElement queueElement = null;
             TableFailure tableFailure = null;
@@ -200,6 +226,15 @@ public class MultiTableWriterRunnable implements Runnable {
                 if (queueElement != null && queueElement.isCountedRowRequest()) {
                     pendingRowRequests.decrementAndGet();
                 }
+            }
+            if (coalesceHandoffs && queueElement.isRowRequest() && queue.isEmpty()) {
+                long now = System.nanoTime();
+                if (now - lastEmptyQueueNanos <= HANDOFF_BURST_NANOS) {
+                    // A frequently empty FIFO can collect several rows during this brief pause.
+                    // Every accepted row remains visible to the existing drain checks.
+                    LockSupport.parkNanos(HANDOFF_COALESCE_NANOS);
+                }
+                lastEmptyQueueNanos = now;
             }
         }
     }

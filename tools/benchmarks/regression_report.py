@@ -370,10 +370,22 @@ def median_value(metrics, target_unit=None):
     return statistics.median(values) if values else None
 
 
-def adjusted_change(baseline, candidate, direction):
+def median_statistic(metrics, statistic):
+    values = [statistic(metric) for metric in metrics]
+    values = [value for value in values if value is not None]
+    return statistics.median(values) if values else None
+
+
+def relative_change(baseline, candidate):
     if baseline in (None, 0.0) or candidate is None:
         return None
-    raw = (candidate / baseline - 1.0) * 100.0
+    return (candidate / baseline - 1.0) * 100.0
+
+
+def adjusted_change(baseline, candidate, direction):
+    raw = relative_change(baseline, candidate)
+    if raw is None:
+        return None
     return -raw if direction == "lower" else raw
 
 
@@ -396,8 +408,11 @@ def jmh_comparison_lines(baselines, candidates):
     lines = [
         "### JMH comparison",
         "",
-        "| Benchmark | Parameters | Baseline | Candidate | Change | Unit |",
-        "| --- | --- | ---: | ---: | ---: | --- |",
+        "> `B` = Baseline, `C` = Candidate. Score is the median benchmark result; CV measures variability and Error represents the relative JMH confidence interval, both aggregated as medians across runs.",
+        "> Score Change is direction-adjusted so positive is favorable; CV and Error changes are relative changes.",
+        "",
+        "| Benchmark | Parameters | Score B | Score C | Score Change | CV B | CV C | CV Change | Error B | Error C | Error Change | Unit |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
     names.sort(
         key=lambda name: jmh_sort_key(
@@ -411,13 +426,23 @@ def jmh_comparison_lines(baselines, candidates):
         target_unit = (candidate_group or baseline_group)[0]["unit"]
         baseline = median_value(baseline_group, target_unit)
         candidate = median_value(candidate_group, target_unit)
+        baseline_cv = median_statistic(baseline_group, coefficient_of_variation)
+        candidate_cv = median_statistic(candidate_group, coefficient_of_variation)
+        baseline_error = median_statistic(baseline_group, relative_error)
+        candidate_error = median_statistic(candidate_group, relative_error)
         lines.append(
-            "| `{}` | `{}` | {} | {} | {} | {} |".format(
+            "| `{}` | `{}` | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
                 short_benchmark_name(metric),
                 compact_params(metric.get("params", {})),
                 format_number(baseline),
                 format_number(candidate),
                 format_percent(adjusted_change(baseline, candidate, metric["direction"])),
+                format_percent(baseline_cv, signed=False),
+                format_percent(candidate_cv, signed=False),
+                format_percent(relative_change(baseline_cv, candidate_cv)),
+                format_percent(baseline_error, signed=False),
+                format_percent(candidate_error, signed=False),
+                format_percent(relative_change(baseline_error, candidate_error)),
                 target_unit,
             )
         )
@@ -556,8 +581,7 @@ def comparison_lines(baselines, candidates):
         "- Runner image: `{}`".format(environment.get("runner_image", "unknown")),
         "- CPU: `{}`".format(environment.get("cpu_model", "unknown")),
         "",
-        "> Baseline and candidate ran alternately on the same worker. Positive adjusted change is "
-        "favorable, but this observational report does not enforce a regression threshold.",
+        "> Baseline and candidate ran alternately on the same worker.",
     ]
     for section in (
         jmh_comparison_lines(baselines, candidates),

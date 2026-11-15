@@ -18,6 +18,9 @@ target/
 /logs
 logs.zip
 
+# Local BOS integration test configs (may reference credentials)
+config/bos-local-test/
+
 # Intellij Idea files
 .idea/
 *.iml
@@ -48,6 +51,9 @@ apidoc
 
 # Python
 *.py[cod]
+seatunnel-cli/.venv
+seatunnel-cli/.venv.invalid.*
+seatunnel-cli/*.egg-info/
 
 Test.java
 Test.scala
@@ -67,6 +73,9 @@ node/
 dist/
 
 seatunnel-engine/seatunnel-engine-server/**/ui/*
+# The engine server module keeps a placeholder UI in its test resources, so that unit tests can
+# exercise the Jetty wiring that only exists when the packaged Web UI is on the classpath.
+!seatunnel-engine/seatunnel-engine-server/src/test/resources/ui/index.html
 
 seatunnel-edge-agent/**/edge-agent.id
 seatunnel-edge-agent/**/tmp/

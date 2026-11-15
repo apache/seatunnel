@@ -44,7 +44,8 @@ public class HiveSinkFactory
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(HiveSinkOptions.TABLE_NAME)
-                .required(HiveSinkOptions.METASTORE_URI)
+                .optional(HiveSinkOptions.METASTORE_URI)
+                .optional(HiveSinkOptions.HIVE_SITE_PATH)
                 .optional(HiveSinkOptions.ABORT_DROP_PARTITION_METADATA)
                 .optional(HiveSinkOptions.KERBEROS_PRINCIPAL)
                 .optional(HiveSinkOptions.KERBEROS_KEYTAB_PATH)

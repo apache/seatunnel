@@ -29,13 +29,17 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class SeaTunnelClient {
+    private static final int HELP_EXIT_CODE = 0;
+
     public static void main(String[] args) throws CommandException {
         ClientCommandArgs clientCommandArgs =
                 CommandLineUtils.parse(
                         args,
                         new ClientCommandArgs(),
                         EngineType.SEATUNNEL.getStarterShellName(),
-                        true);
+                        true,
+                        ClientCommandArgs::validateCommandOptions,
+                        HELP_EXIT_CODE);
         try {
             SeaTunnel.run(clientCommandArgs.buildCommand());
         } catch (Error e) {

@@ -70,7 +70,7 @@ Fluss Source 用于在批处理或流处理作业中，从已有的 Fluss 表读
 | database | string | 是 | - | 要读取的 Fluss database。 |
 | table | string | 是 | - | 要读取的 Fluss table。 |
 | client.config | map | 否 | - | 传递给 Fluss 连接的额外 Fluss 客户端选项。 |
-| start_mode | string | 否 | earliest | 每个 bucket 的起始读取位点：`earliest`（整个 log）或 `latest`（仅作业启动后新追加的记录）。`latest` 在 `BATCH` 模式下会被拒绝。 |
+| start_mode | enum | 否 | earliest | 每个 bucket 的起始读取位点：`earliest`（整个 log）或 `latest`（仅作业启动后新追加的记录）。`latest` 在 `BATCH` 模式下会被拒绝。 |
 | poll.timeout.ms | long | 否 | 10000 | 单次 Fluss log scanner poll 的最大阻塞时间，单位毫秒。 |
 | common-options | - | 否 | - | Source 通用选项，详见 [Source 通用选项](../common-options/source-common-options.md)。 |
 
@@ -152,6 +152,66 @@ source {
 
 sink {
   Console {
+  }
+}
+```
+
+### 将一张 Fluss 表流式写入另一张 Fluss 表
+
+本示例在流处理模式下把一个 Fluss 源表复制到 Fluss 目标表。Source 从最早可用的
+log offset 开始读取，连接器在每次 checkpoint 时提交每个 bucket 的读取位置，
+作业重启后可以从断点恢复。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  Fluss {
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "fluss_stream_db"
+    table = "fluss_stream_src"
+    start_mode = "earliest"
+    poll.timeout.ms = 10000
+    plugin_output = "fluss_stream"
+  }
+}
+
+sink {
+  Fluss {
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "fluss_stream_db"
+    table = "fluss_stream_sink"
+    plugin_input = "fluss_stream"
+  }
+}
+```
+
+### 为高延迟集群调优 poll 超时
+
+当 Fluss coordinator 位于高延迟网络或返回较大批次时，可以增大 `poll.timeout.ms`，
+让 log scanner 在空轮询之间等待更长时间，减少往返次数。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Fluss {
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "fluss_db"
+    table = "fluss_table"
+    start_mode = "latest"
+    poll.timeout.ms = 60000
+    client.config = {
+      request.timeout = "30s"
+    }
   }
 }
 ```

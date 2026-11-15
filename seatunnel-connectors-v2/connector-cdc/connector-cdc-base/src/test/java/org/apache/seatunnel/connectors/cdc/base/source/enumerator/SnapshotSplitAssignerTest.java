@@ -65,7 +65,7 @@ public class SnapshotSplitAssignerTest {
     }
 
     @Test
-    public void testAddSplitsShouldReplayFinishedSplitWithoutCompletedWatermark() {
+    public void testAddSplitsShouldRestoreFinishedSplitWithoutCompletedWatermark() {
         SnapshotSplit finishedSplit = createFinishedSnapshotSplit("db1.table1.1");
         Map<String, SnapshotSplit> assignedSplits = new HashMap<>();
         assignedSplits.put(finishedSplit.splitId(), finishedSplit);
@@ -76,12 +76,17 @@ public class SnapshotSplitAssignerTest {
         splitAssigner.addSplits(Collections.singletonList(finishedSplit));
 
         SnapshotPhaseState state = splitAssigner.snapshotState(12L);
-        Assertions.assertEquals(1, state.getRemainingSplits().size());
+        // The split was already finished in the reader before the failover but its
+        // completed-watermark was never checkpointed. The assigner must reconstruct the
+        // watermark from the split itself and skip add-back, otherwise the snapshot phase
+        // would never finish.
+        Assertions.assertTrue(state.getRemainingSplits().isEmpty());
         Assertions.assertEquals(
-                finishedSplit.splitId(), state.getRemainingSplits().get(0).splitId());
-        Assertions.assertTrue(state.getAssignedSplits().isEmpty());
-        Assertions.assertTrue(state.getSplitCompletedOffsets().isEmpty());
-        Assertions.assertTrue(splitAssigner.waitingForCompletedSplits());
+                Collections.singleton(finishedSplit.splitId()), state.getAssignedSplits().keySet());
+        Assertions.assertEquals(
+                Collections.singleton(finishedSplit.splitId()),
+                state.getSplitCompletedOffsets().keySet());
+        Assertions.assertFalse(splitAssigner.waitingForCompletedSplits());
     }
 
     @Test
@@ -114,9 +119,63 @@ public class SnapshotSplitAssignerTest {
         Assertions.assertFalse(restoredAssigner.waitingForCompletedSplits());
     }
 
+    @Test
+    public void testSingleParallelismShouldCompleteImmediatelyWhenAllSplitsCompleted() {
+        // A single-reader batch job may run with checkpointing disabled (no
+        // 'checkpoint.interval' in env), so the assigner can never rely on
+        // notifyCheckpointComplete to flip the completed flag. It must complete immediately
+        // once all snapshot splits have reported their watermarks, otherwise such jobs hang
+        // forever between the snapshot and incremental phases.
+        SnapshotSplit finishedSplit = createFinishedSnapshotSplit("db1.table1.1");
+        Map<String, SnapshotSplit> assignedSplits = new HashMap<>();
+        assignedSplits.put(finishedSplit.splitId(), finishedSplit);
+
+        SnapshotSplitAssigner<?> splitAssigner =
+                createRestoredSnapshotSplitAssigner(assignedSplits, new HashMap<>(), 1);
+
+        Assertions.assertFalse(splitAssigner.isCompleted());
+
+        splitAssigner.onCompletedSplits(Collections.singletonList(createWatermark(finishedSplit)));
+
+        Assertions.assertTrue(splitAssigner.isCompleted());
+        Assertions.assertFalse(splitAssigner.waitingForCompletedSplits());
+    }
+
+    @Test
+    public void testMultiParallelismShouldWaitForCheckpointBeforeCompleted() {
+        SnapshotSplit finishedSplit = createFinishedSnapshotSplit("db1.table1.1");
+        Map<String, SnapshotSplit> assignedSplits = new HashMap<>();
+        assignedSplits.put(finishedSplit.splitId(), finishedSplit);
+
+        SnapshotSplitAssigner<?> splitAssigner =
+                createRestoredSnapshotSplitAssigner(assignedSplits, new HashMap<>(), 10);
+
+        splitAssigner.onCompletedSplits(Collections.singletonList(createWatermark(finishedSplit)));
+
+        // multi-parallelism jobs must not complete before a checkpoint pinned the completion
+        // state, otherwise incremental splits could overtake snapshot records of the same key
+        Assertions.assertFalse(splitAssigner.isCompleted());
+
+        splitAssigner.snapshotState(21L);
+        Assertions.assertFalse(splitAssigner.isCompleted());
+
+        splitAssigner.notifyCheckpointComplete(20L);
+        Assertions.assertFalse(splitAssigner.isCompleted());
+
+        splitAssigner.notifyCheckpointComplete(21L);
+        Assertions.assertTrue(splitAssigner.isCompleted());
+    }
+
     private SnapshotSplitAssigner<?> createRestoredSnapshotSplitAssigner(
             Map<String, SnapshotSplit> assignedSplits,
             Map<String, SnapshotSplitWatermark> completedOffsets) {
+        return createRestoredSnapshotSplitAssigner(assignedSplits, completedOffsets, 10);
+    }
+
+    private SnapshotSplitAssigner<?> createRestoredSnapshotSplitAssigner(
+            Map<String, SnapshotSplit> assignedSplits,
+            Map<String, SnapshotSplitWatermark> completedOffsets,
+            int currentParallelism) {
         SnapshotPhaseState checkpointState =
                 new SnapshotPhaseState(
                         Collections.emptyList(),
@@ -133,7 +192,7 @@ public class SnapshotSplitAssignerTest {
                         Collections.singleton(TableId.parse("db1.table1")),
                         checkpointState.getAssignedSplits(),
                         checkpointState.getSplitCompletedOffsets());
-        return new SnapshotSplitAssigner<>(context, 10, checkpointState, null);
+        return new SnapshotSplitAssigner<>(context, currentParallelism, checkpointState, null);
     }
 
     private SnapshotSplit createFinishedSnapshotSplit(String splitId) {

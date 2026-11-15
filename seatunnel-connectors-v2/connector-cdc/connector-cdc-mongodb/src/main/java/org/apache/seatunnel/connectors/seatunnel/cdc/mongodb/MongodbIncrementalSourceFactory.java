@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -31,8 +32,11 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbIncrementalSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbTimestampRangeCondition;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
 
 import com.google.auto.service.AutoService;
@@ -66,18 +70,51 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
                         MongodbIncrementalSourceOptions.USERNAME,
                         MongodbIncrementalSourceOptions.PASSWORD,
                         MongodbIncrementalSourceOptions.CONNECTION_OPTIONS,
-                        MongodbIncrementalSourceOptions.BATCH_SIZE,
-                        MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE,
-                        MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS,
-                        MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS,
-                        MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
                         MongodbIncrementalSourceOptions.STARTUP_MODE,
                         MongodbIncrementalSourceOptions.STOP_MODE,
                         MongodbIncrementalSourceOptions.DEBEZIUM_PROPERTIES)
+                // The value domains below mirror the checks the source applies while the job is
+                // built, so an invalid value fails the validation of the job configuration instead
+                // of the job startup.
+                .optional(
+                        MongodbIncrementalSourceOptions.SCHEMA,
+                        Conditions.mapNotEmpty(MongodbIncrementalSourceOptions.SCHEMA))
+                .optional(
+                        MongodbIncrementalSourceOptions.TABLE_CONFIGS,
+                        Conditions.notEmpty(MongodbIncrementalSourceOptions.TABLE_CONFIGS))
+                .optional(
+                        MongodbIncrementalSourceOptions.BATCH_SIZE,
+                        Conditions.greaterOrEqual(MongodbIncrementalSourceOptions.BATCH_SIZE, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE,
+                        Conditions.greaterThan(
+                                MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS,
+                        Conditions.greaterThan(
+                                MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS,
+                        Conditions.greaterOrEqual(
+                                MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
+                        Conditions.greaterThan(
+                                MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
+                                0))
                 .conditional(
                         MongodbIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.TIMESTAMP,
                         MongodbIncrementalSourceOptions.STARTUP_TIMESTAMP)
+                .conditional(
+                        MongodbIncrementalSourceOptions.STOP_MODE,
+                        StopMode.TIMESTAMP,
+                        SourceOptions.STOP_TIMESTAMP)
+                .conditional(
+                        MongodbIncrementalSourceOptions.STOP_MODE,
+                        StopMode.TIMESTAMP,
+                        Conditions.extension(
+                                SourceOptions.STOP_TIMESTAMP, new MongodbTimestampRangeCondition()))
                 .build();
     }
 

@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.server.rest;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.server.NodeExtension;
 import org.apache.seatunnel.engine.server.log.FormatType;
@@ -33,6 +32,7 @@ import org.apache.seatunnel.engine.server.rest.service.RunningThreadService;
 import org.apache.seatunnel.engine.server.rest.service.SystemMonitoringService;
 import org.apache.seatunnel.engine.server.rest.service.ThreadDumpService;
 import org.apache.seatunnel.engine.server.rest.service.TraceTaskMappingService;
+import org.apache.seatunnel.engine.server.rest.service.WorkerResourceService;
 
 import com.google.gson.Gson;
 import com.hazelcast.internal.ascii.TextCommandService;
@@ -75,6 +75,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNN
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SYSTEM_MONITORING_INFORMATION;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_THREAD_DUMP;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_TRACE_TASK_MAPPING;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_WORKER_RESOURCES;
 
 /**
  * Dispatches Hazelcast ASCII GET requests to SeaTunnel-specific overview, log, and trace services.
@@ -92,6 +93,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     private LogService logService;
     private TraceTaskMappingService traceTaskMappingService;
     private OptionRulesService optionRulesService;
+    private WorkerResourceService workerResourceService;
 
     public RestHttpGetCommandProcessor(TextCommandService textCommandService) {
 
@@ -105,6 +107,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.logService = new LogService(nodeEngine);
         this.traceTaskMappingService = new TraceTaskMappingService(nodeEngine);
         this.optionRulesService = new OptionRulesService(nodeEngine);
+        this.workerResourceService = new WorkerResourceService(nodeEngine);
     }
 
     public RestHttpGetCommandProcessor(
@@ -123,6 +126,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.logService = new LogService(nodeEngine);
         this.traceTaskMappingService = new TraceTaskMappingService(nodeEngine);
         this.optionRulesService = new OptionRulesService(nodeEngine);
+        this.workerResourceService = new WorkerResourceService(nodeEngine);
     }
 
     /**
@@ -144,6 +148,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 handleJobInfoById(httpGetCommand, uri);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_SYSTEM_MONITORING_INFORMATION)) {
                 getSystemMonitoringInformation(httpGetCommand);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_WORKER_RESOURCES)) {
+                getWorkerResources(httpGetCommand);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_THREADS)) {
                 getRunningThread(httpGetCommand);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_OVERVIEW)) {
@@ -230,6 +236,11 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 command, systemMonitoringService.getSystemMonitoringInformationJsonValues());
     }
 
+    private void getWorkerResources(HttpGetCommand command) {
+        String response = new Gson().toJson(workerResourceService.getWorkerResources());
+        this.prepareResponse(command, Json.parse(response).asObject());
+    }
+
     private void handleRunningJobsInfo(HttpGetCommand command) {
         this.prepareResponse(command, jobInfoService.getRunningJobsJson());
     }
@@ -286,9 +297,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 (NodeExtension) textCommandService.getNode().getNodeExtension();
         try {
             TextFormat.writeFormat(
-                    contentType,
-                    stringWriter,
-                    nodeExtension.getCollectorRegistry().metricFamilySamples());
+                    contentType, stringWriter, nodeExtension.getMetricFamilySamples());
             this.prepareResponse(httpGetCommand, stringWriter.toString());
         } catch (IOException e) {
             httpGetCommand.send400();
@@ -385,6 +394,9 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
      * <p>The requested log file is resolved to its canonical path before reading so that relative
      * segments and symbolic links cannot escape the canonical log directory.
      *
+     * <p>A positive {@code log-response-max-size-mb} bounds the file content read into memory. A
+     * larger file is represented by its tail, and the response opens with a truncation notice.
+     *
      * @param httpGetCommand command used to send the HTTP response
      * @param logPath configured log directory
      * @param logName requested log file name from the request URI
@@ -403,7 +415,9 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                 logName, canonicalFilePath, canonicalLogDir));
                 return;
             }
-            String logContent = FileUtils.readFileToStr(new File(canonicalFilePath).toPath());
+            String logContent =
+                    LogContentReader.read(
+                            new File(canonicalFilePath).toPath(), logService.maxLogResponseBytes());
             this.prepareResponse(httpGetCommand, logContent);
         } catch (IOException e) {
             httpGetCommand.send400();
