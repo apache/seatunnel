@@ -437,8 +437,14 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
 
     /**
      * Whether the automatic selection may split by this primary key or unique key column. A
-     * nullable column is skipped: the range and hash split queries never match NULL, so the rows
-     * holding NULL in it would not be read. When no column is left, the table is read as one split.
+     * nullable column is skipped: the range and hash split queries never match NULL (CockroachDB
+     * hash splits aside), so the rows holding NULL in it would not be read. When no column is left,
+     * the table is read as one split.
+     *
+     * <p>Nullability comes from the catalog metadata of the table, so this check is only used for
+     * table reads: {@link #findSplitKey} keeps a {@code query} without {@code partition_column} on
+     * one split. An explicit {@code partition_column} is a choice of the user and is used as
+     * configured, without this check; its documentation says when its NULL rows are not read.
      */
     private boolean isAutomaticSplitColumn(Column column, JdbcSourceTable table) {
         if (!isSupportSplitColumn(column)) {

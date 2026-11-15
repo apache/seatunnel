@@ -1047,6 +1047,13 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /**
+     * Plans the splits of a table filled by {@link #insertRowsWithNullCodes} from its real MySQL
+     * catalog metadata, runs the query of every split, and asserts that each of the 100 ids is read
+     * exactly once: a duplicate fails at once, a row that no split reads fails the final count.
+     *
+     * @return the planned splits, so the caller can check which split key was chosen
+     */
     private Collection<JdbcSourceSplit> readEveryIdOnce(
             DynamicChunkSplitter splitter, MySqlCatalog catalog, String tableName)
             throws Exception {
