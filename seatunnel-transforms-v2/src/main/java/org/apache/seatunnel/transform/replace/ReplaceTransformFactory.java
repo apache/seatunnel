@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TableTransformRuleValidator;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -36,17 +37,35 @@ public class ReplaceTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
+        // The rule of a single table: the fields to replace plus the pattern and its replacement.
+        OptionRule tableRule =
+                OptionRule.builder()
+                        .required(
+                                ReplaceTransformConfig.KEY_REPLACE_FIELDS,
+                                Conditions.notEmpty(ReplaceTransformConfig.KEY_REPLACE_FIELDS))
+                        .required(ReplaceTransformConfig.KEY_PATTERN)
+                        .required(ReplaceTransformConfig.KEY_REPLACEMENT)
+                        .optional(ReplaceTransformConfig.KEY_IS_REGEX)
+                        .optional(ReplaceTransformConfig.KEY_REPLACE_FIRST)
+                        .build();
         return OptionRule.builder()
-                .required(
+                .optional(
                         ReplaceTransformConfig.KEY_REPLACE_FIELDS,
-                        Conditions.notEmpty(ReplaceTransformConfig.KEY_REPLACE_FIELDS))
-                .required(ReplaceTransformConfig.KEY_PATTERN)
-                .required(ReplaceTransformConfig.KEY_REPLACEMENT)
-                .optional(ReplaceTransformConfig.KEY_IS_REGEX)
-                .optional(ReplaceTransformConfig.KEY_REPLACE_FIRST)
-                .optional(TransformCommonOptions.MULTI_TABLES)
+                        ReplaceTransformConfig.KEY_PATTERN,
+                        ReplaceTransformConfig.KEY_REPLACEMENT,
+                        ReplaceTransformConfig.KEY_IS_REGEX,
+                        ReplaceTransformConfig.KEY_REPLACE_FIRST)
+                .optional(
+                        TransformCommonOptions.MULTI_TABLES,
+                        Conditions.extension(
+                                TransformCommonOptions.MULTI_TABLES,
+                                new TableTransformRuleValidator(tableRule)))
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .optional(TransformCommonOptions.RULE_MATCH_MODE)
+                .conditionalRule(
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.MULTI_TABLES.defaultValue(),
+                        tableRule)
                 .build();
     }
 

@@ -53,7 +53,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DATE                                                                                                                              | DATE                                                                                                                                                |
 | TIME                                                                                                                              | TIME                                                                                                                                                |
 | DATETIME<br/>TIMESTAMP                                                                                                            | TIMESTAMP                                                                                                                                           |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
 | GEOMETRY<br/>UNKNOWN                                                                                                              | 暂不支持                                                                                                                                             |
 
 ### Oracle 模式
@@ -282,7 +282,7 @@ sink {
     table = "sink_table"
     primary_keys = ["id"]
     is_exactly_once = true
-    xa_data_source_class_name = "com.oceanbase.jdbc.OceanBaseXADataSource"
+    xa_data_source_class_name = "com.oceanbase.jdbc.OceanBaseDataSource"
     max_retries = 0
     batch_size = 1000
   }

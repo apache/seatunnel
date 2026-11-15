@@ -30,7 +30,8 @@ Write data to Greenplum using the [Jdbc connector](Jdbc.md). Greenplum uses the 
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -44,6 +45,30 @@ Greenplum sink does not support exactly-once semantics because XA transaction is
 |------------|--------|-----|-------|
 | Greenplum by PostgreSQL driver | `org.postgresql.Driver` | `jdbc:postgresql://localhost:5432/testdb` | [Download](https://mvnrepository.com/artifact/org.postgresql/postgresql) |
 | Greenplum native driver | `com.pivotal.jdbc.GreenplumDriver` | `jdbc:pivotal:greenplum://localhost:5432;DatabaseName=testdb` | Download from Greenplum |
+
+## Data Type Mapping
+
+Greenplum reuses the PostgreSQL JDBC driver mapping. The table below lists the commonly used types:
+
+| SeaTunnel Data Type | Greenplum Data Type |
+|---------------------|---------------------|
+| BOOLEAN | BOOLEAN |
+| TINYINT / SMALLINT | SMALLINT |
+| INT | INTEGER |
+| BIGINT | BIGINT |
+| FLOAT | REAL |
+| DOUBLE | DOUBLE PRECISION |
+| DECIMAL(p, s) | NUMERIC(p, s) |
+| STRING | TEXT (VARCHAR(n) when a column length is set) |
+| DATE | DATE |
+| TIME | TIME(p) |
+| TIMESTAMP | TIMESTAMP(p) |
+| TIMESTAMP_TZ | TIMESTAMPTZ(p) |
+| BYTES | BYTEA |
+
+The table above lists the sink direction (`PostgresTypeConverter.reconvert`). A `DECIMAL` column is
+written as `NUMERIC(p, s)`; the `MONEY` type is only produced when the column's source type was
+already `money`, so a plain `DECIMAL(30,2)` column lands as `NUMERIC(30,2)`, not `MONEY`.
 
 ## Options
 
@@ -61,6 +86,11 @@ Only Greenplum-specific commonly used options are listed here. Other JDBC sink o
 | generate_sink_sql | Boolean | No | false | Generate the insert SQL automatically from `database` and `table`. When `true`, the column order must match the upstream schema. |
 | database | String | No | - | Database name used when `generate_sink_sql = true`. |
 | table | String | No | - | Target table name used when `generate_sink_sql = true`. |
+| primary_keys | Array | No | - | Primary key fields used for upsert semantics when the sink SQL is generated automatically. |
+| connection_check_timeout_sec | Int | No | 30 | The time (seconds) to wait for database operation used to validate the connection. |
+| max_commit_attempts | Int | No | 3 | Retry times when a transaction commit fails. |
+| transaction_timeout_sec | Int | No | -1 | Transaction timeout in seconds. `-1` means unlimited. |
+| enable_upsert | Boolean | No | true | Enable upsert write by primary keys. |
 | common-options | | No | - | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. |
 
 :::tip

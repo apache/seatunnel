@@ -37,6 +37,7 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -48,6 +49,10 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -202,6 +207,118 @@ public class MysqlCDCWithTruncateIT extends TestSuiteBase implements TestResourc
                                         countRows(SINK_TABLE_DISABLED),
                                         "TRUNCATE must not change the sink when table-operations.enabled is false"));
         container.cancelJob(jobId);
+    }
+
+    /**
+     * Verifies that an actual MySQL TRUNCATE failure keeps the earlier committed rows visible and
+     * that checkpoint restore applies the pending operation before replicating later rows.
+     */
+    @Order(3)
+    @TestTemplate
+    public void testRestoreReplaysTruncateAfterCommittedRowsAndSinkFailure(TestContainer container)
+            throws Exception {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String restoreJobId = String.valueOf(JobIdGenerator.newJobId());
+        String blockerTable = MYSQL_DATABASE + ".truncate_fk_guard";
+        executeSql("TRUNCATE TABLE " + MYSQL_DATABASE + "." + SOURCE_TABLE);
+        executeSql("TRUNCATE TABLE " + MYSQL_DATABASE + "." + SINK_TABLE);
+        insertProduct(301, "before-checkpoint");
+
+        CompletableFuture<Container.ExecResult> original =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(ENABLED_JOB, jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        try (AutoCloseable stopOriginalIfActive =
+                () -> {
+                    if (!original.isDone()) {
+                        container.stopJob(jobId);
+                    }
+                }) {
+            awaitCount(SINK_TABLE, 1);
+            waitForIncrementalRead(container, MYSQL_DATABASE + "." + SOURCE_TABLE);
+            long previousCheckpoints = container.getCompletedCheckpointCount(jobId);
+            await().atMost(ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                    .until(
+                            () ->
+                                    container.getCompletedCheckpointCount(jobId)
+                                            > previousCheckpoints);
+
+            // An empty referencing table rejects TRUNCATE without blocking INSERTs to the sink.
+            executeSql(
+                    "CREATE TABLE "
+                            + blockerTable
+                            + " (product_id INT, FOREIGN KEY (product_id) REFERENCES "
+                            + MYSQL_DATABASE
+                            + "."
+                            + SINK_TABLE
+                            + " (id)) ENGINE=InnoDB");
+            try (AutoCloseable dropBlocker = () -> executeSql("DROP TABLE " + blockerTable)) {
+                insertProduct(302, "before-failed-truncate");
+                executeSql("TRUNCATE TABLE " + MYSQL_DATABASE + "." + SOURCE_TABLE);
+                await().atMost(ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                        .untilAsserted(
+                                () ->
+                                        Assertions.assertEquals(
+                                                "FAILED", container.getJobStatus(jobId)));
+                Assertions.assertNotEquals(0, original.get(30, TimeUnit.SECONDS).getExitCode());
+                Assertions.assertTrue(
+                        container
+                                .getServerLogs()
+                                .contains(
+                                        "Cannot truncate a table referenced in a foreign key constraint"));
+                Assertions.assertEquals(Arrays.asList(301, 302), readSinkProductIds());
+            }
+        }
+
+        insertProduct(303, "after-truncate");
+        CompletableFuture<Container.ExecResult> restored =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJobWithCheckpoint(
+                                        ENABLED_JOB, jobId, restoreJobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        try (AutoCloseable stopRestored = () -> container.stopJob(restoreJobId)) {
+            await().atMost(ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            Collections.singletonList(303), readSinkProductIds()));
+        }
+        Assertions.assertEquals(0, restored.get(30, TimeUnit.SECONDS).getExitCode());
+    }
+
+    private void insertProduct(int id, String name) {
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.%s (id, name) VALUES (%d, '%s')",
+                        MYSQL_DATABASE, SOURCE_TABLE, id, name));
+    }
+
+    private List<Integer> readSinkProductIds() throws SQLException {
+        List<Integer> ids = new ArrayList<>();
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT id FROM "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + SINK_TABLE
+                                        + " ORDER BY id")) {
+            while (resultSet.next()) {
+                ids.add(resultSet.getInt(1));
+            }
+        }
+        return ids;
     }
 
     private void awaitSourceAndSinkCountEquals(String sourceTable, String sinkTable) {

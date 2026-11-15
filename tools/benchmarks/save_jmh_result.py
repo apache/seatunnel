@@ -78,6 +78,25 @@ def flatten(values):
     return [value for fork in values for value in fork]
 
 
+def histogram_mean(buckets):
+    count = sum(bucket_count for _, bucket_count in buckets)
+    return sum(value * bucket_count for value, bucket_count in buckets) / count
+
+
+def iteration_scores(primary):
+    # Sample modes publish rawDataHistogram (fork -> iteration -> [value, count]) instead of
+    # rawData. Each iteration's mean keeps the samples comparable with the other modes: they
+    # describe variation between iterations, not the spread of individual invocations.
+    if "rawData" in primary:
+        return flatten(primary["rawData"])
+    return [
+        histogram_mean(iteration)
+        for fork in primary.get("rawDataHistogram", [])
+        for iteration in fork
+        if iteration
+    ]
+
+
 def benchmark_name(result):
     params = result.get("params", {})
     suffix = ",".join("{}={}".format(key, params[key]) for key in sorted(params))
@@ -90,7 +109,7 @@ def jmh_metrics(results):
         primary = result["primaryMetric"]
         score = finite_or_none(primary.get("score"))
         error = finite_or_none(primary.get("scoreError"))
-        samples = flatten(primary.get("rawData", []))
+        samples = iteration_scores(primary)
         metrics.append(
             {
                 "name": benchmark_name(result),

@@ -108,10 +108,12 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             return;
         }
         BatchPoints.Builder batchPoints = BatchPoints.database(sinkConfig.getDatabase());
+        // The builder appends points on every call, so populate it once before the retry loop
+        batchPoints.points(batchList);
         for (int i = 0; i <= sinkConfig.getMaxRetries(); i++) {
             try {
-                batchPoints.points(batchList);
                 influxdb.write(batchPoints.build());
+                break;
             } catch (Exception e) {
                 log.error("Writing records to influxdb failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
@@ -151,7 +153,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     public void connect() throws ConnectException {
         if (influxdb == null) {
-            influxdb = InfluxDBClient.getWriteClient(sinkConfig);
+            influxdb = createClient();
             String version = influxdb.version();
             if (!influxdb.ping().isGood()) {
                 throw new InfluxdbConnectorException(
@@ -162,5 +164,9 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             }
             log.info("connect influxdb successful. sever version :{}.", version);
         }
+    }
+
+    protected InfluxDB createClient() throws ConnectException {
+        return InfluxDBClient.getWriteClient(sinkConfig);
     }
 }

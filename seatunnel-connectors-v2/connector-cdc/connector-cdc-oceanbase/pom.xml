@@ -41,6 +41,31 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-mysql</artifactId>
             <version>${project.version}</version>
+            <!-- connector-cdc-base provides these (with its patched Serializable TableId). -->
+            <exclusions>
+                <exclusion>
+                    <groupId>io.debezium</groupId>
+                    <artifactId>debezium-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.debezium</groupId>
+                    <artifactId>debezium-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <connector.jar>${project.build.directory}/${project.build.finalName}.jar</connector.jar>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

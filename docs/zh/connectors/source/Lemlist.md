@@ -13,7 +13,7 @@ import ChangeLog from '../changelog/connector-http-lemlist.md';
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
 
@@ -30,7 +30,7 @@ import ChangeLog from '../changelog/connector-http-lemlist.md';
 | url                         | String | 是       | -      | Lemlist API 地址。 |
 | password                    | String | 是       | -      | Lemlist API Key。 |
 | method                      | String | 否       | GET    | HTTP 请求方法，支持 `GET` 和 `POST`。 |
-| headers                     | Map    | 否       | -      | 额外的 HTTP 请求头。除非需要覆盖自动生成的认证头，否则不要在这里配置 `Authorization`。 |
+| headers                     | Map    | 否       | -      | 额外的 HTTP 请求头。此处配置的 `Authorization` 会被连接器自动生成的 Basic 认证头覆盖。 |
 | params                      | Map    | 否       | -      | HTTP 查询参数。 |
 | body                        | String | 否       | -      | HTTP 请求体，通常和 `POST` 一起使用。 |
 | format                      | String | 否       | TEXT   | 返回内容格式。如果要用 `schema`、`json_field` 或 `content_field` 解析 JSON，请设置为 `json`。 |

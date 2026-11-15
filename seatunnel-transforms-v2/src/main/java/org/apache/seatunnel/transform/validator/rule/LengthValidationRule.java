@@ -26,6 +26,7 @@ import org.apache.seatunnel.transform.validator.ValidationResult;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.lang.reflect.Array;
 import java.util.Collection;
 
 /** Validation rule to check the length of string, array, or collection values. */
@@ -101,8 +102,8 @@ public class LengthValidationRule implements ValidationRule {
         if (value instanceof String) {
             return ((String) value).length();
         }
-        if (value instanceof byte[]) {
-            return ((byte[]) value).length;
+        if (value.getClass().isArray()) {
+            return Array.getLength(value);
         }
         if (value instanceof Collection) {
             return ((Collection<?>) value).size();

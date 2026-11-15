@@ -20,10 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.sink;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.state.IcebergSinkState;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.RecordWriter;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +39,10 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
@@ -109,5 +115,40 @@ class IcebergSinkWriterTest {
         List<IcebergSinkState> states = writer.snapshotState(99L);
         assertEquals(1, states.size());
         assertEquals(99L, states.get(0).getCheckpointId());
+    }
+
+    /**
+     * A record writer that fails to close must not keep the table loader — and the catalog and
+     * Hadoop resources it owns — alive for the rest of the task.
+     */
+    @Test
+    void testCloseReleasesTableLoaderWhenRecordWriterFails() throws IOException {
+        IcebergSinkWriter writer =
+                new IcebergSinkWriter(tableLoader, config, minimalSchema(), null);
+        RecordWriter recordWriter = mock(RecordWriter.class);
+        doThrow(new IllegalStateException("simulated record writer close failure"))
+                .when(recordWriter)
+                .close();
+        ReflectionUtils.setField(writer, IcebergSinkWriter.class, "writer", recordWriter);
+
+        IllegalStateException thrown = assertThrows(IllegalStateException.class, writer::close);
+
+        assertEquals("simulated record writer close failure", thrown.getMessage());
+        verify(tableLoader).close();
+    }
+
+    /** The record writer is released even when the table loader fails to close. */
+    @Test
+    void testCloseReleasesRecordWriterWhenTableLoaderFails() throws IOException {
+        IcebergSinkWriter writer =
+                new IcebergSinkWriter(tableLoader, config, minimalSchema(), null);
+        RecordWriter recordWriter = mock(RecordWriter.class);
+        ReflectionUtils.setField(writer, IcebergSinkWriter.class, "writer", recordWriter);
+        doThrow(new IOException("simulated table loader close failure")).when(tableLoader).close();
+
+        IOException thrown = assertThrows(IOException.class, writer::close);
+
+        assertEquals("simulated table loader close failure", thrown.getMessage());
+        verify(recordWriter).close();
     }
 }
