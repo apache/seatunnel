@@ -49,21 +49,24 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 |                                                          Mysql 数据类型                                                          |                                                                 SeaTunnel 数据类型                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
-| TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
+| BIT(1)                                                                                                                            | BOOLEAN                                                                                                                                             |
+| TINYINT                                                                                                                           | TINYINT                                                                                                                                             |
+| TINYINT UNSIGNED<br/>SMALLINT                                                                                                     | SMALLINT                                                                                                                                            |
+| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR                                               | INT                                                                                                                                                 |
 | INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                                                      | BIGINT                                                                                                                                              |
 | BIGINT UNSIGNED                                                                                                                   | DECIMAL(20,0)                                                                                                                                       |
 | DECIMAL(x,y)(获取指定列的列大小<38)                                                               | DECIMAL(x,y)                                                                                                                                        |
 | DECIMAL(x,y)(获取指定列的列大小>38)                                                               | DECIMAL(38,18)                                                                                                                                      |
-| DECIMAL UNSIGNED                                                                                                                  | DECIMAL((DECIMAL((获取指定列的列大小)+1,<br/>(获取指定列的小数点右侧的位数))) |
+| DECIMAL UNSIGNED                                                                                                                  | DECIMAL((获取指定列的列大小)+1,<br/>(获取指定列的小数点右侧的位数)))                                              |
 | FLOAT<br/>FLOAT UNSIGNED                                                                                                          | FLOAT                                                                                                                                               |
 | DOUBLE<br/>DOUBLE UNSIGNED                                                                                                        | DOUBLE                                                                                                                                              |
 | CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON                                                       | STRING                                                                                                                                              |
 | DATE                                                                                                                              | DATE                                                                                                                                                |
 | TIME                                                                                                                              | TIME                                                                                                                                                |
-| DATETIME<br/>TIMESTAMP                                                                                                            | TIMESTAMP                                                                                                                                           |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
-| GEOMETRY<br/>UNKNOWN                                                                                                              | Not supported yet                                                                                                                                   |
+| DATETIME                                                                                                                          | TIMESTAMP                                                                                                                                           |
+| TIMESTAMP                                                                                                                         | TIMESTAMP_TZ                                                                                                                                        |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)<br/>GEOMETRY                                     | BYTES                                                                                                                                               |
+| UNKNOWN                                                                                                                           | Not supported yet                                                                                                                                   |
 
 ## Sink 参数
 
@@ -74,8 +77,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                     | String  | 否       | -                            | 连接实例用户名。                                                                                                                                                                                                                  |
 | password                     | String  | 否       | -                            | 连接实例密码。                                                                                                                                                                                                                   |
 | query                        | String  | 否       | -                            | 使用此sql将上游输入数据写入数据库。例如： `INSERT ...`,`query` 具有更高的优先级                                                                                                                                         |
-| database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库。<br/>此选项与`query` 互斥，具有更高的优先级                                                       |
-| table                        | String  | 否       | -                            | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库。<br/>此选项与`query` 互斥，具有更高的优先级                                                           |
+| database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                       |
+| table                        | String  | 否       | -                            | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                           |
 | primary_keys                 | Array   | 否       | -                            | 此选项用于支持以下操作，例如 `insert`, `delete`, 和 `update` 当自动生成sql.                                                                                                                            |
 | connection_check_timeout_sec | Int     | 否       | 30                           | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                            |
 | max_retries                  | Int     | 否       | 0                            | 提交失败的重试次数（executeBatch）                                                                                                                                                                                          |
@@ -235,7 +238,7 @@ transform {
 }
 
 sink {
-  Mysql {
+  jdbc {
     url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
     driver = "com.mysql.cj.jdbc.Driver"
     username = "root"
@@ -279,7 +282,7 @@ transform {
 }
 
 sink {
-  Mysql {
+  jdbc {
     url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
     driver = "com.mysql.cj.jdbc.Driver"
     username = "root"

@@ -50,6 +50,13 @@ public class DorisSinkOptions extends DorisBaseOptions {
                     .intType()
                     .defaultValue(3)
                     .withDescription("the max retry times if writing records to database failed.");
+
+    public static final Option<Long> SINK_VISIBILITY_TIMEOUT_MS =
+            Options.key("sink.visibility-timeout-ms")
+                    .longType()
+                    .defaultValue(300000L)
+                    .withDescription(
+                            "Maximum time in milliseconds to wait for a 2PC load to reach the VISIBLE state on Doris FE after a successful stream-load commit. ABORTED and CANCELLED remain terminal failures. Must be greater than 0.");
     public static final Option<Integer> SINK_BUFFER_SIZE =
             Options.key("sink.buffer-size")
                     .intType()
@@ -127,6 +134,18 @@ public class DorisSinkOptions extends DorisBaseOptions {
                     .defaultValue(true)
                     .withDescription(
                             "Whether to preserve the original case of table and column names. Default is true (case sensitive)");
+
+    public static final Option<String> SINK_DATETIME_TIMEZONE =
+            Options.key("sink.datetime-timezone")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The session timezone used to convert TIMESTAMP_TZ values into "
+                                    + "wall-clock strings for Doris DATETIME columns. Accepts a "
+                                    + "java.time.ZoneId-compatible ID (for example "
+                                    + "`Asia/Shanghai` or `+08:00`). When unset, the JVM default "
+                                    + "timezone is used (legacy behavior). Set this to the Doris "
+                                    + "session timezone to avoid JVM-default coupling.");
 
     // create table
     public static final Option<String> SAVE_MODE_CREATE_TEMPLATE =

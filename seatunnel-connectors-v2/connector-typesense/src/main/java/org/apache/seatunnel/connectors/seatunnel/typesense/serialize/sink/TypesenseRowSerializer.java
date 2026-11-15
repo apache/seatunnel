@@ -48,7 +48,8 @@ public class TypesenseRowSerializer implements SeaTunnelRowSerializer {
                 KeyExtractor.createKeyExtractor(
                         seaTunnelRowType,
                         collectionInfo.getPrimaryKeys(),
-                        collectionInfo.getKeyDelimiter());
+                        collectionInfo.getKeyDelimiter(),
+                        collectionInfo.getKeyEncoding());
     }
 
     @Override
@@ -70,12 +71,11 @@ public class TypesenseRowSerializer implements SeaTunnelRowSerializer {
     @Override
     public String serializeRowForDelete(SeaTunnelRow row) {
         String key = keyExtractor.apply(row);
-        Map<String, Object> document = toDocumentMap(row, seaTunnelRowType);
-        String id = document.get("id").toString();
         if (StringUtils.isNotBlank(key)) {
-            id = key;
+            return key;
         }
-        return id;
+        Map<String, Object> document = toDocumentMap(row, seaTunnelRowType);
+        return document.get("id").toString();
     }
 
     private Map<String, Object> toDocumentMap(SeaTunnelRow row, SeaTunnelRowType rowType) {

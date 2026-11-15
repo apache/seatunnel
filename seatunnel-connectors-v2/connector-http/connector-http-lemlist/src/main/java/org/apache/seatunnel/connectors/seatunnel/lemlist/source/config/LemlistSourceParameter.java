@@ -29,5 +29,6 @@ public class LemlistSourceParameter extends HttpParameter {
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
         this.headers.put(LemlistSourceOptions.AUTHORIZATION, accessToken);
         this.setHeaders(this.headers);
+        validateCredentialScheme();
     }
 }

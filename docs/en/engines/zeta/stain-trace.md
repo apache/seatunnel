@@ -8,7 +8,7 @@ StainTrace is SeaTunnel's data lineage and end-to-end performance tracing system
 
 - **Framework-level Implementation**: Works with all Connectors automatically, no connector code changes needed
 - **6 Basic Stages**: SOURCE_EMIT, QUEUE_IN, QUEUE_OUT, TRANSFORM_IN, TRANSFORM_OUT, SINK_WRITE_DONE (all instrumented; temporal order depends on pipeline topology)
-- **Extended Stages**: 40+ fine-grained stage codes defined for future instrumentation (**not yet active — will not appear in trace files**)
+- **Extended Stages**: 34 fine-grained stage codes defined for future instrumentation (**not yet active — will not appear in trace files**)
 - **Local File Storage**: Zero dependencies, OTLP JSON Lines format
 - **Performance Optimized**: < 2% overhead with proper sampling configuration
 
@@ -69,8 +69,8 @@ Edit `seatunnel.yaml`:
 seatunnel:
   engine:
     stain-trace-enabled: true
-    stain-trace-sample-interval: 100000  # Sample 1 out of 100k records
-    stain-trace-file-base-path: /data/seatunnel/traces  # Required for local trace files; no default
+    stain-trace-sample-rate: 100000  # Sample 1 out of 100k records
+    stain-trace-file-base-path: /tmp/seatunnel/traces  # Required for local trace files; no default
 ```
 
 ### 2. Enable in Job
@@ -119,7 +119,7 @@ open report.html
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | stain-trace-enabled | boolean | false | Master switch to enable tracing |
-| stain-trace-sample-interval | int | 100000 | Sample 1 out of every N records |
+| stain-trace-sample-rate | int | 100000 | Sample 1 out of every N records. The legacy name `stain-trace-sample-interval` is still accepted as a backward-compatible alias |
 | stain-trace-max-traces-per-second-per-worker | int | 50 | Max traces per worker per second |
 | stain-trace-max-entries-per-trace | int | 32 | Max stage entries per trace |
 | stain-trace-propagate-to-all-splits | boolean | false | Propagate to all split outputs |

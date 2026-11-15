@@ -88,6 +88,10 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | encoding | string | conditional | `UTF-8` | Encoding for text, CSV, JSON, and XML. |
 | enable_header_write | boolean | conditional | `false` | Writes a header for text or CSV output. |
 | compress_codec | string | no | `none` | Compression codec supported by the selected format. |
+| date_format | string | no | `yyyy-MM-dd` | Date type format used when writing date values with `text`, `csv`, `excel`, or `xml` output. |
+| datetime_format | string | no | `yyyy-MM-dd HH:mm:ss` | Datetime type format used when writing datetime values with `text`, `csv`, `excel`, or `xml` output. |
+| time_format | string | no | `HH:mm:ss` | Time type format used when writing time values with `text`, `csv`, `excel`, or `xml` output. |
+| multi_table_sink_replica | int | no | `1` | Number of writer replicas for each table in multi-table sink mode. Must be at least 1. |
 | common-options | | no | - | See [Sink Common Options](../common-options/sink-common-options.md). |
 
 The sink also accepts the format-specific file sink options documented by the corresponding

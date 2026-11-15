@@ -30,7 +30,7 @@ import ChangeLog from '../changelog/connector-http-persistiq.md';
 | params                      | Map     | 否  | -     | HTTP 参数                                                                                     |
 | body                        | String  | 否  | -     | HTTP 请求体                                                                                    |
 | json_field                  | Config  | 否  | -     | JSON 字段配置                                                                                   |
-| content_json                | String  | 否  | -     | 内容 JSON 配置                                                                                  |
+| content_field               | String  | 否  | -     | 内容 JSON 配置                                                                                  |
 | poll_interval_millis        | int     | 否  | -     | 流模式下请求 HTTP API 的间隔（毫秒）                                                                     |
 | retry                       | int     | 否  | -     | 如果 HTTP 请求返回 `IOException` 的最大重试次数                                                          |
 | retry_backoff_multiplier_ms | int     | 否  | 100   | HTTP 请求失败时的重试退避倍数（毫秒）                                                                       |
@@ -84,9 +84,9 @@ HTTP 请求失败时的最大重试退避时间（毫秒）
 
 上游数据的模式字段。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
-### content_json [String]
+### content_field [String]
 
-此参数可以获取一些 JSON 数据。
+此参数可以获取一些 JSON 数据。如果只需要 `book` 部分的数据，请配置 `content_field = "$.store.book.*"`。
 
 ### json_field [Config]
 

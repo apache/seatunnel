@@ -201,8 +201,8 @@ public class MysqlCreateTableSqlBuilder {
         }
         columnSqls.add(type);
         columnTypeMap.put(column.getName(), type);
-        // nullable
-        if (column.isNullable()) {
+        // Primary key columns must be NOT NULL for MySQL to accept the generated DDL.
+        if (column.isNullable() && !isPrimaryKeyColumn(column)) {
             columnSqls.add("NULL");
         } else {
             columnSqls.add("NOT NULL");
@@ -213,6 +213,12 @@ public class MysqlCreateTableSqlBuilder {
         }
 
         return String.join(" ", columnSqls);
+    }
+
+    private boolean isPrimaryKeyColumn(Column column) {
+        return createIndex
+                && primaryKey != null
+                && primaryKey.getColumnNames().contains(column.getName());
     }
 
     private String escapeComment(String comment) {

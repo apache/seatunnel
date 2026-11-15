@@ -42,11 +42,11 @@ SLS shard 并行读取。流处理模式下，SeaTunnel 会在 checkpoint 完成
 
 | 名称                                | 类型                                      | 是否必填 | 默认值                     | 描述                                                                                                           |
 |-------------------------------------|-------------------------------------------|----------|----------------------------|----------------------------------------------------------------------------------------------------------------|
-| endpoint                            | String                                    | 是       | -                          | 阿里云 SLS 访问地址，例如 `cn-hangzhou.log.aliyuncs.com` 或内网访问地址。                                      |
-| project                             | String                                    | 是       | -                          | [阿里云 SLS Project](https://help.aliyun.com/zh/sls/user-guide/manage-a-project)。                              |
-| logstore                            | String                                    | 是       | -                          | [阿里云 SLS Logstore](https://help.aliyun.com/zh/sls/user-guide/manage-a-logstore)。                            |
-| access_key_id                       | String                                    | 是       | -                          | 阿里云 AccessKey ID。                                                                                          |
-| access_key_secret                   | String                                    | 是       | -                          | 阿里云 AccessKey Secret。                                                                                      |
+| endpoint                            | String                                    | 是       | -                          | 阿里云 SLS 访问地址，例如 `cn-hangzhou.log.aliyuncs.com` 或内网访问地址。值不能为空或仅包含空白字符。           |
+| project                             | String                                    | 是       | -                          | [阿里云 SLS Project](https://help.aliyun.com/zh/sls/user-guide/manage-a-project)。值不能为空或仅包含空白字符。  |
+| logstore                            | String                                    | 是       | -                          | [阿里云 SLS Logstore](https://help.aliyun.com/zh/sls/user-guide/manage-a-logstore)。值不能为空或仅包含空白字符。|
+| access_key_id                       | String                                    | 是       | -                          | 阿里云 AccessKey ID。值不能为空或仅包含空白字符。                                                              |
+| access_key_secret                   | String                                    | 是       | -                          | 阿里云 AccessKey Secret。值不能为空或仅包含空白字符。                                                          |
 | start_mode                          | `earliest`, `group_cursor`, `latest`      | 否       | `group_cursor`             | 初始读取位置。`earliest` 从最早位置读取，`latest` 从最新位置读取，`group_cursor` 使用消费者组已提交的游标。     |
 | consumer_group                      | String                                    | 否       | `SeaTunnel-Consumer-Group` | SLS 消费者组名称。不同任务如果需要独立保存读取位置，应该使用不同的消费者组。                                   |
 | auto_cursor_reset                   | `begin`, `end`                            | 否       | `end`                      | 当 `start_mode = group_cursor` 但消费者组还没有已提交游标时，使用的初始化位置。                                |
@@ -115,6 +115,41 @@ source {
     logstore = "logstore1"
     access_key_id = "xxxxxxxxxxxxxxxxxxxxxxxx"
     access_key_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+### 周期性发现新 Shard
+
+默认情况下，连接器只在任务启动时枚举一次 shard。把 `partition-discovery.interval-millis`
+设置为正值后，任务运行期间新创建的 shard 也会被持续发现。下面的示例每 5 分钟刷新一次 shard 列表：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  Sls {
+    endpoint = "cn-hangzhou-intranet.log.aliyuncs.com"
+    project = "project1"
+    logstore = "logstore1"
+    access_key_id = "xxxxxxxxxxxxxxxxxxxxxxxx"
+    access_key_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    consumer_group = "seatunnel-sls-demo"
+    partition-discovery.interval-millis = 300000
+    schema = {
+      fields = {
+        id = "int"
+        name = "string"
+      }
+    }
   }
 }
 

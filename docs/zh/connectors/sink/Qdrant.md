@@ -14,13 +14,18 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 [Qdrant](https://qdrant.tech/) 是一个高性能的向量搜索引擎和向量数据库。
 
-Qdrant sink 会把 SeaTunnel 行写入一个已经存在的 Qdrant collection。普通列会写入 point payload，向量列会写成命名向量；如果上游 schema 中有主键列，主键值会作为 Qdrant point ID。
+Qdrant sink 会把 SeaTunnel 行写入一个已经存在的 Qdrant collection。普通列会写入 point payload，
+向量列会写成命名向量；如果上游 schema 中有主键列，主键值会作为 Qdrant point ID。它非常适合把上游 CDC
+或批处理源中的向量数据加载进来，也适合把一个 Qdrant collection 镜像到另一个。
+
+目标 collection 必须已经存在，并且向量名、维度要匹配；sink 不会创建 collection 或向量索引，也不会把
+`UPDATE`/`DELETE` 行类型当作 CDC 语义来执行。每个写入器最多缓存 64 个 point，再发起一次 upsert 请求。
 
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [多模态](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
@@ -32,6 +37,7 @@ Qdrant sink 会把 SeaTunnel 行写入一个已经存在的 Qdrant collection。
 | port            | int    | 否   | 6334      | Qdrant gRPC 端口。 |
 | api_key         | string | 否   | ""        | 认证场景下使用的 Qdrant API key。 |
 | use_tls         | bool   | 否   | false     | gRPC 连接是否启用 TLS。 |
+| multi_table_sink_replica | int    | 否   | 1         | 多表写入模式下每张表对应的 Sink 写入并发数。 |
 | common-options  |        | 否   | -         | Sink 通用选项。 |
 
 ### collection_name [string]
@@ -49,6 +55,7 @@ Qdrant 实例的 gRPC 端口。
 ### api_key [string]
 
 连接需要认证的 Qdrant 部署时使用的 API key。如果 Qdrant 服务不需要认证，可以保持为空。
+通过不可信网络传输 API key 时，请设置 `use_tls = true`；否则密钥会通过未加密的 gRPC 连接发送。
 
 ### use_tls [bool]
 

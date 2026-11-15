@@ -72,7 +72,7 @@ public class JsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
     }
 
     @Override
-    public void write(@NonNull SeaTunnelRow seaTunnelRow) {
+    public synchronized void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
@@ -90,7 +90,7 @@ public class JsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
     }
 
     @Override
-    public void finishAndCloseFile() {
+    public synchronized void finishAndCloseFile() {
         beingWrittenOutputStream.forEach(
                 (key, value) -> {
                     try {

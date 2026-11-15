@@ -40,8 +40,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collection;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /** This command is used to execute the SeaTunnel engine job by SeaTunnel API. */
 @Slf4j
@@ -64,16 +62,7 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
 
         String clusterRole = this.serverCommandArgs.getClusterRole();
         if (StringUtils.isNotBlank(clusterRole)) {
-            if (EngineConfig.ClusterRole.MASTER.toString().equalsIgnoreCase(clusterRole)) {
-                seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.MASTER);
-            } else if (EngineConfig.ClusterRole.WORKER.toString().equalsIgnoreCase(clusterRole)) {
-                seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.WORKER);
-
-                // in hazelcast lite node will not store IMap data.
-                seaTunnelConfig.getHazelcastConfig().setLiteMember(true);
-            } else {
-                throw new SeaTunnelEngineException("Not supported cluster role: " + clusterRole);
-            }
+            applyClusterRole(seaTunnelConfig, clusterRole);
         } else {
             seaTunnelConfig
                     .getEngineConfig()
@@ -84,32 +73,43 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
                 seaTunnelConfig, Thread.currentThread().getName());
     }
 
-    private void checkEnvironment() {
-        if (isAllocatingThreadGetName()) {
-            log.warn(
-                    "The current JDK version is not recommended. Please upgrade to JDK 1.8.0_102 or higher. "
-                            + "The current version will affect the performance of log printing. "
-                            + "For details, please refer to https://issues.apache.org/jira/browse/LOG4J2-2052");
+    /**
+     * Applies the cluster role to the SeaTunnel config based on the provided role string. Supports
+     * master, worker and master_and_worker (case-insensitive).
+     *
+     * @param seaTunnelConfig the SeaTunnel config to configure
+     * @param clusterRole the cluster role string
+     */
+    @VisibleForTesting
+    static void applyClusterRole(SeaTunnelConfig seaTunnelConfig, String clusterRole) {
+        if (EngineConfig.ClusterRole.MASTER.toString().equalsIgnoreCase(clusterRole)) {
+            seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.MASTER);
+        } else if (EngineConfig.ClusterRole.WORKER.toString().equalsIgnoreCase(clusterRole)) {
+            seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.WORKER);
+
+            // in hazelcast lite node will not store IMap data.
+            seaTunnelConfig.getHazelcastConfig().setLiteMember(true);
+        } else if (EngineConfig.ClusterRole.MASTER_AND_WORKER
+                .toString()
+                .equalsIgnoreCase(clusterRole)) {
+            seaTunnelConfig
+                    .getEngineConfig()
+                    .setClusterRole(EngineConfig.ClusterRole.MASTER_AND_WORKER);
+        } else {
+            throw new SeaTunnelEngineException("Not supported cluster role: " + clusterRole);
         }
     }
 
-    static boolean isAllocatingThreadGetName() {
-        // LOG4J2-2052, LOG4J2-2635 JDK 8u102 ("1.8.0_102") removed the String allocation in
-        // Thread.getName()
-        if (SystemUtils.IS_JAVA_1_8) {
-            try {
-                Pattern javaVersionPattern = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)_(\\d+)");
-                Matcher m = javaVersionPattern.matcher(System.getProperty("java.version"));
-                if (m.matches()) {
-                    return Integer.parseInt(m.group(3)) == 0 && Integer.parseInt(m.group(4)) < 102;
-                }
-                return true;
-            } catch (Exception e) {
-                return true;
-            }
-        } else {
-            return !SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_1_8);
+    private void checkEnvironment() {
+        if (isUnsupportedJavaVersion()) {
+            log.warn(
+                    "The current JDK version is not supported. "
+                            + "Please use JDK 11 or JDK 17 to run SeaTunnel.");
         }
+    }
+
+    static boolean isUnsupportedJavaVersion() {
+        return !SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_11);
     }
 
     @VisibleForTesting

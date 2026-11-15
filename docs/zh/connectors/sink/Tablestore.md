@@ -47,6 +47,7 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 
 ## 使用说明
 
+- `end_point`、`instance_name`、`access_key_id`、`access_key_secret` 和 `table` 不能为空白，`primary_keys` 至少需要包含一个元素。缺失、为空或仅包含空白字符的值会在配置校验阶段被拒绝，不会建立任何连接。
 - `primary_keys` 可以包含一个或多个主键字段。这些字段会写为 Tablestore 主键列，其余字段会写为普通属性列。
 - Sink 使用 Tablestore `RowPutChange` 写入，并使用 `RowExistenceExpectation.IGNORE`。当上游发送 `DELETE` 类型数据时，当前 Sink 不会删除 Tablestore 中的行。
 - `batch_size` 控制缓存多少行后刷新；任务关闭时，写入器也会刷新剩余数据。

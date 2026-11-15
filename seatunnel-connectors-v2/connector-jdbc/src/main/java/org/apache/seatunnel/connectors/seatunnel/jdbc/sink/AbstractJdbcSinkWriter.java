@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
@@ -57,11 +58,24 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
     protected JdbcConnectionProvider connectionProvider;
     protected JdbcSinkConfig jdbcSinkConfig;
     protected JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat;
+
+    /**
+     * Whether every successful batch flush should commit the connection when it uses manual commit.
+     * Only the non-XA writer sets this to true, and only when checkpointing is disabled, so rebuilt
+     * output formats keep the same commit boundary after schema changes.
+     */
+    protected boolean commitOnFlush;
+
     protected TableSchemaChangeEventDispatcher tableSchemaChanger =
             new TableSchemaChangeEventDispatcher();
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        if (!(event instanceof RestoreTableSchemaEvent) && !dialect.supportsSchemaChange()) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    dialect.dialectName() + " JDBC dialect does not support schema changes");
+        }
         this.tableSchema = tableSchemaChanger.reset(tableSchema).apply(event);
         reOpenOutputFormat(event);
     }
@@ -101,6 +115,7 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
                                 jdbcSinkConfig,
                                 tableSchema,
                                 databaseTableSchema)
+                        .commitOnFlush(commitOnFlush)
                         .build();
         this.outputFormat.open();
     }

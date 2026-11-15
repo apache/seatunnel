@@ -34,27 +34,66 @@ import java.util.List;
 
 public class SeaTunnelRowTypeToAvroSchemaConverter {
 
+    /**
+     * Builds the Avro record that describes the given row type with the legacy layout, where a ROW
+     * field is a bare Avro record and therefore cannot hold a null value.
+     *
+     * @param seaTunnelRowType row type to describe
+     * @return the Avro record schema
+     */
     public static Schema buildAvroSchemaWithRowType(SeaTunnelRowType seaTunnelRowType) {
+        return buildAvroSchemaWithRowType(seaTunnelRowType, false);
+    }
+
+    /**
+     * Builds the Avro record that describes the given row type.
+     *
+     * <p>The {@code rowNullable} flag decides how every ROW field is described, at any nesting
+     * depth and no matter whether the ROW is a field, an ARRAY element or a MAP value. With {@code
+     * false} a ROW keeps the legacy layout of a bare Avro record; with {@code true} each ROW is
+     * wrapped in the union {@code [null, record]} so that a null ROW value can be written. The flag
+     * is applied recursively, so a ROW nested several levels deep is described the same way as a
+     * top level one.
+     *
+     * @param seaTunnelRowType row type to describe
+     * @param rowNullable whether ROW fields are described as nullable unions
+     * @return the Avro record schema
+     */
+    public static Schema buildAvroSchemaWithRowType(
+            SeaTunnelRowType seaTunnelRowType, boolean rowNullable) {
+        return buildRecordSchema("SeaTunnelRecord", seaTunnelRowType, rowNullable);
+    }
+
+    /**
+     * Builds the Avro record that describes the given row type under an explicit record name.
+     *
+     * <p>The name is the one the enclosing schema assigned to the ROW: the field name for a ROW
+     * field, and the enclosing field name for a ROW nested in an ARRAY or a MAP. A serialized
+     * record must be built with the same name, otherwise Avro cannot resolve it against the union
+     * branch of a nullable ROW.
+     */
+    static Schema buildRecordSchema(
+            String recordName, SeaTunnelRowType seaTunnelRowType, boolean rowNullable) {
         List<Schema.Field> fields = new ArrayList<>();
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         String[] fieldNames = seaTunnelRowType.getFieldNames();
         for (int i = 0; i < fieldNames.length; i++) {
-            fields.add(generateField(fieldNames[i], fieldTypes[i]));
+            fields.add(generateField(fieldNames[i], fieldTypes[i], rowNullable));
         }
-        return Schema.createRecord("SeaTunnelRecord", null, null, false, fields);
+        return Schema.createRecord(recordName, null, null, false, fields);
     }
 
     private static Schema.Field generateField(
-            String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
+            String fieldName, SeaTunnelDataType<?> seaTunnelDataType, boolean rowNullable) {
         return new Schema.Field(
                 fieldName,
-                seaTunnelDataType2AvroDataType(fieldName, seaTunnelDataType),
+                seaTunnelDataType2AvroDataType(fieldName, seaTunnelDataType, rowNullable),
                 null,
                 null);
     }
 
     private static Schema seaTunnelDataType2AvroDataType(
-            String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
+            String fieldName, SeaTunnelDataType<?> seaTunnelDataType, boolean rowNullable) {
 
         switch (seaTunnelDataType.getSqlType()) {
             case STRING:
@@ -84,22 +123,28 @@ public class SeaTunnelRowTypeToAvroSchemaConverter {
                 SeaTunnelDataType<?> valueType = ((MapType<?, ?>) seaTunnelDataType).getValueType();
                 return Schema.createUnion(
                         Schema.create(Schema.Type.NULL),
-                        Schema.createMap(seaTunnelDataType2AvroDataType(fieldName, valueType)));
+                        Schema.createMap(
+                                seaTunnelDataType2AvroDataType(fieldName, valueType, rowNullable)));
             case ARRAY:
                 SeaTunnelDataType<?> elementType =
                         ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
                 return Schema.createUnion(
                         Schema.create(Schema.Type.NULL),
-                        Schema.createArray(seaTunnelDataType2AvroDataType(fieldName, elementType)));
+                        Schema.createArray(
+                                seaTunnelDataType2AvroDataType(
+                                        fieldName, elementType, rowNullable)));
             case ROW:
                 SeaTunnelDataType<?>[] fieldTypes =
                         ((SeaTunnelRowType) seaTunnelDataType).getFieldTypes();
                 String[] fieldNames = ((SeaTunnelRowType) seaTunnelDataType).getFieldNames();
                 List<Schema.Field> subField = new ArrayList<>();
                 for (int i = 0; i < fieldNames.length; i++) {
-                    subField.add(generateField(fieldNames[i], fieldTypes[i]));
+                    subField.add(generateField(fieldNames[i], fieldTypes[i], rowNullable));
                 }
-                return Schema.createRecord(fieldName, null, null, false, subField);
+                Schema recordSchema = Schema.createRecord(fieldName, null, null, false, subField);
+                return rowNullable
+                        ? Schema.createUnion(Schema.create(Schema.Type.NULL), recordSchema)
+                        : recordSchema;
             case DECIMAL:
                 int precision = ((DecimalType) seaTunnelDataType).getPrecision();
                 int scale = ((DecimalType) seaTunnelDataType).getScale();

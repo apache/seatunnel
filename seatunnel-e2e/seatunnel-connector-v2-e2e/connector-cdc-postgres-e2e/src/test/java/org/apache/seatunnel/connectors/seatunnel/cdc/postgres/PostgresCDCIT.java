@@ -59,7 +59,10 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import io.debezium.connector.postgresql.TypeRegistry;
 import io.debezium.connector.postgresql.connection.Lsn;
+import io.debezium.connector.postgresql.connection.PostgresConnection;
+import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
@@ -71,6 +74,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -484,16 +488,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                 }
                                 Assertions.assertEquals(1, seedRows.size());
                             });
-            String postSeedLsn = getCurrentWalLsn();
-            await().atMost(30000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            isLsnGreaterThanOrEqual(
-                                                    getReplicationSlotCommittedLsn(
-                                                            committedSlotName),
-                                                    postSeedLsn)));
-            container.cancelJob(String.valueOf(seedJobId));
+            // Use a completed checkpoint as the committed-offset seed. The global WAL also
+            // contains filtered sink writes and is not itself a source checkpoint boundary.
+            Assertions.assertEquals(
+                    0, container.savepointJob(String.valueOf(seedJobId)).getExitCode());
             seedJob.get(30, TimeUnit.SECONDS);
             await().atMost(30000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
@@ -589,6 +587,17 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                         + " where id = 14"));
                             });
 
+            // Drain the earlier writes before saving. With a quiet WAL, the next transaction's
+            // BEGIN/INSERT can share the saved COMMIT LSN (the DBZ-6204 recovery boundary).
+            String quietBoundaryLsn = getCurrentWalLsn();
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            isLsnGreaterThanOrEqual(
+                                                    getReplicationSlotCommittedLsn(
+                                                            committedSlotName),
+                                                    quietBoundaryLsn)));
             Assertions.assertEquals(
                     0, container.savepointJob(String.valueOf(committedOffsetJobId)).getExitCode());
             committedOffsetJob.get(30, TimeUnit.SECONDS);
@@ -601,6 +610,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                     Assertions.assertFalse(
                                             isReplicationSlotActive(committedSlotName)));
 
+            // Changes committed while stopped must be replayed even at the saved commit LSN.
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
             committedOffsetJob =
                     CompletableFuture.runAsync(
                             () -> {
@@ -618,9 +629,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             // Restoring the checkpoint and reconnecting the existing replication slot can take
             // longer on shared GitHub runners than the initial CDC startup.
             waitForReplicationSlotActive(committedSlotName);
-            // Insert only after the restored replication connection is active so this CDC record
-            // is not written before the restored slot can consume it.
-            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
+            // Also verify that live changes continue after recovery.
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 16);
             await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
@@ -633,6 +643,15 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                                 + "."
                                                                 + SINK_TABLE_1
                                                                 + " where id = 15")
+                                                .size());
+                                Assertions.assertEquals(
+                                        1,
+                                        query(
+                                                        "select * from "
+                                                                + POSTGRESQL_SCHEMA
+                                                                + "."
+                                                                + SINK_TABLE_1
+                                                                + " where id = 16")
                                                 .size());
                             });
         } finally {
@@ -1246,7 +1265,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                             Collections.singletonList(
                                                     TableId.parse(SINK_TABLE_1))));
             Assertions.assertEquals(
-                    "Table sink_postgres_cdc_table_1 does not have a full replica identity, please execute: ALTER TABLE sink_postgres_cdc_table_1 REPLICA IDENTITY FULL;",
+                    "Table sink_postgres_cdc_table_1 does not have a full replica identity, please execute: ALTER TABLE sink_postgres_cdc_table_1 REPLICA IDENTITY FULL; "
+                            + "or set require-replica-identity-full = false to accept UPDATE/DELETE events without the previous row state.",
                     exception.getMessage());
         }
     }
@@ -1256,6 +1276,75 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                 POSTGRES_CONTAINER.getJdbcUrl(),
                 POSTGRES_CONTAINER.getUsername(),
                 POSTGRES_CONTAINER.getPassword());
+    }
+
+    @Test
+    public void shouldResolveNewTypesUsingPostgresSearchPath() throws SQLException {
+        JdbcConfiguration config =
+                JdbcConfiguration.create()
+                        .withHostname(POSTGRES_CONTAINER.getHost())
+                        .withPort(
+                                POSTGRES_CONTAINER.getMappedPort(
+                                        PostgreSQLContainer.POSTGRESQL_PORT))
+                        .withDatabase(POSTGRES_CONTAINER.getDatabaseName())
+                        .withUser(POSTGRES_CONTAINER.getUsername())
+                        .withPassword(POSTGRES_CONTAINER.getPassword())
+                        .build();
+
+        try (PostgresConnection connection =
+                new PostgresConnection(config, "type-registry-search-path-test")) {
+            // Create the types after priming so get(String) exercises SQL_NAME_LOOKUP.
+            TypeRegistry registry = new TypeRegistry(connection);
+            try (Statement statement = connection.connection().createStatement()) {
+                try {
+                    statement.execute("CREATE SCHEMA type_lookup_a");
+                    statement.execute("CREATE SCHEMA type_lookup_b");
+                    statement.execute("CREATE TYPE type_lookup_b.late_mood AS ENUM ('b')");
+                    statement.execute("CREATE TYPE type_lookup_a.late_mood AS ENUM ('a')");
+                    statement.execute("SET search_path TO type_lookup_a, public");
+                    Assertions.assertEquals(
+                            visibleTypeOid(connection.connection(), "late_mood"),
+                            registry.get("late_mood").getOid());
+
+                    statement.execute("CREATE TYPE type_lookup_a.reverse_mood AS ENUM ('a')");
+                    statement.execute("CREATE TYPE type_lookup_b.reverse_mood AS ENUM ('b')");
+                    statement.execute("SET search_path TO type_lookup_b, type_lookup_a, public");
+                    Assertions.assertEquals(
+                            visibleTypeOid(connection.connection(), "reverse_mood"),
+                            registry.get("reverse_mood").getOid());
+
+                    statement.execute("CREATE TYPE type_lookup_b.hidden_mood AS ENUM ('b')");
+                    statement.execute("CREATE TYPE type_lookup_a.hidden_mood AS ENUM ('a')");
+                    statement.execute("SET search_path TO public");
+                    try (ResultSet resultSet =
+                            statement.executeQuery(
+                                    "SELECT MIN(oid) FROM pg_catalog.pg_type WHERE typname = 'hidden_mood'")) {
+                        Assertions.assertTrue(resultSet.next());
+                        // Keep the old fallback of returning a type even when none is visible.
+                        Assertions.assertEquals(
+                                resultSet.getInt(1), registry.get("hidden_mood").getOid());
+                    }
+
+                    int otherOid =
+                            visibleTypeOid(connection.connection(), "type_lookup_a.reverse_mood");
+                    Assertions.assertEquals(otherOid, registry.get(otherOid).getOid());
+                } finally {
+                    statement.execute("DROP SCHEMA IF EXISTS type_lookup_a CASCADE");
+                    statement.execute("DROP SCHEMA IF EXISTS type_lookup_b CASCADE");
+                }
+            }
+        }
+    }
+
+    private int visibleTypeOid(Connection connection, String name) throws SQLException {
+        try (PreparedStatement statement =
+                connection.prepareStatement("SELECT to_regtype(?)::oid")) {
+            statement.setString(1, name);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                Assertions.assertTrue(resultSet.next());
+                return resultSet.getInt(1);
+            }
+        }
     }
 
     /**
