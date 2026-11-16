@@ -98,16 +98,16 @@ public class GraphQLIT extends TestSuiteBase implements TestResource {
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)));
         Startables.deepStart(Stream.of(genericContainer)).join();
         // Hasura serves only tracked tables. Without this, every query and mutation of this
-        // test is rejected with HTTP 200 and an errors array.
-        given().ignoreExceptions()
-                .await()
-                .pollInterval(1, TimeUnit.SECONDS)
-                .atMost(2, TimeUnit.MINUTES)
-                .untilAsserted(
-                        () -> {
-                            trackTable("source");
-                            trackTable("sink");
-                        });
+        // test is rejected with HTTP 200 and an errors array. Each table is retried on its own:
+        // Hasura rejects tracking a table twice, so retrying both after one of them was tracked
+        // could never pass.
+        for (String table : Arrays.asList("source", "sink")) {
+            given().ignoreExceptions()
+                    .await()
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(() -> trackTable(table));
+        }
     }
 
     public void checkTableData() {
