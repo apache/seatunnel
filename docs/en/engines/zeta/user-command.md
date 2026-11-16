@@ -82,7 +82,7 @@ sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --d
 
 The `--dry-run static` (or `--check`) option validates the configuration file **without submitting a job** (for example HOCON/YAML syntax, plugin loadability, DAG topology, missing required options, and unknown connector keys). It does not run the full data pipeline. Plugin loading may read local JARs, so this is offline validation of the configuration file, not a strict zero-I/O sandbox.
 
-For machine-readable validation, add `--format json` to `--check`, `--dry-run static`, or `--dry-run connect`. The validation result is written to standard output on both success and validation failure; a failed validation still exits with a non-zero status. Existing diagnostic messages from the validation path may also be written to standard output, so callers should select the result line as the machine-readable record.
+For machine-readable validation, add `--format json` to `--check`, `--dry-run static`, or `--dry-run connect`. The validation result is written as one JSON document to standard output on both success and validation failure; a failed validation exits with status 1. The supplied Bash launcher and client logging configuration send diagnostics to standard error in this mode. Other launchers must set `-Dseatunnel.console.target=SYSTEM_ERR` before starting the JVM; custom logging configurations must also keep diagnostics off standard output.
 
 The JSON contract contains `schemaVersion`, `valid`, `phase` (`static` or `connectivity`), and `errors`. Each entry in `errors` has `location`, `plugin`, `optionPath`, `ruleCategory`, and a sanitized `message`; unavailable fields are `null`.
 

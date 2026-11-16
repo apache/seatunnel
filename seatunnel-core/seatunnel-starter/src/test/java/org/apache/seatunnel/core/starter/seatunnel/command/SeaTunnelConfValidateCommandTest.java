@@ -19,18 +19,21 @@ package org.apache.seatunnel.core.starter.seatunnel.command;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.exception.ExceptionUtils;
 
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+import org.apache.seatunnel.core.starter.seatunnel.SeaTunnelClient;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+import org.apache.seatunnel.core.starter.utils.FileUtils;
 import org.apache.seatunnel.core.starter.validation.ConfigValidationResult;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -42,6 +45,7 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 
+import static com.github.stefanbirkner.systemlambda.SystemLambda.catchSystemExit;
 import static com.github.stefanbirkner.systemlambda.SystemLambda.tapSystemOutNormalized;
 
 public class SeaTunnelConfValidateCommandTest {
@@ -86,9 +90,7 @@ public class SeaTunnelConfValidateCommandTest {
 
         String output =
                 tapSystemOutNormalized(
-                        () ->
-                                Assertions.assertThrows(
-                                        ConfigCheckException.class, command::execute));
+                        () -> Assertions.assertEquals(1, command.executeForExitCode()));
 
         Assertions.assertTrue(output.contains("\"valid\":false"), output);
         Assertions.assertTrue(output.contains("\"phase\":\"static\""), output);
@@ -96,7 +98,7 @@ public class SeaTunnelConfValidateCommandTest {
     }
 
     @Test
-    public void testJsonStaticFailureSanitizesThrownException() throws Exception {
+    public void testJsonStaticFailureSanitizesResultWithoutThrowing() throws Exception {
         Path configFile = Files.createTempFile("seatunnel-static-sensitive-failure", ".json");
         Files.write(
                 configFile,
@@ -115,17 +117,7 @@ public class SeaTunnelConfValidateCommandTest {
                 new SeaTunnelConfValidateCommand(buildJsonArgsFromPath(configFile.toString()));
         String output =
                 tapSystemOutNormalized(
-                        () -> {
-                            ConfigCheckException exception =
-                                    Assertions.assertThrows(
-                                            ConfigCheckException.class, command::execute);
-                            String stackTrace = ExceptionUtils.getStackTrace(exception);
-                            Assertions.assertFalse(
-                                    stackTrace.contains("secret-password"), stackTrace);
-                            Assertions.assertTrue(
-                                    exception.getMessage().contains("the configured JDBC URL"),
-                                    exception.getMessage());
-                        });
+                        () -> Assertions.assertEquals(1, command.executeForExitCode()));
 
         Assertions.assertFalse(output.contains("secret-password"), output);
         Assertions.assertFalse(
@@ -148,6 +140,55 @@ public class SeaTunnelConfValidateCommandTest {
         String output = tapSystemOutNormalized(command::execute);
 
         Assertions.assertFalse(output.contains("\"schemaVersion\""), output);
+    }
+
+    @Test
+    public void testJsonLauncherFailureExitsWithoutTextExceptionLogging() throws Exception {
+        String[] args = {
+            "-c",
+            resolveConfigPath("config/invalid_dryrun_missing_required.json"),
+            "--check",
+            "--format",
+            "json"
+        };
+        String output =
+                tapSystemOutNormalized(
+                        () ->
+                                Assertions.assertEquals(
+                                        1, catchSystemExit(() -> SeaTunnelClient.main(args))));
+        Assertions.assertEquals(1, output.trim().split("\\R").length, output);
+        Assertions.assertFalse(
+                JsonUtils.readTree(output.getBytes(StandardCharsets.UTF_8))
+                        .get("valid")
+                        .asBoolean());
+        Assertions.assertFalse(output.contains("Config Error"), output);
+    }
+
+    @Test
+    public void testJsonProgrammaticValidationDoesNotEmitOutput() throws Exception {
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(
+                        buildJsonArgs("config/invalid_dryrun_missing_required.json"));
+        String output =
+                tapSystemOutNormalized(
+                        () -> Assertions.assertFalse(command.validateResult().isValid()));
+        Assertions.assertEquals("", output);
+    }
+
+    @Test
+    public void testNullMessageAndPathResolutionPreserveTextContract() throws Exception {
+        ClientCommandArgs textArgs = buildArgs("config/valid_static_dryrun.json");
+        IllegalArgumentException failure = new IllegalArgumentException();
+        try (MockedStatic<FileUtils> files = Mockito.mockStatic(FileUtils.class)) {
+            files.when(() -> FileUtils.getConfigPath(textArgs)).thenThrow(failure);
+            SeaTunnelConfValidateCommand textCommand = new SeaTunnelConfValidateCommand(textArgs);
+            Assertions.assertSame(
+                    failure,
+                    Assertions.assertThrows(IllegalArgumentException.class, textCommand::execute));
+            ConfigValidationResult result = textCommand.validateResult();
+            Assertions.assertFalse(result.isValid());
+            Assertions.assertEquals("Validation failed", result.getErrors().get(0).getMessage());
+        }
     }
 
     @Test

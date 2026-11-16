@@ -21,8 +21,11 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.exception.ExceptionUt
 
 import org.apache.seatunnel.common.constants.EngineType;
 import org.apache.seatunnel.core.starter.SeaTunnel;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.enums.OutputFormat;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
+import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +44,16 @@ public class SeaTunnelClient {
                         ClientCommandArgs::validateCommandOptions,
                         HELP_EXIT_CODE);
         try {
-            SeaTunnel.run(clientCommandArgs.buildCommand());
+            Command<?> command = clientCommandArgs.buildCommand();
+            if (clientCommandArgs.getOutputFormat() == OutputFormat.JSON
+                    && command instanceof SeaTunnelConfValidateCommand) {
+                int exitCode = ((SeaTunnelConfValidateCommand) command).executeForExitCode();
+                if (exitCode != 0) {
+                    System.exit(exitCode);
+                }
+                return;
+            }
+            SeaTunnel.run(command);
         } catch (Error e) {
             log.error("Exception StackTrace: {}", ExceptionUtils.getStackTrace(e));
             System.exit(1);

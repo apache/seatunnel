@@ -102,9 +102,27 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
 
     @Override
     public void execute() throws ConfigCheckException {
-        ConfigValidationResult successResult;
+        executeForExitCode();
+    }
+
+    /**
+     * Runs the CLI adapter and returns its exit status. JSON validation failures are represented by
+     * the result and status, not by an exception that the launcher would log as text.
+     */
+    public int executeForExitCode() throws ConfigCheckException {
+        if (clientCommandArgs.getOutputFormat() == OutputFormat.JSON) {
+            ConfigValidationResult result = validateResult();
+            System.out.println(result.toJson());
+            return result.isValid() ? 0 : 1;
+        }
+        validateConfig();
+        return 0;
+    }
+
+    private void validateConfig() throws ConfigCheckException {
+        // Preserve the original path-resolution exception contract in default text mode.
+        Path configPath = FileUtils.getConfigPath(clientCommandArgs);
         try {
-            Path configPath = FileUtils.getConfigPath(clientCommandArgs);
             Config config = ConfigBuilder.of(configPath, clientCommandArgs.getVariables());
 
             if (config.hasPath("env")) {
@@ -184,41 +202,16 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                         .validate();
             }
 
-            successResult = ConfigValidationResult.success(validationPhase());
-
         } catch (Exception e) {
-            String validationMode =
-                    clientCommandArgs.getDryRun() == DryRun.CONNECT
-                            ? "Connectivity check"
-                            : "Static analysis";
-            String message = e.getMessage();
+            String message = safeMessage(e.getMessage());
             if (clientCommandArgs.getDryRun() == DryRun.CONNECT) {
-                message = DryRunConnectFailureMessageSanitizer.sanitize(message);
-                printJsonResultIfRequested(
-                        ConfigValidationResult.failure(
-                                validationPhase(),
-                                toValidationError(
-                                        message == null ? "Validation failed" : message)));
-                throw new ConfigCheckException(validationMode + " failed: " + message);
+                throw new ConfigCheckException(validationMode() + " failed: " + message);
             }
-            String sanitizedMessage = DryRunConnectFailureMessageSanitizer.sanitize(message);
-            printJsonResultIfRequested(
-                    ConfigValidationResult.failure(
-                            validationPhase(),
-                            toValidationError(
-                                    sanitizedMessage == null
-                                            ? "Validation failed"
-                                            : sanitizedMessage)));
             if (clientCommandArgs.getOutputFormat() == OutputFormat.JSON) {
-                // The CLI logs the full exception chain; do not retain an unsanitized cause in
-                // the machine-readable mode after emitting the credential-safe result.
-                throw new ConfigCheckException(validationMode + " failed: " + sanitizedMessage);
+                throw new ConfigCheckException(validationMode() + " failed: " + message);
             }
-            throw new ConfigCheckException(validationMode + " failed: " + sanitizedMessage, e);
+            throw new ConfigCheckException(validationMode() + " failed: " + message, e);
         }
-        // Keep serialization outside the validation try/catch so an output failure
-        // cannot be reported as a configuration-validation failure.
-        printJsonResultIfRequested(successResult);
     }
 
     /**
@@ -228,9 +221,9 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
      */
     public ConfigValidationResult validateResult() {
         try {
-            execute();
+            validateConfig();
             return ConfigValidationResult.success(validationPhase());
-        } catch (ConfigCheckException e) {
+        } catch (Exception e) {
             String message = e.getMessage();
             String prefix = validationMode() + " failed: ";
             if (message != null && message.startsWith(prefix)) {
@@ -238,21 +231,14 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
             }
             // The result is intended for programmatic consumers, so never expose credentials
             // even when the underlying validation phase is static.
-            message = DryRunConnectFailureMessageSanitizer.sanitize(message);
             return ConfigValidationResult.failure(
-                    validationPhase(),
-                    toValidationError(message == null ? "Validation failed" : message));
+                    validationPhase(), toValidationError(safeMessage(message)));
         }
     }
 
-    /**
-     * Emits one credential-safe result for the JSON CLI protocol. Text mode retains its existing
-     * diagnostic output and does not write a machine-readable result to standard output.
-     */
-    private void printJsonResultIfRequested(ConfigValidationResult result) {
-        if (clientCommandArgs.getOutputFormat() == OutputFormat.JSON) {
-            System.out.println(result.toJson());
-        }
+    private static String safeMessage(String message) {
+        return DryRunConnectFailureMessageSanitizer.sanitize(
+                message == null ? "Validation failed" : message);
     }
 
     private String validationPhase() {

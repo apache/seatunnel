@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceFactory;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -38,10 +39,12 @@ import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.testcontainers.containers.Container;
+import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -123,6 +126,62 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
         Container.ExecResult execResult7 = execCommand(container, case7);
         checkStdOutForOptionRuleOfSinglePluginTypeWithTransform(
                 execResult7.getStdout(), new SQLTransformFactory());
+    }
+
+    @TestTemplate
+    public void testJsonValidationStdoutAndExitStatus(TestContainer container) throws Exception {
+        // Exercise the source launcher/logging config with only the fixture's connectors.
+        container.executeExtraCommands(
+                engine -> {
+                    ContainerUtil.copyConnectorJarToContainer(
+                            engine,
+                            "/json_validation.conf",
+                            "seatunnel-connectors-v2",
+                            "connector",
+                            "seatunnel",
+                            "/tmp/seatunnel");
+                    engine.copyFileToContainer(
+                            MountableFile.forClasspathResource("json_validation.conf"),
+                            "/tmp/seatunnel/config/json_validation.conf");
+                    engine.copyFileToContainer(
+                            MountableFile.forHostPath(
+                                    ContainerUtil.PROJECT_ROOT_PATH
+                                            + "/config/log4j2_client.properties"),
+                            "/tmp/seatunnel/config/log4j2_client.properties");
+                });
+        Container.ExecResult valid =
+                container.executeBaseCommand(
+                        new String[] {
+                            "--config",
+                            "/tmp/seatunnel/config/json_validation.conf",
+                            "--check",
+                            "--format",
+                            "json"
+                        });
+        Assertions.assertEquals(0, valid.getExitCode(), valid.getStdout() + valid.getStderr());
+        Assertions.assertEquals(1, valid.getStdout().trim().split("\\R").length, valid.getStdout());
+        Assertions.assertTrue(
+                JsonUtils.readTree(valid.getStdout().getBytes(StandardCharsets.UTF_8))
+                        .get("valid")
+                        .asBoolean());
+
+        Container.ExecResult invalid =
+                container.executeBaseCommand(
+                        new String[] {
+                            "--config",
+                            "/tmp/seatunnel/config/nonexistent-validation.conf",
+                            "--check",
+                            "--format",
+                            "json"
+                        });
+        Assertions.assertEquals(1, invalid.getExitCode(), invalid.getStderr());
+        Assertions.assertEquals(
+                1, invalid.getStdout().trim().split("\\R").length, invalid.getStdout());
+        Assertions.assertFalse(
+                JsonUtils.readTree(invalid.getStdout().getBytes(StandardCharsets.UTF_8))
+                        .get("valid")
+                        .asBoolean());
+        Assertions.assertFalse(invalid.getStderr().contains("Config Error"), invalid.getStderr());
     }
 
     private void checkStdOutForOptionRule(String stdout) {
