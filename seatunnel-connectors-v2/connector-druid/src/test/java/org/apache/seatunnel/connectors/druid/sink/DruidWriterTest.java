@@ -51,6 +51,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class DruidWriterTest {
 
@@ -66,6 +67,8 @@ public class DruidWriterTest {
                     new SeaTunnelRow(new Object[] {1, "a", 10L}),
                     new SeaTunnelRow(new Object[] {2, null, 20L}),
                     new SeaTunnelRow(new Object[] {3, "c", null}));
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Test
     public void aNullFieldKeepsItsColumn() throws IOException {
@@ -143,6 +146,58 @@ public class DruidWriterTest {
     }
 
     /**
+     * A submission Druid rejects must not count as done. The flush fails so the SeaTunnel task
+     * fails, and the rejected rows stay pending for the next flush instead of being dropped
+     * silently.
+     */
+    @Test
+    public void rejectedSubmissionFailsTheFlushAndKeepsTheRows() throws IOException {
+        List<String> requestBodies = new ArrayList<>();
+        HttpServer server =
+                startDruidOverlord(
+                        requestBodies,
+                        new Response(400, "{\"error\":\"Invalid task payload\"}"),
+                        new Response(200, "{\"task\":\"task-1\"}"));
+        try {
+            // A batch size above the row count, so the only submissions are the explicit flushes.
+            DruidWriter writer = newWriter(server, ROWS.size() + 1);
+            for (SeaTunnelRow row : ROWS) {
+                writer.write(row);
+            }
+
+            IOException failure = Assertions.assertThrows(IOException.class, writer::flush);
+            Assertions.assertTrue(
+                    failure.getMessage().contains("test_datasource"),
+                    "the failure must name the datasource: " + failure.getMessage());
+            Assertions.assertTrue(
+                    failure.getMessage().contains("400"),
+                    "the failure must carry the HTTP status: " + failure.getMessage());
+            Assertions.assertTrue(
+                    failure.getMessage().contains("Invalid task payload"),
+                    "the failure must carry the response body: " + failure.getMessage());
+
+            // The rejected rows are still pending, so the next flush submits them, once.
+            writer.flush();
+            writer.close();
+        } finally {
+            server.stop(0);
+        }
+
+        Assertions.assertEquals(
+                2,
+                requestBodies.size(),
+                "the writer must not resubmit the rejected rows on its own");
+        String[] lines = submittedRows(requestBodies.get(1)).split("\n");
+        Assertions.assertEquals(
+                ROWS.size(),
+                lines.length,
+                "the accepted flush must submit the original rows exactly once");
+        Assertions.assertTrue(lines[0].startsWith("1,a,10,"), lines[0]);
+        Assertions.assertTrue(lines[1].startsWith("2,,20,"), lines[1]);
+        Assertions.assertTrue(lines[2].startsWith("3,c,,"), lines[2]);
+    }
+
+    /**
      * Writes the rows through a {@link DruidWriter} pointed at a local stand-in for the Druid
      * Overlord, and returns the {@code ioConfig} of the indexing task it submits on close.
      */
@@ -160,7 +215,43 @@ public class DruidWriterTest {
     private static List<JsonNode> submitAllIoConfigs(List<SeaTunnelRow> rows, int batchSize)
             throws IOException {
         List<String> requestBodies = new ArrayList<>();
+        HttpServer server =
+                startDruidOverlord(requestBodies, new Response(200, "{\"task\":\"test\"}"));
+        try {
+            DruidWriter writer = newWriter(server, batchSize);
+            for (SeaTunnelRow row : rows) {
+                writer.write(row);
+            }
+            writer.close();
+        } finally {
+            server.stop(0);
+        }
+
+        List<JsonNode> ioConfigs = new ArrayList<>();
+        for (String requestBody : requestBodies) {
+            ioConfigs.add(MAPPER.readTree(requestBody).get("spec").get("ioConfig"));
+        }
+        return ioConfigs;
+    }
+
+    /** A {@link DruidWriter} pointed at the local stand-in for the Druid Overlord. */
+    private static DruidWriter newWriter(HttpServer server, int batchSize) {
+        return new DruidWriter(
+                ROW_TYPE,
+                "127.0.0.1:" + server.getAddress().getPort(),
+                "test_datasource",
+                batchSize);
+    }
+
+    /**
+     * Starts a local stand-in for the Druid Overlord that records every submitted indexing task and
+     * answers the requests with the given responses in order, repeating the last one once the
+     * script runs out.
+     */
+    private static HttpServer startDruidOverlord(List<String> requestBodies, Response... responses)
+            throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        AtomicInteger received = new AtomicInteger();
         server.createContext(
                 "/druid/indexer/v1/task",
                 exchange -> {
@@ -173,33 +264,36 @@ public class DruidWriterTest {
                         }
                         requestBodies.add(new String(body.toByteArray(), StandardCharsets.UTF_8));
                     }
-                    byte[] response = "{\"task\":\"test\"}".getBytes(StandardCharsets.UTF_8);
-                    exchange.sendResponseHeaders(200, response.length);
+                    Response response =
+                            responses[Math.min(received.getAndIncrement(), responses.length - 1)];
+                    byte[] payload = response.body.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(response.status, payload.length);
                     try (OutputStream out = exchange.getResponseBody()) {
-                        out.write(response);
+                        out.write(payload);
                     }
                 });
         server.start();
-        try {
-            DruidWriter writer =
-                    new DruidWriter(
-                            ROW_TYPE,
-                            "127.0.0.1:" + server.getAddress().getPort(),
-                            "test_datasource",
-                            batchSize);
-            for (SeaTunnelRow row : rows) {
-                writer.write(row);
-            }
-            writer.close();
-        } finally {
-            server.stop(0);
-        }
+        return server;
+    }
 
-        ObjectMapper mapper = new ObjectMapper();
-        List<JsonNode> ioConfigs = new ArrayList<>();
-        for (String requestBody : requestBodies) {
-            ioConfigs.add(mapper.readTree(requestBody).get("spec").get("ioConfig"));
+    /** The CSV rows carried by the indexing task of a recorded request. */
+    private static String submittedRows(String requestBody) throws IOException {
+        return MAPPER.readTree(requestBody)
+                .get("spec")
+                .get("ioConfig")
+                .get("inputSource")
+                .get("data")
+                .asText();
+    }
+
+    /** One scripted answer of the stand-in Overlord. */
+    private static final class Response {
+        private final int status;
+        private final String body;
+
+        private Response(int status, String body) {
+            this.status = status;
+            this.body = body;
         }
-        return ioConfigs;
     }
 }

@@ -43,17 +43,21 @@ import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervi
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.segment.indexing.granularity.UniformGranularitySpec;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -61,6 +65,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.joda.JodaModule;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -144,16 +149,49 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         post.setHeader("Accept", "application/json, text/plain, */*");
         post.setEntity(new StringEntity(inputJSON));
 
+        final int statusCode;
+        final String responseBody;
         try (CloseableHttpResponse response = httpClient.execute(post)) {
-            String responseBody =
-                    response.getEntity() != null ? response.getEntity().toString() : "";
-            LOG.info("Druid write task has been sent, and the response is {}", responseBody);
+            final HttpEntity entity = response.getEntity();
+            responseBody =
+                    entity == null ? "" : EntityUtils.toString(entity, StandardCharsets.UTF_8);
+            statusCode = response.getStatusLine().getStatusCode();
+        }
+        LOG.info("Druid write task has been sent, and the response is {}", responseBody);
+
+        // Druid answers 200 with the id of the indexing task it created only when it accepted the
+        // submission. Anything else throws before the buffer is cleared, so the rejected rows are
+        // not dropped silently and the failure fails the SeaTunnel task instead.
+        if (!isTaskAccepted(statusCode, responseBody)) {
+            throw new IOException(
+                    String.format(
+                            "Druid did not accept the indexing task for datasource %s: status %d, response body: %s",
+                            datasource, statusCode, responseBody));
         }
         // The buffer holds every row written since it was last cleared, so without this the next
         // flush submits the earlier batches again. Druid runs with rollup disabled, so a row sent
-        // twice is stored twice. Cleared only after a successful submission, so a failed flush
-        // keeps its rows for the retry.
+        // twice is stored twice. Cleared only once Druid accepts the submission; a rejected one
+        // keeps its rows and throws, which fails the SeaTunnel task.
         data.setLength(0);
+    }
+
+    /**
+     * A submission is accepted only when Druid answers 200 and returns the id of the indexing task
+     * it created. A rejection, an unparseable body or a missing task id all mean the batch was not
+     * taken.
+     */
+    private boolean isTaskAccepted(final int statusCode, final String responseBody) {
+        if (statusCode != HttpStatus.SC_OK) {
+            return false;
+        }
+        final JsonNode task;
+        try {
+            final JsonNode response = mapper.readTree(responseBody);
+            task = response == null ? null : response.get("task");
+        } catch (final IOException e) {
+            return false;
+        }
+        return task != null && !task.asText().isEmpty();
     }
 
     @Override
