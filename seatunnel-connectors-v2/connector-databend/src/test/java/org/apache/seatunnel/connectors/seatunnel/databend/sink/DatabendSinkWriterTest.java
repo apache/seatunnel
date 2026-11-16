@@ -34,8 +34,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.util.Collections;
+import java.util.TimeZone;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -316,20 +317,72 @@ public class DatabendSinkWriterTest {
         verify(statement, never()).execute(startsWith("MERGE INTO"));
     }
 
+    /** 2023-11-14 22:13:20 UTC. */
+    private static final long CLOCK_MILLIS = 1_700_000_000_000L;
+
     @Test
     public void testEventsOfABurstGetDistinctIncreasingAddTimes() {
-        DatabendSinkWriter sinkWriter = mock(DatabendSinkWriter.class);
-        when(sinkWriter.nextAddTime()).thenCallRealMethod();
-
-        Timestamp previous = Timestamp.valueOf(sinkWriter.nextAddTime());
+        long last = 0L;
         for (int i = 0; i < 10000; i++) {
-            Timestamp current = Timestamp.valueOf(sinkWriter.nextAddTime());
-            org.junit.jupiter.api.Assertions.assertTrue(current.after(previous));
-            previous = current;
+            long next = DatabendSinkWriter.nextAddTimeMicros(CLOCK_MILLIS, last);
+            org.junit.jupiter.api.Assertions.assertTrue(next > last);
+            last = next;
         }
         // Microsecond steps keep a burst close to the clock: millisecond steps would be 10 s ahead.
-        org.junit.jupiter.api.Assertions.assertTrue(
-                previous.getTime() < System.currentTimeMillis() + 5000);
+        assertEquals(CLOCK_MILLIS * 1000 + 9999, last);
+    }
+
+    @Test
+    public void testAddTimeKeepsIncreasingWhenTheClockStepsBack() {
+        long last = DatabendSinkWriter.nextAddTimeMicros(CLOCK_MILLIS, 0L);
+
+        assertEquals(last + 1, DatabendSinkWriter.nextAddTimeMicros(CLOCK_MILLIS - 1000, last));
+        assertEquals(
+                (CLOCK_MILLIS + 5) * 1000,
+                DatabendSinkWriter.nextAddTimeMicros(CLOCK_MILLIS + 5, last + 1));
+    }
+
+    @Test
+    public void testAddTimeIsWrittenInTheLocalTimeOfTheJvmWithMicroseconds() {
+        long micros = CLOCK_MILLIS * 1000 + 123_456;
+
+        assertEquals(
+                "2023-11-14 22:13:20.123456",
+                inTimeZone("UTC", () -> DatabendSinkWriter.formatAddTime(micros)));
+        assertEquals(
+                "2023-11-15 06:13:20.123456",
+                inTimeZone("Asia/Shanghai", () -> DatabendSinkWriter.formatAddTime(micros)));
+    }
+
+    /**
+     * add_time is local time, so when daylight saving time ends the written times repeat an hour:
+     * one second later is written as almost an hour earlier. The field comment of lastAddTimeMicros
+     * states this limit.
+     */
+    @Test
+    public void testAddTimeRepeatsAnHourWhenDaylightSavingTimeEnds() {
+        // 2026-11-01 05:59:59 UTC is 01:59:59 EDT, one second later is 01:00:00 EST.
+        long beforeMicros = 1_793_512_799_000_000L;
+        long afterMicros = beforeMicros + 1_000_000;
+
+        assertEquals(
+                "2026-11-01 01:59:59.0",
+                inTimeZone(
+                        "America/New_York", () -> DatabendSinkWriter.formatAddTime(beforeMicros)));
+        assertEquals(
+                "2026-11-01 01:00:00.0",
+                inTimeZone(
+                        "America/New_York", () -> DatabendSinkWriter.formatAddTime(afterMicros)));
+    }
+
+    private static String inTimeZone(String zone, Supplier<String> action) {
+        TimeZone previous = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone(zone));
+        try {
+            return action.get();
+        } finally {
+            TimeZone.setDefault(previous);
+        }
     }
 
     private DatabendSinkWriter mockCdcWriter(Statement statement) throws Exception {

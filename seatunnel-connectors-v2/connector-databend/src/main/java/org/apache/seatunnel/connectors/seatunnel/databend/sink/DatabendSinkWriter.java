@@ -94,6 +94,16 @@ public class DatabendSinkWriter
     private boolean hasUnmergedCdcRows = false;
     private String conflictKey;
     private boolean enableDelete;
+
+    /**
+     * The add_time of the last CDC row of this writer, in microseconds since the epoch. The merge
+     * keeps the row with the latest add_time for each key, so {@link #nextAddTime()} makes each row
+     * of this writer later than the one before, also within one millisecond and when the clock
+     * steps back. The value lives only in this writer instance: it is not checkpointed, a new or
+     * restored writer starts again from the clock, and rows of different writers are ordered only
+     * by their clocks. add_time is written in the local time of the JVM, so when daylight saving
+     * time ends the written times repeat an hour.
+     */
     private long lastAddTimeMicros = 0L;
 
     public DatabendSinkWriter(
@@ -433,9 +443,23 @@ public class DatabendSinkWriter
      * @return a timestamp, in microseconds, later than the one returned by the previous call
      */
     String nextAddTime() {
-        lastAddTimeMicros = Math.max(System.currentTimeMillis() * 1000, lastAddTimeMicros + 1);
-        Timestamp addTime = new Timestamp(lastAddTimeMicros / 1000);
-        addTime.setNanos((int) (lastAddTimeMicros % 1_000_000) * 1000);
+        lastAddTimeMicros = nextAddTimeMicros(System.currentTimeMillis(), lastAddTimeMicros);
+        return formatAddTime(lastAddTimeMicros);
+    }
+
+    /**
+     * Returns the add_time, in microseconds, that follows {@code lastMicros} when the clock reads
+     * {@code nowMillis}: the clock time, or one microsecond after {@code lastMicros} if the clock
+     * is not past it.
+     */
+    static long nextAddTimeMicros(long nowMillis, long lastMicros) {
+        return Math.max(nowMillis * 1000, lastMicros + 1);
+    }
+
+    /** Returns {@code micros} as a timestamp in the local time of the JVM, with microseconds. */
+    static String formatAddTime(long micros) {
+        Timestamp addTime = new Timestamp(micros / 1000);
+        addTime.setNanos((int) (micros % 1_000_000) * 1000);
         return addTime.toString();
     }
 
