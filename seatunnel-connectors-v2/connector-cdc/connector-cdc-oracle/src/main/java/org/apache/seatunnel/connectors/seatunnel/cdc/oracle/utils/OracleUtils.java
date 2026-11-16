@@ -400,7 +400,7 @@ public class OracleUtils {
         TopicSelector<TableId> topicSelector = OracleTopicSelector.defaultSelector(dbzOracleConfig);
         SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
         OracleValueConverters oracleValueConverters =
-                new OracleValueConverters(dbzOracleConfig, connection);
+                new OracleJdbcLobValueConverters(dbzOracleConfig, connection);
         OracleDefaultValueConverter defaultValueConverter =
                 new OracleDefaultValueConverter(oracleValueConverters, connection);
         StreamingAdapter.TableNameCaseSensitivity tableNameCaseSensitivity =
@@ -412,7 +412,8 @@ public class OracleUtils {
                 defaultValueConverter,
                 schemaNameAdjuster,
                 topicSelector,
-                tableNameCaseSensitivity);
+                tableNameCaseSensitivity,
+                OracleConnectionUtils.getDatabaseCharacterSet(connection));
     }
 
     /** Creates a new {@link OracleDatabaseSchema} to monitor the latest oracle database schemas. */
@@ -423,7 +424,7 @@ public class OracleUtils {
         TopicSelector<TableId> topicSelector = OracleTopicSelector.defaultSelector(dbzOracleConfig);
         SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
         OracleValueConverters oracleValueConverters =
-                new OracleValueConverters(dbzOracleConfig, connection);
+                new OracleJdbcLobValueConverters(dbzOracleConfig, connection);
         OracleDefaultValueConverter defaultValueConverter =
                 new OracleDefaultValueConverter(oracleValueConverters, connection);
         StreamingAdapter.TableNameCaseSensitivity tableNameCaseSensitivity =
@@ -436,7 +437,8 @@ public class OracleUtils {
                 defaultValueConverter,
                 schemaNameAdjuster,
                 topicSelector,
-                tableNameCaseSensitivity);
+                tableNameCaseSensitivity,
+                OracleConnectionUtils.getDatabaseCharacterSet(connection));
     }
 
     public static RedoLogOffset getRedoLogPosition(SourceRecord dataRecord) {

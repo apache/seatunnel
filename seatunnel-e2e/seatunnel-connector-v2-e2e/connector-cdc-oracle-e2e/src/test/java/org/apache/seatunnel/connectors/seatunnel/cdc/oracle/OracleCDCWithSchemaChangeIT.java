@@ -122,8 +122,7 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                DependencyJar.of(oracle.jdbc.driver.OracleDriver.class)
-                        .copyTo(container, ORACLE_CDC_PLUGIN_LIB);
+                copyOracleCdcJdbcJars(container);
                 DependencyJar.of(com.mysql.cj.jdbc.Driver.class).copyTo(container, JDBC_PLUGIN_LIB);
             };
 

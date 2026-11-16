@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config;
 
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.OracleIncrementalSourceOptions;
 
 import io.debezium.connector.oracle.OracleConnector;
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +66,20 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
 
     public JdbcSourceConfigFactory skipAnalyze(Boolean skipAnalyze) {
         this.skipAnalyze = skipAnalyze;
+        return this;
+    }
+
+    /**
+     * Copies the SeaTunnel {@code lob.enabled} option onto Debezium {@code lob.enabled}. Called
+     * only when the user set the option, so an omitted value does not clear {@code
+     * debezium.lob.enabled}.
+     */
+    public OracleSourceConfigFactory lobEnabled(boolean lobEnabled) {
+        if (dbzProperties == null) {
+            dbzProperties = new Properties();
+        }
+        dbzProperties.setProperty(
+                OracleIncrementalSourceOptions.LOB_ENABLED.key(), Boolean.toString(lobEnabled));
         return this;
     }
 

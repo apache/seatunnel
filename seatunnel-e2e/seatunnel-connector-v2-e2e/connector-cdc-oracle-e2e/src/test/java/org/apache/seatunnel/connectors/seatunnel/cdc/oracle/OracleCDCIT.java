@@ -22,7 +22,6 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
-import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
@@ -63,9 +62,7 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container ->
-                    DependencyJar.of(oracle.jdbc.driver.OracleDriver.class)
-                            .copyTo(container, ORACLE_CDC_PLUGIN_LIB);
+            container -> copyOracleCdcJdbcJars(container);
 
     @BeforeAll
     @Override
@@ -127,6 +124,190 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
     @TestTemplate
     public void testOracleCdcCheckDataE2e(TestContainer container) throws Exception {
         checkDataForTheJob(container, "/oraclecdc_to_oracle.conf", false);
+    }
+
+    @TestTemplate
+    public void testOracleCdcLobSnapshotStreamingAndOutOfLineInsert(TestContainer container)
+            throws Exception {
+        String sourceTable = "LOB_TYPES";
+        String sinkTable = "SINK_LOB_TYPES";
+        clearTable(SCEHMA_NAME, sourceTable);
+        clearTable(SCEHMA_NAME, sinkTable);
+
+        executeSql(
+                "INSERT INTO "
+                        + SCEHMA_NAME
+                        + "."
+                        + sourceTable
+                        + " VALUES (1, 'keep-me', 'clob-snapshot', N'nclob-snapshot', HEXTORAW('010203'))");
+
+        String jobId = startJob(container, "/oraclecdc_to_oracle_lob.conf");
+        try {
+            String lobCompareSql = lobCompareSql(SCEHMA_NAME);
+            await().atMost(600000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        querySql(String.format(lobCompareSql, sourceTable)),
+                                        querySql(String.format(lobCompareSql, sinkTable)));
+                            });
+
+            executeSql(
+                    "UPDATE "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " SET VAL_VARCHAR = 'updated' WHERE ID = 1");
+            executeSql(
+                    "UPDATE "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " SET VAL_CLOB = 'clob-only' WHERE ID = 1");
+            executeSql(
+                    "INSERT INTO "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " VALUES (2, 'second', 'clob-stream', N'nclob-stream', HEXTORAW('0A0B'))");
+            executeSql(
+                    "DECLARE l_clob CLOB; BEGIN INSERT INTO "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " (ID, VAL_VARCHAR, VAL_CLOB, VAL_NCLOB, VAL_BLOB) VALUES (3, 'outline',"
+                            + " EMPTY_CLOB(), N'short-nclob', HEXTORAW('0C0D')) RETURNING VAL_CLOB INTO"
+                            + " l_clob; DBMS_LOB.WRITEAPPEND(l_clob, 4000, RPAD('a', 4000, 'a'));"
+                            + " DBMS_LOB.WRITEAPPEND(l_clob, 1000, RPAD('b', 1000, 'b')); END;");
+            executeSql(
+                    "DECLARE c_chunk VARCHAR2(800); n_chunk NVARCHAR2(100); l_clob CLOB; l_nclob NCLOB;"
+                            + " BEGIN c_chunk := RPAD(UNISTR('\\D83D\\DE00'), 100, UNISTR('\\D83D\\DE00'));"
+                            + " n_chunk := RPAD(UNISTR('\\D83D\\DE00'), 100, UNISTR('\\D83D\\DE00'));"
+                            + " INSERT INTO "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " (ID, VAL_VARCHAR, VAL_CLOB, VAL_NCLOB, VAL_BLOB) VALUES (4, 'emoji',"
+                            + " EMPTY_CLOB(), EMPTY_CLOB(), HEXTORAW('0E0F')) RETURNING VAL_CLOB,"
+                            + " VAL_NCLOB INTO l_clob, l_nclob; DBMS_LOB.WRITEAPPEND(l_clob, 100,"
+                            + " c_chunk); DBMS_LOB.WRITEAPPEND(l_nclob, 100, n_chunk); END;");
+            executeSql(
+                    "INSERT INTO "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " VALUES (5, 'quote', 'it''s a clob', N'it''s nclob', HEXTORAW('11'))");
+            insertBinaryLob(6, "png", "89504E470D0A1A0A", "FF", 2000);
+            executeSql(
+                    "UPDATE "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " SET VAL_CLOB = NULL WHERE ID = 1");
+            executeSql(
+                    "INSERT INTO "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " VALUES (7, 'empty', EMPTY_CLOB(), EMPTY_CLOB(), EMPTY_BLOB())");
+            executeSql(
+                    "INSERT INTO "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " VALUES (8, 'to-delete', 'gone', N'gone', HEXTORAW('0A'))");
+            executeSql("DELETE FROM " + SCEHMA_NAME + "." + sourceTable + " WHERE ID = 8");
+
+            await().atMost(600000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        querySql(String.format(lobCompareSql, sourceTable)),
+                                        querySql(String.format(lobCompareSql, sinkTable)));
+                            });
+        } finally {
+            cancelQuietly(container, jobId);
+        }
+    }
+
+    @TestTemplate
+    public void testOracleCdcXmlTypeSnapshotStreamingAndReselect(TestContainer container)
+            throws Exception {
+        String sourceTable = "XML_TYPES";
+        String sinkTable = "SINK_XML_TYPES";
+        clearTable(SCEHMA_NAME, sourceTable);
+        clearTable(SCEHMA_NAME, sinkTable);
+
+        executeSql(
+                "INSERT INTO "
+                        + SCEHMA_NAME
+                        + "."
+                        + sourceTable
+                        + " VALUES (1, 'keep-me', XMLTYPE('<root>snapshot</root>'))");
+
+        String jobId = startJob(container, "/oraclecdc_to_oracle_xml.conf");
+        try {
+            await().atMost(600000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        querySql(xmlCompareSql(SCEHMA_NAME, sourceTable, true)),
+                                        querySql(xmlCompareSql(SCEHMA_NAME, sinkTable, false)));
+                            });
+
+            executeSql(
+                    "UPDATE "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " SET VAL_VARCHAR = 'updated' WHERE ID = 1");
+            executeSql(
+                    "UPDATE "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " SET VAL_XML = XMLTYPE('<root>xml-only</root>') WHERE ID = 1");
+            executeSql(
+                    "INSERT INTO "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " VALUES (2, 'second', XMLTYPE('<root>stream</root>'))");
+            executeSql(
+                    "INSERT INTO "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " VALUES (3, 'quote', XMLTYPE('<note>it''s xml</note>'))");
+            executeSql(
+                    "INSERT INTO "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " VALUES (4, 'nullxml', NULL)");
+            // ~8K XML document so LogMiner emits XML_BEGIN / XML_WRITE / XML_END instead of an
+            // in-line UPDATE.
+            executeSql(
+                    "DECLARE c CLOB; BEGIN DBMS_LOB.CREATETEMPORARY(c, TRUE);"
+                            + " DBMS_LOB.WRITEAPPEND(c, 6, '<root>');"
+                            + " DBMS_LOB.WRITEAPPEND(c, 4000, RPAD('x', 4000, 'x'));"
+                            + " DBMS_LOB.WRITEAPPEND(c, 4000, RPAD('y', 4000, 'y'));"
+                            + " DBMS_LOB.WRITEAPPEND(c, 7, '</root>'); INSERT INTO "
+                            + SCEHMA_NAME
+                            + "."
+                            + sourceTable
+                            + " VALUES (5, 'long', XMLTYPE(c)); DBMS_LOB.FREETEMPORARY(c); END;");
+
+            await().atMost(600000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        querySql(xmlCompareSql(SCEHMA_NAME, sourceTable, true)),
+                                        querySql(xmlCompareSql(SCEHMA_NAME, sinkTable, false)));
+                            });
+        } finally {
+            cancelQuietly(container, jobId);
+        }
     }
 
     @TestTemplate
@@ -601,6 +782,28 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
                 });
     }
 
+    private static String startJob(TestContainer container, String conf) {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(conf, jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+        return jobId;
+    }
+
+    private static void cancelQuietly(TestContainer container, String jobId) {
+        try {
+            container.cancelJob(jobId);
+        } catch (Exception e) {
+            log.warn("Failed to cancel job {}", jobId, e);
+        }
+    }
+
     private void executeSql(String sql) {
         try (Connection connection = getJdbcConnection(ORACLE_CONTAINER);
                 Statement statement = connection.createStatement()) {
@@ -631,6 +834,69 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
 
     private String getSourceQuerySQL(String database, String tableName) {
         return String.format(SOURCE_SQL_TEMPLATE, database, tableName);
+    }
+
+    private static String xmlCompareSql(String schema, String table, boolean sourceXmlType) {
+        // Source is XMLTYPE; sink is CLOB. Serialize both sides for a stable text compare.
+        String xmlExpr =
+                sourceXmlType
+                        ? "XMLSERIALIZE(CONTENT VAL_XML AS CLOB NO INDENT)"
+                        : "CASE WHEN VAL_XML IS NULL OR NVL(DBMS_LOB.GETLENGTH(VAL_XML), 0) = 0"
+                                + " THEN NULL ELSE XMLSERIALIZE(CONTENT XMLTYPE(VAL_XML) AS CLOB"
+                                + " NO INDENT) END";
+        return "SELECT ID, VAL_VARCHAR, DBMS_LOB.GETLENGTH("
+                + xmlExpr
+                + "), DBMS_LOB.SUBSTR("
+                + xmlExpr
+                + ", 4000, 1), DBMS_LOB.SUBSTR("
+                + xmlExpr
+                + ", 4000, 4001) FROM "
+                + schema
+                + "."
+                + table
+                + " ORDER BY ID";
+    }
+
+    private static String lobCompareSql(String schema) {
+        // EMPTY_CLOB()/EMPTY_BLOB() and JDBC null both mean "no payload". GETLENGTH of
+        // EMPTY_CLOB is 0; GETLENGTH of NULL is NULL. NVL keeps assertIterableEquals stable.
+        return "SELECT ID, VAL_VARCHAR, NVL(DBMS_LOB.GETLENGTH(VAL_CLOB), 0),"
+                + " NVL(TO_CHAR(DBMS_LOB.SUBSTR(VAL_CLOB, 4000, 1)), ''),"
+                + " NVL(TO_CHAR(DBMS_LOB.SUBSTR(VAL_CLOB, 4000, 4001)), ''),"
+                + " NVL(DBMS_LOB.GETLENGTH(VAL_NCLOB), 0),"
+                + " NVL(TO_CHAR(DBMS_LOB.SUBSTR(VAL_NCLOB, 100, 1)), ''),"
+                + " NVL(DBMS_LOB.GETLENGTH(VAL_BLOB), 0),"
+                + " NVL(RAWTOHEX(DBMS_LOB.SUBSTR(VAL_BLOB, 2000, 1)), ''),"
+                + " NVL(RAWTOHEX(DBMS_LOB.SUBSTR(VAL_BLOB, 2000, 2001)), '')"
+                + " FROM "
+                + schema
+                + ".%s ORDER BY ID";
+    }
+
+    /**
+     * Inserts a BLOB that starts with a container signature and continues out of line. LogMiner
+     * must keep every byte, including {@code 0x00} and {@code 0xFF}.
+     */
+    private void insertBinaryLob(
+            int id, String tag, String headerHex, String padHexByte, int extraBytes) {
+        executeSql(
+                "DECLARE l_blob BLOB; hdr RAW(32) := HEXTORAW('"
+                        + headerHex
+                        + "'); chunk RAW(2000) := HEXTORAW(RPAD('"
+                        + padHexByte
+                        + "', "
+                        + (extraBytes * 2)
+                        + ", '"
+                        + padHexByte
+                        + "')); BEGIN INSERT INTO "
+                        + SCEHMA_NAME
+                        + ".LOB_TYPES (ID, VAL_VARCHAR, VAL_CLOB, VAL_NCLOB, VAL_BLOB) VALUES ("
+                        + id
+                        + ", '"
+                        + tag
+                        + "', EMPTY_CLOB(), EMPTY_CLOB(), EMPTY_BLOB()) RETURNING VAL_BLOB INTO"
+                        + " l_blob; DBMS_LOB.WRITEAPPEND(l_blob, UTL_RAW.LENGTH(hdr), hdr);"
+                        + " DBMS_LOB.WRITEAPPEND(l_blob, UTL_RAW.LENGTH(chunk), chunk); END;");
     }
 
     @TestTemplate

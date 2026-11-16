@@ -30,7 +30,10 @@ import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.IncrementalSplitState;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -133,6 +136,118 @@ class OracleIncrementalSourceFactoryTest {
                                 ReadonlyConfig.fromMap(config)));
     }
 
+    @Test
+    public void rejectsEnablingLobOptionsWhenLobMiningIsOff() {
+        Map<String, Object> reselect = baseConfig();
+        reselect.put(OracleIncrementalSourceOptions.LOB_RESELECT_ENABLED.key(), true);
+        OptionValidationException reselectError =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () -> OracleLobOptionValidator.validate(ReadonlyConfig.fromMap(reselect)));
+        Assertions.assertTrue(reselectError.getMessage().contains("lob.reselect.enabled=true"));
+        Assertions.assertTrue(reselectError.getMessage().contains("lob.enabled"));
+        Assertions.assertFalse(reselectError.getMessage().contains("debezium.lob.enabled ="));
+
+        Map<String, Object> nullHandling = baseConfig();
+        nullHandling.put(
+                OracleIncrementalSourceOptions.LOB_UNAVAILABLE_VALUE_HANDLING.key(),
+                OracleLobUnavailableValueHandling.NULL);
+        OptionValidationException nullError =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                OracleLobOptionValidator.validate(
+                                        ReadonlyConfig.fromMap(nullHandling)));
+        Assertions.assertTrue(
+                nullError.getMessage().contains("lob.unavailable-value.handling=null"));
+
+        Map<String, Object> failHandling = baseConfig();
+        failHandling.put(
+                OracleIncrementalSourceOptions.LOB_UNAVAILABLE_VALUE_HANDLING.key(), "fail");
+        Map<String, String> disabled = new HashMap<String, String>();
+        disabled.put("lob.enabled", "false");
+        failHandling.put(SourceOptions.DEBEZIUM_PROPERTIES.key(), disabled);
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () -> OracleLobOptionValidator.validate(ReadonlyConfig.fromMap(failHandling)));
+    }
+
+    @Test
+    public void acceptsDefaultsAndNoOpLobOptionsWithoutLobMining() {
+        OracleLobOptionValidator.validate(ReadonlyConfig.fromMap(baseConfig()));
+        Assertions.assertFalse(
+                OracleLobOptionValidator.placeholderHandlingActive(
+                        ReadonlyConfig.fromMap(baseConfig())));
+
+        Map<String, Object> explicitNoOp = baseConfig();
+        explicitNoOp.put(OracleIncrementalSourceOptions.LOB_RESELECT_ENABLED.key(), false);
+        explicitNoOp.put(
+                OracleIncrementalSourceOptions.LOB_UNAVAILABLE_VALUE_HANDLING.key(),
+                "warn_and_keep");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(explicitNoOp);
+        OracleLobOptionValidator.validate(config);
+        Assertions.assertFalse(OracleLobOptionValidator.placeholderHandlingActive(config));
+    }
+
+    @Test
+    public void lobMiningUsesReselectAndHandlingDefaultsUntilEnabled() {
+        Map<String, String> debezium = new HashMap<String, String>();
+        debezium.put("lob.enabled", " true ");
+        Map<String, Object> defaults = baseConfig();
+        defaults.put(SourceOptions.DEBEZIUM_PROPERTIES.key(), debezium);
+        ReadonlyConfig defaultConfig = ReadonlyConfig.fromMap(defaults);
+        OracleLobOptionValidator.validate(defaultConfig);
+        Assertions.assertFalse(OracleLobOptionValidator.placeholderHandlingActive(defaultConfig));
+
+        Map<String, Object> enabled = baseConfig();
+        enabled.put(SourceOptions.DEBEZIUM_PROPERTIES.key(), debezium);
+        enabled.put(OracleIncrementalSourceOptions.LOB_RESELECT_ENABLED.key(), true);
+        enabled.put(
+                OracleIncrementalSourceOptions.LOB_UNAVAILABLE_VALUE_HANDLING.key(),
+                OracleLobUnavailableValueHandling.NULL);
+        ReadonlyConfig enabledConfig = ReadonlyConfig.fromMap(enabled);
+        OracleLobOptionValidator.validate(enabledConfig);
+        Assertions.assertTrue(OracleLobOptionValidator.placeholderHandlingActive(enabledConfig));
+    }
+
+    @Test
+    public void seatunnelLobEnabledPassesThroughAndOverridesDebezium() {
+        Map<String, Object> enabled = captureConfig();
+        enabled.put(OracleIncrementalSourceOptions.LOB_ENABLED.key(), true);
+        enabled.put(OracleIncrementalSourceOptions.LOB_RESELECT_ENABLED.key(), true);
+        ReadonlyConfig enabledConfig = ReadonlyConfig.fromMap(enabled);
+        OracleLobOptionValidator.validate(enabledConfig);
+        Assertions.assertTrue(OracleLobOptionValidator.placeholderHandlingActive(enabledConfig));
+        Assertions.assertEquals("true", debeziumLobEnabled(enabledConfig));
+
+        Map<String, String> debezium = new HashMap<String, String>();
+        debezium.put("lob.enabled", "true");
+        Map<String, Object> overridden = captureConfig();
+        overridden.put(SourceOptions.DEBEZIUM_PROPERTIES.key(), debezium);
+        overridden.put(OracleIncrementalSourceOptions.LOB_ENABLED.key(), false);
+        overridden.put(OracleIncrementalSourceOptions.LOB_RESELECT_ENABLED.key(), true);
+        ReadonlyConfig overriddenConfig = ReadonlyConfig.fromMap(overridden);
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () -> OracleLobOptionValidator.validate(overriddenConfig));
+        Assertions.assertEquals("false", debeziumLobEnabled(overriddenConfig));
+
+        Map<String, Object> legacy = captureConfig();
+        legacy.put(SourceOptions.DEBEZIUM_PROPERTIES.key(), debezium);
+        ReadonlyConfig legacyConfig = ReadonlyConfig.fromMap(legacy);
+        OracleLobOptionValidator.validate(legacyConfig);
+        Assertions.assertEquals("true", debeziumLobEnabled(legacyConfig));
+    }
+
+    private static String debeziumLobEnabled(ReadonlyConfig config) {
+        OracleSourceConfigFactory configFactory = new OracleSourceConfigFactory();
+        configFactory.fromReadonlyConfig(config);
+        configFactory.originUrl(config.get(JdbcCommonOptions.URL));
+        OracleIncrementalSource.applyLobEnabled(config, configFactory);
+        OracleSourceConfig sourceConfig = configFactory.create(0);
+        return sourceConfig.getOriginDbzConnectorConfig().getString("lob.enabled");
+    }
+
     private static Map<String, Object> specificStartupConfig(long scn) {
         Map<String, Object> config = baseConfig();
         config.put(OracleIncrementalSourceOptions.STARTUP_MODE.key(), StartupMode.SPECIFIC);
@@ -145,6 +260,18 @@ class OracleIncrementalSourceFactoryTest {
         config.put(OracleIncrementalSourceOptions.USERNAME.key(), "user");
         config.put(OracleIncrementalSourceOptions.PASSWORD.key(), "password");
         config.put(ConnectorCommonOptions.TABLE_NAMES.key(), Arrays.asList("ORCL.TEST"));
+        return config;
+    }
+
+    private static Map<String, Object> captureConfig() {
+        Map<String, Object> config = baseConfig();
+        config.put(JdbcCommonOptions.URL.key(), "jdbc:oracle:thin:@//localhost:1521/ORCLCDB");
+        config.put(
+                OracleIncrementalSourceOptions.DATABASE_NAMES.key(),
+                Collections.singletonList("ORCLCDB"));
+        config.put(
+                OracleIncrementalSourceOptions.SCHEMA_NAMES.key(),
+                Collections.singletonList("DEBEZIUM"));
         return config;
     }
 
