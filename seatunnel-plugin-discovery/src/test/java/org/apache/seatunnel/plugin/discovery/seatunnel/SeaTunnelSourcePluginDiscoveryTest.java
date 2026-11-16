@@ -318,6 +318,8 @@ class SeaTunnelSourcePluginDiscoveryTest {
                 paths);
     }
 
+    // Kept in this class despite testing a sink: it needs the "duplicate" fixture and the jars
+    // created in before(), which getPluginBaseClass already uses for sink identifiers too.
     @Test
     @ResourceLock("default-locale")
     void getSinkPluginJarPathsUnderTurkishLocale() throws Exception {
