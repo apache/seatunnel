@@ -37,6 +37,9 @@ sidebar_position: 4
 - `UNSUPPORTED`（默认）：创建或恢复 writer 时作业失败，错误信息会给出表、连接器和 writer 类。此类
   Sink 请将该选项设置为 1。
 
+每个 writer 有自己的 checkpoint 状态，不会迁移到其他 writer。减小该值或改变 Sink 并行度之后，如果恢复
+checkpoint 会让某些状态没有对应的 writer，恢复会失败。请在不恢复此类 checkpoint 的作业中修改该值。
+
 ### plugin_input [list]
 
 当不指定 `plugin_input` 时，当前插件处理配置文件中上一个插件输出的数据集 `dataset`。

@@ -46,6 +46,10 @@ declare through `SupportMultiTableSinkWriter.replicaMode()` how that can be done
 - `UNSUPPORTED`, the default: the job fails when the writer is created or restored, and the
   error names the table, the connector and the writer class. Set the option to 1 for such a sink.
 
+Each writer keeps its own checkpoint state, which is not moved to another writer. Restoring a
+checkpoint after this value is reduced, or after the sink parallelism changes, fails when state
+would be left without a writer. Change it in a job that does not restore such a checkpoint.
+
 # Important note
 
 A sink only consumes data sets, so it has no `plugin_output` option. The `plugin_input` value must match the `plugin_output` declared by an upstream source or transform. `plugin_input` is only mandatory when the job has more than one source, transform or sink (see the note at the end of this page).
