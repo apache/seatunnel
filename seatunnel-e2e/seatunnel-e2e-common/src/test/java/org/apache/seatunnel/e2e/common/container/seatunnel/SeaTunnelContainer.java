@@ -125,7 +125,7 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     @Override
     public void startUp() throws Exception {
         FileUtils.createNewDir(HOST_VOLUME_MOUNT_PATH);
-        server = createSeaTunnelServer();
+        startUp(NETWORK);
     }
 
     /**
@@ -134,6 +134,8 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
      * @param NETWORK the network to use
      */
     public void startUp(Network NETWORK) throws Exception {
+        // A reused test wrapper must not retain bindings from a previous Docker container.
+        restartedHostPorts = null;
         server = createSeaTunnelServer(NETWORK);
     }
 
