@@ -141,32 +141,48 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
     @TestTemplate
     public void testUniqueKeyTableKeepsTheLastChangeOfEachKeyWithReplicas(TestContainer container)
             throws IOException, InterruptedException, SQLException {
-        Container.ExecResult execResult =
-                container.executeJob("/jdbc_sink_cdc_changelog_unique_key_replicas.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        // Each engine runs this against the same table, so a failed run must not leave rows for
+        // the next one: empty it before the job and again when the test ends either way.
+        truncateSinkUnique();
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_sink_cdc_changelog_unique_key_replicas.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
-        Set<List<Object>> actual = new HashSet<>();
+            Set<List<Object>> actual = new HashSet<>();
+            try (Connection connection =
+                            DriverManager.getConnection(
+                                    postgreSQLContainer.getJdbcUrl(),
+                                    postgreSQLContainer.getUsername(),
+                                    postgreSQLContainer.getPassword());
+                    Statement statement = connection.createStatement();
+                    ResultSet resultSet =
+                            statement.executeQuery("select code, val from sink_unique")) {
+                while (resultSet.next()) {
+                    actual.add(
+                            Arrays.asList(resultSet.getLong("code"), resultSet.getString("val")));
+                }
+            }
+            // Every key is inserted as v1 and updated to v2; every even key is then deleted.
+            Set<List<Object>> expected = new HashSet<>();
+            for (long code = 1; code <= 100; code += 2) {
+                expected.add(Arrays.asList(code, "v2"));
+            }
+            Assertions.assertEquals(expected, actual);
+        } finally {
+            truncateSinkUnique();
+        }
+    }
+
+    private void truncateSinkUnique() throws SQLException {
         try (Connection connection =
                         DriverManager.getConnection(
                                 postgreSQLContainer.getJdbcUrl(),
                                 postgreSQLContainer.getUsername(),
                                 postgreSQLContainer.getPassword());
                 Statement statement = connection.createStatement()) {
-            try (ResultSet resultSet =
-                    statement.executeQuery("select code, val from sink_unique")) {
-                while (resultSet.next()) {
-                    actual.add(
-                            Arrays.asList(resultSet.getLong("code"), resultSet.getString("val")));
-                }
-            }
             statement.execute("truncate table sink_unique");
         }
-        // Every key is inserted as v1 and updated to v2; every even key is then deleted.
-        Set<List<Object>> expected = new HashSet<>();
-        for (long code = 1; code <= 100; code += 2) {
-            expected.add(Arrays.asList(code, "v2"));
-        }
-        Assertions.assertEquals(expected, actual);
     }
 
     private void initializeJdbcTable() {

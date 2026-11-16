@@ -89,6 +89,11 @@ class JdbcSinkFactoryTest {
                 "catalog");
     }
 
+    /**
+     * A table with a UNIQUE key on {@code name} (column 1) and deliberately no primary key: the
+     * factory then takes {@code primary_keys} from the unique key, which is the fallback that the
+     * routing tests below need. Adding a primary key would make them test the primary key path.
+     */
     private CatalogTable createCatalogTableWithUniqueKeyOnName() {
         TableSchema schema =
                 TableSchema.builder()
@@ -113,6 +118,11 @@ class JdbcSinkFactoryTest {
                 "catalog");
     }
 
+    /**
+     * Creates the sink as a job submission does: the option rule validates {@code cfg}, then {@code
+     * factory.createSink} derives the effective key, so the sink sees the same {@code primary_keys}
+     * and schema as at runtime.
+     */
     private JdbcSink createJdbcSink(Map<String, Object> cfg, CatalogTable catalogTable) {
         ReadonlyConfig config = ReadonlyConfig.fromMap(cfg);
         ConfigValidator.of(config).validate(factory.optionRule());
