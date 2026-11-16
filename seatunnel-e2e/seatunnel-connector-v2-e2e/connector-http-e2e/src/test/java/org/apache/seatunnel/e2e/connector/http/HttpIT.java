@@ -99,6 +99,7 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     private static final String ALWAYS_FAILING_PATH = "/example/restart/always-failing";
     private static final String FAILING_AFTER_CHECKPOINT_PATH =
             "/example/restart/failing-after-checkpoint";
+    private static final String RECOVERING_PATH = "/example/restart/recovering";
     /** Requests the server answers before it rejects every request of the checkpoint case. */
     private static final int ANSWERED_BEFORE_FAILING = 8;
     /** The first attempt and the two restarts that the job configs allow on Flink. */
@@ -319,6 +320,44 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                     requestsTo(FAILING_AFTER_CHECKPOINT_PATH));
         } finally {
             mockServerClient.clear(request().withPath(FAILING_AFTER_CHECKPOINT_PATH));
+        }
+    }
+
+    /**
+     * A single-split source whose server rejects the first two requests and then answers (#13253).
+     * Flink restarts the job twice and hands the split back to {@code SingleSplitEnumerator} each
+     * time; before the fix the second restart failed in the enumerator. With the split assigned
+     * again, the third attempt reads the one row, the job completes, and the Assert sink checks
+     * that it got exactly that row.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SEATUNNEL, EngineType.SPARK},
+            disabledReason =
+                    "Only the Flink restart strategy of this job restarts it; on Zeta and Spark the"
+                            + " first failure ends the job")
+    public void testSingleSplitSourceRecoveringAfterTwoRestartsCompletesWithItsRow(
+            TestContainer container) throws IOException, InterruptedException {
+        mockServerClient
+                .when(request().withPath(RECOVERING_PATH), Times.exactly(FLINK_ATTEMPTS - 1))
+                .respond(response().withStatusCode(500).withBody("failing twice"));
+        mockServerClient
+                .when(request().withPath(RECOVERING_PATH))
+                .respond(
+                        response()
+                                .withStatusCode(200)
+                                .withBody("[{\"c_string\":\"recovered\",\"c_int\":7}]"));
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/http_source_recovering_after_restarts.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            Assertions.assertEquals(FLINK_ATTEMPTS, requestsTo(RECOVERING_PATH));
+            Assertions.assertFalse(
+                    container.getServerLogs().contains("SingleSplitEnumerator.addSplitsBack"),
+                    "the enumerator failed when a split was handed back");
+        } finally {
+            mockServerClient.clear(request().withPath(RECOVERING_PATH));
         }
     }
 

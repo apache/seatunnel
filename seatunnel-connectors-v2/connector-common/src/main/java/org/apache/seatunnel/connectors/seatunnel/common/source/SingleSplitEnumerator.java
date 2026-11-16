@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.common.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
@@ -30,6 +32,7 @@ import java.util.Set;
  * they are called under different engine locks, and each of them checks whether the split is
  * assigned before it assigns it, so that check and the assignment must not interleave.
  */
+@Slf4j
 public class SingleSplitEnumerator
         implements SourceSplitEnumerator<SingleSplit, SingleSplitEnumeratorState> {
     protected final SourceSplitEnumerator.Context<SingleSplit> context;
@@ -72,6 +75,7 @@ public class SingleSplitEnumerator
      */
     @Override
     public synchronized void addSplitsBack(List<SingleSplit> splits, int subtaskId) {
+        log.debug("Taking back {} split(s) of reader {}", splits.size(), subtaskId);
         if (splits.isEmpty()) {
             return;
         }
