@@ -302,7 +302,7 @@ public class CoordinatorServiceTest {
      * removal can clear its marker immediately instead of retaining it until the TTL expires.
      */
     @Test
-    void testGracefulMarkerClearsAfterActiveJobMasterSwitchRestore() {
+    void testGracefulMarkerClearsAfterActiveJobMasterSwitchRestore() throws Exception {
         String clusterName =
                 TestUtils.getClusterName(
                         "CoordinatorServiceTest_testGracefulMarkerClearsAfterActiveJobMasterSwitchRestore");
