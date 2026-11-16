@@ -32,6 +32,14 @@ import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.data.input.impl.StringDimensionSchema;
 import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
+import org.apache.http.HttpHost;
+import org.apache.http.HttpRequest;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.conn.ClientConnectionManager;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.params.HttpParams;
+import org.apache.http.protocol.HttpContext;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -198,6 +206,112 @@ public class DruidWriterTest {
     }
 
     /**
+     * A 200 is an acceptance only when Druid returns the id of the indexing task it created as a
+     * non-blank JSON string. A scalar or a blank id must fail the flush and leave the rows pending
+     * instead of clearing them.
+     */
+    @Test
+    public void malformedTaskIdFailsTheFlushAndKeepsTheRows() throws IOException {
+        List<String> requestBodies = new ArrayList<>();
+        HttpServer server =
+                startDruidOverlord(
+                        requestBodies,
+                        new Response(200, "{\"task\":123}"),
+                        new Response(200, "{\"task\":\"  \"}"),
+                        new Response(200, "{\"task\":\"task-1\"}"));
+        try {
+            DruidWriter writer = newWriter(server, ROWS.size() + 1);
+            for (SeaTunnelRow row : ROWS) {
+                writer.write(row);
+            }
+
+            IOException numericId = Assertions.assertThrows(IOException.class, writer::flush);
+            Assertions.assertTrue(
+                    numericId.getMessage().contains("test_datasource"),
+                    "the failure must name the datasource: " + numericId.getMessage());
+            Assertions.assertTrue(
+                    numericId.getMessage().contains("200"),
+                    "the failure must carry the HTTP status: " + numericId.getMessage());
+            Assertions.assertTrue(
+                    numericId.getMessage().contains("123"),
+                    "the failure must carry the response body: " + numericId.getMessage());
+
+            IOException blankId = Assertions.assertThrows(IOException.class, writer::flush);
+            Assertions.assertTrue(
+                    blankId.getMessage().contains("200"),
+                    "the failure must carry the HTTP status: " + blankId.getMessage());
+
+            // Neither malformed answer cleared the rows, so the accepted flush submits them once.
+            writer.flush();
+            writer.close();
+        } finally {
+            server.stop(0);
+        }
+
+        Assertions.assertEquals(3, requestBodies.size(), "every flush must submit once");
+        String[] lines = submittedRows(requestBodies.get(2)).split("\n");
+        Assertions.assertEquals(
+                ROWS.size(), lines.length, "a malformed 200 must not clear the buffered rows");
+    }
+
+    /**
+     * A rejected final flush fails close() and must still close the HTTP client it opened. The
+     * rejection is the failure the caller sees.
+     */
+    @Test
+    public void rejectedFinalFlushFailsCloseAndClosesTheClient() throws IOException {
+        List<String> requestBodies = new ArrayList<>();
+        HttpServer server =
+                startDruidOverlord(requestBodies, new Response(500, "{\"error\":\"rejected\"}"));
+        CloseTrackingHttpClient httpClient = new CloseTrackingHttpClient();
+        try {
+            DruidWriter writer = newWriter(server, ROWS.size() + 1, httpClient);
+            for (SeaTunnelRow row : ROWS) {
+                writer.write(row);
+            }
+
+            IOException failure = Assertions.assertThrows(IOException.class, writer::close);
+            Assertions.assertTrue(
+                    failure.getMessage().contains("500"),
+                    "the close failure must be the flush rejection: " + failure.getMessage());
+            Assertions.assertTrue(
+                    httpClient.isClosed(),
+                    "close() must close the HTTP client even when the final flush is rejected");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    /** A failure to close is suppressed onto the rejected flush instead of replacing it. */
+    @Test
+    public void aCloseFailureIsSuppressedOntoTheRejectedFlush() throws IOException {
+        HttpServer server =
+                startDruidOverlord(
+                        new ArrayList<>(), new Response(500, "{\"error\":\"rejected\"}"));
+        CloseTrackingHttpClient httpClient = new CloseTrackingHttpClient();
+        IOException closeFailure = new IOException("client close failed");
+        httpClient.failOnClose(closeFailure);
+        try {
+            DruidWriter writer = newWriter(server, ROWS.size() + 1, httpClient);
+            for (SeaTunnelRow row : ROWS) {
+                writer.write(row);
+            }
+
+            IOException failure = Assertions.assertThrows(IOException.class, writer::close);
+            Assertions.assertTrue(
+                    failure.getMessage().contains("500"),
+                    "the rejected flush must be the failure the caller sees: "
+                            + failure.getMessage());
+            Assertions.assertArrayEquals(
+                    new Throwable[] {closeFailure},
+                    failure.getSuppressed(),
+                    "the close failure must be suppressed onto the rejected flush");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    /**
      * Writes the rows through a {@link DruidWriter} pointed at a local stand-in for the Druid
      * Overlord, and returns the {@code ioConfig} of the indexing task it submits on close.
      */
@@ -236,11 +350,18 @@ public class DruidWriterTest {
 
     /** A {@link DruidWriter} pointed at the local stand-in for the Druid Overlord. */
     private static DruidWriter newWriter(HttpServer server, int batchSize) {
+        return newWriter(server, batchSize, HttpClients.createDefault());
+    }
+
+    /** A {@link DruidWriter} pointed at the local stand-in, submitting with the given client. */
+    private static DruidWriter newWriter(
+            HttpServer server, int batchSize, CloseableHttpClient httpClient) {
         return new DruidWriter(
                 ROW_TYPE,
                 "127.0.0.1:" + server.getAddress().getPort(),
                 "test_datasource",
-                batchSize);
+                batchSize,
+                httpClient);
     }
 
     /**
@@ -294,6 +415,46 @@ public class DruidWriterTest {
         private Response(int status, String body) {
             this.status = status;
             this.body = body;
+        }
+    }
+
+    /** A client that records whether it was closed, and can be made to fail on close. */
+    private static final class CloseTrackingHttpClient extends CloseableHttpClient {
+        private final CloseableHttpClient delegate = HttpClients.createDefault();
+        private volatile boolean closed;
+        private IOException closeFailure;
+
+        @Override
+        protected CloseableHttpResponse doExecute(
+                HttpHost target, HttpRequest request, HttpContext context) throws IOException {
+            return delegate.execute(target, request, context);
+        }
+
+        @Override
+        public ClientConnectionManager getConnectionManager() {
+            return delegate.getConnectionManager();
+        }
+
+        @Override
+        public HttpParams getParams() {
+            return delegate.getParams();
+        }
+
+        @Override
+        public void close() throws IOException {
+            closed = true;
+            delegate.close();
+            if (closeFailure != null) {
+                throw closeFailure;
+            }
+        }
+
+        private boolean isClosed() {
+            return closed;
+        }
+
+        private void failOnClose(IOException failure) {
+            this.closeFailure = failure;
         }
     }
 }

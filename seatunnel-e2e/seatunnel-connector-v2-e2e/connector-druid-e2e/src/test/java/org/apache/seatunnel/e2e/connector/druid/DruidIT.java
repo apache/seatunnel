@@ -30,6 +30,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -49,6 +50,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
@@ -75,6 +78,10 @@ public class DruidIT extends TestSuiteBase implements TestResource {
     private static final String BATCH_DATASOURCE_PREFIX = "druid_batch_";
     private static final String BATCH_DATASOURCE_VARIABLE = "batchDatasource";
     private static final String SQL_QUERY_TEMPLATE = "SELECT * FROM ";
+    private static final String DRUID_TASKS_PATH = "/druid/indexer/v1/tasks";
+    private static final String INDEX_PARALLEL_TASK_TYPE = "index_parallel";
+    private static final String TASK_STATUS_SUCCESS = "SUCCESS";
+    private static final String TASK_STATUS_FAILED = "FAILED";
     private static final String DRUID_SERVICE_NAME = "router";
     private static final int DRUID_SERVICE_PORT = 8888;
     private static final String COORDINATOR_URL_VARIABLE = "druidCoordinatorUrl";
@@ -232,6 +239,11 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                                 COORDINATOR_URL_VARIABLE + "=" + coordinatorURL,
                                 BATCH_DATASOURCE_VARIABLE + "=" + datasource));
         Assertions.assertEquals(0, execResult.getExitCode());
+        // Each flush submits one index_parallel supervisor task, so the job submitted three of
+        // them for the six rows written with a batch size of two. Wait until Druid has finished
+        // all three before reading the rows: the SQL poll below returns at the first instant that
+        // passes, so a duplicate submission could still become visible after it.
+        awaitIndexingTasksSucceeded(datasource, 3);
         given().ignoreExceptions()
                 .await()
                 .atLeast(100L, TimeUnit.MILLISECONDS)
@@ -252,6 +264,95 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                                     ids,
                                     rows.toString());
                         });
+    }
+
+    /**
+     * Waits until Druid has finished indexing every batch of the job and fails when it did not.
+     *
+     * <p>Every flush submits one {@code index_parallel} supervisor task, so the datasource must
+     * hold exactly the expected number of them, and every task of the datasource must have finished
+     * with {@code SUCCESS}. A {@code FAILED} task fails the test at once with the raw task list,
+     * because its rows are not published and a later SQL read cannot repair that. This is the
+     * barrier in front of the row assertions: the SQL poll alone returns at the first instant that
+     * passes, so a duplicate submission could become visible after it.
+     */
+    private void awaitIndexingTasksSucceeded(String datasource, int expectedSupervisorTasks)
+            throws IOException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(400);
+        while (true) {
+            ArrayNode tasks = JsonUtils.parseArray(getIndexingTasksResponse(datasource));
+            int supervisorTasks = 0;
+            boolean allSucceeded = true;
+            for (JsonNode task : tasks) {
+                if (INDEX_PARALLEL_TASK_TYPE.equals(task.path("type").asText())) {
+                    supervisorTasks++;
+                }
+                String status = task.path("status").asText();
+                if (TASK_STATUS_FAILED.equals(status)) {
+                    Assertions.fail(
+                            "Druid failed an indexing task for datasource "
+                                    + datasource
+                                    + ": "
+                                    + tasks);
+                }
+                allSucceeded = allSucceeded && TASK_STATUS_SUCCESS.equals(status);
+            }
+            if (supervisorTasks > expectedSupervisorTasks) {
+                Assertions.fail(
+                        "Druid received "
+                                + supervisorTasks
+                                + " indexing tasks for datasource "
+                                + datasource
+                                + " where the job submitted only "
+                                + expectedSupervisorTasks
+                                + ": "
+                                + tasks);
+            }
+            if (supervisorTasks == expectedSupervisorTasks && allSucceeded) {
+                return;
+            }
+            if (System.nanoTime() >= deadline) {
+                Assertions.fail(
+                        "Druid did not finish the indexing tasks of datasource "
+                                + datasource
+                                + " within 400 seconds: "
+                                + tasks);
+            }
+            try {
+                Thread.sleep(1000L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException(
+                        "Interrupted while waiting for the Druid indexing tasks of " + datasource,
+                        e);
+            }
+        }
+    }
+
+    /** All indexing tasks of one datasource, as the Overlord reports them through the router. */
+    private String getIndexingTasksResponse(String datasource) throws IOException {
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
+            HttpGet request =
+                    new HttpGet(
+                            "http://"
+                                    + coordinatorURL
+                                    + DRUID_TASKS_PATH
+                                    + "?datasource="
+                                    + URLEncoder.encode(datasource, StandardCharsets.UTF_8.name()));
+            HttpResponse response = client.execute(request);
+            int statusCode = response.getStatusLine().getStatusCode();
+            String responseBody = EntityUtils.toString(response.getEntity());
+            if (statusCode != 200) {
+                throw new IOException(
+                        "Druid task query failed with status "
+                                + statusCode
+                                + " for datasource "
+                                + datasource
+                                + ": "
+                                + responseBody);
+            }
+            return responseBody;
+        }
     }
 
     private String getSelectResponse(String datasource) throws IOException {
