@@ -225,6 +225,10 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /**
+     * Writes generated TIMESTAMP and processing-time points through the InfluxDB client at each
+     * supported batch precision, then checks server timestamps including coarse-unit truncation.
+     */
     @ParameterizedTest
     @EnumSource(TimePrecision.class)
     public void testGeneratedTimestampPrecision(TimePrecision precision) {
@@ -275,6 +279,10 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(actualProcessingTime >= earliest && actualProcessingTime <= latest);
     }
 
+    /**
+     * Reads the timestamp in epoch milliseconds from a dedicated measurement containing exactly one
+     * point. The query precision controls the returned timestamp unit, not the stored precision.
+     */
     private long readTimestampMillis(String measurement) {
         QueryResult result =
                 influxDB.query(

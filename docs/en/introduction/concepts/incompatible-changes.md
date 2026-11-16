@@ -5,6 +5,12 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### InfluxDB sink: generated timestamps use their actual time
+
+- **Affected jobs**: jobs using processing time (no `key_time`, or a null value in that field) or a `TIMESTAMP` field with `epoch` set to a unit other than milliseconds, including the default nanosecond unit.
+- **Behavior change**: these timestamps are generated in epoch milliseconds. Previously the sink tagged them with the configured unit, so a current timestamp could be written near 1970 with the default setting. The sink now tags them as milliseconds and lets the client convert them to the output precision. Coarser units still truncate subunit digits. Explicit `BIGINT` and numeric `STRING` timestamps continue to use the configured `epoch` unit.
+- **Migration**: no option, default or checkpoint-format change is required. Remove any timestamp-scaling workaround used to compensate for this defect and verify new points against the source. Previously stored incorrect points are not repaired automatically; correct or reload them from the original data as needed, taking care not to retain both incorrect and corrected copies.
+
 ### Lance sink: BIGINT columns are created as int64
 
 - **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**
