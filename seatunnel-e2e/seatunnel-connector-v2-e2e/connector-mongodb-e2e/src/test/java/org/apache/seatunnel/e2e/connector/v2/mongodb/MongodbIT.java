@@ -344,6 +344,51 @@ public class MongodbIT extends AbstractMongodbIT {
     }
 
     @TestTemplate
+    public void testSinkWithOmittedBufferAndRetryOptions(TestContainer container)
+            throws IOException, InterruptedException {
+        // Without buffer-flush.* / retry.*, the declared defaults apply: rows are batched
+        // (first row, then 1000, then a 233-row tail) and the tail below the batch size is
+        // still written before the job completes.
+        long insertsBefore = insertCommandCount();
+        Container.ExecResult result =
+                container.executeJob("/fake_source_to_mongodb_omitted_buffer_options.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        long batchedInserts = insertCommandCount() - insertsBefore;
+        log.info("Omitted buffer options: {} insert commands for 1234 rows", batchedInserts);
+
+        Assertions.assertEquals(1234, countDocuments("test_omitted_buffer_options"));
+        // One insert command per bulk write. Per-row writing, the previous behavior, would
+        // issue 1234; the bound leaves room for engine-specific extra flushes.
+        Assertions.assertTrue(
+                batchedInserts > 0 && batchedInserts <= 10,
+                "expected batched bulk writes, got " + batchedInserts + " insert commands");
+
+        // Control: explicit options keep their values (one bulk write per row).
+        insertsBefore = insertCommandCount();
+        result = container.executeJob("/fake_source_to_mongodb_explicit_buffer_options.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        Assertions.assertEquals(1234, countDocuments("test_explicit_buffer_options"));
+        Assertions.assertEquals(1234, insertCommandCount() - insertsBefore);
+
+        clearData("test_omitted_buffer_options");
+        clearData("test_explicit_buffer_options");
+    }
+
+    private long countDocuments(String collection) {
+        return client.getDatabase(MONGODB_DATABASE).getCollection(collection).countDocuments();
+    }
+
+    /** Number of insert commands the server has executed; each bulk write is one command. */
+    private long insertCommandCount() {
+        Document status = client.getDatabase("admin").runCommand(new Document("serverStatus", 1));
+        Document insert =
+                status.get("metrics", Document.class)
+                        .get("commands", Document.class)
+                        .get("insert", Document.class);
+        return ((Number) insert.get("total")).longValue();
+    }
+
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},

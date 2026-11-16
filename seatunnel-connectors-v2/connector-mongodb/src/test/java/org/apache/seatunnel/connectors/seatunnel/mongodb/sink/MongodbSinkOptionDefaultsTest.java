@@ -39,7 +39,11 @@ import com.mongodb.MongoException;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.BulkWriteOptions;
 
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -53,8 +57,12 @@ import static org.mockito.Mockito.when;
  * Regression tests for the declared defaults of the MongoDB sink buffer and retry options.
  *
  * <p>The sink is created through {@link MongodbSinkFactory} exactly as the engine does, and the
- * effective option values are observed through the writer behavior (number of bulk writes and retry
- * attempts) against a mocked collection.
+ * effective option values are observed through the writer behavior (number of bulk writes, retry
+ * attempts and back-off) against a mocked collection.
+ *
+ * <p>The writer compares {@code System.currentTimeMillis()} with the time of its last bulk write.
+ * To keep the tests independent of scheduling pauses, they set that time explicitly: far in the
+ * future to isolate the size threshold, or a fixed distance in the past to test the interval.
  */
 class MongodbSinkOptionDefaultsTest {
 
@@ -62,20 +70,41 @@ class MongodbSinkOptionDefaultsTest {
             new SeaTunnelRowType(
                     new String[] {"id"}, new SeaTunnelDataType<?>[] {BasicType.LONG_TYPE});
 
+    /** A last-write time in the future: the interval threshold can never be reached. */
+    private static final long INTERVAL_NEVER_REACHED = Long.MAX_VALUE / 2;
+
     @Test
-    void omittedBufferOptionsUseDeclaredDefaults() throws Exception {
-        // Default buffer-flush.max-rows = 1000 and buffer-flush.interval = 30000 ms: the first
-        // row is flushed because no bulk write happened yet, the next 999 rows stay buffered.
-        Assertions.assertEquals(1, bulkWritesAfterRows(baseConfig(), 1000));
+    void omittedMaxRowsUsesDeclaredDefault() throws Exception {
+        // Default buffer-flush.max-rows = 1000.
+        Assertions.assertEquals(0, sizeTriggeredBulkWrites(baseConfig(), 999));
+        Assertions.assertEquals(1, sizeTriggeredBulkWrites(baseConfig(), 1000));
+        Assertions.assertEquals(2, sizeTriggeredBulkWrites(baseConfig(), 2000));
     }
 
     @Test
-    void explicitBufferOptionsAreStillApplied() throws Exception {
+    void explicitMaxRowsIsStillApplied() throws Exception {
         Map<String, Object> config = baseConfig();
         config.put(MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS.key(), 10);
-        config.put(MongodbSinkOptions.BUFFER_FLUSH_INTERVAL.key(), 60000L);
-        // First row flushed, then one bulk write per 10 buffered rows: 1 + 999 / 10.
-        Assertions.assertEquals(100, bulkWritesAfterRows(config, 1000));
+        config.put(MongodbSinkOptions.BUFFER_FLUSH_INTERVAL.key(), 60_000L);
+        Assertions.assertEquals(100, sizeTriggeredBulkWrites(config, 1000));
+    }
+
+    @Test
+    void omittedIntervalUsesDeclaredDefault() throws Exception {
+        // Default buffer-flush.interval = 30000 ms, checked when a row is written.
+        Assertions.assertFalse(rowFlushesAfterIdleMs(baseConfig(), 25_000));
+        Assertions.assertTrue(rowFlushesAfterIdleMs(baseConfig(), 30_000));
+    }
+
+    @Test
+    void explicitIntervalIsStillApplied() throws Exception {
+        Map<String, Object> config = baseConfig();
+        config.put(MongodbSinkOptions.BUFFER_FLUSH_INTERVAL.key(), 60_000L);
+        Assertions.assertFalse(rowFlushesAfterIdleMs(config, 30_000));
+        Assertions.assertTrue(rowFlushesAfterIdleMs(config, 60_000));
+
+        config.put(MongodbSinkOptions.BUFFER_FLUSH_INTERVAL.key(), -1L);
+        Assertions.assertFalse(rowFlushesAfterIdleMs(config, 3_600_000));
     }
 
     @Test
@@ -83,7 +112,7 @@ class MongodbSinkOptionDefaultsTest {
         Map<String, Object> config = baseConfig();
         config.put(MongodbSinkOptions.RETRY_INTERVAL.key(), 1L);
         // Default retry.max = 3: one attempt plus three retries.
-        Assertions.assertEquals(4, attemptsUntilFailure(config));
+        Assertions.assertEquals(4, attemptTimesUntilFailure(config).size());
     }
 
     @Test
@@ -91,19 +120,29 @@ class MongodbSinkOptionDefaultsTest {
         Map<String, Object> config = baseConfig();
         config.put(MongodbSinkOptions.RETRY_MAX.key(), 1);
         config.put(MongodbSinkOptions.RETRY_INTERVAL.key(), 1L);
-        Assertions.assertEquals(2, attemptsUntilFailure(config));
+        Assertions.assertEquals(2, attemptTimesUntilFailure(config).size());
     }
 
     @Test
     void omittedRetryIntervalUsesDeclaredDefault() throws Exception {
         Map<String, Object> config = baseConfig();
         config.put(MongodbSinkOptions.RETRY_MAX.key(), 1);
-        long start = System.nanoTime();
-        Assertions.assertEquals(2, attemptsUntilFailure(config));
-        long elapsedMs = (System.nanoTime() - start) / 1_000_000;
-        // Default retry.interval = 1000 ms before the single retry.
-        Assertions.assertTrue(
-                elapsedMs >= 1000, "expected a retry back-off of 1000 ms, got " + elapsedMs);
+        List<Long> attempts = attemptTimesUntilFailure(config);
+        Assertions.assertEquals(2, attempts.size());
+        // Default retry.interval = 1000 ms before the first retry.
+        assertBackOffAtLeast(attempts, 0, 1000);
+    }
+
+    @Test
+    void explicitRetryIntervalIsStillApplied() throws Exception {
+        Map<String, Object> config = baseConfig();
+        config.put(MongodbSinkOptions.RETRY_MAX.key(), 2);
+        config.put(MongodbSinkOptions.RETRY_INTERVAL.key(), 50L);
+        List<Long> attempts = attemptTimesUntilFailure(config);
+        Assertions.assertEquals(3, attempts.size());
+        // Linear back-off: retry.interval * attempt number.
+        assertBackOffAtLeast(attempts, 0, 50);
+        assertBackOffAtLeast(attempts, 1, 100);
     }
 
     private static Map<String, Object> baseConfig() {
@@ -127,36 +166,53 @@ class MongodbSinkOptionDefaultsTest {
         return new SeaTunnelRow(new Object[] {id});
     }
 
-    /** Writes {@code rows} rows (without closing the writer) and returns the bulk write count. */
-    @SuppressWarnings("unchecked")
-    private static int bulkWritesAfterRows(Map<String, Object> config, int rows) throws Exception {
+    /** Writes {@code rows} rows with the interval threshold disabled and counts bulk writes. */
+    private static int sizeTriggeredBulkWrites(Map<String, Object> config, int rows)
+            throws Exception {
         AtomicInteger bulkWrites = new AtomicInteger();
-        MongoCollection<BsonDocument> collection = mock(MongoCollection.class);
-        doAnswer(
-                        invocation -> {
-                            bulkWrites.incrementAndGet();
-                            return null;
-                        })
-                .when(collection)
-                .bulkWrite(anyList(), any(BulkWriteOptions.class));
         try (MockedConstruction<MongodbSingleCollectionProvider> ignored =
-                mockCollectionProvider(collection)) {
+                mockCollectionProvider(countingCollection(bulkWrites))) {
             MongodbWriter writer = createSink(config).createWriter(mock(SinkWriter.Context.class));
-            for (int i = 0; i < rows; i++) {
-                writer.write(row(i));
+            try {
+                setLastSendTime(writer, INTERVAL_NEVER_REACHED);
+                for (int i = 0; i < rows; i++) {
+                    writer.write(row(i));
+                }
+                return bulkWrites.get();
+            } finally {
+                closeQuietly(writer);
             }
-            return bulkWrites.get();
         }
     }
 
-    /** Lets every bulk write fail and returns the number of attempts before the writer gives up. */
+    /** Returns whether one row is flushed when the last bulk write was {@code idleMs} ago. */
+    private static boolean rowFlushesAfterIdleMs(Map<String, Object> config, long idleMs)
+            throws Exception {
+        // Keep the size threshold out of the way.
+        config.put(MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS.key(), 1_000_000);
+        AtomicInteger bulkWrites = new AtomicInteger();
+        try (MockedConstruction<MongodbSingleCollectionProvider> ignored =
+                mockCollectionProvider(countingCollection(bulkWrites))) {
+            MongodbWriter writer = createSink(config).createWriter(mock(SinkWriter.Context.class));
+            try {
+                setLastSendTime(writer, System.currentTimeMillis() - idleMs);
+                writer.write(row(1));
+                return bulkWrites.get() == 1;
+            } finally {
+                closeQuietly(writer);
+            }
+        }
+    }
+
+    /** Lets every bulk write fail and returns the time of each attempt in nanoseconds. */
     @SuppressWarnings("unchecked")
-    private static int attemptsUntilFailure(Map<String, Object> config) throws Exception {
-        AtomicInteger attempts = new AtomicInteger();
+    private static List<Long> attemptTimesUntilFailure(Map<String, Object> config)
+            throws Exception {
+        List<Long> attempts = Collections.synchronizedList(new ArrayList<>());
         MongoCollection<BsonDocument> collection = mock(MongoCollection.class);
         doAnswer(
                         invocation -> {
-                            attempts.incrementAndGet();
+                            attempts.add(System.nanoTime());
                             throw new MongoException("simulated failure");
                         })
                 .when(collection)
@@ -165,7 +221,50 @@ class MongodbSinkOptionDefaultsTest {
                 mockCollectionProvider(collection)) {
             MongodbWriter writer = createSink(config).createWriter(mock(SinkWriter.Context.class));
             Assertions.assertThrows(MongodbConnectorException.class, () -> writer.write(row(1)));
-            return attempts.get();
+            List<Long> result = new ArrayList<>(attempts);
+            closeQuietly(writer);
+            return result;
+        }
+    }
+
+    private static void assertBackOffAtLeast(List<Long> attempts, int retry, long minMs) {
+        long gapMs = (attempts.get(retry + 1) - attempts.get(retry)) / 1_000_000;
+        Assertions.assertTrue(
+                gapMs >= minMs,
+                "expected a back-off of at least "
+                        + minMs
+                        + " ms before retry "
+                        + (retry + 1)
+                        + ", got "
+                        + gapMs
+                        + " ms");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static MongoCollection<BsonDocument> countingCollection(AtomicInteger bulkWrites) {
+        MongoCollection<BsonDocument> collection = mock(MongoCollection.class);
+        doAnswer(
+                        invocation -> {
+                            bulkWrites.incrementAndGet();
+                            return null;
+                        })
+                .when(collection)
+                .bulkWrite(anyList(), any(BulkWriteOptions.class));
+        return collection;
+    }
+
+    private static void setLastSendTime(MongodbWriter writer, long millis) throws Exception {
+        Field field = MongodbWriter.class.getDeclaredField("lastSendTime");
+        field.setAccessible(true);
+        field.setLong(writer, millis);
+    }
+
+    /** Closes the writer after the counts were taken; a flush failure on close is not relevant. */
+    private static void closeQuietly(MongodbWriter writer) {
+        try {
+            writer.close();
+        } catch (Exception ignored) {
+            // the remaining buffered rows are flushed on close; failures were already asserted
         }
     }
 
