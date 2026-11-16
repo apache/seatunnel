@@ -26,6 +26,8 @@ import io.debezium.config.Configuration;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.relational.Column;
 
+import java.util.Arrays;
+
 /**
  * Verifies that the documented {@code int_type_narrowing} option is honored on the MySQL-CDC path.
  *
@@ -35,6 +37,10 @@ import io.debezium.relational.Column;
  * documented for the MySQL-CDC source. The value is now carried through the Debezium properties and
  * applied: {@code false} keeps {@code tinyint(1)} as TINYINT (BYTE), {@code true} (and the default)
  * narrows it to BOOLEAN.
+ *
+ * <p>It also covers the {@code SET UNSIGNED} normalization, which is the same entry point: Debezium
+ * can report a {@code SET} column under that synthetic name, and it must convert like a plain
+ * {@code SET} instead of failing.
  */
 public class MySqlTypeUtilsIntTypeNarrowingTest {
 
@@ -61,6 +67,17 @@ public class MySqlTypeUtilsIntTypeNarrowingTest {
                 .create();
     }
 
+    private static Column setUnsignedWithOptionList() {
+        return Column.editor()
+                .name("status_flags")
+                .type("SET UNSIGNED", "SET UNSIGNED")
+                .jdbcType(java.sql.Types.CHAR)
+                .length(64)
+                .enumValues(Arrays.asList("'REAL_AS_FLOAT'", "'NO_UNSIGNED_SUBTRACTION'"))
+                .optional(true)
+                .create();
+    }
+
     @Test
     void tinyint1NarrowsToBooleanWhenEnabled() {
         Assertions.assertEquals(
@@ -80,5 +97,20 @@ public class MySqlTypeUtilsIntTypeNarrowingTest {
         Assertions.assertEquals(
                 BasicType.BOOLEAN_TYPE,
                 MySqlTypeUtils.convertToSeaTunnelColumn(tinyint1(), config(null)).getDataType());
+    }
+
+    @Test
+    void setUnsignedConvertsAsSetAndSizesFromTheOptionList() {
+        org.apache.seatunnel.api.table.catalog.Column converted =
+                MySqlTypeUtils.convertToSeaTunnelColumn(setUnsignedWithOptionList(), config(null));
+
+        Assertions.assertEquals("status_flags", converted.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, converted.getDataType());
+        // Only the synthetic suffix is dropped here: the option list is rendered upstream by
+        // SeatunnelDDLParser#getSourceColumnTypeWithLengthScale.
+        Assertions.assertEquals("SET", converted.getSourceType());
+        // A SET stores the sum of its members plus the separating commas, not the longest member
+        // (23). Reading the SET/ENUM decision off the raw name used to pick the ENUM answer.
+        Assertions.assertEquals(37L, converted.getColumnLength());
     }
 }

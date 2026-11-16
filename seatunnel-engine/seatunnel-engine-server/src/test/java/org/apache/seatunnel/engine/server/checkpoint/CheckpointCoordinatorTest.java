@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorSe
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestoreOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -59,6 +60,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -77,6 +79,112 @@ import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE
 
 public class CheckpointCoordinatorTest
         extends AbstractSeaTunnelServerTest<CheckpointCoordinatorTest> {
+
+    /**
+     * A master-restored coordinator must complete checkpoints using only live acknowledgements.
+     * Removing idle-close reconstruction leaves the real pending checkpoint waiting forever for the
+     * finished reader and its fused downstream task.
+     */
+    @Test
+    void testRunningRestoreCompletesCheckpointWithoutFinishedReaderAcknowledgements()
+            throws Exception {
+        TaskGroupLocation idleGroup = new TaskGroupLocation(1L, 1, 10);
+        TaskLocation idleReader = new TaskLocation(idleGroup, 0, 0);
+        TaskLocation idleSink = new TaskLocation(idleGroup, 1, 0);
+        TaskLocation activeReader = new TaskLocation(new TaskGroupLocation(1L, 1, 11), 0, 0);
+        TaskLocation enumerator = new TaskLocation(new TaskGroupLocation(1L, 1, 12), 0, 0);
+        Set<TaskLocation> allTasks =
+                new HashSet<>(Arrays.asList(idleReader, idleSink, activeReader, enumerator));
+        CheckpointPlan plan =
+                CheckpointPlan.builder()
+                        .pipelineId(1)
+                        .pipelineSubtasks(allTasks)
+                        .startingSubtasks(Collections.singleton(enumerator))
+                        .build();
+        CheckpointConfig config = new CheckpointConfig();
+        config.setStorage(new CheckpointStorageConfig());
+        config.setCheckpointInterval(60000);
+        IMap<Object, Object> state =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getMap("idle-reader-restore-" + UUID.randomUUID());
+        state.put(idleGroup, ExecutionState.FINISHED);
+        state.put(activeReader.getTaskGroupLocation(), ExecutionState.RUNNING);
+        state.put(enumerator.getTaskGroupLocation(), ExecutionState.RUNNING);
+        CheckpointIDCounter counter = Mockito.mock(CheckpointIDCounter.class);
+        Mockito.when(counter.getAndIncrement()).thenReturn(1L, 2L);
+        CheckpointManager manager = Mockito.mock(CheckpointManager.class);
+        ExecutorService executor = Executors.newCachedThreadPool();
+        CheckpointCoordinator coordinator =
+                Mockito.spy(
+                        new CheckpointCoordinator(
+                                manager,
+                                Mockito.mock(CheckpointStorage.class),
+                                config,
+                                1L,
+                                plan,
+                                counter,
+                                null,
+                                executor,
+                                state,
+                                false,
+                                null));
+        Mockito.when(manager.getCheckpointCoordinator(1)).thenReturn(coordinator);
+        Mockito.doCallRealMethod().when(manager).reportedPipelineRunning(1, true);
+        CompletableFuture<CheckpointBarrier> triggered = new CompletableFuture<>();
+        // Stub only worker transport; readiness, pending checkpoint and acknowledgement logic run.
+        Mockito.doAnswer(
+                        invocation -> {
+                            triggered.complete(invocation.getArgument(0));
+                            return new InvocationFuture<?>[0];
+                        })
+                .when(coordinator)
+                .triggerCheckpoint(Mockito.any(CheckpointBarrier.class));
+        Mockito.doReturn(new InvocationFuture<?>[0])
+                .when(coordinator)
+                .notifyCheckpointCompleted(Mockito.any(CompletedCheckpoint.class));
+        Mockito.doReturn(new InvocationFuture<?>[0])
+                .when(coordinator)
+                .notifyCheckpointEnd(Mockito.any(CompletedCheckpoint.class));
+        CompletableFuture<CompletedCheckpoint> completed = new CompletableFuture<>();
+        Mockito.doAnswer(
+                        invocation -> {
+                            invocation.callRealMethod();
+                            completed.complete(invocation.getArgument(0));
+                            return null;
+                        })
+                .when(coordinator)
+                .completePendingCheckpoint(Mockito.any(CompletedCheckpoint.class));
+        try {
+            manager.reportedPipelineRunning(1, true);
+            CheckpointBarrier barrier = triggered.get(10, TimeUnit.SECONDS);
+            Assertions.assertEquals(
+                    new HashSet<>(Arrays.asList(idleReader, idleSink)), barrier.closedTasks());
+            Assertions.assertEquals(CheckpointType.CHECKPOINT_TYPE, barrier.getCheckpointType());
+            coordinator.acknowledgeTask(
+                    new TaskAcknowledgeOperation(activeReader, barrier, Collections.emptyList()));
+            coordinator.acknowledgeTask(
+                    new TaskAcknowledgeOperation(enumerator, barrier, Collections.emptyList()));
+            CompletedCheckpoint checkpoint = completed.get(10, TimeUnit.SECONDS);
+            Assertions.assertEquals(barrier.getId(), checkpoint.getCheckpointId());
+            Assertions.assertEquals(CheckpointType.CHECKPOINT_TYPE, checkpoint.getCheckpointType());
+            Assertions.assertEquals(
+                    1,
+                    checkpoint
+                            .getTaskStatistics()
+                            .get(activeReader.getTaskVertexId())
+                            .getNumAcknowledgedSubtasks());
+            Assertions.assertEquals(
+                    0,
+                    checkpoint
+                            .getTaskStatistics()
+                            .get(idleReader.getTaskVertexId())
+                            .getNumAcknowledgedSubtasks());
+        } finally {
+            coordinator.cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
+            executor.shutdownNow();
+        }
+    }
 
     @Test
     void testACKNotExistPendingCheckpoint() {
@@ -119,7 +227,9 @@ public class CheckpointCoordinatorTest
                 1,
                 CheckpointPlan.builder()
                         .pipelineId(1)
-                        .pipelineSubtasks(Collections.singleton(new TaskLocation()))
+                        .pipelineSubtasks(
+                                Collections.singleton(
+                                        new TaskLocation(new TaskGroupLocation(1L, 1, 1), 0, 0)))
                         .build());
         CompletableFuture<Boolean> threadIsInterrupted = new CompletableFuture<>();
         ExecutorService executorService = Executors.newCachedThreadPool();
@@ -164,7 +274,9 @@ public class CheckpointCoordinatorTest
                 1,
                 CheckpointPlan.builder()
                         .pipelineId(1)
-                        .pipelineSubtasks(Collections.singleton(new TaskLocation()))
+                        .pipelineSubtasks(
+                                Collections.singleton(
+                                        new TaskLocation(new TaskGroupLocation(1L, 1, 1), 0, 0)))
                         .build());
         ExecutorService executorService = Executors.newCachedThreadPool();
         CompletableFuture<Boolean> invokedHandleCheckpointError = new CompletableFuture<>();

@@ -81,10 +81,19 @@ public class PostgresDialect implements JdbcDialect {
 
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
 
-    public PostgresDialect() {}
+    private final boolean numericSpecialValueAsNull;
+
+    public PostgresDialect() {
+        this(FieldIdeEnum.ORIGINAL.getValue());
+    }
 
     public PostgresDialect(String fieldIde) {
+        this(fieldIde, false);
+    }
+
+    public PostgresDialect(String fieldIde, boolean numericSpecialValueAsNull) {
         this.fieldIde = fieldIde;
+        this.numericSpecialValueAsNull = numericSpecialValueAsNull;
     }
 
     @Override
@@ -94,7 +103,7 @@ public class PostgresDialect implements JdbcDialect {
 
     @Override
     public JdbcRowConverter getRowConverter() {
-        return new PostgresJdbcRowConverter();
+        return new PostgresJdbcRowConverter(numericSpecialValueAsNull);
     }
 
     @Override

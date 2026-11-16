@@ -50,7 +50,6 @@ import org.apache.rocketmq.tools.command.CommandUtil;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -323,6 +322,9 @@ public class RocketMqAdminUtil {
      * the retry topic's, while a group that has simply never registered leaves it intact. A group
      * also cannot commit an offset without first registering, which is what creates the retry
      * topic, so a missing retry topic on a healthy name server implies nothing was committed.
+     *
+     * <p>A topic answering that way is skipped rather than ending the lookup, so offsets already
+     * collected for earlier topics in a multi-topic request survive.
      */
     static Map<MessageQueue, Long> currentOffsets(
             DefaultMQAdminExt adminClient,
@@ -337,33 +339,30 @@ public class RocketMqAdminUtil {
             } catch (MQClientException e) {
                 if (e.getResponseCode() == ResponseCode.TOPIC_NOT_EXIST
                         && topicRouteAvailable(adminClient, topic)) {
-                    // The retry topic is per group, not per topic, so this applies to every topic
-                    // in the request and the whole lookup is legitimately empty.
+                    // The group's retry topic is missing while the requested topic still
+                    // resolves, so nothing has been committed and this topic contributes no
+                    // offsets.
                     //
-                    // Returning here discards anything consumerOffsets has already collected for
-                    // earlier topics, and topics is a supported multi-topic list
-                    // (RocketMqSourceOptions.TOPICS). That is safe only under the invariant
-                    // above: a group cannot commit an offset for any topic without first
-                    // registering, and registering is what creates the retry topic, so a missing
-                    // retry topic means no topic in the list has committed anything and the map
-                    // is still empty here. The invariant does not cover one transition, and
-                    // that transition is reachable today. The guard above probes the
-                    // requested topic, not the group's retry topic, and every iteration
-                    // re-resolves the retry topic. On a multi-broker cluster where the retry
-                    // topic and a later topic in the list are hosted on different brokers,
-                    // losing the retry topic's broker mid-loop leaves the later topic
-                    // resolvable, so the guard passes and this return discards the offsets
-                    // already collected for the earlier topics. The caller reads an empty map
-                    // as a cold start and rewinds every topic to its first offset, so
-                    // supporting that layout means turning this into a continue that keeps
-                    // the earlier offsets.
+                    // Skip it rather than returning, so that offsets already collected for
+                    // earlier topics in the list survive. topics is a supported multi-topic list
+                    // (RocketMqSourceOptions.TOPICS), and the guard probes the requested topic
+                    // rather than the group's retry topic, so on a multi-broker cluster where the
+                    // retry topic and a later topic are hosted on different brokers, losing the
+                    // retry topic's broker part way through the loop still leaves the later topic
+                    // resolvable. Returning there would discard the earlier offsets, and the
+                    // caller reads an empty map as a cold start and rewinds every topic to its
+                    // first offset.
+                    //
+                    // When every topic answers this way the map stays empty, which is the
+                    // cold-start answer the caller needs.
                     log.warn(
-                            "Consumer group {} has no retry topic yet, so it has never registered "
-                                    + "and has committed nothing. Topic {} still resolves, so this "
-                                    + "is not a route outage.",
+                            "Consumer group {} has no retry topic yet, so it has committed nothing "
+                                    + "for topic {}. That topic still resolves, so this is not a "
+                                    + "route outage; skipping it and keeping any offsets already "
+                                    + "collected.",
                             groupId,
                             topic);
-                    return Collections.emptyMap();
+                    continue;
                 }
                 throw new RocketMqConnectorException(
                         RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);

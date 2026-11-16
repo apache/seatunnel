@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDyn
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -39,13 +40,27 @@ public class AmazonDynamoDBSource
                 SupportParallelism,
                 SupportColumnProjection {
 
-    private AmazonDynamoDBConfig amazondynamodbConfig;
-    private CatalogTable catalogTable;
+    private final AmazonDynamoDBConfig amazondynamodbConfig;
+    private final List<CatalogTable> catalogTables;
+    private final List<AmazonDynamoDBSourceTable> tables;
 
     public AmazonDynamoDBSource(
             AmazonDynamoDBConfig amazondynamodbConfig, CatalogTable catalogTable) {
+        this(
+                amazondynamodbConfig,
+                Collections.singletonList(catalogTable),
+                Collections.singletonList(
+                        new AmazonDynamoDBSourceTable(
+                                null, amazondynamodbConfig, catalogTable.getSeaTunnelRowType())));
+    }
+
+    AmazonDynamoDBSource(
+            AmazonDynamoDBConfig amazondynamodbConfig,
+            List<CatalogTable> catalogTables,
+            List<AmazonDynamoDBSourceTable> tables) {
         this.amazondynamodbConfig = amazondynamodbConfig;
-        this.catalogTable = catalogTable;
+        this.catalogTables = Collections.unmodifiableList(new ArrayList<>(catalogTables));
+        this.tables = Collections.unmodifiableList(new ArrayList<>(tables));
     }
 
     @Override
@@ -60,7 +75,7 @@ public class AmazonDynamoDBSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+        return new ArrayList<>(catalogTables);
     }
 
     @Override
@@ -68,7 +83,7 @@ public class AmazonDynamoDBSource
             createEnumerator(
                     SourceSplitEnumerator.Context<AmazonDynamoDBSourceSplit> enumeratorContext)
                     throws Exception {
-        return new AmazonDynamoDBSourceSplitEnumerator(enumeratorContext, amazondynamodbConfig);
+        return new AmazonDynamoDBSourceSplitEnumerator(enumeratorContext, null, tables);
     }
 
     @Override
@@ -77,14 +92,12 @@ public class AmazonDynamoDBSource
                     SourceSplitEnumerator.Context<AmazonDynamoDBSourceSplit> enumeratorContext,
                     AmazonDynamoDBSourceState checkpointState)
                     throws Exception {
-        return new AmazonDynamoDBSourceSplitEnumerator(
-                enumeratorContext, amazondynamodbConfig, checkpointState);
+        return new AmazonDynamoDBSourceSplitEnumerator(enumeratorContext, checkpointState, tables);
     }
 
     @Override
     public SourceReader<SeaTunnelRow, AmazonDynamoDBSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new AmazonDynamoDBSourceReader(
-                readerContext, amazondynamodbConfig, catalogTable.getSeaTunnelRowType());
+        return new AmazonDynamoDBSourceReader(readerContext, amazondynamodbConfig, tables);
     }
 }

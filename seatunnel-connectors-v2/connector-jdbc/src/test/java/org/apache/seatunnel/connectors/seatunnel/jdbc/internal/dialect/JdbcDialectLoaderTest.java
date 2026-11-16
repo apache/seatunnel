@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.cockroachdb.CockroachDBDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 
@@ -26,6 +27,17 @@ import org.junit.jupiter.api.Test;
 
 /** Test for {@link JdbcDialectLoader} */
 public class JdbcDialectLoaderTest {
+    @Test
+    void shouldSelectCockroachDBOnlyExplicitly() {
+        String url = "jdbc:postgresql://localhost:26257/seatunnel";
+        Assertions.assertInstanceOf(
+                CockroachDBDialect.class, JdbcDialectLoader.load(url, "CockroachDB", ""));
+        Assertions.assertEquals(
+                PostgresDialect.class, JdbcDialectLoader.load(url, null, "").getClass());
+        Assertions.assertEquals(
+                PostgresDialect.class, JdbcDialectLoader.load(url, "Postgres", "").getClass());
+    }
+
     @Test
     public void shouldFindGenericDialect() throws Exception {
         JdbcDialect jdbcDialect = JdbcDialectLoader.load("jdbc:someting:", null, "");

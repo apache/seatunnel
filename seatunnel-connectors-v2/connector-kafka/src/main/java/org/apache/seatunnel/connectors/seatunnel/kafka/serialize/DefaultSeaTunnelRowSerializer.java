@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
+import org.apache.seatunnel.format.avro.AvroFormatOptions;
 import org.apache.seatunnel.format.avro.AvroSerializationSchema;
 import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonDeserializationSchema;
 import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonSerializationSchema;
@@ -443,7 +444,12 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case COMPATIBLE_DEBEZIUM_JSON:
                 return new CompatibleDebeziumJsonSerializationSchema(rowType, isKey);
             case AVRO:
-                return new AvroSerializationSchema(rowType);
+                // Opt-in: a null plugin config (legacy create() overloads) keeps the default
+                // binary layout.
+                boolean avroRowNullable =
+                        pluginConfig != null
+                                && pluginConfig.get(AvroFormatOptions.AVRO_ROW_NULLABLE);
+                return new AvroSerializationSchema(rowType, avroRowNullable);
             case PROTOBUF:
                 String protobufMessageName = pluginConfig.get(PROTOBUF_MESSAGE_NAME);
                 String protobufSchema = pluginConfig.get(PROTOBUF_SCHEMA);

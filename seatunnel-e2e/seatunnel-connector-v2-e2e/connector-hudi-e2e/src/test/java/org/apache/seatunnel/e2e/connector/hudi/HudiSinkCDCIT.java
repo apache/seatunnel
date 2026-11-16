@@ -65,7 +65,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import static java.lang.Thread.sleep;
 import static org.apache.seatunnel.e2e.common.container.AbstractTestContainer.HOST_VOLUME_MOUNT_PATH;
 import static org.awaitility.Awaitility.given;
 
@@ -284,14 +283,15 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
     private void insertAndCheckData(TestContainer container) throws InterruptedException {
         // Init table data
         initSourceTableData(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
 
+        // The wait below already polls for the CDC data, so the former fixed 30s
+        // pre-wait was folded into the budget (60s + 30s) instead of blocking
+        // unconditionally first.
         given().ignoreExceptions()
                 .await()
-                .atMost(60000, TimeUnit.MILLISECONDS)
+                .atMost(90000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Path newestCommitFilePath =
@@ -323,14 +323,15 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
     private void upsertAndCheckData(TestContainer container)
             throws InterruptedException, IOException {
         upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
 
+        // The wait below already polls for the CDC data, so the former fixed 30s
+        // pre-wait was folded into the budget (60s + 30s) instead of blocking
+        // unconditionally first.
         given().ignoreExceptions()
                 .await()
-                .atMost(60000, TimeUnit.MILLISECONDS)
+                .atMost(90000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Path newestCommitFilePath =

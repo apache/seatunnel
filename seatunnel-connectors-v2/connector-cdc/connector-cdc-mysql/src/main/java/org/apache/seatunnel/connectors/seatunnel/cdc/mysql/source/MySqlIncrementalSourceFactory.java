@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -35,12 +36,15 @@ import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSnapshotOnlyGuards;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSpecificOffsetGuards;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -90,18 +94,19 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
-                        MySqlIncrementalSourceOptions.INT_TYPE_NARROWING,
-                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
-                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS,
-                        MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET,
-                        MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_EVENTS,
-                        MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_ROWS)
+                        MySqlIncrementalSourceOptions.INT_TYPE_NARROWING)
                 .optional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        MySqlIncrementalSourceOptions.STOP_MODE)
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.STARTUP_MODE,
+                                MySqlSpecificOffsetGuards.specificStartupModeGuard(
+                                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
+                                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)))
+                .optional(MySqlIncrementalSourceOptions.STOP_MODE)
                 .conditional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.INITIAL,
+                        Arrays.asList(StartupMode.INITIAL, StartupMode.SNAPSHOT_ONLY),
                         SourceOptions.EXACTLY_ONCE)
                 .conditional(
                         MySqlIncrementalSourceOptions.STOP_MODE,
@@ -111,7 +116,58 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                 .conditional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.TIMESTAMP,
-                        SourceOptions.STARTUP_TIMESTAMP);
+                        SourceOptions.STARTUP_TIMESTAMP)
+                .conditional(
+                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                        StartupMode.SNAPSHOT_ONLY,
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.STOP_MODE,
+                                MySqlSnapshotOnlyGuards.stopModeGuard(
+                                        MySqlIncrementalSourceOptions.STOP_MODE)),
+                        Conditions.extension(
+                                SourceOptions.STARTUP_TIMESTAMP,
+                                MySqlSnapshotOnlyGuards.startupTimestampGuard(
+                                        SourceOptions.STARTUP_TIMESTAMP)))
+                .optional(
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
+                        Conditions.extension(
+                                SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
+                                MySqlSpecificOffsetGuards.specificOffsetFileGuard(
+                                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
+                                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)))
+                .optional(
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS,
+                        Conditions.extension(
+                                SourceOptions.STARTUP_SPECIFIC_OFFSET_POS,
+                                MySqlSpecificOffsetGuards.specificOffsetPosGuard(
+                                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS,
+                                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE)))
+                .optional(
+                        MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET,
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET,
+                                MySqlSpecificOffsetGuards.specificOffsetGtidSetGuard(
+                                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                                        MySqlIncrementalSourceOptions
+                                                .STARTUP_SPECIFIC_OFFSET_GTID_SET)))
+                .optional(
+                        MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_EVENTS,
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_EVENTS,
+                                MySqlSpecificOffsetGuards.specificOffsetSkipGuard(
+                                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                                        MySqlIncrementalSourceOptions
+                                                .STARTUP_SPECIFIC_OFFSET_SKIP_EVENTS)))
+                .optional(
+                        MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_ROWS,
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_ROWS,
+                                MySqlSpecificOffsetGuards.specificOffsetSkipGuard(
+                                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                                        MySqlIncrementalSourceOptions
+                                                .STARTUP_SPECIFIC_OFFSET_SKIP_ROWS)));
     }
 
     @Override

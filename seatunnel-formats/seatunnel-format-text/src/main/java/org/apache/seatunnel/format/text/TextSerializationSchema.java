@@ -39,6 +39,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Map;
@@ -55,6 +56,14 @@ public class TextSerializationSchema implements SerializationSchema {
     /** When true, TIMESTAMP_TZ is serialized as wall-clock (no offset) for DB sinks like Doris. */
     private final boolean wallClockTimestampTz;
 
+    /**
+     * Zone used when {@link #wallClockTimestampTz} is true to drop the offset and emit a wall-clock
+     * {@code LocalDateTime}. Defaults to {@link ZoneId#systemDefault()} for backward compatibility;
+     * callers that know the target session zone (for example the Doris sink session timezone)
+     * should pass it explicitly so the JVM default is not silently relied on.
+     */
+    private final ZoneId wallClockTimestampTzZoneId;
+
     private TextSerializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
             String[] separators,
@@ -63,7 +72,8 @@ public class TextSerializationSchema implements SerializationSchema {
             TimeUtils.Formatter timeFormatter,
             Charset charset,
             String nullValue,
-            boolean wallClockTimestampTz) {
+            boolean wallClockTimestampTz,
+            ZoneId wallClockTimestampTzZoneId) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.separators = separators;
         this.dateFormatter = dateFormatter;
@@ -72,6 +82,10 @@ public class TextSerializationSchema implements SerializationSchema {
         this.charset = charset;
         this.nullValue = nullValue;
         this.wallClockTimestampTz = wallClockTimestampTz;
+        this.wallClockTimestampTzZoneId =
+                wallClockTimestampTzZoneId == null
+                        ? ZoneId.systemDefault()
+                        : wallClockTimestampTzZoneId;
     }
 
     public static Builder builder() {
@@ -88,6 +102,7 @@ public class TextSerializationSchema implements SerializationSchema {
         private Charset charset = StandardCharsets.UTF_8;
         private String nullValue = "";
         private boolean wallClockTimestampTz = false;
+        private ZoneId wallClockTimestampTzZoneId = null;
 
         private Builder() {}
 
@@ -141,6 +156,16 @@ public class TextSerializationSchema implements SerializationSchema {
             return this;
         }
 
+        /**
+         * Sets the target zone used when {@link #wallClockTimestampTz(boolean)} is true. Pass the
+         * actual session zone (for example the Doris sink session timezone) so the JVM default is
+         * not silently relied on. If unset, {@link ZoneId#systemDefault()} is used.
+         */
+        public Builder wallClockTimestampTzZoneId(ZoneId wallClockTimestampTzZoneId) {
+            this.wallClockTimestampTzZoneId = wallClockTimestampTzZoneId;
+            return this;
+        }
+
         public TextSerializationSchema build() {
             return new TextSerializationSchema(
                     seaTunnelRowType,
@@ -150,7 +175,8 @@ public class TextSerializationSchema implements SerializationSchema {
                     timeFormatter,
                     charset,
                     nullValue,
-                    wallClockTimestampTz);
+                    wallClockTimestampTz,
+                    wallClockTimestampTzZoneId);
         }
     }
 
@@ -196,7 +222,15 @@ public class TextSerializationSchema implements SerializationSchema {
             case TIMESTAMP_TZ:
                 OffsetDateTime odt = (OffsetDateTime) field;
                 if (wallClockTimestampTz) {
-                    return DateTimeUtils.toString(odt.toLocalDateTime(), dateTimeFormatter);
+                    // Preserve the instant and convert to the target zone (the Doris
+                    // session zone when supplied, otherwise the JVM default for backward
+                    // compatibility). A plain toLocalDateTime() would emit the wall-clock
+                    // of the value's own offset (e.g. UTC), which shifts TIMESTAMP_TZ
+                    // columns by the timezone delta once a sink such as Doris parses the
+                    // wall-clock in its session timezone (issue #10795).
+                    return DateTimeUtils.toString(
+                            odt.atZoneSameInstant(wallClockTimestampTzZoneId).toLocalDateTime(),
+                            dateTimeFormatter);
                 }
                 return odt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
             case NULL:

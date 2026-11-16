@@ -122,7 +122,9 @@ public class DefaultSerializer implements Serializer {
         return (row, builder) -> {
             Object time = row.getField(timeFieldIndex);
             if (time == null) {
+                // use processing time when the value of the configured time column is null
                 builder.time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+                return;
             }
             SeaTunnelDataType<?> timestampFieldType = seaTunnelRowType.getFieldType(timeFieldIndex);
             switch (timestampFieldType.getSqlType()) {

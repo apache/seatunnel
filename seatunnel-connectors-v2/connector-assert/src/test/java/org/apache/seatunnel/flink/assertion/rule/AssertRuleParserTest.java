@@ -20,19 +20,27 @@ package org.apache.seatunnel.flink.assertion.rule;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.assertion.exception.AssertConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertCatalogTableRule;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertRuleParser;
 
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class AssertRuleParserTest {
     AssertRuleParser parser = new AssertRuleParser();
@@ -59,6 +67,9 @@ public class AssertRuleParserTest {
         AssertFieldRule ageRule = assertFieldRules.get(1);
         List<AssertFieldRule.AssertRule> ageValueRules = ageRule.getFieldRules();
         assertEquals("age", ageRule.getFieldName());
+        // field_type is optional, so a rule that does not declare it keeps a null field type and
+        // is checked against the field type of the incoming row by the executor.
+        assertNull(ageRule.getFieldType());
         assertEquals(3, ageValueRules.size());
         assertEquals(AssertFieldRule.AssertRuleType.NOT_NULL, ageValueRules.get(0).getRuleType());
         assertEquals(AssertFieldRule.AssertRuleType.MIN, ageValueRules.get(1).getRuleType());
@@ -161,5 +172,47 @@ public class AssertRuleParserTest {
         Config config = ConfigFactory.parseString(s);
 
         return config.getConfig("Assert").getConfigList("rules");
+    }
+
+    /**
+     * The {@code sink_type} of a column rule is optional: a declared value has to match the actual
+     * sink type, an omitted one leaves the column unchecked.
+     */
+    @Test
+    public void testParseCatalogTableRuleSinkType() {
+        AssertCatalogTableRule ruleWithSinkType =
+                parser.parseCatalogTableRule(
+                        columnRuleConfig("name = c_int, type = int, sink_type = integer"));
+        assertEquals("integer", ruleWithSinkType.getColumnRule().getColumns().get(0).getSinkType());
+
+        assertDoesNotThrow(
+                () ->
+                        ruleWithSinkType
+                                .getColumnRule()
+                                .checkRule(Collections.singletonList(actualColumn("integer"))));
+        assertThrows(
+                AssertConnectorException.class,
+                () ->
+                        ruleWithSinkType
+                                .getColumnRule()
+                                .checkRule(Collections.singletonList(actualColumn("bigint"))));
+
+        AssertCatalogTableRule ruleWithoutSinkType =
+                parser.parseCatalogTableRule(columnRuleConfig("name = c_int, type = int"));
+        assertDoesNotThrow(
+                () ->
+                        ruleWithoutSinkType
+                                .getColumnRule()
+                                .checkRule(Collections.singletonList(actualColumn("bigint"))));
+    }
+
+    private static Config columnRuleConfig(String columnRule) {
+        return ConfigFactory.parseString("column_rule = [{" + columnRule + "}]");
+    }
+
+    private static Column actualColumn(String sinkType) {
+        Column column = PhysicalColumn.of("c_int", BasicType.INT_TYPE, 0L, true, null, null);
+        column.setSinkType(sinkType);
+        return column;
     }
 }
