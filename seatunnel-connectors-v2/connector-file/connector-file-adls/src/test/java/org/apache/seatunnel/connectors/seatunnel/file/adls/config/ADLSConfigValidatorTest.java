@@ -88,6 +88,8 @@ class ADLSConfigValidatorTest {
 
     @Test
     void rejectsDuplicateTrimmedAdvancedPropertyKeys() {
+        // Keep both raw keys in a direct map: CLI configuration reparsing can collapse them
+        // before they reach connector validation.
         String key = "fs.azure.io.retry.max.retries";
         String paddedKey = " \t" + key + " \n";
         for (String secondValue : new String[] {"sentinel-first", "sentinel-second"}) {

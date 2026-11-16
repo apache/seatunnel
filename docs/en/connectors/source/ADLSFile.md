@@ -120,9 +120,11 @@ origin. Only trusted operators should set this option, using the Microsoft Entra
 their Azure cloud. Do not accept it from untrusted job input.
 
 Keys in `hadoop_adls_properties` must be unique after trimming leading and trailing whitespace.
-For example, `"k"` and `" k "` cause a validation error, even if their values are identical.
-To resolve the error, keep one entry per trimmed key. Key case is preserved, so keys that differ
-only in case remain distinct.
+When both raw entries reach connector validation, `"k"` and `" k "` cause a validation error,
+even if their values are identical. CLI configuration processing may collapse these keys before
+connector validation, so this error is not guaranteed for duplicate keys in a HOCON job file.
+Keep one entry per trimmed key rather than relying on duplicate-key detection. Key case is
+preserved, so keys that differ only in case remain distinct.
 
 Leading and trailing whitespace is trimmed from each `hadoop_adls_properties` key and value
 before it is passed to Hadoop. Keys that are empty after trimming are rejected. Key spelling
