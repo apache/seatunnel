@@ -51,6 +51,22 @@ public class JdbcDialectLoaderTest {
         Assertions.assertInstanceOf(MysqlDialect.class, jdbcDialect);
     }
 
+    @Test
+    void shouldSelectGoldenDbWithoutChangingMysqlSelection() {
+        String goldenDbUrl = "jdbc:goldendb://localhost:3306/test";
+        Assertions.assertEquals(
+                GenericDialect.class, JdbcDialectLoader.load(goldenDbUrl, null, "").getClass());
+        Assertions.assertEquals(
+                MysqlDialect.class, JdbcDialectLoader.load(goldenDbUrl, "GoldenDB", "").getClass());
+        Assertions.assertEquals(
+                MysqlDialect.class,
+                JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", "GoldenDB", "")
+                        .getClass());
+        Assertions.assertEquals(
+                MysqlDialect.class,
+                JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", null, "").getClass());
+    }
+
     /** Test for {@link JdbcDialectLoader} for appointDialect */
     @Test
     public void shouldFindPostgresSQLDialectByDialect() throws Exception {
