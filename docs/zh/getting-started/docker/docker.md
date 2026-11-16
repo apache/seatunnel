@@ -49,7 +49,7 @@ docker images | grep apache/seatunnel
 ##### 分步骤构建
 ```shell
 # Build binary package from source code
-mvn clean package -DskipTests -Dskip.spotless=true
+sh ./mvnw clean package -DskipTests -Dskip.spotless=true
 
 # Build docker image
 cd seatunnel-dist
@@ -132,14 +132,18 @@ docker run --rm -it apache/seatunnel bash ./bin/start-seatunnel-spark-2-connecto
 docker run --rm -it apache/seatunnel bash ./bin/start-seatunnel-spark-3-connector-v2.sh -c config/v2.batch.config.template
 ```
 
+对于 Spark 3.5.x，请改用 `start-seatunnel-spark-3.5-connector-v2.sh`。容器必须包含 Spark 3.5.x 和匹配的 SeaTunnel 启动器，并将 `SPARK_HOME` 指向该 Spark 安装目录；仅更改启动器名称不会升级镜像。验证范围请参阅 [Spark 引擎兼容性](../../engines/spark.md)。
+
 - Flink
   在提交作业之前，您需要先启动 Flink 集群。
 
 ```shell
 # flink version between `1.12.x` and `1.14.x`
 docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-13-connector-v2.sh -c config/v2.streaming.conf.template'
-# flink version between `1.15.x` and `1.16.x`
+# flink version between `1.15.x` and `1.18.x`
 docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-15-connector-v2.sh -c config/v2.streaming.conf.template'
+# flink version `1.20.x`
+docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluster.sh && ./bin/start-seatunnel-flink-20-connector-v2.sh -c config/v2.streaming.conf.template'
 ```
 
 
@@ -231,12 +235,10 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "master"]
     ports:
       - "5801:5801"
+      - "8080:8080"
     networks:
       - seatunnel_network
 
@@ -246,10 +248,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -261,10 +260,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -280,7 +276,7 @@ networks:
 
 
 启动完成后，可以运行`docker logs -f seatunnel_master`, `docker logs -f seatunnel_worker_1`来查看节点的日志  
-当你访问`http://localhost:5801/hazelcast/rest/maps/system-monitoring-information` 时，可以看到集群的状态为1个master节点，2个worker节点.
+当你访问`http://localhost:8080/system-monitoring-information` 时，可以看到集群的状态为1个master节点，2个worker节点.
 
 #### 集群扩容
 当你需要对集群扩容, 例如需要添加一个worker节点时
@@ -293,12 +289,10 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r master
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "master"]
     ports:
       - "5801:5801"
+      - "8080:8080"
     networks:
       - seatunnel_network
 
@@ -308,10 +302,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -323,10 +314,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:
@@ -341,10 +329,7 @@ services:
     restart: unless-stopped
     environment:
       - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801,seatunnel_worker_3:5801
-    entrypoint: >
-      /bin/sh -c "
-      /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      "
+    entrypoint: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "worker"]
     depends_on:
       - master
     networks:

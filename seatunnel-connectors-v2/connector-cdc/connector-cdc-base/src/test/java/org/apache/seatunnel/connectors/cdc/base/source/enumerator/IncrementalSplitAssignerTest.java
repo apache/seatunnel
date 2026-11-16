@@ -31,8 +31,10 @@ import org.junit.jupiter.api.Test;
 
 import io.debezium.relational.TableId;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -235,6 +237,87 @@ class IncrementalSplitAssignerTest {
         verify(offsetFactory, never()).latest();
     }
 
+    @Test
+    void shouldStartRegroupedSplitAtEarliestRestoredOffsetAndKeepLaterTableOffsets() {
+        SourceConfig sourceConfig = mock(SourceConfig.class);
+        when(sourceConfig.getStartupConfig())
+                .thenReturn(new StartupConfig(StartupMode.INITIAL, null, null, null));
+        when(sourceConfig.getStopConfig())
+                .thenReturn(new StopConfig(StopMode.NEVER, null, null, null));
+        TableId table1 = TableId.parse("database.schema.table1");
+        TableId table2 = TableId.parse("database.schema.table2");
+        Offset stoppingOffset = mock(Offset.class);
+
+        // incremental.parallelism was 2: each table was read by its own split, and the split of
+        // table2 had read further than the split of table1 when the checkpoint was taken.
+        IncrementalSplit restoredSplit1 =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.singletonList(table1),
+                        new TestOffset(100),
+                        stoppingOffset,
+                        Collections.emptyList());
+        IncrementalSplit restoredSplit2 =
+                new IncrementalSplit(
+                        "incremental-split-1",
+                        Collections.singletonList(table2),
+                        new TestOffset(200),
+                        stoppingOffset,
+                        Collections.emptyList());
+        IncrementalSplitAssigner<SourceConfig> assigner =
+                new IncrementalSplitAssigner<>(
+                        createContext(sourceConfig, new HashSet<>(Arrays.asList(table1, table2))),
+                        1,
+                        mock(OffsetFactory.class));
+        assigner.addSplits(Arrays.asList(restoredSplit1, restoredSplit2));
+
+        IncrementalSplit split = assigner.getNext().get().asIncrementalSplit();
+
+        assertEquals(
+                new HashSet<>(Arrays.asList(table1, table2)), new HashSet<>(split.getTableIds()));
+        assertEquals(new TestOffset(100), split.getStartupOffset());
+        assertEquals(
+                Collections.singletonMap(table2, new TestOffset(200)),
+                split.getTableStartupOffsets());
+    }
+
+    @Test
+    void shouldKeepTableOffsetCarriedByRestoredSplit() {
+        SourceConfig sourceConfig = mock(SourceConfig.class);
+        when(sourceConfig.getStartupConfig())
+                .thenReturn(new StartupConfig(StartupMode.INITIAL, null, null, null));
+        when(sourceConfig.getStopConfig())
+                .thenReturn(new StopConfig(StopMode.NEVER, null, null, null));
+        TableId table1 = TableId.parse("database.schema.table1");
+        TableId table2 = TableId.parse("database.schema.table2");
+
+        // The split was checkpointed at 150 while it was still replaying up to table2's
+        // restored offset 200, so it carries that offset for table2.
+        IncrementalSplit restoredSplit =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Arrays.asList(table1, table2),
+                        new TestOffset(150),
+                        mock(Offset.class),
+                        Collections.emptyList(),
+                        null,
+                        Collections.emptyMap(),
+                        Collections.singletonMap(table2, new TestOffset(200)));
+        IncrementalSplitAssigner<SourceConfig> assigner =
+                new IncrementalSplitAssigner<>(
+                        createContext(sourceConfig, new HashSet<>(Arrays.asList(table1, table2))),
+                        1,
+                        mock(OffsetFactory.class));
+        assigner.addSplits(Collections.singletonList(restoredSplit));
+
+        IncrementalSplit split = assigner.getNext().get().asIncrementalSplit();
+
+        assertEquals(new TestOffset(150), split.getStartupOffset());
+        assertEquals(
+                Collections.singletonMap(table2, new TestOffset(200)),
+                split.getTableStartupOffsets());
+    }
+
     private SplitAssigner.Context<SourceConfig> createContext(SourceConfig sourceConfig) {
         return createContext(
                 sourceConfig, Collections.singleton(TableId.parse("database.schema.table")));
@@ -247,5 +330,21 @@ class IncrementalSplitAssignerTest {
                 new LinkedHashSet<>(capturedTables),
                 new HashMap<>(),
                 new HashMap<>());
+    }
+
+    private static class TestOffset extends Offset {
+        private static final long serialVersionUID = 1L;
+
+        private final long position;
+
+        TestOffset(long position) {
+            this.position = position;
+            this.offset = Collections.singletonMap("pos", String.valueOf(position));
+        }
+
+        @Override
+        public int compareTo(Offset o) {
+            return Long.compare(position, ((TestOffset) o).position);
+        }
     }
 }

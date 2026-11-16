@@ -870,16 +870,9 @@ class SeaTunnelCLI:
                 self._handle_command(user_input)
                 continue
 
-            # If previous turn was a clarification question, merge the
-            # original request with the user's answer so the planner and
-            # slot-checker see the full context.
-            if self._pending_request:
-                user_input = (
-                    f"{self._pending_request}\n\n"
-                    f"Additional details from user: {user_input}"
-                )
-                self._pending_request = None
-
+            # The Orchestrator merges a clarification reply with the request it
+            # answers; it owns `pending_question`, so doing it here as well
+            # would prepend the requirement twice.
             # Process natural language request
             self._process_request(user_input)
 

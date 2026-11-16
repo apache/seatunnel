@@ -29,7 +29,9 @@ import lombok.RequiredArgsConstructor;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.function.Function;
 
 @RequiredArgsConstructor
@@ -48,6 +50,11 @@ public class BufferReducedBatchStatementExecutor
     @NonNull private final LinkedHashMap<Object, Triple<Boolean, SeaTunnelRow, SeaTunnelRow>> buffer =
             new LinkedHashMap<>();
 
+    // Whether each buffered key existed before this batch, judged from its first change. Only the
+    // last change per key is kept, so an INSERT followed by an UPDATE must still be written as an
+    // INSERT, and a DELETE followed by an INSERT as an UPDATE.
+    @NonNull private final Map<Object, Boolean> existedBeforeBatch = new HashMap<>();
+
     private boolean flushFailed;
 
     @Override
@@ -64,9 +71,11 @@ public class BufferReducedBatchStatementExecutor
         }
 
         SeaTunnelRow key = keyExtractor.apply(record);
+        Object bufferKey = bufferKey(key);
+        existedBeforeBatch.putIfAbsent(bufferKey, !RowKind.INSERT.equals(record.getRowKind()));
         boolean changeFlag = changeFlag(record.getRowKind());
         SeaTunnelRow value = valueTransform.apply(record);
-        buffer.put(bufferKey(key), Triple.of(changeFlag, key, value));
+        buffer.put(bufferKey, Triple.of(changeFlag, key, value));
     }
 
     /**
@@ -88,13 +97,20 @@ public class BufferReducedBatchStatementExecutor
     public void executeBatch() throws SQLException {
         try {
             Boolean preChangeFlag = null;
-            for (Triple<Boolean, SeaTunnelRow, SeaTunnelRow> bufferedRow : buffer.values()) {
+            for (Map.Entry<Object, Triple<Boolean, SeaTunnelRow, SeaTunnelRow>> entry :
+                    buffer.entrySet()) {
+                Triple<Boolean, SeaTunnelRow, SeaTunnelRow> bufferedRow = entry.getValue();
                 Boolean currentChangeFlag = bufferedRow.getLeft();
                 if (currentChangeFlag) {
                     if (preChangeFlag != null && !preChangeFlag) {
                         deleteExecutor.executeBatch();
                     }
-                    upsertExecutor.addToBatch(bufferedRow.getRight());
+                    SeaTunnelRow value = bufferedRow.getRight().copy();
+                    value.setRowKind(
+                            existedBeforeBatch.getOrDefault(entry.getKey(), true)
+                                    ? RowKind.UPDATE_AFTER
+                                    : RowKind.INSERT);
+                    upsertExecutor.addToBatch(value);
                 } else {
                     if (preChangeFlag != null && preChangeFlag) {
                         upsertExecutor.executeBatch();
@@ -112,6 +128,7 @@ public class BufferReducedBatchStatementExecutor
                 }
             }
             buffer.clear();
+            existedBeforeBatch.clear();
             flushFailed = false;
         } catch (SQLException e) {
             flushFailed = true;
@@ -134,6 +151,7 @@ public class BufferReducedBatchStatementExecutor
     @Override
     public void clearBatch() throws SQLException {
         buffer.clear();
+        existedBeforeBatch.clear();
         upsertExecutor.clearBatch();
         deleteExecutor.clearBatch();
     }

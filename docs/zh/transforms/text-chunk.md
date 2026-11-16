@@ -17,6 +17,8 @@
 | overlap_size      | int    | no   | 0   |
 | separators        | array  | no   | ["\n\n", "\n", "。", "！", "？", ". ", " "] |
 | skip_empty_text   | boolean| no   | true |
+| table_match_regex | string | no   | `.*` |
+| table_transform   | array  | no   | -    |
 
 ### text_field [string]
 
@@ -56,6 +58,14 @@
 
 控制 `text_field` 为 `null` 或空字符串时的行处理逻辑。为 `true` 时该行被丢弃，为 `false` 时该行透传
 （`output_field` 置为 `null`、`chunk_index_field` 置为 `0`），默认值为 `true`。
+
+### table_match_regex [string]
+
+与上游表路径进行匹配的正则表达式，转换级别规则只应用于匹配的表。默认值 `.*` 匹配所有表。
+
+### table_transform [array]
+
+针对单表的规则列表，用于上游数据源输出多张表的场景。每个条目包含 `table_path`（格式为 `databaseName[.schemaName].tableName`）以及该表的一条完整的 TextChunk 规则（`text_field` 及可选的分块选项）。有对应条目的表不会再受转换级别规则影响。参见 [多表转换](transform-multi-table.md)。
 
 ### common options [string]
 

@@ -27,7 +27,7 @@ Install the plugins and confirm they were downloaded into `${SEATUNNEL_HOME}/con
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(fake|console)'
+ls connectors | grep -E 'connector-(fake|console)'
 ```
 
 ## Step 3: Use a minimal job

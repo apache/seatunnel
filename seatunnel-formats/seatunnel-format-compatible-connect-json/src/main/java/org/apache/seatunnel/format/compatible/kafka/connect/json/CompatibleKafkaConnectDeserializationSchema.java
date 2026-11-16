@@ -110,6 +110,13 @@ public class CompatibleKafkaConnectDeserializationSchema
         if (msg == null) {
             return;
         }
+        if (msg.value() == null) {
+            // A Kafka tombstone carries a null value to mark its key deleted. That is a
+            // deletion marker rather than a malformed message, so it produces no row and the
+            // source moves past it, as the json and maxwell_json formats already do. A zero
+            // length payload is deliberately not covered: it is a decode error here, as before.
+            return;
+        }
         SinkRecord record = convertToSinkRecord(msg);
         RowKind rowKind = RowKind.INSERT;
         JsonNode jsonNode =
