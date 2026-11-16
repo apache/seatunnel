@@ -394,7 +394,7 @@ public class CoordinatorServiceTest {
                     oldCoordinator.getPendingJobQueue().contains(20001L),
                     "old coordinator pending queue should not be consumed after failover");
 
-            AtomicBoolean newMasterFlag = new AtomicBoolean(true);
+            AtomicBoolean newMasterFlag = new AtomicBoolean(false);
             SeaTunnelServer newServer = Mockito.mock(SeaTunnelServer.class);
             Mockito.when(newServer.isMasterNode()).thenAnswer(invocation -> newMasterFlag.get());
             CoordinatorService newCoordinator = newMockCoordinatorService(newServer);
@@ -403,6 +403,7 @@ public class CoordinatorServiceTest {
                 JobMaster newPendingJob =
                         enqueueMockPendingJob(newCoordinator, 30001L, newRunLatch);
 
+                newMasterFlag.set(true);
                 invokeCheckNewActiveMaster(newCoordinator);
 
                 await().atMost(30, TimeUnit.SECONDS)
@@ -497,7 +498,7 @@ public class CoordinatorServiceTest {
 
     @Test
     void testCheckNewActiveMasterIsIdempotentWhenAlreadyActive() throws Exception {
-        AtomicBoolean masterFlag = new AtomicBoolean(true);
+        AtomicBoolean masterFlag = new AtomicBoolean(false);
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
         Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
         CoordinatorService coordinatorService = newMockCoordinatorService(server);
@@ -505,6 +506,7 @@ public class CoordinatorServiceTest {
             CountDownLatch runLatch = new CountDownLatch(1);
             JobMaster jobMaster = enqueueMockPendingJob(coordinatorService, 40001L, runLatch);
 
+            masterFlag.set(true);
             invokeCheckNewActiveMaster(coordinatorService);
             await().atMost(30, TimeUnit.SECONDS)
                     .untilAsserted(
@@ -684,7 +686,7 @@ public class CoordinatorServiceTest {
 
     @Test
     void testPendingJobWithInsufficientResourceRespectsWaitStrategy() throws Exception {
-        AtomicBoolean masterFlag = new AtomicBoolean(true);
+        AtomicBoolean masterFlag = new AtomicBoolean(false);
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
         Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
 
@@ -696,6 +698,7 @@ public class CoordinatorServiceTest {
             JobMaster jobMaster =
                     enqueueMockPendingJob(coordinatorService, 50001L, runLatch, false);
 
+            masterFlag.set(true);
             invokeCheckNewActiveMaster(coordinatorService);
             await().atMost(30, TimeUnit.SECONDS)
                     .untilAsserted(
@@ -713,7 +716,7 @@ public class CoordinatorServiceTest {
 
     @Test
     void testPendingJobWithInsufficientResourceRespectsRejectStrategy() throws Exception {
-        AtomicBoolean masterFlag = new AtomicBoolean(true);
+        AtomicBoolean masterFlag = new AtomicBoolean(false);
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
         Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
 
@@ -725,6 +728,7 @@ public class CoordinatorServiceTest {
             JobMaster jobMaster =
                     enqueueMockPendingJob(coordinatorService, 60001L, runLatch, false);
 
+            masterFlag.set(true);
             invokeCheckNewActiveMaster(coordinatorService);
             await().atMost(30, TimeUnit.SECONDS)
                     .untilAsserted(
