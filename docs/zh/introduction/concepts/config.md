@@ -84,7 +84,7 @@ sink {
 
 #### 供插件使用的作业级变量
 
-**整个 `env` 块**都会传递给插件工厂，不只是 `custom_parameters`。任意顶层 key 都可以读取；需要分组时也可以继续使用 `custom_parameters` 等嵌套结构：
+**整个 `env` 块**都会传递给插件工厂，任意顶层 key 都可以读取：
 
 ```hocon
 env {

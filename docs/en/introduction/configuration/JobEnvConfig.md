@@ -50,7 +50,7 @@ env {
 }
 ```
 
-Nested blocks such as `custom_parameters` are also passed through. On Zeta, plugin factories can read every key from `TableFactoryContext#getEnvOptions()`. `--check` accepts user-defined env keys by design; declared options are still type- and required-checked. See [Intro To Config File](../concepts/config.md#job-scoped-variables-for-plugins) for details and limitations.
+On Zeta, plugin factories can read every key from `TableFactoryContext#getEnvOptions()`. `--check` accepts user-defined env keys by design; declared options are still type- and required-checked. See [Intro To Config File](../concepts/config.md#job-scoped-variables-for-plugins) for details and limitations.
 
 ## Zeta Engine Parameter
 

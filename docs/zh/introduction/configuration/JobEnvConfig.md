@@ -50,7 +50,7 @@ env {
 }
 ```
 
-`custom_parameters` 等嵌套结构也会原样传递。在 Zeta 引擎中，插件工厂可通过 `TableFactoryContext#getEnvOptions()` 读取所有 key。`--check` 会放行用户自定义的 env key；已声明选项仍做类型与必填校验。详细说明与限制请参考 [配置文件入门](../concepts/config.md#供插件使用的作业级变量)。
+在 Zeta 引擎中，插件工厂可通过 `TableFactoryContext#getEnvOptions()` 读取所有 key。`--check` 会放行用户自定义的 env key；已声明选项仍做类型与必填校验。详细说明与限制请参考 [配置文件入门](../concepts/config.md#供插件使用的作业级变量)。
 
 ## Zeta 引擎参数
 

@@ -84,7 +84,7 @@ For the full parameter list, engine-specific prefixes, and more examples, see [J
 
 #### Job-scoped variables for plugins
 
-The **entire** `env` block is passed to plugin factories, not only `custom_parameters`. Any top-level key can be read, and nested blocks such as `custom_parameters` remain available when you want to group related values:
+The **entire** `env` block is passed to plugin factories. Any top-level key can be read:
 
 ```hocon
 env {
