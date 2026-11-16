@@ -94,8 +94,22 @@ public class MultiTableSinkWriter
 
     private final Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters;
     private final Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext;
+    /**
+     * The routing key of each table, by table id: the field index from {@code primaryKey()} of its
+     * writers, or empty. Filled once per table, together with {@link #sinkReplicaModes}, in {@link
+     * #initResourceManager} after {@link #validateReplicaRouting} has checked that the writers of a
+     * table with several replicas agree. Both entries are removed in {@link #removeTableWriters}
+     * when the table is isolated after a failure. The declarations are not read again, so a writer
+     * cannot change how its rows are routed while the job runs.
+     */
     private final ConcurrentMap<String, Optional<Integer>> sinkPrimaryKeys =
             new ConcurrentHashMap<>();
+
+    /**
+     * The replica mode of each table, by table id, from {@link #replicaModeOf}. Same keys and
+     * lifetime as {@link #sinkPrimaryKeys}; {@link #resolveTargetTableId} also uses its keys as the
+     * set of tables that this writer still writes.
+     */
     private final ConcurrentMap<String, MultiTableSinkReplicaMode> sinkReplicaModes =
             new ConcurrentHashMap<>();
     /**
@@ -107,7 +121,12 @@ public class MultiTableSinkWriter
     private final List<ConcurrentMap<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>>
             sinkWritersWithIndex;
     private final List<MultiTableWriterRunnable> runnable = new ArrayList<>();
-    private final Random random = new Random();
+    /**
+     * Picks the queue of a row of a {@link MultiTableSinkReplicaMode#RANDOM} table. Package-private
+     * and not final only so that a test can replace it with a predictable sequence.
+     */
+    Random random = new Random();
+
     private final List<BlockingQueue<MultiTableWriterRunnable.QueueElement>> blockingQueues =
             new ArrayList<>();
     private final ExecutorService executorService;
@@ -434,6 +453,11 @@ public class MultiTableSinkWriter
         }
     }
 
+    /**
+     * Returns the replica mode a writer declares. A writer that does not implement {@link
+     * SupportMultiTableSinkWriter}, or returns {@code null}, counts as {@code UNSUPPORTED}, so a
+     * missing declaration never allows several replicas.
+     */
     private static MultiTableSinkReplicaMode replicaModeOf(SinkWriter<SeaTunnelRow, ?, ?> writer) {
         if (!(writer instanceof SupportMultiTableSinkWriter)) {
             return MultiTableSinkReplicaMode.UNSUPPORTED;
@@ -442,6 +466,11 @@ public class MultiTableSinkWriter
         return mode == null ? MultiTableSinkReplicaMode.UNSUPPORTED : mode;
     }
 
+    /**
+     * Returns the routing key a writer declares through {@code primaryKey()}, with {@code null}
+     * read as no key. Called only for writers that implement {@link SupportMultiTableSinkWriter}:
+     * those that declare {@code KEYED}, and every writer in {@link #initResourceManager}.
+     */
     private static Optional<Integer> primaryKeyOf(SinkWriter<SeaTunnelRow, ?, ?> writer) {
         Optional<Integer> key = ((SupportMultiTableSinkWriter<?>) writer).primaryKey();
         return key == null ? Optional.empty() : key;

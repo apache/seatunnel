@@ -8,8 +8,8 @@
 
 - **行为变更：`multi_table_sink_replica` 大于 1 时，writer 未声明副本模式的 Sink 会被拒绝**
   - **描述**：`multi_table_sink_replica` 大于 1 时，多表 Sink 会在一个子任务中为每张表运行多个 writer。除 Jdbc 外，所有连接器的 writer 都没有键，因此记录会被随机分配到这些 writer 上，同一条记录的两次变更可能乱序生效：旧值可能覆盖新值，已删除的行也可能重新出现。单表作业中没有 tableId 的记录，即使表有键，也会被随机分配。现在 writer 通过 `SupportMultiTableSinkWriter.replicaMode()` 声明副本模式：`KEYED` 按 `primaryKey()` 给出的键路由，`RANDOM` 允许随机路由，默认的 `UNSUPPORTED` 拒绝多个副本。Jdbc 声明 `KEYED`，而 `KEYED` 需要键，因此没有主键的 Jdbc 表不能使用多个副本。
-  - **影响**：对 Jdbc 以外的 Sink、开启 `is_exactly_once` 的 Jdbc，或没有主键的 Jdbc 表设置 `multi_table_sink_replica` 大于 1 的作业，现在会在创建或恢复 writer 时失败。错误信息会给出该选项、取值，以及每张表及其连接器和 writer 类。保持默认值 1 的作业不受影响。自定义连接器的 writer 如果只依赖 `primaryKey()`，还需要在 `replicaMode()` 中返回 `KEYED` 才能保留多个副本。
-  - **迁移指南**：为受影响的 Sink 设置 `multi_table_sink_replica = 1`。对于 Jdbc，如需保留多个副本，请为表设置主键，或配置 `primary_keys`。
+  - **影响**：对 Jdbc 以外的 Sink、开启 `is_exactly_once` 的 Jdbc，或没有主键的 Jdbc 表设置 `multi_table_sink_replica` 大于 1 的作业，现在会在创建或恢复 writer 时失败。错误信息会给出该选项、取值，以及每张表及其连接器和 writer 类。保持默认值 1 的作业不受影响。自定义连接器的 writer 如果只依赖 `primaryKey()`，还需要在 `replicaMode()` 中返回 `KEYED` 才能保留多个副本。如果 checkpoint 中有作业不会恢复的 writer 状态，从该 checkpoint 恢复现在也会失败；在减小 `multi_table_sink_replica` 或改变 Sink 并行度之后会出现这种情况。以前这部分状态会被静默丢弃，其中待提交的内容也一并丢失。
+  - **迁移指南**：为受影响的 Sink 设置 `multi_table_sink_replica = 1`。对于 Jdbc，如需保留多个副本，请为表设置主键，或配置 `primary_keys`。writer 状态不会在 writer 之间迁移，因此使用多个副本生成的 checkpoint 不能在 `multi_table_sink_replica = 1` 下恢复；对于受影响的 Sink，也不能用原来的取值恢复。不要恢复这样的 checkpoint：等批作业结束，或在流作业最后一次 checkpoint 完成后停止作业，然后使用新的取值提交作业，且不从 checkpoint 恢复。让 Source 从足够早的位置开始，确保不遗漏变更，例如使用 CDC Source 的 `timestamp` 或 `specific` 启动模式，并指定停止之前的位置。该位置之后的变更会被再次写入：按键 upsert 的 Sink 可以吸收这些重复，仅追加的 Sink 会写入两次。
 
 ### Lance Sink：BIGINT 列创建为 int64
 
