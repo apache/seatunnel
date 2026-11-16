@@ -1976,6 +1976,71 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    void referencedConfigFileMountDeclaresNoHttpPortWithoutExplicitKeys() {
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.engine.ref", "platform-engine-config");
+        options.put(
+                "kubernetes.configmap.engine.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        // A referenced mount is not readable on the submitter, so nothing is declared.
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        assertNull(parameters.httpContainerPort());
+    }
+
+    @Test
+    void referencedConfigFileMountRequiresBothHttpKeysToPublish() {
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.engine.ref", "platform-engine-config");
+        options.put(
+                "kubernetes.configmap.engine.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        options.put(KubernetesOptions.MASTER_ENABLE_HTTP.key(), "true");
+        // enable-http alone cannot state the port, so nothing is declared.
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        assertNull(parameters.httpContainerPort());
+    }
+
+    @Test
+    void referencedConfigFileMountPublishesExplicitHttpKeys() throws Exception {
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.engine.ref", "platform-engine-config");
+        options.put(
+                "kubernetes.configmap.engine.mount.seatunnel.yaml",
+                "/opt/seatunnel/config/seatunnel.yaml");
+        options.put(KubernetesOptions.MASTER_ENABLE_HTTP.key(), "true");
+        options.put(KubernetesOptions.MASTER_HTTP_PORT.key(), "18080");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        // The explicit keys drive both the declaration and the Pod.
+        assertEquals(18080, parameters.httpContainerPort());
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
+                        "app-http-ref", mainClass, parameters);
+        V1Service service =
+                accompanyingResources(application).stream()
+                        .filter(resource -> resource instanceof KubernetesService)
+                        .map(KubernetesService.class::cast)
+                        .findFirst()
+                        .orElseThrow()
+                        .getInternalResource();
+        assertTrue(
+                service.getSpec().getPorts().stream()
+                        .anyMatch(
+                                port ->
+                                        KubernetesConstants.HTTP_PORT_NAME.equals(port.getName())
+                                                && Integer.valueOf(18080).equals(port.getPort())));
+        HttpConfig engineHttp = httpConfig(false, 8080);
+        parameters.applyMasterHttpOverrides(engineHttp);
+        assertTrue(engineHttp.isEnabled());
+        assertEquals(18080, engineHttp.getPort());
+    }
+
+    @Test
     void rejectsMasterHttpPortOutsideValidRange() {
         Map<String, String> options = options();
         options.put(KubernetesOptions.MASTER_ENABLE_HTTP.key(), "false");

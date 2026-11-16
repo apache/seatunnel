@@ -169,7 +169,9 @@ public final class KubernetesOptions {
                             "Overrides enable-http in seatunnel.yaml for the master when set. "
                                     + "Unset keeps the yaml value. false turns the master's HTTP "
                                     + "server off. The Service publishes http only when HTTP is "
-                                    + "on.");
+                                    + "on. When seatunnel.yaml is mounted from a referenced "
+                                    + "ConfigMap, the Service publishes http only when this key "
+                                    + "and kubernetes.master.http-port are both set.");
     public static final Option<Integer> MASTER_HTTP_PORT =
             Options.key("kubernetes.master.http-port")
                     .intType()

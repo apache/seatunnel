@@ -743,6 +743,10 @@ public final class KubernetesApplicationConfig {
      * submitter resolves it, to declare the Service port and log the endpoint; the master loads
      * that yaml itself and applies the overrides through {@link
      * #applyMasterHttpOverrides(HttpConfig)}.
+     *
+     * <p>When a referenced ConfigMap is mounted at {@code kubernetes.seatunnel-config-file}, the
+     * Service port is declared only from explicit {@code kubernetes.master.*} keys; the mounted
+     * file cannot be read on the submitter.
      */
     private MasterHttpEndpoint masterHttp() {
         if (masterHttp == null) {
@@ -757,18 +761,45 @@ public final class KubernetesApplicationConfig {
         if (Boolean.FALSE.equals(configuredMasterEnableHttp)) {
             return new MasterHttpEndpoint(false, 0, null);
         }
-        HttpConfig yaml = resolveHttpConfig();
+        ConfigFileSource source = configFileSource();
+        if (source.referenced) {
+            if (Boolean.TRUE.equals(configuredMasterEnableHttp)
+                    && configuredMasterHttpPort != null) {
+                return checkedHttpEndpoint(
+                        true,
+                        configuredMasterHttpPort,
+                        null,
+                        KubernetesOptions.MASTER_HTTP_PORT.key());
+            }
+            log.warn(
+                    "A referenced ConfigMap is mounted at {}; its content is not readable on "
+                            + "the submitter, so no {} port is declared on the master Service. "
+                            + "Set {} and {} to publish the master HTTP endpoint",
+                    seatunnelConfigFile,
+                    KubernetesConstants.HTTP_PORT_NAME,
+                    KubernetesOptions.MASTER_ENABLE_HTTP.key(),
+                    KubernetesOptions.MASTER_HTTP_PORT.key());
+            return new MasterHttpEndpoint(false, 0, null);
+        }
+        HttpConfig yaml = source.parse();
         boolean enabled =
                 configuredMasterEnableHttp != null ? configuredMasterEnableHttp : yaml.isEnabled();
         int port = configuredMasterHttpPort != null ? configuredMasterHttpPort : yaml.getPort();
-        if (!enabled) {
-            return new MasterHttpEndpoint(false, port, yaml.getContextPath());
-        }
-        requireHttpPort(
+        return checkedHttpEndpoint(
+                enabled,
                 port,
+                yaml.getContextPath(),
                 configuredMasterHttpPort != null
                         ? KubernetesOptions.MASTER_HTTP_PORT.key()
                         : "http.port");
+    }
+
+    private MasterHttpEndpoint checkedHttpEndpoint(
+            boolean enabled, int port, String contextPath, String portKey) {
+        if (!enabled) {
+            return new MasterHttpEndpoint(false, port, contextPath);
+        }
+        requireHttpPort(port, portKey);
         if (port == specification.getMasterPort()) {
             throw new IllegalArgumentException(
                     "The master HTTP port "
@@ -776,7 +807,7 @@ public final class KubernetesApplicationConfig {
                             + " conflicts with "
                             + ApplicationOptions.MASTER_PORT.key());
         }
-        return new MasterHttpEndpoint(true, port, yaml.getContextPath());
+        return new MasterHttpEndpoint(true, port, contextPath);
     }
 
     private static void requireHttpPort(int port, String key) {
@@ -786,46 +817,35 @@ public final class KubernetesApplicationConfig {
     }
 
     /**
-     * Resolves Master HTTP from owned ConfigMap data mounted at {@code
-     * kubernetes.seatunnel-config-file}, that file when it exists locally, otherwise {@link
-     * ConfigProvider}. Empty owned-data placeholders are skipped. A referenced ConfigMap mounted at
-     * that path is not readable on the submitter; falling back for it is reported.
+     * How the file at {@code kubernetes.seatunnel-config-file} resolves on the submitter: owned
+     * ConfigMap data, an unreadable referenced ConfigMap, the local file, or {@link ConfigProvider}
+     * discovery.
      */
-    private HttpConfig resolveHttpConfig() {
-        boolean referencedMount = false;
+    private ConfigFileSource configFileSource() {
+        boolean referenced = false;
         for (KubernetesConfigMapEntry entry : configMaps) {
             for (Map.Entry<String, String> mount : entry.getMountPaths().entrySet()) {
                 if (!seatunnelConfigFile.equals(mount.getValue())) {
                     continue;
                 }
                 if (entry.isReference()) {
-                    referencedMount = true;
+                    referenced = true;
                     continue;
                 }
                 String data = entry.getData().get(mount.getKey());
                 if (data != null && !data.isEmpty()) {
-                    return ConfigProvider.locateAndGetSeaTunnelConfigFromString(data)
-                            .getEngineConfig()
-                            .getHttpConfig();
+                    return ConfigFileSource.mounted(data);
                 }
             }
         }
-        if (referencedMount) {
-            log.warn(
-                    "A referenced ConfigMap is mounted at {}; its content is not readable on "
-                            + "the submitter, so the master HTTP port follows local "
-                            + "configuration. Set {} and {} when the mounted file differs",
-                    seatunnelConfigFile,
-                    KubernetesOptions.MASTER_ENABLE_HTTP.key(),
-                    KubernetesOptions.MASTER_HTTP_PORT.key());
+        if (referenced) {
+            return ConfigFileSource.referenced();
         }
         Path configured = Paths.get(seatunnelConfigFile);
         if (Files.isRegularFile(configured)) {
             try {
                 String yaml = new String(Files.readAllBytes(configured), StandardCharsets.UTF_8);
-                return ConfigProvider.locateAndGetSeaTunnelConfigFromString(yaml)
-                        .getEngineConfig()
-                        .getHttpConfig();
+                return ConfigFileSource.mounted(yaml);
             } catch (IOException failure) {
                 throw new IllegalArgumentException(
                         "Failed to read "
@@ -835,7 +855,7 @@ public final class KubernetesApplicationConfig {
                         failure);
             }
         }
-        return ConfigProvider.locateAndGetSeaTunnelConfig().getEngineConfig().getHttpConfig();
+        return ConfigFileSource.none();
     }
 
     private void validateApplicationSecret() {
@@ -1301,6 +1321,38 @@ public final class KubernetesApplicationConfig {
             this.enabled = enabled;
             this.port = port;
             this.contextPath = contextPath;
+        }
+    }
+
+    /** The {@code kubernetes.seatunnel-config-file} source as seen by the submitter. */
+    private static final class ConfigFileSource {
+        private final String data;
+        private final boolean referenced;
+
+        private ConfigFileSource(String data, boolean referenced) {
+            this.data = data;
+            this.referenced = referenced;
+        }
+
+        private static ConfigFileSource mounted(String data) {
+            return new ConfigFileSource(data, false);
+        }
+
+        private static ConfigFileSource referenced() {
+            return new ConfigFileSource(null, true);
+        }
+
+        private static ConfigFileSource none() {
+            return new ConfigFileSource(null, false);
+        }
+
+        private HttpConfig parse() {
+            if (data != null) {
+                return ConfigProvider.locateAndGetSeaTunnelConfigFromString(data)
+                        .getEngineConfig()
+                        .getHttpConfig();
+            }
+            return ConfigProvider.locateAndGetSeaTunnelConfig().getEngineConfig().getHttpConfig();
         }
     }
 }

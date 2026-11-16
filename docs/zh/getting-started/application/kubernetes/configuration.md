@@ -276,7 +276,7 @@ Master 的 HTTP 来自 `seatunnel.yaml`。随发行包提供的文件是 `enable
 
 每个 `kubernetes.master.*` key 只覆盖对应的那一项。没写的 key 沿用 `seatunnel.yaml`。`kubernetes.master.enable-http` 覆盖 `enable-http`，`kubernetes.master.http-port` 覆盖 `port`。`false` 会关闭 HTTP 服务。
 
-Service 端口在提交时确定。部署文件里的 ConfigMap `data` 挂到 `kubernetes.seatunnel-config-file` 时，用这份内容。只写 ConfigMap `ref` 时，提交端读不到其中的文件并会打出警告，Service 端口来自提交端的 `seatunnel.yaml`，Master 用的是 Pod 里挂载的文件。哪一项要和 yaml 不同，就写对应的 key。
+Service 端口在提交时确定。部署文件里的 ConfigMap `data` 挂到 `kubernetes.seatunnel-config-file` 时，用这份内容。该路径挂的是 ConfigMap `ref` 时，提交端读不到文件内容：只有同时设置 `kubernetes.master.enable-http` 和 `kubernetes.master.http-port`，Service 才发布 `http` 端口。缺任何一个都不声明 `http` 端口，并在提交时打出警告。
 
 ## ConfigMap 与运行时文件
 

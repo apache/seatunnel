@@ -296,10 +296,10 @@ from `seatunnel.yaml`. `kubernetes.master.enable-http` overrides `enable-http`.
 `kubernetes.master.http-port` overrides `port`. `false` turns the server off.
 
 The Service port is chosen when you submit. ConfigMap `data` in the deployment file is used when
-that data is mounted at `kubernetes.seatunnel-config-file`. A ConfigMap `ref` is not read, so the
-Service port then comes from `seatunnel.yaml` on the submitting host while the master uses the file
-mounted in the Pod, and the submission logs a warning. Set the key for the setting that should
-differ.
+that data is mounted at `kubernetes.seatunnel-config-file`. A `ref` mounted at that path cannot be
+read on the submitter: the Service publishes `http` only when `kubernetes.master.enable-http` and
+`kubernetes.master.http-port` are both set. Otherwise no `http` port is declared and a warning is
+logged.
 
 ## ConfigMaps and runtime files
 

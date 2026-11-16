@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.resource.e2e.kubernetes;
 
-import org.apache.seatunnel.engine.common.config.ConfigProvider;
-import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 
@@ -136,19 +134,12 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                         application.getClusterId(),
                         service.getSpec().getSelector().get(APPLICATION_LABEL));
                 assertEquals("master", service.getSpec().getSelector().get(ROLE_LABEL));
-                // Submitter does not read referenced ConfigMaps for HTTP; ports follow local
-                // ConfigProvider discovery (documented limitation with a WARN at submit).
-                HttpConfig submitterHttp =
-                        ConfigProvider.locateAndGetSeaTunnelConfig()
-                                .getEngineConfig()
-                                .getHttpConfig();
-                boolean expectHttp = submitterHttp.isEnabled() && submitterHttp.getPort() > 0;
-                assertEquals(
-                        expectHttp,
+                // A referenced mount is not readable on the submitter, so no http
+                // port is declared without explicit keys.
+                assertFalse(
                         service.getSpec().getPorts().stream()
                                 .anyMatch(port -> "http".equals(port.getName())));
-                assertEquals(
-                        expectHttp,
+                assertFalse(
                         master.getSpec().getContainers().get(0).getPorts() != null
                                 && master.getSpec().getContainers().get(0).getPorts().stream()
                                         .anyMatch(port -> "http".equals(port.getName())));
@@ -349,6 +340,17 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                 for (V1Pod worker : workers(application)) {
                     assertTrue(envFromSecret(worker, REFERENCE_SECRET));
                 }
+                // A referenced mount is not readable on the submitter, so no http
+                // port is declared without explicit keys.
+                assertFalse(
+                        master.getSpec().getContainers().get(0).getPorts() != null
+                                && master.getSpec().getContainers().get(0).getPorts().stream()
+                                        .anyMatch(port -> "http".equals(port.getName())));
+                V1Service service =
+                        core.readNamespacedService(application.getClusterId(), namespace, null);
+                assertFalse(
+                        service.getSpec().getPorts().stream()
+                                .anyMatch(port -> "http".equals(port.getName())));
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
             } finally {
                 cancelAndAwait(application);
@@ -389,38 +391,42 @@ public class KubernetesApplicationConfigurationIT extends AbstractKubernetesAppl
                                                 "http".equals(port.getName())
                                                         && Integer.valueOf(18080)
                                                                 .equals(port.getPort())));
-                // Declaring a Service port does not start a listener; request /overview through
-                // the apiserver's Pod proxy so the test only passes while the master really
-                // serves HTTP on the declared port.
-                Awaitility.await()
-                        .atMost(120, TimeUnit.SECONDS)
-                        .pollInterval(2, TimeUnit.SECONDS)
-                        .untilAsserted(
-                                () -> {
-                                    Request request =
-                                            new Request.Builder()
-                                                    .url(
-                                                            apiClient.getBasePath()
-                                                                    + "/api/v1/namespaces/"
-                                                                    + namespace
-                                                                    + "/pods/"
-                                                                    + master.getMetadata().getName()
-                                                                    + ":18080/proxy/overview")
-                                                    .build();
-                                    try (Response response =
-                                            apiClient.getHttpClient().newCall(request).execute()) {
-                                        assertEquals(200, response.code());
-                                        assertNotNull(response.body());
-                                        assertTrue(
-                                                response.peekBody(Long.MAX_VALUE)
-                                                        .string()
-                                                        .contains("projectVersion"));
-                                    }
-                                });
+                assertMasterHttpServes(master.getMetadata().getName(), 18080);
                 awaitStatus(application, ApplicationStatus.SUCCEEDED);
             } finally {
                 cancelAndAwait(application);
             }
         }
+    }
+
+    /** Asserts the master serves {@code /overview} on {@code port} through the apiserver. */
+    private void assertMasterHttpServes(String podName, int port) {
+        Awaitility.await()
+                .atMost(120, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Request request =
+                                    new Request.Builder()
+                                            .url(
+                                                    apiClient.getBasePath()
+                                                            + "/api/v1/namespaces/"
+                                                            + namespace
+                                                            + "/pods/"
+                                                            + podName
+                                                            + ":"
+                                                            + port
+                                                            + "/proxy/overview")
+                                            .build();
+                            try (Response response =
+                                    apiClient.getHttpClient().newCall(request).execute()) {
+                                assertEquals(200, response.code());
+                                assertNotNull(response.body());
+                                assertTrue(
+                                        response.peekBody(Long.MAX_VALUE)
+                                                .string()
+                                                .contains("projectVersion"));
+                            }
+                        });
     }
 }
