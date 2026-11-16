@@ -22,7 +22,7 @@ import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Container;
 
@@ -68,9 +68,10 @@ public class PythonIT extends SeaTunnelContainer {
     }
 
     /**
-     * Verifies the SeaTunnel Zeta engine can read rows from the documented Python script contract.
+     * Verifies exact output on successive jobs in the same engine after the previous Python reader
+     * has closed.
      */
-    @Test
+    @RepeatedTest(2)
     public void testPythonSourceToAssert() throws IOException, InterruptedException {
         Container.ExecResult result = executeJob("/python_to_assert.conf");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());

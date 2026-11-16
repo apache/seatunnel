@@ -46,10 +46,12 @@ Embedding 转换插件利用 embedding 模型将文本和多模态数据转换�
 ### api_key
 
 用于验证 embedding 服务请求的API密钥。通常由模型提供商在你注册他们的服务时提供，对于使用`AMAZON` 模型则对应IAM access key。
+当 `model_provider` 为 `AMAZON`、`OPENAI`、`DOUBAO` 或 `QIANFAN` 时该选项必填，其他提供商无需配置。
 
 ### secret_key
 
 用于额外验证的密钥。一些提供商可能要求此密钥以确保API请求的安全性。
+当 `model_provider` 为 `AMAZON` 或 `QIANFAN` 时该选项必填。
 
 ### single_vectorized_input_number
 

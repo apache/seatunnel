@@ -50,7 +50,7 @@ flowchart LR
 |---|---|---|
 | 按表字段重命名 / 映射 | ✅ 支持 | 使用带 `plugin_input` 和 `table_match_regex` 的 `FieldMapper` |
 | 按表列过滤 | ✅ 支持 | 使用带 `plugin_input` 和 `table_match_regex` 的 `Filter` |
-| 按表类型转换 | ✅ 支持 | 使用 `FieldMapper` 的 `define_sink_type` 选项 |
+| 按表类型转换 | ✅ 支持 | 使用 `DefineSinkType` Transform 的 `columns` 选项（可用 `table_transform` 按表配置） |
 | 单表 SQL Transform | ✅ 支持 | 使用带 `plugin_input` 的 `SQL` Transform；必要时再用 `table_match_regex` 限定表范围 |
 | `TableMerge`——将多表合并为一张 | ✅ 支持 | 各表需具有兼容的 Schema |
 | `TableRename`——重命名流中的表 | ✅ 支持 | 适合按表名路由到 Sink |
@@ -78,7 +78,7 @@ Schema。通常用于将多表路由至同一个 Sink。
   "plugin_name": "TableMerge",
   "plugin_input": ["orders_2023", "orders_2024"],
   "plugin_output": "all_orders",
-  "merge_by_field": true
+  "table": "all_orders"
 }
 ```
 
@@ -176,12 +176,16 @@ PostgreSQL-CDC 流进行 JOIN）。
     {
       "plugin_name": "Kafka",
       "plugin_input": ["cdc_stream"],
-      "topic": "products",
-      "table_match_regex": "mydb\\.products"
+      "topic": "products"
     }
   ]
 }
 ```
+
+带 `table_match_regex` 的 Transform 只会改写匹配到的表；其输入流中的其他表会原样透传，而 Sink 会接收其
+`plugin_input` 所订阅流中的全部表——Sink 无法按表名过滤。因此在上面的示例中，每个 Kafka Sink 仍然会
+收到其输入流中的全部三张表。如果要让某个 Sink 只接收一张表，请在它前面加一个 `TableFilter` Transform
+（例如 `database_pattern = "mydb"`、`table_pattern = "products"`）。
 
 ---
 
@@ -195,6 +199,7 @@ PostgreSQL-CDC 流进行 JOIN）。
     "plugin_name": "TableMerge",
     "plugin_input": ["cdc_stream"],
     "plugin_output": "all_events",
+    "table": "all_events",
     "table_match_regex": "mydb\\.(orders|payments|refunds)"
   },
   {
@@ -269,8 +274,10 @@ Transform。若各表 Schema 不同，则必须拆成多个 Transform 块，通�
 
 **Q: 未被任何 Transform 匹配的表会怎样？**
 
-未匹配的表会继续在流水线中流动，可被使用正确 `plugin_input` 和 `table_match_regex`
-的 Sink 捕获。
+未匹配的表会保持原样继续在流水线中流动。Sink 会接收其 `plugin_input` 所订阅流中的所有表——
+Sink 没有 `table_match_regex` 选项。如果需要在 Sink 前选择或路由特定表，请使用带
+`table_match_regex`/`table_transform` 的 Transform（例如 `TableFilter`、`TableRename` 或
+`TableMerge`）。
 
 **Q: 能否在不停机的情况下向现有 CDC 流水线新增表？**
 

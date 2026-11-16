@@ -27,7 +27,7 @@ Filter 转换用于决定表中的哪些字段会传递给下一步。使用 `in
 | exclude_fields    | Array&lt;String&gt; | 否    | -     | 需要删除的字段，其余字段将被保留。与 `include_fields` 互斥。                 |
 | table_match_regex | String        | 否    | `.*`  | 转换级别规则所适用的表路径的正则表达式。                                     |
 | table_transform   | Array&lt;Map&gt;    | 否    | -     | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。             |
-| rule_match_mode   | String        | 否    | -     | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
+| rule_match_mode   | String        | 否    | `FIRST_MATCH` | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
 | common options    | -             | 否    | -     | 转换插件的通用参数，参见 [Transform Plugin](common-options/common-options.md)。 |
 
 :::caution

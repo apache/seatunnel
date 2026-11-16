@@ -243,6 +243,96 @@ public class SeaTunnelRowTest {
     }
 
     @Test
+    void testNullableMapArraySize() {
+        Map<String, Integer> map = new LinkedHashMap<>();
+        map.put("a", 1);
+        map.put("b", null);
+        map.put(null, 2);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"items"},
+                        new SeaTunnelDataType<?>[] {
+                            new ArrayType<>(
+                                    Map[].class,
+                                    new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE))
+                        });
+
+        assertSizeInBothOrders(
+                new Object[] {new Map[] {null, map, null, Collections.singletonMap("c", 3), null}},
+                rowType,
+                15);
+        assertSizeInBothOrders(new Object[] {new Map[] {null, null}}, rowType, 0);
+        assertSizeInBothOrders(new Object[] {new Map[0]}, rowType, 0);
+        assertSizeInBothOrders(new Object[] {null}, rowType, 0);
+    }
+
+    @Test
+    void testNullableRowArraySize() {
+        SeaTunnelRowType elementType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "items"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.INT_TYPE, new ArrayType<>(SeaTunnelRow[].class, elementType)
+                        });
+
+        assertSizeInBothOrders(
+                new Object[] {
+                    7,
+                    new SeaTunnelRow[] {
+                        null,
+                        new SeaTunnelRow(new Object[] {"abcd"}),
+                        new SeaTunnelRow(new Object[] {null}),
+                        null
+                    }
+                },
+                rowType,
+                8);
+        assertSizeInBothOrders(new Object[] {7, new SeaTunnelRow[] {null}}, rowType, 4);
+        assertSizeInBothOrders(new Object[] {7, new SeaTunnelRow[0]}, rowType, 4);
+        assertSizeInBothOrders(new Object[] {7, null}, rowType, 4);
+    }
+
+    @Test
+    void testNestedRowArraySize() {
+        SeaTunnelRowType elementType =
+                new SeaTunnelRowType(
+                        new String[] {"items"},
+                        new SeaTunnelDataType<?>[] {
+                            new ArrayType<>(
+                                    Map[].class,
+                                    new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE))
+                        });
+        ArrayType<?, ?> rowArrayType = new ArrayType<>(SeaTunnelRow[].class, elementType);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"groups"},
+                        new SeaTunnelDataType<?>[] {
+                            new ArrayType<>(SeaTunnelRow[][].class, rowArrayType)
+                        });
+        SeaTunnelRow element =
+                new SeaTunnelRow(new Object[] {new Map[] {null, Collections.singletonMap("a", 1)}});
+
+        assertSizeInBothOrders(
+                new Object[] {new SeaTunnelRow[][] {null, new SeaTunnelRow[] {null, element}}},
+                rowType,
+                5);
+    }
+
+    private static void assertSizeInBothOrders(
+            Object[] fields, SeaTunnelRowType rowType, int expectedSize) {
+        SeaTunnelRow typedFirst = new SeaTunnelRow(fields);
+        Assertions.assertEquals(expectedSize, typedFirst.getBytesSize(rowType));
+        Assertions.assertEquals(expectedSize, typedFirst.getBytesSize());
+        SeaTunnelRow untypedFirst = new SeaTunnelRow(fields);
+        Assertions.assertEquals(expectedSize, untypedFirst.getBytesSize());
+        Assertions.assertEquals(expectedSize, untypedFirst.getBytesSize(rowType));
+        Assertions.assertSame(fields, typedFirst.getFields());
+    }
+
+    @Test
     void testWithMapInterface() {
         Map<String, String> map = Collections.singletonMap("key", "value");
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {map});

@@ -28,6 +28,7 @@ or more primary key fields.
 | Name                     | Type   | Required | Default                      | Description                                                                                          |
 |--------------------------|--------|----------|------------------------------|------------------------------------------------------------------------------------------------------|
 | hosts                    | array  | Yes      | -                            | Typesense node addresses in `host:port` format. Multiple hosts are supported.                        |
+| protocol                 | string | No       | http                         | Protocol used to connect to Typesense. Use `https` for Typesense Cloud or other TLS-enabled nodes.   |
 | collection               | string | Yes      | -                            | Target collection name.                                                                              |
 | schema_save_mode         | string | Yes      | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target collection schema before writing.                                           |
 | data_save_mode           | string | Yes      | APPEND_DATA                  | How to handle existing documents before writing.                                                     |

@@ -22,7 +22,7 @@ The `Http-Splunk` connector allows batch reading data from Splunk REST API endpo
 | method | String | No | `POST` | HTTP request method |
 | keep_params_as_form | Boolean | No | `true` | Keep parameters as form urlencoded |
 | max_response_size_bytes | Long | No | `20971520` | Maximum allowed HTTP response size in bytes before failing fast, to avoid unbounded memory use on large exports. |
-| params | Map | Yes | - | Request parameters including `search` and `output_mode` |
+| params | Map | No | - | Request parameters such as `search` and `output_mode`. The option is not validated as required, but a `search` parameter is needed for a meaningful export; `output_mode` defaults to `json` when not set. |
 
 ## Example Configuration
 

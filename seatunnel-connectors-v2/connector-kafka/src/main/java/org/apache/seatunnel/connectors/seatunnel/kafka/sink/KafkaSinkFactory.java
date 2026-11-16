@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.factory.SupportSinkDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions;
+import org.apache.seatunnel.format.avro.AvroFormatOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -45,7 +46,8 @@ public class KafkaSinkFactory implements TableSinkFactory, SupportSinkDryRunVali
                         KafkaSinkOptions.TRANSACTION_PREFIX,
                         KafkaSinkOptions.SEMANTICS,
                         KafkaSinkOptions.PARTITION,
-                        KafkaSinkOptions.PARTITION_KEY_FIELDS)
+                        KafkaSinkOptions.PARTITION_KEY_FIELDS,
+                        AvroFormatOptions.AVRO_ROW_NULLABLE)
                 .build();
     }
 

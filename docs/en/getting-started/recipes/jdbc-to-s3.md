@@ -23,19 +23,19 @@ connector-file-s3
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(jdbc|file-s3)'
+ls connectors | grep -E 'connector-(jdbc|file-s3)'
 ```
 
 3. Put the source database JDBC driver into `${SEATUNNEL_HOME}/lib` for SeaTunnel Zeta, then confirm the jar is visible:
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'mysql-connector'
 ```
 
 4. Put `hadoop-aws` and the AWS SDK bundle required by the S3 connector into `${SEATUNNEL_HOME}/lib`, then confirm both jars are present:
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'hadoop-aws|aws-java-sdk-bundle'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'hadoop-aws|aws-java-sdk-bundle'
 ```
 
 5. Prepare the source table in the relational database. This example uses MySQL and exports two rows from `analytics.orders`:

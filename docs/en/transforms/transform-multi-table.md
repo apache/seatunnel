@@ -19,7 +19,7 @@ Multi-table Transform has no limitations on Transform capabilities; any Transfor
 | table_match_regex          | String | No       | .*      | A regular expression to match the tables that require transformation. By default, it matches all tables. Note that this table name refers to the actual upstream table name, not `plugin_output`.                                                               |
 | table_transform            | List   | No       | -       | You can use a list in `table_transform` to specify rules for individual tables. If a transformation rule is configured for a specific table in `table_transform`, the outer rules will not apply to that table. The rules in `table_transform` take precedence. |
 | table_transform.table_path | String | Yes      | -       | When configuring a transformation rule for a table in `table_transform`, you need to specify the table path using the `table_path` field. The table path should include `databaseName[.schemaName].tableName` and is matched exactly. It must not be blank.   |
-| rule_match_mode            | String | No       | -       | Controls how multiple `table_transform` entries with the same exact `table_path` are evaluated. Supported values are `FIRST_MATCH` and `ALL_MATCH`.                                                                                                         |
+| rule_match_mode            | String | No       | `FIRST_MATCH` | Controls how multiple `table_transform` entries with the same exact `table_path` are evaluated. Supported values are `FIRST_MATCH` and `ALL_MATCH`.                                                                                                         |
 
 ## Matching Logic
 

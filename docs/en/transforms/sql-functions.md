@@ -443,6 +443,22 @@ ACOS(D)
 
 The MAX function returns the maximum value of the expression.
 
+For the `Sql` transform with `engine = ZETA` (the default) or `INTERNAL`, integral
+arrays (including BIGINT), DECIMAL arrays and mixtures of those values are
+compared without conversion to floating point. This applies on Zeta, Flink and
+Spark execution engines; the SQL engine option is separate from the execution
+engine. The result retains the selected
+element's type and, for DECIMAL, its scale. Null elements are ignored; a null,
+empty or all-null array returns null. Equal values retain the first element.
+FLOAT and DOUBLE arrays retain their existing ordering: NaN is greater than all
+other values, and positive zero is greater than negative zero.
+Arrays containing only Byte, Short, Integer and Long values use exact integral
+comparison. If BigDecimal is also present, those integral values are compared as
+exact decimals. If any Float, Double or other Number subtype (including
+BigInteger) is present, the whole array retains the existing double-based
+comparison and can lose precision for large or close values. This does not change
+array construction, declared element types or input coercion.
+
 Example:
 
 ARRAY_MAX(I)
@@ -452,6 +468,10 @@ ARRAY_MAX(I)
 ```ARRAY_MIN(ARRAY) -> type(array element)```
 
 The MIN function returns the minimum value of the expression.
+
+The `Sql` transform with `engine = ZETA` or `INTERNAL` uses the same precision,
+null handling and ordering rules as
+`ARRAY_MAX`, selecting the minimum element instead.
 
 Example:
 
@@ -1092,6 +1112,8 @@ Convert the number of seconds from the UNIX epoch (1970-01-01 00:00:00 UTC) to a
 
 The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see `java.time.format.DateTimeFormatter`.
 
+Text pattern letters (such as `MMM`, `EEE`) are interpreted in English, independent of the worker JVM locale.
+
 `timeZone` is optional, default value is system's time zone. `timezone` value can be a `UTC+ timezone offset`, for example, `UTC+8` represents the Asia/Shanghai time zone, see  https://en.wikipedia.org/wiki/List_of_tz_database_time_zones .
 
 
@@ -1106,6 +1128,29 @@ or
 // use given zone
 
 CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
+
+### UNIX_TIMESTAMP
+
+```UNIX_TIMESTAMP() | UNIX_TIMESTAMP(string[, pattern]) | UNIX_TIMESTAMP(dateTime) -> BIGINT```
+
+Convert a datetime to the number of seconds since the UNIX epoch (1970-01-01 00:00:00 UTC). The inverse of `FROM_UNIXTIME`.
+
+- No argument: current epoch seconds.
+- String argument: parsed with the given `pattern` (default `yyyy-MM-dd HH:mm:ss`). For pattern characters see `java.time.format.DateTimeFormatter`.
+- `dateTime` argument: a TIMESTAMP / TIMESTAMP WITH TIME ZONE / DATE column.
+
+`dateTime` and string inputs are resolved against the system's time zone; a TIMESTAMP WITH TIME ZONE value uses its own offset. A string whose pattern carries a zone offset (for example `yyyy-MM-dd HH:mm:ssXXX`) uses that offset rather than the system time zone. Unparseable string input returns NULL rather than raising an error. An explicit NULL pattern or an invalid pattern string returns NULL for all input types. The `pattern` argument is only consulted for string input; it is ignored for typed datetime arguments. A pattern without a full date (for example `HH:mm:ss` or `yyyy-MM`) causes every row to return NULL, because the parser requires at least a date component. Numeric input is not supported and returns NULL; other non-temporal types (for example TIME, BOOLEAN, BYTES) raise an error. An out-of-range day-of-month (for example `2023-02-30`) is adjusted to the last valid day of that month, consistent with the other date-time functions. Unlike `FROM_UNIXTIME`, `UNIX_TIMESTAMP` does not accept a time zone argument. To convert a datetime in a specific time zone, use `AT TIME ZONE` to obtain a TIMESTAMP_TZ value first. If a user-defined function (UDF) with the same name exists, it is shadowed by this built-in. Text pattern letters (such as `MMM`, `EEE`) are interpreted in English, independent of the worker JVM locale.
+
+Example:
+
+select UNIX_TIMESTAMP('2023-01-01 00:00:00') as ts
+
+select UNIX_TIMESTAMP('2023/01/01 00:00:00', 'yyyy/MM/dd HH:mm:ss') as ts
+
+select UNIX_TIMESTAMP(dt) as ts
+
+-- convert a TIMESTAMP in a non-default time zone
+select UNIX_TIMESTAMP(dt AT TIME ZONE 'UTC+8') as ts
 
 ### AT TIME ZONE
 
@@ -1235,6 +1280,13 @@ fractional value reaches an integral target only through `COALESCE` or `IFNULL`,
 type is inferred rather than written, and there it is truncated towards zero: when `int_col` is
 `NULL`, `COALESCE(int_col, double_col)` on `5.7` gives `5`.
 
+`BIGINT` | `LONG` is range-checked the same way, but only an overflowing string source reaches it as
+a cast, such as `CAST('9223372036854775808' AS BIGINT)`, where `TRY_CAST` returns `NULL`. A `DECIMAL`
+or `DOUBLE` source is refused while the statement is prepared, so it reaches `BIGINT` only through
+`COALESCE` or `IFNULL`: when `bigint_col` is `NULL`, `COALESCE(bigint_col, decimal_col)` on
+`18446744073709551616` now fails instead of returning `0`. `TRY_CAST` cannot turn that into `NULL`,
+because no cast is involved.
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```
@@ -1253,6 +1305,8 @@ TRY_CAST(NAME AS INT)
 
 Returns the first value that is not null. If subsequent arguments have different data types from the first argument, they will be automatically converted to the type of the first argument.
 
+Because the target type comes from the first argument rather than the widest, a later argument is narrowed to it, so an out-of-range value now fails instead of wrapping. To keep the widest type, write the cast yourself: `COALESCE(CAST(int_col AS BIGINT), bigint_col)`. A `DECIMAL` or `DOUBLE` argument cannot be cast to `BIGINT` at all, so for those put the wider argument first instead, as in `COALESCE(decimal_col, bigint_col)`. Reordering is not a drop-in change though: it also changes which argument wins when both are non-null.
+
 Example:
 
 COALESCE(A, B, C)
@@ -1267,9 +1321,11 @@ SELECT COALESCE(A, B) as result FROM my_table
 
 ### IFNULL
 
-```IFNULL(aValue, bValue) -> type(common of args)```
+```IFNULL(aValue, bValue) -> type(of first non-null arg)```
 
 Returns the first value that is not null. If subsequent arguments have different data types from the first argument, they will be automatically converted to the type of the first argument.
+
+Because the target type comes from the first argument rather than the widest, a later argument is narrowed to it, so an out-of-range value now fails instead of wrapping. To keep the widest type, write the cast yourself: `IFNULL(CAST(int_col AS BIGINT), bigint_col)`. A `DECIMAL` or `DOUBLE` argument cannot be cast to `BIGINT` at all, so for those put the wider argument first instead, as in `IFNULL(decimal_col, bigint_col)`. Reordering is not a drop-in change though: it also changes which argument wins when both are non-null.
 
 Example:
 
@@ -1411,6 +1467,15 @@ SELECT * FROM dual
 ```
 
 ## Vector Functions
+
+`VECTOR_NORM`, `INNER_PRODUCT`, `COSINE_DISTANCE`, `L1_DISTANCE`, `L2_DISTANCE` and
+`VECTOR_NORMALIZE` perform intermediate products and differences in double precision
+for float vector elements. This avoids float overflow or underflow for finite large
+or small elements. `VECTOR_NORMALIZE` still returns float elements; rounding and
+underflow in the output representation remain possible. Null inputs and actual zero
+vectors retain their handling. No non-finite input validation or sanitization is
+added; corrected finite intermediates can also affect results when mixed with
+non-finite elements.
 
 Vector functions do not consume or modify their input vector buffers. The same vector field can be used in multiple expressions or as both arguments to a distance function, and remains available to downstream transforms and sinks.
 

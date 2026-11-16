@@ -229,5 +229,6 @@ if [[ $DAEMON == true && $HELP == false ]]; then
   touch $OUT
   nohup java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args} > "$OUT" 200<&- 2>&1 < /dev/null &
   else
-  java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
+  # exec so the JVM is PID 1 in containers and receives SIGTERM directly
+  exec java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
 fi

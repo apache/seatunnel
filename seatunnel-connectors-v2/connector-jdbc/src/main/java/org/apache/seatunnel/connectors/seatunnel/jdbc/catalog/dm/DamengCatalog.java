@@ -54,6 +54,7 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     private static final String SELECT_COLUMNS_SQL =
             "SELECT COLUMNS.COLUMN_NAME, COLUMNS.DATA_TYPE, COLUMNS.DATA_LENGTH, COLUMNS.DATA_PRECISION, COLUMNS.DATA_SCALE "
                     + ", COLUMNS.NULLABLE, COLUMNS.DATA_DEFAULT, COMMENTS.COMMENTS ,"
+                    + "COLUMNS.CHAR_LENGTH, SYSCOL.LENGTH$ AS DECLARED_LENGTH, "
                     + "CASE \n"
                     + "        WHEN COLUMNS.DATA_TYPE IN ('CHAR', 'CHARACTER', 'VARCHAR', 'VARCHAR2', 'VARBINARY', 'BINARY') THEN COLUMNS.DATA_TYPE || '(' || COLUMNS.DATA_LENGTH || ')'\n"
                     + "        WHEN COLUMNS.DATA_TYPE IN ('NUMERIC', 'DECIMAL', 'NUMBER') AND COLUMNS.DATA_PRECISION IS NOT NULL AND COLUMNS.DATA_SCALE IS NOT NULL AND COLUMNS.DATA_PRECISION != 0 AND COLUMNS.DATA_SCALE != 0 THEN COLUMNS.DATA_TYPE || '(' || COLUMNS.DATA_PRECISION || ', ' || COLUMNS.DATA_SCALE || ')'\n"
@@ -64,6 +65,15 @@ public class DamengCatalog extends AbstractJdbcCatalog {
                     + "ON COLUMNS.OWNER = COMMENTS.SCHEMA_NAME "
                     + "AND COLUMNS.TABLE_NAME = COMMENTS.TABLE_NAME "
                     + "AND COLUMNS.COLUMN_NAME = COMMENTS.COLUMN_NAME "
+                    // SYSCOLUMNS.LENGTH$ is the declared length. ALL_TAB_COLUMNS derives
+                    // DATA_LENGTH from it as a byte count and leaves CHAR_LENGTH at 0 for
+                    // NVARCHAR2, see nationalCharLength.
+                    + "LEFT JOIN SYS.SYSOBJECTS SCH "
+                    + "ON SCH.NAME = COLUMNS.OWNER AND SCH.TYPE$ = 'SCH' "
+                    + "LEFT JOIN SYS.SYSOBJECTS TAB "
+                    + "ON TAB.SCHID = SCH.ID AND TAB.NAME = COLUMNS.TABLE_NAME AND TAB.TYPE$ = 'SCHOBJ' "
+                    + "LEFT JOIN SYS.SYSCOLUMNS SYSCOL "
+                    + "ON SYSCOL.ID = TAB.ID AND SYSCOL.NAME = COLUMNS.COLUMN_NAME "
                     + "WHERE COLUMNS.OWNER = '%s' "
                     + "AND COLUMNS.TABLE_NAME = '%s' "
                     + "ORDER BY COLUMNS.COLUMN_ID ASC";
@@ -163,7 +173,12 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
         String columnName = resultSet.getString("COLUMN_NAME");
         String typeName = resultSet.getString("DATA_TYPE");
-        long columnLength = resultSet.getLong("DATA_LENGTH");
+        long columnLength =
+                nationalCharLength(
+                        typeName,
+                        resultSet.getLong("DATA_LENGTH"),
+                        resultSet.getLong("CHAR_LENGTH"),
+                        resultSet.getLong("DECLARED_LENGTH"));
         long columnPrecision = resultSet.getLong("DATA_PRECISION");
         int columnScale = resultSet.getInt("DATA_SCALE");
         String columnComment = resultSet.getString("COMMENTS");
@@ -183,6 +198,36 @@ public class DamengCatalog extends AbstractJdbcCatalog {
                         .comment(columnComment)
                         .build();
         return DmdbTypeConverter.INSTANCE.convert(typeDefine);
+    }
+
+    /**
+     * Length of a column in the unit the type converter expects: characters for {@code NVARCHAR}
+     * and {@code NVARCHAR2}, {@code DATA_LENGTH} for every other type.
+     *
+     * <p>{@code NVARCHAR(n)} and {@code NVARCHAR2(n)} always hold n characters. {@code
+     * ALL_TAB_COLUMNS.DATA_LENGTH} reports them in bytes: n * 2 on a GB18030 database and n * 4 on
+     * a UTF-8 database, whatever {@code LENGTH_IN_CHAR} is. {@code CHAR_LENGTH} is n for {@code
+     * NVARCHAR} but 0 for {@code NVARCHAR2}, which the view does not list. {@code
+     * SYS.SYSCOLUMNS.LENGTH$} is n for both, so it is used first.
+     *
+     * @param dataLength {@code ALL_TAB_COLUMNS.DATA_LENGTH}
+     * @param charLength {@code ALL_TAB_COLUMNS.CHAR_LENGTH}, 0 if unknown
+     * @param declaredLength {@code SYS.SYSCOLUMNS.LENGTH$}, 0 if unknown
+     */
+    static long nationalCharLength(
+            String typeName, long dataLength, long charLength, long declaredLength) {
+        if (!DmdbTypeConverter.DM_NVARCHAR.equalsIgnoreCase(typeName)
+                && !DmdbTypeConverter.DM_NVARCHAR2.equalsIgnoreCase(typeName)) {
+            return dataLength;
+        }
+        if (declaredLength > 0) {
+            return declaredLength;
+        }
+        if (charLength > 0) {
+            return charLength;
+        }
+        // Unknown character length: keep the byte count, which oversizes but never truncates.
+        return dataLength;
     }
 
     @Override

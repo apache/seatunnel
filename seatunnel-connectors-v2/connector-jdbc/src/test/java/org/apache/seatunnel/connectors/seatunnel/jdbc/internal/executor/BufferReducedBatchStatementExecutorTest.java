@@ -27,6 +27,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
@@ -71,6 +72,45 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
                 },
                 Function.identity(),
                 Function.identity());
+    }
+
+    @Test
+    void testReducedRowKeepsTheNetEffectOfTheBatch() throws SQLException {
+        List<SeaTunnelRow> upserts = new ArrayList<>();
+        List<SeaTunnelRow> deletes = new ArrayList<>();
+        JdbcBatchStatementExecutor<SeaTunnelRow> executor = newKeyedExecutor(upserts, deletes);
+        // Created then updated in one batch: still has to be inserted.
+        executor.addToBatch(row(RowKind.INSERT, 1, 1, "a"));
+        executor.addToBatch(row(RowKind.UPDATE_BEFORE, 1, 1, "a"));
+        executor.addToBatch(row(RowKind.UPDATE_AFTER, 1, 1, "b"));
+        // Existing row updated twice.
+        executor.addToBatch(row(RowKind.UPDATE_AFTER, 2, 2, "x"));
+        executor.addToBatch(row(RowKind.UPDATE_AFTER, 2, 2, "y"));
+        // Existing row deleted and re-inserted: the row is still there, so update it.
+        executor.addToBatch(row(RowKind.DELETE, 3, 3, "p"));
+        executor.addToBatch(row(RowKind.INSERT, 3, 3, "q"));
+        // Existing row updated then deleted.
+        executor.addToBatch(row(RowKind.UPDATE_AFTER, 4, 4, "m"));
+        executor.addToBatch(row(RowKind.DELETE, 4, 4, "m"));
+        executor.executeBatch();
+
+        Assertions.assertEquals(
+                Arrays.asList("+I[1, 1, b]", "+U[2, 2, y]", "+U[3, 3, q]"), describe(upserts));
+        Assertions.assertEquals(Collections.singletonList("+I[4]"), describe(deletes));
+
+        // A new batch judges existence afresh.
+        upserts.clear();
+        executor.addToBatch(row(RowKind.UPDATE_AFTER, 1, 1, "c"));
+        executor.executeBatch();
+        Assertions.assertEquals(Collections.singletonList("+U[1, 1, c]"), describe(upserts));
+    }
+
+    private static List<String> describe(List<SeaTunnelRow> rows) {
+        List<String> described = new ArrayList<>();
+        for (SeaTunnelRow row : rows) {
+            described.add(row.getRowKind().shortString() + Arrays.toString(row.getFields()));
+        }
+        return described;
     }
 
     @Test
@@ -122,6 +162,32 @@ public class BufferReducedBatchStatementExecutorTest extends BufferExecutorTest 
         Assertions.assertEquals(1, deletes.size());
         // The delete executor receives the extracted key, not the whole row
         Assertions.assertEquals(1, deletes.get(0).getArity());
+    }
+
+    @Test
+    void testCompositeKeyWithNullComponentIsNotReduced() throws SQLException {
+        List<SeaTunnelRow> upserts = new ArrayList<>();
+        // Composite key (code, name): only rows whose whole key is non-null are reduced
+        JdbcBatchStatementExecutor<SeaTunnelRow> executor =
+                new BufferReducedBatchStatementExecutor(
+                        new RecordingExecutor(upserts),
+                        new RecordingExecutor(new ArrayList<>()),
+                        row -> new SeaTunnelRow(new Object[] {row.getField(1), row.getField(2)}),
+                        Function.identity());
+
+        executor.addToBatch(row(RowKind.INSERT, 1, 7, null));
+        executor.addToBatch(row(RowKind.INSERT, 2, 7, null));
+        executor.addToBatch(row(RowKind.INSERT, 3, 7, "a"));
+        executor.addToBatch(row(RowKind.UPDATE_AFTER, 4, 7, "a"));
+        executor.executeBatch();
+
+        Assertions.assertEquals(3, upserts.size());
+        Assertions.assertEquals(
+                Arrays.asList(1, 2, 4),
+                Arrays.asList(
+                        upserts.get(0).getField(0),
+                        upserts.get(1).getField(0),
+                        upserts.get(2).getField(0)));
     }
 
     /** Executor keyed by the second field (a nullable unique key column). */
