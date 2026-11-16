@@ -18,12 +18,18 @@
 package org.apache.seatunnel.engine.common.config.server;
 
 import lombok.Data;
+import lombok.ToString;
 
 import java.io.Serializable;
 
-import static com.hazelcast.internal.util.Preconditions.checkPositive;
-
 @Data
+@ToString(
+        exclude = {
+            "keyStorePassword",
+            "keyManagerPassword",
+            "trustStorePassword",
+            "basicAuthPassword"
+        })
 public class HttpConfig implements Serializable {
 
     private boolean enabled =
@@ -102,7 +108,10 @@ public class HttpConfig implements Serializable {
     }
 
     public void setPort(int port) {
-        checkPositive(port, ServerConfigOptions.MasterServerConfigOptions.HTTP + " must be > 0");
+        if (port <= 0) {
+            throw new IllegalArgumentException(
+                    "seatunnel.engine.http.port must be > 0, but was " + port);
+        }
         this.port = port;
     }
 }

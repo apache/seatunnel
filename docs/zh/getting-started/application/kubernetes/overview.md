@@ -35,14 +35,15 @@ Master 或任意 Worker 丢失都会使当前 Job 失败。系统不会自动补
 | Secret 与 ConfigMap | 可引用已有对象（SeaTunnel 永不创建或删除），也可由 SeaTunnel 创建并持有；每个挂载 key 都声明完整路径并使用 `subPath` |
 | 环境变量 | 逐变量的 `kubernetes.env.*` 与整对象的 `envFrom`，取值可来自字面量、Secret 或 ConfigMap |
 | 运行时文件 | 引擎、Hazelcast、JVM 参数、Log4j2 文件均可指定，也可禁用 |
+| Master HTTP | 跟随 `seatunnel.yaml`。每个 `kubernetes.master.*` key 只覆盖对应的一项。发行包为 `enable-http: true`、`port: 8080`。Worker 不提供 HTTP |
 | 调度 | Namespace、ServiceAccount、镜像拉取 Secret、labels、annotations、node selector、tolerations |
 | 存储与恢复 | 挂载 checkpoint PVC，并通过 `application.restore-job-id` 恢复之前的作业 |
 | 生命周期 | Worker 丢失或 Master 退出都会使 application 失败；`cancel` 删除全部自有资源、保留引用资源；完成的 Job 保留 `kubernetes.finished-job-retention-seconds` |
 
 :::note
 本版本不支持：Master 高可用切换、Worker 自动补建或弹性伸缩、任意 Pod template、
-affinity/PriorityClass、Kerberos、REST/HTTPS。失败的 application 可用 `application.restore-job-id`
-从最近的持久化 checkpoint 恢复。
+affinity/PriorityClass、Kerberos、Ingress，以及单独的 HTTP Service。失败的 application 可用
+`application.restore-job-id` 从最近的持久化 checkpoint 恢复。
 :::
 
 ## 前置条件
