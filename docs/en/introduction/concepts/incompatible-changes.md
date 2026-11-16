@@ -22,6 +22,20 @@ You need to check this document before you upgrade to related version.
   `0`, `false` or an empty collection for a NULL cell must handle NULL, and a target column declared
   `NOT NULL` will now reject these rows. Filter out rows with a NULL key before the Cassandra sink.
 
+### Cassandra sink: a row that cannot be written fails the job
+
+- **Affected jobs**: jobs with the Cassandra sink, with either value of `async_write`.
+- **Behavior change**: with `async_write = true`, the default, a write that Cassandra rejected or
+  that timed out was only logged, and the job finished without the row. With `async_write = false`,
+  the rows buffered for the next batch were sent only after the next checkpoint had completed, so a
+  failure there made the job restore from that checkpoint and skip those rows. Now the sink writes
+  the buffered rows and waits for the writes in flight at every checkpoint, after `batch_size` rows
+  and when it closes, and a row that cannot be written fails the job with error `CASSANDRA-07`,
+  the table name and the error of Cassandra.
+- **Migration**: no configuration change is required. A job that finished while losing rows now
+  fails; fix the rows or the table that Cassandra rejects, for example values above its mutation
+  size limit. A restored job may write the rows since the last checkpoint again.
+
 ### Lance sink: BIGINT columns are created as int64
 
 - **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**

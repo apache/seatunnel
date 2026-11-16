@@ -92,7 +92,8 @@ Use this option when the upstream row has extra fields that should not be writte
 ### batch_size [number]
 
 The number of rows written through [Cassandra-Java-Driver](https://github.com/datastax/java-driver) each time,
-default is `5000`.
+default is `5000`. With `async_write = true`, the sink waits for the asynchronous writes in flight
+after this many rows.
 
 ### batch_type [String]
 
@@ -100,7 +101,9 @@ The `Cassandra` batch processing mode, default is `UNLOGGED`.
 
 ### async_write [boolean]
 
-Whether `cassandra` writes in asynchronous mode, default is `true`.
+Whether `cassandra` writes in asynchronous mode, default is `true`. In both modes, a row that
+Cassandra rejects fails the job, and every row received before a checkpoint is written before the
+checkpoint completes.
 
 ### common-options
 
@@ -111,7 +114,8 @@ Sink plugin common parameters. For details, see [Sink Common Options](../common-
 - The target keyspace and table must already exist before the job starts.
 - `fields` is useful when the upstream row has extra columns. It is not a schema creation option.
 - `async_write = true` improves throughput, while `batch_size` controls how many rows are grouped
-  before a flush.
+  before a flush. At each checkpoint the sink writes the buffered rows and waits for the writes in
+  flight, so the sink gives at-least-once delivery: a restored job may write some rows again.
 - The sink uses the Cassandra Java driver. Authentication and consistency options match the
   driver's terminology; configure `consistency_level` together with the cluster's replication
   strategy when stronger guarantees are required.

@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.cassandra.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParameters;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorErrorCode;
@@ -45,13 +44,19 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+
+    /** Failed writes added as suppressed to the error, after the first one, its cause. */
+    static final int MAX_SUPPRESSED_WRITE_FAILURES = 9;
 
     private final CassandraParameters cassandraParameters;
     private final SeaTunnelRowType seaTunnelRowType;
@@ -65,8 +70,7 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
     /**
      * The primary key columns of the target table, never empty. A NULL value for one of them is
-     * rejected before the write: the server would reject the write, and with {@code async_write} a
-     * rejected write is only logged, so the job would succeed without the row.
+     * rejected before anything is sent, with the table and column in the error.
      */
     private final Set<CqlIdentifier> primaryKeyColumns;
 
@@ -137,8 +141,7 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                     String.format(
                             "Cannot read the primary key of table %s.%s from the driver schema"
                                     + " metadata. It is needed to reject a NULL key before the"
-                                    + " write, because a write that the server rejects with"
-                                    + " async_write does not fail the job.",
+                                    + " write.",
                             keyspace.asCql(true), table.asCql(true)));
         }
         return primaryKey;
@@ -162,33 +165,98 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         addIntoBatch(row, boundStatement);
         if (counter.getAndIncrement() >= cassandraParameters.getBatchSize()) {
             flush();
-            counter.set(0);
         }
     }
 
+    /**
+     * Called at each checkpoint. Writes the rows buffered for the next batch and waits for the
+     * asynchronous writes in flight, so that the checkpoint completes only when every row received
+     * before it is in Cassandra, and fails when one of them could not be written.
+     */
+    @Override
+    public Optional<Void> prepareCommit() {
+        flush();
+        return Optional.empty();
+    }
+
+    /**
+     * Writes the buffered batch, or waits for the asynchronous writes in flight, and throws when a
+     * row could not be written. Called after {@code batch_size} rows, at each checkpoint and in
+     * {@link #close()}.
+     */
     private void flush() {
+        counter.set(0);
         if (cassandraParameters.getAsyncWrite()) {
-            completionStages.forEach(
-                    resultStage ->
-                            resultStage.whenComplete(
-                                    (resultSet, error) -> {
-                                        if (error != null) {
-                                            log.error(ExceptionUtils.getMessage(error));
-                                        }
-                                    }));
-            completionStages.clear();
+            waitForAsyncWrites();
         } else {
-            try {
-                this.session.execute(this.batchStatement.addAll(boundStatementList));
-            } catch (Exception e) {
-                log.error("Batch insert error,Try inserting one by one!", e);
-                for (BoundStatement statement : boundStatementList) {
-                    this.session.execute(statement);
+            writeBatch();
+        }
+    }
+
+    private void waitForAsyncWrites() {
+        if (completionStages.isEmpty()) {
+            return;
+        }
+        int writes = completionStages.size();
+        List<Throwable> failures = new ArrayList<>();
+        try {
+            for (CompletionStage<AsyncResultSet> write : completionStages) {
+                try {
+                    write.toCompletableFuture().get();
+                } catch (ExecutionException e) {
+                    failures.add(e.getCause());
+                } catch (CancellationException e) {
+                    failures.add(e);
                 }
-            } finally {
-                this.batchStatement.clear();
-                this.boundStatementList.clear();
             }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CassandraConnectorException(
+                    CassandraConnectorErrorCode.WRITE_FAILED,
+                    "Interrupted while waiting for the writes to table "
+                            + cassandraParameters.getTable(),
+                    e);
+        } finally {
+            completionStages.clear();
+        }
+        if (!failures.isEmpty()) {
+            CassandraConnectorException failure =
+                    new CassandraConnectorException(
+                            CassandraConnectorErrorCode.WRITE_FAILED,
+                            String.format(
+                                    "%d of %d writes to table %s failed; the first failure is the"
+                                            + " cause",
+                                    failures.size(), writes, cassandraParameters.getTable()),
+                            failures.get(0));
+            failures.stream()
+                    .skip(1)
+                    .limit(MAX_SUPPRESSED_WRITE_FAILURES)
+                    .forEach(failure::addSuppressed);
+            throw failure;
+        }
+    }
+
+    private void writeBatch() {
+        if (boundStatementList.isEmpty()) {
+            return;
+        }
+        try {
+            this.session.execute(this.batchStatement.addAll(boundStatementList));
+        } catch (Exception e) {
+            log.error("Batch insert error,Try inserting one by one!", e);
+            for (BoundStatement statement : boundStatementList) {
+                try {
+                    this.session.execute(statement);
+                } catch (RuntimeException rowFailure) {
+                    throw new CassandraConnectorException(
+                            CassandraConnectorErrorCode.WRITE_FAILED,
+                            "Cannot write a row to table " + cassandraParameters.getTable(),
+                            rowFailure);
+                }
+            }
+        } finally {
+            this.batchStatement.clear();
+            this.boundStatementList.clear();
         }
     }
 
@@ -198,8 +266,7 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 String fieldName = cassandraParameters.getFields().get(i);
                 DataType dataType = tableSchema.get(i).getType();
                 Object fieldValue = row.getField(seaTunnelRowType.indexOf(fieldName));
-                // The server rejects a NULL key, but a failed write does not fail the job, so stop
-                // here instead of losing the row.
+                // Reject a NULL key before anything is sent, with the table and the column.
                 if (fieldValue == null
                         && primaryKeyColumns.contains(
                                 preparedStatement.getVariableDefinitions().get(i).getName())) {
@@ -232,16 +299,31 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 String.join(",", placeholder));
     }
 
+    /**
+     * Writes what is left, as {@link #prepareCommit()} does, and closes the session in any case.
+     */
     @Override
     public void close() throws IOException {
-        flush();
+        RuntimeException failure = null;
         try {
-            if (this.session != null) {
-                this.session.close();
+            flush();
+        } catch (RuntimeException e) {
+            failure = e;
+        }
+        try {
+            this.session.close();
+        } catch (RuntimeException e) {
+            CassandraConnectorException closeFailure =
+                    new CassandraConnectorException(
+                            CassandraConnectorErrorCode.CLOSE_CQL_SESSION_FAILED, e);
+            if (failure == null) {
+                failure = closeFailure;
+            } else {
+                failure.addSuppressed(closeFailure);
             }
-        } catch (Exception e) {
-            throw new CassandraConnectorException(
-                    CassandraConnectorErrorCode.CLOSE_CQL_SESSION_FAILED, e);
+        }
+        if (failure != null) {
+            throw failure;
         }
     }
 }

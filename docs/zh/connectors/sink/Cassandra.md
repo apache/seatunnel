@@ -88,7 +88,7 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 ### batch_size [number]
 
 通过 [Cassandra-Java-Driver](https://github.com/datastax/java-driver) 每次写入的行数,
-默认值 `5000`.
+默认值 `5000`. 当 `async_write = true` 时，每写入这么多行，Sink 会等待正在进行的异步写入完成。
 
 ### batch_type [String]
 
@@ -96,7 +96,8 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 
 ### async_write [boolean]
 
-`cassandra` 是否以异步模式写入, 默认值 `true`.
+`cassandra` 是否以异步模式写入, 默认值 `true`. 两种模式下，被 Cassandra 拒绝的行都会导致作业失败，并且
+在 checkpoint 完成前，该 checkpoint 之前收到的每一行都会写入。
 
 ### common-options
 
@@ -106,7 +107,8 @@ Sink 插件通用参数，详情请参考 [Sink 常用选项](../common-options/
 
 - 任务启动前，目标 keyspace 和表必须已经存在。
 - `fields` 适合上游数据有额外字段、只想写入其中一部分字段的场景；它不是建表配置。
-- `async_write = true` 可以提升吞吐，`batch_size` 用来控制每次 flush 前聚合的行数。
+- `async_write = true` 可以提升吞吐，`batch_size` 用来控制每次 flush 前聚合的行数。每次 checkpoint 时，
+  Sink 会写入缓冲的行并等待正在进行的写入完成，因此 Sink 提供至少一次（at-least-once）语义：恢复后的作业可能会再次写入部分行。
 - 连接器底层使用 Cassandra Java Driver；认证和一致性相关参数与 Driver 保持一致，需要更强一致性时请结合
   集群的副本策略设置 `consistency_level`。
 - `batch_type = "UNLOGGED"` 是常见默认值；当正确性优先于吞吐时使用 `LOGGED`，counter 表使用 `COUNTER`。

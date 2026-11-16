@@ -25,7 +25,8 @@ public enum CassandraConnectorErrorCode implements SeaTunnelErrorCode {
     CLOSE_CQL_SESSION_FAILED("CASSANDRA-03", "Close cql session of cassandra failed"),
     NO_DATA_IN_SOURCE_TABLE("CASSANDRA-04", "No data in source table"),
     PARSE_IP_ADDRESS_FAILED("CASSANDRA-05", "Parse ip address from string field"),
-    READ_PRIMARY_KEY_FAILED("CASSANDRA-06", "Read the primary key of the target table failed");
+    READ_PRIMARY_KEY_FAILED("CASSANDRA-06", "Read the primary key of the target table failed"),
+    WRITE_FAILED("CASSANDRA-07", "Write rows into the target table failed");
 
     private final String code;
     private final String description;

@@ -114,6 +114,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             "/cassandra_multitable_source.conf";
     private static final String NULL_PRIMARY_KEY_JOB_CONFIG =
             "/fake_null_primary_key_to_cassandra.conf";
+    private static final String OVERSIZED_ROW_JOB_CONFIG = "/fake_oversized_row_to_cassandra.conf";
     private static final String CASSANDRA_DRIVER_CONFIG = "/application.conf";
     private static final String DATACENTER = "datacenter1";
     private static final String KEYSPACE = "test";
@@ -401,6 +402,37 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                 (execResult.getStdout() + execResult.getStderr())
                         .contains("Primary key column id of table sink_table is NULL"));
         Assertions.assertNull(getRow());
+    }
+
+    /**
+     * The server rejects the only row, which is larger than its mutation limit. The job has to fail
+     * with either write mode and the default restarts: an asynchronous write used to be only
+     * logged, and a synchronous batch used to be sent only after the final checkpoint, so the
+     * restored job finished without the row (#13286).
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason =
+                    "Spark does not close the sink writer when a task aborts, so the CQL session"
+                            + " keeps spark-submit running in local mode after the job failed.")
+    public void testRejectedRowFailsTheJob(TestContainer container) throws Exception {
+        Map<Boolean, String> expectedErrors = new HashMap<>();
+        expectedErrors.put(true, "1 of 1 writes to table sink_table failed");
+        expectedErrors.put(false, "Cannot write a row to table sink_table");
+        for (Map.Entry<Boolean, String> expected : expectedErrors.entrySet()) {
+            Container.ExecResult execResult =
+                    container.executeJob(
+                            OVERSIZED_ROW_JOB_CONFIG,
+                            Collections.singletonList("async_write=" + expected.getKey()));
+            String output = execResult.getStdout() + execResult.getStderr();
+            Assertions.assertNotEquals(
+                    0, execResult.getExitCode(), "async_write = " + expected.getKey());
+            Assertions.assertTrue(
+                    output.contains(expected.getValue()), "async_write = " + expected.getKey());
+            Assertions.assertNull(getRow());
+        }
     }
 
     @TestTemplate

@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinition;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
@@ -46,12 +47,15 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_SELF;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,6 +65,7 @@ class CassandraSinkWriterTest {
     private final BoundStatement statement = mock(BoundStatement.class, RETURNS_SELF);
     private boolean tableInMetadata = true;
     private boolean tableInRefreshedMetadata = true;
+    private int batchSize = 100;
 
     @Test
     void nullPrimaryKeyFailsTheWriteWithAsyncWrite() {
@@ -129,6 +134,124 @@ class CassandraSinkWriterTest {
         verify(session).close();
     }
 
+    @Test
+    void failedAsyncWriteFailsTheCheckpoint() throws IOException {
+        RuntimeException rejected = new RuntimeException("rejected");
+        when(session.executeAsync(any(Statement.class))).thenReturn(written(), failed(rejected));
+        CassandraSinkWriter writer = writer(true, "t");
+        writer.write(row(1L));
+        writer.write(row(2L));
+
+        CassandraConnectorException e =
+                Assertions.assertThrows(CassandraConnectorException.class, writer::prepareCommit);
+
+        Assertions.assertTrue(
+                e.getMessage().contains("1 of 2 writes to table t failed"), e.getMessage());
+        Assertions.assertSame(rejected, e.getCause());
+    }
+
+    @Test
+    void everyFailedAsyncWriteIsReported() throws IOException {
+        RuntimeException first = new RuntimeException("first");
+        RuntimeException second = new RuntimeException("second");
+        when(session.executeAsync(any(Statement.class)))
+                .thenReturn(failed(first), written(), failed(second));
+        CassandraSinkWriter writer = writer(true, "t");
+        for (long id = 1; id <= 3; id++) {
+            writer.write(row(id));
+        }
+
+        CassandraConnectorException e =
+                Assertions.assertThrows(CassandraConnectorException.class, writer::prepareCommit);
+
+        Assertions.assertTrue(
+                e.getMessage().contains("2 of 3 writes to table t failed"), e.getMessage());
+        Assertions.assertSame(first, e.getCause());
+        Assertions.assertArrayEquals(new Throwable[] {second}, e.getSuppressed());
+    }
+
+    @Test
+    void failedAsyncWriteFailsTheWriteThatReachesTheBatchSize() throws IOException {
+        batchSize = 1;
+        RuntimeException rejected = new RuntimeException("rejected");
+        when(session.executeAsync(any(Statement.class))).thenReturn(failed(rejected), written());
+        CassandraSinkWriter writer = writer(true, "t");
+        writer.write(row(1L));
+
+        CassandraConnectorException e =
+                Assertions.assertThrows(
+                        CassandraConnectorException.class, () -> writer.write(row(2L)));
+
+        Assertions.assertSame(rejected, e.getCause());
+    }
+
+    @Test
+    void checkpointPassesWhenEveryAsyncWriteSucceeded() throws IOException {
+        when(session.executeAsync(any(Statement.class))).thenReturn(written());
+        CassandraSinkWriter writer = writer(true, "t");
+        writer.write(row(1L));
+
+        Assertions.assertEquals(Optional.empty(), writer.prepareCommit());
+        Assertions.assertEquals(Optional.empty(), writer.prepareCommit());
+    }
+
+    @Test
+    void checkpointWritesTheBufferedBatch() throws IOException {
+        CassandraSinkWriter writer = writer(false, "t");
+        writer.write(row(1L));
+        writer.write(row(2L));
+        verify(session, never()).execute(any(Statement.class));
+
+        writer.prepareCommit();
+        verify(session, times(1)).execute(any(Statement.class));
+
+        writer.prepareCommit();
+        verify(session, times(1)).execute(any(Statement.class));
+    }
+
+    @Test
+    void rejectedRowOfTheBatchFailsTheCheckpoint() throws IOException {
+        RuntimeException rejected = new RuntimeException("rejected");
+        when(session.execute(any(Statement.class))).thenThrow(rejected);
+        CassandraSinkWriter writer = writer(false, "t");
+        writer.write(row(1L));
+
+        CassandraConnectorException e =
+                Assertions.assertThrows(CassandraConnectorException.class, writer::prepareCommit);
+
+        Assertions.assertTrue(
+                e.getMessage().contains("Cannot write a row to table t"), e.getMessage());
+        Assertions.assertSame(rejected, e.getCause());
+    }
+
+    @Test
+    void closeFailsAndClosesTheSessionWhenTheLastWritesFail() throws IOException {
+        RuntimeException rejected = new RuntimeException("rejected");
+        when(session.executeAsync(any(Statement.class))).thenReturn(failed(rejected));
+        CassandraSinkWriter writer = writer(true, "t");
+        writer.write(row(1L));
+
+        CassandraConnectorException e =
+                Assertions.assertThrows(CassandraConnectorException.class, writer::close);
+
+        Assertions.assertSame(rejected, e.getCause());
+        verify(session).close();
+    }
+
+    private static SeaTunnelRow row(long id) {
+        return new SeaTunnelRow(new Object[] {id, "a"});
+    }
+
+    private static CompletionStage<AsyncResultSet> written() {
+        return CompletableFuture.completedFuture(mock(AsyncResultSet.class));
+    }
+
+    private static CompletionStage<AsyncResultSet> failed(Throwable error) {
+        CompletableFuture<AsyncResultSet> write = new CompletableFuture<>();
+        write.completeExceptionally(error);
+        return write;
+    }
+
     private void assertNullPrimaryKeyFailsTheWrite(boolean asyncWrite, String configuredTable) {
         CassandraSinkWriter writer = writer(asyncWrite, configuredTable);
 
@@ -167,6 +290,7 @@ class CassandraSinkWriterTest {
         when(session.getMetadata()).thenReturn(metadata);
         when(session.refreshSchema()).thenReturn(refreshedMetadata);
 
+        parameters.setBatchSize(batchSize);
         return new CassandraSinkWriter(parameters, rowType(), schema, session);
     }
 

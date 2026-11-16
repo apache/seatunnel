@@ -15,6 +15,16 @@
 - **迁移方式**：无需修改配置。依赖 NULL 单元格读取为 `0`、`false` 或空集合的 Transform、Sink 和查询需要
   改为处理 NULL；目标列声明为 `NOT NULL` 时，这些行现在会被拒绝。请在 Cassandra Sink 之前过滤掉主键为 NULL 的行。
 
+### Cassandra Sink：无法写入的行会导致作业失败
+
+- **影响范围**：使用 Cassandra Sink 的作业，`async_write` 取任意值。
+- **行为变化**：`async_write = true`（默认值）时，被 Cassandra 拒绝或超时的写入以前只会记录日志，作业会在缺少该行的情况下
+  正常结束。`async_write = false` 时，为下一批缓冲的行以前要等下一次 checkpoint 完成后才发送，因此此时的失败会让作业从该
+  checkpoint 恢复并跳过这些行。现在 Sink 在每次 checkpoint、每写入 `batch_size` 行以及关闭时，都会写入缓冲的行并等待正在进行的
+  写入完成；无法写入的行会使作业失败，错误码为 `CASSANDRA-07`，并给出表名和 Cassandra 返回的错误。
+- **迁移方式**：无需修改配置。以前在丢失数据行的情况下仍成功结束的作业，现在会失败；请修正被 Cassandra 拒绝的行或表，例如超过其
+  mutation 大小上限的值。恢复后的作业可能会再次写入上次 checkpoint 之后的行。
+
 ### Lance Sink：BIGINT 列创建为 int64
 
 - **行为变更：Lance Sink 创建的数据集中，`BIGINT` 列为 Arrow `int64`**
