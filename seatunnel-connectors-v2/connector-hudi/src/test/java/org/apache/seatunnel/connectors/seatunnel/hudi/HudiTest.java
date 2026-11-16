@@ -91,6 +91,10 @@ import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.RowDat
 public class HudiTest {
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Local Hadoop writes require Windows native binaries, as in testWriteData")
     void testRealClientWritesAndCommitsUnderReturnedIdentity() throws Exception {
         java.nio.file.Path root = tempDir.resolve("authenticated");
         Map<String, Object> options = new HashMap<>();
