@@ -97,6 +97,21 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | sheet_name                       | string  | 否    | Sheet0                      | 标签页。仅在file_format_type为excel时使用。                                                                                          |
 | merge_update_event               | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json 时使用。设置为 `true` 时，会将 `UPDATE_AFTER` 与 `UPDATE_BEFORE` 合并为 `UPDATE` 事件数据。     |
 | schema_evolution_enabled         | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
+| encoding                         | string  | 否    | "UTF-8"                                    | 仅当 `file_format_type` 为 `json`、`text`、`csv`、`xml` 时使用。要写入文件的字符集，通过 `Charset.forName(encoding)` 解析。 |
+| filename_extension               | string  | 否    | -                                          | 使用指定的文件扩展名筛选文件，例如 `csv`、`.txt`、`json` 或 `.xml`。 |
+| tmp_path                         | string  | 否    | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用 `mv` 将临时目录提交到目标目录。 |
+| csv_string_quote_mode            | enum    | 否    | MINIMAL                                    | 仅在文件格式为 CSV 时使用。                                                |
+| xml_root_tag                     | string  | 否    | RECORDS                                    | 仅在 file_format 为 xml 时使用                                        |
+| xml_row_tag                      | string  | 否    | RECORD                                     | 仅在 file_format 为 xml 时使用                                        |
+| xml_use_attr_format              | boolean | 否    | -                                          | 仅在 file_format 为 xml 时使用                                        |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否    | false                                      | 仅在 file_format 为 parquet 时使用                                    |
+| parquet_avro_write_fixed_as_int96     | array   | 否    | -                                          | 仅在 file_format 为 parquet 时使用                                    |
+| enable_header_write               | boolean | 否    | false                                      | 仅在 file_format_type 为 text,csv 时使用。<br/> false:不写入表头,true:写入表头。 |
+| date_format                      | string  | 否    | yyyy-MM-dd                                 | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。日期类型格式，用于告知 connector 如何写出 date 值。支持格式（示例）：`yyyy-MM-dd`、`yyyy.MM.dd`、`yyyy/MM/dd`。 |
+| datetime_format                  | string  | 否    | yyyy-MM-dd HH:mm:ss                        | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间戳类型格式，用于告知 connector 如何写出 datetime 值。支持格式：`yyyy-MM-dd HH:mm:ss`、`yyyy.MM.dd HH:mm:ss`、`yyyy/MM/dd HH:mm:ss`、`yyyyMMddHHmmss`。 |
+| time_format                      | string  | 否    | HH:mm:ss                                   | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间类型格式，用于告知 connector 如何写出 time 值。支持格式（示例）：`HH:mm:ss`、`HH:mm:ss.SSS`。 |
+| schema_save_mode                 | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                       |
+| data_save_mode                   | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                       |
 
 ### 提示
 

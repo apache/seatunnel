@@ -92,6 +92,12 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | encoding                              | string  | 否  | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用.                                                                                    |
 | merge_update_event                    | boolean | 否  | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json 时使用。设置为 `true` 时，会将 `UPDATE_AFTER` 与 `UPDATE_BEFORE` 合并为 `UPDATE` 事件数据。                        |
 | schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
+| enable_header_write                    | boolean | 否    | false                                      | 仅在 file_format_type 为 text,csv 时使用。<br/> false:不写入表头,true:写入表头。 |
+| date_format                            | string  | 否    | yyyy-MM-dd                                 | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。日期类型格式，用于告知 connector 如何写出 date 值。支持格式（示例）：`yyyy-MM-dd`、`yyyy.MM.dd`、`yyyy/MM/dd`。 |
+| datetime_format                        | string  | 否    | yyyy-MM-dd HH:mm:ss                        | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间戳类型格式，用于告知 connector 如何写出 datetime 值。支持格式：`yyyy-MM-dd HH:mm:ss`、`yyyy.MM.dd HH:mm:ss`、`yyyy/MM/dd HH:mm:ss`、`yyyyMMddHHmmss`。 |
+| time_format                            | string  | 否    | HH:mm:ss                                   | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间类型格式，用于告知 connector 如何写出 time 值。支持格式（示例）：`HH:mm:ss`、`HH:mm:ss.SSS`。 |
+| schema_save_mode                       | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                       |
+| data_save_mode                         | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                       |
 
 ### path [string]
 

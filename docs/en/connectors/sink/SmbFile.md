@@ -85,6 +85,10 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text, csv. false: don't write header, true: write header.                                                                                    |
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                      | Only used when file_format is parquet.                                                                                                                                          |
 | parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                                                                                                          |
+| csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                              |
+| sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file_format_type is excel.                                                                                                                                       |
+| merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
+| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 
 ## Example
 
