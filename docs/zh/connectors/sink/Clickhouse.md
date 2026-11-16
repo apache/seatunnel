@@ -56,13 +56,16 @@ Clickhouse source 和 ClickhouseFile sink 的行为不变。
 | SeaTunnel 数据类型 |                                                                Clickhouse 数据类型                                                                |
 |----------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | STRING         | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            |
-| INT            | Int8 / UInt8 / Int16 / UInt16 / Int32                                                                                                         |
+| TINYINT        | Int8                                                                                                                                          |
+| SMALLINT       | Int16                                                                                                                                         |
+| INT            | Int32                                                                                                                                         |
 | BIGINT         | UInt64 / Int64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond |
 | DOUBLE         | Float64                                                                                                                                       |
 | DECIMAL        | Decimal                                                                                                                                       |
 | FLOAT          | Float32                                                                                                                                       |
 | DATE           | Date                                                                                                                                          |
-| TIME           | DateTime                                                                                                                                      |
+| TIME           | String                                                                                                                                        |
+| TIMESTAMP      | DateTime64                                                                                                                                    |
 | ARRAY          | Array                                                                                                                                         |
 | MAP            | Map                                                                                                                                           |
 
@@ -309,6 +312,50 @@ sink {
     primary_key = "id"
     support_upsert = true
     allow_experimental_lightweight_delete = true
+  }
+}
+```
+
+### CDC 变更日志写入
+
+当上游是变更日志类数据源（例如 MySQL CDC、PostgreSQL CDC）时，行中会包含 `INSERT`、`UPDATE_BEFORE`/`UPDATE_AFTER`
+和 `DELETE` 事件。需要配置 `primary_key`，让接收端能够把 `UPDATE`、`DELETE` 行映射到正确的目标行；当目标表自身
+没有去重引擎时，配合 `support_upsert = true` 可以改为查询主键后再写入。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+    }
+    rows = [
+      { kind = INSERT,        fields = [1, "A",   100] }
+      { kind = INSERT,        fields = [2, "B",   100] }
+      { kind = INSERT,        fields = [3, "C",   100] }
+      { kind = UPDATE_BEFORE, fields = [1, "A",   100] }
+      { kind = UPDATE_AFTER,  fields = [1, "A_1", 100] }
+      { kind = DELETE,        fields = [2, "B",   100] }
+    ]
+  }
+}
+
+sink {
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "sink_table"
+    username = "default"
+    password = ""
+    primary_key = "pk_id"
   }
 }
 ```

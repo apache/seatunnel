@@ -132,6 +132,8 @@ docker run --rm -it apache/seatunnel bash ./bin/start-seatunnel-spark-2-connecto
 docker run --rm -it apache/seatunnel bash ./bin/start-seatunnel-spark-3-connector-v2.sh -c config/v2.batch.config.template
 ```
 
+For Spark 3.5.x, use `start-seatunnel-spark-3.5-connector-v2.sh` instead. The container must include Spark 3.5.x, the matching SeaTunnel starter, and `SPARK_HOME` pointing to that Spark installation; changing the launcher name alone does not upgrade the image. See [Spark engine compatibility](../../engines/spark.md) for validation limits.
+
 - Flink
   before you submit job, you need start flink cluster first.
 

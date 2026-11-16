@@ -123,6 +123,15 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private final AtomicReference<SchemaChangePhase> schemaChangePhase = new AtomicReference<>();
 
+    /**
+     * Hands the checkpoint lock from the reader thread to barrier and timer-flush injectors. The
+     * reader holds the lock for the whole of {@code pollNext} and immediately re-enters the next
+     * poll, so without this explicit handoff a barrier thread parked on the unfair monitor can lose
+     * the race for many consecutive polls; under backpressure each poll can last seconds.
+     */
+    private final SourceCheckpointLockHandoff checkpointLockHandoff =
+            new SourceCheckpointLockHandoff();
+
     private final long flushIntervalMs;
 
     private transient volatile ScheduledFuture<?> flushFuture;
@@ -205,11 +214,21 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         if (prepareClose) {
             return;
         }
+        // Timer ticks contend on the same monitor as barriers. Register before contending so a
+        // busy reader cannot repeatedly reacquire the monitor ahead of the shared timer worker.
+        checkpointLockHandoff.injectorArriving();
         try {
-            collector.sendFlushSignal(
-                    currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+            synchronized (collector.getCheckpointLock()) {
+                // A closing barrier may have acquired the monitor while this tick was waiting.
+                if (!prepareClose) {
+                    collector.sendFlushSignal(
+                            currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+                }
+            }
         } catch (Exception e) {
             log.warn("Failed to broadcast FlushSignal from task {}", currentTaskLocation, e);
+        } finally {
+            checkpointLockHandoff.injectorFinished();
         }
     }
 
@@ -255,9 +274,11 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      * </ol>
      *
      * <p><b>Checkpoint lock interaction:</b> The reader holds the checkpoint lock during {@code
-     * pollNext}. A brief {@code Thread.sleep(0L)} after a non-empty poll gives the checkpoint
-     * thread a chance to acquire the lock via {@link #triggerBarrier(Barrier)}, preventing
-     * checkpoint starvation under high CPU load.
+     * pollNext}. After a non-empty poll, and before polling again, the reader waits on {@link
+     * SourceCheckpointLockHandoff} while a barrier injector ({@link #triggerBarrier(Barrier)}) or
+     * timer-flush tick has announced itself, so the reader cannot repeatedly overtake that
+     * contender at poll boundaries. The poll already in progress and downstream delivery must still
+     * finish; this is not a wall-clock bound. The wait is accounted as source idle time.
      *
      * @throws Exception if polling or schema-change triggering fails
      */
@@ -289,13 +310,18 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 }
                 collector.resetEmptyThisPollNext();
                 /*
-                 * The current thread obtain a checkpoint lock in the method {@link
-                 * SourceReader#pollNext(Collector)}. When trigger the checkpoint or savepoint,
-                 * other threads try to obtain the lock in the method {@link
-                 * SourceFlowLifeCycle#triggerBarrier(Barrier)}. When high CPU load, checkpoint
-                 * process may be blocked as long time. So we need sleep to free the CPU.
+                 * The reader owned the checkpoint lock inside SourceReader#pollNext(Collector)
+                 * and has released it here. A checkpoint or savepoint thread waiting in
+                 * SourceFlowLifeCycle#triggerBarrier(Barrier) contends for the same unfair
+                 * monitor and would usually lose to the reader's immediate re-entry, so the
+                 * reader explicitly yields until every announced barrier or timer-flush
+                 * injector has finished. The former Thread.sleep(0L) only yielded the CPU and
+                 * did not prevent that race.
                  */
-                Thread.sleep(0L);
+                long handoffWaitNs = checkpointLockHandoff.awaitInjectors();
+                if (metricsEnabled) {
+                    sourceIdleNs.inc(handoffWaitNs);
+                }
             }
 
             if (collector.captureSchemaChangeBeforeCheckpointSignal()) {
@@ -500,21 +526,29 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
         long startTime = System.currentTimeMillis();
 
-        // Block the reader from adding barrier to the collector.
-        synchronized (collector.getCheckpointLock()) {
-            if (barrier.prepareClose(this.currentTaskLocation)) {
-                this.prepareClose = true;
+        // Announce before contending for the lock so the reader thread, which re-enters the lock
+        // for every poll, stops polling until this barrier has been injected; withdraw in finally
+        // so a failed injection can never leave the reader parked.
+        checkpointLockHandoff.injectorArriving();
+        try {
+            // Block the reader from adding barrier to the collector.
+            synchronized (collector.getCheckpointLock()) {
+                if (barrier.prepareClose(this.currentTaskLocation)) {
+                    this.prepareClose = true;
+                }
+                if (barrier.snapshot()) {
+                    List<byte[]> states =
+                            serializeStates(splitSerializer, reader.snapshotState(barrier.getId()));
+                    runningTask.addState(barrier, ActionStateKey.of(sourceAction), states);
+                }
+                // ack after #addState
+                runningTask.ack(barrier);
+                log.debug("source ack barrier finished, taskId: [{}]", runningTask.getTaskID());
+                collector.sendRecordToNext(new Record<>(barrier));
+                log.debug("send record to next finished, taskId: [{}]", runningTask.getTaskID());
             }
-            if (barrier.snapshot()) {
-                List<byte[]> states =
-                        serializeStates(splitSerializer, reader.snapshotState(barrier.getId()));
-                runningTask.addState(barrier, ActionStateKey.of(sourceAction), states);
-            }
-            // ack after #addState
-            runningTask.ack(barrier);
-            log.debug("source ack barrier finished, taskId: [{}]", runningTask.getTaskID());
-            collector.sendRecordToNext(new Record<>(barrier));
-            log.debug("send record to next finished, taskId: [{}]", runningTask.getTaskID());
+        } finally {
+            checkpointLockHandoff.injectorFinished();
         }
 
         log.debug(

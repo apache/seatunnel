@@ -727,6 +727,29 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testCompositeKeyEncodingAvoidsDocumentIdCollisions(TestContainer container)
+            throws Exception {
+        Container.ExecResult result =
+                container.executeJob("/elasticsearch/elasticsearch_composite_key_encoding.conf");
+        Assertions.assertEquals(0, result.getExitCode());
+
+        // Two rows whose legacy delimiter-joined IDs would collide ("1_1_2") must survive as two
+        // distinct documents when LENGTH_PREFIXED encoding is enabled.
+        Awaitility.await()
+                .atMost(INDEX_REFRESH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        2L,
+                                        esRestClient
+                                                .getIndexDocsCount("st_id_encoding")
+                                                .get(0)
+                                                .getDocsCount()));
+    }
+
+    @TestTemplate
     public void testElasticsearchWithFullType(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =

@@ -54,7 +54,7 @@ Assert 是一个用于校验任务输出结果的数据接收器。它可以按�
 | rules.catalog_table_rule.column_rule.column_length                                             | int                                             | 否       | -       |
 | rules.catalog_table_rule.column_rule.nullable                                                  | boolean                                         | 否       | -       |
 | rules.catalog_table_rule.column_rule.default_value                                             | string                                          | 否       | -       |
-| rules.catalog_table_rule.column_rule.comment                                                   | comment                                         | 否       | -       |
+| rules.catalog_table_rule.column_rule.comment                                                   | string                                          | 否       | -       |
 | rules.catalog_table_rule.column_rule.sink_type                                                 | string                                          | 否       | -       |
 | rules.table-names                                                                              | ConfigList                                      | 否       | -       |
 | rules.tables_configs                                                                           | ConfigList                                      | 否       | -       |

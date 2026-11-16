@@ -132,7 +132,7 @@ db.grantRolesToUser("<USER_NAME>", ["<ROLE_NAME>"])
 | startup.timestamp                  | Long    | 否   | -       | 从指定的毫秒级时间戳开始消费。仅在 `startup.mode` 为 `timestamp` 时使用。                                                   |
 | stop.mode                          | Enum    | 否   | NEVER   | MongoDB CDC 的停止模式，可选值为 `never` 和 `timestamp`。详见下方[停止模式](#停止模式)。                                    |
 | stop.timestamp                     | Long    | 否   | -       | 在该毫秒级时间戳对应的变更流位置停止。仅在 `stop.mode` 为 `timestamp` 时使用。                                               |
-| exactly_once                       | Boolean | 否   | false   | 启用精确一次语义。开启后，大表快照阶段恢复时可能增加内存使用。                                                              |
+| exactly_once                       | Boolean | 否   | false   | 启用精确一次语义。设为 false 时跳过快照回填，快照期间的变更在增量阶段读取，可能输出重复记录。设为 true 时通过快照回填合并重叠变更，可能增加内存使用。 |
 | format                             | Enum    | 否   | DEFAULT | MongoDB CDC 的输出数据格式，可选值为 `DEFAULT` 和 `COMPATIBLE_DEBEZIUM_JSON`。                                              |
 | debezium                           | Config  | 否   | {key.converter.schemas.enable=false, value.converter.schemas.enable=false} | 透传给内嵌 Debezium 引擎的配置。                                                                                  |
 | common-options                     |         | 否   | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md)。                                             |
