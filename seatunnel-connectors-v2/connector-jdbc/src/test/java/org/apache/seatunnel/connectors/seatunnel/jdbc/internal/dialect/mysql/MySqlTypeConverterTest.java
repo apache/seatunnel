@@ -1306,4 +1306,45 @@ public class MySqlTypeConverterTest {
         column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(100, column.getColumnLength());
     }
+
+    @Test
+    public void testConvertDoesNotDependOnTheDefaultLocale() {
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+        try {
+            for (Locale locale : new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
+                // Upper casing "i" gives a dotted capital I under these locales.
+                Locale.setDefault(locale);
+                Assertions.assertEquals(
+                        BasicType.INT_TYPE, convert("int", "int"), locale.toString());
+                Assertions.assertEquals(
+                        BasicType.LONG_TYPE,
+                        convert("int unsigned", "int(10) unsigned"),
+                        locale.toString());
+                Assertions.assertEquals(
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        convert("datetime", "datetime"),
+                        locale.toString());
+            }
+        } finally {
+            // The base locale first, because setting it overwrites both category defaults.
+            Locale.setDefault(saved[0]);
+            Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+            Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
+        }
+    }
+
+    private static Object convert(String dataType, String columnType) {
+        return MySqlTypeConverter.DEFAULT_INSTANCE
+                .convert(
+                        BasicTypeDefine.builder()
+                                .name("test")
+                                .columnType(columnType)
+                                .dataType(dataType)
+                                .build())
+                .getDataType();
+    }
 }

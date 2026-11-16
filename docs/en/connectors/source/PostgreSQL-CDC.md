@@ -142,7 +142,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 5000
   read_limit.bytes_per_second=7000000
@@ -295,6 +295,8 @@ sink {
 
 In `snapshot-only` mode, the connector skips WAL streaming entirely; configure `slot.name` if you need a dedicated slot for the snapshot read.
 
+When a `snapshot-only` job is restored from a checkpoint or savepoint, it reads exactly the tables recorded in the checkpoint: tables created or added to `table-names` after the checkpoint are not read, and a restore fails with an error naming the tables when a checkpointed table that still has unread snapshot data is no longer configured or no longer exists. A checkpointed table matches a configured table only when the database, schema and table names are identical, including letter case. Switching between `snapshot-only` and another startup mode across a restore is rejected as well. Submit a new job to change the captured tables or the startup mode.
+
 ### Read tables without a primary key
 
 Pick the path that matches what the source table guarantees:
@@ -384,6 +386,16 @@ PostgreSQL logical replication slots must be created and consumed on the primary
 
 By default, PostgreSQL CDC requires primary keys. You can specify a custom primary key via `table-names-config` with the `primaryKeys` field if the table has a unique column that can serve as an identifier.
 
+### How are generated columns handled?
+
+The publication-column filter uses the effective decoding plugin: `debezium { "plugin.name" = "..." }` takes precedence over `decoding.plugin.name`. Other plugins and snapshot-only jobs bypass this filter.
+
+With `pgoutput`, only the columns that the publication publishes are captured. Generated columns are not published before PostgreSQL 18, and virtual generated columns are never published. An explicit publication column list can omit columns, but must include the replica identity columns when publishing UPDATE or DELETE operations. Unpublished non-key columns are excluded from the table schema, so they are neither read in the snapshot nor created in an auto-created sink table. Publications without an explicit column list, including `FOR ALL TABLES` and `FOR TABLES IN SCHEMA`, still follow the generated-column rules. On PostgreSQL 18, stored generated columns are captured when the publication is created with `publish_generated_columns = stored`.
+
+SeaTunnel requires every primary key column in the CDC schema (including keys configured with `table-names-config.primaryKeys`) to be published. If a required key is unpublished, the job fails at startup with the publication, table and missing key columns, rather than streaming NULL keys. This also applies to INSERT-only publications, even though PostgreSQL permits them to omit replica identity columns. Include all required primary key columns in the publication column list before starting or restoring the job.
+
+If SeaTunnel cannot read the publication metadata at job startup, it logs an error with the failure type and keeps all columns in the schema. In that fallback, unpublished columns may be written as NULL during streaming, or a schema-change error may stop the job. Check publication access and JDBC connectivity before relying on the captured data.
+
 ### How are replication slots managed?
 
 SeaTunnel creates or reuses the replication slot identified by `slot.name` when the job starts.
@@ -413,6 +425,20 @@ may replay a row at an ambiguous boundary to avoid losing it.
 ### Why does PostgreSQL CDC fall behind?
 
 Replication lag can occur when the logical decoding plugin is slow or when the WAL sender is under load. Monitor `pg_replication_slots` for `confirmed_flush_lsn` drift. Ensure the CDC job consumes events continuously and that network latency between SeaTunnel and PostgreSQL is low.
+
+### Can PostgreSQL CDC run on the Spark engine?
+
+It can, but it is not covered by end-to-end tests. The Spark engine runs CDC sources as one Spark
+task that holds the split enumerator and all readers, for both `BATCH` and `STREAMING` jobs. Spark
+does not checkpoint the source, so:
+
+- A job cannot be restored from a checkpoint. A restarted job starts again from `startup.mode`.
+- SeaTunnel never confirms a processed LSN to the replication slot, so the slot's `restart_lsn` does
+  not move and PostgreSQL keeps all WAL from it for as long as the slot exists. Watch the WAL size,
+  and advance or drop the slot when the job stops.
+- A sink that only writes on checkpoints or full batches can hold rows back, for example the JDBC
+  sink with its default `batch_size`.
+- Reading the source with Spark micro-batch streaming (`readStream`) is not supported.
 
 ## See Also
 

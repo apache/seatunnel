@@ -69,7 +69,7 @@ UPDATE and DELETE changes after the initial snapshot is finished.
 |------|------|----------|---------|-------------|
 | username | String | Yes | - | User name used to connect to DB2. |
 | password | String | Yes | - | Password used to connect to DB2. |
-| url | String | Yes | - | DB2 JDBC URL. The URL must include a database name, for example `jdbc:db2://127.0.0.1:50000/testdb`. |
+| url | String | Yes | - | DB2 JDBC URL. The value must not be empty or whitespace-only. The URL must include a database name, for example `jdbc:db2://127.0.0.1:50000/testdb`. |
 | database-names | List | No | The database parsed from `url` | Database name to monitor. DB2 CDC captures one database in one source. |
 | table-names | List | Yes when `table-pattern` is not set | - | Table names to monitor, using `databaseName.schemaName.tableName`, for example `testdb.DB2INST1.CUSTOMERS`. |
 | table-pattern | String | Yes when `table-names` is not set | - | Regular expression used to discover captured tables. |

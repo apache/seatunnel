@@ -18,7 +18,7 @@ Vector types are not supported on the Spark engine.
 
 |  name  |  type  | required | default value |
 |--------|--------|----------|---------------|
-| fields | Object | yes (or the deprecated `src_field`+`dest_field` pair) |               |
+| fields | Map | yes (or the deprecated `src_field`+`dest_field` pair) |               |
 | src_field | String | no | |
 | dest_field | String | no | |
 
