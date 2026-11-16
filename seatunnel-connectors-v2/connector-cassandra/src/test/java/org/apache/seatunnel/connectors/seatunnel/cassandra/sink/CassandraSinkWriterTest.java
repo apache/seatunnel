@@ -59,7 +59,8 @@ class CassandraSinkWriterTest {
 
     private final CqlSession session = mock(CqlSession.class);
     private final BoundStatement statement = mock(BoundStatement.class, RETURNS_SELF);
-    private boolean tableMetadataAvailable = true;
+    private boolean tableInMetadata = true;
+    private boolean tableInRefreshedMetadata = true;
 
     @Test
     void nullPrimaryKeyFailsTheWriteWithAsyncWrite() {
@@ -86,13 +87,46 @@ class CassandraSinkWriterTest {
     }
 
     @Test
-    void nullPrimaryKeyReachesTheServerWithoutTableMetadata() throws IOException {
-        tableMetadataAvailable = false;
+    void primaryKeyMissingFromTheMetadataIsReadAfterARefresh() {
+        tableInMetadata = false;
 
-        writer(true, "t").write(new SeaTunnelRow(new Object[] {null, "a"}));
+        assertNullPrimaryKeyFailsTheWrite(true, "t");
+        verify(session).refreshSchema();
+    }
 
-        verify(statement).setToNull(0);
-        verify(session).executeAsync(statement);
+    @Test
+    void writerFailsAndClosesTheSessionWhenThePrimaryKeyCannotBeRead() {
+        tableInMetadata = false;
+        tableInRefreshedMetadata = false;
+
+        CassandraConnectorException e =
+                Assertions.assertThrows(CassandraConnectorException.class, () -> writer(true, "t"));
+
+        Assertions.assertTrue(
+                e.getMessage().contains("Cannot read the primary key of table ks.t"),
+                e.getMessage());
+        verify(session).close();
+        verify(session, never()).executeAsync(any(Statement.class));
+    }
+
+    @Test
+    void writerClosesTheSessionWhenThePrepareFails() {
+        IllegalStateException prepareFailure = new IllegalStateException("prepare failed");
+        when(session.prepare(anyString())).thenThrow(prepareFailure);
+
+        CassandraParameters parameters = parameters(true, "t");
+        IllegalStateException e =
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                new CassandraSinkWriter(
+                                        parameters,
+                                        rowType(),
+                                        mock(ColumnDefinitions.class),
+                                        session));
+
+        Assertions.assertSame(prepareFailure, e);
+        verify(session).close();
     }
 
     private void assertNullPrimaryKeyFailsTheWrite(boolean asyncWrite, String configuredTable) {
@@ -111,13 +145,7 @@ class CassandraSinkWriterTest {
     }
 
     private CassandraSinkWriter writer(boolean asyncWrite, String configuredTable) {
-        CassandraParameters parameters = new CassandraParameters();
-        parameters.setKeyspace("ks");
-        parameters.setTable(configuredTable);
-        parameters.setFields(Arrays.asList("id", "c"));
-        parameters.setBatchSize(100);
-        parameters.setBatchType(DefaultBatchType.UNLOGGED);
-        parameters.setAsyncWrite(asyncWrite);
+        CassandraParameters parameters = parameters(asyncWrite, configuredTable);
 
         ColumnDefinitions schema = mock(ColumnDefinitions.class);
         ColumnDefinition idColumn = column("id", DataTypes.BIGINT);
@@ -134,20 +162,38 @@ class CassandraSinkWriterTest {
         when(key.getName()).thenReturn(CqlIdentifier.fromCql("id"));
         TableMetadata table = mock(TableMetadata.class);
         when(table.getPrimaryKey()).thenReturn(Collections.singletonList(key));
+        Metadata metadata = metadata(tableInMetadata ? table : null);
+        Metadata refreshedMetadata = metadata(tableInRefreshedMetadata ? table : null);
+        when(session.getMetadata()).thenReturn(metadata);
+        when(session.refreshSchema()).thenReturn(refreshedMetadata);
+
+        return new CassandraSinkWriter(parameters, rowType(), schema, session);
+    }
+
+    private static CassandraParameters parameters(boolean asyncWrite, String configuredTable) {
+        CassandraParameters parameters = new CassandraParameters();
+        parameters.setKeyspace("ks");
+        parameters.setTable(configuredTable);
+        parameters.setFields(Arrays.asList("id", "c"));
+        parameters.setBatchSize(100);
+        parameters.setBatchType(DefaultBatchType.UNLOGGED);
+        parameters.setAsyncWrite(asyncWrite);
+        return parameters;
+    }
+
+    private static SeaTunnelRowType rowType() {
+        return new SeaTunnelRowType(
+                new String[] {"id", "c"},
+                new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.STRING_TYPE});
+    }
+
+    /** Driver metadata whose keyspace {@code ks} holds {@code table} as {@code t}, if not null. */
+    private static Metadata metadata(TableMetadata table) {
         KeyspaceMetadata keyspace = mock(KeyspaceMetadata.class);
-        when(keyspace.getTable(CqlIdentifier.fromCql("t")))
-                .thenReturn(tableMetadataAvailable ? Optional.of(table) : Optional.empty());
+        when(keyspace.getTable(CqlIdentifier.fromCql("t"))).thenReturn(Optional.ofNullable(table));
         Metadata metadata = mock(Metadata.class);
         when(metadata.getKeyspace(CqlIdentifier.fromCql("ks"))).thenReturn(Optional.of(keyspace));
-        when(session.getMetadata()).thenReturn(metadata);
-
-        return new CassandraSinkWriter(
-                parameters,
-                new SeaTunnelRowType(
-                        new String[] {"id", "c"},
-                        new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.STRING_TYPE}),
-                schema,
-                session);
+        return metadata;
     }
 
     private static ColumnDefinition column(String name, DataType type) {

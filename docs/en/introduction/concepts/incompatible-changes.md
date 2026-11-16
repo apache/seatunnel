@@ -15,7 +15,9 @@ You need to check this document before you upgrade to related version.
   NULL for all of them. The sink now writes a NULL value as NULL, which replaces any value the target
   row already has in that column. It used to fail the job for most types and to write a NULL `inet` as
   `127.0.0.1`. A NULL in a primary key column now fails the job with the table and column name. For a
-  `text`, `ascii`, `time` or `date` key this replaces a job that succeeded while losing rows.
+  `text`, `ascii`, `time` or `date` key this replaces a job that succeeded while losing rows. To do
+  this, the sink reads the primary key of the target table from the driver schema metadata when it
+  starts, and fails if it cannot read it.
 - **Migration**: no configuration change is required. Transforms, sinks and queries that relied on
   `0`, `false` or an empty collection for a NULL cell must handle NULL, and a target column declared
   `NOT NULL` will now reject these rows. Filter out rows with a NULL key before the Cassandra sink.

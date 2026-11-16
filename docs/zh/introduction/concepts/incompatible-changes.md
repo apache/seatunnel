@@ -11,7 +11,7 @@
   `boolean` 读取为 `0` 或 `false`，把 NULL 的 `list`、`set`、`map` 读取为空集合；NULL 的 `decimal`、
   `varint`、`uuid`、`timeuuid`、`inet`、`blob` 会导致作业失败。现在 Source 对以上类型都输出 NULL。Sink
   现在把 NULL 值写为 NULL，并覆盖目标行该列已有的值；以前大多数类型会导致作业失败，NULL 的 `inet` 会被写为
-  `127.0.0.1`。主键列为 NULL 时，作业现在会失败并给出表名和列名；对于 `text`、`ascii`、`time` 或 `date` 主键，以前作业会成功但丢失数据行。
+  `127.0.0.1`。主键列为 NULL 时，作业现在会失败并给出表名和列名；对于 `text`、`ascii`、`time` 或 `date` 主键，以前作业会成功但丢失数据行。为此，Sink 在启动时从驱动的 schema 元数据中读取目标表的主键，读取不到时作业失败。
 - **迁移方式**：无需修改配置。依赖 NULL 单元格读取为 `0`、`false` 或空集合的 Transform、Sink 和查询需要
   改为处理 NULL；目标列声明为 `NOT NULL` 时，这些行现在会被拒绝。请在 Cassandra Sink 之前过滤掉主键为 NULL 的行。
 

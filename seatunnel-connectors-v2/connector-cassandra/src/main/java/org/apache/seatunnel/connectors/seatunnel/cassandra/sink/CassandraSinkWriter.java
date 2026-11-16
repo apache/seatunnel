@@ -35,6 +35,7 @@ import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinition;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.metadata.Metadata;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.type.DataType;
 import lombok.extern.slf4j.Slf4j;
@@ -61,6 +62,12 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     private List<CompletionStage<AsyncResultSet>> completionStages;
     private final PreparedStatement preparedStatement;
     private final AtomicInteger counter = new AtomicInteger(0);
+
+    /**
+     * The primary key columns of the target table, never empty. A NULL value for one of them is
+     * rejected before the write: the server would reject the write, and with {@code async_write} a
+     * rejected write is only logged, so the job would succeed without the row.
+     */
     private final Set<CqlIdentifier> primaryKeyColumns;
 
     public CassandraSinkWriter(
@@ -80,6 +87,12 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                         .build());
     }
 
+    /**
+     * Creates a writer that owns {@code session}: {@link #close()} closes it, and so does this
+     * constructor when it fails. It fails when the primary key of the target table cannot be read
+     * from the driver schema metadata, also after one refresh, because a NULL key could then not be
+     * rejected before the write.
+     */
     CassandraSinkWriter(
             CassandraParameters cassandraParameters,
             SeaTunnelRowType seaTunnelRowType,
@@ -92,27 +105,55 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         this.batchStatement = BatchStatement.builder(cassandraParameters.getBatchType()).build();
         this.boundStatementList = new ArrayList<>();
         this.completionStages = new ArrayList<>();
-        this.preparedStatement = session.prepare(initPrepareCQL());
+        try {
+            this.preparedStatement = session.prepare(initPrepareCQL());
+            this.primaryKeyColumns = readPrimaryKeyColumns();
+        } catch (RuntimeException e) {
+            try {
+                session.close();
+            } catch (RuntimeException closeFailure) {
+                e.addSuppressed(closeFailure);
+            }
+            throw e;
+        }
+    }
+
+    private Set<CqlIdentifier> readPrimaryKeyColumns() {
         // The prepared statement names the table as the server resolved it, so a configured name
         // such as keyspace.table needs no parsing here.
         ColumnDefinition insertedColumn = preparedStatement.getVariableDefinitions().get(0);
-        this.primaryKeyColumns =
-                session.getMetadata()
-                        .getKeyspace(insertedColumn.getKeyspace())
-                        .flatMap(keyspace -> keyspace.getTable(insertedColumn.getTable()))
-                        .map(
-                                table ->
-                                        table.getPrimaryKey().stream()
-                                                .map(ColumnMetadata::getName)
-                                                .collect(Collectors.toSet()))
-                        .orElse(Collections.emptySet());
-        if (primaryKeyColumns.isEmpty()) {
-            log.warn(
-                    "Cannot read the primary key of table {}.{} from the driver metadata, so a"
-                            + " NULL key is not rejected before it reaches the server.",
-                    insertedColumn.getKeyspace(),
-                    insertedColumn.getTable());
+        CqlIdentifier keyspace = insertedColumn.getKeyspace();
+        CqlIdentifier table = insertedColumn.getTable();
+        Set<CqlIdentifier> primaryKey = primaryKeyColumns(session.getMetadata(), keyspace, table);
+        if (primaryKey.isEmpty()) {
+            // The driver may not have loaded the table yet, for example right after it was
+            // created. A refresh reads the schema from the server, even if schema metadata is
+            // disabled in the driver configuration.
+            primaryKey = primaryKeyColumns(session.refreshSchema(), keyspace, table);
         }
+        if (primaryKey.isEmpty()) {
+            throw new CassandraConnectorException(
+                    CassandraConnectorErrorCode.READ_PRIMARY_KEY_FAILED,
+                    String.format(
+                            "Cannot read the primary key of table %s.%s from the driver schema"
+                                    + " metadata. It is needed to reject a NULL key before the"
+                                    + " write, because a write that the server rejects with"
+                                    + " async_write does not fail the job.",
+                            keyspace.asCql(true), table.asCql(true)));
+        }
+        return primaryKey;
+    }
+
+    private static Set<CqlIdentifier> primaryKeyColumns(
+            Metadata metadata, CqlIdentifier keyspace, CqlIdentifier table) {
+        return metadata.getKeyspace(keyspace)
+                .flatMap(keyspaceMetadata -> keyspaceMetadata.getTable(table))
+                .map(
+                        tableMetadata ->
+                                tableMetadata.getPrimaryKey().stream()
+                                        .map(ColumnMetadata::getName)
+                                        .collect(Collectors.toSet()))
+                .orElse(Collections.emptySet());
     }
 
     @Override
