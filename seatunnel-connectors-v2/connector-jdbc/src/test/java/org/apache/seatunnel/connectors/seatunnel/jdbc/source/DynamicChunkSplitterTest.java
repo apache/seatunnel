@@ -560,6 +560,32 @@ public class DynamicChunkSplitterTest {
         assertEquals("code", splitter.findSplitKey(table).get().getFieldName(0));
     }
 
+    /**
+     * A {@code query} without {@code partition_column} gets no automatic split key, even when the
+     * table has a NOT NULL primary key, and is read as one split; so the nullability check of the
+     * automatic choice is only needed for table reads.
+     */
+    @Test
+    public void testQueryWithoutPartitionColumnIsReadAsOneSplit() throws Exception {
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(postgresConfig());
+
+        JdbcSourceTable query =
+                table(
+                                null,
+                                PrimaryKey.of("pk_id", Collections.singletonList("id")),
+                                Collections.singletonList(uniqueKey("uk_no", "no")))
+                        .withQuery("SELECT id, code, no FROM tbl");
+        assertFalse(splitter.findSplitKey(query).isPresent());
+        Collection<JdbcSourceSplit> splits = splitter.generateSplits(query);
+        assertEquals(1, splits.size());
+        assertNull(splits.iterator().next().getSplitKeyName());
+
+        JdbcSourceTable queryWithPartitionColumn =
+                table("code", null, Collections.emptyList())
+                        .withQuery("SELECT id, code, no FROM tbl");
+        assertEquals("code", splitter.findSplitKey(queryWithPartitionColumn).get().getFieldName(0));
+    }
+
     private static JdbcSourceConfig postgresConfig() {
         return JdbcSourceConfig.builder()
                 .jdbcConnectionConfig(
