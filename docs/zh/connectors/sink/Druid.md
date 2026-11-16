@@ -79,6 +79,8 @@ Druid 写入需要主时间列。连接器会自动追加一个名为 `timestamp
 
 由于连接器会把数据以内联 CSV 的形式提交给 Druid，字符串字段中不建议直接包含英文逗号或换行符；如有这类内容，建议在进入 Druid Sink 前先做清洗或替换。
 
+值为 null 的字段会写成空的 CSV 值，因此仍占据原来的列。Druid 按 `druid.generic.useDefaultValueForNull` 存储该值：默认值为 `true` 时，字符串列存为 `''`，数值列存为 `0`；为 `false` 时存为 SQL null。
+
 ## 示例
 
 ### 写入单表

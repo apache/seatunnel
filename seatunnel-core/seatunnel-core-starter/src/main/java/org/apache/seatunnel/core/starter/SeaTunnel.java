@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.core.starter;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.exception.ExceptionUtils;
 
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.command.CommandArgs;
 import org.apache.seatunnel.core.starter.exception.CommandException;
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,7 +40,7 @@ public class SeaTunnel {
     public static <T extends CommandArgs> void run(Command<T> command) throws CommandException {
         try {
             command.execute();
-        } catch (ConfigRuntimeException e) {
+        } catch (ConfigRuntimeException | ConfigException | ConfigCheckException e) {
             showConfigError(e);
             throw e;
         } catch (Exception e) {

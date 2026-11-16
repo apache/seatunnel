@@ -28,9 +28,11 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -56,6 +58,7 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
     private static final int AMAZONSQS_CONTAINER_PORT = 4566;
     private static final String SINK_QUEUE = "sink_queue";
     private static final String SOURCE_QUEUE = "source_queue";
+    private static final String LOCALSTACK_STARTER_READY = "/testcontainers_start.ready";
 
     private static final String TEST_MESSAGE = "{\"name\":\"test_name\"}";
 
@@ -68,7 +71,21 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
     public void startUp() throws Exception {
         // start a localstack docker container
         localstack =
-                new LocalStackContainer(LOCALSTACK_DOCKER_IMAGE_VERSION)
+                new LocalStackContainer(LOCALSTACK_DOCKER_IMAGE_VERSION) {
+                    @Override
+                    protected void containerIsStarting(InspectContainerResponse containerInfo) {
+                        super.containerIsStarting(containerInfo);
+                        // Script existence alone does not mean Docker has finished copying it.
+                        copyFileToContainer(Transferable.of(new byte[0]), LOCALSTACK_STARTER_READY);
+                    }
+                }.withCreateContainerCmdModifier(
+                                cmd ->
+                                        cmd.withEntrypoint(
+                                                "sh",
+                                                "-c",
+                                                "while [ ! -f "
+                                                        + LOCALSTACK_STARTER_READY
+                                                        + " ]; do sleep 0.1; done; exec /testcontainers_start.sh"))
                         .withServices(LocalStackContainer.Service.SQS)
                         .withEnv("AWS_DEFAULT_REGION", "us-east-1")
                         .withEnv("AWS_ACCESS_KEY_ID", "1234")

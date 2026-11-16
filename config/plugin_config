@@ -71,6 +71,10 @@ connector-graphql
 connector-hive
 connector-http-base
 connector-mem0
+connector-http-asana
+connector-http-intercom
+connector-http-typeform
+connector-http-mailchimp
 connector-http-feishu
 connector-http-gitlab
 connector-http-github
@@ -78,6 +82,7 @@ connector-http-jira
 connector-http-klaviyo
 connector-http-stripe
 connector-http-paypal
+connector-http-woocommerce
 connector-http-lemlist
 connector-http-linear
 connector-http-myhours

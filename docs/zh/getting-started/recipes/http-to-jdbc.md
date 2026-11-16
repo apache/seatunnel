@@ -23,13 +23,13 @@ connector-jdbc
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(http-base|jdbc)'
+ls connectors | grep -E 'connector-(http-base|jdbc)'
 ```
 
 3. 把目标数据库 JDBC 驱动放进 `${SEATUNNEL_HOME}/lib`，并确认 jar 已经落盘：
 
 ```bash
-ls "${SEATUNNEL_HOME}/lib" | rg 'postgresql'
+ls "${SEATUNNEL_HOME}/lib" | grep -E 'postgresql'
 ```
 
 4. 运行任务前，先看一眼 HTTP 返回内容。这里直接使用 [Http Source](../../connectors/source/Http.md) 里的示例接口，返回 JSON 顶层应该能看到 `c_string` 和 `c_int` 这些字段：

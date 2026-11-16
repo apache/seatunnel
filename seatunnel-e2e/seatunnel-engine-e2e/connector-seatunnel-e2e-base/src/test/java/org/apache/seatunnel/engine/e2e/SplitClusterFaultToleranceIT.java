@@ -32,6 +32,9 @@ import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointInfo;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointOverview;
+import org.apache.seatunnel.engine.core.checkpoint.PipelineCheckpointOverview;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
@@ -40,6 +43,7 @@ import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import org.awaitility.Awaitility;
 import org.jetbrains.annotations.NotNull;
@@ -1264,6 +1268,216 @@ public class SplitClusterFaultToleranceIT {
             if (workerNode2 != null) {
                 workerNode2.shutdown();
             }
+        }
+    }
+
+    /**
+     * Regression test for <a href="https://github.com/apache/seatunnel/issues/11437">#11437</a>,
+     * fixed by <a href="https://github.com/apache/seatunnel/pull/11458">#11458</a>: with fixed
+     * slots ({@code dynamic-slot=false}), a job restored by a new active master must reuse the
+     * slots the Worker still holds for it instead of requesting new ones.
+     *
+     * <p>Before the fix, {@code JobMaster#preApplyResources} on the restoring master always called
+     * {@code ResourceUtils#applyResourceForTask} for every task group. The Worker kept running the
+     * old task groups and kept their fixed slots assigned, so when the job already used the whole
+     * pool no request could be served: the restored job stayed {@code PENDING} forever under {@code
+     * WAIT} scheduling (or was failed under {@code REJECT}), no checkpoint ever completed again,
+     * and the slots were never returned. The fix reuses a still-active slot whose Worker, slot ID,
+     * allocation sequence and owner job ID all match ({@code JobMaster#getReusableSlot}).
+     *
+     * <p>Slot arithmetic, derived from {@code PhysicalPlanGenerator}: the job is one FakeSource ->
+     * LocalFile pipeline with {@code parallelism = 2}. {@code getSourceTask} creates one fused
+     * reader/writer task group per parallel subtask (2), {@code getEnumeratorTask} one source split
+     * enumerator coordinator (1), and {@code getCommitterTask} one aggregated-committer coordinator
+     * because LocalFile always provides a {@code SinkAggregatedCommitter} (1). Every task group,
+     * coordinators included, takes one slot, so the job needs 2 + 1 + 1 = 4 slots. The only Worker
+     * is given exactly 4 fixed slots, leaving no free slot at the time of the master failover.
+     *
+     * <p>Existing tests miss this: {@link #testStreamJobRestoreInMasterDown()} and {@code
+     * CheckpointCoordinatorFailoverIT} kill the master with dynamic slots, where a fresh request
+     * always succeeds, and {@link #testManyPipelinesRestoreContentionInWorkerDown()} uses fixed
+     * slots but kills a Worker (whose slots disappear with it) and is currently disabled. The unit
+     * tests added by #11458 mock the ResourceManager and never run a real Worker slot pool.
+     */
+    @Test
+    public void testFixedSlotStreamJobReusesSlotsAfterMasterDown() throws Exception {
+        String testCaseName = "testFixedSlotStreamJobReusesSlotsAfterMasterDown";
+        String testClusterName =
+                "SplitClusterFaultToleranceIT_testFixedSlotStreamJobReusesSlotsAfterMasterDown";
+        long testRowNumber = 1000;
+        int testParallelism = 2;
+        // parallelism reader/writer task groups + 1 enumerator + 1 aggregated committer.
+        int jobSlotNum = testParallelism + 2;
+
+        HazelcastInstanceImpl masterNode1 = null;
+        HazelcastInstanceImpl masterNode2 = null;
+        HazelcastInstanceImpl workerNode1 = null;
+        SeaTunnelClient engineClient = null;
+
+        SeaTunnelConfig seaTunnelConfig = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig masterNode1Config = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig masterNode2Config = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNode1Config = getSeaTunnelConfig(testClusterName);
+        workerNode1Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
+        workerNode1Config.getEngineConfig().getSlotServiceConfig().setSlotNum(jobSlotNum);
+        // WAIT matches the issue report and keeps the first submission from failing if it races
+        // the Worker registering its slots. Under WAIT a pre-fix restore stays PENDING, so the
+        // recovery assertions below time out instead of passing.
+        masterNode1Config.getEngineConfig().setScheduleStrategy(ScheduleStrategy.WAIT);
+        masterNode2Config.getEngineConfig().setScheduleStrategy(ScheduleStrategy.WAIT);
+
+        try {
+            masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
+
+            masterNode2 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode2Config);
+
+            workerNode1 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNode1Config);
+
+            // waiting all node added to cluster (2 masters + 1 worker)
+            HazelcastInstanceImpl finalNode = masterNode1;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            3, finalNode.getCluster().getMembers().size()));
+
+            Common.setDeployMode(DeployMode.CLIENT);
+            ImmutablePair<String, String> testResources =
+                    createTestResources(
+                            testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testCaseName);
+
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
+            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            long jobId = clientJobProxy.getJobId();
+
+            HazelcastInstanceImpl activeMaster = waitAndFindActiveMaster(masterNode1, masterNode2);
+            HazelcastInstanceImpl standbyMaster =
+                    activeMaster == masterNode1 ? masterNode2 : masterNode1;
+
+            // Precondition: the job is running, has completed at least 2 checkpoints, and holds
+            // every fixed slot of the Worker, so a fresh slot request after failover cannot win.
+            assertAllVerticesRunning(activeMaster, jobId, 120);
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                PipelineCheckpointOverview overview =
+                                        getPipelineCheckpointOverview(standbyMaster, jobId);
+                                Assertions.assertNotNull(overview);
+                                Assertions.assertTrue(overview.getCounts().getCompleted() >= 2);
+                            });
+            assertWorkerSlotsOwnedByJob(workerNode1, jobId, jobSlotNum);
+            long checkpointIdBeforeFailover =
+                    getPipelineCheckpointOverview(standbyMaster, jobId)
+                            .getLatestCompleted()
+                            .getCheckpointId();
+            CompletableFuture<JobStatus> jobCompleteFuture =
+                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+
+            // shutdown the active master while the Worker keeps the job's task groups and slots
+            activeMaster.shutdown();
+            awaitCoordinatorActive(standbyMaster, 60);
+            long failoverCompletedAt = System.currentTimeMillis();
+
+            // The restored job must leave PENDING and run all vertices again. Pre-fix, its
+            // slot requests never succeed, so the JobMaster stays PENDING and this times out.
+            assertAllVerticesRunning(standbyMaster, jobId, 180);
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, clientJobProxy.getJobStatus());
+                                PipelineCheckpointOverview overview =
+                                        getPipelineCheckpointOverview(standbyMaster, jobId);
+                                Assertions.assertNotNull(overview);
+                                CheckpointInfo latestCompleted = overview.getLatestCompleted();
+                                Assertions.assertNotNull(latestCompleted);
+                                Assertions.assertTrue(
+                                        latestCompleted.getCheckpointId()
+                                                > checkpointIdBeforeFailover,
+                                        "A new checkpoint must complete on the new master");
+                                Assertions.assertNotNull(latestCompleted.getCompletedTimestamp());
+                                Assertions.assertTrue(
+                                        latestCompleted.getCompletedTimestamp()
+                                                > failoverCompletedAt,
+                                        "The new checkpoint must complete after the failover");
+                            });
+            // Reused, not re-requested: the Worker still holds exactly the job's slots.
+            assertWorkerSlotsOwnedByJob(workerNode1, jobId, jobSlotNum);
+
+            clientJobProxy.cancelJob();
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(jobCompleteFuture.isDone());
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED, jobCompleteFuture.get());
+                            });
+            // Cancelling the restored job must return every fixed slot to the Worker.
+            HazelcastInstanceImpl finalWorkerNode = workerNode1;
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(() -> assertWorkerSlotsOwnedByJob(finalWorkerNode, jobId, 0));
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+
+            if (masterNode1 != null) {
+                masterNode1.shutdown();
+            }
+
+            if (masterNode2 != null) {
+                masterNode2.shutdown();
+            }
+
+            if (workerNode1 != null) {
+                workerNode1.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Reads pipeline 1's checkpoint overview from the Hazelcast-backed state store, which is shared
+     * by both masters and therefore survives an active-master failover.
+     */
+    private static PipelineCheckpointOverview getPipelineCheckpointOverview(
+            HazelcastInstanceImpl node, long jobId) {
+        SeaTunnelServer server = node.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        CheckpointOverview overview =
+                server.getEngineContext()
+                        .getStateStores()
+                        .auxiliary()
+                        .checkpointOverviewStateStore()
+                        .get(jobId);
+        return overview == null ? null : overview.getPipelines().get(1);
+    }
+
+    /**
+     * Asserts the Worker's own slot service currently has exactly {@code expectedSlotNum} assigned
+     * slots and that every one of them is owned by {@code jobId}.
+     */
+    private static void assertWorkerSlotsOwnedByJob(
+            HazelcastInstanceImpl workerNode, long jobId, int expectedSlotNum) {
+        SeaTunnelServer server =
+                workerNode.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        SlotProfile[] assignedSlots = server.getSlotService().getWorkerProfile().getAssignedSlots();
+        Assertions.assertEquals(expectedSlotNum, assignedSlots.length);
+        for (SlotProfile slot : assignedSlots) {
+            Assertions.assertEquals(jobId, slot.getOwnerJobID());
         }
     }
 

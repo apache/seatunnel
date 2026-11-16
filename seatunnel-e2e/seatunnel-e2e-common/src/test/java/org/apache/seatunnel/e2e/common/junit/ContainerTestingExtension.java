@@ -27,6 +27,7 @@ import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.platform.commons.support.AnnotationSupport;
+import org.opentest4j.TestAbortedException;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
@@ -73,6 +74,22 @@ public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCal
                 AnnotationUtil.filterDisabledContainers(
                         containersFactories.get(0).create(),
                         context.getRequiredTestInstance().getClass());
+        if (testContainers.isEmpty()) {
+            // The engine selection of a PR build (RUN_ENGINES, RUN_ALL_CONTAINER and
+            // RUN_ZETA_CONTAINER) can exclude every container this suite is able to run, e.g. a
+            // Flink/Spark-only suite on a Zeta-only run. Skip the whole suite instead of letting
+            // every @TestTemplate fail with JUnit's "provided a non-empty stream"
+            // PreconditionViolationException.
+            throw new TestAbortedException(
+                    String.format(
+                            "Skip %s: no enabled TestContainer under the current engine selection"
+                                    + " (RUN_ENGINES=%s, RUN_ALL_CONTAINER=%s, RUN_ZETA_CONTAINER"
+                                    + "=%s).",
+                            context.getRequiredTestClass().getName(),
+                            System.getenv("RUN_ENGINES"),
+                            System.getenv("RUN_ALL_CONTAINER"),
+                            System.getenv("RUN_ZETA_CONTAINER")));
+        }
         Set<TestContainerId> sharedContainerIds = getSharedContainerIds(context);
         List<SharedTestContainerResource> sharedResources = new ArrayList<>();
         try {

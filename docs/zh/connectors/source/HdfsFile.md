@@ -54,9 +54,9 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 |----------------------------|---------|------|---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                       | string  | 是    | -                   | 源文件路径。                                                                                                                                                                           |
 | tables_configs             | list    | 否    | -                   | 在一个 Source 块中配置多张 HDFS 源表。每一项都使用与单表 `HdfsFile` Source 相同的参数，并可通过 `schema.table` 设置传递给下游的表名。                                                                 |
-| file_format_type           | string  | 是    | -                   | 我们支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`。请注意，最终文件名将以文件格式的后缀结束，文本文件的后缀是 `txt`。                                                            |
+| file_format_type           | string  | 视情况而定 | -                | 单表模式下必填。我们支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`。请注意，最终文件名将以文件格式的后缀结束，文本文件的后缀是 `txt`。                                                            |
 | fs.defaultFS               | string  | 是    | -                   | 以 `hdfs://` 开头的 hadoop 集群地址，例如：`hdfs://hadoopcluster`                                                                                                                            |
-| read_columns               | list    | 否    | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：[text,json,csv,orc,parquet,excel,xml]。提示：如果用户想在读取 `text` `json` `csv` 文件时使用此功能，必须配置 schema 选项。                                           |
+| read_columns               | list    | 否    | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：[text,csv,orc,parquet,excel,xml]。提示：如果用户想在读取 `text` `csv` 文件时使用此功能，必须配置 schema 选项。`json` 文件不支持列投影，配置 `read_columns` 不会生效。                                           |
 | read_partitions | list | 否 | - | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
 | hdfs_site_path             | string  | 否    | -                   | `hdfs-site.xml` 的路径，用于加载 namenodes 的 ha 配置                                                                                                                                       |
 | delimiter/field_delimiter  | string  | 否    | \001                | 字段分隔符，用于告诉连接器在读取文本文件时如何分割字段。默认 `\001`，与 hive 的默认分隔符相同                                                                                                                            |
@@ -69,7 +69,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | krb5_path                  | string  | 否    | /etc/krb5.conf      | kerberos 的 krb5 路径                                                                                                                                                               |
 | kerberos_principal         | string  | 否    | -                   | kerberos 的主体                                                                                                                                                                     |
 | kerberos_keytab_path       | string  | 否    | -                   | kerberos 的 keytab 路径                                                                                                                                                             |
-| skip_header_row_number     | long    | 否    | 0                   | 跳过前几行，但仅适用于 txt 和 csv。例如，设置如下：`skip_header_row_number = 2`。然后 Seatunnel 将跳过源文件的前 2 行                                                                                             |
+| skip_header_row_number     | long    | 否    | 0                   | 跳过 text、CSV 或 Excel 文件的前几行。例如，设置如下：`skip_header_row_number = 2`。然后 Seatunnel 将跳过源文件的前 2 行                                                                                       |
 | schema                     | config  | 否    | -                   | 上游数据的 schema 字段。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                  |
 | sheet_name                 | string  | 否    | -                   | 读取工作簿的工作表，仅在 file_format 为 excel 时使用。                                                                                                                                            |
 | excel_engine               | string  | 否    | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                          |
@@ -82,7 +82,10 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | compress_codec             | string  | 否    | none                | 文件的压缩编解码器                                                                                                                                                                        |
 | archive_compress_codec     | string  | 否    | none                | 文件使用的归档压缩编解码器。支持：`none` `zip` `tar` `tar.gz` `gz`。 |
 | encoding                   | string  | 否    | UTF-8               |                                                                                                                                                                                  |
-| null_format                | string  | 否    | -                   | 仅在 file_format_type 为 text 时使用。null_format 定义哪些字符串可以表示为 null。例如：`\N`                                                                                                             |
+| null_format                | string  | 否    | -                   | 当 `file_format_type` 为 `text` 或 `csv` 时使用。指定表示 null 的字段值。 对于配置了 `schema.columns[].defaultValue` 的 CSV，如果字段值匹配 `null_format`，或文件表头缺少该列，则使用配置的默认值。空 CSV 字段仍为 null，除非它与 `null_format` 匹配；未配置默认值的列保持原有行为。 CSV 默认值在创建读取器时转换为列类型。无法转换的默认值会导致作业失败，即使没有字段需要使用该默认值。DATE 和 TIMESTAMP 默认值可以使用与文件数据不同的受支持格式。 例如：`\N` |
+| excel_use_header_line      | boolean | 否    | false               | 使用 Excel 第一行作为表头按名称映射字段。仅在 file_format_type 为 `excel` 时使用。                                                                                                                       |
+| markdown_rag_metadata_enabled | boolean | 否 | false               | 读取 markdown 文件时是否追加面向 RAG 的元数据列。仅在 file_format_type 为 `markdown` 时有效。                                                                                                            |
+| pdf_rag_metadata_enabled   | boolean | 否    | false               | 读取 PDF 文件时是否追加面向 RAG 的元数据列。仅在 file_format_type 为 `pdf` 时有效。                                                                                                                      |
 | binary_chunk_size          | int     | 否    | 1024                | 仅在 file_format_type 为 binary 时使用。读取二进制文件的块大小（以字节为单位）。默认为 1024 字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                                       |
 | binary_complete_file_mode  | boolean | 否    | false               | 仅在 file_format_type 为 binary 时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。                                                                                            |
 | discovery_mode             | string  | 否    | once                | 文件发现模式，支持：`once`（默认）、`continuous`。continuous 模式下将周期性扫描并处理新/变更文件（无界）。当前实现中 continuous 需要配合 `sync_mode=update`（仅 binary）使用，以避免重复传输。                                                                                              |
@@ -132,7 +135,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `page_number`：页码（默认：1）
 - `position_index`：文档中的位置索引
 - `parent_id`：父元素的 ID
-- `child_ids`：子元素 ID 的逗号分隔列表
+- `child_ids`：直接子元素的 ID，类型为 `ARRAY<STRING>`；叶子元素为空数组
 
 当 `markdown_rag_metadata_enabled` 或 `pdf_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会针对对应文件类型在 `child_ids` 之后追加以下 RAG 元数据字段：
 - `source_uri`：源文件路径或 URI

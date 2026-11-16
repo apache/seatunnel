@@ -43,6 +43,9 @@ env:
 master:
   ## The command to start master.
   command: []
+  ## Seconds Kubernetes waits after SIGTERM before SIGKILL. With -Dhazelcast.shutdownhook.policy=GRACEFUL,
+  ## keep hazelcast.graceful.shutdown.max.wait below this value. 0 is treated as unset (Kubernetes default).
+  terminationGracePeriodSeconds: 30
   ## The deployment strategy to use to replace existing pods with new ones.
   strategy:
     type: RollingUpdate
@@ -106,6 +109,9 @@ master:
 worker:
   ## The command to start worker.
   command: []
+  ## Seconds Kubernetes waits after SIGTERM before SIGKILL. With -Dhazelcast.shutdownhook.policy=GRACEFUL,
+  ## keep hazelcast.graceful.shutdown.max.wait below this value. 0 is treated as unset (Kubernetes default).
+  terminationGracePeriodSeconds: 30
   ## The deployment strategy to use to replace existing pods with new ones.
   strategy:
     type: RollingUpdate

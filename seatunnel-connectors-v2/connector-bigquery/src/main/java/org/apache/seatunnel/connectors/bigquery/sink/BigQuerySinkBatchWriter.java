@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
@@ -33,7 +32,6 @@ import org.json.JSONArray;
 import com.google.api.gax.rpc.ApiException;
 import com.google.api.gax.rpc.StatusCode;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
-import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.rpc.Code;
 import lombok.extern.slf4j.Slf4j;
 
@@ -74,17 +72,14 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
     }
 
     @Override
-    public void setMultiTableResourceManager(
-            MultiTableResourceManager<BigQueryWriteClient> manager, int queueIndex) {
-        log.info("Injecting shared client and initializing Batch stream writer...");
-        this.client = manager.getSharedResource().get();
-        if (restoredStreamName != null) {
-            this.streamWriter =
-                    BigQueryBatchWriter.restore(
-                            client, config, restoredStreamName, restoredNextOffset);
-        } else {
-            this.streamWriter = BigQueryBatchWriter.of(client, config);
+    protected BigQueryWriter openStreamWriter() {
+        if (restoredStreamName != null && !restoredStreamName.isEmpty()) {
+            // The restored stream may still hold rows appended after the checkpoint. They can
+            // be neither skipped nor removed, so the replay is written to a new stream.
+            BigQueryBatchWriter.retireRestoredStream(
+                    client, restoredStreamName, restoredNextOffset);
         }
+        return BigQueryBatchWriter.of(client, config);
     }
 
     @Override
@@ -92,6 +87,7 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
         if (buffer.length() == 0) {
             return;
         }
+        ensureStreamWriter();
 
         JSONArray dataToSend = buffer;
         buffer = new JSONArray();
@@ -164,6 +160,7 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
 
     @Override
     public Optional<BigQueryCommitInfo> prepareCommit() {
+        ensureStreamWriter();
         flush();
 
         BigQueryBatchWriter batchWriter = (BigQueryBatchWriter) streamWriter;
@@ -184,6 +181,7 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
 
     @Override
     public List<BigQuerySinkState> snapshotState(long checkpointId) {
+        ensureStreamWriter();
         flush();
 
         BigQueryBatchWriter batchWriter = (BigQueryBatchWriter) streamWriter;

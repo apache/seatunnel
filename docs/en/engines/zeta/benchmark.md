@@ -255,7 +255,7 @@ over time:
 Baseline → Candidate → Candidate → Baseline
 ```
 
-Java 8 and Java 11 run this comparison separately, and the report summarizes two runs of each
+Java 11 and Java 17 run this comparison separately, and the report summarizes two runs of each
 revision.
 
 After the run, confirm that the job reached JMH measurement and verify the SHAs, method, and
@@ -286,7 +286,7 @@ selectors such as `.*` or a class name that matches several methods are rejected
 | `seatunnel_ref` | Branch, tag, or SHA to diagnose when no PR is selected. |
 | `pr_number` | Optional trusted PR ID. When set, its head replaces `seatunnel_ref` as the diagnostic target. |
 | `benchmark` | One method selector, `<benchmark-method>$`, obtained from `-l`. Selectors matching multiple methods are rejected. |
-| `java_version` | `8` or `11`; use the JDK of the normal run being investigated. |
+| `java_version` | `11` or `17` (default `11`); use the JDK of the normal benchmark run being investigated. |
 | `profile` | `cpu` for execution hot spots, `wall` for elapsed-time stacks including waits, `lock` for lock contention, `gc` for allocation/GC metrics, or `all` for separate runs of all four. |
 | `capture_jfr` | Enable to add a separate JFR recording for offline analysis. |
 | `jmh_args` | Optional JMH arguments or workload parameters, using the selected method's `-lp` output. Leave empty for defaults; forks remain fixed at 1. |

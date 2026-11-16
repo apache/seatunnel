@@ -28,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
@@ -256,6 +257,34 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     querySql(SELECT_SOURCE_SQL, SOURCE_TABLE),
                                     querySql(SELECT_SINK_SQL, SINK_TABLE));
                         });
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK},
+            disabledReason = "The configuration-only --check command is provided by Zeta")
+    public void testBlankSourceUrlRejectedByConfigCheck(TestContainer container)
+            throws IOException, InterruptedException {
+        String configResource = "/sqlservercdc_blank_url.conf";
+        container.executeExtraCommands(
+                engineContainer ->
+                        ContainerUtil.copyConnectorJarToContainer(
+                                engineContainer,
+                                configResource,
+                                "seatunnel-connectors-v2",
+                                "connector-",
+                                "seatunnel",
+                                "/tmp/seatunnel"));
+        String configPath = "/tmp/seatunnel/config/sqlservercdc_blank_url.conf";
+        container.copyFileToContainer(configResource, configPath);
+
+        Container.ExecResult result =
+                container.executeBaseCommand(new String[] {"--config", configPath, "--check"});
+        String output = result.getStdout() + result.getStderr();
+
+        Assertions.assertNotEquals(0, result.getExitCode(), output);
+        Assertions.assertTrue(output.contains("url") && output.contains("blank"), output);
     }
 
     /**
