@@ -38,6 +38,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.util.ExcelGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ExcelReadStrategy;
 
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -681,12 +683,20 @@ public class ExcelReadStrategyTest {
      * A decimal is read with the declared scale only when no digit is lost: a value with more
      * fractional digits, or one that does not fit the declared precision, is kept as it is.
      */
-    @Test
-    public void testDecimalReadsWithDeclaredScaleWithoutRounding() throws IOException {
+    @ParameterizedTest
+    @ValueSource(strings = {"POI", "EasyExcel"})
+    public void testDecimalReadsWithDeclaredScaleWithoutRounding(String excelEngine)
+            throws IOException {
         File excelFile = File.createTempFile("excel_decimal_scale_", ".xlsx");
         excelFile.deleteOnExit();
         String[] cells = {
-            "12.5", "0", "1.123456", "123456789012345678", "1E+2147483647", "1000E+2147483647"
+            "12.5",
+            "0",
+            "1.123456",
+            "123456789012345678",
+            "1E+2147483647",
+            "1000E+2147483647",
+            "1E-2147483647"
         };
         try (XSSFWorkbook workbook = new XSSFWorkbook();
                 FileOutputStream output = new FileOutputStream(excelFile)) {
@@ -700,6 +710,9 @@ public class ExcelReadStrategyTest {
         Config pluginConfig =
                 ConfigFactory.parseString(
                         "skip_header_row_number = 1\n"
+                                + "excel_engine = "
+                                + excelEngine
+                                + "\n"
                                 + "schema { fields { c_decimal = \"decimal(20, 4)\" } }");
 
         List<SeaTunnelRow> rows = readExcel(excelFile, pluginConfig);
@@ -711,6 +724,7 @@ public class ExcelReadStrategyTest {
         Assertions.assertEquals(new BigDecimal("123456789012345678"), rows.get(3).getField(0));
         Assertions.assertEquals(new BigDecimal("1E+2147483647"), rows.get(4).getField(0));
         Assertions.assertEquals(new BigDecimal("1000E+2147483647"), rows.get(5).getField(0));
+        Assertions.assertEquals(new BigDecimal("1E-2147483647"), rows.get(6).getField(0));
     }
 
     /**
@@ -919,6 +933,42 @@ public class ExcelReadStrategyTest {
         Assertions.assertEquals(1, rows.size());
         Assertions.assertEquals(new BigDecimal("5.555"), rows.get(0).getField(5));
         Assertions.assertEquals(6.666, rows.get(0).getField(6));
+    }
+
+    /** Numeric columns ignore display rounding; STRING keeps the displayed text. */
+    @ParameterizedTest
+    @ValueSource(strings = {"POI", "EasyExcel"})
+    public void testFormattedNumbersReadByColumnType(String excelEngine) throws IOException {
+        File excelFile = File.createTempFile("excel_formatted_numbers_", ".xlsx");
+        excelFile.deleteOnExit();
+        double value = 0.12345678901234568;
+        String displayedValue;
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+                FileOutputStream output = new FileOutputStream(excelFile)) {
+            Sheet sheet = workbook.createSheet("Sheet1");
+            Row row = sheet.createRow(0);
+            CellStyle style = workbook.createCellStyle();
+            style.setDataFormat(workbook.createDataFormat().getFormat("0.00%"));
+            for (int i = 0; i < 4; i++) {
+                row.createCell(i).setCellValue(value);
+                row.getCell(i).setCellStyle(style);
+            }
+            displayedValue = new DataFormatter().formatCellValue(row.getCell(3));
+            workbook.write(output);
+        }
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                        "excel_engine = "
+                                + excelEngine
+                                + "\n"
+                                + "schema { fields { c_double = double, c_float = float,"
+                                + " c_decimal = \"decimal(20, 18)\", c_string = string } }");
+        List<SeaTunnelRow> rows = readExcel(excelFile, pluginConfig);
+        Assertions.assertEquals(1, rows.size());
+        Assertions.assertEquals(value, rows.get(0).getField(0));
+        Assertions.assertEquals((float) value, rows.get(0).getField(1));
+        Assertions.assertEquals(new BigDecimal("0.123456789012345680"), rows.get(0).getField(2));
+        Assertions.assertEquals(displayedValue, rows.get(0).getField(3));
     }
 
     private File writeWithExcelSink(SeaTunnelRowType rowType, Object[][] values)
