@@ -39,12 +39,14 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.inmemory.InMemoryCatalog;
 import org.apache.iceberg.types.Types;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -175,24 +177,32 @@ class IcebergSinkWriterTest {
      * the row even when the row orders its columns differently from the table.
      */
     @Test
-    void testTableWithIdentifierFieldsIsKeyedByThatColumn() {
+    void testTableWithIdentifierFieldsIsKeyedByThatColumn() throws IOException {
         Table table = createTable(Collections.singleton(1));
         IcebergSinkWriter writer =
                 new IcebergSinkWriter(loaderOf(table), sinkConfig(null), nameThenId(), null);
 
-        assertEquals(MultiTableSinkReplicaMode.KEYED, writer.replicaMode());
-        assertEquals(Optional.of(1), writer.primaryKey());
+        try {
+            assertEquals(MultiTableSinkReplicaMode.KEYED, writer.replicaMode());
+            assertEquals(Optional.of(1), writer.primaryKey());
+        } finally {
+            writer.close();
+        }
     }
 
     /** {@code iceberg.table.primary-keys} replaces the identifier fields of the table. */
     @Test
-    void testConfiguredPrimaryKeysAreTheRoutingKey() {
+    void testConfiguredPrimaryKeysAreTheRoutingKey() throws IOException {
         Table table = createTable(Collections.emptySet());
         IcebergSinkWriter writer =
                 new IcebergSinkWriter(loaderOf(table), sinkConfig("name"), nameThenId(), null);
 
-        assertEquals(MultiTableSinkReplicaMode.KEYED, writer.replicaMode());
-        assertEquals(Optional.of(0), writer.primaryKey());
+        try {
+            assertEquals(MultiTableSinkReplicaMode.KEYED, writer.replicaMode());
+            assertEquals(Optional.of(0), writer.primaryKey());
+        } finally {
+            writer.close();
+        }
     }
 
     /**
@@ -200,13 +210,17 @@ class IcebergSinkWriterTest {
      * writer, which only adds rows, so the order across writers does not matter.
      */
     @Test
-    void testAppendOnlyTableIsRandomWithoutAKey() {
+    void testAppendOnlyTableIsRandomWithoutAKey() throws IOException {
         Table table = createTable(Collections.emptySet());
         IcebergSinkWriter writer =
                 new IcebergSinkWriter(loaderOf(table), sinkConfig(null), nameThenId(), null);
 
-        assertEquals(MultiTableSinkReplicaMode.RANDOM, writer.replicaMode());
-        assertEquals(Optional.empty(), writer.primaryKey());
+        try {
+            assertEquals(MultiTableSinkReplicaMode.RANDOM, writer.replicaMode());
+            assertEquals(Optional.empty(), writer.primaryKey());
+        } finally {
+            writer.close();
+        }
     }
 
     /**
@@ -214,7 +228,7 @@ class IcebergSinkWriterTest {
      * job with several replicas is rejected instead of routing the changes of one key at random.
      */
     @Test
-    void testKeyColumnMissingFromTheRowLeavesNoKey() {
+    void testKeyColumnMissingFromTheRowLeavesNoKey() throws IOException {
         Table table = createTable(Collections.singleton(1));
         TableSchema onlyName =
                 TableSchema.builder()
@@ -230,12 +244,28 @@ class IcebergSinkWriterTest {
         IcebergSinkWriter writer =
                 new IcebergSinkWriter(loaderOf(table), sinkConfig(null), onlyName, null);
 
-        assertEquals(MultiTableSinkReplicaMode.KEYED, writer.replicaMode());
-        assertEquals(Optional.empty(), writer.primaryKey());
+        try {
+            assertEquals(MultiTableSinkReplicaMode.KEYED, writer.replicaMode());
+            assertEquals(Optional.empty(), writer.primaryKey());
+        } finally {
+            writer.close();
+        }
     }
 
-    private static Table createTable(Set<Integer> identifierFieldIds) {
+    /** Catalogs created by {@link #createTable}, closed after each test. */
+    private final List<InMemoryCatalog> catalogs = new ArrayList<>();
+
+    @AfterEach
+    void closeCatalogs() throws IOException {
+        for (InMemoryCatalog catalog : catalogs) {
+            catalog.close();
+        }
+        catalogs.clear();
+    }
+
+    private Table createTable(Set<Integer> identifierFieldIds) {
         InMemoryCatalog catalog = new InMemoryCatalog();
+        catalogs.add(catalog);
         catalog.initialize("test", Collections.emptyMap());
         catalog.createNamespace(Namespace.of("db"));
         Schema schema =
