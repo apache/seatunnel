@@ -85,6 +85,10 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | enable_header_write                   | boolean | 否   | false                                     | 仅在 file_format_type 为 text, csv 时使用。false：不写表头，true：写表头                      |
 | parquet_avro_write_timestamp_as_int96 | boolean | 否   | false                                     | 仅在 file_format 为 parquet 时使用                                                        |
 | parquet_avro_write_fixed_as_int96     | array   | 否   | -                                         | 仅在 file_format 为 parquet 时使用                                                        |
+| csv_string_quote_mode                 | enum    | 否   | MINIMAL                                   | 仅在文件格式为 CSV 时使用。                                                       |
+| sheet_max_rows                        | int     | 否   | 1048576                                   | 仅在 file_format_type 为 excel 时使用。                                               |
+| merge_update_event                    | boolean | 否   | false                                     | 仅当 file_format_type 为 canal_json、debezium_json 或 maxwell_json 时使用。设为 true 时，UPDATE_AFTER 和 UPDATE_BEFORE 事件会合并为 UPDATE 事件数据 |
+| schema_evolution_enabled              | boolean | 否   | false                                     | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 
 ## 示例
 

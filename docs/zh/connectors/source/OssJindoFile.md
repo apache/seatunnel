@@ -95,7 +95,26 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | quote_char                | string  | 否  | "                           | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                       |
 | escape_char               | string  | 否  | -                           | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                              |
 | recursive_file_scan       | boolean | 否  | true                        | 是否递归扫描子目录。 如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。                                  | 
-| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。默认关闭，以避免大文件目录下的性能开销。 |
+| enable_file_split          | boolean | 否  | false                       | 开启文件切分功能。当 `file_format_type` 不支持切分或启用了压缩时，连接器会回退为不切分模式。 |
+| file_split_size            | long    | 否  | 134217728                   | `enable_file_split=true` 时的文件切分大小（字节），必须大于 0。对于文本类格式，切分点会对齐到下一个 `row_delimiter`。默认 128 MB。 |
+| excel_use_header_line      | boolean | 否  | false                       | 使用 Excel 第一行作为列头进行按名称映射。仅在 `file_format_type` 为 `excel` 时生效。 |
+| markdown_rag_metadata_enabled | boolean | 否  | false                       | 读取 markdown 文件时追加面向 RAG 的元数据列。仅在 `file_format_type` 为 `markdown` 时生效。 |
+| pdf_rag_metadata_enabled   | boolean | 否  | false                       | 读取 PDF 文件时追加面向 RAG 的元数据列。仅在 `file_format_type` 为 `pdf` 时生效。 |
+| discovery_mode             | string  | 否  | once                        | 文件发现模式，支持 `once`（默认）和 `continuous`。continuous 模式会定期扫描路径，目前需要同时配置 `sync_mode=update` 和 `file_format_type=binary`。 |
+| scan_interval              | string  | 否  | 10S                         | `discovery_mode=continuous` 的轮询间隔，支持 `10S` 等简写和 `PT10S` 等 ISO-8601 格式。 |
+| start_mode                 | string  | 否  | earliest                    | 持续发现的初始扫描方式。`earliest` 会处理已有文件，`latest` 仅处理后续新增或变更。 |
+| sync_mode                  | string  | 否  | full                        | 文件同步模式。`update` 会将源对象与 `target_path` 对比，只读取新增或变更对象，目前仅支持 binary 格式。 |
+| target_path                | string  | 否  | -                           | `sync_mode=update` 时必填，通常应与 sink 的 `path` 一致。 |
+| target_hadoop_conf         | map     | 否  | -                           | `sync_mode=update` 时可选的目标文件系统 Hadoop 配置。 |
+| update_strategy            | string  | 否  | distcp                      | update 模式的对比策略，支持 `distcp` 和 `strict`。 |
+| compare_mode               | string  | 否  | len_mtime                   | update 模式的对比方式，支持 `len_mtime` 和 `checksum`；checksum 需要 `update_strategy=strict`。 |
+| update_compare_parallelism | int     | 否  | 8                           | 目标对象元数据查询的最大并发数，有效范围为 `1-64`。 |
+| update_compare_bulk_threshold | int  | 否  | 0                           | 同一目标父目录的候选数达到正数阈值时改用一次目录枚举；`0` 表示关闭自动批量枚举。 |
+| post_sync_action           | string  | 否  | none                        | 持续发现对象完成 checkpoint 后的可选动作，支持 `none`、`delete` 和 `backup`。 |
+| backup_path                | string  | 否  | -                           | `post_sync_action=backup` 时必填，且备份路径不能与源 `path` 重叠。 |
+| retention_max_age          | string  | 否  | -                           | `backup_path` 中 SeaTunnel 备份对象的可选最大保留时间。 |
+| retention_check_interval   | string  | 否  | 1H                          | 配置备份保留策略时的清理扫描间隔。 |
 
 ### sort_files_by_modification_time [boolean]
 
@@ -104,11 +123,330 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 - 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
 - 需要按时间顺序处理文件
 
+### path [string]
+
+源文件路径。
+
+### bucket [string]
+
+OSS 文件系统的桶地址，例如：`oss://tyrantlucifer-image-bed`
+
+### access_key [string]
+
+OSS 文件系统的访问密钥。
+
+### access_secret [string]
+
+OSS 文件系统的访问密钥（secret）。
+
+### endpoint [string]
+
+OSS 文件系统的端点。
+
+### read_columns [list]
+
+数据源的读取列列表，用户可以通过它实现字段投影。
+
+### delimiter/field_delimiter [string]
+
+**delimiter** 参数将在 2.3.5 版本之后废弃，请使用 **field_delimiter** 代替。
+
+仅在 file_format 为 text 时需要配置。
+
+字段分隔符，用于告诉连接器如何切分字段。
+
+默认 `\001`，与 Hive 的默认分隔符相同。
+
+### row_delimiter [string]
+
+仅在 file_format 为 text 时需要配置。
+
+行分隔符，用于告诉连接器如何切分行。
+
+默认 `\n`
+
+### parse_partition_from_path [boolean]
+
+控制是否从文件路径解析分区键和值。
+
+例如，从路径 `oss://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26` 读取文件时，文件中的每条记录都会添加以下两个字段：
+
+|     name      | age |
+|---------------|-----|
+| tyrantlucifer | 26  |
+
+提示：**不要在 schema 选项中定义分区字段**
+
+### date_format [string]
+
+日期类型格式，用于告诉连接器如何将字符串转换为日期，支持以下格式：
+
+`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`
+
+默认 `yyyy-MM-dd`
+
+### datetime_format [string]
+
+日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间，支持以下格式：
+
+`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`
+
+默认 `yyyy-MM-dd HH:mm:ss`
+
+### time_format [string]
+
+时间类型格式，用于告诉连接器如何将字符串转换为时间，支持以下格式：
+
+`HH:mm:ss` `HH:mm:ss.SSS`
+
+默认 `HH:mm:ss`
+
+### skip_header_row_number [long]
+
+跳过文件的前几行，仅对 txt 和 csv 有效。
+
+例如，设置如下：
+
+`skip_header_row_number = 2`
+
+则 SeaTunnel 会跳过源文件的前 2 行
+
+### schema [config]
+
+仅当 file_format_type 为 text、json、excel、xml 或 csv（或其他无法从元数据中读取 schema 的格式）时需要配置。
+
+#### fields [Config]
+
+上游数据的 schema。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+
+### sheet_name [string]
+
+仅在 file_format 为 excel 时需要配置。
+
+读取工作簿中的指定工作表。
+
+### excel_engine [string]
+
+仅在 `file_format` 为 excel 时使用。
+
+支持 `POI` 和 `EasyExcel` 两种引擎，默认值为 `POI`。
+
+默认的 Excel 读取引擎是 POI。POI 保留历史读取行为，包括 POI 特有的公式和格式处理，但读取大型 Excel 文件时可能占用较多内存。
+
+可以设置 `excel_engine = EasyExcel` 以便对大型 Excel 文件使用流式读取。
+
+### poi_excel_max_file_size [long]
+
+仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。
+
+POI 引擎可读取的最大 Excel 文件大小（字节）。默认值为 `52428800` 字节（50 MB）。当文件超过该限制时，连接器会快速失败并建议使用 EasyExcel。
+
+### file_filter_pattern [string]
+
+文件过滤模式，用于过滤文件。如果只想按文件名过滤，直接写文件名正则即可；如果还想按文件目录过滤，表达式需要以 `path` 开头。
+
+该模式遵循标准正则表达式。详情请参考 https://en.wikipedia.org/wiki/Regular_expression。
+
+下面是一些示例。
+
+文件结构示例：
+```
+/data/seatunnel/20241001/report.txt
+/data/seatunnel/20241007/abch202410.csv
+/data/seatunnel/20241002/abcg202410.csv
+/data/seatunnel/20241005/old_data.csv
+/data/seatunnel/20241012/logo.png
+```
+匹配规则示例：
+
+**示例 1**：*匹配所有 .txt 文件*，正则表达式：
+```
+.*.txt
+```
+该示例的匹配结果是：
+```
+/data/seatunnel/20241001/report.txt
+```
+**示例 2**：*匹配所有以 abc 开头的文件*，正则表达式：
+```
+abc.*
+```
+该示例的匹配结果是：
+```
+/data/seatunnel/20241007/abch202410.csv
+/data/seatunnel/20241002/abcg202410.csv
+```
+**示例 3**：*匹配 20241007 目录下以 abc 开头、且第四个字符是 h 或 g 的文件*，正则表达式：
+```
+/data/seatunnel/20241007/abc[h,g].*
+```
+该示例的匹配结果是：
+```
+/data/seatunnel/20241007/abch202410.csv
+```
+**示例 4**：*匹配以 202410 开头的第三层目录下以 .csv 结尾的文件*，正则表达式：
+```
+/data/seatunnel/202410\d*/.*.csv
+```
+该示例的匹配结果是：
+```
+/data/seatunnel/20241007/abch202410.csv
+/data/seatunnel/20241002/abcg202410.csv
+/data/seatunnel/20241005/old_data.csv
+```
+
+### filename_extension [string]
+
+按指定的文件扩展名筛选文件。示例：`csv` `.txt` `json` `.xml`。
+
+### compress_codec [string]
+
+文件压缩编解码器，支持的详细信息如下所示：
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc/parquet: 自动识别压缩类型，无需额外设置。
+
+### archive_compress_codec [string]
+
+归档文件的压缩编解码器，支持的详细信息如下所示：
+
+| archive_compress_codec | file_format        | archive_compress_suffix |
+|------------------------|--------------------|-------------------------|
+| ZIP                    | txt,json,excel,xml | .zip                    |
+| TAR                    | txt,json,excel,xml | .tar                    |
+| TAR_GZ                 | txt,json,excel,xml | .tar.gz                 |
+| GZ                     | txt,json,excel,xml | .gz                     |
+| NONE                   | all                | .*                      |
+
+注意：gz 压缩的 excel 文件需要压缩原始文件或指定文件后缀，例如 e2e.xls -> e2e_test.xls.gz
+
+### encoding [string]
+
+仅在 file_format_type 为 json、text、csv、xml 时使用。
+
+读取文件的编码。该参数会通过 `Charset.forName(encoding)` 解析。
+
+### null_format [string]
+
+当 `file_format_type` 为 `text` 或 `csv` 时使用。定义哪个字段值表示 null。详细行为请参考上方选项表说明。
+
+例如：`\N`
+
+### file_filter_modified_start [string]
+
+文件修改时间过滤器。连接器会根据文件最后修改的起始时间（包含该时间）筛选文件。默认数据格式为 `yyyy-MM-dd HH:mm:ss`。
+
+### file_filter_modified_end [string]
+
+文件修改时间过滤器。连接器会根据文件最后修改的结束时间（不包含该时间）筛选文件。默认数据格式为 `yyyy-MM-dd HH:mm:ss`。
+
+### quote_char [string]
+
+用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。
+
+### escape_char [string]
+
+用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
+
+### recursive_file_scan [boolean]
+
+是否递归扫描子目录。如果设置为 `false`，将忽略子目录。
+
+### common options
+
+Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。
+
 ### file_format_type [string]
 
 文件类型，支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+
+如果您将文件类型指定为 `json`，您还应该指定 schema 选项来告诉连接器如何将数据解析为您想要的行。
+
+例如：
+
+上游数据如下：
+
+```json
+
+{"code":  200, "data":  "get success", "success":  true}
+
+```
+
+您也可以在一个文件中保存多条数据，并用换行符分隔：
+
+```json lines
+
+{"code":  200, "data":  "get success", "success":  true}
+{"code":  300, "data":  "get failed", "success":  false}
+
+```
+
+您应该按如下方式指定 schema：
+
+```hocon
+
+schema {
+    fields {
+        code = int
+        data = string
+        success = boolean
+    }
+}
+
+```
+
+连接器将生成如下数据：
+
+| code |    data     | success |
+|------|-------------|---------|
+| 200  | get success | true    |
+
+如果您将文件类型指定为 `parquet` `orc`，则不需要 schema 选项，连接器可以自动识别上游数据的 schema。
+
+如果您将文件类型指定为 `text` `csv`，您可以选择是否指定 schema 信息。
+
+例如，上游数据如下：
+
+```text
+
+tyrantlucifer#26#male
+
+```
+
+如果您不指定数据 schema，连接器将把上游数据视为以下内容：
+
+|        content        |
+|-----------------------|
+| tyrantlucifer#26#male |
+
+如果您指定数据 schema，除 CSV 文件类型外，还需要指定 `field_delimiter` 选项。
+
+您应该按如下方式指定 schema 和分隔符：
+
+```hocon
+
+field_delimiter = "#"
+schema {
+    fields {
+        name = string
+        age = int
+        gender = string 
+    }
+}
+
+```
+
+连接器将生成如下数据：
+
+|     name      | age | gender |
+|---------------|-----|--------|
+| tyrantlucifer | 26  | male   |
+
+如果您将文件类型指定为 `binary`，SeaTunnel 可以同步任何格式的文件，例如压缩包、图片等。简而言之，任何文件都可以同步到目标位置。在此需求下，您需要确保 source 和 sink 同时使用 `binary` 格式进行文件同步。具体用法请参考下面的示例。
 
 :::caution
 
@@ -166,6 +504,142 @@ PDF 特有的解析行为如下：
 
 注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
 
+
+## 持续发现
+
+`discovery_mode=continuous` 会让流式作业保持运行，并定期轮询 OSS 中的新增或变更对象。该模式使用现有文件对比逻辑，不消费 OSS 事件通知，也不会为对象删除或覆盖生成 changelog 行。
+
+持续发现目前需要同时配置 `file_format_type="binary"` 和 `sync_mode="update"`。`target_path` 应与 sink 的基础 `path` 一致，以便源端跳过未变化对象。默认的 `discovery_mode="once"` 会保持原有有界读取行为。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  OssJindoFile {
+    path = "/watch/source"
+    bucket = "oss://tyrantlucifer-image-bed"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "oss-cn-beijing.aliyuncs.com"
+    file_format_type = "binary"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "earliest"
+    sync_mode = "update"
+    target_path = "/watch/target"
+  }
+}
+
+sink {
+  OssJindoFile {
+    path = "/watch/target"
+    tmp_path = "/watch/tmp"
+    bucket = "oss://tyrantlucifer-image-bed"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "oss-cn-beijing.aliyuncs.com"
+    file_format_type = "binary"
+  }
+}
+```
+
+## 示例
+
+```hocon
+
+OssJindoFile {
+    path = "/seatunnel/orc"
+    bucket = "oss://tyrantlucifer-image-bed"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "oss-cn-beijing.aliyuncs.com"
+    file_format_type = "orc"
+  }
+
+```
+
+```hocon
+
+OssJindoFile {
+    path = "/seatunnel/json"
+    bucket = "oss://tyrantlucifer-image-bed"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "oss-cn-beijing.aliyuncs.com"
+    file_format_type = "json"
+    schema {
+      fields {
+        id = int 
+        name = string
+      }
+    }
+  }
+
+```
+
+### 传输二进制文件
+
+```hocon
+
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  OssJindoFile {
+    bucket = "oss://tyrantlucifer-image-bed"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "oss-cn-beijing.aliyuncs.com"
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+  }
+}
+sink {
+  // 可以将本地文件传输到 s3/hdfs/oss 等
+  OssJindoFile {
+    bucket = "oss://tyrantlucifer-image-bed"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "oss-cn-beijing.aliyuncs.com"
+    path = "/seatunnel/read/binary2/"
+    file_format_type = "binary"
+  }
+}
+
+```
+
+### 过滤文件
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  OssJindoFile {
+    bucket = "oss://tyrantlucifer-image-bed"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "oss-cn-beijing.aliyuncs.com"
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+    // 文件示例 abcD2024.csv
+    file_filter_pattern = "abc[DX]*.*"
+  }
+}
+
+sink {
+  Console {
+  }
+}
+```
 
 ## 变更日志
 

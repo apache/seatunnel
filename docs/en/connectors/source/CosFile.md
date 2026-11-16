@@ -92,6 +92,25 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | escape_char                | string  | no       | -                           | Single character for escaping quotes or special characters inside CSV fields. |
 | recursive_file_scan        | boolean | no       | true                        | Whether to scan subdirectories recursively, default true. |
 | sort_files_by_modification_time | boolean | no       | false                       | Whether to sort files by modification time in descending order. When enabled, schema inference uses the latest file when reading evolving schemas. |
+| enable_file_split          | boolean | no       | false                       | Turn on the file splitting function. When `file_format_type` does not support splitting or compression is enabled, the connector falls back to non-splitting mode. |
+| file_split_size            | long    | no       | 134217728                   | File split size in bytes when `enable_file_split=true`. Must be greater than 0. For text-like formats, split ends are aligned to the next `row_delimiter`. Default is 128 MB. |
+| excel_use_header_line      | boolean | no       | false                       | Use the first Excel row as column headers for name-based mapping. Only used when `file_format_type` is `excel`. |
+| markdown_rag_metadata_enabled | boolean | no     | false                       | Append RAG-oriented metadata columns when reading markdown files. Only valid when `file_format_type` is `markdown`. |
+| pdf_rag_metadata_enabled   | boolean | no       | false                       | Append RAG-oriented metadata columns when reading PDF files. Only valid when `file_format_type` is `pdf`. |
+| discovery_mode             | string  | no       | once                        | File discovery mode. Supported values: `once` (default), `continuous`. Continuous mode periodically scans the path and currently requires `sync_mode=update` and `file_format_type=binary`. |
+| scan_interval              | string  | no       | 10S                         | Polling interval used when `discovery_mode=continuous`. Shorthand values such as `10S` and ISO-8601 values such as `PT10S` are supported. |
+| start_mode                 | string  | no       | earliest                    | Initial scan behavior for continuous discovery. `earliest` processes existing files; `latest` processes only later additions or changes. |
+| sync_mode                  | string  | no       | full                        | File sync mode. `update` compares source objects with `target_path` and reads only new or changed objects. Update mode currently supports binary format only. |
+| target_path                | string  | no       | -                           | Required when `sync_mode=update`. Target base path used for comparison and normally the same as the sink `path`. |
+| target_hadoop_conf         | map     | no       | -                           | Optional Hadoop configuration for the target filesystem when `sync_mode=update`. |
+| update_strategy            | string  | no       | distcp                      | Comparison strategy used by update mode. Supported values are `distcp` and `strict`. |
+| compare_mode               | string  | no       | len_mtime                   | Comparison mode used by update mode. Supported values are `len_mtime` and `checksum`; checksum requires `update_strategy=strict`. |
+| update_compare_parallelism | int     | no       | 8                           | Maximum parallelism for target metadata lookups. Valid range is `1-64`. |
+| update_compare_bulk_threshold | int  | no       | 0                           | Positive values switch comparison to a directory listing when that many candidates share a target parent. `0` disables automatic bulk listing. |
+| post_sync_action           | string  | no       | none                        | Optional action after a continuously discovered object is checkpointed. Supported values are `none`, `delete`, and `backup`. |
+| backup_path                | string  | no       | -                           | Required when `post_sync_action=backup`. Backup destination must not overlap with the source `path`. |
+| retention_max_age          | string  | no       | -                           | Optional maximum age for SeaTunnel backup objects under `backup_path`. |
+| retention_check_interval   | string  | no       | 1H                          | Retention scan interval when backup retention is configured. |
 
 ### path [string]
 
@@ -508,6 +527,48 @@ When enabled, files will be sorted by their modification time (newest first). Th
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
+
+## Continuous Discovery
+
+`discovery_mode=continuous` keeps a streaming job running and polls COS for new or changed objects. This mode uses the existing file comparison path; it does not consume COS event notifications and does not emit object delete events or changelog rows.
+
+Continuous discovery currently requires `file_format_type="binary"` and `sync_mode="update"`. Set `target_path` to the same base path used by the sink so the source can skip unchanged objects. The default `discovery_mode="once"` preserves the existing bounded-source behavior.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  CosFile {
+    path = "/watch/source"
+    bucket = "cosn://seatunnel-test"
+    region = "ap-guangzhou"
+    secret_id = "xxxxxxxxxxxxxxxxx"
+    secret_key = "xxxxxxxxxxxxxxxxx"
+    file_format_type = "binary"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "earliest"
+    sync_mode = "update"
+    target_path = "/watch/target"
+  }
+}
+
+sink {
+  CosFile {
+    path = "/watch/target"
+    tmp_path = "/watch/tmp"
+    bucket = "cosn://seatunnel-test"
+    region = "ap-guangzhou"
+    secret_id = "xxxxxxxxxxxxxxxxx"
+    secret_key = "xxxxxxxxxxxxxxxxx"
+    file_format_type = "binary"
+  }
+}
+```
 
 ## Example
 
