@@ -50,11 +50,18 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchma
 Run the `MultiTableSink` record handoff benchmark without starting an engine or database:
 
 ```bash
-java -jar seatunnel-benchmarks/target/benchmarks.jar MultiTableSinkBenchmark -p replicaNum=1,5,15
+java -jar seatunnel-benchmarks/target/benchmarks.jar 'MultiTableSinkBenchmark.recordHandoff$' \
+  -p replicaNum=1,5,15
 ```
 
 The score measures bounded record handoff throughput with per-writer sequence checks; final
 draining and count verification run outside the timed iteration.
+
+Run the `MultiTableSink` timer flush benchmark.
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar 'MultiTableSinkBenchmark.timerFlush$'
+```
 
 Write JSON results:
 
