@@ -77,6 +77,11 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 JDBC 风格的 `use.kerberos`、`kerberos.principal`、`kerberos.principal.file`
 不是 Hudi 配置项。
 
+登录和票据续期失败会报告为认证错误。Catalog 操作保留缺库、缺表、对象已存在等
+异常类型；其他认证后的 I/O 错误保留操作及异常类别，不保留可能含有凭据的原始消息或原因链。
+每个 catalog/write-client provider 独立持有身份及延迟创建的线程池。关闭前必须等待所有
+操作完成，不支持关闭与 I/O 并发执行。中断等待线程不会取消已经开始的文件系统操作。
+
 `conf_files_path` 加载的配置必须包含 `hadoop.security.authentication=kerberos`
 以及目标 HDFS 配置。加载 XML 本身不会登录；连接器会通过 keytab 登录，无需在 worker
 启动前额外执行 keytab 登录。执行保存模式/catalog 初始化的进程及每个 writer worker

@@ -22,6 +22,10 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
@@ -84,6 +88,9 @@ class HudiCatalogTest {
         try {
             TablePath database = TablePath.of("authenticated", "orders");
             catalog.createDatabase(database, false);
+            Assertions.assertThrows(
+                    DatabaseAlreadyExistException.class,
+                    () -> catalog.createDatabase(database, false));
             Assertions.assertTrue(catalog.databaseExists("authenticated"));
             CatalogTable table =
                     buildAllTypesTable(TableIdentifier.of(CATALOG_NAME, "authenticated", "orders"));
@@ -92,13 +99,68 @@ class HudiCatalogTest {
             Assertions.assertEquals(
                     "orders", catalog.getTable(database).getTableId().getTableName());
             Assertions.assertTrue(catalog.listTables("authenticated").contains("orders"));
+            CatalogException nonempty =
+                    Assertions.assertThrows(
+                            CatalogException.class, () -> catalog.dropDatabase(database, false));
+            Assertions.assertTrue(nonempty.getMessage().contains("drop database"));
+            Assertions.assertTrue(nonempty.getMessage().contains("authenticated.orders"));
             catalog.dropTable(database, false);
+            TableNotExistException missing =
+                    Assertions.assertThrows(
+                            TableNotExistException.class, () -> catalog.getTable(database));
+            Assertions.assertTrue(missing.getMessage().contains("authenticated.orders"));
+            Assertions.assertNull(missing.getCause());
+            Assertions.assertThrows(
+                    TableNotExistException.class, () -> catalog.dropTable(database, false));
             catalog.dropDatabase(database, false);
+            Assertions.assertThrows(
+                    DatabaseNotExistException.class, () -> catalog.listTables("authenticated"));
+            Assertions.assertThrows(
+                    DatabaseNotExistException.class, () -> catalog.dropDatabase(database, false));
+            // Even identifiers must not echo the configured principal/keytab into an exception.
+            TableNotExistException redacted =
+                    Assertions.assertThrows(
+                            TableNotExistException.class,
+                            () -> catalog.getTable(TablePath.of("principal", "keytab")));
+            Assertions.assertFalse(redacted.getMessage().contains("principal"));
+            Assertions.assertFalse(redacted.getMessage().contains("keytab"));
             Assertions.assertFalse(catalog.databaseExists("authenticated"));
         } finally {
             catalog.close();
         }
         Mockito.verify(user, Mockito.atLeast(10)).checkTGTAndReloginFromKeytab();
+        Mockito.verify(user).logoutUserFromKeytab();
+    }
+
+    @Test
+    void authenticatedCatalogInitializationReportsSafeOperationCategory(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path root) throws Exception {
+        Configuration conf = new Configuration(false);
+        conf.set("hadoop.security.authentication", "kerberos");
+        UserGroupInformation user =
+                Mockito.spy(UserGroupInformation.createRemoteUser("hudi-failed-open"));
+        HudiCatalog catalog =
+                new HudiCatalog(
+                        CATALOG_NAME,
+                        conf,
+                        "missing-filesystem://principal:keytab@localhost/catalog",
+                        "principal",
+                        "keytab",
+                        null);
+        try (MockedStatic<UserGroupInformation> login =
+                Mockito.mockStatic(UserGroupInformation.class)) {
+            login.when(
+                            () ->
+                                    UserGroupInformation.loginUserFromKeytabAndReturnUGI(
+                                            "principal", "keytab"))
+                    .thenReturn(user);
+            CatalogException error = Assertions.assertThrows(CatalogException.class, catalog::open);
+            Assertions.assertTrue(error.getMessage().contains("open"));
+            Assertions.assertTrue(error.getMessage().contains("UnsupportedFileSystemException"));
+            Assertions.assertFalse(error.getMessage().contains("principal"));
+            Assertions.assertFalse(error.getMessage().contains("keytab"));
+            Assertions.assertNull(error.getCause());
+        }
         Mockito.verify(user).logoutUserFromKeytab();
     }
 

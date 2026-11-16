@@ -78,6 +78,13 @@ Set both nonblank `kerberos_principal` and `kerberos_keytab_path` at the sink le
 Partial or blank credentials are rejected. The dotted JDBC options `use.kerberos`,
 `kerberos.principal` and `kerberos.principal.file` are not Hudi options.
 
+Login and ticket-renewal failures are reported as authentication errors. Catalog operations retain
+their missing/existing database or table exception types. Other authenticated I/O failures report
+the operation and exception category without retaining credential-bearing messages or causes.
+Each catalog/write-client provider owns its identity and lazily created worker pool. Finish all
+operations before closing it; concurrent close and I/O are unsupported. Interrupting a waiting
+caller does not cancel filesystem work that has already started.
+
 `conf_files_path` must load `hadoop.security.authentication=kerberos`, along with
 the HDFS configuration for the target cluster. XML loading alone does not log in.
 The connector logs in from the keytab; an external worker keytab login is not required.

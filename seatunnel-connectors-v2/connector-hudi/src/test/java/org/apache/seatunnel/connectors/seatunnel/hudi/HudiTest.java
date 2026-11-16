@@ -94,7 +94,7 @@ public class HudiTest {
     void testRealClientWritesAndCommitsUnderReturnedIdentity() throws Exception {
         java.nio.file.Path root = tempDir.resolve("authenticated");
         Map<String, Object> options = new HashMap<>();
-        options.put("table_dfs_path", root.toString());
+        options.put("table_dfs_path", root.toUri().toString());
         options.put("table_name", "orders");
         options.put("record_key_fields", "id");
         options.put("precombine_field", "id");
@@ -107,7 +107,7 @@ public class HudiTest {
         HudiTableConfig table = config.getTableList().get(0);
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(new String[] {"id"}, new SeaTunnelDataType[] {INT_TYPE});
-        String path = root.resolve("default/orders").toString();
+        String path = root.resolve("default").resolve("orders").toUri().toString();
         HoodieTableMetaClient.withPropertyBuilder()
                 .setTableType(HoodieTableType.COPY_ON_WRITE)
                 .setTableName("orders")

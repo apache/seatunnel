@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.util;
 
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
 
 import org.apache.hadoop.conf.Configuration;
@@ -31,6 +32,8 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
@@ -227,6 +230,73 @@ class HudiAuthenticationContextTest {
                     return null;
                 });
         verify(user).logoutUserFromKeytab();
+    }
+
+    @Test
+    void actionFailuresKeepSafeCategoriesWithoutBecomingLoginFailures() throws Exception {
+        HudiAuthenticationContext context =
+                authenticated(spy(UserGroupInformation.createRemoteUser("hudi-operation")));
+        try {
+            for (boolean nested : new boolean[] {false, true}) {
+                HudiConnectorException error =
+                        assertThrows(
+                                HudiConnectorException.class,
+                                () ->
+                                        context.execute(
+                                                () -> {
+                                                    if (nested) {
+                                                        return context.execute(
+                                                                () -> {
+                                                                    throw new IllegalArgumentException(
+                                                                            "sensitive-schema",
+                                                                            new IOException(
+                                                                                    "sensitive-principal sensitive-keytab"));
+                                                                });
+                                                    }
+                                                    throw new IOException(
+                                                            "sensitive-principal sensitive-keytab");
+                                                }));
+                assertEquals(
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                        error.getSeaTunnelErrorCode());
+                assertTrue(error.getMessage().contains("IOException"));
+                assertNull(error.getCause());
+                StringWriter trace = new StringWriter();
+                error.printStackTrace(new PrintWriter(trace));
+                assertFalse(trace.toString().contains("sensitive-"));
+            }
+        } finally {
+            context.close(() -> null);
+        }
+    }
+
+    @Test
+    void cleanupKeepsFirstFailureAndSanitizedLogoutFailure() throws Exception {
+        UserGroupInformation user = spy(UserGroupInformation.createRemoteUser("hudi-cleanup"));
+        HudiAuthenticationContext context = authenticated(user);
+        doThrow(new IOException("sensitive-keytab")).when(user).logoutUserFromKeytab();
+        HudiConnectorException error =
+                assertThrows(
+                        HudiConnectorException.class,
+                        () ->
+                                context.close(
+                                        () -> {
+                                            throw new IllegalArgumentException("sensitive-cleanup");
+                                        }));
+        assertTrue(error.getMessage().contains("IllegalArgumentException"));
+        assertEquals(
+                CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, error.getSeaTunnelErrorCode());
+        assertEquals(1, error.getSuppressed().length);
+        assertTrue(error.getSuppressed()[0].getMessage().contains("logout"));
+        assertTrue(error.getSuppressed()[0].getMessage().contains("IOException"));
+        StringWriter trace = new StringWriter();
+        error.printStackTrace(new PrintWriter(trace));
+        assertFalse(trace.toString().contains("sensitive-"));
+        context.close(
+                () -> {
+                    fail("Already closed");
+                    return null;
+                });
     }
 
     @Test

@@ -46,6 +46,10 @@ public class HudiClientManager {
         return getProvider(index, tableName, seaTunnelRowType).getOrCreateClient();
     }
 
+    /**
+     * Share one provider/identity for this table and writer index. Execute client I/O through that
+     * provider; the manager owns its removal and close. Lookups must not race with closeClient.
+     */
     public HudiWriteClientProvider getProvider(
             int index, String tableName, SeaTunnelRowType seaTunnelRowType) {
         return hoodieJavaWriteClientMap
@@ -66,6 +70,7 @@ public class HudiClientManager {
         return hoodieJavaWriteClientMap.get(tableName).get(index).getOrCreateClient();
     }
 
+    /** Remove and close the owned provider after its writer finishes all in-flight operations. */
     public void closeClient(String tableName, int index) {
         Map<Integer, HudiWriteClientProvider> clients = hoodieJavaWriteClientMap.get(tableName);
         if (clients != null) {

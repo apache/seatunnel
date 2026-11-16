@@ -25,19 +25,28 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.IOException;
+import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
-/** Runtime-only identity and resources owned by one catalog or write client. */
+/**
+ * Runtime-only identity and resources owned by one catalog or write client. The owner must finish
+ * all operations before closing this context; concurrent close/execute is unsupported. Hadoop's
+ * security configuration and krb5 realm settings remain JVM-global, although the returned user and
+ * worker pool belong exclusively to this instance.
+ */
 public final class HudiAuthenticationContext {
 
     private final Configuration configuration;
     private final UserGroupInformation user;
+    // Lazily created for authenticated operations; workers retain this instance's user until close.
     private ForkJoinPool pool;
+    // Serial close is idempotent. This flag does not coordinate concurrent resource use/close.
     private volatile boolean closed;
 
     public HudiAuthenticationContext(
@@ -75,12 +84,31 @@ public final class HudiAuthenticationContext {
         return configuration;
     }
 
-    /** Renew before I/O; nested operations and parallel streams retain this client's identity. */
+    /**
+     * Renew before I/O; nested operations and parallel streams retain this client's identity.
+     * Interrupting the waiting caller preserves its interrupt flag but does not cancel in-flight
+     * I/O.
+     */
     public <T> T execute(PrivilegedExceptionAction<T> action) {
-        return execute(action, true);
+        return execute(action, HudiAuthenticationContext::operationFailure);
     }
 
-    private <T> T execute(PrivilegedExceptionAction<T> action, boolean renew) {
+    /**
+     * Execute with a domain-specific failure mapper. The mapper must discard sensitive messages,
+     * causes and suppressed exceptions from the supplied action failure. Login/renewal errors do
+     * not pass through the mapper. Credential-free execution retains its original exception
+     * behavior.
+     */
+    public <T> T execute(
+            PrivilegedExceptionAction<T> action,
+            Function<Exception, RuntimeException> failureMapper) {
+        return execute(action, true, failureMapper);
+    }
+
+    private <T> T execute(
+            PrivilegedExceptionAction<T> action,
+            boolean renew,
+            Function<Exception, RuntimeException> failureMapper) {
         if (closed) {
             throw new IllegalStateException("Hudi authentication context is closed");
         }
@@ -113,11 +141,49 @@ public final class HudiAuthenticationContext {
             return executor.submit(() -> user.doAs(action)).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw failure("Hudi authenticated operation interrupted");
-        } catch (ExecutionException | RuntimeException e) {
-            throw failure("Hudi authenticated operation failed");
+            throw operationFailure(e);
         } catch (Exception e) {
-            throw failure("Hudi authenticated operation failed");
+            Throwable cause = e;
+            while ((cause instanceof ExecutionException
+                            || cause instanceof PrivilegedActionException)
+                    && cause.getCause() != null) {
+                cause = cause.getCause();
+            }
+            if (cause instanceof Error) {
+                throw (Error) cause;
+            }
+            throw failureMapper.apply((Exception) cause);
+        }
+    }
+
+    /**
+     * Class names only: never include arbitrary exception messages or credential-bearing causes.
+     */
+    public static String failureCategory(Throwable error) {
+        StringBuilder category = new StringBuilder();
+        for (int depth = 0; error != null && depth < 8; depth++) {
+            if (depth > 0) {
+                category.append(" -> ");
+            }
+            category.append(error.getClass().getSimpleName());
+            error = error.getCause();
+        }
+        return category.toString();
+    }
+
+    private static HudiConnectorException operationFailure(Exception error) {
+        // Nested provider/client calls have already discarded the unsafe cause chain.
+        if (error instanceof OperationFailure) {
+            return (OperationFailure) error;
+        }
+        return new OperationFailure(failureCategory(error));
+    }
+
+    private static final class OperationFailure extends HudiConnectorException {
+        private OperationFailure(String category) {
+            super(
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                    "Hudi operation failed (" + category + ")");
         }
     }
 
@@ -160,7 +226,7 @@ public final class HudiAuthenticationContext {
         }
         RuntimeException failure = null;
         try {
-            execute(cleanup, false);
+            execute(cleanup, false, HudiAuthenticationContext::operationFailure);
         } catch (RuntimeException e) {
             failure = e;
         } finally {
@@ -170,12 +236,16 @@ public final class HudiAuthenticationContext {
                 try {
                     if (!pool.awaitTermination(30, TimeUnit.SECONDS)) {
                         pool.shutdownNow();
-                        failure = failure("Hudi authenticated worker shutdown timed out");
+                        failure =
+                                accumulate(
+                                        failure,
+                                        failure("Hudi authenticated worker shutdown timed out"));
                     }
                 } catch (InterruptedException e) {
                     pool.shutdownNow();
                     Thread.currentThread().interrupt();
-                    failure = failure("Hudi authenticated cleanup interrupted");
+                    failure =
+                            accumulate(failure, failure("Hudi authenticated cleanup interrupted"));
                 }
             }
             if (user != null) {
@@ -188,14 +258,29 @@ public final class HudiAuthenticationContext {
                                     });
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    failure = failure("Hudi authenticated filesystem cleanup interrupted");
+                    failure =
+                            accumulate(
+                                    failure,
+                                    failure("Hudi authenticated filesystem cleanup interrupted"));
                 } catch (IOException | RuntimeException e) {
-                    failure = failure("Hudi authenticated filesystem cleanup failed");
+                    failure =
+                            accumulate(
+                                    failure,
+                                    failure(
+                                            "Hudi authenticated filesystem cleanup failed ("
+                                                    + failureCategory(e)
+                                                    + ")"));
                 } finally {
                     try {
                         user.logoutUserFromKeytab();
                     } catch (IOException | RuntimeException e) {
-                        failure = failure("Hudi Kerberos logout failed");
+                        failure =
+                                accumulate(
+                                        failure,
+                                        failure(
+                                                "Hudi Kerberos logout failed ("
+                                                        + failureCategory(e)
+                                                        + ")"));
                     }
                 }
             }
@@ -203,6 +288,14 @@ public final class HudiAuthenticationContext {
         if (failure != null) {
             throw failure;
         }
+    }
+
+    private static RuntimeException accumulate(RuntimeException first, RuntimeException next) {
+        if (first == null) {
+            return next;
+        }
+        first.addSuppressed(next);
+        return first;
     }
 
     private static HudiConnectorException failure(String message) {

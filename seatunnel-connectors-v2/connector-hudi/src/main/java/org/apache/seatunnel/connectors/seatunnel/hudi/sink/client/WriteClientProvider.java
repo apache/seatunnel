@@ -24,11 +24,18 @@ import java.util.function.Supplier;
 
 public interface WriteClientProvider {
 
+    /** Obtain the owned client; authenticated callers must use it only inside {@link #execute}. */
     HoodieJavaWriteClient<HoodieAvroPayload> getOrCreateClient();
 
+    /**
+     * Run the entire client operation (including creation and commit) under the provider's
+     * identity. The returned value must not be used to access the raw client outside this scope.
+     * Caller interruption does not guarantee cancellation of in-flight I/O.
+     */
     default <T> T execute(Supplier<T> action) {
         return action.get();
     }
 
+    /** Close owned client/identity once, after all operations finish; do not race with execute. */
     void close();
 }
