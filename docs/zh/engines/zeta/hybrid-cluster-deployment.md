@@ -373,7 +373,7 @@ map:
 
 注意：使用OSS 时，确保 lib目录下有这几个jar。
 
-其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
+其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。请使用 SeaTunnel 发行包 `lib/` 目录自带的 Hadoop Uber JAR。
 
 ```
 aliyun-sdk-oss-3.4.1.jar
@@ -381,7 +381,7 @@ hadoop-aliyun-3.1.4.jar
 jdom-1.1.jar
 netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
-seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop3-uber-*.jar
 ```
 
 如果您使用 GCS，可以像这样配置：
@@ -409,7 +409,7 @@ map:
 
 ```
 gcs-connector-hadoop3-2.2.33-shaded.jar
-seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop3-uber-*.jar
 ```
 
 ## 6. 配置 SeaTunnel Engine 客户端
