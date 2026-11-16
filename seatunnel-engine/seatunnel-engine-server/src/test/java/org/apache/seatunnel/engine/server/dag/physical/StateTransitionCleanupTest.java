@@ -47,6 +47,7 @@ import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -83,6 +84,15 @@ import static org.mockito.Mockito.when;
 
 @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
 class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
+
+    private ExecutorService cancelExecutor;
+
+    @AfterEach
+    void closeCancelExecutor() {
+        if (cancelExecutor != null) {
+            cancelExecutor.shutdownNow();
+        }
+    }
 
     /**
      * A terminal callback can arrive after reset while the vertex is stopped. Resuming pipeline
@@ -283,7 +293,8 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
     private void prepareForCancel(PlanWithStateMaps planWithStateMaps) {
         JobMaster jobMaster = Mockito.mock(JobMaster.class);
         Mockito.when(jobMaster.getEngineConfig()).thenReturn(new EngineConfig());
-        Mockito.when(jobMaster.getExecutorService()).thenReturn(Executors.newCachedThreadPool());
+        cancelExecutor = Executors.newCachedThreadPool();
+        Mockito.when(jobMaster.getExecutorService()).thenReturn(cancelExecutor);
         planWithStateMaps.physicalPlan.setJobMaster(jobMaster);
         planWithStateMaps.physicalPlan.initStateFuture();
     }
