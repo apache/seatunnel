@@ -35,6 +35,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -54,9 +55,27 @@ public class DefaultSerializer implements Serializer {
             List<String> tagKeys,
             String timestampKey,
             String measurement) {
+        this(
+                seaTunnelRowType,
+                precision,
+                tagKeys,
+                timestampKey,
+                measurement,
+                System::currentTimeMillis);
+    }
+
+    /** Allows package-local tests to control processing time without changing the public API. */
+    DefaultSerializer(
+            SeaTunnelRowType seaTunnelRowType,
+            TimeUnit precision,
+            List<String> tagKeys,
+            String timestampKey,
+            String measurement,
+            LongSupplier currentTimeMillis) {
         this.measurement = measurement;
         this.seaTunnelRowType = seaTunnelRowType;
-        this.timestampExtractor = createTimestampExtractor(seaTunnelRowType, timestampKey);
+        this.timestampExtractor =
+                createTimestampExtractor(seaTunnelRowType, timestampKey, currentTimeMillis);
         this.tagExtractor = createTagExtractor(seaTunnelRowType, tagKeys);
         List<String> fieldKeys = getFieldKeys(seaTunnelRowType, timestampKey, tagKeys);
         this.fieldExtractor = createFieldExtractor(seaTunnelRowType, fieldKeys);
@@ -112,11 +131,11 @@ public class DefaultSerializer implements Serializer {
     }
 
     private BiConsumer<SeaTunnelRow, Point.Builder> createTimestampExtractor(
-            SeaTunnelRowType seaTunnelRowType, String timeKey) {
+            SeaTunnelRowType seaTunnelRowType, String timeKey, LongSupplier currentTimeMillis) {
         // not config timeKey, use processing time
         if (Strings.isNullOrEmpty(timeKey)) {
             return (row, builder) ->
-                    builder.time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+                    builder.time(currentTimeMillis.getAsLong(), TimeUnit.MILLISECONDS);
         }
 
         int timeFieldIndex = seaTunnelRowType.indexOf(timeKey);
@@ -124,7 +143,7 @@ public class DefaultSerializer implements Serializer {
             Object time = row.getField(timeFieldIndex);
             if (time == null) {
                 // use processing time when the value of the configured time column is null
-                builder.time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+                builder.time(currentTimeMillis.getAsLong(), TimeUnit.MILLISECONDS);
                 return;
             }
             SeaTunnelDataType<?> timestampFieldType = seaTunnelRowType.getFieldType(timeFieldIndex);

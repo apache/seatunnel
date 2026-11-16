@@ -228,6 +228,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
     /**
      * Writes generated TIMESTAMP and processing-time points through the InfluxDB client at each
      * supported batch precision, then checks server timestamps including coarse-unit truncation.
+     * Processing time is compared with the serialized point rather than a wall-clock interval.
      */
     @ParameterizedTest
     @EnumSource(TimePrecision.class)
@@ -256,9 +257,10 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
                         processingMeasurement);
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {timestamp, 1});
 
-        long before = System.currentTimeMillis();
         Point processingPoint = processingSerializer.serialize(new SeaTunnelRow(new Object[] {1}));
-        long after = System.currentTimeMillis();
+        String processingLine = processingPoint.lineProtocol(TimeUnit.MILLISECONDS);
+        long processingMillis =
+                Long.parseLong(processingLine.substring(processingLine.lastIndexOf(' ') + 1));
         influxDB.write(
                 BatchPoints.database(INFLUXDB_DATABASE)
                         .precision(unit)
@@ -271,12 +273,10 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
                 TimeUnit.MILLISECONDS.convert(
                         unit.convert(epochMillis, TimeUnit.MILLISECONDS), unit);
         Assertions.assertEquals(expected, readTimestampMillis(timestampMeasurement));
-        long actualProcessingTime = readTimestampMillis(processingMeasurement);
-        long earliest =
-                TimeUnit.MILLISECONDS.convert(unit.convert(before, TimeUnit.MILLISECONDS), unit);
-        long latest =
-                TimeUnit.MILLISECONDS.convert(unit.convert(after, TimeUnit.MILLISECONDS), unit);
-        Assertions.assertTrue(actualProcessingTime >= earliest && actualProcessingTime <= latest);
+        long expectedProcessingTime =
+                TimeUnit.MILLISECONDS.convert(
+                        unit.convert(processingMillis, TimeUnit.MILLISECONDS), unit);
+        Assertions.assertEquals(expectedProcessingTime, readTimestampMillis(processingMeasurement));
     }
 
     /**

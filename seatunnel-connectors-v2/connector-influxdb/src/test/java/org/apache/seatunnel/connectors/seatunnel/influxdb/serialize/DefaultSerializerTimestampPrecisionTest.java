@@ -32,9 +32,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DefaultSerializerTimestampPrecisionTest {
 
@@ -47,19 +47,40 @@ class DefaultSerializerTimestampPrecisionTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"value"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        AtomicLong clock = new AtomicLong(TIMESTAMP.toInstant(ZoneOffset.UTC).toEpochMilli());
         DefaultSerializer serializer =
                 new DefaultSerializer(
-                        rowType, precision.getTimeUnit(), Collections.emptyList(), null, "metrics");
+                        rowType,
+                        precision.getTimeUnit(),
+                        Collections.emptyList(),
+                        null,
+                        "metrics",
+                        clock::get);
 
-        long before = System.currentTimeMillis();
-        Point point = serializer.serialize(new SeaTunnelRow(new Object[] {1}));
-        long after = System.currentTimeMillis();
+        assertProcessingTime(serializer, new SeaTunnelRow(new Object[] {1}), clock, precision);
+    }
 
-        long timestamp = timestampIn(point, TimeUnit.MILLISECONDS);
-        assertTrue(timestamp >= before && timestamp <= after, "timestamp: " + timestamp);
-        assertEquals(
-                precision.getTimeUnit().convert(timestamp, TimeUnit.MILLISECONDS),
-                timestampIn(point, precision.getTimeUnit()));
+    @ParameterizedTest
+    @EnumSource(TimePrecision.class)
+    void nullTimestampUsesProcessingTime(TimePrecision precision) {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"time", "value"},
+                        new SeaTunnelDataType[] {
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE, BasicType.INT_TYPE
+                        });
+        AtomicLong clock = new AtomicLong(TIMESTAMP.toInstant(ZoneOffset.UTC).toEpochMilli());
+        DefaultSerializer serializer =
+                new DefaultSerializer(
+                        rowType,
+                        precision.getTimeUnit(),
+                        Collections.emptyList(),
+                        "time",
+                        "metrics",
+                        clock::get);
+
+        assertProcessingTime(
+                serializer, new SeaTunnelRow(new Object[] {null, 1}), clock, precision);
     }
 
     @ParameterizedTest
@@ -115,6 +136,24 @@ class DefaultSerializerTimestampPrecisionTest {
                         new SeaTunnelDataType[] {timestampType, BasicType.INT_TYPE});
         return new DefaultSerializer(
                 rowType, precision.getTimeUnit(), Collections.emptyList(), "time", "metrics");
+    }
+
+    /**
+     * Checks exact unit conversion before and after a backwards step in the supplied wall clock.
+     */
+    private void assertProcessingTime(
+            DefaultSerializer serializer,
+            SeaTunnelRow row,
+            AtomicLong clock,
+            TimePrecision precision) {
+        for (int i = 0; i < 2; i++) {
+            Point point = serializer.serialize(row);
+            assertEquals(clock.get(), timestampIn(point, TimeUnit.MILLISECONDS));
+            assertEquals(
+                    precision.getTimeUnit().convert(clock.get(), TimeUnit.MILLISECONDS),
+                    timestampIn(point, precision.getTimeUnit()));
+            clock.addAndGet(-TimeUnit.HOURS.toMillis(2));
+        }
     }
 
     private long timestampIn(Point point, TimeUnit precision) {
