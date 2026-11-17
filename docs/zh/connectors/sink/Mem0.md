@@ -27,4 +27,23 @@ sink {
 `Content-Type: application/json` 和 `Accept: application/json`。删除、自托管 OSS
 接口、事件轮询以及通用 Mem0 兼容协议不属于第一阶段范围。
 
+## Sink 选项
+
+| 名称                        | 类型   | 必填 | 默认值              | 描述                                                       |
+|-----------------------------|--------|------|---------------------|------------------------------------------------------------|
+| api_key                     | String | 是   | -                   | Mem0 Platform API key，作为 `Authorization: Token` 凭据发送。 |
+| messages_field              | String | 是   | -                   | 包含 messages 载荷的输入行字段，必须解析为数组。              |
+| api_base_url                | String | 否   | `https://api.mem0.ai` | Mem0 Platform V3 API 基础地址。                             |
+| user_id_field               | String | 否   | -                   | 映射到 Mem0 `user_id` 的输入行字段。                           |
+| agent_id_field              | String | 否   | -                   | 映射到 Mem0 `agent_id` 的输入行字段。                           |
+| app_id_field                | String | 否   | -                   | 映射到 Mem0 `app_id` 的输入行字段。                             |
+| run_id_field                | String | 否   | -                   | 映射到 Mem0 `run_id` 的输入行字段。                             |
+| metadata_field              | String | 否   | -                   | 映射到 Mem0 `metadata` 的输入行字段，必须解析为 JSON 对象。      |
+| retry                       | int    | 否   | -                   | HTTP 请求因 `IOException` 失败时的最大重试次数。                  |
+| retry_backoff_multiplier_ms | int    | 否   | 100                 | HTTP 请求失败时重试退避的倍数，单位毫秒。                          |
+| retry_backoff_max_ms        | int    | 否   | 10000               | HTTP 请求失败时重试退避的最大时间，单位毫秒。                      |
+
+每行至少要配置 `user_id_field`、`agent_id_field`、`app_id_field`、
+`run_id_field` 中的一个非空范围字段。
+
 <ChangeLog />

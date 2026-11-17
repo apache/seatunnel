@@ -228,7 +228,7 @@ source {
 
 sink {
   Clickhouse {
-    host = "127.0.0.1:9092"
+    host = "127.0.0.1:8123"
     database = "default"
     table = "test"
     username = "xxxxx"

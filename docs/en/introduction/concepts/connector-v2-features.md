@@ -5,7 +5,7 @@
 Since https://github.com/apache/seatunnel/issues/1608 We Added Connector V2 Features.
 Connector V2 is a connector defined based on the SeaTunnel Connector API interface. Unlike Connector V1, V2 supports the following features:
 
-* **Multi Engine Support** SeaTunnel Connector API is an engine independent API. The connectors developed based on this API can run in multiple engines. Currently, Flink and Spark are supported, and we will support other engines in the future.
+* **Multi Engine Support** SeaTunnel Connector API is an engine independent API. The connectors developed based on this API can run in multiple engines. Currently, the SeaTunnel Engine (Zeta), Flink and Spark are supported.
 * **Multi Engine Version Support** Decoupling the connector from the engine through the translation layer solves the problem that most connectors need to modify the code in order to support a new version of the underlying engine.
 * **Unified Batch And Stream** Connector V2 can perform batch processing or streaming processing. We do not need to develop connectors for batch and stream separately.
 * **Multiplexing JDBC/Log connection.** Connector V2 supports JDBC resource reuse and sharing database log parsing.

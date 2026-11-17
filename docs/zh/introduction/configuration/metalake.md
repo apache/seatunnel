@@ -25,9 +25,9 @@ http://host:port/api/metalakes/your_metalake_name/catalogs/
 用户需要先在Gravitino中创建catalog，如
 
 ```bash
-curl -L 'http://localhost:8090/api/metalakes/test_metalake/catalogs'
--H 'Content-Type: application/json'
--H 'Accept: application/vnd.gravitino.v1+json'
+curl -L 'http://localhost:8090/api/metalakes/test_metalake/catalogs' \
+-H 'Content-Type: application/json' \
+-H 'Accept: application/vnd.gravitino.v1+json' \
 -d '{
     "name": "test_catalog",
     "type": "relational",
