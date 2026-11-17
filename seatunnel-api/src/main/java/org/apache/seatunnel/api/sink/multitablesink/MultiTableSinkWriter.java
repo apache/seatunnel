@@ -975,14 +975,21 @@ public class MultiTableSinkWriter
     }
 
     /**
-     * Waits for table isolation already in progress before closing the remaining writers.
+     * Waits for table isolation started by a timer flush before closing the remaining writers.
      *
-     * <p>The caller must first signal the active timer flush round to stop. This method and the
-     * flush failure path use the same {@code this} monitor: an isolation already running finishes
-     * before this method returns, and a later flush failure sees the stop signal under that monitor
-     * and skips isolation. This prevents isolation and shutdown from closing a writer twice.
+     * <p>The caller must first signal the active timer flush round to stop. The timer flush stop
+     * check and {@code handleTableFailure()} hold this writer's monitor: a timer flush that passed
+     * the check finishes isolation before this method returns, and a later timer flush failure
+     * observes the completed round under that monitor and skips isolation. This prevents timer
+     * flush isolation and shutdown from closing the same writer twice.
      *
-     * <p>The monitor is released before {@link #close()} acquires the queue locks.
+     * <p>Other isolation entry points do not check this timer stop signal. {@link #close()}
+     * separately calls {@link #checkQueueRemain()} to drain runtime writes and their failure
+     * handling.
+     *
+     * <p>Acquiring this monitor is unbounded and uninterruptible; the executor termination timeout
+     * in {@link #close()} does not cover this wait. The monitor is released before {@code close()}
+     * acquires the queue locks.
      */
     private synchronized void awaitTableIsolation() {
         // Acquiring this monitor is the wait; no additional work is required.
@@ -1093,9 +1100,10 @@ public class MultiTableSinkWriter
                 if (error instanceof InterruptedException) {
                     Thread.currentThread().interrupt();
                 } else if (error instanceof Exception && failurePolicy.continueOtherTables()) {
-                    // Isolation acquires other queue locks, so ours has already been released.
-                    // Keep the stop check and isolation under the same monitor as
-                    // awaitTableIsolation(), so close() cannot pass that wait between them.
+                    // Keep this catch outside the queue monitor: isolation takes every queue lock.
+                    // Holding ours while acquiring the writer monitor risks a lock-order cycle.
+                    // Hold the writer monitor across the stop check and handleTableFailure(), so
+                    // close() cannot acquire it via awaitTableIsolation() between them.
                     synchronized (this) {
                         if (!completion.isDone()) {
                             handleTableFailure(
