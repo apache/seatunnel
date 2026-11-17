@@ -21,7 +21,7 @@ For example, `seatunnel-shade-guava` shades Guava `27.0-jre` into `org.apache.se
 | `seatunnel-shade-commons-lang3` | Commons Lang3 | 3.18.0 |
 | `seatunnel-shade-arrow` | Apache Arrow | 15.0.1 |
 | `seatunnel-shade-hikari` | HikariCP | 4.0.3 |
-| `seatunnel-shade-hazelcast` | Hazelcast | 5.1 |
+| `seatunnel-shade-hazelcast` | Hazelcast | 5.1.7 |
 | `seatunnel-shade-hadoop3-uber` | Hadoop Client | 3.1.4 |
 | `seatunnel-shade-hadoop-aws` | Hadoop AWS | 3.1.4 |
 | `seatunnel-shade-scala-compiler` | Scala Compiler | 2.12.15 |
@@ -38,10 +38,10 @@ Shade module versions follow the pattern:
 ${library.version}-${seatunnel.shade.version}
 ```
 
-For example: `seatunnel-shade-guava-27.0-jre-3.0.0.jar`
+For example: `seatunnel-shade-guava-27.0-jre-3.0.1.jar`
 
 - `27.0-jre` is the version of the shaded library (Guava)
-- `3.0.0` is the SeaTunnel shade version (controlled by the `seatunnel.shade.version` property)
+- `3.0.1` is the SeaTunnel shade version (controlled by the `seatunnel.shade.version` property)
 
 ## Repository
 
@@ -54,7 +54,7 @@ In SeaTunnel's root `pom.xml`, all shade modules are centrally managed in `<depe
 
 ```xml
 <properties>
-    <seatunnel.shade.version>3.0.0</seatunnel.shade.version>
+    <seatunnel.shade.version>3.0.1</seatunnel.shade.version>
     <seatunnel.shade.guava.version>27.0-jre</seatunnel.shade.guava.version>
     <seatunnel.shade.hadoop.version>3.1.4</seatunnel.shade.hadoop.version>
     <!-- ... other shade module versions ... -->
@@ -170,7 +170,7 @@ git push origin v3.0.0.fix
        <parent>
            <groupId>org.apache.seatunnel</groupId>
            <artifactId>seatunnel-shade</artifactId>
-           <version>3.0.0</version>
+           <version>3.0.1</version>
        </parent>
 
        <artifactId>seatunnel-shade-newlib</artifactId>
