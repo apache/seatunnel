@@ -48,7 +48,7 @@ import java.util.concurrent.TimeUnit;
         })
 public class IncrementalSourceRecordEmitterBenchmark extends BenchmarkBase {
 
-    @Param({"5", "10", "15", "20"})
+    @Param({"20"})
     private int columns;
 
     @Param({"INSERT", "UPDATE"})
