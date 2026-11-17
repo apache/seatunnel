@@ -16,13 +16,13 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 ## 主要特性
 
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
-将 SeaTunnel 数据行写入 Apache RocketMQ topic。该 Sink 支持 JSON 和文本消息体、消息 tag、同步发送、按字段选择分区，以及在 `exactly.once = true` 时使用事务消息保证精确一次写入。
+将 SeaTunnel 数据行写入 Apache RocketMQ topic。该 Sink 支持 JSON 和文本消息体、消息 tag、同步发送、按字段选择分区，以及在 `exactly.once = true` 时通过 RocketMQ 事务生产者发送消息。
 
 ## Sink 参数
 
@@ -39,7 +39,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 | format | String | 否 | json | 消息格式。支持 `json` 和 `text`。 |
 | field.delimiter | String | 否 | `,` | `format = text` 时使用的字段分隔符。 |
 | producer.send.sync | Boolean | 否 | false | 是否同步发送消息。为 `false` 时异步发送。 |
-| exactly.once | Boolean | 否 | false | 是否使用事务消息实现精确一次写入。 |
+| exactly.once | Boolean | 否 | false | 是否通过 RocketMQ 事务生产者发送消息。 |
 | max.message.size | int | 否 | 4194304 | 最大消息体大小，单位字节。 |
 | send.message.timeout | int | 否 | 3000 | 发送消息超时时间，单位毫秒。 |
 | common-options | config | 否 | - | Sink 连接器通用参数，详情请参考 [Sink 通用参数](../common-options/sink-common-options.md)。 |
@@ -61,7 +61,7 @@ partition.key.fields = ["c_int"]
 
 ### exactly.once
 
-Sink 支持通过 RocketMQ 事务消息实现精确一次写入。该能力默认关闭。确认 RocketMQ 集群和作业 checkpoint 配置满足事务写入要求后，可设置 `exactly.once = true`。
+开启后，Sink 将通过 RocketMQ 事务生产者发送消息。该能力默认关闭。注意：每条事务消息在发送后会立即提交，Sink 不会暂存半消息等待引擎 Checkpoint 完成后再提交，因此该选项表示启用事务消息发送，而不是提供基于 Checkpoint 的精确一次语义。
 
 当 `format = text` 时，SeaTunnel 会按上游 schema 的字段顺序序列化，并使用 `field.delimiter` 拼接字段。当 `format = json` 时，每行数据会写成一个 JSON 对象。
 
@@ -207,9 +207,9 @@ sink {
 
 可以通过配置 `partition.key.fields` 声明一个或多个数据列作为分区键。连接器将对指定字段值进行 Hash 计算，确保具有相同 Key 值的消息始终投递至 RocketMQ 的同一个消息队列。
 
-### RocketMQ Sink 如何提供精确一次（Exactly-Once）投递保证？
+### RocketMQ Sink 是否提供精确一次（Exactly-Once）投递保证？
 
-当设置 `exactly.once = true` 时，Sink 将启用 RocketMQ 两阶段事务消息机制。在 Checkpoint 执行过程中发送半消息（Half Message），待计算引擎 Checkpoint 确认成功后再正式提交该批消息供下游消费。
+不提供。当设置 `exactly.once = true` 时，Sink 通过 RocketMQ 事务生产者发送消息，但每条事务消息在发送后会立即提交，消息对下游消费者立即可见，不会暂存到引擎 Checkpoint 完成后才提交。Sink 也不参与 Checkpoint barrier 协调，因此不提供基于 Checkpoint 的精确一次投递。
 
 ### 支持哪些消息体序列化格式？
 

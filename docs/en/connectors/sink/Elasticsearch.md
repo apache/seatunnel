@@ -39,7 +39,7 @@ Engine Supported
 | primary_keys            | list    | no       | -                            | Primary key fields used to generate the document `_id`. Required for CDC sources that produce update / delete events. |
 | key_delimiter           | string  | no       | `_`                          | Delimiter joining composite keys into `_id` (default `_`). Use a different character to avoid clashes with field values. |
 | key_encoding            | enum    | no       | LEGACY                       | `LEGACY` keeps existing document IDs; `LENGTH_PREFIXED` avoids composite-key delimiter collisions. |
-| auth_type               | string  | no       | basic                        | Authentication mode: `basic` (HTTP Basic with `username`/`password`) or `api_key` (Elasticsearch API key). |
+| auth_type               | enum    | no       | basic                        | Authentication mode: `basic` (HTTP Basic with `username`/`password`), `api_key` (Elasticsearch API key), or `api_key_encoded` (encoded Elasticsearch API key). |
 | username                | string  | no       | -                            | Username for `basic` auth. |
 | password                | string  | no       | -                            | Password for `basic` auth. |
 | auth.api_key_id         | string  | no       | -                            | API key id for `api_key` auth. |
