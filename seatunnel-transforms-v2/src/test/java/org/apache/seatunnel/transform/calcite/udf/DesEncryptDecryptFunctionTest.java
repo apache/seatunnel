@@ -76,10 +76,12 @@ class DesEncryptDecryptFunctionTest {
     }
 
     @Test
-    void testEncryptDeterministic() {
+    void testEncryptUsesFreshIv() {
         String first = DesEncryptFunction.eval(PASSWORD, "seatunnel");
         String second = DesEncryptFunction.eval(PASSWORD, "seatunnel");
-        Assertions.assertEquals(first, second);
+        Assertions.assertNotEquals(first, second);
+        Assertions.assertEquals("seatunnel", DesDecryptFunction.eval(PASSWORD, first));
+        Assertions.assertEquals("seatunnel", DesDecryptFunction.eval(PASSWORD, second));
     }
 
     @Test
