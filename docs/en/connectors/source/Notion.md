@@ -33,10 +33,7 @@ The Notion source connector reads data from the Notion API. It is based on the H
 | schema.fields               | Config  | No       | -       | Field names and SeaTunnel data types used to parse the JSON response. |
 | content_field               | String  | No       | -       | JSONPath used to select a nested part of the response before parsing it with `schema`. |
 | json_field                  | Config  | No       | -       | Field-level JSONPath mapping. Use it with `schema` when output fields come from different JSON paths. |
-| pageing                     | Config  | No       | -       | HTTP pagination settings inherited from the HTTP source connector. |
-| page_type                   | String  | No       | PageNumber | Pagination type. Supported values are `PageNumber` (default) and `Cursor`. Use `Cursor` for Notion endpoints that return a `next_cursor`. |
-| cursor_field                | String  | No       | -       | The request parameter name that carries the cursor value. Used together with `page_type = "Cursor"`. |
-| cursor_response_field       | String  | No       | -       | The JSONPath of the cursor in the response body. Used together with `page_type = "Cursor"`. |
+| pageing                     | Config  | No       | -       | HTTP pagination settings inherited from the HTTP source connector. Not applied on the current Notion reader path: automatic cursor or page-number pagination does not run, and only the first page of the response is read. If you need more pages, handle paging (for example the `start_cursor` parameter) outside the connector. |
 | poll_interval_millis        | Int     | No       | -       | Request interval in milliseconds when the source is used in streaming mode. Notion source currently supports batch mode only. |
 | retry                       | Int     | No       | -       | Maximum retry times when the HTTP request fails with an `IOException`. |
 | retry_backoff_multiplier_ms | Int     | No       | 100     | Retry backoff multiplier in milliseconds. |
@@ -65,7 +62,10 @@ The Notion source connector reads data from the Notion API. It is based on the H
 - Use `content_field` when the Notion response wraps records in a nested array, such as `$.results.*`.
 - Use `json_field` only when each output field needs its own JSONPath expression.
 - `password` and `version` override the `Authorization` and `Notion-Version` headers. Put only other custom headers in `headers`.
-- For Notion list endpoints, prefer `page_type = "Cursor"` together with `cursor_field = "start_cursor"` and `cursor_response_field = "$.next_cursor"`.
+- Automatic pagination, including cursor pagination, is not applied on the current Notion reader
+  path: even when the response contains a `next_cursor`, only the first page is read. If you need
+  more pages, handle paging yourself (for example one job per cursor) or use the HTTP source
+  connector, whose reader applies the `pageing` settings.
 - The Notion source supports batch mode only. `poll_interval_millis` is exposed for HTTP-base compatibility but does not enable streaming behavior.
 
 ## Task Examples
@@ -107,7 +107,7 @@ sink {
 }
 ```
 
-### Search Pages With Cursor Pagination
+### Search Pages
 
 ```hocon
 env {
@@ -124,9 +124,6 @@ source {
     body = "{\"page_size\": 100, \"filter\": {\"value\": \"page\", \"property\": \"object\"}}"
     format = "json"
     content_field = "$.results[*]"
-    page_type = "Cursor"
-    cursor_field = "start_cursor"
-    cursor_response_field = "$.next_cursor"
     schema = {
       fields {
         id = string
@@ -139,6 +136,8 @@ source {
   }
 }
 ```
+
+This example reads only the first page returned by the search endpoint.
 
 ### Extract Fields With JSONPath
 

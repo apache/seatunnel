@@ -47,7 +47,7 @@ import ChangeLog from '../changelog/connector-websocket.md';
 | url                   | String  | 是      | -       | WebSocket 服务端地址，必须以 `ws://` 或 `wss://` 开头。                                                     |
 | headers               | Map     | 否      | -       | 添加到握手请求中的请求头，例如 `Authorization`。                                                             |
 | open_messages         | Array   | 否      | -       | 握手成功后按序发送给服务端的消息，通常是订阅或鉴权报文。每次重连成功后会重新发送。                                 |
-| format                | String  | 否      | json    | 收到消息的数据格式，仅在配置了 `schema` 时生效，支持 `json` 与 `text`。                                        |
+| format                | enum    | 否      | json    | 收到消息的数据格式，仅在配置了 `schema` 时生效，支持 `json` 与 `text`。                                        |
 | field_delimiter       | String  | 否      | ,       | 自定义字段分隔符，仅在 `format` 为 `text` 时生效。                                                           |
 | connect_timeout_ms    | Integer | 否      | 12000   | 建立连接的超时时间，单位毫秒。                                                                              |
 | ping_interval_ms      | Integer | 否      | 0       | 用于保活的 WebSocket ping 帧发送间隔，单位毫秒，`0` 表示关闭。                                                |

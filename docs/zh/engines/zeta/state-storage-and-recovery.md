@@ -44,13 +44,21 @@ Checkpoint 在某一时间点捕获所有流水线算子状态的一致性快照
 seatunnel:
   engine:
     checkpoint:
-      interval: 10000              # 两次 Checkpoint 间隔（毫秒）
-      timeout: 60000               # Checkpoint 完成超时（毫秒）
+      interval: 10000              # 两次 Checkpoint 间隔（毫秒，默认 300000）
+      timeout: 60000               # Checkpoint 完成超时（毫秒，默认 30000）
+      min-pause: -1                # 两次 Checkpoint 之间的最小间隔（毫秒），-1 表示不启用
+      monitor-history-size: 32     # 每条流水线保留的 Checkpoint 历史条数（默认 32）
+      retain-after-job-cancelled: false   # 作业取消后是否保留 Checkpoint 数据
       storage:
-        type: hdfs                 # hdfs（通过 HDFS API 同时支持 S3、本地文件）| localfile（已废弃）
+        type: hdfs                 # Checkpoint 存储插件：hdfs | localfile（默认 localfile，
+                                   # 已废弃，建议使用 hdfs 插件）
+        max-retained: 20           # 保留的最大 Checkpoint 数（默认 20）
         plugin-config:
           namespace: /seatunnel/checkpoint/    # 必须以 / 结尾
-          # S3 示例：
+          storage.type: hdfs       # hdfs 插件的后端文件系统：
+                                   # hdfs（默认）| local | s3 | oss | cos | gcs
+          fs.defaultFS: hdfs://localhost:9000  # storage.type 为 hdfs 时必填
+          # S3 示例（storage.type: s3）：
           # fs.s3a.endpoint: https://s3.amazonaws.com
           # fs.s3a.access.key: <your-access-key>
           # fs.s3a.secret.key: <your-secret-key>
@@ -60,8 +68,8 @@ seatunnel:
 
 ### Checkpoint 保留与清理
 
-- Checkpoint **不**受 `history-job-expire-minutes` 管理，必须手动清理或配置独立保留策略。
-- 每条流水线只保留最新 N 个 Checkpoint 的 Hazelcast 内存引用；作业异常终止时，旧目录可能残留在磁盘上。
+- Checkpoint **不**受 `history-job-expire-minutes` 管理，必须手动清理或使用下方的保留策略。
+- 只保留最新 `checkpoint.storage.max-retained` 个 Checkpoint（默认 20），更早的 Checkpoint 数据会被删除；作业异常终止时，旧目录可能残留在磁盘上。
 - 默认情况下，被取消的作业仍会清理 Checkpoint 数据。如果希望取消后的作业还能从最新成功完成的 Checkpoint 恢复，需要在历史作业取消前将
   作业 `env` 中的 `checkpoint.retain-after-job-cancelled` 或 `seatunnel.yaml` 中的
   `seatunnel.engine.checkpoint.retain-after-job-cancelled` 设置为 `true`。
@@ -83,8 +91,9 @@ seatunnel:
 ### 触发 Savepoint
 
 ```bash
-# 停止运行中的作业并创建 Savepoint
-$SEATUNNEL_HOME/bin/seatunnel.sh --savepoint <job-id>
+# 为运行中的作业触发 Savepoint（Savepoint 完成后作业停止）
+$SEATUNNEL_HOME/bin/seatunnel.sh -s <job-id>
+# 长参数形式：--savepoint <job-id> 或 --savepoint-job <job-id>
 
 # 或通过 REST API v2
 curl -X POST http://<master>:8080/stop-job \
@@ -146,6 +155,7 @@ SeaTunnel Engine 使用 Hazelcast IMap 作为分布式内存键值存储。引�
 持久化在 `hazelcast.yaml` 中配置（详见[Zeta 集群分离式部署](separated-cluster-deployment.md)）：
 
 ```yaml
+# hazelcast.yaml
 map:
   engine*:
     map-store:

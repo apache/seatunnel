@@ -39,8 +39,10 @@ import ChangeLog from '../changelog/connector-s3-redshift.md';
 | path                             | string  | 是      | -                                                         | bucket 下的目标目录路径，连接器会通过 `${path}` 占位符把实际写入路径追加到 `execute_sql` 中。 |
 | bucket                           | string  | 是      | -                                                         | S3 文件系统的 bucket 地址，例如 `s3a://seatunnel-test`。使用 Hadoop 读写时建议使用 `s3a` 协议。 |
 | access_key                       | string  | 否       | -                                                         | S3 文件系统的 access key。如果未配置，需要正确配置 Hadoop 凭据链，请参考 [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)。 |
-| access_secret                    | string  | 否       | -                                                         | S3 文件系统的 access secret。如果未配置，需要正确配置 Hadoop 凭据链，请参考 [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)。 |
-| hadoop_s3_properties             | map     | 否       | -                                                         | 额外的 Hadoop S3A / Hadoop-AWS 选项，可以用来设置 `fs.s3a.aws.credentials.provider` 等。请参考 [Hadoop-AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)。 |
+| fs.s3a.endpoint                  | string  | 是       | -                                                         | S3 文件系统的 endpoint，例如 `https://s3.amazonaws.com`。 |
+| fs.s3a.aws.credentials.provider  | string  | 是       | com.amazonaws.auth.InstanceProfileCredentialsProvider     | S3A 凭据提供程序的实现类。设置为 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 时，必须配置 `access_key` 和 `secret_key`。 |
+| secret_key                       | string  | 否       | -                                                         | S3 文件系统的 secret key。当 `fs.s3a.aws.credentials.provider` 为 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 时必填。如果未配置，需要正确配置 Hadoop 凭据链，请参考 [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)。 |
+| hadoop_s3_properties             | map     | 否       | -                                                         | 额外的 Hadoop S3A / Hadoop-AWS 选项。`fs.s3a.aws.credentials.provider` 和 `fs.s3a.endpoint` 只从顶层配置读取，并会覆盖此处设置的同名配置，请直接在顶层设置。请参考 [Hadoop-AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)。 |
 | file_name_expression             | string  | 否       | "${transactionId}"                                        | 在 `path` 下追加的文件名表达式，可使用 `${now}` 或 `${uuid}` 注入时间或 UUID。`is_enable_transaction = true` 时会自动在文件名前添加 `${transactionId}_`。 |
 | file_format_type                 | string  | 否       | csv                                                       | 写入 S3 的文件格式，支持 `text`、`csv`、`parquet`、`orc`、`json`。最终文件名会带相应后缀（例如 `text` 是 `txt`）。 |
 | filename_time_format             | string  | 否       | "yyyy.MM.dd"                                              | 解析 `file_name_expression` 中 `${now}` 的时间格式，详见 [Java SimpleDateFormat](https://docs.oracle.com/javase/tutorial/i18n/format/simpleDateFormat.html)。 |
@@ -98,9 +100,9 @@ s3文件系统的bucket地址，例如：`s3n://seatunnel-test`，如果使用`s
 
 s3文件系统的access_key。如果未设置此参数，请确认凭据提供程序链可以正确进行身份验证，您可以检查这个[hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
 
-### access_secret [string]
+### secret_key [string]
 
-s3文件系统的access_secret。如果未设置此参数，请确认凭据提供程序链可以正确进行身份验证，您可以检查这个[hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
+s3文件系统的secret_key。当 `fs.s3a.aws.credentials.provider` 为 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 时必填。如果未设置此参数，请确认凭据提供程序链可以正确进行身份验证，您可以检查这个[hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
 
 ### hadoop_s3_properties [map]
 
@@ -108,9 +110,11 @@ s3文件系统的access_secret。如果未设置此参数，请确认凭据提�
 
 ```
 hadoop_s3_properties {
-  "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+  "fs.s3a.buffer.dir" = "/data/st_test/s3a"
  }
 ```
+
+请注意：`fs.s3a.aws.credentials.provider` 和 `fs.s3a.endpoint` 只从连接器配置的顶层读取，并会覆盖在 `hadoop_s3_properties` 中设置的同名配置，因此请像下方示例一样在顶层设置这两个参数。目前 `fs.s3a.endpoint` 尚未在连接器的 option rule 中声明，作业配置预检查可能会将其报告为未知参数，但运行时仍会读取该参数。
 
 ### file_name_expression [string]
 
@@ -200,6 +204,8 @@ Sink插件常用参数，请参考[Sink Common Options](../common-options/sink-c
     bucket = "s3a://seatunnel-test"
     tmp_path = "/tmp/seatunnel"
     path="/seatunnel/text"
+    fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
     row_delimiter="\n"
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
@@ -207,9 +213,6 @@ Sink插件常用参数，请参考[Sink Common Options](../common-options/sink-c
     file_format_type = "text"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
-    hadoop_s3_properties {
-       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-    }
   }
 
 ```
@@ -228,6 +231,8 @@ Sink插件常用参数，请参考[Sink Common Options](../common-options/sink-c
     bucket = "s3a://seatunnel-test"
     tmp_path = "/tmp/seatunnel"
     path="/seatunnel/parquet"
+    fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
     row_delimiter="\n"
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
@@ -235,9 +240,6 @@ Sink插件常用参数，请参考[Sink Common Options](../common-options/sink-c
     file_format_type = "parquet"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
-    hadoop_s3_properties {
-       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-    }
   }
 
 ```
@@ -256,6 +258,8 @@ Sink插件常用参数，请参考[Sink Common Options](../common-options/sink-c
     bucket = "s3a://seatunnel-test"
     tmp_path = "/tmp/seatunnel"
     path="/seatunnel/orc"
+    fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
     row_delimiter="\n"
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
@@ -263,9 +267,6 @@ Sink插件常用参数，请参考[Sink Common Options](../common-options/sink-c
     file_format_type = "orc"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
-    hadoop_s3_properties {
-       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-    }
   }
 
 ```

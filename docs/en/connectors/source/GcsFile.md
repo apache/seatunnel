@@ -85,7 +85,11 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | binary_complete_file_mode | boolean | no | false | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. |
 | quote_char | string | no | `"` | CSV quote character. |
 | escape_char | string | no | - | CSV escape character. |
+| date_format | string | no | yyyy-MM-dd | Format used to parse `Date` columns. |
+| datetime_format | string | no | yyyy-MM-dd HH:mm:ss | Format used to parse `Timestamp` columns. |
+| time_format | string | no | HH:mm:ss | Format used to parse `Time` columns. |
 | sheet_name | string | no | - | Excel worksheet to read. |
+| excel_use_header_line | boolean | no | false | Use the first Excel row as column headers for name-based mapping. Only used when file_format_type is excel. |
 | excel_engine | string | no | `POI` | Excel reader: `POI` or `EasyExcel`. |
 | poi_excel_max_file_size | long | no | `52428800` | Maximum Excel file size in bytes for the POI engine. |
 | xml_row_tag | string | conditional | - | XML element representing one row. |

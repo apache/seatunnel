@@ -32,7 +32,7 @@ Amazon SQS 写入连接器用于把每条输入的 SeaTunnel 行数据写入一�
 | region            | String | 是    | -    | SQS 队列所在的 AWS 区域，例如 `us-east-1`。                                                                                     |
 | access_key_id     | String | 否    | -    | AWS access key ID。和 `secret_access_key` 一起配置时使用静态凭证；两者都不配置时使用 AWS 默认凭证链。                                    |
 | secret_access_key | String | 否    | -    | AWS secret access key。和 `access_key_id` 一起配置时使用静态凭证。                                                            |
-| format            | String | 否    | json | 消息体格式。支持 `json`、`text`、`canal_json`、`debezium_json`。                                                             |
+| format            | enum   | 否    | json | 消息体格式。支持 `json`、`text`、`canal_json`、`debezium_json`。                                                             |
 | field_delimiter   | String | 否    | ,    | 当 `format = text` 时使用的字段分隔符。                                                                                       |
 | common-options    |        | 否    | -    | Sink 插件通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。                                      |
 
