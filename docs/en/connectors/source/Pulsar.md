@@ -151,7 +151,7 @@ Cursor reset strategy for Pulsar consumer valid values are `'EARLIEST'`, `'LATES
 **Note, This option only works if the "cursor.startup.mode" option used `'SUBSCRIPTION'`.**
 It has no default value and must be configured in that mode.
 
-### cursor.stop.mode [String]
+### cursor.stop.mode [Enum]
 
 Stop mode for Pulsar consumer, valid values are `'NEVER'`, `'LATEST'`and `'TIMESTAMP'`.
 

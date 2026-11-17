@@ -106,7 +106,7 @@ Default: not set (uses the project default schema).
 
 The list of tables to be read, you can use this configuration instead of `table_name`.
 
-Each table item must contain `table_name`. It can also override `project`, `schema_name`, `partition_spec`, `split_row`, and `read_columns`. If an item does not set those values, the connector uses the top-level value.
+Each table item must contain `table_name`. It can also override `project`, `schema_name`, `partition_spec`, `split_row`, and `read_columns`. If an item does not set `project`, `schema_name`, `partition_spec`, or `split_row`, the connector uses the top-level value. Note that `read_columns` is the exception: it must be set inside each `table_list` item, and a top-level `read_columns` is not applied to `table_list` entries.
 
 This mode is useful when one job needs to read several MaxCompute tables with the same account, endpoint, and default project.
 

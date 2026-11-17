@@ -20,10 +20,10 @@ FakeSource is a virtual source that generates rows from a user-defined schema. I
 - [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
-> FakeSource's `FakeSourceSplitEnumerator` enumerator computes all splits up front and assigns them deterministically to specific reader subtasks via `assignSplit(splitId % currentParallelism, ...)`. Reader subtasks do not coordinate with each other while generating rows — fake data production needs no cross-reader state — but the split→reader routing is centralized in the enumerator, not self-enumerated by each subtask.
+> FakeSource implements `SupportParallelism`. Its `FakeSourceSplitEnumerator` computes `numReaders × split.num` splits per table up front and assigns them deterministically to reader subtasks via `assignSplit(splitId % currentParallelism, ...)`, so readers run in parallel. Reader subtasks do not coordinate with each other while generating rows — fake data production needs no cross-reader state — and the split→reader routing is centralized in the enumerator.
 
 ## Source Options
 

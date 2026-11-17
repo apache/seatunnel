@@ -96,8 +96,12 @@ Option descriptions:
 | STRING | STRING |
 | BYTES | VARBINARY |
 | DATE | DATE |
-| TIME | TIME |
+| TIME | STRING |
 | TIMESTAMP | TIMESTAMP |
+| ARRAY | ARRAY(STRING) |
+| MAP | MAP(STRING, STRING) |
+| ROW | STRING |
+| NULL | NULL |
 
 ## Task Examples
 
