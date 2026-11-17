@@ -92,8 +92,9 @@ Use this option when the upstream row has extra fields that should not be writte
 ### batch_size [number]
 
 The number of rows written through [Cassandra-Java-Driver](https://github.com/datastax/java-driver) each time,
-default is `5000`. With `async_write = true`, the sink waits for the asynchronous writes in flight
-after this many rows.
+default is `5000`. With `async_write = false`, the sink sends the buffered rows as one batch once
+this many rows have arrived. With `async_write = true`, it waits for the asynchronous writes in
+flight once this many rows have been sent, so no more than this many writes are in flight.
 
 ### batch_type [String]
 
@@ -116,6 +117,12 @@ Sink plugin common parameters. For details, see [Sink Common Options](../common-
 - `async_write = true` improves throughput, while `batch_size` controls how many rows are grouped
   before a flush. At each checkpoint the sink writes the buffered rows and waits for the writes in
   flight, so the sink gives at-least-once delivery: a restored job may write some rows again.
+- When a task fails, the sink closes its session without sending the rows it still holds; the
+  engine writes them again when it retries the task or restores the job.
+- When it starts, the sink reads the primary key of the target table from the driver schema
+  metadata, and reads the schema from the server once more if the table is missing there. A NULL
+  key then fails the job with the table and column before anything is sent. If the primary key
+  still cannot be read, the job fails with error `CASSANDRA-06`.
 - The sink uses the Cassandra Java driver. Authentication and consistency options match the
   driver's terminology; configure `consistency_level` together with the cluster's replication
   strategy when stronger guarantees are required.

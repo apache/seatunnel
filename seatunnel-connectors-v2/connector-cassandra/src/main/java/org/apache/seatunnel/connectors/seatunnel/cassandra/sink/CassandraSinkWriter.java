@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.sink;
 
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
@@ -24,7 +25,6 @@ import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParam
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.util.TypeConvertUtil;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
@@ -53,7 +53,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class CassandraSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
     /** Failed writes added as suppressed to the error, after the first one, its cause. */
     static final int MAX_SUPPRESSED_WRITE_FAILURES = 9;
@@ -67,6 +67,9 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     private List<CompletionStage<AsyncResultSet>> completionStages;
     private final PreparedStatement preparedStatement;
     private final AtomicInteger counter = new AtomicInteger(0);
+
+    /** Set once the session is closed, by {@link #close()} or {@link #abortPrepare()}. */
+    private boolean sessionClosed;
 
     /**
      * The primary key columns of the target table, never empty. A NULL value for one of them is
@@ -163,7 +166,9 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     public void write(SeaTunnelRow row) throws IOException {
         BoundStatement boundStatement = this.preparedStatement.bind();
         addIntoBatch(row, boundStatement);
-        if (counter.getAndIncrement() >= cassandraParameters.getBatchSize()) {
+        // The row that reaches batch_size is flushed with the others, so that no more than
+        // batch_size rows are buffered or in flight.
+        if (counter.incrementAndGet() >= cassandraParameters.getBatchSize()) {
             flush();
         }
     }
@@ -300,7 +305,23 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     }
 
     /**
+     * Called on a failed writer: by Spark when a write or {@link #prepareCommit()} throws, and by
+     * Zeta when a checkpoint fails. Drops the buffered rows and the writes in flight without
+     * sending anything, because the engine writes them again when it retries or restores, and
+     * closes the session. Spark does not call {@link #close()} after it, so the session would
+     * otherwise keep its driver threads running.
+     */
+    @Override
+    public void abortPrepare() {
+        counter.set(0);
+        completionStages.clear();
+        boundStatementList.clear();
+        closeSession();
+    }
+
+    /**
      * Writes what is left, as {@link #prepareCommit()} does, and closes the session in any case.
+     * After {@link #abortPrepare()} there is nothing left to write and the session is closed.
      */
     @Override
     public void close() throws IOException {
@@ -311,19 +332,29 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
             failure = e;
         }
         try {
-            this.session.close();
+            closeSession();
         } catch (RuntimeException e) {
-            CassandraConnectorException closeFailure =
-                    new CassandraConnectorException(
-                            CassandraConnectorErrorCode.CLOSE_CQL_SESSION_FAILED, e);
             if (failure == null) {
-                failure = closeFailure;
+                failure = e;
             } else {
-                failure.addSuppressed(closeFailure);
+                failure.addSuppressed(e);
             }
         }
         if (failure != null) {
             throw failure;
+        }
+    }
+
+    private void closeSession() {
+        if (sessionClosed) {
+            return;
+        }
+        sessionClosed = true;
+        try {
+            session.close();
+        } catch (RuntimeException e) {
+            throw new CassandraConnectorException(
+                    CassandraConnectorErrorCode.CLOSE_CQL_SESSION_FAILED, e);
         }
     }
 }

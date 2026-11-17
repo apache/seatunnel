@@ -389,12 +389,6 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK},
-            disabledReason =
-                    "Spark does not close the sink writer when a task aborts, so the CQL session"
-                            + " keeps spark-submit running in local mode after the job failed.")
     public void testNullPrimaryKeyFailsTheJob(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(NULL_PRIMARY_KEY_JOB_CONFIG);
         Assertions.assertNotEquals(0, execResult.getExitCode());
@@ -411,12 +405,6 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
      * restored job finished without the row (#13286).
      */
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK},
-            disabledReason =
-                    "Spark does not close the sink writer when a task aborts, so the CQL session"
-                            + " keeps spark-submit running in local mode after the job failed.")
     public void testRejectedRowFailsTheJob(TestContainer container) throws Exception {
         Map<Boolean, String> expectedErrors = new HashMap<>();
         expectedErrors.put(true, "1 of 1 writes to table sink_table failed");

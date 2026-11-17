@@ -44,6 +44,7 @@ import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
@@ -53,6 +54,7 @@ import java.util.concurrent.CompletionStage;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_SELF;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -172,7 +174,7 @@ class CassandraSinkWriterTest {
 
     @Test
     void failedAsyncWriteFailsTheWriteThatReachesTheBatchSize() throws IOException {
-        batchSize = 1;
+        batchSize = 2;
         RuntimeException rejected = new RuntimeException("rejected");
         when(session.executeAsync(any(Statement.class))).thenReturn(failed(rejected), written());
         CassandraSinkWriter writer = writer(true, "t");
@@ -182,7 +184,35 @@ class CassandraSinkWriterTest {
                 Assertions.assertThrows(
                         CassandraConnectorException.class, () -> writer.write(row(2L)));
 
+        Assertions.assertTrue(
+                e.getMessage().contains("1 of 2 writes to table t failed"), e.getMessage());
         Assertions.assertSame(rejected, e.getCause());
+    }
+
+    @Test
+    void batchSizeOfOneWaitsForEachAsyncWrite() {
+        batchSize = 1;
+        RuntimeException rejected = new RuntimeException("rejected");
+        when(session.executeAsync(any(Statement.class))).thenReturn(failed(rejected));
+        CassandraSinkWriter writer = writer(true, "t");
+
+        CassandraConnectorException e =
+                Assertions.assertThrows(
+                        CassandraConnectorException.class, () -> writer.write(row(1L)));
+
+        Assertions.assertSame(rejected, e.getCause());
+        verify(session, times(1)).executeAsync(any(Statement.class));
+    }
+
+    @Test
+    void batchIsSentWhenItReachesTheBatchSize() throws IOException {
+        batchSize = 2;
+        CassandraSinkWriter writer = writer(false, "t");
+        writer.write(row(1L));
+        verify(session, never()).execute(any(Statement.class));
+
+        writer.write(row(2L));
+        verify(session, times(1)).execute(any(Statement.class));
     }
 
     @Test
@@ -236,6 +266,57 @@ class CassandraSinkWriterTest {
 
         Assertions.assertSame(rejected, e.getCause());
         verify(session).close();
+    }
+
+    @Test
+    void abortClosesTheSessionWithoutWritingTheBufferedBatch() throws IOException {
+        CassandraSinkWriter writer = writer(false, "t");
+        writer.write(row(1L));
+
+        writer.abortPrepare();
+        verify(session).close();
+
+        writer.close();
+        verify(session, never()).execute(any(Statement.class));
+        verify(session, times(1)).close();
+    }
+
+    @Test
+    void abortAfterAFailedCheckpointClosesTheSessionOnce() throws IOException {
+        when(session.executeAsync(any(Statement.class)))
+                .thenReturn(failed(new RuntimeException("rejected")));
+        CassandraSinkWriter writer = writer(true, "t");
+        writer.write(row(1L));
+        Assertions.assertThrows(CassandraConnectorException.class, writer::prepareCommit);
+
+        writer.abortPrepare();
+        writer.close();
+
+        verify(session, times(1)).executeAsync(any(Statement.class));
+        verify(session, times(1)).close();
+    }
+
+    @Test
+    void abortDoesNotWaitForTheWritesInFlight() throws IOException {
+        when(session.executeAsync(any(Statement.class))).thenReturn(new CompletableFuture<>());
+        CassandraSinkWriter writer = writer(true, "t");
+        writer.write(row(1L));
+
+        Assertions.assertTimeoutPreemptively(Duration.ofSeconds(10), writer::abortPrepare);
+        Assertions.assertTimeoutPreemptively(Duration.ofSeconds(10), writer::close);
+        verify(session, times(1)).close();
+    }
+
+    @Test
+    void abortFailsWhenTheSessionCannotBeClosed() {
+        RuntimeException closeFailure = new RuntimeException("close");
+        doThrow(closeFailure).when(session).close();
+        CassandraSinkWriter writer = writer(true, "t");
+
+        CassandraConnectorException e =
+                Assertions.assertThrows(CassandraConnectorException.class, writer::abortPrepare);
+
+        Assertions.assertSame(closeFailure, e.getCause());
     }
 
     private static SeaTunnelRow row(long id) {
