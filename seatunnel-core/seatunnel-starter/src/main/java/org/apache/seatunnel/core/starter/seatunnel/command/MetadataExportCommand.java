@@ -28,7 +28,6 @@ import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.ConditionOperator;
 import org.apache.seatunnel.api.configuration.util.ConditionRule;
-import org.apache.seatunnel.api.configuration.util.Expression;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -148,9 +147,9 @@ public class MetadataExportCommand implements Command<MetadataExportCommandArgs>
             String expression = null;
 
             if (reqOpt instanceof RequiredOption.ConditionalRequiredOptions) {
-                Expression expr =
-                        ((RequiredOption.ConditionalRequiredOptions) reqOpt).getExpression();
-                expression = expr.toString();
+                Condition<?> condition =
+                        ((RequiredOption.ConditionalRequiredOptions) reqOpt).getCondition();
+                expression = condition.toString();
             }
 
             for (Option<?> opt : reqOpt.getOptions()) {
@@ -160,10 +159,9 @@ public class MetadataExportCommand implements Command<MetadataExportCommandArgs>
                     optNode.put("conditionExpression", expression);
                     // Also export structured condition for easier parsing
                     if (reqOpt instanceof RequiredOption.ConditionalRequiredOptions) {
-                        Expression expr =
-                                ((RequiredOption.ConditionalRequiredOptions) reqOpt)
-                                        .getExpression();
-                        optNode.set("conditionTree", exportExpression(expr));
+                        Condition<?> condition =
+                                ((RequiredOption.ConditionalRequiredOptions) reqOpt).getCondition();
+                        optNode.set("conditionTree", exportExpression(condition));
                     }
                 }
                 requiredArray.add(optNode);
@@ -182,8 +180,8 @@ public class MetadataExportCommand implements Command<MetadataExportCommandArgs>
         ArrayNode conditionRulesArray = mapper.createArrayNode();
         for (ConditionRule condRule : rule.getConditionRules()) {
             ObjectNode condNode = mapper.createObjectNode();
-            condNode.put("expression", condRule.getExpression().toString());
-            condNode.set("expressionTree", exportExpression(condRule.getExpression()));
+            condNode.put("expression", condRule.getCondition().toString());
+            condNode.set("expressionTree", exportExpression(condRule.getCondition()));
 
             // Nested OptionRule
             OptionRule nestedRule = condRule.getOptionRule();
@@ -399,22 +397,26 @@ public class MetadataExportCommand implements Command<MetadataExportCommandArgs>
         return null;
     }
 
-    private ObjectNode exportExpression(Expression expression) {
-        if (expression == null) {
+    private ObjectNode exportExpression(Condition<?> condition) {
+        if (condition == null) {
             return null;
         }
         ObjectNode node = mapper.createObjectNode();
-        node.set("condition", exportCondition(expression.getCondition()));
-        if (expression.and() != null) {
-            node.put("operator", expression.and() ? "AND" : "OR");
+        node.set("condition", exportCondition(condition, false));
+        if (condition.and() != null) {
+            node.put("operator", condition.and() ? "AND" : "OR");
         }
-        if (expression.hasNext()) {
-            node.set("next", exportExpression(expression.getNext()));
+        if (condition.hasNext()) {
+            node.set("next", exportExpression(condition.getNext()));
         }
         return node;
     }
 
     private ObjectNode exportCondition(Condition<?> condition) {
+        return exportCondition(condition, true);
+    }
+
+    private ObjectNode exportCondition(Condition<?> condition, boolean includeNext) {
         if (condition == null) {
             return null;
         }
@@ -438,10 +440,10 @@ public class MetadataExportCommand implements Command<MetadataExportCommandArgs>
         if (condition.getCompareOption() != null) {
             node.put("compareOption", condition.getCompareOption().key());
         }
-        if (condition.and() != null) {
+        if (includeNext && condition.and() != null) {
             node.put("operator", condition.and() ? "AND" : "OR");
         }
-        if (condition.hasNext()) {
+        if (includeNext && condition.hasNext()) {
             node.set("next", exportCondition(condition.getNext()));
         }
         return node;

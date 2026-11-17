@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.apache.seatunnel.api.configuration.OptionTest.TEST_MODE;
+import static org.apache.seatunnel.api.configuration.OptionTest.TEST_NUM;
 import static org.apache.seatunnel.api.configuration.util.Conditions.contains;
 import static org.apache.seatunnel.api.configuration.util.Conditions.greaterOrEqual;
 import static org.apache.seatunnel.api.configuration.util.Conditions.greaterOrEqualField;
@@ -288,6 +289,39 @@ public class ConfigValidatorTest {
         // Expression mismatch
         config.put(KEY_USERNAME.key(), "asuka111");
         Assertions.assertDoesNotThrow(executable);
+    }
+
+    @Test
+    public void testConditionalRequiredOptionEvaluatesWithAndBeforeOrPrecedence() {
+        Condition<?> condition =
+                Condition.of(TEST_MODE, OptionTest.TestMode.TIMESTAMP)
+                        .and(Condition.of(TEST_NUM, 1000))
+                        .or(Condition.of(KEY_USERNAME, "ashulin"));
+        OptionRule rule =
+                new OptionRule(
+                        Arrays.asList(TEST_MODE, TEST_NUM, KEY_USERNAME),
+                        Collections.singletonList(
+                                RequiredOption.ConditionalRequiredOptions.of(
+                                        condition, Collections.singletonList(TEST_TIMESTAMP))),
+                        Collections.emptyList());
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(TEST_MODE.key(), "EARLIEST");
+        config.put(TEST_NUM.key(), 999);
+        config.put(KEY_USERNAME.key(), "ashulin");
+
+        // (A && B) || C: the OR branch matches even though the AND branch does not
+        String msg =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule))
+                        .getMessage();
+        Assertions.assertTrue(
+                msg.contains(
+                        "required because [('option.mode' == TIMESTAMP && 'option.num' == 1000) || 'username' == ashulin] is true"),
+                msg);
+
+        // Neither branch matches
+        config.put(KEY_USERNAME.key(), "asuka");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
     }
 
     @Test
@@ -3619,17 +3653,15 @@ public class ConfigValidatorTest {
                     }
                 };
 
-        Expression expression =
-                Expression.of(
-                        Condition.of(MODE, "stream")
-                                .and(Conditions.extension(PORT, throwingExtension)));
+        Condition<?> condition =
+                Condition.of(MODE, "stream").and(Conditions.extension(PORT, throwingExtension));
         OptionRule rule =
                 new OptionRule(
                         Arrays.asList(MODE, PORT),
                         Collections.emptyList(),
                         Collections.singletonList(
                                 new ConditionRule(
-                                        expression,
+                                        condition,
                                         new OptionRule(
                                                 Collections.emptyList(),
                                                 Collections.emptyList(),
@@ -3648,7 +3680,7 @@ public class ConfigValidatorTest {
         String msg = ex.getMessage();
         Assertions.assertTrue(msg.contains("Option validation failed (1 error):"), msg);
         Assertions.assertTrue(
-                msg.contains("[1] option: ('mode' == stream && 'port' must be positive)"), msg);
+                msg.contains("[1] option: 'mode' == stream && 'port' must be positive"), msg);
         Assertions.assertTrue(msg.contains("type: conditional"), msg);
         Assertions.assertTrue(msg.contains("constraint: port value -1 is not positive"), msg);
     }
