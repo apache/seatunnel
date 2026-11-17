@@ -39,6 +39,8 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -63,6 +65,43 @@ public class TiDBTestBase extends TestSuiteBase {
     public static final int TIKV_PORT_ORIGIN = 20160;
     public static final int PD_PORT_ORIGIN = 2379;
 
+    /** How long each container may take to start. */
+    private static final Duration CONTAINER_STARTUP_TIMEOUT = Duration.ofSeconds(120);
+
+    /**
+     * How long to wait after the containers start until TiDB answers a query: as long as a
+     * container may take to start.
+     */
+    private static final Duration TIDB_QUERY_WAIT = CONTAINER_STARTUP_TIMEOUT;
+
+    /** How often to try a query while waiting for TiDB. */
+    private static final Duration TIDB_QUERY_POLL_INTERVAL = Duration.ofSeconds(1);
+
+    /**
+     * Connect timeout and socket read timeout of one attempt. The read timeout also ends an attempt
+     * on a connection that TiDB accepts but never greets, and one whose query gets no answer.
+     */
+    private static final Duration TIDB_QUERY_ATTEMPT_TIMEOUT = Duration.ofSeconds(10);
+
+    /**
+     * How long {@link #getJdbcConnection()} retries a connection that TiDB refuses or closes, as it
+     * can right after it starts answering.
+     */
+    private static final Duration TIDB_CONNECT_WAIT = Duration.ofSeconds(30);
+
+    /**
+     * Socket read timeout of the connections of the tests. Longer than {@link
+     * #TIDB_QUERY_ATTEMPT_TIMEOUT}, because their DDL can take seconds, but it still ends a
+     * statement that gets no answer.
+     */
+    private static final Duration TIDB_STATEMENT_TIMEOUT = Duration.ofSeconds(60);
+
+    /** How much of the TiDB container log a startup failure includes. */
+    private static final int TIDB_LOG_TAIL_CHARS = 8000;
+
+    /** The error of the last failed query of the wait, which becomes the cause of its timeout. */
+    private volatile Exception lastTidbQueryFailure;
+
     public static final GenericContainer<?> PD =
             new GenericContainer<>("pingcap/pd:v6.1.0")
                     .withFileSystemBind("src/test/resources/config/pd.toml", "/pd.toml")
@@ -79,7 +118,7 @@ public class TiDBTestBase extends TestSuiteBase {
                             "--log-file=/logs/pd0.log")
                     .withNetwork(NETWORK)
                     .withNetworkAliases(PD_SERVICE_NAME)
-                    .withStartupTimeout(Duration.ofSeconds(120))
+                    .withStartupTimeout(CONTAINER_STARTUP_TIMEOUT)
                     .withLogConsumer(new Slf4jLogConsumer(log));
 
     public static final GenericContainer<?> TIKV =
@@ -96,7 +135,7 @@ public class TiDBTestBase extends TestSuiteBase {
                     .withNetwork(NETWORK)
                     .dependsOn(PD)
                     .withNetworkAliases(TIKV_SERVICE_NAME)
-                    .withStartupTimeout(Duration.ofSeconds(120))
+                    .withStartupTimeout(CONTAINER_STARTUP_TIMEOUT)
                     .withLogConsumer(new Slf4jLogConsumer(log));
 
     public static final GenericContainer<?> TIDB =
@@ -111,12 +150,13 @@ public class TiDBTestBase extends TestSuiteBase {
                     .withNetwork(NETWORK)
                     .dependsOn(TIKV)
                     .withNetworkAliases(TIDB_SERVICE_NAME)
-                    .withStartupTimeout(Duration.ofSeconds(120))
+                    .withStartupTimeout(CONTAINER_STARTUP_TIMEOUT)
                     .withLogConsumer(new Slf4jLogConsumer(log));
 
     public void startContainers() throws Exception {
         log.info("Starting containers...");
         Startables.deepStart(Stream.of(PD, TIKV, TIDB)).join();
+        waitUntilTidbAnswersQueries();
         ContainerTcpProxy proxy =
                 startContainerTcpProxy(
                         Arrays.asList(
@@ -135,6 +175,75 @@ public class TiDBTestBase extends TestSuiteBase {
         log.info("Containers are started.");
     }
 
+    /**
+     * With testcontainers 1.21.4, the port wait of the TiDB container could pass before TiDB served
+     * connections (#13263): Docker accepts on the mapped port at once, and the wait did not fail
+     * when its check inside the container failed. A connection made that early was closed before
+     * TiDB sent anything, so wait until a query works.
+     */
+    private void waitUntilTidbAnswersQueries() {
+        long start = System.currentTimeMillis();
+        lastTidbQueryFailure = null;
+        try {
+            Awaitility.await("TiDB answers queries")
+                    .atMost(TIDB_QUERY_WAIT)
+                    .pollInterval(TIDB_QUERY_POLL_INTERVAL)
+                    .until(this::tidbAnswersQuery);
+        } catch (ConditionTimeoutException e) {
+            Exception last = lastTidbQueryFailure;
+            IllegalStateException failure =
+                    new IllegalStateException(
+                            String.format(
+                                    "TiDB did not answer queries within %d s, last error: %s",
+                                    TIDB_QUERY_WAIT.getSeconds(),
+                                    last == null ? "none" : last.getMessage()),
+                            last == null ? e : last);
+            if (last != null) {
+                failure.addSuppressed(e);
+            }
+            throw failure;
+        }
+        log.info("TiDB answered queries after {} ms", System.currentTimeMillis() - start);
+    }
+
+    /**
+     * Tries one query. A container that has stopped fails the wait at once with the end of its log,
+     * since it will not answer later.
+     */
+    private boolean tidbAnswersQuery() {
+        if (!TIDB.isRunning()) {
+            String logs = TIDB.getLogs();
+            throw new IllegalStateException(
+                    "The TiDB container stopped before TiDB answered queries. End of its log:\n"
+                            + logs.substring(Math.max(0, logs.length() - TIDB_LOG_TAIL_CHARS)));
+        }
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                getJdbcUrl(), jdbcProperties(TIDB_QUERY_ATTEMPT_TIMEOUT));
+                Statement statement = connection.createStatement()) {
+            return statement.execute("SELECT 1");
+        } catch (SQLException | RuntimeException e) {
+            // Connector/J can also fail with an unchecked CJException; both mean "not yet".
+            log.info("TiDB does not answer queries yet: {}", e.getMessage());
+            lastTidbQueryFailure = e;
+            return false;
+        }
+    }
+
+    /**
+     * The properties of every test connection: the user, a connect timeout of {@link
+     * #TIDB_QUERY_ATTEMPT_TIMEOUT}, and {@code socketTimeout} as the read timeout.
+     */
+    private static Properties jdbcProperties(Duration socketTimeout) {
+        Properties properties = new Properties();
+        properties.setProperty("user", TIDB_USER);
+        properties.setProperty("password", TIDB_PASSWORD);
+        properties.setProperty(
+                "connectTimeout", String.valueOf(TIDB_QUERY_ATTEMPT_TIMEOUT.toMillis()));
+        properties.setProperty("socketTimeout", String.valueOf(socketTimeout.toMillis()));
+        return properties;
+    }
+
     public static void stopContainers() {
         DnsCacheManipulator.removeDnsCache(PD_SERVICE_NAME);
         DnsCacheManipulator.removeDnsCache(TIKV_SERVICE_NAME);
@@ -145,8 +254,26 @@ public class TiDBTestBase extends TestSuiteBase {
         return "jdbc:mysql://" + TIDB.getContainerIpAddress() + ":" + TIDB.getMappedPort(TIDB_PORT);
     }
 
+    /**
+     * Opens a test connection, trying again for up to {@link #TIDB_CONNECT_WAIT} when TiDB refuses
+     * or closes it: a successful query in {@link #waitUntilTidbAnswersQueries()} does not rule out
+     * that the next connection is closed before the greeting.
+     */
     protected Connection getJdbcConnection() throws SQLException {
-        return DriverManager.getConnection(getJdbcUrl(), TIDB_USER, TIDB_PASSWORD);
+        try {
+            return Awaitility.await("TiDB accepts a connection")
+                    .atMost(TIDB_CONNECT_WAIT)
+                    .pollDelay(Duration.ZERO)
+                    .pollInterval(TIDB_QUERY_POLL_INTERVAL)
+                    .ignoreExceptionsInstanceOf(SQLException.class)
+                    .until(
+                            () ->
+                                    DriverManager.getConnection(
+                                            getJdbcUrl(), jdbcProperties(TIDB_STATEMENT_TIMEOUT)),
+                            Objects::nonNull);
+        } catch (ConditionTimeoutException e) {
+            throw new SQLException("TiDB did not accept a connection", e);
+        }
     }
 
     private static void dropTestDatabase(Connection connection, String databaseName)

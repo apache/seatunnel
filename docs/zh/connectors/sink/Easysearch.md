@@ -270,7 +270,7 @@ sink {
 }
 ```
 
-配置表生成策略
+### Save Mode（保存模式）
 
 ```hocon
 sink {
