@@ -168,8 +168,9 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
         } else if (columnInterType.equalsIgnoreCase(DORIS_ARRAY_DATETIME_INTER)
                 || columnInterType.equalsIgnoreCase(DORIS_ARRAY_DATETIMEV2_INTER)) {
             builder.dataType(ArrayType.LOCAL_DATE_TIME_ARRAY_TYPE);
-        } else if (columnInterType.equalsIgnoreCase(DORIS_LARGEINT)) {
-            DecimalArrayType decimalArray = new DecimalArrayType(new DecimalType(20, 0));
+        } else if (isLargeintType(columnInterType)) {
+            DecimalArrayType decimalArray =
+                    new DecimalArrayType(new DecimalType(DORIS_LARGEINT_PRECISION, 0));
             builder.dataType(decimalArray);
         } else {
             throw CommonError.convertToSeaTunnelTypeError(IDENTIFIER, columnType, name);
@@ -254,6 +255,7 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
         MapType dataType = (MapType) column.getDataType();
         SeaTunnelDataType keyType = dataType.getKeyType();
         SeaTunnelDataType valueType = dataType.getValueType();
+        String[] sourceKeyValueType = mapLargeintSourceTypes(column.getSourceType());
         Column keyColumn =
                 PhysicalColumn.of(
                         column.getName() + ".key",
@@ -261,6 +263,8 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
                         (Long) null,
                         true,
                         null,
+                        null,
+                        sourceKeyValueType[0],
                         null);
         String keyColumnType = reconvert(keyColumn).getColumnType();
 
@@ -271,11 +275,37 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
                         (Long) null,
                         true,
                         null,
+                        null,
+                        sourceKeyValueType[1],
                         null);
         String valueColumnType = reconvert(valueColumn).getColumnType();
 
         builder.dataType(String.format(DORIS_MAP_COLUMN_TYPE, keyColumnType, valueColumnType));
         builder.columnType(String.format(DORIS_MAP_COLUMN_TYPE, keyColumnType, valueColumnType));
+    }
+
+    /**
+     * Source types of a Doris map's key and value, kept only where they are LARGEINT.
+     *
+     * <p>A LARGEINT key or value is a DECIMAL(39, 0), which exceeds the DECIMALV3 precision limit,
+     * so the source type is passed down to keep LARGEINT. Other source types are dropped to leave
+     * their existing mapping unchanged.
+     */
+    private static String[] mapLargeintSourceTypes(String sourceType) {
+        String[] result = new String[2];
+        if (sourceType == null || !sourceType.toUpperCase(Locale.ROOT).startsWith(DORIS_MAP)) {
+            return result;
+        }
+        String[] keyValueType = extractMapKeyValueType(sourceType);
+        if (keyValueType == null) {
+            return result;
+        }
+        for (int i = 0; i < result.length; i++) {
+            if (isLargeintType(keyValueType[i])) {
+                result[i] = DORIS_LARGEINT;
+            }
+        }
+        return result;
     }
 
     private void reconvertString(Column column, BasicTypeDefine.BasicTypeDefineBuilder builder) {
