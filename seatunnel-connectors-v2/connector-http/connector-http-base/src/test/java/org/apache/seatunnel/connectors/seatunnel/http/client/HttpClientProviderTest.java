@@ -171,6 +171,7 @@ class HttpClientProviderTest {
         // The caller-supplied Content-Type must not be duplicated. Otherwise the request
         // would carry two Content-Type headers, which RFC 7230 §3.2.2 forbids for
         // non-list headers and yields implementation-defined behaviour on the receiver.
+        // Legacy execute() also preserved this explicit header without adding a UTF-8 suffix.
         Assertions.assertEquals(
                 Collections.singletonList("application/json"), receivedContentTypes);
     }

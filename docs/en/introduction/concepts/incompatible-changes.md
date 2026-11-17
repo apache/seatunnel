@@ -5,12 +5,26 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Lance sink: BIGINT columns are created as int64
+
+- **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**
+  - **Description**: When the Lance sink created a dataset, it declared `BIGINT` columns as Arrow `int32` and wrote each value with `Number.intValue()`, so a value outside the signed 32-bit range was silently wrapped. For example, `3000000000` was stored as `-1294967296`, and the epoch millisecond `1739586083123` as `124328243`. The sink, and the catalog's `createTable`, now declare `BIGINT` as `int64` and store the value unchanged.
+  - **Impact**: A dataset created by this version has an `int64` column where an earlier version created `int32`. A dataset that already exists keeps its column types, because the sink writes to the schema it finds, so its `int32` column still wraps large values.
+  - **Migration Guide**: No configuration change is needed. If a consumer expects `int32` for these columns, update it to read `int64`. To store large values in a dataset created by an earlier version, recreate the dataset and write the rows again from the source.
+
 ### Databend source: a DECIMAL column is read as DECIMAL instead of STRING
 
 - **Behavior change: a Databend `DECIMAL(p, s)` column reaches the job as `DECIMAL(p, s)`**
   - **Description**: The Databend source takes every column type from `DatabendCatalog`. The catalog compared the type name the driver reports, such as `decimal(10, 2)`, with the bare name `DECIMAL`, so every decimal column fell back to `STRING` and its values were read as text. It now maps the column to `DECIMAL` with the column's own precision and scale. On a worker whose default locale is Turkish or Azerbaijani, `TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `TIMESTAMP` and `BINARY` columns also fell back to `STRING`; they now get their mapped types there too.
   - **Impact**: A job that reads a Databend `DECIMAL` column now emits decimal values. A sink table that SeaTunnel creates through `schema_save_mode` gets a decimal column instead of a string column, and a transform or sink that expected a string now receives a decimal.
   - **Migration Guide**: No configuration change is needed. If a downstream step needs text, convert the column explicitly, for example `CAST(price AS STRING)` in the SQL transform. A sink table that an earlier run already created with a string column keeps that type.
+
+### JDBC source: a nullable key column is no longer chosen as the split key
+
+- **Behavior change: the automatic split key selection skips nullable columns**
+  - **Description**: Without `partition_column`, the JDBC source takes the split key from the primary key and then the unique indexes. Range and hash split conditions never match NULL (CockroachDB hash splits excepted), and a unique index can hold NULL values, so when a nullable key column was chosen and the table was split by it, the rows with NULL in it were read by no split and the job finished without an error. The automatic selection now skips nullable primary key and unique key columns, as the CDC sources do, and logs a WARN naming each skipped column.
+  - **Impact**: A table that was split on a nullable primary key or unique key column is now split on the next NOT NULL key column, or read as one split if it has none, so all its rows are read, with less parallelism if it falls back to one split. Tables split on a NOT NULL primary key or unique key column, `query` sources without `partition_column`, and jobs that set `partition_column` are not affected. A job restored from a checkpoint keeps the splits it had already planned; the change applies to the tables it splits after the restore.
+  - **Migration Guide**: No configuration change is needed. To read such a table in parallel again, declare the key column `NOT NULL`, or set `partition_column` to a column without NULL values. If a downstream table was loaded by an affected job, reload it to get the rows that were skipped.
 
 ### JDBC Sink: fail safely after losing uncommitted work
 
