@@ -646,9 +646,16 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
 
     private List<String> removeSystemThread(List<String> beforeThreads, List<String> afterThreads)
             throws IOException {
+        return removeSystemThread(beforeThreads, afterThreads, getThreadClassLoader());
+    }
+
+    /** Filters the two thread snapshots used by the post-job leak check without querying Docker. */
+    List<String> removeSystemThread(
+            List<String> beforeThreads,
+            List<String> afterThreads,
+            Map<String, String> threadAndClassLoader) {
         afterThreads.removeIf(SeaTunnelContainer::isSystemThread);
         afterThreads.removeIf(beforeThreads::contains);
-        Map<String, String> threadAndClassLoader = getThreadClassLoader();
         List<String> notSystemClassLoaderThread =
                 threadAndClassLoader.entrySet().stream()
                         .filter(
