@@ -24,15 +24,18 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.ConditionRule;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.engine.server.rest.response.OptionRuleResponse;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CountDownLatch;
@@ -49,6 +52,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.when;
 
 class OptionRulesServiceTest {
 
@@ -411,18 +416,36 @@ class OptionRulesServiceTest {
      * the expression-tree level, and the node's own condition does not repeat them.
      */
     @Test
-    void shouldExportMixedConditionChainAsOneFlatExpressionTree() throws Exception {
+    void shouldExportMixedConditionChainAsOneFlatExpressionTree() {
         Option<String> a = Options.key("a").stringType().noDefaultValue();
         Option<String> b = Options.key("b").stringType().noDefaultValue();
         Option<String> c = Options.key("c").stringType().noDefaultValue();
         Condition<?> chain =
                 Condition.of(a, "1").and(Condition.of(b, "2")).or(Condition.of(c, "3"));
 
-        Method toExpressionNode =
-                OptionRulesService.class.getDeclaredMethod("toExpressionNode", Condition.class);
-        toExpressionNode.setAccessible(true);
-        OptionRuleResponse.ExpressionNode tree =
-                (OptionRuleResponse.ExpressionNode) toExpressionNode.invoke(service, chain);
+        OptionRule optionRule = OptionRule.builder().optional(a, b, c).build();
+        optionRule
+                .getConditionRules()
+                .add(new ConditionRule(chain, OptionRule.builder().required(a).build()));
+        LinkedHashMap<PluginIdentifier, OptionRule> plugins = new LinkedHashMap<>();
+        plugins.put(PluginIdentifier.of("seatunnel", "source", "MixedChainSource"), optionRule);
+        OptionRuleResponse response;
+        try (MockedConstruction<SeaTunnelSourcePluginDiscovery> discoveries =
+                mockConstruction(
+                        SeaTunnelSourcePluginDiscovery.class,
+                        (discovery, context) -> when(discovery.getPlugins()).thenReturn(plugins))) {
+            response = new OptionRulesService(null).getOptionRules("source", "MixedChainSource");
+        }
+
+        assertEquals("MixedChainSource", response.getPluginName());
+        assertEquals(1, response.getOptionRule().getConditionRules().size());
+        OptionRuleResponse.ConditionRuleMetadata metadata =
+                response.getOptionRule().getConditionRules().get(0);
+        assertEquals(chain.toString(), metadata.getExpression());
+        assertEquals(
+                "a",
+                metadata.getOptionRule().getRequiredOptions().get(0).getOptions().get(0).getKey());
+        OptionRuleResponse.ExpressionNode tree = metadata.getExpressionTree();
 
         // (A && B) || C renders as A -AND-> B -OR-> C
         assertEquals("a", tree.getCondition().getOption().getKey());
