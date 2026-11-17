@@ -32,7 +32,9 @@ public class SinkConnectorCommonOptions extends ConnectorCommonOptions {
                     .intType()
                     .defaultValue(1)
                     .withDescription(
-                            "The replica number of multi table sink writer. Must be at least 1.");
+                            "The replica number of multi table sink writer. Must be at least 1. "
+                                    + "A value above 1 needs a sink whose writer declares the "
+                                    + "KEYED or RANDOM replica mode; other sinks are rejected.");
 
     @Experimental
     public static Option<Map<String, String>> TABLE_OPTIONS =

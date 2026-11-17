@@ -271,7 +271,7 @@ sink {
     bootstrap.servers = "fluss-coordinator:9123"
     database = "sink_db_${database_name}"
     table = "sink_${table_name}"
-    multi_table_sink_replica = 2
+    multi_table_sink_replica = 1
   }
 }
 ```

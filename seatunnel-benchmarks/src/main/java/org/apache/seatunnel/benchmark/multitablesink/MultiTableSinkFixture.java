@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.MultiTableSinkReplicaMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
@@ -308,6 +309,11 @@ public final class MultiTableSinkFixture implements AutoCloseable {
         @Override
         public Optional<Integer> primaryKey() {
             return Optional.of(0);
+        }
+
+        @Override
+        public MultiTableSinkReplicaMode replicaMode() {
+            return MultiTableSinkReplicaMode.KEYED;
         }
 
         @Override

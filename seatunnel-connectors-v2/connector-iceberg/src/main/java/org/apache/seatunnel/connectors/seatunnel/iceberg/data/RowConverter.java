@@ -63,6 +63,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static java.util.stream.Collectors.toList;
@@ -98,6 +100,26 @@ public class RowConverter {
 
     public Record convert(Object row, SeaTunnelDataType<?> rowType, SchemaChangeWrapper wrapper) {
         return convertStructValue(row, rowType, tableSchema.asStruct(), -1, wrapper);
+    }
+
+    /**
+     * Returns the position in {@code rowType} of the first field that maps to one of {@code
+     * fieldIds}, with the same name lookup that {@link #convert} uses for the top-level fields.
+     *
+     * @param rowType the type of the rows written to the table
+     * @param fieldIds ids of Iceberg table fields
+     * @return the position, or empty when no field of the row maps to one of them
+     */
+    public Optional<Integer> indexOfAnyField(SeaTunnelRowType rowType, Set<Integer> fieldIds) {
+        Types.StructType schema = tableSchema.asStruct();
+        String[] fieldNames = rowType.getFieldNames();
+        for (int i = 0; i < fieldNames.length; i++) {
+            Types.NestedField tableField = lookupStructField(fieldNames[i], schema, -1);
+            if (tableField != null && fieldIds.contains(tableField.fieldId())) {
+                return Optional.of(i);
+            }
+        }
+        return Optional.empty();
     }
 
     protected GenericRecord convertStructValue(

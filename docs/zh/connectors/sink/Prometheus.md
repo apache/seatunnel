@@ -250,7 +250,7 @@ sink {
     key_label = "c_map"
     key_value = "c_double"
     key_timestamp = "c_timestamp"
-    multi_table_sink_replica = 2
+    multi_table_sink_replica = 1
   }
 }
 ```
