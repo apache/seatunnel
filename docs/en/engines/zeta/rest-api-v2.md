@@ -106,6 +106,8 @@ The [OpenAPI 3.1 contract for the read-only REST v2 subset](openapi-v2.yaml) cur
 
 #### Responses
 
+Conditional rules in REST metadata and the CLI metadata export use a flat chain whose expression nodes own `operator` and `next`; interpret `AND` before `OR` (for example, `A OR B AND C` means `A OR (B AND C)`), not from left to right.
+
 ```json
 {
   "engineType": "seatunnel",

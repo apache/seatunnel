@@ -272,6 +272,11 @@ public class OptionRulesService extends BaseService {
         return toConditionNode(condition, true);
     }
 
+    /**
+     * Converts the full standalone condition chain when {@code includeNext} is true. Otherwise,
+     * converts only the current atom; the enclosing expression node owns {@code operator} and
+     * {@code next}.
+     */
     private OptionRuleResponse.ConditionNode toConditionNode(
             Condition<?> condition, boolean includeNext) {
         if (condition == null) {
