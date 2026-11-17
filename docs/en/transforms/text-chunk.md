@@ -8,7 +8,7 @@
 
 ## Description
 
-TextChunk splits a long text field into multiple smaller chunks and emits **one row per chunk** (a 1-row → N-rows transform). Each output row keeps **all of the original source fields** unchanged — except a column explicitly reused as the chunk output or index column, whose values are overwritten with the per-chunk value — and carries two additional columns: the chunk text and its 0-based sequence index within the source document. Use it to prepare long documents for consumers that work on bounded text units, for example embedding pipelines that ingest fixed-size passages.
+TextChunk splits a long text field into multiple smaller chunks and emits **one row per chunk** (a 1-row → N-rows transform). Each output row keeps **all of the original source fields** unchanged — except a column explicitly reused as the chunk output or index column, whose values are overwritten with the per-chunk value — and carries the chunk text and its 0-based sequence index within the source document, in appended or reused columns. Use it to prepare long documents for consumers that work on bounded text units, for example embedding pipelines that ingest fixed-size passages.
 
 The chunk column is a STRING column and the index column is an INT column. Each of them is appended at the end of the schema, or reused when a column with the same name already exists. All chunks of one input row share the same source key, so the transform extends the primary key and every unique key with the chunk index column to keep every chunk unique for key-aware sinks.
 
