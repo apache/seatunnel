@@ -41,6 +41,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -202,7 +203,7 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             throw CommonError.convertToSeaTunnelTypeError(
                     MetaLakeType.GRAVITINO.getType(), typeNode.toString(), fieldName);
         }
-        String type = typeField.asText().toLowerCase();
+        String type = typeField.asText().toLowerCase(Locale.ROOT);
         switch (type) {
             case "list":
                 JsonNode elementType = typeNode.get(ELEMENT_TYPE);
@@ -270,7 +271,7 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
     /** Convert simple type (string like "boolean", "integer", "decimal(10,2)", etc.). */
     private SeaTunnelDataType<?> convertSimpleType(String fieldName, JsonNode typeNode) {
         String gravitinoType = typeNode.asText();
-        String normalizedType = gravitinoType.trim().toLowerCase();
+        String normalizedType = gravitinoType.trim().toLowerCase(Locale.ROOT);
         // Remove parameters for simple type matching
         String baseType = normalizedType.split("\\(")[0].trim();
 
@@ -346,7 +347,7 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
      */
     private Pair<Long, Integer> extractLengthAndScale(String type) {
         // Extract base type before the parenthesis
-        String baseType = type.split("\\(")[0].trim().toLowerCase();
+        String baseType = type.split("\\(")[0].trim().toLowerCase(Locale.ROOT);
         // Remove 'unsigned' suffix for type matching
         String cleanType = baseType.replaceAll("unsigned", "").trim();
 

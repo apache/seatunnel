@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.metalake.gravitino.GravitinoTableSchemaConvertor
 import org.apache.seatunnel.common.constants.MetaLakeType;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -38,13 +39,13 @@ public class MetaLakeFactory {
     private MetaLakeFactory() {}
 
     public static void register(String type) {
-        CLIENT_REGISTRY.put(type.toLowerCase(), GravitinoClient::new);
-        MAPPER_REGISTRY.put(type.toLowerCase(), GravitinoTableSchemaConvertor::new);
+        CLIENT_REGISTRY.put(type.toLowerCase(Locale.ROOT), GravitinoClient::new);
+        MAPPER_REGISTRY.put(type.toLowerCase(Locale.ROOT), GravitinoTableSchemaConvertor::new);
     }
 
     public static MetalakeClient createClient(MetaLakeType metaLakeType) {
-        String type = metaLakeType.name().toLowerCase();
-        Supplier<MetalakeClient> constructor = CLIENT_REGISTRY.get(type.toLowerCase());
+        String type = metaLakeType.name().toLowerCase(Locale.ROOT);
+        Supplier<MetalakeClient> constructor = CLIENT_REGISTRY.get(type.toLowerCase(Locale.ROOT));
         if (constructor == null) {
             throw new IllegalArgumentException("Unknown MetalakeClient type: " + type);
         }
@@ -52,9 +53,9 @@ public class MetaLakeFactory {
     }
 
     public static MetaLakeTableSchemaConvertor createTypeMapper(MetaLakeType metaLakeType) {
-        String type = metaLakeType.name().toLowerCase();
+        String type = metaLakeType.name().toLowerCase(Locale.ROOT);
         Supplier<MetaLakeTableSchemaConvertor> constructor =
-                MAPPER_REGISTRY.get(type.toLowerCase());
+                MAPPER_REGISTRY.get(type.toLowerCase(Locale.ROOT));
         if (constructor == null) {
             throw new IllegalArgumentException("Unknown MetaLakeTypeMapper type: " + type);
         }
