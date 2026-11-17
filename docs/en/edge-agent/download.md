@@ -40,13 +40,16 @@ Throughout the deployment guides, EDGE_AGENT_HOME means this install root. The l
 
 ## Step 3: Build from source
 
-From the SeaTunnel source repository:
+With a JDK installed, download `apache-seatunnel-<version>-src.tar.gz` from the [SeaTunnel download page](https://seatunnel.apache.org/download), then extract and build:
 
 ```shell
-git clone https://github.com/apache/seatunnel.git
-cd seatunnel
+export version="<seatunnel-version>"
+tar -xzf "apache-seatunnel-${version}-src.tar.gz"
+cd "apache-seatunnel-${version}-src"
 ./mvnw clean package -pl seatunnel-dist -am -DskipTests -Dskip.spotless=true
 ```
+
+For a Git checkout, run the Maven command above from the repository root.
 
 Binary artifact (after a successful build):
 

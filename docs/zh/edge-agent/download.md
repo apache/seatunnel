@@ -40,11 +40,16 @@ cd "apache-seatunnel-edge-agent-${version}"
 
 ## 步骤 3：源码构建
 
+安装 JDK，从 [SeaTunnel 下载页](https://seatunnel.apache.org/download) 下载 `apache-seatunnel-<version>-src.tar.gz`，然后解压并构建：
+
 ```shell
-git clone https://github.com/apache/seatunnel.git
-cd seatunnel
+export version="<seatunnel-version>"
+tar -xzf "apache-seatunnel-${version}-src.tar.gz"
+cd "apache-seatunnel-${version}-src"
 ./mvnw clean package -pl seatunnel-dist -am -DskipTests -Dskip.spotless=true
 ```
+
+如果使用 Git 仓库，在仓库根目录执行上面的 Maven 命令。
 
 构建产物：
 
