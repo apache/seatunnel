@@ -83,6 +83,28 @@ public class MaxcomputeUtilTest {
     }
 
     /**
+     * Verifies that credentials-java 1.0.8 resolves the VPC STS endpoint when VPC endpoint and STS
+     * region are enabled (standard in Alibaba Cloud ACK RRSA environments).
+     */
+    @Test
+    void testOIDCRoleArnCredentialProviderVpcEndpointResolution() {
+        com.aliyun.credentials.utils.AuthUtils.enableVpcEndpoint(true);
+        com.aliyun.credentials.utils.AuthUtils.setEnvironmentSTSRegion("cn-hangzhou");
+        try {
+            com.aliyun.credentials.provider.OIDCRoleArnCredentialProvider provider =
+                    com.aliyun.credentials.provider.OIDCRoleArnCredentialProvider.builder()
+                            .roleArn("acs:ram::1234567890123456:role/test-role")
+                            .oidcProviderArn("acs:ram::1234567890123456:oidc-provider/test-idp")
+                            .oidcTokenFilePath("/tmp/non-existent-token")
+                            .build();
+            Assertions.assertEquals("sts-vpc.cn-hangzhou.aliyuncs.com", provider.getSTSEndpoint());
+        } finally {
+            com.aliyun.credentials.utils.AuthUtils.enableVpcEndpoint(false);
+            com.aliyun.credentials.utils.AuthUtils.setEnvironmentSTSRegion(null);
+        }
+    }
+
+    /**
      * Providing sts_token WITHOUT accessId/accessKey must fail fast with an explicit
      * IllegalArgumentException instead of letting a NullPointerException surface at runtime inside
      * the ODPS SDK.
