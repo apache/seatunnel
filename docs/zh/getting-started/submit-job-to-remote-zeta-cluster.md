@@ -291,7 +291,7 @@ SeaTunnel 的 Helm chart 以 OCI 构件形式发布在 Docker Hub 上（不存�
 
 ```bash
 # 版本号请与 kubernetes/helm.md 保持一致
-export VERSION=3.1.0
+export VERSION=3.1.1
 helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm

@@ -299,7 +299,7 @@ The SeaTunnel Helm chart is published as an OCI artifact on Docker Hub (there is
 
 ```bash
 # Keep the chart version in sync with kubernetes/helm.md
-export VERSION=3.1.0
+export VERSION=3.1.1
 helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm
