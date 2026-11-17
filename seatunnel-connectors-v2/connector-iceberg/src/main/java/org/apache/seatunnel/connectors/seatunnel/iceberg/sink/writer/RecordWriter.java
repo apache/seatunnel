@@ -32,6 +32,11 @@ public interface RecordWriter extends Cloneable {
 
     void applySchemaChange(SeaTunnelRowType afterRowType, SchemaChangeEvent event);
 
+    /**
+     * Completes the open task writer and returns the results of every task writer completed since
+     * the previous call, in the order they were completed. The committer relies on this order:
+     * equality deletes in a later result may target rows of an earlier one.
+     */
     default List<WriteResult> complete() {
         return ImmutableList.of();
     }
