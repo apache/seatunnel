@@ -71,6 +71,16 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
   -rff seatunnel-benchmarks/target/benchmark-result.json
 ```
 
+Run only the `JdbcRowConverter` benchmarks.
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar JdbcRowConverterBenchmark
+```
+
+The default uses a mixed 20-column row covering booleans, integers, floating-point numbers, decimals,
+strings, binary, temporal and NULL values. It measures both conversion directions (2 cases).
+Override the row width with `-p columns=40`.
+
 ## Run Zeta full-pipeline benchmarks
 
 ```bash
