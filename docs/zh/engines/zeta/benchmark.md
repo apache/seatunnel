@@ -268,7 +268,7 @@ Java 11 和 Java 17 分别执行这组对比，报告汇总每个版本的两轮
 | `seatunnel_ref` | 未选择 PR 时，要诊断的分支、Tag 或 SHA。 |
 | `pr_number` | 可选可信 PR 编号；填写后以 PR Head 替代 `seatunnel_ref` 作为诊断目标。 |
 | `benchmark` | 填写从 `-l` 查询到的方法选择器 `<benchmark-method>$`；匹配多个方法的选择器会被拒绝。 |
-| `java_version` | `8` 或 `11`，与待分析的正常运行保持一致。 |
+| `java_version` | `11` 或 `17`（默认 `11`）；与待分析的正常基准测试运行使用相同的 JDK。 |
 | `profile` | `cpu` 查看执行热点，`wall` 查看含等待在内的耗时栈，`lock` 查看锁竞争，`gc` 查看分配与 GC 指标；`all` 分别运行这四种模式。 |
 | `capture_jfr` | 勾选后增加一次独立 JFR 录制，用于离线分析。 |
 | `jmh_args` | 可选 JMH 参数或负载参数，以所选方法的 `-lp` 输出为准；留空使用默认值，fork 固定为 1。 |
