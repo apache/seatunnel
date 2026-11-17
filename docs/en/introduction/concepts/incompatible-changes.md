@@ -12,21 +12,6 @@ You need to check this document before you upgrade to related version.
   - **Impact**: An endpoint that rejected the old body with an error now accepts it. A receiver written for the old body, which decodes each element as a JSON string, now receives objects and has to be changed.
   - **Migration Guide**: No configuration change is needed. If a receiver decodes each array element from a string, change it to use the element directly.
 
-### Conditional option rules use `Condition` and the deprecated `Expression` API is removed
-
-- **Breaking change: `Expression` and all of its entry points are deleted, and conditional option rules are built, evaluated and rendered with `Condition` only**
-  - **Affected component**: `seatunnel-api` (`OptionRule`, `ConditionRule`, `RequiredOption.ConditionalRequiredOptions`, `ConfigValidator`), the Zeta REST option-rule metadata API and the `seatunnel.sh` metadata export, which render the same conditions
-  - **Description**: `Expression` is no longer part of the option-rule model; `Condition` chains are the single representation. A chain such as `A.and(B).or(C)` now follows standard boolean precedence and is evaluated and printed as `(A && B) || C`. The legacy `Expression` model evaluated the same chain right-associatively as `A && (B || C)` and grouped parentheses differently: `A.or(B).and(C)` used to be printed as `(A || B) && C`, it is now `A || (B && C)`.
-  - **Impact**:
-    - **API removal (source incompatibility)**: the `Expression` class and every entry point that consumed or produced it are deleted: `ConfigValidator.validate(OptionRule, Expression)`, `RequiredOption.ConditionalRequiredOptions.of(Expression, List)`, `RequiredOption.ConditionalRequiredOptions.getExpression()`, `new ConditionRule(Expression, OptionRule)` and `ConditionRule.getExpression()`. Code that imports or calls them no longer compiles and must migrate to the `Condition` based APIs.
-    - A conditional rule that mixes AND and OR can match in cases where it previously did not. For `A.and(B).or(C)` with `A=false, B=false, C=true`, the required options are now enforced where the legacy expression did not match.
-    - Validation error messages and the exported REST/CLI metadata render mixed chains with `Condition` precedence, so parentheses and the resulting text differ from previous releases.
-    - The REST and CLI metadata export a conditional rule whose chain has several nodes as one flat chain: `operator` and `next` sit on the exported tree nodes, and each node's `condition` no longer repeats them.
-    - **Prebuilt plugin jars must be rebuilt (binary incompatibility)**: a plugin compiled against an earlier `seatunnel-api` that uses the removed APIs fails at load time with `NoClassDefFoundError` or `NoSuchMethodError`, because those classes and methods are gone from the runtime.
-  - **Migration Guide**:
-    - Build and inspect condition chains with `Condition.of(...)` / `and(...)` / `or(...)`, `ConditionalRequiredOptions.of(Condition, List)`, `new ConditionRule(Condition, OptionRule)`, `ConditionalRequiredOptions.getCondition()` and `ConditionRule.getCondition()`.
-    - Review conditional rules that mix AND and OR and decide the intended precedence. If the legacy right-associative meaning is still needed, rewrite the chain into the equivalent OR-of-AND form, for example `A && (B || C)` becomes `(A && B) || (A && C)`.
-    - Update tests and tooling that assert on validation messages or exported metadata, because the expression text now follows `Condition` rendering.
 ### Lance sink: BIGINT columns are created as int64
 
 - **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**
@@ -164,6 +149,22 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
   - **Description**: With `file_format_type = "xml"`, DATE, TIME and TIMESTAMP values were written with Java `toString()`, ignoring `date_format`, `datetime_format` and `time_format`. Timestamps came out as `2026-01-02T10:13:45.123`, and as `2026-01-02T10:13` when the seconds were zero, so a file could mix several layouts and could not be read back with a single `datetime_format`. They are now formatted with the configured options, like the CSV, Text and Excel writers.
   - **Impact**: With the defaults, timestamps are written as `yyyy-MM-dd HH:mm:ss` (a space instead of `T`, fractional seconds dropped) and times as `HH:mm:ss`. Readers that expect the previous ISO layout must be adjusted.
   - **Migration Guide**: To keep an ISO layout, set `datetime_format` on the sink, for example `YYYY_MM_DD_HH_MM_SS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss`) or `YYYY_MM_DD_HH_MM_SS_SSS_ISO8601` (`yyyy-MM-dd'T'HH:mm:ss.SSS`) to keep milliseconds, and read the files with the matching source `datetime_format`.
+
+### Conditional option rules use `Condition` and the deprecated `Expression` API is removed
+
+- **Breaking change: `Expression` and all of its entry points are deleted, and conditional option rules are built, evaluated and rendered with `Condition` only**
+  - **Affected component**: `seatunnel-api` (`OptionRule`, `ConditionRule`, `RequiredOption.ConditionalRequiredOptions`, `ConfigValidator`), the Zeta REST option-rule metadata API and the `seatunnel.sh` metadata export, which render the same conditions
+  - **Description**: `Expression` is no longer part of the option-rule model; `Condition` chains are the single representation. A chain such as `A.and(B).or(C)` now follows standard boolean precedence and is evaluated and printed as `(A && B) || C`. The legacy `Expression` model evaluated the same chain right-associatively as `A && (B || C)` and grouped parentheses differently: `A.or(B).and(C)` used to be printed as `(A || B) && C`, it is now `A || (B && C)`.
+  - **Impact**:
+    - **API removal (source incompatibility)**: the `Expression` class and every entry point that consumed or produced it are deleted: `ConfigValidator.validate(OptionRule, Expression)`, `RequiredOption.ConditionalRequiredOptions.of(Expression, List)`, `RequiredOption.ConditionalRequiredOptions.getExpression()`, `new ConditionRule(Expression, OptionRule)` and `ConditionRule.getExpression()`. Code that imports or calls them no longer compiles and must migrate to the `Condition` based APIs.
+    - A conditional rule that mixes AND and OR can match in cases where it previously did not. For `A.and(B).or(C)` with `A=false, B=false, C=true`, the required options are now enforced where the legacy expression did not match.
+    - Validation error messages and the exported REST/CLI metadata render mixed chains with `Condition` precedence, so parentheses and the resulting text differ from previous releases.
+    - The REST and CLI metadata export a conditional rule whose chain has several nodes as one flat chain: `operator` and `next` sit on the exported tree nodes, and each node's `condition` no longer repeats them.
+    - **Prebuilt plugin jars must be rebuilt (binary incompatibility)**: a plugin compiled against an earlier `seatunnel-api` that uses the removed APIs fails at load time with `NoClassDefFoundError` or `NoSuchMethodError`, because those classes and methods are gone from the runtime.
+  - **Migration Guide**:
+    - Build and inspect condition chains with `Condition.of(...)` / `and(...)` / `or(...)`, `ConditionalRequiredOptions.of(Condition, List)`, `new ConditionRule(Condition, OptionRule)`, `ConditionalRequiredOptions.getCondition()` and `ConditionRule.getCondition()`.
+    - Review conditional rules that mix AND and OR and decide the intended precedence. If the legacy right-associative meaning is still needed, rewrite the chain into the equivalent OR-of-AND form, for example `A && (B || C)` becomes `(A && B) || (A && C)`.
+    - Update tests and tooling that assert on validation messages or exported metadata, because the expression text now follows `Condition` rendering.
 
 ### Native CLI help exit code
 
