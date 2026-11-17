@@ -125,25 +125,26 @@ cd "apache-seatunnel-${version}"
 
 SeaTunnel控制台将会打印一些如下日志信息:
 
+日志前缀（时间、线程、日志格式）以及 `tableId` 的取值取决于引擎的日志配置和具体作业，下面以 `...` 表示。`FieldMapper` 按 `field_mapper` 中的顺序输出字段，并把 `name` 重命名为 `new_name`，因此输出的 row type 为 `age<INT>, new_name<STRING>`。
+
 ```shell
-fields : name, age
-types : STRING, INT
-row=1 : elWaB, 1984352560
-row=2 : uAtnp, 762961563
-row=3 : TQEIB, 2042675010
-row=4 : DcFjo, 593971283
-row=5 : SenEb, 2099913608
-row=6 : DHjkg, 1928005856
-row=7 : eScCM, 526029657
-row=8 : sgOeE, 600878991
-row=9 : gwdvw, 1951126920
-row=10 : nSiKE, 488708928
-row=11 : xubpl, 1420202810
-row=12 : rHZqb, 331185742
-row=13 : rciGD, 1112878259
-row=14 : qLhdI, 1457046294
-row=15 : ZTkRx, 1240668386
-row=16 : SGZCr, 94186144
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - output rowType: age<INT>, new_name<STRING>
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=1:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1984352560, elWaB
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=2:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 762961563, uAtnp
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=3:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 2042675010, TQEIB
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=4:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 593971283, DcFjo
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=5:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 2099913608, SenEb
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=6:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1928005856, DHjkg
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=7:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 526029657, eScCM
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=8:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 600878991, sgOeE
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=9:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1951126920, gwdvw
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=10:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 488708928, nSiKE
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=11:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1420202810, xubpl
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=12:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 331185742, rHZqb
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=13:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1112878259, rciGD
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=14:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1457046294, qLhdI
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=15:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 1240668386, ZTkRx
+... INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=16:  SeaTunnelRow#tableId=... SeaTunnelRow#kind=INSERT : 94186144, SGZCr
 ```
 
 ## 此外

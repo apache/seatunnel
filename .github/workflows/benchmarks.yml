@@ -36,6 +36,7 @@ on:
           - 'benchmarks_core'
           - 'SeaTunnelRowBenchmark'
           - 'IntermediateQueueBenchmark'
+          - 'MultiTableSinkBenchmark'
           - 'DebeziumJsonFormatBenchmark'
           - 'ProtoStuffSerializerBenchmark'
           - 'SeaTunnelPipelineBenchmark'
