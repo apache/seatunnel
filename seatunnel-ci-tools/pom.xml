@@ -42,6 +42,11 @@
             <version>${javaparser.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-secure-xml</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

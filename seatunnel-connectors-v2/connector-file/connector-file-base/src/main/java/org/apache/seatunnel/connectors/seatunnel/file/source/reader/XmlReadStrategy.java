@@ -42,24 +42,24 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.xml.secure.SecureSAXParserFactory;
 
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.Node;
 import org.dom4j.io.SAXReader;
-import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
+import org.xml.sax.XMLReader;
 
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import javax.xml.XMLConstants;
+import javax.xml.parsers.ParserConfigurationException;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -73,22 +73,6 @@ import java.util.stream.IntStream;
 /** The XmlReadStrategy class is used to read data from XML files in SeaTunnel. */
 @Slf4j
 public class XmlReadStrategy extends AbstractReadStrategy {
-
-    /** Reject DTD declarations so XML inputs cannot define attacker-controlled entities. */
-    private static final String DISALLOW_DOCTYPE_DECL =
-            "http://apache.org/xml/features/disallow-doctype-decl";
-
-    /** Disable external general entities to prevent local file reads and SSRF. */
-    private static final String EXTERNAL_GENERAL_ENTITIES =
-            "http://xml.org/sax/features/external-general-entities";
-
-    /** Disable external parameter entities to prevent nested external entity expansion. */
-    private static final String EXTERNAL_PARAMETER_ENTITIES =
-            "http://xml.org/sax/features/external-parameter-entities";
-
-    /** Disable external DTD loading even when a parser implementation supports it. */
-    private static final String LOAD_EXTERNAL_DTD =
-            "http://apache.org/xml/features/nonvalidating/load-external-dtd";
 
     private String tableRowName;
     private Boolean useAttrFormat;
@@ -125,7 +109,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             Map<String, String> partitionsMap,
             String currentFileName)
             throws IOException {
-        SAXReader saxReader = createSecureSaxReader(split.getFilePath());
+        SAXReader saxReader = createSecureSaxReader();
         Document document;
         try (BufferedReader reader = createBomAwareBufferedReader(inputStream, encoding)) {
             document = saxReader.read(reader);
@@ -191,29 +175,47 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     }
 
     /**
-     * Configure the XML reader with XXE-safe defaults before parsing user-controlled file contents.
-     * The parser-init failure message includes the file path (rather than reusing the bare "Failed
-     * to initialize secure xml parser" text) so operators can tell an environment/classpath problem
-     * (every file on this deployment would fail identically) apart from a per-file issue.
+     * Creates a dom4j {@link SAXReader} backed by a secure {@link XMLReader}.
+     *
+     * @return a new secure {@link SAXReader}
+     * @throws IllegalStateException if the JAXP implementation on the classpath cannot be secured
+     * @see #createSecureXMLReader()
      */
-    private SAXReader createSecureSaxReader(String filePath) {
-        SAXReader saxReader = new SAXReader();
-        try {
-            // Keep JAXP entity-expansion limits enabled even if Xerces is on the classpath.
-            saxReader.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            saxReader.setFeature(DISALLOW_DOCTYPE_DECL, true);
-            saxReader.setFeature(EXTERNAL_GENERAL_ENTITIES, false);
-            saxReader.setFeature(EXTERNAL_PARAMETER_ENTITIES, false);
-            saxReader.setFeature(LOAD_EXTERNAL_DTD, false);
-            saxReader.setEntityResolver(
-                    (publicId, systemId) -> new InputSource(new StringReader("")));
-        } catch (SAXException e) {
-            throw new FileConnectorException(
-                    FileConnectorErrorCode.FILE_READ_FAILED,
-                    "Failed to initialize secure XML parser while reading file [" + filePath + "]",
-                    e);
-        }
+    private SAXReader createSecureSaxReader() {
+        SAXReader saxReader = new SAXReader(createSecureXMLReader());
+        // Without this, SAXReader.read() installs a default EntityResolver that returns a non-null
+        // InputSource for every system ID, which is exactly what opts external resources back in.
+        //
+        // On a plain XMLReader, null would fall back to the parser's own resolver and the resource
+        // would be fetched.
+        // On a Commons Secure XML reader the fallback is the library's ignore-all floor,
+        // so null means "resolve to empty content".
+        saxReader.setEntityResolver((publicId, systemId) -> null);
         return saxReader;
+    }
+
+    /**
+     * Creates an {@link XMLReader} that never fetches external DTDs or entities and bounds entity
+     * expansion.
+     *
+     * <p>The reader comes from Apache Commons Secure XML. Its <a
+     * href="https://commons.apache.org/proper/commons-secure-xml/threat_model.html">threat
+     * model</a> lists the settings the library reserves and the ones a caller may still change.
+     * External resources resolve to empty content unless an {@link org.xml.sax.EntityResolver}
+     * explicitly opts them in.
+     *
+     * @return a new secure {@link XMLReader}
+     * @throws IllegalStateException if the JAXP implementation on the classpath cannot be secured
+     * @see SecureSAXParserFactory
+     */
+    private XMLReader createSecureXMLReader() {
+        try {
+            return SecureSAXParserFactory.newInstance().newSAXParser().getXMLReader();
+        } catch (ParserConfigurationException | SAXException e) {
+            // Current JAXP implementations fail eagerly while the factory is configured, so these
+            // checked exceptions are not thrown in practice.
+            throw new IllegalStateException("Failed to initialize secure XML parser", e);
+        }
     }
 
     @Override
