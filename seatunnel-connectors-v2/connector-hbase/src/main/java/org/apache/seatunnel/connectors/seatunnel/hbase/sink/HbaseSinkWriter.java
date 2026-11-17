@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseSinkState;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Durability;
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -46,7 +47,6 @@ import java.nio.charset.Charset;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -74,9 +74,6 @@ public class HbaseSinkWriter
 
     /** Column families this writer puts data into; a DELETE row only touches these. */
     private final List<byte[]> writtenFamilies;
-
-    /** The last UPDATE_BEFORE row, kept until its UPDATE_AFTER tells whether the row key moved. */
-    private SeaTunnelRow pendingUpdateBefore;
 
     /**
      * Set once a flush failed. The HBase client drops the mutations of a failed flush, so a later
@@ -125,35 +122,18 @@ public class HbaseSinkWriter
         failIfUnusable();
         switch (element.getRowKind()) {
             case INSERT:
-                pendingUpdateBefore = null;
-                hbaseClient.mutate(convertRowToPut(element));
-                break;
             case UPDATE_AFTER:
-                deleteMovedRow(element);
-                hbaseClient.mutate(convertRowToPut(element));
+                hbaseClient.mutate((Mutation) convertRowToPut(element));
                 break;
             case DELETE:
-                pendingUpdateBefore = null;
                 hbaseClient.mutate(convertRowToDelete(element));
                 break;
             case UPDATE_BEFORE:
-                // Not written on its own: the UPDATE_AFTER that follows overwrites the same row
-                // key, and a tombstone written here in the same millisecond would hide that Put.
-                // The row is kept so that an update which moves the row key can drop the old row.
-                pendingUpdateBefore = element;
+                // Before images are ignored. Images may reach different
+                // replicas or checkpoints, so this writer cannot pair a key-changing update.
                 break;
             default:
                 break;
-        }
-    }
-
-    /** When the UPDATE_AFTER carries another row key than its UPDATE_BEFORE, delete the old row. */
-    private void deleteMovedRow(SeaTunnelRow updateAfter) throws IOException {
-        SeaTunnelRow before = pendingUpdateBefore;
-        pendingUpdateBefore = null;
-        if (before != null
-                && !Arrays.equals(getRowkeyFromRow(before), getRowkeyFromRow(updateAfter))) {
-            hbaseClient.mutate(convertRowToDelete(before));
         }
     }
 
@@ -174,6 +154,7 @@ public class HbaseSinkWriter
         return Optional.empty();
     }
 
+    /** Rejects further writes/checkpoints after a flush that may have discarded buffered rows. */
     private void failIfUnusable() throws IOException {
         if (flushFailure != null) {
             throw new IOException(
@@ -223,6 +204,9 @@ public class HbaseSinkWriter
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Uses the configured BIGINT epoch milliseconds, or the clock when no version column is set.
+     */
     private long mutationTimestamp(SeaTunnelRow row) {
         if (versionColumnIndex == -1) {
             return System.currentTimeMillis();

@@ -4,6 +4,14 @@
 
 ## dev
 
+### HBase sink：DELETE 行删除映射的数据
+
+`DELETE` 行现在会删除本 sink 映射列簇中不晚于该变更时间戳的所有单元格版本。此前这些行会将旧值作为 Put 写入，未映射列簇仍不受影响。
+需要原先仅追加行为的作业应在 sink 前过滤 DELETE 行。`UPDATE_BEFORE` 行现在会被忽略，不再作为 Put 写入。修改 rowkey 时需要上游显式发送旧键 DELETE 和新键 INSERT。
+使用 `version_column` 提供正确排序的时间戳：相同或更早时间戳的 Put 无法覆盖删除标记。
+checkpoint 刷新会等待 region server 接受数据，但 `wal_write = false` 仍不能防止 region server 崩溃导致的数据丢失。
+无需迁移配置或 checkpoint 格式。
+
 ### Lance Sink：BIGINT 列创建为 int64
 
 - **行为变更：Lance Sink 创建的数据集中，`BIGINT` 列为 Arrow `int64`**

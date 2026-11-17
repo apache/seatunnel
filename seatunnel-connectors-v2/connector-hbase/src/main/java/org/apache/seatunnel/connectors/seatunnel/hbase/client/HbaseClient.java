@@ -356,6 +356,11 @@ public class HbaseClient {
         }
     }
 
+    /** Retains the Put entry point for callers compiled before general mutation support. */
+    public void mutate(Put put) throws IOException {
+        mutate((Mutation) put);
+    }
+
     /**
      * Buffer a mutation (a {@link Put} or a {@link Delete}) in the client's {@link
      * BufferedMutator}. The mutation reaches the region server when the buffer fills up or on

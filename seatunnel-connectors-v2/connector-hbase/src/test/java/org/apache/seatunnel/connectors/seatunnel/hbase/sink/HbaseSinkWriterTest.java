@@ -163,7 +163,7 @@ class HbaseSinkWriterTest {
         HbaseSinkWriter writer = newWriter(hbaseClient, HbaseParameters.builder(), -1);
 
         writer.write(row(RowKind.UPDATE_BEFORE, 7, "old", 10L));
-        Mockito.verify(hbaseClient, Mockito.never()).mutate(Mockito.any());
+        Mockito.verify(hbaseClient, Mockito.never()).mutate(Mockito.any(Mutation.class));
         writer.write(row(RowKind.UPDATE_AFTER, 7, "new", 11L));
 
         ArgumentCaptor<Mutation> captor = ArgumentCaptor.forClass(Mutation.class);
@@ -173,7 +173,7 @@ class HbaseSinkWriterTest {
     }
 
     @Test
-    void testUpdateMovingRowKeyDeletesTheOldRow() throws Exception {
+    void testUpdateMovingRowKeyDoesNotInferAnOldKeyDelete() throws Exception {
         HbaseClient hbaseClient = Mockito.mock(HbaseClient.class);
         HbaseSinkWriter writer = newWriter(hbaseClient, HbaseParameters.builder(), -1);
 
@@ -181,16 +181,13 @@ class HbaseSinkWriterTest {
         writer.write(row(RowKind.UPDATE_AFTER, 8, "same", 10L));
 
         ArgumentCaptor<Mutation> captor = ArgumentCaptor.forClass(Mutation.class);
-        Mockito.verify(hbaseClient, Mockito.times(2)).mutate(captor.capture());
-        List<Mutation> mutations = captor.getAllValues();
-        assertInstanceOf(Delete.class, mutations.get(0));
-        assertArrayEquals(Bytes.toBytes("7"), mutations.get(0).getRow());
-        assertInstanceOf(Put.class, mutations.get(1));
-        assertArrayEquals(Bytes.toBytes("8"), mutations.get(1).getRow());
+        Mockito.verify(hbaseClient).mutate(captor.capture());
+        assertInstanceOf(Put.class, captor.getValue());
+        assertArrayEquals(Bytes.toBytes("8"), captor.getValue().getRow());
     }
 
     @Test
-    void testUnpairedUpdateBeforeIsDroppedByTheNextInsert() throws Exception {
+    void testUpdateBeforeIsIgnoredAcrossOtherRows() throws Exception {
         HbaseClient hbaseClient = Mockito.mock(HbaseClient.class);
         HbaseSinkWriter writer = newWriter(hbaseClient, HbaseParameters.builder(), -1);
 

@@ -148,10 +148,11 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
   existing rows are kept, dropped, or treated as an error.
 - Change data capture rows are applied by row key: `INSERT` and `UPDATE_AFTER` rows are written as
   a `Put`, a `DELETE` row deletes the column families this sink writes to for that row key (other
-  families of the table are left alone), and an `UPDATE_BEFORE` row is not written on its own:
-  when its `UPDATE_AFTER` keeps the row key the new image overwrites the row, and when the update
-  moves a row-key column the old row is deleted first. With `null_mode = skip` (the default) an
-  update that sets a column to null keeps the old cell; use `null_mode = empty` to overwrite it.
+  families of the table are left alone). `UPDATE_BEFORE` is ignored. The sink does not pair
+  before/after images, which can reach different replicas or checkpoints. If a row-key column
+  changes, send an explicit `DELETE` for the old key and an `INSERT` for the new key upstream.
+  With `null_mode = skip` (the default), an update that sets a column to null keeps the old cell;
+  use `null_mode = empty` to overwrite it.
 - Mutations are stamped with the `version_column` value when it is set, otherwise with the current
   time. `version_column` must hold epoch milliseconds: a delete hides every version up to its
   timestamp, so a value far in the future hides later writes to that row key until it is

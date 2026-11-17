@@ -5,6 +5,19 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### HBase sink: DELETE rows remove mapped data
+
+`DELETE` rows now remove all cell versions up to the mutation timestamp in the column families
+mapped by this sink. Previously these rows were written as Put mutations of the old values.
+Unmapped families remain intact.
+Jobs that need the previous append-only behavior must filter DELETE rows before the sink.
+`UPDATE_BEFORE` rows are now ignored instead of written as Put mutations. Key-changing updates
+require explicit old-key DELETE/new-key
+INSERT events upstream. Use `version_column` to supply correctly ordered timestamps: an equal- or
+older-timestamp Put cannot override a delete tombstone. Checkpoint flushes now wait for region-server
+acceptance, but `wal_write = false` still does not protect against a region-server crash.
+No configuration or checkpoint-format migration is required.
+
 ### Lance sink: BIGINT columns are created as int64
 
 - **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**
