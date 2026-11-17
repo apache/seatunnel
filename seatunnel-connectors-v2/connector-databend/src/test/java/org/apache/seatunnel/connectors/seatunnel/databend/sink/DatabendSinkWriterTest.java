@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.databend.sink;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -26,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendSinkConfig;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -34,17 +37,23 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.TimeZone;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -373,6 +382,74 @@ public class DatabendSinkWriterTest {
                 "2026-11-01 01:00:00.0",
                 inTimeZone(
                         "America/New_York", () -> DatabendSinkWriter.formatAddTime(afterMicros)));
+    }
+
+    /**
+     * Goes through write() and processCdcRow() to the add_time parameter of the raw table insert:
+     * it is bound with setString, keeps its microseconds, and increases within one millisecond. The
+     * driver's setTimestamp would drop everything below milliseconds.
+     */
+    @Test
+    public void testWriteBindsTheAddTimeOfEachCdcRowAsAStringWithMicroseconds() throws Exception {
+        Connection connection = mock(Connection.class);
+        PreparedStatement cdcStatement = mock(PreparedStatement.class);
+        when(connection.prepareStatement(startsWith("INSERT INTO test_db.raw_table")))
+                .thenReturn(cdcStatement);
+        DatabendSinkWriter sinkWriter = cdcWriter(connection);
+        // Every row arrives in the same millisecond.
+        sinkWriter.clockMillis = () -> CLOCK_MILLIS + 123;
+
+        inTimeZone(
+                "UTC",
+                () -> {
+                    for (int id = 1; id <= 3; id++) {
+                        sinkWriter.write(new SeaTunnelRow(new Object[] {id, "name" + id}));
+                    }
+                    return null;
+                });
+
+        ArgumentCaptor<String> addTimes = ArgumentCaptor.forClass(String.class);
+        verify(cdcStatement, times(3)).setString(eq(4), addTimes.capture());
+        verify(cdcStatement, never()).setTimestamp(eq(4), any());
+        verify(cdcStatement, never()).setTimestamp(eq(4), any(), any());
+        assertEquals(
+                Arrays.asList(
+                        "2023-11-14 22:13:20.123",
+                        "2023-11-14 22:13:20.123001",
+                        "2023-11-14 22:13:20.123002"),
+                addTimes.getAllValues());
+        for (int i = 1; i < addTimes.getAllValues().size(); i++) {
+            Timestamp previous = Timestamp.valueOf(addTimes.getAllValues().get(i - 1));
+            Timestamp current = Timestamp.valueOf(addTimes.getAllValues().get(i));
+            assertTrue(current.after(previous), addTimes.getAllValues().toString());
+        }
+    }
+
+    /** A real writer in CDC mode, with the raw table insert prepared on {@code connection}. */
+    private static DatabendSinkWriter cdcWriter(Connection connection) {
+        DatabendSinkConfig config = mock(DatabendSinkConfig.class);
+        when(config.isCdcMode()).thenReturn(true);
+        when(config.getConflictKey()).thenReturn("id");
+        CatalogTable catalogTable = mock(CatalogTable.class);
+        when(catalogTable.getSeaTunnelRowType())
+                .thenReturn(
+                        new SeaTunnelRowType(
+                                new String[] {"id", "name"},
+                                new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, BasicType.STRING_TYPE
+                                }));
+        return new DatabendSinkWriter(
+                mock(SinkWriter.Context.class),
+                connection,
+                catalogTable,
+                config,
+                null,
+                "test_db",
+                "target_table",
+                "raw_table",
+                "cdc_stream",
+                10,
+                30);
     }
 
     private static String inTimeZone(String zone, Supplier<String> action) {

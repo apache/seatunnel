@@ -12,8 +12,13 @@ You need to check this document before you upgrade to related version.
   so the row kept its old values. It now overwrites the row, the same as an update event. This
   includes a re-insert after a DELETE that `enable_delete = false` dropped, and a snapshot that runs
   again over an existing table. When events of one key from one writer reach the same merge, the latest
-  now always wins. Before, events within the same millisecond could leave an older value in the row, or
-  remove a row that had been inserted again.
+  now wins. Before, events within the same millisecond could leave an older value in the row, or
+  remove a row that had been inserted again. The merge orders the events by `add_time`, which the
+  writer takes from its clock in the local time zone of the JVM. When daylight saving time ends, the
+  local times of one hour repeat, so in that hour an event can still lose to an older event of the
+  same key in the same merge. This limit is not new; a JVM time zone without daylight saving time,
+  such as UTC, does not have it. Events of one key from different writers are ordered only by the
+  clocks of their workers.
 - **Migration**: no configuration change is required. Jobs that relied on an INSERT leaving an
   existing row unchanged need to filter those events before the sink.
 

@@ -58,6 +58,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -105,6 +106,9 @@ public class DatabendSinkWriter
      * time ends the written times repeat an hour.
      */
     private long lastAddTimeMicros = 0L;
+
+    /** The clock that add_time is taken from, in milliseconds since the epoch. Tests replace it. */
+    LongSupplier clockMillis = System::currentTimeMillis;
 
     public DatabendSinkWriter(
             Context context,
@@ -443,7 +447,7 @@ public class DatabendSinkWriter
      * @return a timestamp, in microseconds, later than the one returned by the previous call
      */
     String nextAddTime() {
-        lastAddTimeMicros = nextAddTimeMicros(System.currentTimeMillis(), lastAddTimeMicros);
+        lastAddTimeMicros = nextAddTimeMicros(clockMillis.getAsLong(), lastAddTimeMicros);
         return formatAddTime(lastAddTimeMicros);
     }
 
