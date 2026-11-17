@@ -290,6 +290,11 @@ public class ModelInvocationRuntime {
         }
     }
 
+    /**
+     * Chooses the delay before a retry; {@code attempt} is the positive, one-based retry number. A
+     * positive local cap bounds the multiplied backoff (with overflow saturation); a zero cap keeps
+     * the legacy fixed backoff. A server hint is a minimum and may exceed the local cap.
+     */
     long retryDelayMs(int attempt, Long retryAfterMs) {
         long backoff = options.getRetryBackoffMs();
         long multipliedBackoff =

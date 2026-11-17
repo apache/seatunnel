@@ -36,6 +36,7 @@ public class ModelInvocationException extends IOException {
     private final String provider;
     private final String model;
     private final Integer httpStatus;
+    // Server-requested minimum delay in milliseconds; null means no usable Retry-After hint.
     private final Long retryAfterMs;
 
     private ModelInvocationException(
@@ -103,6 +104,10 @@ public class ModelInvocationException extends IOException {
         return fromHttpStatus(provider, model, statusCode, ignoredResponseBody, null);
     }
 
+    /**
+     * Classifies an HTTP failure without retaining the response body. Only retryable statuses carry
+     * a parsed Retry-After hint; the hint does not make a permanent failure retryable.
+     */
     public static ModelInvocationException fromHttpStatus(
             String provider,
             String model,
@@ -137,6 +142,11 @@ public class ModelInvocationException extends IOException {
                         : null);
     }
 
+    /**
+     * Returns the Retry-After delay in milliseconds relative to {@code nowMs}. Missing or invalid
+     * values return null, past HTTP dates return zero, and oversized delta-seconds saturate at
+     * {@link Long#MAX_VALUE} rather than wrapping into an earlier retry.
+     */
     static Long parseRetryAfter(String value, long nowMs) {
         if (value == null || value.trim().isEmpty()) {
             return null;
