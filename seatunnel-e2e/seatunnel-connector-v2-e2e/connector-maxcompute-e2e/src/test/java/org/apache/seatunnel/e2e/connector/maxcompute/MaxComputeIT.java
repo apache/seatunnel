@@ -306,19 +306,20 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
                         Collections.emptyMap(),
                         Collections.emptyList(),
                         "");
+        // The emulator supports unqualified table names and uppercases SQL string literals.
         String sql =
                 MaxComputeCatalogUtil.getCreateTableStatement(
-                        "CREATE TABLE `${database}`.`${table}` (`id`, name STRING, ${rowtype_fields})",
+                        "CREATE TABLE ${table} (`id`, name STRING, ${rowtype_fields})",
                         TablePath.of("mocked_mc", tableName),
                         table);
         try {
             SQLTask.run(odps, sql).waitForSuccess();
-            SQLTask.run(odps, "INSERT INTO " + tableName + " VALUES (1, 'parsed', 42)")
+            SQLTask.run(odps, "INSERT INTO " + tableName + " VALUES (1, 'PARSED', 42)")
                     .waitForSuccess();
             List<Record> records = queryTable(odps, tableName);
             Assertions.assertEquals(1, records.size());
             Assertions.assertEquals("1", records.get(0).get(0));
-            Assertions.assertEquals("parsed", records.get(0).get(1));
+            Assertions.assertEquals("PARSED", records.get(0).get(1));
             Assertions.assertEquals("42", records.get(0).get(2));
         } finally {
             odps.tables().delete(tableName, true);
