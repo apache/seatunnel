@@ -1060,6 +1060,11 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 请求参数传入，格式为 URL 编码后的、逗号分隔的 `key=value` 列表，所有配置格式都支持。
 JSON 请求体还可以在顶层的 `variables` 对象中传入变量，该对象不属于作业配置。
 
+未加引号的 HOCON 可选引用也会使用提交的变量。例如，先配置 `row.num = 3`，再配置
+`row.num = ${?rows}`，提交 `rows` 时使用该变量的值，未提交时保留 `3`。
+嵌套包含的配置文件中的可选引用仍不会回退到请求变量的根路径；必需引用保留该回退行为。
+仅用于替换的变量不会添加到作业配置中。
+
 对于下面的 `job.conf`：
 
 ```hocon

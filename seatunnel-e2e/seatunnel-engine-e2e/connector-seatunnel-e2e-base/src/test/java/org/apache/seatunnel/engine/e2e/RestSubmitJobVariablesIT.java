@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.awaitility.Awaitility;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -40,6 +42,7 @@ import io.restassured.response.Response;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
@@ -62,22 +65,44 @@ public class RestSubmitJobVariablesIT {
                     + " \"rules\": {\"row_rules\": [{\"rule_type\": \"MAX_ROW\", \"rule_value\": \"${rows}\"},"
                     + " {\"rule_type\": \"MIN_ROW\", \"rule_value\": \"${rows}\"}]}}]}";
 
+    @TempDir Path tempDir;
+
     private HazelcastInstanceImpl node;
     private SeaTunnelClient engineClient;
     private SeaTunnelConfig seaTunnelConfig;
     private String baseUrl;
+    private DeployMode previousDeployMode;
 
     @BeforeEach
     void setUp() {
+        previousDeployMode = Common.getDeployMode();
         String testClusterName = TestUtils.getClusterName("RestSubmitJobVariablesIT");
         seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
+        seaTunnelConfig
+                .getEngineConfig()
+                .getCheckpointConfig()
+                .getStorage()
+                .getStoragePluginConfig()
+                .put("namespace", tempDir.resolve("checkpoints").toString());
         seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(true);
-        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnableDynamicPort(false);
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnableDynamicPort(true);
         seaTunnelConfig.getEngineConfig().getHttpConfig().setPort(18085);
-        baseUrl = "http://localhost:18085";
 
         node = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        SeaTunnelServer server = node.node.nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+        Awaitility.await()
+                .ignoreExceptions()
+                .atMost(30, TimeUnit.SECONDS)
+                .until(
+                        () ->
+                                given().get(
+                                                        "http://localhost:"
+                                                                + server.getHttpPort()
+                                                                + "/overview")
+                                                .statusCode()
+                                        == 200);
+        baseUrl = "http://localhost:" + server.getHttpPort();
 
         Common.setDeployMode(DeployMode.CLIENT);
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
@@ -87,11 +112,18 @@ public class RestSubmitJobVariablesIT {
 
     @AfterEach
     void tearDown() {
-        if (engineClient != null) {
-            engineClient.close();
-        }
-        if (node != null) {
-            node.shutdown();
+        try {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+        } finally {
+            try {
+                if (node != null) {
+                    node.shutdown();
+                }
+            } finally {
+                Common.setDeployMode(previousDeployMode);
+            }
         }
     }
 
@@ -115,6 +147,29 @@ public class RestSubmitJobVariablesIT {
 
         assertFinished(orders, "rest_variables_orders", 3, "shop.orders");
         assertFinished(refunds, "rest_variables_refunds", 7, "shop.refunds");
+    }
+
+    @Test
+    void testOptionalVariablesOverrideDefaultAndKeepAbsentDefault() throws Exception {
+        String config =
+                new String(
+                                Files.readAllBytes(Paths.get(TestUtils.getResource(JOB_FILE))),
+                                StandardCharsets.UTF_8)
+                        .replace("row.num = ${rows}", "row.num = 3\nrow.num = ${?rows}");
+
+        String supplied =
+                submit(
+                        "/submit-job?format=hocon",
+                        "run=optional_supplied,rows=5,database=shop,table=supplied",
+                        config);
+        assertFinished(supplied, "rest_variables_optional_supplied", 5, "shop.supplied");
+
+        String absent =
+                submit(
+                        "/submit-job?format=hocon",
+                        "run=optional_absent,rows=3,database=shop,table=absent",
+                        config.replace("${?rows}", "${?not_supplied}"));
+        assertFinished(absent, "rest_variables_optional_absent", 3, "shop.absent");
     }
 
     @Test

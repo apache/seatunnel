@@ -188,6 +188,12 @@ public class RestUtil {
         return variables.isEmpty() ? config : ConfigBuilder.substituteVariables(config, variables);
     }
 
+    /**
+     * Adds one parsed request variable. Names must be nonempty Config paths and cannot name a
+     * reserved table placeholder; repeated names are rejected instead of replacing an earlier
+     * value. The position identifies malformed entries without including submitted values in
+     * errors.
+     */
     private static void putVariable(
             Map<String, String> variables, String key, String value, int position) {
         if (key.isEmpty()) {

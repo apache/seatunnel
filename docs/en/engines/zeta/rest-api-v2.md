@@ -1075,6 +1075,11 @@ request parameter as URL-encoded, comma separated `key=value` pairs; this works 
 A JSON body can also carry them in a top-level `variables` object, which is not part of the job
 config.
 
+Unquoted HOCON optional references also use submitted variables. For example,
+`row.num = 3` followed by `row.num = ${?rows}` uses the submitted `rows` value when present
+and keeps `3` when absent. Optional references inside nested included configuration files still do not fall back to
+unprefixed root request variables; required references retain that fallback. Variables used only for substitution are not added to the job config.
+
 With this `job.conf`:
 
 ```hocon

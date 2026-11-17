@@ -123,6 +123,18 @@ public class RestSubmitVariablesTest {
     }
 
     @Test
+    void suppliedOptionalVariablesOverrideDefaultsWithoutLeakingIntoConfig() {
+        String body =
+                HOCON.replace("row.num = ${rows}", "row.num = 3\nrow.num = ${?rows}")
+                        .replace("    ids = ${fields}", "    ids = ${fields}\noptional = ${?rows}");
+        Config rest = restHocon(body, VARIABLES);
+
+        Assertions.assertEquals("5", option(rest.getConfigList("source").get(0), "row.num"));
+        Assertions.assertEquals(5, rest.getConfigList("source").get(0).getInt("optional"));
+        Assertions.assertFalse(rest.hasPath("rows"));
+    }
+
+    @Test
     void sqlBodyResolvesLikeCli() throws Exception {
         Config cli = ConfigBuilder.of(write("job.sql", SQL), cliVariables(VARIABLES));
         Config rest =

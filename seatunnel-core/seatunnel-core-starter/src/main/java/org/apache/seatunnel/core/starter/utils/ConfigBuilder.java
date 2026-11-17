@@ -29,7 +29,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolver;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
@@ -311,14 +314,22 @@ public class ConfigBuilder {
 
         Map<String, Object> resolvedConfigMap;
         try {
-            resolvedConfigMap =
-                    config.resolve(SUBMITTED_CONFIG_RESOLVE_OPTIONS)
-                            .resolveWith(
-                                    ConfigFactory.parseMap(
-                                            ConfigMapPathUtils.quoteInvalidPathKeys(userValues)),
-                                    SUBMITTED_CONFIG_RESOLVE_OPTIONS)
-                            .root()
-                            .unwrapped();
+            Config variableConfig =
+                    ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(userValues));
+            // The resolver supplies missing references before optional references disappear, while
+            // preserving internal references without merging request keys into the job config.
+            Config resolvedConfig =
+                    config.resolve(
+                            SUBMITTED_CONFIG_RESOLVE_OPTIONS.appendResolver(
+                                    new SubmittedVariableResolver(variableConfig.root(), null)));
+            if (!resolvedConfig.isResolved()) {
+                // Included configs may prefix references; retain resolveWith's root lookup for
+                // required references that the resolver could not find.
+                resolvedConfig =
+                        resolvedConfig.resolveWith(
+                                variableConfig, SUBMITTED_CONFIG_RESOLVE_OPTIONS);
+            }
+            resolvedConfigMap = resolvedConfig.root().unwrapped();
         } catch (ConfigException e) {
             // Typesafe messages render the partly substituted value, so only the line is kept
             int line = e.origin() == null ? -1 : e.origin().lineNumber();
@@ -544,6 +555,38 @@ public class ConfigBuilder {
                                 ConfigFactory.systemProperties(),
                                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
         return config.root().render(CONFIG_RENDER_OPTIONS);
+    }
+
+    /** Supplies request variables only after the submitted config cannot resolve a reference. */
+    private static final class SubmittedVariableResolver implements ConfigResolver {
+        private final ConfigObject variables;
+        private final ConfigResolver fallback;
+
+        private SubmittedVariableResolver(ConfigObject variables, ConfigResolver fallback) {
+            this.variables = variables;
+            this.fallback = fallback;
+        }
+
+        @Override
+        public ConfigValue lookup(String path) {
+            ConfigValue value = variables;
+            for (String key : ConfigUtil.splitPath(path)) {
+                value = value instanceof ConfigObject ? ((ConfigObject) value).get(key) : null;
+            }
+            return value != null ? value : fallback == null ? null : fallback.lookup(path);
+        }
+
+        @Override
+        public ConfigResolver withFallback(ConfigResolver resolver) {
+            if (resolver == this || resolver == fallback) {
+                return this;
+            }
+            ConfigResolver nextFallback =
+                    fallback == null ? resolver : fallback.withFallback(resolver);
+            return nextFallback == fallback
+                    ? this
+                    : new SubmittedVariableResolver(variables, nextFallback);
+        }
     }
 
     /** Refuses every kind of {@code include}. */

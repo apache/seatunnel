@@ -67,6 +67,145 @@ public class ConfigBuilderTest {
     }
 
     @Test
+    public void testSubmittedOptionalVariablesAndDefaultOverride() {
+        Config resolved =
+                ConfigBuilder.substituteVariables(
+                        ConfigFactory.parseString(
+                                "row.num = 3\nrow.num = ${?rows}\nrequired = ${rows}"
+                                        + "\noptional = ${?rows}\nabsent = ${?missing}"
+                                        + "\nlist = [${?rows}, ${?missing}, 9]"
+                                        + "\ncombined = before${?rows}after"),
+                        Collections.singletonMap("rows", "5"));
+
+        Assertions.assertEquals(5, resolved.getInt("row.num"));
+        Assertions.assertEquals(5, resolved.getInt("required"));
+        Assertions.assertEquals(5, resolved.getInt("optional"));
+        Assertions.assertEquals(Arrays.asList(5, 9), resolved.getIntList("list"));
+        Assertions.assertEquals("before5after", resolved.getString("combined"));
+        Assertions.assertFalse(resolved.hasPath("absent"));
+        Assertions.assertFalse(resolved.hasPath("rows"));
+    }
+
+    @Test
+    public void testSubmittedOptionalVariableWithoutDefault() {
+        Config resolved =
+                ConfigBuilder.substituteVariables(
+                        ConfigFactory.parseString("optional = ${?rows}"),
+                        Collections.singletonMap("rows", "5"));
+
+        Assertions.assertEquals(5, resolved.getInt("optional"));
+        Assertions.assertFalse(resolved.hasPath("rows"));
+    }
+
+    @Test
+    public void testSubmittedNestedVariablesDoNotAddConfigFields() {
+        Map<String, String> variables = new LinkedHashMap<>();
+        variables.put("limits", "{count=5, unused=secret}");
+        variables.put("record", "{field=7}");
+        Config resolved =
+                ConfigBuilder.substituteVariables(
+                        ConfigFactory.parseString(
+                                "limits {count=2}\nalias = ${limits}\npayload = ${record}"),
+                        variables);
+
+        Assertions.assertEquals(2, resolved.getConfig("limits").getInt("count"));
+        Assertions.assertFalse(resolved.getConfig("limits").hasPath("unused"));
+        Assertions.assertFalse(resolved.getConfig("alias").hasPath("unused"));
+        Assertions.assertEquals(7, resolved.getConfig("payload").getInt("field"));
+        Assertions.assertFalse(resolved.hasPath("record"));
+    }
+
+    @Test
+    public void testSubmittedVariablesPreserveObjectMergesNullAndSelfReference() {
+        Map<String, String> variables = new LinkedHashMap<>();
+        variables.put("rows", "5");
+        variables.put("object", "{hidden=secret}");
+        variables.put("record", "{field=7}");
+        Config resolved =
+                ConfigBuilder.substituteVariables(
+                        ConfigFactory.parseString(
+                                "base {a=1}\nobject = ${base}\nobject {b=2}"
+                                        + "\noptional = ${?record}\nnullable = null"
+                                        + "\nnullRef = ${nullable}\nrows = 3\nrows = ${?rows}"
+                                        + "\nselfRef = ${rows}\npath = one\npath = ${path}two"
+                                        + "\nlist = [1]\nlist += 2"),
+                        variables);
+
+        Assertions.assertEquals(1, resolved.getConfig("object").getInt("a"));
+        Assertions.assertEquals(2, resolved.getConfig("object").getInt("b"));
+        Assertions.assertFalse(resolved.getConfig("object").hasPath("hidden"));
+        Assertions.assertEquals(7, resolved.getConfig("optional").getInt("field"));
+        Assertions.assertTrue(resolved.getIsNull("nullable"));
+        Assertions.assertTrue(resolved.getIsNull("nullRef"));
+        Assertions.assertEquals(3, resolved.getInt("selfRef"));
+        Assertions.assertEquals("onetwo", resolved.getString("path"));
+        Assertions.assertEquals(Arrays.asList(1, 2), resolved.getIntList("list"));
+        Assertions.assertFalse(resolved.hasPath("record"));
+    }
+
+    @Test
+    public void testSubmittedNestedReferenceAndExplicitNull() {
+        Map<String, String> variables = new LinkedHashMap<>();
+        variables.put("limits", "{count=5, unused=secret}");
+        variables.put("nothing", null);
+        Config resolved =
+                ConfigBuilder.substituteVariables(
+                        ConfigFactory.parseString(
+                                "limits {count=2}\nrequired = ${limits->unused}"
+                                        + "\noptional = ${?limits->unused}\nnullRef = ${nothing}"
+                                        + "\nnullOptional = ${?nothing}\nmissing = ${?nothing->child}"),
+                        variables);
+
+        Assertions.assertEquals("secret", resolved.getString("required"));
+        Assertions.assertEquals("secret", resolved.getString("optional"));
+        Assertions.assertFalse(resolved.getConfig("limits").hasPath("unused"));
+        Assertions.assertTrue(resolved.getIsNull("nullRef"));
+        Assertions.assertTrue(resolved.getIsNull("nullOptional"));
+        Assertions.assertFalse(resolved.hasPath("missing"));
+        Assertions.assertFalse(resolved.hasPath("nothing"));
+    }
+
+    @Test
+    public void testSubmittedRequiredVariableFromNestedInclude(@TempDir Path tempDir)
+            throws IOException {
+        Path included = tempDir.resolve("source.conf");
+        Files.write(included, "row.num = ${rows}\n".getBytes(StandardCharsets.UTF_8));
+        Config submitted =
+                ConfigFactory.parseString(
+                        "nested { include file("
+                                + ConfigUtil.quoteString(included.toString())
+                                + ") }");
+
+        Config resolved =
+                ConfigBuilder.substituteVariables(submitted, Collections.singletonMap("rows", "5"));
+
+        Assertions.assertEquals(5, resolved.getConfig("nested").getInt("row.num"));
+        Assertions.assertFalse(resolved.hasPath("rows"));
+    }
+
+    @Test
+    public void testSubmittedVariablesPreserveInternalReferencesAndDefaults() {
+        Map<String, String> variables = new LinkedHashMap<>();
+        variables.put("rows", "5");
+        variables.put("limits.unused", "secret");
+        variables.put("unused", "secret");
+        Config resolved =
+                ConfigBuilder.substituteVariables(
+                        ConfigFactory.parseString(
+                                "rows = 2\nrow.num = ${rows}\noptional = ${?rows}"
+                                        + "\nlimits.count = ${rows}\ndefaulted = 3"
+                                        + "\ndefaulted = ${?missing}"),
+                        variables);
+
+        Assertions.assertEquals(2, resolved.getInt("row.num"));
+        Assertions.assertEquals(2, resolved.getInt("optional"));
+        Assertions.assertEquals(2, resolved.getInt("limits.count"));
+        Assertions.assertEquals(3, resolved.getInt("defaulted"));
+        Assertions.assertFalse(resolved.hasPath("limits.unused"));
+        Assertions.assertFalse(resolved.hasPath("unused"));
+    }
+
+    @Test
     public void testSubmittedStructuredVariablePreservesLiteralKeys() {
         Config resolved =
                 ConfigBuilder.substituteVariables(
