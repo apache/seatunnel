@@ -196,7 +196,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
 
-        String mysqlDataType = typeDefine.getDataType().toUpperCase();
+        String mysqlDataType = typeDefine.getDataType().toUpperCase(Locale.ROOT);
         if (mysqlDataType.endsWith("ZEROFILL")) {
             mysqlDataType =
                     mysqlDataType.substring(0, mysqlDataType.length() - "ZEROFILL".length()).trim();

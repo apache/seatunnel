@@ -119,6 +119,8 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
 
     @Override
     protected TableSchema transformTableSchema() {
+        // Schema refresh and input handoff must rebuild the physical field bindings.
+        initializeFieldIndexes();
         return inputCatalogTable.getTableSchema();
     }
 

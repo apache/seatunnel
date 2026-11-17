@@ -33,8 +33,19 @@ import ChangeLog from '../changelog/connector-http-typeform.md';
 | retry_backoff_multiplier_ms | Int | 否 | `100` | 退避倍数（毫秒）。 |
 | retry_backoff_max_ms | Int | 否 | `10000` | 最大退避时间（毫秒）。 |
 
-令牌只放在 `Authorization: Bearer <token>` 请求头中，不会出现在查询参数、日志或作业状态里。
-Typeform 每个账号每秒允许 2 个请求，因此连接器会让请求间隔至少 500 毫秒。
+### api_key
+只会通过 `Authorization: Bearer <token>` 请求头发送，绝不会出现在查询参数中。连接器不会在日志中
+输出请求头或配置，也不会持久化任何状态，因此该令牌不会进入检查点。引擎在打印作业配置时是否对
+`api_key` 做脱敏处理，不在本连接器的控制范围内。
+
+### since / until / response_type
+这三个参数会原样传给 Typeform。对于已完成的回复，Typeform 按 `submitted_at` 过滤 `since` 和 `until`；
+对于其他回复类型则使用不同的时间戳（参见 Typeform 的 API 参考）。
+
+### retry
+请求之间的间隔至少 500 毫秒，因为 Typeform 每个账号每秒只允许 2 个请求。HTTP 429 和 5xx 会进行重试，
+退避时间从 `retry_backoff_multiplier_ms` 开始翻倍，直到 `retry_backoff_max_ms`。不会遵循 `Retry-After`
+响应头。
 
 ## 输出列
 

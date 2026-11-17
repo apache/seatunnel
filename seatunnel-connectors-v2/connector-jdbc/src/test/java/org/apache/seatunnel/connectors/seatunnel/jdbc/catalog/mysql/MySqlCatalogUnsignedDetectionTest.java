@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 
 import org.junit.jupiter.api.Assertions;
@@ -28,13 +29,14 @@ import org.junit.jupiter.api.Test;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Locale;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
  * Regression tests for how {@link MySqlCatalog#buildColumn(ResultSet)} derives the UNSIGNED
- * attribute from {@code COLUMN_TYPE}.
+ * attribute from {@code COLUMN_TYPE}, and how it reads {@code DATA_TYPE}.
  *
  * <p>They need no MySQL server. The catalog constructor probes the server version, so the test
  * catalog overrides connection acquisition and lets the probe fail, which is the production
@@ -110,5 +112,42 @@ class MySqlCatalogUnsignedDetectionTest {
                 throw new CatalogException("the unit test does not open connections");
             }
         };
+    }
+
+    /**
+     * MySQL reports {@code DATA_TYPE} in lower case, for example {@code int} or {@code datetime}.
+     * Under {@code tr-TR} and {@code az-AZ}, upper casing it with the default locale gave {@code
+     * İNT}, which matched no type, so reading the table failed.
+     */
+    @Test
+    void shouldReadLowerCaseDataTypeUnderAnyDefaultLocale() throws SQLException {
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+        try {
+            for (Locale locale : new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
+                // Upper casing "i" gives a dotted capital I under these locales.
+                Locale.setDefault(locale);
+                Assertions.assertEquals(
+                        BasicType.INT_TYPE,
+                        buildColumn("int(10)", "int").getDataType(),
+                        locale.toString());
+                Assertions.assertEquals(
+                        BasicType.LONG_TYPE,
+                        buildColumn("int(10) unsigned", "int").getDataType(),
+                        locale.toString());
+                Assertions.assertEquals(
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        buildColumn("datetime", "datetime").getDataType(),
+                        locale.toString());
+            }
+        } finally {
+            // The base locale first, because setting it overwrites both category defaults.
+            Locale.setDefault(saved[0]);
+            Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+            Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
+        }
     }
 }
