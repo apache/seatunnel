@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
-import org.apache.seatunnel.api.configuration.util.Expression;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
@@ -76,13 +76,12 @@ public class MySqlIncrementalSourceFactoryTest {
                                                 new AssertionError(
                                                         "exactly_once conditional rule is missing"));
         Set<Object> startupModes = new HashSet<>();
-        Expression expression = exactlyOnceRule.getExpression();
-        while (expression != null) {
+        Condition<?> condition = exactlyOnceRule.getCondition();
+        while (condition != null) {
             Assertions.assertEquals(
-                    MySqlIncrementalSourceOptions.STARTUP_MODE,
-                    expression.getCondition().getOption());
-            startupModes.add(expression.getCondition().getExpectValue());
-            expression = expression.getNext();
+                    MySqlIncrementalSourceOptions.STARTUP_MODE, condition.getOption());
+            startupModes.add(condition.getExpectValue());
+            condition = condition.getNext();
         }
 
         Assertions.assertEquals(
