@@ -200,7 +200,8 @@ sink {
 | `UNSUPPORTED`（默认） | 创建或恢复 writer 时拒绝该作业 |
 
 错误信息会给出该选项、取值，以及每张被拒绝的表及其连接器和 writer 类。此类 sink 请设置
-`multi_table_sink_replica = 1`。只有一个副本（默认值）时不做检查，行为不变。
+`multi_table_sink_replica = 1`。只有一个副本（默认值）时，所有记录都进入队列 0，不需要副本模式。
+`multi_table_sink_replica` 的恢复检查对任何取值都会执行：修改该值或 Sink 并行度之后恢复会失败（见 Sink 通用选项中的该选项）。
 
 ### 5.3 副本选择策略
 

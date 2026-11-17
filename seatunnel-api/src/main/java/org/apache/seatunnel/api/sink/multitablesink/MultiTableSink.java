@@ -262,12 +262,12 @@ public class MultiTableSink
      * Fails when {@code states} hold writer state that this restore would pass to no writer.
      *
      * <p>A writer gets the state stored under {@code subtask index * replicaNum + replica}. After
-     * {@code multi_table_sink_replica} is reduced, or the sink parallelism changes so that a
-     * subtask receives the state of another one, part of the checkpointed state has no writer here.
-     * It used to be dropped without a message, although connectors keep pending commits in it, so a
-     * table that this job still writes now fails the restore instead. Empty state is ignored, since
-     * nothing is lost, and so is the state of tables that the job no longer writes or skips after a
-     * failure.
+     * {@code multi_table_sink_replica} is changed in either direction, or the sink parallelism
+     * changes so that a subtask receives the state of another one, part of the checkpointed state
+     * has no writer here. It used to be dropped without a message, although connectors keep pending
+     * commits in it, so a table that this job still writes now fails the restore instead. Empty
+     * state is ignored, since nothing is lost, and so is the state of tables that the job no longer
+     * writes or skips after a failure.
      */
     private void checkEveryWriterStateIsRestored(
             SinkWriter.Context context,
@@ -304,8 +304,9 @@ public class MultiTableSink
                                     + " for writers %s (table#writer index). Subtask %d restores"
                                     + " writers %d to %d of each table, because"
                                     + " '%s' is %d. Writer state is not moved between writers, so"
-                                    + " this happens after '%s' is reduced or the sink parallelism"
-                                    + " changes. Restore with the '%s' and parallelism of the"
+                                    + " this happens after '%s' is changed, raised or reduced, or"
+                                    + " the sink parallelism changes. Restore with the '%s' and"
+                                    + " parallelism of the"
                                     + " checkpoint, or start the job without restoring it.",
                             unrestored,
                             context.getIndexOfSubtask(),

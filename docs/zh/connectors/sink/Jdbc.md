@@ -429,6 +429,10 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 
 Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-common-options.md) 了解详情
 
+当 `multi_table_sink_replica` 大于 1 时，Jdbc 按主键路由每张表的记录，使同一键的所有变更按顺序到达同一个
+writer。此时每张表都需要在表结构或 `primary_keys` 中有主键，并且不能使用 `is_exactly_once = true`：
+这两种情况下，作业都会在创建或恢复 writer 时失败。此类表请将该选项保持为 1。
+
 ### schema_save_mode [Enum]
 
 在启动同步任务之前，针对目标侧已有的表结构选择不同的处理方案<br/>

@@ -47,8 +47,11 @@ declare through `SupportMultiTableSinkWriter.replicaMode()` how that can be done
   error names the table, the connector and the writer class. Set the option to 1 for such a sink.
 
 Each writer keeps its own checkpoint state, which is not moved to another writer. Restoring a
-checkpoint after this value is reduced, or after the sink parallelism changes, fails when state
-would be left without a writer. Change it in a job that does not restore such a checkpoint.
+checkpoint fails when part of that state would be left without a writer. This happens after the
+value is changed in either direction, since a higher value also moves every subtask above 0 to
+other writers, and after the sink parallelism changes. The check runs for every value, also the
+default of 1, and passes when the value and the parallelism of the checkpoint are kept. Change
+the value in a job that does not restore such a checkpoint.
 
 # Important note
 

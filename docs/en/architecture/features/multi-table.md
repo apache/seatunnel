@@ -324,7 +324,9 @@ Otherwise the job fails before any row is written:
 
 The error names the option, its value, and each rejected table with its connector and
 writer class. Set `multi_table_sink_replica = 1` for such a sink. With one replica (the
-default) nothing is checked and nothing changes.
+default) every row goes to queue 0 and no replica mode is needed. The restore check of
+`multi_table_sink_replica` still runs for every value: a restore fails after the value or the
+sink parallelism changed (see the option in the sink common options).
 
 ### 5.3 Replica Selection Strategies
 

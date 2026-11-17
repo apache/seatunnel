@@ -862,7 +862,17 @@ public class MultiTableSinkWriter
             }
             throw new RuntimeException("multi table sink can not write table: " + tableId);
         }
-        int index = selectQueueIndex(targetTableId, replicaMode, primaryKey, element);
+        int index;
+        try {
+            index = selectQueueIndex(targetTableId, replicaMode, primaryKey, element);
+        } catch (IllegalStateException e) {
+            // A row that cannot be routed fails its table like a failed write.
+            if (failurePolicy.continueOtherTables()) {
+                handleTableFailure(tableId, MultiTableFailurePhase.RUNTIME_WRITE, e);
+                return;
+            }
+            throw e;
+        }
         offerRowElement(index, element);
     }
 
@@ -886,9 +896,12 @@ public class MultiTableSinkWriter
     /**
      * Selects the queue of a row: queue 0 with one replica, the hash of the key for {@link
      * MultiTableSinkReplicaMode#KEYED}, and a random queue for {@link
-     * MultiTableSinkReplicaMode#RANDOM}, even when the writer also has a key. {@link
+     * MultiTableSinkReplicaMode#RANDOM}, even when the writer also has a key. A row without fields
+     * goes to queue 0: it is a control row, which the queue worker skips. {@link
      * MultiTableSinkReplicaMode#UNSUPPORTED} with several replicas is rejected when the writer is
      * created, and again here.
+     *
+     * @throws IllegalStateException when the row cannot be routed
      */
     private int selectQueueIndex(
             String tableId,
@@ -896,7 +909,7 @@ public class MultiTableSinkWriter
             Optional<Integer> primaryKey,
             SeaTunnelRow element) {
         int queueCount = blockingQueues.size();
-        if (queueCount == 1) {
+        if (queueCount == 1 || element.getArity() == 0) {
             return 0;
         }
         switch (replicaMode) {

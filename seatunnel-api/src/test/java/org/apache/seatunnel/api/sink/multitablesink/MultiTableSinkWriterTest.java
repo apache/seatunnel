@@ -1432,6 +1432,43 @@ public class MultiTableSinkWriterTest {
     }
 
     /**
+     * Raising the option also moves the writers of every subtask above 0: with two replicas subtask
+     * 1 kept writers 2 and 3, with three it restores writers 3 to 5, so writer 2 has no writer and
+     * the restore fails.
+     */
+    @Test
+    public void testRestoreWithMoreReplicasFailsForASubtaskAboveZero() {
+        ModeSink sink =
+                new ModeSink(
+                        index ->
+                                new ModeSinkWriter(
+                                        MultiTableSinkReplicaMode.KEYED, Optional.of(0)));
+        Map<SinkIdentifier, List<?>> states = new HashMap<>();
+        states.put(SinkIdentifier.of("db.t", 2), Collections.singletonList("state-2"));
+        states.put(SinkIdentifier.of("db.t", 3), Collections.singletonList("state-3"));
+        List<MultiTableState> checkpoint =
+                Collections.singletonList(new MultiTableState(states, Collections.emptyList()));
+        SinkWriter.Context subtaskOne =
+                new TestSinkWriterContext() {
+                    @Override
+                    public int getIndexOfSubtask() {
+                        return 1;
+                    }
+                };
+
+        IllegalArgumentException e =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> replicaSink(3, sink).restoreWriter(subtaskOne, checkpoint));
+
+        String message = e.getMessage();
+        Assertions.assertTrue(message.contains("writers [db.t#2]"), message);
+        Assertions.assertTrue(message.contains("writers 3 to 5 of each table"), message);
+        Assertions.assertTrue(message.contains("is changed, raised or reduced"), message);
+        Assertions.assertEquals(0, sink.writers.size());
+    }
+
+    /**
      * Empty state loses nothing, and a table that the job no longer writes is not restored at all,
      * so neither stops the restore.
      */
@@ -1696,6 +1733,81 @@ public class MultiTableSinkWriterTest {
         } finally {
             writer.close();
         }
+    }
+
+    @Test
+    public void testKeyOutsideTheRowFailsOnlyItsTableUnderContinueOtherTables() throws IOException {
+        // db.t declares a key index outside its rows, db.u a valid one.
+        ModeSink badKey =
+                new ModeSink(
+                        index ->
+                                new ModeSinkWriter(
+                                        MultiTableSinkReplicaMode.KEYED, Optional.of(5)));
+        ModeSink goodKey =
+                new ModeSink(
+                        index ->
+                                new ModeSinkWriter(
+                                        MultiTableSinkReplicaMode.KEYED, Optional.of(0)));
+        Map<String, Object> options = new HashMap<>();
+        options.put(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), 2);
+        options.put(
+                MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY.key(),
+                MultiTableFailurePolicy.CONTINUE_OTHER_TABLES.name());
+        options.put(EnvCommonOptions.JOB_RETRY_TIMES.key(), 0);
+        options.put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
+        Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+        sinks.put(TablePath.of("db.t"), badKey);
+        sinks.put(TablePath.of("db.u"), goodKey);
+        SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> writer =
+                new MultiTableSink(
+                                new MultiTableFactoryContext(
+                                        ReadonlyConfig.fromMap(options),
+                                        Thread.currentThread().getContextClassLoader(),
+                                        sinks))
+                        .createWriter(new TestSinkWriterContext());
+
+        writer.write(keyRow("db.t", 1, 0));
+        writer.write(keyRow("db.u", 1, 0));
+        writer.write(keyRow("db.t", 2, 0));
+        writer.write(keyRow("db.u", 2, 0));
+        writer.prepareCommit(1L);
+
+        IOException closeException = Assertions.assertThrows(IOException.class, writer::close);
+        Assertions.assertTrue(
+                MultiTableFailureHelper.isIsolatedFailure(closeException.getMessage()),
+                closeException.getMessage());
+        Assertions.assertTrue(
+                closeException.getMessage().contains("table=db.t"), closeException.getMessage());
+        Assertions.assertTrue(
+                closeException.getMessage().contains("key index 5"), closeException.getMessage());
+        badKey.writers.forEach(w -> Assertions.assertTrue(w.rows.isEmpty()));
+        Assertions.assertEquals(
+                2, goodKey.writers.stream().mapToInt(w -> w.rows.size()).sum(), "db.u rows");
+    }
+
+    @Test
+    public void testRowWithoutFieldsReachesTheQueueWorkerWithKeyedRouting() throws IOException {
+        ModeSink sink =
+                new ModeSink(
+                        index ->
+                                new ModeSinkWriter(
+                                        MultiTableSinkReplicaMode.KEYED, Optional.of(0)));
+        SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> writer =
+                replicaSink(2, sink).createWriter(new TestSinkWriterContext());
+        SeaTunnelRow controlRow = new SeaTunnelRow(new Object[0]);
+        controlRow.setTableId("db.t");
+
+        try {
+            writer.write(controlRow);
+            writer.write(keyRow("db.t", 1, 0));
+            writer.prepareCommit(1L);
+        } finally {
+            writer.close();
+        }
+
+        // The queue worker skips the row without fields; only the keyed row is written.
+        Assertions.assertEquals(
+                1, sink.writers.stream().mapToInt(w -> w.rows.size()).sum(), "rows written");
     }
 
     @Test
