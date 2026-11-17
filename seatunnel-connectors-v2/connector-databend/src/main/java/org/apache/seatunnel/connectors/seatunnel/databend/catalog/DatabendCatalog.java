@@ -420,7 +420,14 @@ public class DatabendCatalog implements Catalog {
         return sb.toString();
     }
 
-    private String toDatabendTypeString(SeaTunnelDataType<?> dataType) {
+    /**
+     * Converts a SeaTunnel type to the Databend column type used in CREATE TABLE. Package private
+     * so the mapping can be asserted directly in unit tests.
+     *
+     * @param dataType the SeaTunnel type of the column
+     * @return the Databend column type
+     */
+    static String toDatabendTypeString(SeaTunnelDataType<?> dataType) {
         switch (dataType.getSqlType()) {
             case BOOLEAN:
                 return "BOOLEAN";
@@ -447,7 +454,9 @@ public class DatabendCatalog implements Catalog {
             case DATE:
                 return "DATE";
             case TIME:
-                return "TIME";
+                // Databend has no TIME type, so a CREATE TABLE naming TIME fails to parse. A time
+                // of day is stored as text, as DatabendTypeConverter does for schema changes.
+                return "STRING";
             case TIMESTAMP:
                 LocalTimeType timeType = (LocalTimeType) dataType;
                 return "TIMESTAMP";
