@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -65,8 +66,18 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     protected static final String MYSQL_USER_PASSWORD = "mysqlpw";
     protected static final String MYSQL_DATABASE = "mysql_cdc";
     private static final String MYSQL_DATABASE2 = "mysql_cdc2";
+    private static final String APPEND_SINK_DATABASE = "mysql_cdc_append";
 
     private final String QUERY_SQL = "select * from %s.%s";
+
+    /**
+     * Spark reads a CDC source as one long running batch partition without checkpoints, so a sink
+     * that flushes on checkpoints or full batches does not write the few rows of these jobs. The
+     * Spark cases in {@link MysqlCDCIT} use jobs that flush every row instead.
+     */
+    protected static final String SPARK_SINK_FLUSH_REASON =
+            "The jdbc sink of this job only flushes on checkpoints or full batches, and Spark never "
+                    + "checkpoints a CDC source; see the Spark cases in MysqlCDCIT";
 
     // mysql source table query sql
     private static final String SOURCE_SQL_TEMPLATE =
@@ -142,6 +153,10 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = SPARK_SINK_FLUSH_REASON)
     public void testMysqlCdcCheckDataE2e(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
@@ -430,6 +445,10 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = SPARK_SINK_FLUSH_REASON)
     public void testMysqlCdcCheckDataWithDisableExactlyonce(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SINK_TABLE);
@@ -468,6 +487,10 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = SPARK_SINK_FLUSH_REASON)
     public void testMysqlCdcCheckDataWithNoPrimaryKey(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SINK_TABLE);
@@ -510,6 +533,10 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = SPARK_SINK_FLUSH_REASON)
     public void testMysqlCdcSnapshotWithNullableUniqueKey(TestContainer container) {
         // A table without a primary key whose only unique key is nullable: rows with NULL in it
         // must not be skipped by the snapshot chunks.
@@ -1051,6 +1078,111 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         log.info(containerLogs);
         Assertions.assertFalse(containerLogs.contains("ERROR"));
         log.info("****************** container logs end ******************");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support restore")
+    public void testExactlyOnceRestoreWithAddedTableKeepsChangesOfExistingTables(
+            TestContainer container) throws IOException, InterruptedException {
+        String[] tables = {SOURCE_TABLE_1, SOURCE_TABLE_2, SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY};
+        for (String table : tables) {
+            clearTable(MYSQL_DATABASE, table);
+            clearTable(MYSQL_DATABASE2, table);
+            createAppendOnlySinkTable(table);
+        }
+
+        initSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        initSourceTable(MYSQL_DATABASE, SOURCE_TABLE_2);
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/mysqlcdc_to_mysql_with_exactly_once_restore_two_tables.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+        awaitSinksMatchSource(SOURCE_TABLE_1, SOURCE_TABLE_2);
+
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_1, 100, 110);
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_2, 100, 110);
+        awaitSinksMatchSource(SOURCE_TABLE_1, SOURCE_TABLE_2);
+
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+
+        // Changes made while the job is stopped are after the saved offset and before the
+        // snapshot of the added table.
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_1, 200, 210);
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_2, 200, 210);
+        initSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/mysqlcdc_to_mysql_with_exactly_once_restore_add_table.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_1, 300, 310);
+
+        awaitSinksMatchSource(tables);
+
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_2, 400, 410);
+        insertSourceTableRows(MYSQL_DATABASE, SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY, 400, 410);
+        awaitSinksMatchSource(tables);
+
+        Assertions.assertEquals(0, container.cancelJob(String.valueOf(jobId)).getExitCode());
+    }
+
+    /**
+     * Creates a copy of the sink table without a primary key, so that every emitted row is appended
+     * and a change emitted twice shows up as an extra row.
+     */
+    private void createAppendOnlySinkTable(String tableName) {
+        String appendSinkTable = APPEND_SINK_DATABASE + "." + tableName;
+        executeSql("CREATE DATABASE IF NOT EXISTS " + APPEND_SINK_DATABASE);
+        executeSql("DROP TABLE IF EXISTS " + appendSinkTable);
+        executeSql(
+                "CREATE TABLE " + appendSinkTable + " LIKE " + MYSQL_DATABASE2 + "." + tableName);
+        executeSql("ALTER TABLE " + appendSinkTable + " MODIFY id INT NOT NULL, DROP PRIMARY KEY");
+    }
+
+    private void awaitSinksMatchSource(String... tableNames) {
+        await().atMost(300000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            for (String tableName : tableNames) {
+                                List<List<Object>> sourceRows =
+                                        query(
+                                                getSourceQuerySQL(MYSQL_DATABASE, tableName)
+                                                        + " order by id");
+                                Assertions.assertIterableEquals(
+                                        sourceRows,
+                                        query(
+                                                getSourceQuerySQL(MYSQL_DATABASE2, tableName)
+                                                        + " order by id"),
+                                        tableName);
+                                Assertions.assertIterableEquals(
+                                        sourceRows,
+                                        query(
+                                                getSourceQuerySQL(APPEND_SINK_DATABASE, tableName)
+                                                        + " order by id"),
+                                        APPEND_SINK_DATABASE + "." + tableName);
+                            }
+                        });
     }
 
     @TestTemplate
@@ -1724,6 +1856,10 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = SPARK_SINK_FLUSH_REASON)
     public void testMysqlCdcWithColumnIncludeList(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
@@ -1818,7 +1954,12 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     }
 
     private void initSourceTable(String database, String tableName) {
-        for (int i = 1; i < 100; i++) {
+        insertSourceTableRows(database, tableName, 1, 100);
+    }
+
+    private void insertSourceTableRows(
+            String database, String tableName, int fromId, int toIdExclusive) {
+        for (int i = fromId; i < toIdExclusive; i++) {
             executeSql(
                     "INSERT INTO "
                             + database
@@ -1871,6 +2012,89 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         executeSql("DELETE FROM " + database + "." + tableName + " where id > 100");
 
         executeSql("UPDATE " + database + "." + tableName + " SET f_bigint = 10000 where id < 10");
+    }
+
+    /**
+     * Seeds the source table, then runs a job that copies it to the sink table and checks that the
+     * sink holds the seeded rows read by the snapshot phase, and afterwards an insert, an update
+     * and a delete that only the incremental phase can deliver.
+     */
+    protected void checkSnapshotThenIncrementalData(TestContainer container, String confFile) {
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
+        // rows 5, 6 and 8, which the snapshot phase reads
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        insertCopyOfRow(MYSQL_DATABASE, SOURCE_TABLE_1, 5, 8);
+        List<List<Object>> snapshotRows = query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1));
+        Assertions.assertEquals(3, snapshotRows.size());
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(confFile);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+        // the budget includes the submission of the job
+        await().atMost(3, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        snapshotRows,
+                                        query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE))));
+
+        // insert row 7, update row 5 and delete row 6 after the snapshot phase has been read
+        insertCopyOfRow(MYSQL_DATABASE, SOURCE_TABLE_1, 5, 7);
+        executeSql(
+                "UPDATE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SOURCE_TABLE_1
+                        + " SET f_bigint = 20000 where id = 5");
+        executeSql("DELETE FROM " + MYSQL_DATABASE + "." + SOURCE_TABLE_1 + " where id = 6");
+        List<List<Object>> incrementalRows =
+                query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1));
+        Assertions.assertNotEquals(snapshotRows, incrementalRows);
+
+        await().atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        incrementalRows,
+                                        query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE))));
+    }
+
+    /** Inserts a copy of the row {@code sourceId} under the primary key {@code targetId}. */
+    private void insertCopyOfRow(String database, String tableName, int sourceId, int targetId) {
+        String table = database + "." + tableName;
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery("SELECT * FROM " + table + " WHERE 1 = 0")) {
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            List<String> columns = new ArrayList<>();
+            List<String> values = new ArrayList<>();
+            for (int i = 1; i <= metaData.getColumnCount(); i++) {
+                String column = "`" + metaData.getColumnName(i) + "`";
+                columns.add(column);
+                values.add(
+                        "id".equalsIgnoreCase(metaData.getColumnName(i))
+                                ? String.valueOf(targetId)
+                                : column);
+            }
+            statement.execute(
+                    String.format(
+                            "INSERT INTO %s (%s) SELECT %s FROM %s WHERE id = %d",
+                            table,
+                            String.join(", ", columns),
+                            String.join(", ", values),
+                            table,
+                            sourceId));
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void upsertDeleteSourceTable(String database, String tableName) {

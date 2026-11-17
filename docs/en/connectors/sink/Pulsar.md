@@ -40,7 +40,7 @@ The Pulsar sink writes SeaTunnel rows to Apache Pulsar topics. It can write to o
 | avro_row_nullable        | Boolean | No      | false               | Effective when `format = "avro"`. Set `true` when a ROW field (including a ROW nested in another ROW, an ARRAY or a MAP) may be `null`, so the ROW is written as a nullable Avro union instead of a bare record; the reader must enable the same option. See [Avro format](../formats/avro.md#avro_row_nullable). |
 | semantics                | Enum   | No       | AT_LEAST_ONCE       | Write consistency. Valid values: `NON`, `AT_LEAST_ONCE`, `EXACTLY_ONCE`.                                         |
 | transaction_timeout      | Int    | No       | 600                 | Pulsar transaction timeout in seconds. Used by `EXACTLY_ONCE`.                                                    |
-| pulsar.config            | Map    | No       | -                   | Extra producer properties passed to the Pulsar producer client.                                                   |
+| pulsar.config            | Map    | No       | -                   | Extra key/value properties attached to the Pulsar producer as producer metadata. They are not producer client settings. |
 | message.routing.mode     | Enum   | No       | RoundRobinPartition | Routing mode for partitioned topics. Valid values: `SinglePartition`, `RoundRobinPartition`.                     |
 | partition_key_fields     | Array  | No       | -                   | Fields used to build the Pulsar message key.                                                                     |
 | multi_table_sink_replica | Int    | No       | 1                   | Writer replica count for multi-table writes.                                                                     |
@@ -101,7 +101,9 @@ This option is only used when `semantics = "EXACTLY_ONCE"`. If a transaction is 
 
 ### pulsar.config [Map]
 
-Extra Pulsar producer properties. These properties are passed to the Pulsar producer client.
+Extra key/value properties attached to the Pulsar producer through `ProducerBuilder.properties(...)`. Pulsar keeps them as application-defined producer metadata, for example to identify the producer in topic stats.
+
+These entries are not applied as producer client configuration, so producer settings such as `sendTimeoutMs`, `batchingMaxMessages` or compression cannot be tuned through this option.
 
 ### message.routing.mode [Enum]
 
@@ -156,9 +158,6 @@ sink {
     client.service-url = "pulsar://localhost:6650"
     admin.service-url = "http://localhost:8080"
     format = json
-    pulsar.config = {
-      sendTimeoutMs = 30000
-    }
   }
 }
 ```
@@ -247,7 +246,7 @@ sink {
 
 ### Write With Pulsar Producer Properties
 
-Pass extra producer properties via `pulsar.config`. This is forwarded to the Pulsar producer client and can be used for tuning (timeouts, batching, compression, etc.).
+Use `pulsar.config` to attach key/value metadata to the producer. The entries are passed to `ProducerBuilder.properties(...)`; they do not change producer client settings such as timeouts, batching or compression.
 
 ```hocon
 sink {
@@ -257,8 +256,8 @@ sink {
     admin.service-url = "http://localhost:8080"
     format = json
     pulsar.config = {
-      sendTimeoutMs = 30000
-      batchingMaxMessages = 1000
+      application = "seatunnel"
+      owner = "data-platform"
     }
   }
 }

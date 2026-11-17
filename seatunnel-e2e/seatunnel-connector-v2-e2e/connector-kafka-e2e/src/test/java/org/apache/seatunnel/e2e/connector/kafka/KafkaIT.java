@@ -1827,7 +1827,7 @@ public class KafkaIT extends AbstractKafkaIT {
                                 throw new RuntimeException(e);
                             }
                         });
-        Assertions.assertEquals(3, rows.size());
+        Assertions.assertEquals(5, rows.size());
         // Rows are compared by id: the assertions below must not depend on delivery order.
         rows.sort(Comparator.comparingLong(row -> (Long) row.getField(0)));
 
@@ -1848,6 +1848,12 @@ public class KafkaIT extends AbstractKafkaIT {
         Assertions.assertEquals(3, presentRow.getField(0));
         SeaTunnelRow presentNestedRow = (SeaTunnelRow) presentRow.getField(1);
         Assertions.assertEquals("nested", presentNestedRow.getField(0));
+
+        SeaTunnelRow updatedRow = (SeaTunnelRow) rows.get(3).getField(2);
+        Assertions.assertEquals(4, updatedRow.getField(0));
+        Assertions.assertEquals("updated", ((SeaTunnelRow) updatedRow.getField(1)).getField(0));
+        Assertions.assertEquals(5L, rows.get(4).getField(0));
+        Assertions.assertNull(rows.get(4).getField(2));
     }
 
     private String avroNullableRowTopic(TestContainer container, String role) {
@@ -1873,6 +1879,15 @@ public class KafkaIT extends AbstractKafkaIT {
                             new SeaTunnelRow(
                                     new Object[] {3, new SeaTunnelRow(new Object[] {"nested"})})
                         }));
+        rows.add(
+                new SeaTunnelRow(
+                        new Object[] {
+                            4L,
+                            "row-4",
+                            new SeaTunnelRow(
+                                    new Object[] {4, new SeaTunnelRow(new Object[] {"updated"})})
+                        }));
+        rows.add(new SeaTunnelRow(new Object[] {5L, "row-5", null}));
         for (SeaTunnelRow row : rows) {
             try {
                 producer.send(new ProducerRecord<>(sourceTopic, serializationSchema.serialize(row)))
@@ -2291,25 +2306,41 @@ public class KafkaIT extends AbstractKafkaIT {
         String consumerTopic = "kafka_topic_exactly_batch_once_2";
         String sourceData = "Seatunnel Exactly Once Example";
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
-        for (int i = 0; i < 10; i++) {
-            sendTextRecordAndWait(producerTopic, sourceData);
+        Properties transactionalProperties = new Properties();
+        transactionalProperties.put(
+                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.getBootstrapServers());
+        transactionalProperties.put(
+                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+        transactionalProperties.put(
+                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+        transactionalProperties.put(
+                ProducerConfig.TRANSACTIONAL_ID_CONFIG,
+                "batch-completion-" + container.identifier().name());
+        // Commit/abort markers advance offsets without becoming visible READ_COMMITTED rows.
+        try (KafkaProducer<byte[], byte[]> transactionalProducer =
+                new KafkaProducer<>(transactionalProperties)) {
+            transactionalProducer.initTransactions();
+            transactionalProducer.beginTransaction();
+            for (int i = 0; i < 10; i++) {
+                transactionalProducer.send(
+                        new ProducerRecord<>(
+                                producerTopic, null, sourceData.getBytes(StandardCharsets.UTF_8)));
+            }
+            transactionalProducer.commitTransaction();
+            transactionalProducer.beginTransaction();
+            transactionalProducer.send(
+                    new ProducerRecord<>(
+                            producerTopic, null, "aborted-row".getBytes(StandardCharsets.UTF_8)));
+            transactionalProducer.flush();
+            transactionalProducer.abortTransaction();
         }
-        Long endOffset;
-        KafkaConsumer<String, String> consumer = null;
-        try {
-            consumer = new KafkaConsumer<>(kafkaConsumerConfig());
-            consumer.subscribe(Arrays.asList(producerTopic));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(Arrays.asList(new TopicPartition(producerTopic, 0)));
-            endOffset = offsets.entrySet().iterator().next().getValue();
-            Container.ExecResult execResult =
-                    container.executeJob("/kafka/kafka_to_kafka_exactly_once_batch.conf");
-            Assertions.assertEquals(0, execResult.getExitCode());
-            // wait for data written to kafka
-            Assertions.assertTrue(checkData(consumerTopic, sinkStartOffset, endOffset, sourceData));
-        } finally {
-            closeKafkaConsumer(consumer);
-        }
+        long expectedVisibleRows = getKafkaConsumerListData(producerTopic, 0L).size();
+        Assertions.assertTrue(expectedVisibleRows >= 10, "Committed source rows must be visible");
+        Container.ExecResult execResult =
+                container.executeJob("/kafka/kafka_to_kafka_exactly_once_batch.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertTrue(
+                checkData(consumerTopic, sinkStartOffset, expectedVisibleRows, sourceData));
     }
 
     // Compare the values of data fields obtained from consumers

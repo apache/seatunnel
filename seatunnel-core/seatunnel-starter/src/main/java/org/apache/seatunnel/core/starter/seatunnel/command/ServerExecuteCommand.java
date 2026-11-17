@@ -62,16 +62,7 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
 
         String clusterRole = this.serverCommandArgs.getClusterRole();
         if (StringUtils.isNotBlank(clusterRole)) {
-            if (EngineConfig.ClusterRole.MASTER.toString().equalsIgnoreCase(clusterRole)) {
-                seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.MASTER);
-            } else if (EngineConfig.ClusterRole.WORKER.toString().equalsIgnoreCase(clusterRole)) {
-                seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.WORKER);
-
-                // in hazelcast lite node will not store IMap data.
-                seaTunnelConfig.getHazelcastConfig().setLiteMember(true);
-            } else {
-                throw new SeaTunnelEngineException("Not supported cluster role: " + clusterRole);
-            }
+            applyClusterRole(seaTunnelConfig, clusterRole);
         } else {
             seaTunnelConfig
                     .getEngineConfig()
@@ -80,6 +71,33 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
 
         SeaTunnelServerStarter.createHazelcastInstance(
                 seaTunnelConfig, Thread.currentThread().getName());
+    }
+
+    /**
+     * Applies the cluster role to the SeaTunnel config based on the provided role string. Supports
+     * master, worker and master_and_worker (case-insensitive).
+     *
+     * @param seaTunnelConfig the SeaTunnel config to configure
+     * @param clusterRole the cluster role string
+     */
+    @VisibleForTesting
+    static void applyClusterRole(SeaTunnelConfig seaTunnelConfig, String clusterRole) {
+        if (EngineConfig.ClusterRole.MASTER.toString().equalsIgnoreCase(clusterRole)) {
+            seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.MASTER);
+        } else if (EngineConfig.ClusterRole.WORKER.toString().equalsIgnoreCase(clusterRole)) {
+            seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.WORKER);
+
+            // in hazelcast lite node will not store IMap data.
+            seaTunnelConfig.getHazelcastConfig().setLiteMember(true);
+        } else if (EngineConfig.ClusterRole.MASTER_AND_WORKER
+                .toString()
+                .equalsIgnoreCase(clusterRole)) {
+            seaTunnelConfig
+                    .getEngineConfig()
+                    .setClusterRole(EngineConfig.ClusterRole.MASTER_AND_WORKER);
+        } else {
+            throw new SeaTunnelEngineException("Not supported cluster role: " + clusterRole);
+        }
     }
 
     private void checkEnvironment() {

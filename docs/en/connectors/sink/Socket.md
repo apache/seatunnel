@@ -36,6 +36,7 @@ own.
 | host           | String  | Yes      |         | socket server host                                                                                              |
 | port           | Integer | Yes      |         | socket server port                                                                                              |
 | max_retries    | Integer | No       | 3       | The number of retries to send record failed. Must be `>= 0`; set to `0` to fail immediately on the first write error. |
+| connect_timeout_ms | Integer | No   | 10000   | Connect timeout in milliseconds. `0` disables the application-level timeout and leaves the OS default, which is what this connector used to do unconditionally. |
 | common-options |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
 
 :::tip
