@@ -113,7 +113,7 @@ public final class TransformLevelRuleAssertions {
     /** The conditional rule that applies while no per-table rule is configured. */
     private static OptionRule perTableRuleOf(OptionRule factoryRule) {
         for (ConditionRule conditionRule : factoryRule.getConditionRules()) {
-            Condition<?> condition = conditionRule.getExpression().getCondition();
+            Condition<?> condition = conditionRule.getCondition();
             if (TransformCommonOptions.MULTI_TABLES.key().equals(condition.getOption().key())) {
                 return conditionRule.getOptionRule();
             }
