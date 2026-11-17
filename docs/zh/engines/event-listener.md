@@ -29,10 +29,18 @@ SeaTunnel提供了丰富的事件监听器功能，用于管理数据同步时�
 | `SCHEMA_CHANGE_ADD_COLUMN`     | 表添加列事件   | `AlterTableAddColumnEvent`    |
 | `SCHEMA_CHANGE_DROP_COLUMN`    | 表删除列事件   | `AlterTableDropColumnEvent`   |
 | `SCHEMA_CHANGE_MODIFY_COLUMN`  | 表修改列事件   | `AlterTableModifyColumnEvent` |
-| `READER_OPEN`                  | 读取器打开事件  | `ReaderOpenEvent`             |
-| `READER_CLOSE`                 | 读取器关闭事件  | `ReaderCloseEvent`            |
-| `WRITER_OPEN`                  | 写入器打开事件  | `WriterOpenEvent`             |
-| `WRITER_CLOSE`                 | 写入器关闭事件  | `WriterCloseEvent`            |
+| `SCHEMA_CHANGE_CHANGE_COLUMN`  | 表列变更事件   | `AlterTableChangeColumnEvent` |
+| `SCHEMA_CHANGE_RENAME_TABLE`   | 表重命名事件   | `AlterTableNameEvent`         |
+| `SCHEMA_CHANGE_ALTER_TABLE_COMMENT` | 表注释变更事件 | `AlterTableCommentEvent`      |
+| `SCHEMA_CHANGE_ALTER_COLUMN_COMMENT` | 列注释变更事件 | `AlterColumnCommentEvent`     |
+| `SCHEMA_CHANGE_RESTORE`        | 表结构恢复事件   | `RestoreTableSchemaEvent`     |
+| `LIFECYCLE_ENUMERATOR_OPEN`    | 枚举器打开事件  | `EnumeratorOpenEvent`         |
+| `LIFECYCLE_ENUMERATOR_CLOSE`   | 枚举器关闭事件  | `EnumeratorCloseEvent`        |
+| `LIFECYCLE_READER_OPEN`        | 读取器打开事件  | `ReaderOpenEvent`             |
+| `LIFECYCLE_READER_CLOSE`       | 读取器关闭事件  | `ReaderCloseEvent`            |
+| `LIFECYCLE_WRITER_CLOSE`       | 写入器关闭事件  | `WriterCloseEvent`            |
+| `READER_MESSAGE_DELAYED`       | 读取消息延迟事件  | `MessageDelayedEvent`        |
+| `STAIN_TRACE`                  | 污点追踪事件      | `StainTraceEvent`            |
 
 > 注意：不同事件类型对应不同的事件数据结构，在自定义事件处理器时需通过`event.getEventType()`进行类型判断，以确保类型安全转换。
 
@@ -192,9 +200,9 @@ import org.apache.seatunnel.api.event.EventHandler;
 import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.job.JobStateEvent;
-import org.apache.seatunnel.api.event.schema.AlterTableAddColumnEvent;
-import org.apache.seatunnel.api.event.source.ReaderOpenEvent;
-import org.apache.seatunnel.api.event.sink.WriterCloseEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.source.event.ReaderOpenEvent;
+import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 
 /**
  * 自定义多类型事件处理器示例，包含多种事件的处理逻辑
@@ -214,10 +222,10 @@ public class CustomMultiEventHandler implements EventHandler {
             case SCHEMA_CHANGE_ADD_COLUMN:
                 handleAddColumnEvent((AlterTableAddColumnEvent) event);
                 break;
-            case READER_OPEN:
+            case LIFECYCLE_READER_OPEN:
                 handleReaderOpenEvent((ReaderOpenEvent) event);
                 break;
-            case WRITER_CLOSE:
+            case LIFECYCLE_WRITER_CLOSE:
                 handleWriterCloseEvent((WriterCloseEvent) event);
                 break;
             // 可根据需要添加其他事件类型的处理

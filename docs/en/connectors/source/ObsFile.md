@@ -425,27 +425,9 @@ schema {
 
 ```
 
-### Reading with Temporary Security Credentials (OBS STS)
+### Temporary Security Credentials (OBS STS)
 
-For production jobs that need scoped, short-lived access, generate temporary AK/SK via [OBS STS](https://support.huaweicloud.com/intl/en-us/api-obs/obs_04_0081.html) and pass them through `hadoop_obs_properties`. The temporary credentials can carry a fine-grained custom policy that limits access to a specific bucket prefix.
-
-```hocon
-source {
-  ObsFile {
-    path = "/staging/prefix"
-    bucket = "obs://target-bucket"
-    endpoint = "obs.ap-southeast-1.myhuaweicloud.com"
-    hadoop_obs_properties = {
-      "fs.obs.access.key"    = "<temp-access-key>"
-      "fs.obs.secret.key"    = "<temp-secret-key>"
-      "fs.obs.session.token" = "<temp-security-token>"
-    }
-    file_format_type = "parquet"
-  }
-}
-```
-
-The provider jar must be on the runtime classpath of every node (`${SEATUNNEL_HOME}/lib`). Avoid long-lived AK/SK in job files; prefer STS-issued temporary credentials or an ECS Agency when running inside Huawei Cloud.
+This connector cannot currently use OBS STS temporary credentials. It only maps `access_key`, `access_secret`, and `endpoint` into the Hadoop OBS configuration, and there is no pass-through for the session token that OBS STS credentials always carry (`ObsConf.buildWithReadonlyConfig` installs only those three keys), so token-bound temporary credentials fail at connection time. Carrying a security token or a credential provider would require a separate, tested connector change. Configure a long-lived AK/SK with a least-privilege policy scoped to the target bucket prefix through the standard options instead, and avoid committing long-lived AK/SK to job files in shared environments.
 
 ## Changelog
 
