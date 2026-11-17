@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -96,6 +97,65 @@ class JdbcSinkWriterPrimaryKeyIndexTest {
 
         writer.applySchemaChange(new AlterTableDropColumnEvent(TABLE_IDENTIFIER, "uid"));
         Assertions.assertFalse(writer.primaryKey().isPresent());
+    }
+
+    @Test
+    void groupedRenameKeepsPrimaryKeyIndex() throws Exception {
+        JdbcSinkWriter writer = writer(schema("id", "name"), 0);
+
+        writer.applySchemaChange(
+                new AlterTableColumnsEvent(TABLE_IDENTIFIER)
+                        .addEvent(
+                                AlterTableChangeColumnEvent.change(
+                                        TABLE_IDENTIFIER, "id", column("uid"))));
+
+        Assertions.assertEquals(Optional.of(0), writer.primaryKey());
+    }
+
+    @Test
+    void groupedRenamesFollowEventOrderAndFinalPosition() throws Exception {
+        JdbcSinkWriter writer = writer(schema("id", "name"), 0);
+
+        writer.applySchemaChange(
+                new AlterTableColumnsEvent(TABLE_IDENTIFIER)
+                        .addEvent(
+                                AlterTableChangeColumnEvent.change(
+                                        TABLE_IDENTIFIER, "id", column("uid")))
+                        .addEvent(
+                                AlterTableAddColumnEvent.addFirst(
+                                        TABLE_IDENTIFIER, column("extra")))
+                        .addEvent(
+                                AlterTableChangeColumnEvent.change(
+                                        TABLE_IDENTIFIER, "uid", column("entity_id"))));
+
+        Assertions.assertEquals(Optional.of(1), writer.primaryKey());
+        writer.applySchemaChange(
+                AlterTableAddColumnEvent.addFirst(TABLE_IDENTIFIER, column("first")));
+        Assertions.assertEquals(Optional.of(2), writer.primaryKey());
+    }
+
+    @Test
+    void groupedRenameAfterRestoreUsesTheRestoredKeyIdentity() throws Exception {
+        JdbcSinkWriter writer = writer(schema("id", "name"), 0);
+        writer.applySchemaChange(
+                new RestoreTableSchemaEvent(
+                        CatalogTable.of(
+                                TABLE_IDENTIFIER,
+                                schemaWithKey("uid", "extra", "uid", "name"),
+                                Collections.emptyMap(),
+                                Collections.emptyList(),
+                                null,
+                                "jdbc")));
+        Assertions.assertEquals(Optional.of(1), writer.primaryKey());
+
+        writer.applySchemaChange(
+                new AlterTableColumnsEvent(TABLE_IDENTIFIER)
+                        .addEvent(
+                                AlterTableChangeColumnEvent.change(
+                                        TABLE_IDENTIFIER, "uid", column("entity_id")))
+                        .addEvent(new AlterTableDropColumnEvent(TABLE_IDENTIFIER, "extra")));
+
+        Assertions.assertEquals(Optional.of(0), writer.primaryKey());
     }
 
     @Test

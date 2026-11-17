@@ -1303,20 +1303,23 @@ public class MultiTableSinkWriterTest {
         MultiTableSinkWriter multiTableSinkWriter =
                 new MultiTableSinkWriter(sinkWriters, replicaNum, sinkWritersContext);
 
-        for (int i = 0; i < rows; i++) {
-            SeaTunnelRow row = new SeaTunnelRow(new Object[] {key.clone()});
-            row.setTableId("test.table");
-            multiTableSinkWriter.write(row);
-        }
-        Assertions.assertTrue(multiTableSinkWriter.prepareCommit(1L).isPresent());
+        try {
+            for (int i = 0; i < rows; i++) {
+                SeaTunnelRow row = new SeaTunnelRow(new Object[] {key.clone()});
+                row.setTableId("test.table");
+                multiTableSinkWriter.write(row);
+            }
+            Assertions.assertTrue(multiTableSinkWriter.prepareCommit(1L).isPresent());
 
-        for (int i = 0; i < replicaNum; i++) {
-            Assertions.assertEquals(
-                    i == expectedIndex ? rows : 0,
-                    writersByIndex[i].getWriteCount(),
-                    "rows with the same binary key must all reach writer " + expectedIndex);
+            for (int i = 0; i < replicaNum; i++) {
+                Assertions.assertEquals(
+                        i == expectedIndex ? rows : 0,
+                        writersByIndex[i].getWriteCount(),
+                        "rows with the same binary key must all reach writer " + expectedIndex);
+            }
+        } finally {
+            multiTableSinkWriter.close();
         }
-        multiTableSinkWriter.close();
     }
 
     @Test
@@ -1344,33 +1347,36 @@ public class MultiTableSinkWriterTest {
         MultiTableSinkWriter multiTableSinkWriter =
                 new MultiTableSinkWriter(sinkWriters, replicaNum, sinkWritersContext);
 
-        multiTableSinkWriter.write(buildRow("test.table", key));
-        Assertions.assertTrue(multiTableSinkWriter.prepareCommit(1L).isPresent());
-        Assertions.assertEquals(1, writersByIndex[keyIndex].getWriteCount());
+        try {
+            multiTableSinkWriter.write(buildRow("test.table", key));
+            Assertions.assertTrue(multiTableSinkWriter.prepareCommit(1L).isPresent());
+            Assertions.assertEquals(1, writersByIndex[keyIndex].getWriteCount());
 
-        multiTableSinkWriter.applySchemaChange(
-                AlterTableAddColumnEvent.addFirst(
-                        TableIdentifier.of("test", TablePath.of("test.table")),
-                        PhysicalColumn.builder()
-                                .name("filler")
-                                .dataType(BasicType.INT_TYPE)
-                                .build()));
-        for (KeyIndexShiftingSinkWriter writer : writersByIndex) {
-            Assertions.assertEquals(Optional.of(1), writer.primaryKey());
+            multiTableSinkWriter.applySchemaChange(
+                    AlterTableAddColumnEvent.addFirst(
+                            TableIdentifier.of("test", TablePath.of("test.table")),
+                            PhysicalColumn.builder()
+                                    .name("filler")
+                                    .dataType(BasicType.INT_TYPE)
+                                    .build()));
+            for (KeyIndexShiftingSinkWriter writer : writersByIndex) {
+                Assertions.assertEquals(Optional.of(1), writer.primaryKey());
+            }
+
+            SeaTunnelRow shiftedRow = new SeaTunnelRow(new Object[] {fillerValue, key});
+            shiftedRow.setTableId("test.table");
+            multiTableSinkWriter.write(shiftedRow);
+            Assertions.assertTrue(multiTableSinkWriter.prepareCommit(2L).isPresent());
+
+            for (int i = 0; i < replicaNum; i++) {
+                Assertions.assertEquals(
+                        i == keyIndex ? 2 : 0,
+                        writersByIndex[i].getWriteCount(),
+                        "both rows of key " + key + " must reach writer " + keyIndex);
+            }
+        } finally {
+            multiTableSinkWriter.close();
         }
-
-        SeaTunnelRow shiftedRow = new SeaTunnelRow(new Object[] {fillerValue, key});
-        shiftedRow.setTableId("test.table");
-        multiTableSinkWriter.write(shiftedRow);
-        Assertions.assertTrue(multiTableSinkWriter.prepareCommit(2L).isPresent());
-
-        for (int i = 0; i < replicaNum; i++) {
-            Assertions.assertEquals(
-                    i == keyIndex ? 2 : 0,
-                    writersByIndex[i].getWriteCount(),
-                    "both rows of key " + key + " must reach writer " + keyIndex);
-        }
-        multiTableSinkWriter.close();
     }
 
     private SeaTunnelRow buildRow(String tableId, int value) {

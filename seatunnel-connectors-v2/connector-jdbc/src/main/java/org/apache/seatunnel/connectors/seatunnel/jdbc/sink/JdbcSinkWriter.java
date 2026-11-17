@@ -29,6 +29,8 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -299,6 +301,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         return primaryKeyIndex != null ? Optional.of(primaryKeyIndex) : Optional.empty();
     }
 
+    /** Refreshes routing from the schema even if reopening its output format fails. */
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         boolean applied = false;
@@ -315,7 +318,14 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         }
     }
 
+    /** Follows successful renames in the same child-event order as the schema dispatcher. */
     private void followPrimaryKeyRename(SchemaChangeEvent event) {
+        if (event instanceof AlterTableColumnsEvent) {
+            for (AlterTableColumnEvent columnEvent : ((AlterTableColumnsEvent) event).getEvents()) {
+                followPrimaryKeyRename(columnEvent);
+            }
+            return;
+        }
         if (primaryKeyColumn == null || !(event instanceof AlterTableChangeColumnEvent)) {
             return;
         }
@@ -327,6 +337,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         }
     }
 
+    /** Reads the restored schema's first key name when the remembered column no longer exists. */
     private static String firstPrimaryKeyColumn(TableSchema tableSchema) {
         if (tableSchema.getPrimaryKey() == null
                 || tableSchema.getPrimaryKey().getColumnNames() == null
@@ -336,6 +347,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         return tableSchema.getPrimaryKey().getColumnNames().get(0);
     }
 
+    /** Resolves the configured routing position to a name before later schema changes move it. */
     private static String resolvePrimaryKeyColumn(
             TableSchema tableSchema, Integer primaryKeyIndex) {
         if (primaryKeyIndex == null || tableSchema == null) {
