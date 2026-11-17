@@ -37,7 +37,6 @@ import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceRecordEmitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.IncrementalSourceStreamFetcher;
-import org.apache.seatunnel.connectors.cdc.base.source.reader.external.IncrementalSourceStreamFetcherBridge;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
