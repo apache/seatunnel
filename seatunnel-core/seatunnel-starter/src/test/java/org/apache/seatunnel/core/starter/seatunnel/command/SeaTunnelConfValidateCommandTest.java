@@ -192,6 +192,51 @@ public class SeaTunnelConfValidateCommandTest {
     }
 
     @Test
+    public void testStaticTextFailureDoesNotExposeRawCause() {
+        ClientCommandArgs args = buildArgs("config/valid_static_dryrun.json");
+        Path configPath = FileUtils.getConfigPath(args);
+        IllegalArgumentException failure =
+                new IllegalArgumentException(
+                        "password=fixture-password token=fixture-token",
+                        new IllegalStateException("nested credential=fixture-credential"));
+        try (MockedStatic<ConfigBuilder> configs = Mockito.mockStatic(ConfigBuilder.class)) {
+            configs.when(() -> ConfigBuilder.of(configPath, args.getVariables()))
+                    .thenThrow(failure);
+            SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
+
+            ConfigCheckException exception =
+                    Assertions.assertThrows(ConfigCheckException.class, command::execute);
+
+            Assertions.assertTrue(exception.getMessage().startsWith("Static analysis failed: "));
+            Assertions.assertTrue(exception.getMessage().contains("password=***"));
+            Assertions.assertTrue(exception.getMessage().contains("token=***"));
+            StringWriter stackTrace = new StringWriter();
+            exception.printStackTrace(new PrintWriter(stackTrace));
+            Assertions.assertFalse(stackTrace.toString().contains("fixture-password"));
+            Assertions.assertFalse(stackTrace.toString().contains("fixture-token"));
+            Assertions.assertFalse(stackTrace.toString().contains("fixture-credential"));
+            Assertions.assertNull(exception.getCause());
+        }
+    }
+
+    @Test
+    public void testStaticTextNullMessageUsesFallback() {
+        ClientCommandArgs args = buildArgs("config/valid_static_dryrun.json");
+        Path configPath = FileUtils.getConfigPath(args);
+        try (MockedStatic<ConfigBuilder> configs = Mockito.mockStatic(ConfigBuilder.class)) {
+            configs.when(() -> ConfigBuilder.of(configPath, args.getVariables()))
+                    .thenThrow(new IllegalArgumentException());
+            SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
+
+            ConfigCheckException exception =
+                    Assertions.assertThrows(ConfigCheckException.class, command::execute);
+
+            Assertions.assertEquals(
+                    "Static analysis failed: Validation failed", exception.getMessage());
+        }
+    }
+
+    @Test
     public void testValidationResultClassifiesMissingPluginAsOptionError() throws Exception {
         Path configFile = Files.createTempFile("seatunnel-validation-result", ".conf");
         Files.write(

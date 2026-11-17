@@ -99,6 +99,8 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 
 需要机器可读的校验结果时，可在 `--check`、`--dry-run static` 或 `--dry-run connect` 后添加 `--format json`。无论校验成功还是失败，标准输出都只写入一份 JSON 文档；校验失败以状态码 1 退出。随发行版提供的 Bash 启动脚本和客户端日志配置会在该模式下将诊断信息写入标准错误。其他启动入口需要在 JVM 启动前设置 `-Dseatunnel.console.target=SYSTEM_ERR`；自定义日志配置也必须避免向标准输出写入诊断信息。
 
+JSON 标准输出契约由 Bash 启动脚本集成测试覆盖；该测试不覆盖原生 Windows 启动入口。文本与 JSON 模式的校验失败均使用脱敏后的消息，并省略原始异常原因，避免通过堆栈泄露凭据。异常没有消息时，使用 `Validation failed`。
+
 JSON 契约包含 `schemaVersion`、`valid`、`phase`（`static` 或 `connectivity`）和 `errors`。`errors` 的每一项包含 `location`、`plugin`、`optionPath`、`ruleCategory` 与已脱敏的 `message`；无法提供的字段为 `null`。
 
 ```shell

@@ -204,13 +204,9 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
 
         } catch (Exception e) {
             String message = safeMessage(e.getMessage());
-            if (clientCommandArgs.getDryRun() == DryRun.CONNECT) {
-                throw new ConfigCheckException(validationMode() + " failed: " + message);
-            }
-            if (clientCommandArgs.getOutputFormat() == OutputFormat.JSON) {
-                throw new ConfigCheckException(validationMode() + " failed: " + message);
-            }
-            throw new ConfigCheckException(validationMode() + " failed: " + message, e);
+            // The launcher logs the complete exception chain in text mode too.
+            // Do not reattach a cause that can contain the unredacted configuration.
+            throw new ConfigCheckException(validationMode() + " failed: " + message);
         }
     }
 

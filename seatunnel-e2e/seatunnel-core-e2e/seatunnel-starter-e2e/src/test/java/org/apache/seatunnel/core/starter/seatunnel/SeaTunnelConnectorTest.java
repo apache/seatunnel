@@ -39,6 +39,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.testcontainers.containers.Container;
+import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
@@ -144,6 +145,15 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
                             MountableFile.forClasspathResource("json_validation.conf"),
                             "/tmp/seatunnel/config/json_validation.conf");
                     engine.copyFileToContainer(
+                            Transferable.of(
+                                    ("env {\n"
+                                                    + "  job.mode = \"jdbc:mysql://alice:fixture-password@db.invalid:3306/orders\"\n"
+                                                    + "}\n"
+                                                    + "source { FakeSource {} }\n"
+                                                    + "sink { Console {} }")
+                                            .getBytes(StandardCharsets.UTF_8)),
+                            "/tmp/seatunnel/config/sensitive-validation.conf");
+                    engine.copyFileToContainer(
                             MountableFile.forHostPath(
                                     ContainerUtil.PROJECT_ROOT_PATH
                                             + "/config/log4j2_client.properties"),
@@ -182,6 +192,17 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
                         .get("valid")
                         .asBoolean());
         Assertions.assertFalse(invalid.getStderr().contains("Config Error"), invalid.getStderr());
+
+        Container.ExecResult invalidText =
+                container.executeBaseCommand(
+                        new String[] {
+                            "--config", "/tmp/seatunnel/config/sensitive-validation.conf", "--check"
+                        });
+        String diagnostics = invalidText.getStdout() + invalidText.getStderr();
+        Assertions.assertEquals(1, invalidText.getExitCode(), diagnostics);
+        Assertions.assertTrue(diagnostics.contains("Static analysis failed:"), diagnostics);
+        Assertions.assertTrue(diagnostics.contains("the configured JDBC URL"), diagnostics);
+        Assertions.assertFalse(diagnostics.contains("fixture-password"), diagnostics);
     }
 
     private void checkStdOutForOptionRule(String stdout) {
