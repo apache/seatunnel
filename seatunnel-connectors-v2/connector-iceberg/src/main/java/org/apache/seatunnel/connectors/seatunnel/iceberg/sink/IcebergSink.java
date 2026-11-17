@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
-import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
@@ -35,6 +34,7 @@ import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.catalog.IcebergCatalog;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergAggregatedCommitInfo;
@@ -119,17 +119,21 @@ public class IcebergSink
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, "Cannot find Doris catalog factory"));
+                            getPluginName(),
+                            PluginType.SINK,
+                            "Cannot find Iceberg catalog factory"));
         }
         Catalog catalog =
                 catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
         return Optional.of(
-                new DefaultSaveModeHandler(
+                new IcebergSaveModeHandler(
                         config.getSchemaSaveMode(),
                         config.getDataSaveMode(),
-                        catalog,
+                        (IcebergCatalog) catalog,
                         catalogTable,
-                        config.getDataSaveModeSQL()));
+                        config.getDataSaveModeSQL(),
+                        config.getDropDataStrategy(),
+                        config.getCommitBranch()));
     }
 
     @Override
