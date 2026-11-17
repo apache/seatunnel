@@ -118,6 +118,10 @@ public final class HaApplicationState {
         return validatedDigest(owner, uid, digest(encoded), jobId);
     }
 
+    /**
+     * Checks the observed owner's UID, deletion state and immutable specification before acting.
+     * This detects replacement or drift; Kubernetes RBAC still authorizes the caller's operations.
+     */
     public static KubernetesJob validatedDigest(
             KubernetesJob owner, String uid, String expectedDigest, long jobId) {
         if (uid == null
@@ -209,6 +213,11 @@ public final class HaApplicationState {
                 "Could not record application outcome after concurrent updates");
     }
 
+    /**
+     * Releases compute only after a durable terminal outcome, retaining the Job/configuration for
+     * normal retention cleanup. Failure or a timeout leaves finalization retryable; successful API
+     * deletion alone is insufficient until all selected master and worker Pods are gone.
+     */
     public static void finalizeResources(KubernetesHaClient api, KubernetesJob owner)
             throws Exception {
         if (terminal(owner) == null) {

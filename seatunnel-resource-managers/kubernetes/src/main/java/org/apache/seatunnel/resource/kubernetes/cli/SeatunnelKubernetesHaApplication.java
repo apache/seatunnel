@@ -81,6 +81,7 @@ public final class SeatunnelKubernetesHaApplication {
         }
     }
 
+    /** Starts a native HA member; native election/recovery owns it, not Kubernetes Pod cleanup. */
     private static void startMaster(String id, KubernetesApplicationConfig parameters) {
         SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
         ApplicationSpecification specification = parameters.getSpecification();
@@ -110,6 +111,10 @@ public final class SeatunnelKubernetesHaApplication {
         SeaTunnelServerStarter.createHazelcastInstance(config, null, new ResourceManagerFactory());
     }
 
+    /**
+     * Attaches the sole application client to the validated owner, preparing restore data before
+     * claiming submission. Client/temp-file/provider cleanup does not release application compute.
+     */
     private static void startApplication(
             String id, String encoded, KubernetesApplicationConfig parameters) throws Exception {
         String uid = System.getenv(HaApplicationFactory.OWNER_UID_ENV);
@@ -257,6 +262,7 @@ public final class SeatunnelKubernetesHaApplication {
         }
     }
 
+    /** Returns no state for a fresh job; an explicitly requested restore must find a checkpoint. */
     static List<JobPipelineCheckpointData> restoreCheckpoints(JobClient jobs, Long sourceJobId) {
         if (sourceJobId == null) {
             return Collections.emptyList();
@@ -281,6 +287,11 @@ public final class SeatunnelKubernetesHaApplication {
         JobStatus status();
     }
 
+    /**
+     * Claims native submission once, then observes the same job ID even after an ambiguous submit
+     * acknowledgement. Only a recorded terminal outcome permits finalization; unavailable status
+     * never authorizes a replacement execution. Unhandled API failures remain errors, not success.
+     */
     static void runApplication(
             KubernetesHaClient api,
             String id,

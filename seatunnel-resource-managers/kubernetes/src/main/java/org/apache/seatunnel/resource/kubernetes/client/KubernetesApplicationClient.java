@@ -38,6 +38,8 @@ public final class KubernetesApplicationClient implements AutoCloseable {
     private final KubernetesClient api;
     private final String applicationId;
     private volatile boolean canceled;
+    // Sticky capability observation, not authorization: a fresh handle keeps legacy cleanup on
+    // 404, while a handle that saw an HA owner uses UID-scoped orphan cleanup after owner expiry.
     private volatile boolean haObserved;
 
     public KubernetesApplicationClient(KubernetesClient api, String applicationId) {

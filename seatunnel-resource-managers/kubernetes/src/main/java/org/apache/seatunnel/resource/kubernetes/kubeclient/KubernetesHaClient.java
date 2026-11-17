@@ -26,10 +26,13 @@ import java.util.Map;
 public interface KubernetesHaClient extends KubernetesClient {
     KubernetesService getService(String name);
 
+    /** Updates the observed UID/resourceVersion; a conflict must be re-read before retrying. */
     void updateHaState(KubernetesJob observed, Map<String, String> annotations);
 
+    /** Deletes compute matching this owner's UID, preserving the durable Job and configuration. */
     void deleteHaResources(KubernetesJob owner);
 
+    /** Deletes the observed application with UID preconditions, never a replacement by name. */
     void deleteApplication(String id, String uid);
 
     /** Removes only observed Job-owned orphan Pods using their UID, never a Job by name. */
