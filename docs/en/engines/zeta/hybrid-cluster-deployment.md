@@ -184,7 +184,7 @@ seatunnel:
     job-schedule-strategy: WAIT
 ```
 
-When `dynamic-slot: true` is used, the `job-schedule-strategy: WAIT` configuration will become invalid and will be forcibly changed to `job-schedule-strategy: REJECT`, because this parameter is meaningless in dynamic slots.
+The `job-schedule-strategy` configuration is applied regardless of `dynamic-slot`. When resources are insufficient, `WAIT` keeps the job pending and retries the scheduling every 3 seconds, while `REJECT` fails the job immediately.
 
 ### 4.7 Coordinator Service
 

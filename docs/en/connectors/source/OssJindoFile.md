@@ -86,7 +86,7 @@ It only supports hadoop version **2.9.X+**.
 | compress_codec             | string  | no       | none                        | The compression codec used when reading files. |
 | archive_compress_codec     | string  | no       | none                        | The archive compression codec used when reading archive files. |
 | encoding                   | string  | no       | UTF-8                       | The character encoding used when reading `json`, `text`, `csv` or `xml` files. |
-| null_format                | string  | no       | -                           | Only used in `text` format; specifies the string that should be parsed as `null`. |
+| null_format                | string  | no       | -                           | Only used when `file_format_type` is `text` or `csv`; specifies the string that should be parsed as `null`. |
 | binary_chunk_size          | int     | no       | 1024                        | Only used when `file_format_type` is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory. |
 | binary_complete_file_mode  | boolean | no       | false                       | Only used when `file_format_type` is binary. Whether to read the complete file as a single chunk instead of splitting it into chunks. |
 | common-options             |         | no       | -                           | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details. |
