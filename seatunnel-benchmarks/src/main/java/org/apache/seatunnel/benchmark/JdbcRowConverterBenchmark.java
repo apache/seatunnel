@@ -49,11 +49,8 @@ import java.util.concurrent.TimeUnit;
         })
 public class JdbcRowConverterBenchmark extends BenchmarkBase {
 
-    @Param({"5", "10", "15", "20"})
+    @Param({"20"})
     private int columns;
-
-    @Param({"INTEGRAL", "DECIMAL_AND_BINARY", "TEMPORAL"})
-    private JdbcRowConverterFixture.TypeProfile typeProfile;
 
     private JdbcRowConverterFixture fixture;
 
@@ -66,7 +63,7 @@ public class JdbcRowConverterBenchmark extends BenchmarkBase {
 
     @Setup(Level.Trial)
     public void setUp() throws SQLException {
-        fixture = new JdbcRowConverterFixture(columns, typeProfile);
+        fixture = new JdbcRowConverterFixture(columns);
     }
 
     @Benchmark
