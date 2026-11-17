@@ -310,6 +310,9 @@ sink {
 }
 ```
 ### Support schema evolution
+
+MySQL column names are case-insensitive, and so is schema evolution: when a DDL statement names an existing column in another case, for example `AFTER NAME` for the column `name`, the change is applied to that column.
+
 ```
 env {
   # You can set engine configuration here
