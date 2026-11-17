@@ -65,7 +65,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIME                                                                                                                              | TIME                                                                                                                                                |
 | DATETIME                                                                                                                          | TIMESTAMP                                                                                                                                           |
 | TIMESTAMP                                                                                                                         | TIMESTAMP_TZ                                                                                                                                        |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)<br/>GEOMETRY                                     | BYTES                                                                                                                                               |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)<br/>GEOMETRY                                    | BYTES                                                                                                                                               |
 | UNKNOWN                                                                                                                           | Not supported yet                                                                                                                                   |
 
 ## Sink 参数
@@ -101,7 +101,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 提示
 
->如果未设置partition_column，它将以单并发运行，如果设置了partition_column，它将根据任务的并发性并行执行。
+> Sink 的写入并发度由作业或管道的并行度决定。`partition_column` 是 JDBC Source
+> 用于拆分读取的选项，不控制 Sink 的写入分配。
 
 ## 任务示例
 
