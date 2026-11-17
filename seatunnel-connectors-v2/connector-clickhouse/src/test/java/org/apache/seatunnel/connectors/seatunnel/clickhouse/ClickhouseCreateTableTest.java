@@ -33,6 +33,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseCatalogUtil;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.CreateTableParser;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -41,8 +42,29 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class ClickhouseCreateTableTest {
+
+    @Test
+    @SuppressWarnings("deprecation")
+    void legacyParserPreservesColumnTypesAndOffsets() {
+        String sql = "CREATE TABLE demo (`id` BIGINT, amount DECIMAL(10, 2), PRIMARY KEY (`id`))";
+        Map<String, CreateTableParser.ColumnInfo> columns = CreateTableParser.getColumnList(sql);
+        Assertions.assertEquals(2, columns.size());
+        CreateTableParser.ColumnInfo id = columns.get("id");
+        Assertions.assertEquals("id", id.getName());
+        Assertions.assertEquals("BIGINT", id.getInfo());
+        Assertions.assertEquals(sql.indexOf("id"), id.getStartIndex());
+        Assertions.assertEquals(sql.indexOf("id") + 2, id.getEndIndex());
+        CreateTableParser.ColumnInfo amount = columns.get("amount");
+        Assertions.assertEquals("amount", amount.getName());
+        Assertions.assertEquals("DECIMAL(10, 2)", amount.getInfo());
+        Assertions.assertEquals(sql.indexOf("amount"), amount.getStartIndex());
+        Assertions.assertEquals(sql.indexOf("amount") + 6, amount.getEndIndex());
+        columns.put("extra", new CreateTableParser.ColumnInfo("extra", "INT", 1, 6));
+        Assertions.assertEquals("INT", columns.get("extra").getInfo());
+    }
 
     @Test
     public void test() {

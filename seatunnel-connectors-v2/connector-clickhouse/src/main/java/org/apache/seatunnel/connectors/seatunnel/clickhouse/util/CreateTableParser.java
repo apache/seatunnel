@@ -21,63 +21,28 @@ import lombok.Getter;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
+/**
+ * @deprecated Use {@link org.apache.seatunnel.connectors.seatunnel.common.util.CreateTableParser}.
+ */
+@Deprecated
 public class CreateTableParser {
 
-    private static final Pattern COLUMN_PATTERN = Pattern.compile("`?(\\w+)`?\\s*([\\w|\\W]*)");
-
+    /** Parses through connector-common while retaining this package's legacy result type. */
     public static Map<String, ColumnInfo> getColumnList(String createTableSql) {
         Map<String, ColumnInfo> columns = new HashMap<>();
-        StringBuilder columnBuilder = new StringBuilder();
-        int startIndex = createTableSql.indexOf("(");
-        createTableSql = createTableSql.substring(startIndex + 1);
-
-        boolean insideParentheses = false;
-        for (int i = 0; i < createTableSql.length(); i++) {
-            char c = createTableSql.charAt(i);
-            if (c == '(') {
-                insideParentheses = true;
-                columnBuilder.append(c);
-            } else if ((c == ',' || c == ')') && !insideParentheses) {
-                parseColumn(columnBuilder.toString(), columns, startIndex + i + 1);
-                columnBuilder.setLength(0);
-                if (c == ')') {
-                    break;
-                }
-            } else if (c == ')') {
-                insideParentheses = false;
-                columnBuilder.append(c);
-            } else {
-                columnBuilder.append(c);
-            }
-        }
+        org.apache.seatunnel.connectors.seatunnel.common.util.CreateTableParser.getColumnList(
+                        createTableSql)
+                .forEach(
+                        (name, column) ->
+                                columns.put(
+                                        name,
+                                        new ColumnInfo(
+                                                column.getName(),
+                                                column.getInfo(),
+                                                column.getStartIndex(),
+                                                column.getEndIndex())));
         return columns;
-    }
-
-    private static void parseColumn(
-            String columnString, Map<String, ColumnInfo> columnList, int suffixIndex) {
-        Matcher matcher = COLUMN_PATTERN.matcher(columnString.trim());
-        if (matcher.matches()) {
-            String columnName = matcher.group(1);
-            String otherInfo = matcher.group(2).trim();
-            StringBuilder columnBuilder =
-                    new StringBuilder(columnName).append(" ").append(otherInfo);
-            if (columnBuilder.toString().toUpperCase().contains("PRIMARY KEY")
-                    || columnBuilder.toString().toUpperCase().contains("CREATE TABLE")) {
-                return;
-            }
-            int endIndex =
-                    suffixIndex
-                            - columnString
-                                    .substring(
-                                            columnString.indexOf(columnName) + columnName.length())
-                                    .length();
-            int startIndex =
-                    suffixIndex - columnString.substring(columnString.indexOf(columnName)).length();
-            columnList.put(columnName, new ColumnInfo(columnName, otherInfo, startIndex, endIndex));
-        }
     }
 
     @Getter

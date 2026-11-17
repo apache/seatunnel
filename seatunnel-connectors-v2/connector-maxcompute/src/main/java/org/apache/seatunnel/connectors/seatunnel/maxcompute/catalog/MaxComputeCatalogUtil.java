@@ -26,8 +26,8 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.common.util.CreateTableParser;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.datatype.MaxComputeTypeConverter;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.CreateTableParser;
 
 import com.aliyun.odps.type.TypeInfo;
 import lombok.extern.slf4j.Slf4j;
