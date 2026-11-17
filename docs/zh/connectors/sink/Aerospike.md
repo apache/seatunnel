@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## 许可证兼容性通知
 

@@ -9,7 +9,7 @@ title: Download
 
 Before installing Edge Agent, prepare the edge host:
 
-* Java: install [Java](https://www.java.com/en/download/) 8 or 11 (newer LTS versions generally work) and set JAVA_HOME.
+* Java: install [Java](https://www.java.com/en/download/) 11 or 17 (newer LTS versions generally work) and set JAVA_HOME.
 * Disk: writable directory for queue.sqlite-path (WAL and source positions) and logs.
 * Network: outbound connectivity from the edge host to the EdgeSocket endpoint configured in output.endpoint.
 

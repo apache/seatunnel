@@ -9,7 +9,7 @@ title: 下载
 
 在边缘主机上准备：
 
-* Java：安装 [Java](https://www.java.com/zh-CN/download/) 8 或 11（更高版本 LTS 一般可用），并设置 JAVA_HOME。
+* Java：安装 [Java](https://www.java.com/zh-CN/download/) 11 或 17（更高版本 LTS 一般可用），并设置 JAVA_HOME。
 * 磁盘：queue.sqlite-path（WAL 与位点）及日志目录可写。
 * 网络：边缘主机可访问 output.endpoint 配置的 EdgeSocket 地址。
 

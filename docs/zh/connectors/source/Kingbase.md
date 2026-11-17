@@ -54,7 +54,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIMESTAMP | TIMESTAMP |
 | TIME | TIME |
 | DATE | DATE |
-| 其他数据类型 | 暂不支持 |
+| 其他数据类型 | 支持。未列出的类型遵循 PostgreSQL 的转换规则，同时支持 MySQL、Oracle、SQL Server 兼容类型（如 TINYINT、MONEY、BLOB、CLOB、DATETIME、NUMBER、DATETIME2 等） |
 
 ## 源选项
 

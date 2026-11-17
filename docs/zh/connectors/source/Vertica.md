@@ -58,7 +58,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DATE | DATE |
 | TIME | TIME |
 | DATETIME<br/>TIMESTAMP | TIMESTAMP |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR | BYTES |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY | BYTES |
 | GEOMETRY<br/>UNKNOWN | 暂不支持 |
 
 ## 源选项
