@@ -21,7 +21,13 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.server.ManagedSourceRuntimeConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
+import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
+import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeMode;
+import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeSelection;
+import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeSelector;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -60,12 +66,14 @@ import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.TransformSeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateBlockingQueue;
 import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateDisruptor;
+import org.apache.seatunnel.engine.server.utils.JobCheckpointUtils;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URL;
@@ -86,6 +94,7 @@ import java.util.stream.Stream;
 
 import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
 
+@Slf4j
 public class PhysicalPlanGenerator {
 
     private final List<Pipeline> pipelines;
@@ -129,6 +138,10 @@ public class PhysicalPlanGenerator {
     private final QueueType queueType;
 
     private final ObservabilityConfig observabilityConfig;
+    private final ManagedSourceRuntimeConfig managedSourceRuntimeConfig;
+    private final ThreadShareMode taskExecutionThreadShareMode;
+    private final Map<SourceAction<?, ?, ?>, ManagedSourceRuntimeSelection>
+            managedSourceSelections = new HashMap<>();
 
     public PhysicalPlanGenerator(
             @NonNull ExecutionPlan executionPlan,
@@ -140,7 +153,8 @@ public class PhysicalPlanGenerator {
             @NonNull FlakeIdGenerator flakeIdGenerator,
             @NonNull IMap runningJobStateIMap,
             @NonNull IMap runningJobStateTimestampsIMap,
-            @NonNull QueueType queueType) {
+            @NonNull QueueType queueType,
+            @NonNull EngineConfig engineConfig) {
         this.pipelines = executionPlan.getPipelines();
         this.nodeEngine = nodeEngine;
         this.jobImmutableInformation = jobImmutableInformation;
@@ -155,6 +169,8 @@ public class PhysicalPlanGenerator {
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.queueType = queueType;
+        this.managedSourceRuntimeConfig = engineConfig.getManagedSourceRuntimeConfig();
+        this.taskExecutionThreadShareMode = engineConfig.getTaskExecutionThreadShareMode();
         this.observabilityConfig =
                 ObservabilityConfig.fromEnvOptions(
                         jobImmutableInformation.getJobConfig().getEnvOptions());
@@ -353,7 +369,8 @@ public class PhysicalPlanGenerator {
                                     new SourceSplitEnumeratorTask<>(
                                             jobImmutableInformation.getJobId(),
                                             taskLocation,
-                                            sourceAction);
+                                            sourceAction,
+                                            managedSourceSelection(sourceAction));
                             // checkpoint
                             pipelineTasks.add(taskLocation);
                             startingTasks.add(taskLocation);
@@ -566,6 +583,13 @@ public class PhysicalPlanGenerator {
                 SourceConfig config = new SourceConfig();
                 config.setEnumeratorTask(
                         enumeratorTaskIDMap.get((SourceAction<?, ?, ?>) flow.getAction()));
+                ManagedSourceRuntimeSelection selection =
+                        managedSourceSelection((SourceAction<?, ?, ?>) flow.getAction());
+                config.setRuntimeMode(selection.getMode());
+                config.setRuntimeProtocolVersion(selection.getRuntimeProtocolVersion());
+                config.setConnectorStateVersion(selection.getConnectorStateVersion());
+                config.setCapabilityDigest(selection.getCapabilityDigest());
+                config.setCheckpointEnabled(selection.isCheckpointEnabled());
                 flow.setConfig(config);
             } else if (flow.getAction() instanceof SinkAction) {
                 SinkConfig config = new SinkConfig();
@@ -589,6 +613,34 @@ public class PhysicalPlanGenerator {
         if (!f.getNext().isEmpty()) {
             f.getNext().forEach(this::setFlowConfig);
         }
+    }
+
+    private ManagedSourceRuntimeSelection managedSourceSelection(
+            SourceAction<?, ?, ?> sourceAction) {
+        return managedSourceSelections.computeIfAbsent(
+                sourceAction,
+                action -> {
+                    ManagedSourceRuntimeSelection selection =
+                            ManagedSourceRuntimeSelector.select(
+                                            action.getSource(), managedSourceRuntimeConfig)
+                                    .withCheckpointEnabled(
+                                            JobCheckpointUtils.isCheckpointEnabled(
+                                                    jobImmutableInformation.getJobConfig()));
+                    ManagedSourceRuntimeSelector.requireOwnedTaskThread(
+                            selection, taskExecutionThreadShareMode, action.getName());
+                    // The execution lane is decided once, here, and then persisted with the
+                    // physical plan. Log it so operators can tell from the job log which lane a
+                    // Source actually entered instead of inferring it from the cluster config.
+                    if (selection.getMode() != ManagedSourceRuntimeMode.LEGACY) {
+                        log.info(
+                                "Source {} selected the managed Source runtime lane {}, protocol={}, capabilityDigest={}",
+                                action.getName(),
+                                selection.getMode(),
+                                selection.getRuntimeProtocolVersion(),
+                                selection.getCapabilityDigest());
+                    }
+                    return selection;
+                });
     }
 
     /**

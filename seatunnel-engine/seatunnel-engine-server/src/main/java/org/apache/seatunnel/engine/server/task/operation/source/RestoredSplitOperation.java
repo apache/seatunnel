@@ -88,6 +88,10 @@ public class RestoredSplitOperation extends TaskOperation {
                 () -> {
                     SourceSplitEnumeratorTask<SourceSplit> task =
                             taskExecutionService.getTask(taskLocation);
+                    if (task.isManagedCoordinatorRuntime()) {
+                        task.addSerializedSplitsBack(splits, subtaskIndex);
+                        return null;
+                    }
                     ClassLoader taskClassLoader =
                             taskExecutionService
                                     .getExecutionContext(taskLocation.getTaskGroupLocation())

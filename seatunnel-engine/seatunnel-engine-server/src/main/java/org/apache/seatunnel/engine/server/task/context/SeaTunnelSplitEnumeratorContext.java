@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.scheduler.CoordinatorScheduler;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
@@ -79,6 +80,10 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
             log.warn("No reader is obtained, skip this assign!");
             return;
         }
+        if (task.isManagedCoordinatorRuntime()) {
+            task.dispatchManagedSourceSplits(subtaskIndex, splits);
+            return;
+        }
 
         List<byte[]> splitBytes =
                 splits.stream()
@@ -95,6 +100,10 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
     @Override
     public void signalNoMoreSplits(int subtaskIndex) {
         noMoreSplitsSignaledReaders.add(subtaskIndex);
+        if (task.isManagedCoordinatorRuntime()) {
+            task.signalManagedNoMoreSplits(subtaskIndex);
+            return;
+        }
         List<byte[]> emptySplits = Collections.emptyList();
         task.getExecutionContext()
                 .sendToMember(
@@ -106,6 +115,12 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
 
     @Override
     public void sendEventToSourceReader(int subtaskId, SourceEvent event) {
+        if (task.isManagedCoordinatorRuntime()) {
+            // The managed coordinator lane delivers reader events through its own bounded,
+            // sequenced command transport instead of the legacy fire-and-forget operation.
+            task.sendManagedEventToReader(subtaskId, event);
+            return;
+        }
         TaskLocation targetLocation = task.getTaskMemberLocationByIndex(subtaskId);
         Address targetAddress = task.getTaskMemberAddressByIndex(subtaskId);
         if (targetLocation == null || targetAddress == null) {
@@ -124,6 +139,21 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
                         new SourceEnumeratorEventOperation(
                                 targetLocation, task.getTaskLocation(), event),
                         targetAddress);
+    }
+
+    @Override
+    public CoordinatorScheduler getCoordinatorScheduler() {
+        return task.getManagedCoordinatorScheduler();
+    }
+
+    @Override
+    public boolean isManagedCoordinatorRuntime() {
+        return task.isManagedCoordinatorRuntime();
+    }
+
+    @Override
+    public boolean isAssignmentCapacityAvailable() {
+        return !task.isManagedCoordinatorRuntime() || task.isManagedAssignmentCapacityAvailable();
     }
 
     @Override

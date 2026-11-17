@@ -4,6 +4,16 @@
 
 ## dev
 
+### Zeta 受管 Source 运行时：checkpoint 绑定所选通道
+
+- **影响范围**：修改 `seatunnel.engine.managed-source-runtime.enabled`（或连接器的受管 capability）后
+  发生恢复、failover 或从 savepoint 重新提交的作业。
+- **行为变化**：每次重建 physical plan 时都会按当前配置重新选择 Source 通道。受管通道写入的
+  checkpoint 不能恢复到 Legacy 通道，反之亦然；恢复会直接失败，不会自动切换通道。
+- **迁移方式**：只要作业还可能从其 checkpoint 恢复，所有节点的受管运行时配置就必须保持不变。
+  需要切换通道时，停止作业并从新的 source 位置启动，或恢复由目标通道写入的更早 checkpoint。详见
+  [受管 Source 运行时](../../engines/zeta/managed-source-runtime.md)。
+
 ### Lance Sink：BIGINT 列创建为 int64
 
 - **行为变更：Lance Sink 创建的数据集中，`BIGINT` 列为 Arrow `int64`**

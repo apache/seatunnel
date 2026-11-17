@@ -60,7 +60,8 @@ public class PlanUtils {
                         flakeIdGenerator,
                         runningJobStateIMap,
                         runningJobStateTimestampsIMap,
-                        queueType)
+                        queueType,
+                        engineConfig)
                 .generate();
     }
 }
