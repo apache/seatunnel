@@ -403,6 +403,8 @@ When built-in operators are not expressive enough — for example, validating th
 
 Implement `ConditionExtension<T>` and wire it via `Conditions.extension(option, ext)`. The extension plugs into the same `valueConstraints` pipeline as all built-in operators, so it works with `.and()` / `.or()`, `required`, `optional`, and `conditional` rules.
 
+Condition equality and hashing include the extension's `equals` and `hashCode`, including extensions inside a chain. Reuse the same extension instance when constructing equivalent rules; separate instances are distinct unless the extension implementation defines value-based equality.
+
 Inline anonymous class:
 
 ```java

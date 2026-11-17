@@ -2962,10 +2962,12 @@ public class ConfigValidatorTest {
 
     @Test
     public void testExtensionConditionEquals() {
-        Condition<Integer> a = Conditions.extension(EXT_PORT, new PortRangeExtension());
-        Condition<Integer> b = Conditions.extension(EXT_PORT, new PortRangeExtension());
+        ConditionExtension<Integer> extension = new PortRangeExtension();
+        Condition<Integer> a = Conditions.extension(EXT_PORT, extension);
+        Condition<Integer> b = Conditions.extension(EXT_PORT, extension);
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());
+        Assertions.assertNotEquals(a, Conditions.extension(EXT_PORT, new PortRangeExtension()));
 
         Condition<Integer> c =
                 Conditions.extension(
@@ -2981,8 +2983,7 @@ public class ConfigValidatorTest {
                                 return value != null;
                             }
                         });
-        assertEquals(a, c);
-        assertEquals(a.hashCode(), c.hashCode());
+        Assertions.assertNotEquals(a, c);
     }
 
     static final Option<List<Map<String, Object>>> LIST_MAP_OPTION =
