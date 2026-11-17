@@ -53,4 +53,24 @@ public class SqlConfigBuilderTest {
         Assertions.assertEquals("jdbc", sinkConfig.getString("plugin_name"));
         Assertions.assertEquals("test09__temp1", sinkConfig.getString("plugin_input"));
     }
+
+    @Test
+    public void testSingleLineBlockCommentDoesNotSwallowTheRestOfTheFile() {
+        String sql =
+                "/* a one-line header comment */\n"
+                        + "CREATE TABLE source_table WITH (\n"
+                        + "  'connector' = 'FakeSource',\n"
+                        + "  'type' = 'source'\n"
+                        + ");\n"
+                        + "CREATE TABLE sink_table WITH (\n"
+                        + "  'connector' = 'Console',\n"
+                        + "  'type' = 'sink'\n"
+                        + ");\n"
+                        + "INSERT INTO sink_table SELECT * FROM source_table;";
+
+        Config config = SqlConfigBuilder.of(sql);
+
+        Assertions.assertEquals(1, config.getConfigList("source").size());
+        Assertions.assertEquals(1, config.getConfigList("sink").size());
+    }
 }
