@@ -53,7 +53,7 @@ Used to write data to IoTDB.
 | key_timestamp               | String  | No       | processing time                | Specify field-name of the IoTDB timestamp in SeaTunnelRow. If not specified, use processing-time as timestamp                                                     |
 | key_measurement_fields      | Array   | No       | exclude device and timestamp fields | Specify field names of the IoTDB measurement list in SeaTunnelRow. If not specified, include all fields except `key_device` and `key_timestamp` fields.             |
 | storage_group               | String  | No       | -                              | Specify device storage group(path prefix) <br/> example: deviceId = \${storage_group} + "." +  \${key_device}                                                     |
-| batch_size                  | Integer | No       | 1024                           | For batch writing, data is flushed into IoTDB when the buffered row count reaches `batch_size`.                                                                    |
+| batch_size                  | Integer | No       | 1024 (see note)                | For batch writing, data is flushed into IoTDB when the buffered row count reaches `batch_size`. NOTE: the built-in default is currently NOT applied when the option is omitted — if unset, rows are only flushed on checkpoint/close. Set `batch_size` explicitly to enable size-based flushing. |
 | max_retries                 | Integer | No       | -                              | The number of retries to flush failed                                                                                                                             |
 | retry_backoff_multiplier_ms | Integer | No       | -                              | Using as a multiplier for generating the next delay for backoff                                                                                                   |
 | max_retry_backoff_ms        | Integer | No       | -                              | The amount of time to wait before attempting to retry a request to `IoTDB`                                                                                        |
@@ -207,7 +207,7 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 
 ### Case4: Streaming writes with explicit batch flush
 
-For long-running streaming jobs, increase `batch_size` to reduce per-row RPC overhead. The connector flushes the buffered rows when either the buffer fills up to `batch_size` or the checkpoint completes. Set `max_retries` and `max_retry_backoff_ms` to keep the job resilient against transient RPC failures.
+For long-running streaming jobs, increase `batch_size` to reduce per-row RPC overhead. When `batch_size` is set explicitly, the connector flushes the buffered rows when either the buffer fills up to `batch_size` or the checkpoint completes; if `batch_size` is omitted, rows are only flushed on checkpoint/close. Set `max_retries` and `max_retry_backoff_ms` to keep the job resilient against transient RPC failures.
 
 ```hocon
 env {

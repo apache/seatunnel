@@ -196,7 +196,8 @@ millisecond-scale window.
 ## 4. Querying Job Logs
 
 ```bash
-# Get the last N lines of a running job's log
+# List the log files matching this jobId on all nodes (returns node/logName/logLink entries);
+# fetch the file content via the returned logLink
 curl "http://<master>:8080/logs/<jobId>"
 ```
 
@@ -391,9 +392,9 @@ curl http://<master>:8080/overview | \
 | `Connection refused` | Master not started or firewall blocking port | Verify master process is running; check firewall |
 | `jobId not found` in `job-info` | Job has already finished or was never started | Query `/finished-jobs/:state` with the expected final state |
 | Submit returns `400 Bad Request` | Malformed JSON or missing required fields | Validate JSON; check `plugin_name` spelling |
-| `Job already exists with same job.id` | Submitting duplicate `job.id` without stopping first | Cancel or stop the existing job, then resubmit |
+| `The job id ... has already been submitted and is not starting with a savepoint` | Resubmitting a job with a fixed `job.id` while history for that ID is still retained (cancelling does not clear it) | Submit a fresh job with a new `job.id`, or restore intentionally via the documented savepoint/restore flow |
 | `Unauthorized 401` | Basic authentication is enabled but no credentials were provided | Include `-u user:pass` |
-| `Savepoint path not found` | Savepoint was deleted or path is wrong | Check checkpoint storage and provide correct path |
+| Restoration fails with missing or incompatible checkpoint data | Checkpoint data for `restoreSourceJobId` was cleaned up or is incompatible | Verify checkpoint storage contents and `history-job-expire-minutes` retention; the REST API cannot point to a custom savepoint path |
 
 ---
 

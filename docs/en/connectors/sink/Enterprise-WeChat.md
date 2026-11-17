@@ -14,18 +14,18 @@ import ChangeLog from '../changelog/connector-http-wechat.md';
 
 A sink plugin that sends SeaTunnel rows to an Enterprise WeChat robot webhook. The connector
 identifier in job configuration is `WeChat`. Each row is serialized into a plain-text message with
-the fields rendered as `fieldName: fieldValue` lines before the request is sent to the webhook.
+the fields rendered as `fieldName: fieldValue`, joined by the literal two-character sequence `\n`
+(not real newlines) before the request is sent to the webhook.
 
-The connector extends the [Http sink](Http.md) so it inherits the standard HTTP retry behaviour
-(`retry`, `retry_backoff_multiplier_ms`, `retry_backoff_max_ms`) and the generic
-`multi_table_sink_replica` option for fan-out writes.
+The connector extends the [Http sink](Http.md). It also accepts the generic
+`multi_table_sink_replica` option for fan-out writes. Note that `retry`,
+`retry_backoff_multiplier_ms` and `retry_backoff_max_ms` are accepted by the option rule but are
+not read by the current sink writer, so no retries are performed.
 
-> For example, if the data from upstream is `{"alarmStatus": "firing", "alarmTime": "2022-08-03 01:38:49", "alarmContent": "The disk usage exceeds the threshold"}`, the output content to WeChat Robot is the following:
+> For example, if the data from upstream is `{"alarmStatus": "firing", "alarmTime": "2022-08-03 01:38:49", "alarmContent": "The disk usage exceeds the threshold"}`, the text content sent to the WeChat robot is the following (the `\n` sequences below are the literal two characters backslash + `n`, not real newlines):
 >
 > ```
-> alarmStatus: firing
-> alarmTime: 2022-08-03 01:38:49
-> alarmContent: The disk usage exceeds the threshold
+> alarmStatus: firing\nalarmTime: 2022-08-03 01:38:49\nalarmContent: The disk usage exceeds the threshold
 > ```
 
 ## Key features
@@ -36,8 +36,8 @@ The connector extends the [Http sink](Http.md) so it inherits the standard HTTP 
 ## Data Type Mapping
 
 The connector renders every upstream row as one plain-text message. Each field is converted to its
-string representation (`String.valueOf(value)`) and emitted on its own line together with the
-field name, so no per-type JSON structure exists on the wire.
+string representation (`String.valueOf(value)`) and joined with its field name using the literal
+sequence `\n`, so no per-type JSON structure exists on the wire.
 
 | SeaTunnel Data Type | Enterprise WeChat Message Field |
 |---------------------|---------------------------------|
@@ -55,9 +55,9 @@ field name, so no per-type JSON structure exists on the wire.
 | url                   | String | Yes      | -             | Enterprise WeChat robot webhook URL, format `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=XXXXXX`.               |
 | mentioned_list        | array  | No       | -             | User IDs to mention in the group. Use `@all` to mention everyone.                                                        |
 | mentioned_mobile_list | array  | No       | -             | Mobile phone numbers to mention in the group. Use `@all` to mention everyone.                                            |
-| retry                 | int    | No       | -             | Maximum retry times when the HTTP request throws `IOException`.                                                          |
-| retry_backoff_multiplier_ms | int | No    | 100           | Retry backoff multiplier in milliseconds.                                                                                |
-| retry_backoff_max_ms  | int    | No       | 10000         | Maximum retry backoff in milliseconds.                                                                                   |
+| retry                 | int    | No       | -             | Accepted by the option rule, but the current sink writer never reads this option, so no retries are performed.            |
+| retry_backoff_multiplier_ms | int | No    | 100           | Accepted by the option rule, but not applied by the current sink writer.                                                 |
+| retry_backoff_max_ms  | int    | No       | 10000         | Accepted by the option rule, but not applied by the current sink writer.                                                 |
 | multi_table_sink_replica | int | No       | 1             | Number of writer replicas used when writing multiple tables.                                                              |
 | common-options        |        | no       | -             | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. |
 
@@ -78,19 +78,16 @@ Mobile phone numbers to mention in the group. Use `@all` to mention everyone.
 
 ### retry [int]
 
-Maximum retry times when the HTTP request throws `IOException`. There is no retry by default. The
-retry loop uses `retry_backoff_multiplier_ms` and `retry_backoff_max_ms` to compute the wait
-between attempts.
+Accepted by the option rule, but the current sink writer never reads this option, so no retries are
+performed regardless of the configured value.
 
 ### retry_backoff_multiplier_ms [int]
 
-Base unit (in milliseconds) for the retry backoff. The wait between attempts grows across retries
-up to `retry_backoff_max_ms`. The growth curve is not a fixed multiplier per attempt — see
-`HttpClientProvider` (`connector-http-base`) for the exact Fibonacci-based strategy. Default is `100`.
+Accepted by the option rule, but not applied by the current sink writer.
 
 ### retry_backoff_max_ms [int]
 
-Maximum wait between retries, in milliseconds. Default is `10000`.
+Accepted by the option rule, but not applied by the current sink writer.
 
 ### multi_table_sink_replica [int]
 
