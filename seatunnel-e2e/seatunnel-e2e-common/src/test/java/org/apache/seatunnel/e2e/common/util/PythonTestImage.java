@@ -30,6 +30,11 @@ import java.util.concurrent.ConcurrentHashMap;
 /** Prepares Python in test images before runtime containers need package mirror access. */
 public final class PythonTestImage {
 
+    /**
+     * Successful image names are reused by source-image string within this test JVM only. Failed
+     * builds are not cached, and a cached mutable source tag is not pulled again in this JVM.
+     * Testcontainers owns temporary-image cleanup; this map does not persist across test forks.
+     */
     private static final Map<String, String> IMAGES = new ConcurrentHashMap<>();
 
     private PythonTestImage() {}
@@ -42,6 +47,11 @@ public final class PythonTestImage {
         return IMAGES.computeIfAbsent(sourceImage, PythonTestImage::build);
     }
 
+    /**
+     * Pulls the trusted engine image and builds for its inspected OS/architecture, retaining its
+     * configured user. Pull or build failures propagate to test setup. Package mirrors are needed
+     * at build time when Python is absent; this does not promise offline image preparation.
+     */
     private static String build(String sourceImage) {
         String pulledImage = new RemoteDockerImage(DockerImageName.parse(sourceImage)).get();
         InspectImageResponse image =
@@ -56,6 +66,12 @@ public final class PythonTestImage {
                 .get();
     }
 
+    /**
+     * Accepts only trusted engine-image names and Docker-inspected platform/user metadata, not job
+     * input. Temporarily selects root for installation and restores any configured user; inherited
+     * entrypoint, command, environment and working directory remain untouched. The build fails if
+     * neither an existing interpreter nor a supported package manager can provide working Python.
+     */
     static String dockerfile(String sourceImage, String platform, String user) {
         return "FROM --platform="
                 + platform
