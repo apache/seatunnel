@@ -39,20 +39,20 @@ The source uses MQTT auto-reconnect. If the client remains disconnected longer t
 
 | name                | type    | required | default value | description                                                                                                            |
 |---------------------|---------|----------|---------------|------------------------------------------------------------------------------------------------------------------------|
-| url                 | string  | yes      | -             | MQTT broker URL, e.g. `tcp://localhost:1883`.                                                                          |
-| topic               | string  | yes      | -             | MQTT topic to subscribe messages from.                                                                                 |
-| schema              | config  | yes      | -             | Output schema of the source. See [Schema Feature](../../introduction/concepts/schema-feature.md).                      |
-| username            | string  | no       | -             | MQTT broker authentication username. Leave unset for anonymous access.                                                 |
-| password            | string  | no       | -             | MQTT broker authentication password. Leave unset for anonymous access.                                                 |
-| qos                 | int     | no       | 1             | MQTT subscribe QoS level. `0` is at-most-once, `1` is at-least-once.                                                   |
-| format              | string  | no       | json          | Message deserialization format: `json` or `text`.                                                                      |
-| field_delimiter     | string  | no       | ,             | Field delimiter used when `format=text`, e.g. `,`, `\|`, `\t`.                                                       |
-| client_id           | string  | no       | -             | MQTT client id. Required when `clean_session=false`; generated automatically otherwise.                                 |
-| clean_session       | boolean | no       | true          | Whether to use a clean MQTT session.                                                                                  |
-| connection_timeout  | int     | no       | 30            | MQTT connection timeout in seconds.                                                                                    |
-| keep_alive_interval | int     | no       | 60            | MQTT keep alive interval in seconds.                                                                                   |
-| reconnect_timeout   | int     | no       | 120           | Maximum seconds to wait for MQTT auto-reconnect before failing the source.                                             |
-| max_queue_size      | int     | no       | 1000          | Maximum number of MQTT messages buffered in memory before deserialization.                                             |
+| url                 | String  | yes      | -             | MQTT broker URL, e.g. `tcp://localhost:1883`.                                                                          |
+| topic               | String  | yes      | -             | MQTT topic to subscribe messages from.                                                                                 |
+| schema              | Config  | yes      | -             | Output schema of the source. See [Schema Feature](../../introduction/concepts/schema-feature.md).                      |
+| username            | String  | no       | -             | MQTT broker authentication username. Leave unset for anonymous access.                                                 |
+| password            | String  | no       | -             | MQTT broker authentication password. Leave unset for anonymous access.                                                 |
+| qos                 | Int     | no       | 1             | MQTT subscribe QoS level. `0` is at-most-once, `1` is at-least-once.                                                   |
+| format              | String  | no       | json          | Message deserialization format: `json` or `text`.                                                                      |
+| field_delimiter     | String  | no       | ,             | Field delimiter used when `format=text`, e.g. `,`, `\|`, `\t`.                                                       |
+| client_id           | String  | no       | -             | MQTT client id. Required when `clean_session=false`; generated automatically otherwise.                                 |
+| clean_session       | Boolean | no       | true          | Whether to use a clean MQTT session.                                                                                  |
+| connection_timeout  | Int     | no       | 30            | MQTT connection timeout in seconds.                                                                                    |
+| keep_alive_interval | Int     | no       | 60            | MQTT keep alive interval in seconds.                                                                                   |
+| reconnect_timeout   | Int     | no       | 120           | Maximum seconds to wait for MQTT auto-reconnect before failing the source.                                             |
+| max_queue_size      | Int     | no       | 1000          | Maximum number of MQTT messages buffered in memory before deserialization.                                             |
 | common-options      |         | no       | -             | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md) for details.  |
 
 :::tip

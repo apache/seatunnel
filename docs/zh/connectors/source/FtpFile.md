@@ -723,6 +723,7 @@ FtpFile {
       path = "/apps/hive/demo/teacher"
       file_format_type = "json"
     }
+  ]
 }
 
 ```
