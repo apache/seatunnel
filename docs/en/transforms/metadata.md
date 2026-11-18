@@ -135,6 +135,9 @@ transform {
 |      name       | type | required | default value | description       |
 |:---------------:|------|:--------:|:-------------:|-------------------|
 | metadata_fields | map  |    yes    |       -       | Mapping relationship between metadata fields and output fields, format: `Metadata Key = output field name`. Must contain at least one entry. |
+| table_match_regex | string |    no    |     `.*`      | Regex of the table paths that the transform level rule applies to. |
+| table_transform | array |    no    |       -       | Per-table rules, see [Multi-Table Transform](transform-multi-table.md). |
+| rule_match_mode | string |    no    | `FIRST_MATCH` | How multiple `table_transform` entries with the same `table_path` are evaluated. |
 
 ### metadata_fields [map]
 

@@ -588,15 +588,17 @@ sink {
 
 ## CDC 元数据字段
 
-MongoDB CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用：
+MongoDB CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用。
+
+字段名称区分大小写，必须与下表完全一致（例如写成 `Database` 而不是 `database`），否则作业会报“找不到元数据字段”的错误：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| database | STRING | 源数据库名称。 |
-| table | STRING | 源集合名称。 |
-| rowKind | STRING | 变更类型，例如 insert、update 或 delete。 |
-| ts_ms | LONG | 源事件时间，单位为毫秒。 |
-| delay | LONG | 事件时间和处理时间之间的延迟，单位为毫秒。 |
+| Database | STRING | 源数据库名称。 |
+| Table | STRING | 源集合名称。 |
+| RowKind | STRING | 变更类型，例如 `INSERT`、`UPDATE_AFTER` 或 `DELETE`。 |
+| EventTime | LONG | 连接器读取并处理该事件的时间，单位为毫秒。 |
+| Delay | LONG | 源事件时间与连接器读取时间之间的延迟，单位为毫秒。 |
 
 示例：
 

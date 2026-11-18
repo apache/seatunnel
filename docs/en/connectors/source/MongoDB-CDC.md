@@ -592,15 +592,17 @@ sink {
 
 ## CDC Metadata Fields
 
-MongoDB CDC exposes metadata fields that can be used by the `Metadata` transform:
+MongoDB CDC exposes metadata fields that can be used by the `Metadata` transform.
+
+Field names are case-sensitive and must be written exactly as shown below (e.g. `Database`, not `database`), otherwise the job fails with a "cannot find metadata field" error:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| database | STRING | Source database name. |
-| table | STRING | Source collection name. |
-| rowKind | STRING | Change type, such as insert, update, or delete. |
-| ts_ms | LONG | Source event timestamp in milliseconds. |
-| delay | LONG | Delay between event time and processing time in milliseconds. |
+| Database | STRING | Source database name. |
+| Table | STRING | Source collection name. |
+| RowKind | STRING | Change type, such as `INSERT`, `UPDATE_AFTER`, or `DELETE`. |
+| EventTime | LONG | The time when the connector fetched and processed the event, in milliseconds. |
+| Delay | LONG | Delay between the source event time and the connector fetch time, in milliseconds. |
 
 Example:
 

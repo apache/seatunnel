@@ -18,6 +18,9 @@ SeaTunnel keeps one long-lived Python worker process for each transform instance
 | script_config | map | no | |
 | columns | array | yes | |
 | row_error_handle_way | enum | no | FAIL |
+| table_match_regex | string | no | `.*` |
+| table_transform | array | no | - |
+| rule_match_mode | string | no | `FIRST_MATCH` |
 
 ### common options [string]
 

@@ -15,6 +15,9 @@ FieldEncrypt 转换插件用于使用对称加密算法，对记录中的指定�
 | `key`            | String  | 是    | -          | Base64 编码的加密密钥       |
 | `mode`           | String  | 否    | `encrypt`  | 操作模式：`encrypt` 或 `decrypt` |
 | `max_field_length` | Integer | 否    | `10485760` | 处理前允许的最大字符串字段长度      |
+| `table_match_regex` | String | 否   | `.*`       | 转换级别规则所适用的表路径的正则表达式 |
+| `table_transform`  | Array&lt;Map&gt; | 否 | -        | 针对单表的规则，参见 [多表转换](transform-multi-table.md) |
+| `rule_match_mode`  | String  | 否    | `FIRST_MATCH` | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式 |
 
 ### algorithm [string]
 

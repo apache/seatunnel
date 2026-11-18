@@ -16,6 +16,21 @@ SQL transform use memory SQL engine, we can via SQL functions and ability of SQL
 | plugin_output | string | no       | -             |
 | query             | string | yes      | -             |
 | engine            | string | no       | ZETA          |
+| table_match_regex | string | no       | `.*`          |
+| table_transform   | array  | no       | -             |
+| rule_match_mode   | string | no       | `FIRST_MATCH` |
+
+### table_match_regex [string]
+
+Regex of the table paths that the transform level rule applies to. The default `.*` matches every table.
+
+### table_transform [array]
+
+Per-table rules, see [Multi-Table Transform](transform-multi-table.md).
+
+### rule_match_mode [string]
+
+How multiple `table_transform` entries with the same `table_path` are evaluated.
 
 ### plugin_input [string]
 

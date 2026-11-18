@@ -13,6 +13,21 @@
 | fields | Map | yes（或使用已弃用的 `src_field`+`dest_field` 组合） |     |
 | src_field | String | no  |     |
 | dest_field | String | no  |     |
+| table_match_regex | String | no | `.*` |
+| table_transform | Array&lt;Map&gt; | no | - |
+| rule_match_mode | String | no | `FIRST_MATCH` |
+
+### table_match_regex [string]
+
+转换级别规则所适用的表路径的正则表达式。默认值 `.*` 匹配所有表。
+
+### table_transform [array&lt;map&gt;]
+
+针对单表的规则，参见 [多表转换](transform-multi-table.md)。
+
+### rule_match_mode [string]
+
+当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。
 
 ### fields [config]
 
