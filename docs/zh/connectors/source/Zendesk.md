@@ -36,7 +36,7 @@ import ChangeLog from '../changelog/connector-http-zendesk.md';
 | api_token                   | String  | 是       | -         | Zendesk API token。获取方式请参考 [Zendesk API token 文档](https://support.zendesk.com/hc/en-us/articles/4408889192858)。                                                                  |
 | method                      | String  | 否       | get       | HTTP 请求方法，仅支持 `GET` 和 `POST`。                                                                                                                                                    |
 | schema                      | Config  | 否       | -         | 数据的结构，包括字段名称和字段类型。更多详情请参考 [Schema Feature](../../introduction/concepts/schema-feature.md)。                                                                       |
-| format                      | String  | 否       | text      | 上游数据的格式，目前仅支持 `json` 和 `text`，默认 `text`。Zendesk 接口始终返回 JSON，因此通常需要把 `format` 设为 `json`，并配合 `content_field` 把真正的结果数组抽取出来再映射成行。 |
+| format                      | String  | 否       | text      | 上游数据的格式，支持 `json` 和 `text`（底层 HTTP 源连接器也接受 `binary`）。Zendesk 接口始终返回 JSON，因此通常需要把 `format` 设为 `json`，并配合 `content_field` 把真正的结果数组抽取出来再映射成行。 |
 | params                      | Map     | 否       | -         | 附加到请求 URL 的查询参数，可用于过滤、分页等场景。                                                                                                                                        |
 | body                        | String  | 否       | -         | `POST`（或支持 body 的方法）请求体。当 `format = "json"` 时，body 必须是合法的 JSON。                                                                                                    |
 | json_field                  | Config  | 否       | -         | 该参数用于配置 schema，因此必须与 `schema` 一起使用。它将响应中的 JSON 路径映射到 schema 字段。详情和示例请参考 [Http source](./Http.md) 连接器。                                        |
@@ -72,8 +72,9 @@ HTTP 请求方法，仅支持 `GET` 和 `POST`。`POST` 一般需要配合 `body
 
 ### format [String]
 
-上游数据的格式，目前仅支持 `json` 和 `text`，默认 `text`。Zendesk 接口始终返回 JSON，因此需要把
-`format` 设为 `json`，并配合 `content_field` 抽取结果数组。
+上游数据的格式，支持 `json` 和 `text`，默认 `text`。与通用 [Http 源](Http.md) 一样，底层连接器也接受
+`binary`，但 Zendesk 接口始终返回 JSON，因此需要把 `format` 设为 `json`，并配合 `content_field`
+抽取结果数组。
 
 ### params [Map]
 

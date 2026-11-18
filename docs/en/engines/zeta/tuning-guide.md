@@ -170,6 +170,8 @@ Use the following decision tree to narrow down the root cause of slow operations
 
 #### Step 1: Identify when slow operations occur
 
+> Log file names depend on the node role: the default master-and-worker deployment writes `seatunnel-engine-server.log`, while separated deployments write `seatunnel-engine-master.log` / `seatunnel-engine-worker.log`. Adjust the paths below accordingly.
+
 ```bash
 # Check the slow operation log frequency and timing
 grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tail -50
@@ -178,7 +180,7 @@ grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tai
 
 Correlate the timestamps with:
 - Job submission events (REST API calls)
-- Checkpoint intervals (every 10s by default)
+- Checkpoint intervals (every 5 minutes by default, `seatunnel.engine.checkpoint.interval`)
 - High-load periods (peak data ingestion)
 
 #### Step 2: Check overall node health
@@ -219,9 +221,9 @@ free -h
 
 **IMap / MapStore latency:**
 - Symptom: Slow operations during `PutOperation` or `GetOperation` on IMap keys.
-- Check: `du -sh $SEATUNNEL_HOME/imap/wal/` and `du -sh $SEATUNNEL_HOME/imap/maps/` — large WAL directories indicate write pressure.
+- Check: measure the configured MapStore `namespace` directory (`IMapFileStorage` writes under `<namespace>/<clusterName>/<businessName>`, not fixed `imap/wal` or `imap/maps` folders) — large directories indicate write pressure.
 - Common cause: Disk I/O saturation on the MapStore directory, aggressive WAL write frequency, or disk space exhaustion.
-- Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency), increase `write-behind-delay-seconds`, enable WAL compaction.
+- Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency) and the IMap persistence guidance in [State Storage and Recovery](state-storage-and-recovery.md); keep an eye on disk headroom.
 
 ### 3. Sizing `hazelcast.operation.generic.thread.count`
 
@@ -551,5 +553,5 @@ kubectl exec <pod> -- du -sh /tmp/seatunnel/imap/
 | Slow operations + high GC | JVM heap pressure | Increase `-Xmx`, reduce concurrent tasks |
 | `executor.q.operations.size` > 0 | Operation thread pool saturated | Increase `generic.thread.count` |
 | `operations.pending.invocations.percentage` > 10% | Remote invocation backlog | Check network, increase `generic.thread.count` |
-| WAL directory growing, slow IMap operations | MapStore write pressure | Increase `write-behind-delay-seconds`, add disk IOPS |
+| WAL directory growing, slow IMap operations | MapStore write pressure | Move the map-store `namespace` to faster/larger storage, clean up expired jobs |
 | Checkpoint duration > 60s | Large state or slow storage | Reduce checkpoint state size, optimize storage |

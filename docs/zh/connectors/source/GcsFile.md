@@ -51,7 +51,7 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 | schema | config | 条件必填 | - | `text`、`json`、`excel`、`csv` 和 `xml` 格式需要配置。参见 [Schema 功能](../../introduction/concepts/schema-feature.md)。 |
 | read_columns | list | 否 | - | 从数据源投影的列。 |
 | read_partitions | list | 否 | - | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
-| field_delimiter | string | 否 | `\001` | text 和 CSV 的字段分隔符，`delimiter` 是其别名。 |
+| field_delimiter | string | 否 | text 为 `\001`，csv 为 `,` | text 和 CSV 的字段分隔符。未设置时，text 默认为 `\001`，CSV 默认为 `,`。`delimiter` 是其别名。 |
 | row_delimiter | string | 否 | `\n` | text 文件的行分隔符。 |
 | skip_header_row_number | long | 否 | `0` | 跳过 text 或 CSV 文件开头的行数。 |
 | csv_use_header_line | boolean | 否 | `false` | 是否使用标题行来解析文件，仅在 file_format 为 `csv` 且文件包含符合 RFC 4180 的标题行时使用。 |
@@ -80,7 +80,6 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 | poi_excel_max_file_size | long | 否 | `52428800` | POI 引擎可读取的最大 Excel 文件字节数。 |
 | xml_row_tag | string | 条件必填 | - | 表示一行数据的 XML 元素。 |
 | xml_use_attr_format | boolean | 条件必填 | - | 是否从 XML 属性读取值。 |
-| csv_use_header_line | boolean | 否 | false | 是否使用标题行来解析文件，仅在 file_format 为 `csv` 且文件包含符合 RFC 4180 的标题行时使用。 |
 | discovery_mode | string | 否 | `once` | `once` 或 `continuous`。连续发现当前要求 update 同步和 binary 格式。 |
 | scan_interval | string | 否 | `10S` | 连续发现的轮询间隔。 |
 | start_mode | string | 否 | `earliest` | `earliest` 处理已有文件，`latest` 从后续变更开始。 |
@@ -95,9 +94,6 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 | backup_path | string | 条件必填 | - | `post_sync_action=backup` 时必填，且不能与源路径重叠。 |
 | retention_max_age | string | 否 | - | SeaTunnel 备份对象的最大保留时间。 |
 | retention_check_interval | string | 否 | `1H` | 备份保留扫描间隔。 |
-| file_filter_modified_start | string | 否 | - | 按文件最后修改时间筛选文件的起始时间（包含该时间）。默认格式：`yyyy-MM-dd HH:mm:ss`。 |
-| file_filter_modified_end | string | 否 | - | 按文件最后修改时间筛选文件的结束时间（不包含该时间）。默认格式：`yyyy-MM-dd HH:mm:ss`。 |
-| sort_files_by_modification_time | boolean | 否 | false | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。 |
 | metalake_type | string | 否 | `gravitino` | Metalake 服务类型，目前支持 `gravitino`。 |
 | common-options | | 否 | - | 参见 [Source 通用配置](../common-options/source-common-options.md)。 |
 
