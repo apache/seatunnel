@@ -34,6 +34,8 @@ public class MongodbCollectionProvider {
 
         private String collection;
 
+        private String tlsCaFile;
+
         public Builder connectionString(String connectionString) {
             this.connectionString = connectionString;
             return this;
@@ -49,11 +51,20 @@ public class MongodbCollectionProvider {
             return this;
         }
 
+        /**
+         * Optional PEM CA bundle applied to the client, see {@link MongodbClientSettingsFactory}.
+         */
+        public Builder tlsCaFile(String tlsCaFile) {
+            this.tlsCaFile = tlsCaFile;
+            return this;
+        }
+
         public MongodbClientProvider build() {
             Preconditions.checkNotNull(connectionString, "Connection string must not be null");
             Preconditions.checkNotNull(database, "Database must not be null");
             Preconditions.checkNotNull(collection, "Collection must not be null");
-            return new MongodbSingleCollectionProvider(connectionString, database, collection);
+            return new MongodbSingleCollectionProvider(
+                    connectionString, database, collection, tlsCaFile);
         }
     }
 }

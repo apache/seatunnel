@@ -74,7 +74,7 @@ It only supports hadoop version **2.9.X+**.
 | datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss         | Format for datetime types. |
 | time_format                | string  | no       | HH:mm:ss                    | Format for time types. |
 | skip_header_row_number     | long    | no       | 0                           | The number of leading rows to skip. |
-| schema                     | config  | no       | -                           | Information of upstream data schema. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md). |
+| schema                     | config  | conditional | -                      | Information of upstream data schema. Required when `file_format_type` is `text`, `json`, `excel`, `csv` or `xml`; for other formats such as `parquet` and `orc`, the connector infers the schema automatically. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md). |
 | sheet_name                 | string  | no       | -                           | The sheet name to read; only valid for excel files. |
 | excel_engine               | string  | no       | POI                         | Only used when `file_format` is excel. Supported engines include `POI` and `EasyExcel`. |
 | poi_excel_max_file_size    | long    | no       | 52428800                    | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size (default 50 MB) that the POI engine allows reading. |
@@ -150,7 +150,7 @@ connector will generate data as the following:
 
 If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
 
-If you assign file type to `text` `csv`, you can choose to specify the schema information or not.
+If you assign file type to `text` `csv`, you must specify the schema information: this connector requires `schema` for the `text`, `json`, `excel`, `csv` and `xml` formats, and job initialization fails without it.
 
 For example, upstream data is the following:
 
@@ -160,15 +160,25 @@ tyrantlucifer#26#male
 
 ```
 
-If you do not assign data schema connector will treat the upstream data as the following:
+To keep each line as a single column, assign the `schema` explicitly as the following:
+
+```hocon
+
+schema {
+    fields {
+        content = string
+    }
+}
+
+```
+
+connector will generate data as the following:
 
 |        content        |
 |-----------------------|
 | tyrantlucifer#26#male |
 
-If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
-
-you should assign schema and delimiter as the following:
+You can also split each line into multiple columns. For that, assign the matching fields and the `field_delimiter` option (except for the CSV file type) as the following:
 
 ```hocon
 
