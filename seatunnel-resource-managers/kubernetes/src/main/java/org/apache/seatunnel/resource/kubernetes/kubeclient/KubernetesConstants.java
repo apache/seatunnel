@@ -39,7 +39,9 @@ public final class KubernetesConstants {
     public static final String CONFIG_MAP_KIND = "ConfigMap";
     public static final String SERVICE_KIND = "Service";
 
-    /** Secret type used for the credential-bearing application specification. */
+    /**
+     * Secret type used for the application-owned Secret built from {@code kubernetes.secret.data}.
+     */
     public static final String OPAQUE_SECRET_TYPE = "Opaque";
 
     /** Labels grouping all objects for an application and distinguishing their roles. */
@@ -200,7 +202,6 @@ public final class KubernetesConstants {
     public static final int PROBE_TIMEOUT_SECONDS = 2;
     public static final int PROBE_FAILURE_THRESHOLD = 3;
     public static final String SHELL_COMMAND = "/bin/sh";
-    public static final String PROCESS_PROBE_COMMAND = "kill -0 1";
 
     private KubernetesConstants() {}
 }

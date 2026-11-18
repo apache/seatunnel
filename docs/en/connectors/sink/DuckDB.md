@@ -35,10 +35,10 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 > The generic JDBC sink implements exactly-once through XA transactions. The DuckDB JDBC driver does not
 > provide an XA datasource; do not set `is_exactly_once = true` for DuckDB.
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
 
@@ -50,18 +50,22 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 
 | SeaTunnel Data Type                                                 | DuckDB Data Type |
 |---------------------------------------------------------------------|------------------|
-| BOOLEAN                                                             | BOOLEAN          |
-| TINYINT<br/>SMALLINT<br/>INT                                        | INTEGER          |
-| BIGINT                                                              | BIGINT           |
-| DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)     |
-| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,18)   |
-| FLOAT                                                               | FLOAT            |
-| DOUBLE                                                              | DOUBLE           |
-| STRING                                                              | VARCHAR          |
-| DATE                                                                | DATE             |
-| TIME                                                                | TIME             |
-| TIMESTAMP                                                           | TIMESTAMP        |
-| BYTES<br/>ARRAY<br/>ROW<br/>MAP                                     | BLOB             |
+| BOOLEAN                                                             | BOOLEAN                   |
+| TINYINT                                                             | TINYINT                   |
+| SMALLINT                                                            | SMALLINT                  |
+| INT                                                                 | INTEGER                   |
+| BIGINT                                                              | BIGINT                    |
+| DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)              |
+| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,y)             |
+| FLOAT                                                               | FLOAT                     |
+| DOUBLE                                                              | DOUBLE                    |
+| STRING                                                              | VARCHAR                   |
+| DATE                                                                | DATE                      |
+| TIME                                                                | TIME                      |
+| TIMESTAMP                                                           | TIMESTAMP                 |
+| TIMESTAMP_TZ                                                        | TIMESTAMP WITH TIME ZONE  |
+| BYTES                                                               | BLOB                      |
+| ARRAY<br/>ROW<br/>MAP                                               | Not supported             |
 
 DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
 
@@ -97,7 +101,8 @@ DuckDB `TIME` values preserve microsecond precision when read or written through
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> Sink concurrency follows the job or pipeline parallelism. `partition_column` is a JDBC
+> source option for splitting reads; it does not control how the sink distributes writes.
 
 ## Task Example
 
@@ -112,7 +117,7 @@ env {
 source {
   FakeSource {
     parallelism = 1
-    row_num = 1000
+    row.num = 1000
     schema = {
       fields {
         id = "int"

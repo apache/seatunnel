@@ -106,6 +106,16 @@ public class SeaTunnelClientTest {
         }
     }
 
+    /** The native client reports an unknown job as unknowable instead of failing the lookup. */
+    @Test
+    @SuppressWarnings("deprecation")
+    public void testUnknownJobStatusIsUnknowable() {
+        try (SeaTunnelClient seaTunnelClient = createSeaTunnelClient()) {
+            Assertions.assertEquals(
+                    JobStatus.UNKNOWABLE.name(), seaTunnelClient.getJobStatus(Long.MAX_VALUE));
+        }
+    }
+
     @Test
     public void testExecuteJob() {
         Common.setDeployMode(DeployMode.CLIENT);

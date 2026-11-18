@@ -73,7 +73,7 @@ public class SeaTunnelClusterScriptTest {
                         "job config.conf",
                         "-a",
                         "application.config",
-                        "-iapplication.worker-count=3"));
+                        "-Dapplication.worker-count=3"));
         List<String> command = new ArrayList<>(Arrays.asList("/bin/bash", launcher.toString()));
         command.addAll(arguments);
         ProcessBuilder builder = new ProcessBuilder(command);
@@ -83,7 +83,6 @@ public class SeaTunnelClusterScriptTest {
                         "PATH",
                         fakeJavaDirectory + ":" + builder.environment().getOrDefault("PATH", ""));
         builder.environment().put("CAPTURE_FILE", capturedArguments.toString());
-        builder.environment().put("HADOOP_CONF_DIR", "/etc/hadoop/conf");
         Process process = builder.start();
         try {
             Assertions.assertTrue(process.waitFor(10, TimeUnit.SECONDS));
@@ -95,7 +94,8 @@ public class SeaTunnelClusterScriptTest {
         String classpath = captured.get(captured.indexOf("-cp") + 1);
         String platform = target.toLowerCase(Locale.ROOT);
         Assertions.assertTrue(classpath.contains("/resource-managers/" + platform + "/*"));
-        Assertions.assertFalse(classpath.contains("/etc/hadoop/conf"));
+        // Server configuration files must not leak into the client JVM through the classpath.
+        Assertions.assertFalse(classpath.contains(appDirectory.resolve("config").toString()));
         int main =
                 captured.indexOf(
                         "org.apache.seatunnel.core.starter.seatunnel.SeaTunnelApplication");
@@ -138,6 +138,24 @@ public class SeaTunnelClusterScriptTest {
         Assertions.assertTrue(
                 arguments.contains("-DSEATUNNEL_HOME=" + customSeaTunnelHome),
                 "SEATUNNEL_HOME should use the externally configured SeaTunnel home");
+    }
+
+    /**
+     * Verifies that the foreground start replaces the shell with the JVM, so a SIGTERM sent to the
+     * started process reaches the JVM instead of a shell that ignores it.
+     */
+    @Test
+    public void testClusterScriptExecsServerJvmInForeground() throws Exception {
+        Path appDirectory = createMinimalDistribution();
+        runClusterScript(appDirectory, null);
+
+        List<String> javaParentPid =
+                Files.readAllLines(
+                        temporaryDirectory.resolve("java-args.txt.ppid"), StandardCharsets.UTF_8);
+        Assertions.assertEquals(
+                String.valueOf(ProcessHandle.current().pid()),
+                javaParentPid.get(0).trim(),
+                "The JVM should replace the script process (exec), not run as its child");
     }
 
     /**
@@ -250,6 +268,7 @@ public class SeaTunnelClusterScriptTest {
         Files.write(
                 fakeJava,
                 ("#!/bin/sh\n"
+                                + "echo \"$PPID\" > \"$CAPTURE_FILE.ppid\"\n"
                                 + "for arg in \"$@\"; do\n"
                                 + "  printf '%s\\n' \"$arg\"\n"
                                 + "done > \"$CAPTURE_FILE\"\n")

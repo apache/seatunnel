@@ -18,7 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 
 import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSinkFactory;
@@ -27,13 +30,51 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceFacto
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PaimonOptionRuleTest {
+
+    @Test
+    void testRestOptionsDeclaredByAllFactories() {
+        for (OptionRule rule :
+                Arrays.asList(
+                        new PaimonSourceFactory().optionRule(),
+                        new PaimonSinkFactory().optionRule(),
+                        new PaimonCatalogFactory().optionRule())) {
+            assertDeclaredOptions(
+                    rule,
+                    PaimonBaseOptions.TOKEN_PROVIDER,
+                    PaimonBaseOptions.TOKEN,
+                    PaimonBaseOptions.DLF_ACCESS_KEY_ID,
+                    PaimonBaseOptions.DLF_ACCESS_KEY_SECRET,
+                    PaimonBaseOptions.DLF_SECURITY_TOKEN,
+                    PaimonBaseOptions.DLF_REGION);
+            Map<String, Object> options = new HashMap<>();
+            options.put("catalog_type", "rest");
+            options.put("warehouse", "managed-warehouse");
+            options.put("database", "test_db");
+            options.put("table", "test_table");
+            assertThrows(
+                    OptionValidationException.class,
+                    () -> ConfigValidator.of(ReadonlyConfig.fromMap(options)).validate(rule));
+            options.put("catalog_uri", "https://catalog.example.com");
+            assertThrows(
+                    OptionValidationException.class,
+                    () -> ConfigValidator.of(ReadonlyConfig.fromMap(options)).validate(rule));
+            options.put("token.provider", "bear");
+            options.put("token", "test-bearer");
+            assertDoesNotThrow(
+                    () -> ConfigValidator.of(ReadonlyConfig.fromMap(options)).validate(rule));
+        }
+    }
 
     @Test
     void testSinkOptionRuleDeclaresNonPrimaryKey() {

@@ -43,8 +43,8 @@ import java.util.stream.Collectors;
  * <p>{@link ApplicationJobFactory} creates the master Pod that is later wrapped into the owner Job
  * and {@link WorkerPodFactory} creates the worker Pods; both extend this class so the container
  * skeleton, the JVM command, the resource requirements and the Pod spec stay identical across
- * roles. Role-specific parts stay in the owning factory: the master probes and checkpoint claim,
- * the worker process probe.
+ * roles. Role-specific parts stay in the owning factory: the master probes and the checkpoint
+ * claim.
  */
 public abstract class AbstractWorkloadFactory {
 

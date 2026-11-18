@@ -56,4 +56,11 @@ public class FtpFileBaseOptions extends FileBaseOptions {
                     .defaultValue("UTF-8")
                     .withDescription(
                             "Character encoding for FTP control connection. Use UTF-8 to support special characters in file paths");
+    public static final Option<Integer> FTP_CONTROL_TIMEOUT =
+            Options.key("control_timeout")
+                    .intType()
+                    .defaultValue(60_000)
+                    .withDescription(
+                            "Timeout in milliseconds for reading a reply from the FTP server on the control connection. "
+                                    + "A value of 0 waits indefinitely. Defaults to 60000 ms");
 }

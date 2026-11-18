@@ -27,7 +27,6 @@ import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
-import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicationCli;
@@ -41,6 +40,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIde
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import org.junit.jupiter.api.AfterEach;
@@ -63,8 +63,8 @@ import io.kubernetes.client.openapi.models.V1JobStatus;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodStatus;
+import io.kubernetes.client.openapi.models.V1Secret;
 
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -127,20 +127,14 @@ class KubernetesApplicationTest {
                                     SeaTunnelServerStarter.createHazelcastInstance(
                                             any(SeaTunnelConfig.class),
                                             isNull(),
-                                            any(JarPathResolver.class),
                                             any(ResourceManagerFactory.class)))
                     .thenReturn(worker);
             SeatunnelKubernetesApplicationWorker.main(
                     new String[] {"kubernetes-app", "master:5801", "2"});
-            ArgumentCaptor<JarPathResolver> resolver =
-                    ArgumentCaptor.forClass(JarPathResolver.class);
             starter.verify(
                     () ->
                             SeaTunnelServerStarter.createHazelcastInstance(
-                                    eq(config),
-                                    isNull(),
-                                    resolver.capture(),
-                                    any(ResourceManagerFactory.class)));
+                                    eq(config), isNull(), any(ResourceManagerFactory.class)));
             starter.verifyNoMoreInteractions();
             clients.verifyNoInteractions();
             verify(cluster).addMembershipListener(any(MembershipListener.class));
@@ -164,8 +158,6 @@ class KubernetesApplicationTest {
             assertEquals(
                     "GRACEFUL",
                     config.getHazelcastConfig().getProperty("hazelcast.shutdownhook.policy"));
-            List<URL> jars = Collections.emptyList();
-            assertSame(jars, resolver.getValue().resolve(jars));
         }
     }
 
@@ -186,7 +178,6 @@ class KubernetesApplicationTest {
                                     SeaTunnelServerStarter.createHazelcastInstance(
                                             any(SeaTunnelConfig.class),
                                             isNull(),
-                                            any(JarPathResolver.class),
                                             any(ResourceManagerFactory.class)))
                     .thenReturn(worker);
             SeatunnelKubernetesApplicationWorker.main(
@@ -328,6 +319,156 @@ class KubernetesApplicationTest {
     }
 
     @Test
+    void failsBeforeCreatingResourcesWhenReferencedSecretIsMissing() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getSecret("platform-secrets"))
+                .thenThrow(new KubernetesClientException(404, "not found"));
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_REF.key(), "platform-secrets");
+        assertThrows(
+                KubernetesClientException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options)
+                                .deployApplication(specification()));
+        verify(api, never()).createJob(any());
+    }
+
+    @Test
+    void failsBeforeCreatingResourcesWhenEnvFromSecretIsMissing() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getSecret("platform-secrets"))
+                .thenThrow(new KubernetesClientException(404, "not found"));
+        Map<String, String> options = options();
+        options.put("kubernetes.env-from.secret", "platform-secrets");
+        assertThrows(
+                KubernetesClientException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options)
+                                .deployApplication(specification()));
+        verify(api, never()).createJob(any());
+    }
+
+    @Test
+    void rejectsMissingEnvironmentSecretKeysBeforeCreatingResources() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getSecret("platform-secrets"))
+                .thenReturn(
+                        new KubernetesSecret(
+                                new V1Secret()
+                                        .metadata(new V1ObjectMeta().name("platform-secrets"))
+                                        .data(Collections.singletonMap("other", new byte[] {1}))));
+        Map<String, String> options = options();
+        options.put("kubernetes.env.MYSQL_PASSWORD", "secret:platform-secrets/password");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options)
+                                .deployApplication(specification()));
+        verify(api, never()).createJob(any());
+    }
+
+    @Test
+    void acceptsReferencesToTheSecretThisSubmissionCreates() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        // The application-owned Secret does not exist before this submission creates it.
+        when(api.getSecret("application-secrets"))
+                .thenThrow(new KubernetesClientException(404, "not found"));
+        when(api.createJob(any())).thenReturn(job());
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_NAME.key(), "application-secrets");
+        options.put("kubernetes.secret.data.MYSQL_PASSWORD", "secret-value");
+        options.put("kubernetes.env.MYSQL_PASSWORD", "secret:application-secrets/MYSQL_PASSWORD");
+        options.put("kubernetes.env-from.secret", "application-secrets");
+        try (KubernetesApplicationClusterDescriptor descriptor =
+                new KubernetesApplicationClusterDescriptor(api, options)) {
+            String applicationId = descriptor.deployApplication(specification());
+            verify(api).startJob(applicationId);
+        }
+        verify(api, never()).getSecret(anyString());
+    }
+
+    @Test
+    void rejectsMissingKeysInTheSecretThisSubmissionCreates() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_NAME.key(), "application-secrets");
+        options.put("kubernetes.secret.data.MYSQL_PASSWORD", "secret-value");
+        options.put("kubernetes.env.MYSQL_PASSWORD", "secret:application-secrets/OTHER_PASSWORD");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options)
+                                .deployApplication(specification()));
+        verify(api, never()).getSecret(anyString());
+        verify(api, never()).createJob(any());
+    }
+
+    @Test
+    void acceptsReferencesToTheConfigMapThisSubmissionCreates() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        // The application-owned ConfigMap does not exist before this submission creates it.
+        when(api.getConfigMap("application-config"))
+                .thenThrow(new KubernetesClientException(404, "not found"));
+        when(api.createJob(any())).thenReturn(job());
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.generated.name", "application-config");
+        options.put(
+                "kubernetes.configmap.generated.data.application-e2e.properties",
+                "source=kubernetes-configmap");
+        options.put(
+                "kubernetes.configmap.generated.mount.application-e2e.properties",
+                "/opt/seatunnel/config/application-e2e.properties");
+        options.put(
+                "kubernetes.env.APPLICATION_FILE",
+                "configmap:application-config/application-e2e.properties");
+        options.put("kubernetes.env-from.configmap", "application-config");
+        try (KubernetesApplicationClusterDescriptor descriptor =
+                new KubernetesApplicationClusterDescriptor(api, options)) {
+            String applicationId = descriptor.deployApplication(specification());
+            verify(api).startJob(applicationId);
+        }
+        verify(api, never()).getConfigMap("application-config");
+    }
+
+    @Test
+    void rejectsMissingKeysInTheConfigMapThisSubmissionCreates() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        Map<String, String> options = options();
+        options.put("kubernetes.configmap.generated.name", "application-config");
+        options.put("kubernetes.configmap.generated.data.application-e2e.properties", "value");
+        options.put(
+                "kubernetes.configmap.generated.mount.application-e2e.properties",
+                "/opt/seatunnel/config/application-e2e.properties");
+        options.put(
+                "kubernetes.env.APPLICATION_FILE", "configmap:application-config/other.properties");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new KubernetesApplicationClusterDescriptor(api, options)
+                                .deployApplication(specification()));
+        verify(api, never()).getConfigMap("application-config");
+        verify(api, never()).createJob(any());
+    }
+
+    @Test
+    void continuesWhenReferencedSecretsCannotBeRead() throws Exception {
+        KubernetesClient api = mock(KubernetesClient.class);
+        when(api.getSecret("platform-secrets"))
+                .thenThrow(new KubernetesClientException(403, "forbidden"));
+        when(api.createJob(any())).thenReturn(job());
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.SECRET_REF.key(), "platform-secrets");
+        options.put("kubernetes.env.MYSQL_PASSWORD", "secret:platform-secrets/password");
+        options.put("kubernetes.env-from.secret", "platform-secrets");
+        try (KubernetesApplicationClusterDescriptor descriptor =
+                new KubernetesApplicationClusterDescriptor(api, options)) {
+            String applicationId = descriptor.deployApplication(specification());
+            verify(api).startJob(applicationId);
+        }
+        verify(api, never()).deleteApplication(anyString());
+    }
+
+    @Test
     void deploysDependenciesBeforeStartingOwner() throws Exception {
         KubernetesClient api = mock(KubernetesClient.class);
         when(api.createJob(any()))
@@ -342,6 +483,7 @@ class KubernetesApplicationTest {
         String applicationId = descriptor.deployApplication(specification());
         assertTrue(nativeClients.constructed().isEmpty());
         InOrder order = inOrder(api);
+        order.verify(api).getConfigMap("seatunnel-runtime");
         order.verify(api).createJob(any());
         order.verify(api).createAccompanyingResources(any(), any());
         order.verify(api).startJob(applicationId);

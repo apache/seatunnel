@@ -34,9 +34,9 @@ application {
 }
 
 kubernetes {
-  namespace = "seatunnel"
+  namespace = "seatunnel-apps"
   image = "your-registry/seatunnel-application:<version>"
-  # ServiceAccount and RBAC as described in the Kubernetes quick start.
+  # Namespace, ServiceAccount and RBAC as created by the Kubernetes quick start.
   service-account = "seatunnel-application"
   # The demo job is mounted at <seatunnel-home>/config/job.conf from a ConfigMap SeaTunnel
   # creates for this application.

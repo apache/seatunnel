@@ -41,6 +41,9 @@ import java.util.Map;
 @Parameters(separators = "=")
 public class ApplicationCommandArgs extends CommandArgs {
 
+    /** Default status poll interval while {@code --wait} blocks the client. */
+    public static final long DEFAULT_WAIT_INTERVAL_MILLIS = 500L;
+
     @Parameter(
             description = "submit | status | cancel",
             required = true,
@@ -83,9 +86,20 @@ public class ApplicationCommandArgs extends CommandArgs {
             description = "Wait for completion (submit/status only; default: return immediately)")
     private boolean wait;
 
+    @Parameter(
+            names = "--wait-timeout",
+            description =
+                    "Maximum time in milliseconds that --wait polls for a terminal status before failing with the last observed status; 0 waits indefinitely (default: 0)")
+    private Long waitTimeoutMillis;
+
+    @Parameter(
+            names = "--wait-interval",
+            description = "Status poll interval in milliseconds while --wait blocks (default: 500)")
+    private Long waitIntervalMillis;
+
     @DynamicParameter(
-            names = "-i",
-            description = "Override a non-sensitive deployment option: -ikey=value")
+            names = "-D",
+            description = "Override a non-sensitive deployment option: -Dkey=value")
     private Map<String, String> options = new LinkedHashMap<>();
 
     @Override
@@ -96,38 +110,84 @@ public class ApplicationCommandArgs extends CommandArgs {
 
     /**
      * Validates command-specific arguments before reading files or opening platform connections.
+     *
+     * @throws ParameterException when the combination of arguments is invalid, so the caller
+     *     reports it through the usage path instead of a stack trace
      */
     public void validateCommandOptions() {
         if (applicationConfig != null) {
             requireFile(applicationConfig, "--application-config");
         }
+        validateWaitOptions();
         if (operation == ApplicationOperation.SUBMIT) {
-            if (config != null) {
-                requireFile(config, "--config");
-            }
-            if (id != null) {
-                throw new IllegalArgumentException("submit does not accept --id");
-            }
-            return;
+            validateSubmitOptions();
+        } else {
+            validateStatusOrCancelOptions();
         }
+    }
+
+    /**
+     * Checks an explicitly supplied job file and rejects an application ID for submission.
+     * Deployment configuration remains optional here so complete {@code -D} options can supply it.
+     */
+    private void validateSubmitOptions() {
+        if (config != null) {
+            requireFile(config, "--config");
+        }
+        if (id != null) {
+            throw new ParameterException("submit does not accept --id");
+        }
+    }
+
+    /**
+     * Requires a nonblank application ID and rejects submit-only options for status and cancel.
+     * Only status may wait for completion; cancel does not accept {@code --wait}.
+     */
+    private void validateStatusOrCancelOptions() {
         if (id == null || id.trim().isEmpty()) {
-            throw new IllegalArgumentException("status/cancel require --id");
+            throw new ParameterException("status/cancel require --id");
         }
         if (config != null) {
-            throw new IllegalArgumentException("status/cancel do not accept --config");
+            throw new ParameterException("status/cancel do not accept --config");
         }
         if (jobId != null || restoreJobId != null) {
-            throw new IllegalArgumentException(
+            throw new ParameterException(
                     "--job-id and --restore-job-id are supported only with submit");
         }
         if (wait && operation == ApplicationOperation.CANCEL) {
-            throw new IllegalArgumentException("--wait is supported only with submit or status");
+            throw new ParameterException("--wait is supported only with submit or status");
         }
+    }
+
+    /**
+     * Requires a nonnegative timeout and a positive poll interval when explicitly supplied. Both
+     * timing options require {@code --wait}; a zero timeout allows indefinite waiting.
+     */
+    private void validateWaitOptions() {
+        if (waitTimeoutMillis != null && waitTimeoutMillis < 0) {
+            throw new ParameterException("--wait-timeout must not be negative");
+        }
+        if (waitIntervalMillis != null && waitIntervalMillis < 1) {
+            throw new ParameterException("--wait-interval must be positive");
+        }
+        if (!wait && (waitTimeoutMillis != null || waitIntervalMillis != null)) {
+            throw new ParameterException("--wait-timeout and --wait-interval require --wait");
+        }
+    }
+
+    /** @return configured wait timeout in milliseconds, or {@code 0} to wait indefinitely */
+    public long resolvedWaitTimeoutMillis() {
+        return waitTimeoutMillis == null ? 0L : waitTimeoutMillis;
+    }
+
+    /** @return configured poll interval in milliseconds, or the default interval */
+    public long resolvedWaitIntervalMillis() {
+        return waitIntervalMillis == null ? DEFAULT_WAIT_INTERVAL_MILLIS : waitIntervalMillis;
     }
 
     private static void requireFile(String path, String option) {
         if (!Files.isRegularFile(Paths.get(path))) {
-            throw new IllegalArgumentException(option + " file does not exist: " + path);
+            throw new ParameterException(option + " file does not exist: " + path);
         }
     }
 

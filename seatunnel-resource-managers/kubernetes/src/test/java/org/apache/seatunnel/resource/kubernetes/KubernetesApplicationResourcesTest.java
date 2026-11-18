@@ -38,6 +38,8 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesS
 import org.apache.seatunnel.resource.kubernetes.worker.SeatunnelKubernetesApplicationWorker;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -354,15 +356,8 @@ class KubernetesApplicationResourcesTest {
                                 .get(0)
                                 .getStartupProbe()
                         != null);
-        assertEquals(
-                "kill -0 1",
-                worker.getSpec()
-                        .getContainers()
-                        .get(0)
-                        .getLivenessProbe()
-                        .getExec()
-                        .getCommand()
-                        .get(2));
+        // PID 1 is the JVM itself, so a process probe cannot fail before the container exits.
+        assertNull(worker.getSpec().getContainers().get(0).getLivenessProbe());
     }
 
     private static ApplicationSpecification specification() {
@@ -535,6 +530,28 @@ class KubernetesApplicationResourcesTest {
         assertTrue(localized.contains("kubernetes.configmap.runtime.data.seatunnel.yaml="));
         assertFalse(localized.contains("super-secret-password"));
         assertFalse(localized.contains("interval: 10000"));
+    }
+
+    @Test
+    void rejectsLocalizedSpecificationsAboveTheEnvTransportLimit() {
+        Map<String, String> options = options();
+        String oversizedJobOption = new String(new char[80 * 1024]).replace('\0', 'x');
+        ApplicationSpecification specification =
+                SeatunnelApplicationConfig.parse(
+                        "env { job.mode = BATCH }\nenv { oversized = \""
+                                + oversizedJobOption
+                                + "\" }",
+                        options);
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
+        IllegalStateException failure =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                KubernetesApplicationClusterDescriptor.assembleApplication(
+                                        "app", mainClass, parameters));
+        assertTrue(failure.getMessage().contains("too large"), failure.getMessage());
     }
 
     @Test
@@ -883,6 +900,10 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void keepsTheSubmittedJobConfigurationWithoutAConfiguredJobConfigFile() throws Exception {
         Path seatunnelHome = temporary.resolve("seatunnel-home");
         Path jobConfigFile = seatunnelHome.resolve("config").resolve("job.conf");
@@ -908,6 +929,10 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void replacesInlineJobConfigurationWithAMountedSecretFile() throws Exception {
         Path secretDirectory = temporary.resolve("secrets");
         Path jobConfigFile = secretDirectory.resolve("job.conf");
@@ -943,6 +968,10 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void acceptsSubmissionsThatRelyOnAMountedJobConfigFile() throws Exception {
         Path jobConfigFile = temporary.resolve("mounted-job.conf");
         Files.write(jobConfigFile, "env { job.mode = STREAMING }".getBytes(StandardCharsets.UTF_8));
@@ -964,6 +993,10 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void failsWhenTheMountedJobConfigFileIsMissingAndNothingWasSubmitted() throws Exception {
         Path jobConfigFile = temporary.resolve("missing-job.conf");
         Map<String, String> options = options();
@@ -979,10 +1012,38 @@ class KubernetesApplicationResourcesTest {
                         .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
         IOException failure =
                 assertThrows(IOException.class, () -> KubernetesApplicationConfig.read(encoded));
-        assertTrue(failure.getMessage().contains("carried no inline job configuration"));
+        assertTrue(failure.getMessage().contains("carries no inline job configuration"));
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
+    void doesNotTransportTheInlineJobWhenAJobConfigFileIsConfigured() throws Exception {
+        Path jobConfigFile = temporary.resolve("job.conf");
+        Files.write(jobConfigFile, "env { job.mode = STREAMING }".getBytes(StandardCharsets.UTF_8));
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.JOB_CONFIG_FILE.key(), jobConfigFile.toString());
+        ApplicationSpecification specification =
+                SeatunnelApplicationConfig.parse(
+                        "env { job.mode = BATCH, password = \"inline-secret\" }", options);
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        // The mounted file supplies the job, so the submitted text must not travel in the spec.
+        assertFalse(writer.toString().contains(SeatunnelApplicationConfig.JOB_CONFIG_KEY));
+        assertFalse(writer.toString().contains("inline-secret"));
+        assertTrue(writer.toString().contains(KubernetesOptions.JOB_CONFIG_FILE.key()));
+    }
+
+    @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void resolvesJobConfigFileNamesUnderTheConfigDirectory() throws Exception {
         Path seatunnelHome = temporary.resolve("seatunnel-home");
         Path jobConfigFile = seatunnelHome.resolve("config").resolve("custom-job.conf");
@@ -1006,6 +1067,10 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void replacesInlineJobConfigurationWithAFileFromAConfigMap() throws Exception {
         Path jobConfigFile = temporary.resolve("config").resolve("job.conf");
         Files.createDirectories(jobConfigFile.getParent());
@@ -1050,6 +1115,10 @@ class KubernetesApplicationResourcesTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Job-config paths are validated as container paths, which a Windows drive letter cannot express")
     void keepsTheSubmittedJobConfigurationWhenTheOptionIsEmpty() throws Exception {
         Path seatunnelHome = temporary.resolve("seatunnel-home");
         Path jobConfigFile = seatunnelHome.resolve("config").resolve("job.conf");
@@ -1551,6 +1620,88 @@ class KubernetesApplicationResourcesTest {
         assertEquals(KubernetesConstants.HAZELCAST_PORT_NAME, port.getName());
         assertEquals(masterPort, port.getPort());
         assertEquals(masterPort, port.getTargetPort().getIntValue());
+    }
+
+    @Test
+    void appliesTheConfiguredActiveDeadlineToTheOwnerJob() throws Exception {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.ACTIVE_DEADLINE_SECONDS.key(), "7200");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        V1Job job =
+                applicationJob(
+                                KubernetesApplicationClusterDescriptor.assembleApplication(
+                                        "app", mainClass, parameters))
+                        .getInternalResource();
+        assertEquals(7200L, job.getSpec().getActiveDeadlineSeconds());
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        // The localized specification round-trips the deadline for the master's own settings.
+        assertEquals(7200L, KubernetesApplicationConfig.read(encoded).getActiveDeadlineSeconds());
+    }
+
+    @Test
+    void omitsTheActiveDeadlineByDefault() throws Exception {
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options())));
+        V1Job job =
+                applicationJob(
+                                KubernetesApplicationClusterDescriptor.assembleApplication(
+                                        "app", mainClass, parameters))
+                        .getInternalResource();
+        // Without the option a streaming application must stay active until it finishes.
+        assertNull(job.getSpec().getActiveDeadlineSeconds());
+    }
+
+    @Test
+    void rejectsNonPositiveActiveDeadlines() {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.ACTIVE_DEADLINE_SECONDS.key(), "0");
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        KubernetesApplicationConfig.from(
+                                specification(), ReadonlyConfig.fromMap(new HashMap<>(options))));
+    }
+
+    @Test
+    void rejectsUnknownKubernetesOptions() {
+        Map<String, String> options = options();
+        options.put("kubernetes.worker.toleration", "dedicated=seatunnel:NoSchedule");
+        IllegalArgumentException failure =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                KubernetesApplicationConfig.from(
+                                        specification(),
+                                        ReadonlyConfig.fromMap(new HashMap<>(options))));
+        assertTrue(
+                failure.getMessage().contains("kubernetes.worker.toleration"),
+                failure.getMessage());
+    }
+
+    @Test
+    void supportsEscapedCommasInAnnotationValues() throws Exception {
+        Map<String, String> options = options();
+        options.put(KubernetesOptions.WORKER_ANNOTATIONS.key(), "team:platform\\,batch");
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options)));
+        assertEquals("platform,batch", parameters.getWorkerAnnotations().get("team"));
+
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        assertEquals(
+                "platform,batch",
+                KubernetesApplicationConfig.read(encoded).getWorkerAnnotations().get("team"));
     }
 
     private static List<String> masterCommand(KubernetesApplicationConfig parameters) {

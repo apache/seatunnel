@@ -1,0 +1,38 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Does nothing itself. It completes, and that completion starts the privileged
+# `workflow_run` workflows (labeler, Build check) from the default branch, which
+# replaces `pull_request_target`. See
+# https://infra.apache.org/github-actions-policy.html ("A safer replacement for
+# pull_request_target"). Consumers read the PR through the API from the
+# `workflow_run` payload and never check out or run pull request code.
+name: PR signal
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  signal:
+    name: Signal pull request update
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: "Do nothing. Only trigger the corresponding workflow_run event"
+        run: echo "pull request updated"

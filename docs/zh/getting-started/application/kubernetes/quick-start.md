@@ -10,13 +10,25 @@ Application Mode 为每个作业运行一套独立的 Zeta 集群。提交端创
 
 ## 1. 准备镜像
 
-使用包含 Application Mode 的发行版，或从源码构建：
+应用镜像就是标准 SeaTunnel 发行版加上 `resource-managers/kubernetes/` 里的 Kubernetes 资源管理器。
+可以直接用包含 Application Mode 的官方镜像，也可以自行构建（用于未发布改动或额外 Connector）。
+
+### 官方镜像
+
+```bash
+docker pull apache/seatunnel:<version>
+docker tag apache/seatunnel:<version> registry.example.com/seatunnel:application
+```
+
+### 自定义构建
+
+从源码构建发行版：
 
 ```bash
 ./mvnw -Prelease,seatunnel -pl seatunnel-dist -am -DskipTests -Dskip.ui=true package
 ```
 
-用标准发行版构建应用镜像：
+用产物构建镜像：
 
 ```dockerfile
 FROM eclipse-temurin:11-jdk
@@ -25,6 +37,17 @@ RUN mv /opt/apache-seatunnel-<version> /opt/seatunnel
 ENV SEATUNNEL_HOME=/opt/seatunnel
 WORKDIR /opt/seatunnel
 ```
+
+把 `seatunnel-dist/target/` 下的 `apache-seatunnel-<version>-bin.tar.gz` 放到 Dockerfile 旁边
+（`ADD` 路径相对构建上下文），然后构建镜像：
+
+```bash
+cp seatunnel-dist/target/apache-seatunnel-<version>-bin.tar.gz .
+docker build -t registry.example.com/seatunnel:application .
+```
+
+无论哪种方式，`kubernetes.image` 都必须指向集群可拉取的镜像：推送到镜像仓库，或加载到本地集群
+（`minikube image load`、`kind load docker-image`）。
 
 :::note
 镜像必须包含 `starter/`、`config/`、`lib/`、`connectors/`、`resource-managers/kubernetes/`，以及
@@ -53,7 +76,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["pods"]
-    verbs: ["create", "get", "list", "delete", "deletecollection"]
+    verbs: ["create", "list", "watch", "delete", "deletecollection"]
   - apiGroups: ["batch"]
     resources: ["jobs"]
     verbs: ["get"]
@@ -71,36 +94,48 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: seatunnel-application
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: seatunnel-application-submitter
+  namespace: seatunnel-apps
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create", "delete"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: seatunnel-application-submitter
+  namespace: seatunnel-apps
+subjects:
+  - kind: ServiceAccount
+    name: seatunnel-submitter
+    namespace: seatunnel-apps
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: seatunnel-application-submitter
 ```
 
 ```bash
 kubectl apply -f application-rbac.yaml
 ```
 
-上面的 ServiceAccount 供 **Master Pod** 创建、观测、删除 Worker Pod 以及读取 owner Job 使用。**提交身份**
-另行需要：
+请把提交身份 RoleBinding 的 subjects 换成运行 `bin/seatunnel-application.sh` 的身份。
 
-- 必需：Job 的 create/get/delete、Service 的 create/delete、ConfigMap 的 get（提交前校验引用）；
-- 仅使用 `kubernetes.secret` 时：Secret 的 create/delete；
-- 仅使用创建型 ConfigMap（`kubernetes.configmap.<entry>.data`）时：ConfigMap 的 create/delete；
-- 仅使用 `kubernetes.secret-ref` 时：Secret 的 get（无权限时校验降级为告警）。
-
-本地化配置通过 Master 容器环境传递，默认不会创建 application Secret。
-
-## 3. 创建运行时 ConfigMap
-
-Master 和 Worker Pod 需要发行版里的 `seatunnel.yaml` 与 `log4j2_client.properties`。创建一个
-ConfigMap，按键逐文件挂载：
-
-```bash
-kubectl -n seatunnel-apps create configmap seatunnel-configuration \
-  --from-file=seatunnel.yaml=config/seatunnel.yaml \
-  --from-file=log4j2_client.properties=config/log4j2_client.properties
-```
-
-挂载使用 `subPath`，只替换声明的文件，镜像里配置目录的其他文件不受影响。
-
-## 4. 准备部署配置
+## 3. 准备部署配置
 
 从 `config/v1.kubernetes.conf.template` 复制（模板里已带一个可直接运行的示例作业），修改平台选项：
 
@@ -120,11 +155,6 @@ kubernetes {
   service-account = "seatunnel-application"
   # 示例作业由本 application 自建的 ConfigMap 挂载进来，首次提交无需 -c 文件。
   job-config-file = job.conf
-  configmap.runtime {
-    ref = "seatunnel-configuration"
-    mount.seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
-    mount.log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
-  }
   configmap.job-conf {
     data.job.conf = """
       env {
@@ -153,22 +183,7 @@ kubernetes {
 `-c job.conf` 提交并去掉 `job-config-file`。
 :::
 
-需要传凭据时用平台管理的 Secret 并在作业文件里引用：
-
-```hocon
-kubernetes {
-  # 引用平台已有 Secret，或让 SeaTunnel 创建：
-  secret-ref = "platform-job-secrets"
-  # secret { name = "example-job-secrets", data.MYSQL_PASSWORD = ${MYSQL_PASSWORD} }
-  env.MYSQL_PASSWORD = "secret:platform-job-secrets/password"
-}
-```
-
-:::tip
-在 `job.conf` 里使用 `${MYSQL_PASSWORD}`；占位符在 Pod 内解析，不在提交机替换。
-:::
-
-## 5. 提交与查看
+## 4. 提交与查看
 
 ```bash
 bin/seatunnel-application.sh submit --target kubernetes -a kubernetes.conf

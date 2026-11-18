@@ -104,31 +104,30 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
 
     @Test
     void testApplicationFactoryUsesInjectedDriverAndClosesResourcesOnlyOnce() throws Exception {
-        for (DeployType type : new DeployType[] {DeployType.KUBERNETES, DeployType.KUBERNETES}) {
-            ApplicationSpecification specification = applicationSpecification(type);
-            ResourceManagerDriver<ResourceID> driver = mock(ResourceManagerDriver.class);
-            ResourceID worker = new ResourceID("test-worker");
-            when(driver.requestWorker(specification.getWorkerSpecification()))
-                    .thenReturn(CompletableFuture.completedFuture(worker));
-            when(driver.releaseWorker(worker)).thenReturn(CompletableFuture.completedFuture(null));
-            ResourceManager manager =
-                    new ResourceManagerFactory(type, "test-application", specification, driver)
-                            .createResourceManager(nodeEngine, new EngineConfig());
-            try {
-                Assertions.assertEquals(ApplicationResourceManager.class, manager.getClass());
-                verifyNoInteractions(driver);
-                manager.init();
-                ((ApplicationResourceManager<?>) manager).awaitWorkerRegistration();
-                verify(driver, times(1)).initialize(any(), any(), any(), any());
-                verify(driver, times(1)).requestWorker(specification.getWorkerSpecification());
-            } finally {
-                manager.close();
-                manager.close();
-            }
-            verify(driver, times(1)).releaseWorker(worker);
-            verify(driver, times(1)).close();
-            Assertions.assertThrows(IllegalStateException.class, manager::init);
+        ApplicationSpecification specification = applicationSpecification(DeployType.KUBERNETES);
+        ResourceManagerDriver<ResourceID> driver = mock(ResourceManagerDriver.class);
+        ResourceID worker = new ResourceID("test-worker");
+        when(driver.requestWorker(specification.getWorkerSpecification()))
+                .thenReturn(CompletableFuture.completedFuture(worker));
+        when(driver.releaseWorker(worker)).thenReturn(CompletableFuture.completedFuture(null));
+        ResourceManager manager =
+                new ResourceManagerFactory(
+                                DeployType.KUBERNETES, "test-application", specification, driver)
+                        .createResourceManager(nodeEngine, new EngineConfig());
+        try {
+            Assertions.assertEquals(ApplicationResourceManager.class, manager.getClass());
+            verifyNoInteractions(driver);
+            manager.init();
+            ((ApplicationResourceManager<?>) manager).awaitWorkerRegistration();
+            verify(driver, times(1)).initialize(any(), any(), any(), any());
+            verify(driver, times(1)).requestWorker(specification.getWorkerSpecification());
+        } finally {
+            manager.close();
+            manager.close();
         }
+        verify(driver, times(1)).releaseWorker(worker);
+        verify(driver, times(1)).close();
+        Assertions.assertThrows(IllegalStateException.class, manager::init);
     }
 
     @Test

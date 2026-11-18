@@ -30,6 +30,9 @@ import org.apache.seatunnel.resource.kubernetes.cli.SeatunnelKubernetesApplicati
 import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConfig;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesConfigMapEntry;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesEnvFromReference;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesEnvironmentVariable;
+import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
@@ -45,12 +48,11 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesC
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 
 import com.hazelcast.client.config.ClientConfig;
 import io.kubernetes.client.openapi.models.V1Pod;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,9 +64,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /** Submits one isolated application Job and discovers its control plane on demand. */
+@Slf4j
 final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<String> {
-    private static final Logger LOG =
-            LoggerFactory.getLogger(KubernetesApplicationClusterDescriptor.class);
 
     private final KubernetesClient api;
     private final ReadonlyConfig options;
@@ -98,18 +99,18 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
                 KubernetesApplicationConfig.from(specification, options);
         String id = KubernetesResourceIdentity.newId(specification.getName());
         String mainClass = SeatunnelKubernetesApplicationCli.class.getName();
-        validateUserManagedResources(parameters);
+        validateUserManagedResources(parameters, id);
         List<KubernetesResource<?>> application = assembleApplication(id, mainClass, parameters);
         KubernetesJob job = null;
         try {
-            LOG.debug("Creating owner Job {} and its accompanying resources", id);
+            log.debug("Creating owner Job {} and its accompanying resources", id);
             job = api.createJob((KubernetesJob) application.remove(0));
             api.createAccompanyingResources(job, application);
-            LOG.debug("Starting Job {}", id);
+            log.debug("Starting Job {}", id);
             api.startJob(job.getName());
             return job.getName();
         } catch (Exception failure) {
-            LOG.warn("Kubernetes application {} deployment failed", id, failure);
+            log.warn("Kubernetes application {} deployment failed", id, failure);
             if (job != null || ambiguousOutcome(failure)) {
                 // Deleting the owner removes exactly the resources created for this application.
                 try {
@@ -156,40 +157,147 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
     }
 
     /**
-     * Verifies user-managed ConfigMaps before the first application resource is created.
-     *
-     * <p>Every {@code kubernetes.configmap.<entry>} reference declares which keys it mounts, so
-     * those keys must exist in the referenced ConfigMap. No application-owned resource exists yet,
-     * so a failure here never needs compensation.
+     * Verifies every user-managed ConfigMap, Secret and environment reference before the first
+     * application resource is created, so a misconfiguration never needs compensation.
      *
      * @param parameters resolved application settings
-     * @throws Exception if a referenced ConfigMap or one of its mounted keys is missing
+     * @param applicationId generated Job name, which also names a Secret without an explicit name
+     * @throws Exception if a referenced object or key is missing, or the API fails otherwise
      */
-    private void validateUserManagedResources(KubernetesApplicationConfig parameters)
-            throws Exception {
+    private void validateUserManagedResources(
+            KubernetesApplicationConfig parameters, String applicationId) throws Exception {
+        // A created Secret or ConfigMap does not exist before this submission, so references to it
+        // are validated against the declared data keys instead of the API.
+        String createdSecret = createdSecretName(parameters, applicationId);
+        Map<String, KubernetesConfigMapEntry> createdConfigMaps =
+                createdConfigMaps(parameters, applicationId);
         for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
             if (!entry.isReference()) {
                 continue;
             }
-            KubernetesConfigMap configMap =
-                    getReadableConfigMap(
-                            entry.getReference(),
-                            KubernetesConstants.CONFIG_MAP_PREFIX + entry.getEntryName());
+            String option = KubernetesConstants.CONFIG_MAP_PREFIX + entry.getEntryName();
+            KubernetesConfigMap configMap = getReadableConfigMap(entry.getReference(), option);
             if (configMap == null) {
                 continue;
             }
             for (String key : entry.getMountPaths().keySet()) {
                 if (!containsKey(configMap, key)) {
                     throw new IllegalArgumentException(
-                            KubernetesConstants.CONFIG_MAP_PREFIX
-                                    + entry.getEntryName()
-                                    + " mounts missing key "
-                                    + key
-                                    + " from ConfigMap "
-                                    + entry.getReference());
+                            String.format(
+                                    "%s mounts missing key %s from %s %s",
+                                    option,
+                                    key,
+                                    KubernetesConstants.CONFIG_MAP_KIND,
+                                    entry.getReference()));
                 }
             }
         }
+        if (parameters.getApplicationSecretRef() != null) {
+            getReadableSecret(
+                    parameters.getApplicationSecretRef(), KubernetesOptions.SECRET_REF.key());
+        }
+        for (KubernetesEnvironmentVariable variable : parameters.getEnvironmentVariables()) {
+            validateEnvironmentVariable(variable, parameters, createdSecret, createdConfigMaps);
+        }
+        for (KubernetesEnvFromReference reference : parameters.getEnvFromReferences()) {
+            if (reference.getSource() == KubernetesEnvFromReference.Source.SECRET) {
+                if (!reference.getName().equals(createdSecret)) {
+                    getReadableSecret(reference.getName(), KubernetesConstants.ENV_FROM_SECRET);
+                }
+            } else if (!createdConfigMaps.containsKey(reference.getName())) {
+                getReadableConfigMap(reference.getName(), KubernetesConstants.ENV_FROM_CONFIGMAP);
+            }
+        }
+    }
+
+    /**
+     * @return name of the Secret this submission creates from {@code kubernetes.secret.data}, or
+     *     {@code null} when no Secret is created
+     */
+    private static String createdSecretName(
+            KubernetesApplicationConfig parameters, String applicationId) {
+        if (parameters.getApplicationSecretData().isEmpty()) {
+            return null;
+        }
+        return parameters.resolvedApplicationSecretName(applicationId);
+    }
+
+    /** @return ConfigMaps created by this submission, keyed by their resolved name */
+    private static Map<String, KubernetesConfigMapEntry> createdConfigMaps(
+            KubernetesApplicationConfig parameters, String applicationId) {
+        Map<String, KubernetesConfigMapEntry> created = new HashMap<>();
+        for (KubernetesConfigMapEntry entry : parameters.getConfigMaps()) {
+            if (!entry.isReference()) {
+                created.put(entry.createdName(applicationId), entry);
+            }
+        }
+        return created;
+    }
+
+    /**
+     * Verifies one {@code kubernetes.env} reference before the first resource is created.
+     *
+     * @param variable configured environment variable, literal or reference
+     * @param parameters resolved application settings that declare the created Secret keys
+     * @param createdSecret name of the Secret this submission creates, or {@code null}
+     * @param createdConfigMaps ConfigMaps created by this submission, keyed by their resolved name
+     * @throws Exception if the referenced Secret or ConfigMap or one of its keys is missing
+     */
+    private void validateEnvironmentVariable(
+            KubernetesEnvironmentVariable variable,
+            KubernetesApplicationConfig parameters,
+            String createdSecret,
+            Map<String, KubernetesConfigMapEntry> createdConfigMaps)
+            throws Exception {
+        String option = KubernetesConstants.ENV_PREFIX + variable.getName();
+        if (variable.isSecret()) {
+            if (variable.getSecretName().equals(createdSecret)) {
+                if (!parameters.getApplicationSecretData().containsKey(variable.getKey())) {
+                    throw missingKey(
+                            option,
+                            variable.getKey(),
+                            KubernetesConstants.SECRET_KIND,
+                            createdSecret);
+                }
+                return;
+            }
+            KubernetesSecret secret = getReadableSecret(variable.getSecretName(), option);
+            if (secret != null && !containsKey(secret, variable.getKey())) {
+                throw missingKey(
+                        option,
+                        variable.getKey(),
+                        KubernetesConstants.SECRET_KIND,
+                        variable.getSecretName());
+            }
+        } else if (variable.isConfigMap()) {
+            KubernetesConfigMapEntry created = createdConfigMaps.get(variable.getConfigMapName());
+            if (created != null) {
+                if (!created.getData().containsKey(variable.getKey())) {
+                    throw missingKey(
+                            option,
+                            variable.getKey(),
+                            KubernetesConstants.CONFIG_MAP_KIND,
+                            variable.getConfigMapName());
+                }
+                return;
+            }
+            KubernetesConfigMap configMap =
+                    getReadableConfigMap(variable.getConfigMapName(), option);
+            if (configMap != null && !containsKey(configMap, variable.getKey())) {
+                throw missingKey(
+                        option,
+                        variable.getKey(),
+                        KubernetesConstants.CONFIG_MAP_KIND,
+                        variable.getConfigMapName());
+            }
+        }
+    }
+
+    /** @return error for one environment reference whose key is missing in the referenced object */
+    private static IllegalArgumentException missingKey(
+            String option, String key, String kind, String name) {
+        return new IllegalArgumentException(
+                String.format("%s references missing key %s in %s %s", option, key, kind, name));
     }
 
     /**
@@ -209,8 +317,35 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             return api.getConfigMap(name);
         } catch (KubernetesClientException failure) {
             if (failure.getCode() == 403) {
-                LOG.warn(
+                log.warn(
                         "No permission to verify {} ConfigMap {}; continuing without validation",
+                        option,
+                        name);
+                return null;
+            }
+            throw failure;
+        }
+    }
+
+    /**
+     * Reads a user-managed Secret for validation.
+     *
+     * <p>A missing Secret is a configuration error reported before creation. When the submitting
+     * identity cannot read the Secret, validation is skipped with a warning because the Pod may
+     * still reference it through its own service account.
+     *
+     * @param name Secret name
+     * @param option option that references it, used in the warning
+     * @return the Secret, or {@code null} when the submitter is not allowed to read it
+     * @throws Exception if the Secret is missing or the API fails for another reason
+     */
+    private KubernetesSecret getReadableSecret(String name, String option) throws Exception {
+        try {
+            return api.getSecret(name);
+        } catch (KubernetesClientException failure) {
+            if (failure.getCode() == 403) {
+                log.warn(
+                        "No permission to verify {} Secret {}; continuing without validation",
                         option,
                         name);
                 return null;
@@ -224,6 +359,13 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
                         && configMap.getInternalResource().getData().containsKey(key))
                 || (configMap.getInternalResource().getBinaryData() != null
                         && configMap.getInternalResource().getBinaryData().containsKey(key));
+    }
+
+    private static boolean containsKey(KubernetesSecret secret, String key) {
+        return (secret.getInternalResource().getData() != null
+                        && secret.getInternalResource().getData().containsKey(key))
+                || (secret.getInternalResource().getStringData() != null
+                        && secret.getInternalResource().getStringData().containsKey(key));
     }
 
     /** @return whether a failed request may still have been applied by the API server */
@@ -242,11 +384,9 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
         KubernetesClientException clientFailure = (KubernetesClientException) failure;
         return new KubernetesClientException(
                 clientFailure.getCode(),
-                "Kubernetes application deployment failed for "
-                        + id
-                        + " (HTTP "
-                        + clientFailure.getCode()
-                        + ")",
+                String.format(
+                        "Kubernetes application deployment failed for %s (HTTP %d)",
+                        id, clientFailure.getCode()),
                 clientFailure);
     }
 
@@ -256,10 +396,9 @@ final class KubernetesApplicationClusterDescriptor implements ClusterDescriptor<
             KubernetesJob job = api.getJob(id);
             if (job.isFailed() || job.isComplete()) {
                 throw new IllegalStateException(
-                        "Kubernetes application "
-                                + id
-                                + " has no live master: "
-                                + job.getFailureReason());
+                        String.format(
+                                "Kubernetes application %s has no live master: %s",
+                                id, job.getFailureReason()));
             }
             String selector =
                     KubernetesResourceIdentity.selector(id, KubernetesConstants.MASTER_ROLE);

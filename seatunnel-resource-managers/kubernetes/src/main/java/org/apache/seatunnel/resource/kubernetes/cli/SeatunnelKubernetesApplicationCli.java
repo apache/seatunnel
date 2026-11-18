@@ -22,7 +22,6 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.application.ApplicationJobRunner;
@@ -33,19 +32,16 @@ import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /** Runs the Kubernetes application master and its single native job. */
+@Slf4j
 public final class SeatunnelKubernetesApplicationCli {
-    private static final Logger LOG =
-            LoggerFactory.getLogger(SeatunnelKubernetesApplicationCli.class);
 
     /**
      * Runs one job and maps its final outcome to the Kubernetes Job process exit code.
@@ -56,20 +52,20 @@ public final class SeatunnelKubernetesApplicationCli {
         int exitCode = 0;
         try {
             String id = applicationId(args);
-            LOG.info("Running Kubernetes application {}", id);
+            log.info("Running Kubernetes application {}", id);
             KubernetesApplicationConfig parameters =
                     KubernetesApplicationConfig.read(
                             System.getenv(KubernetesConstants.SPECIFICATION_ENV));
             ApplicationSpecification specification = parameters.getSpecification();
-            LOG.debug("Loaded application specification {}", specification.getName());
+            log.debug("Loaded application specification {}", specification.getName());
             SeaTunnelConfig engineConfiguration = configureEngine(id, specification);
             KubernetesResourceManagerDriver driver = createDriver(parameters, id, clusterName(id));
             HazelcastInstanceImpl master =
                     startMaster(engineConfiguration, specification, id, driver);
-            LOG.info("Master started for Kubernetes application {}", id);
+            log.info("Master started for Kubernetes application {}", id);
             runJob(specification, master, driver);
         } catch (Exception failure) {
-            LOG.error("Kubernetes application failed", failure);
+            log.error("Kubernetes application failed", failure);
             exitCode = 1;
         }
         System.exit(exitCode);
@@ -168,7 +164,6 @@ public final class SeatunnelKubernetesApplicationCli {
             return SeaTunnelServerStarter.createHazelcastInstance(
                     engineConfiguration,
                     null,
-                    JarPathResolver.identity(),
                     new ResourceManagerFactory(DeployType.KUBERNETES, id, specification, driver));
         } catch (Exception failure) {
             try {

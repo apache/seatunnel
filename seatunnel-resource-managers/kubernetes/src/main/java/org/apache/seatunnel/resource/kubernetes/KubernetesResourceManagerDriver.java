@@ -27,6 +27,7 @@ import org.apache.seatunnel.resource.kubernetes.config.KubernetesApplicationConf
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.PodWatchCallback;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.ConfigMapDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.EnvironmentDecorator;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.decorators.KubernetesStepDecorator;
@@ -36,15 +37,10 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJ
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.kubernetes.client.openapi.models.V1Pod;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,12 +54,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 /** Fixed-size worker provisioning with lifecycle failure detection and explicit cleanup. */
+@Slf4j
 public final class KubernetesResourceManagerDriver
         implements ResourceManagerDriver<KubernetesWorkerNode> {
-    private static final Logger LOG =
-            LoggerFactory.getLogger(KubernetesResourceManagerDriver.class);
-
-    private static final long WORKER_WATCH_INTERVAL_MILLIS = 1_000;
 
     private final KubernetesClient api;
     private final KubernetesApplicationConfig parameters;
@@ -79,11 +72,6 @@ public final class KubernetesResourceManagerDriver
      * briefly appear as terminating after release has already removed it from {@link #workers}.
      */
     private final Set<String> releasing = ConcurrentHashMap.newKeySet();
-    /**
-     * Workers absent in the previous poll. A worker is reported as terminated only after two
-     * consecutive misses, avoiding a false failure when listPods races a concurrent create.
-     */
-    private final Set<String> missingWorkers = ConcurrentHashMap.newKeySet();
     /**
      * In-flight Pod creation tasks. Shutdown waits for these because a create accepted just before
      * close can still produce a Pod that must be compensated with a delete.
@@ -159,10 +147,28 @@ public final class KubernetesResourceManagerDriver
                 api.watchPods(
                         KubernetesResourceIdentity.selector(
                                 job.getName(), KubernetesConstants.WORKER_ROLE),
-                        WORKER_WATCH_INTERVAL_MILLIS,
-                        this::checkWorkers,
-                        this::onWatchFailure);
-        LOG.info(
+                        new PodWatchCallback() {
+                            @Override
+                            public void onPodAdded(KubernetesPod pod) {
+                                // Workers are tracked when the API server accepts their creation.
+                            }
+
+                            @Override
+                            public void onPodModified(KubernetesPod pod) {
+                                onWorkerPodModified(pod);
+                            }
+
+                            @Override
+                            public void onPodDeleted(KubernetesPod pod) {
+                                onWorkerPodGone(pod.getName(), "Worker pod deleted");
+                            }
+
+                            @Override
+                            public void onWatchError(Exception failure) {
+                                onWatchFailure(failure);
+                            }
+                        });
+        log.info(
                 "Initialized Kubernetes driver for application {}, watching worker pods of job {}",
                 applicationId,
                 job.getName());
@@ -217,7 +223,7 @@ public final class KubernetesResourceManagerDriver
         }
         try {
             api.createPod(assembleWorkerPod(name, resources));
-            LOG.debug("Created worker pod {}", name);
+            log.debug("Created worker pod {}", name);
             if (running.get() && future.complete(worker)) {
                 pending.remove(name);
                 return;
@@ -285,87 +291,43 @@ public final class KubernetesResourceManagerDriver
         }
     }
 
-    void checkWorkers() {
-        try {
-            String selector =
-                    KubernetesResourceIdentity.selector(
-                            job.getName(), KubernetesConstants.WORKER_ROLE);
-            checkWorkers(api.listPods(selector));
-        } catch (Exception failure) {
-            onWatchFailure(failure);
-        }
-    }
-
-    private void checkWorkers(List<KubernetesPod> pods) {
-        Set<String> missingNow = new HashSet<>();
-        Set<String> observed = observedWorkers();
-        if (observed.isEmpty()) {
-            return;
-        }
-        Map<String, KubernetesPod> current = new HashMap<>();
-        for (KubernetesPod pod : pods) {
-            current.put(pod.getName(), pod);
-        }
-        KubernetesWorkerNode terminatedWorker = null;
-        String diagnostics = null;
-        // Require two consecutive misses before failing: listPods can race with a concurrent
-        // create.
+    /**
+     * Reports a worker as lost when the watch sees its Pod terminate or start terminating.
+     *
+     * @param pod changed worker Pod
+     */
+    private void onWorkerPodModified(KubernetesPod pod) {
         if (!running.get()) {
             return;
         }
-        for (String name : observed) {
-            KubernetesWorkerNode worker = workers.get(name);
-            if (worker == null || releasing.contains(name)) {
-                continue;
-            }
-            KubernetesPod pod = current.get(name);
-            if (pod != null && pod.isSucceeded()) {
-                workers.remove(name);
-                missingWorkers.remove(name);
-                continue;
-            }
-            if (pod == null || pod.isTerminating() || pod.isTerminated()) {
-                if (missingWorkers.contains(name)) {
-                    terminatedWorker = worker;
-                    diagnostics =
-                            pod == null
-                                    ? "Worker pod disappeared"
-                                    : "Worker pod terminated with phase " + pod.getPhase();
-                    break;
-                }
-                missingNow.add(name);
-            }
+        if (pod.isSucceeded()) {
+            // The Pod completed on its own; nothing is lost and it needs no further observation.
+            workers.remove(pod.getName());
+            return;
         }
-        if (terminatedWorker != null) {
-            running.set(false);
-            missingWorkers.clear();
-        } else {
-            missingWorkers.clear();
-            missingWorkers.addAll(missingNow);
-        }
-        // Publish outside the lock so a slow event handler cannot block worker observation.
-        if (terminatedWorker != null) {
-            publishWorkerTermination(terminatedWorker, diagnostics);
+        if (pod.isTerminating() || pod.isTerminated() || pod.isUnknown()) {
+            onWorkerPodGone(pod.getName(), "Worker pod terminated with phase " + pod.getPhase());
         }
     }
 
     /**
-     * Snapshots the workers that should be present, excluding in-flight and releasing ones.
+     * Publishes one worker loss; because the watch event is authoritative, the first loss stops
+     * observation and later events are ignored.
      *
-     * @return worker names to observe, or an empty set when no worker needs checking
+     * @param name worker Pod name
+     * @param diagnostics platform-provided termination reason
      */
-    private Set<String> observedWorkers() {
-        // Snapshot the workers that are expected to exist, excluding in-flight and releasing ones.
-        if (!running.get()) {
-            return Collections.emptySet();
+    private void onWorkerPodGone(String name, String diagnostics) {
+        if (!running.get() || releasing.contains(name)) {
+            return;
         }
-        Set<String> observed = new HashSet<>(workers.keySet());
-        observed.removeAll(pending.keySet());
-        observed.removeAll(releasing);
-        if (observed.isEmpty()) {
-            missingWorkers.clear();
+        KubernetesWorkerNode worker = workers.get(name);
+        if (worker == null) {
+            return;
         }
-        return observed;
+        if (running.compareAndSet(true, false)) {
+            publishWorkerTermination(worker, diagnostics);
+        }
     }
 
     /**
@@ -375,7 +337,7 @@ public final class KubernetesResourceManagerDriver
      * @param diagnostics platform-provided termination reason
      */
     private void publishWorkerTermination(KubernetesWorkerNode worker, String diagnostics) {
-        LOG.warn(
+        log.warn(
                 "Worker pod {} failed: {}",
                 worker.getResourceID().getResourceIdString(),
                 diagnostics);
@@ -384,7 +346,7 @@ public final class KubernetesResourceManagerDriver
     }
 
     private void onWatchFailure(Exception failure) {
-        LOG.warn("Kubernetes worker watch failed", failure);
+        log.warn("Kubernetes worker watch failed", failure);
         if (running.compareAndSet(true, false)) {
             mainThreadExecutor.execute(() -> resourceEventHandler.onError(failure));
         }
@@ -407,7 +369,7 @@ public final class KubernetesResourceManagerDriver
         for (CompletableFuture<KubernetesWorkerNode> future : pending.values()) {
             future.completeExceptionally(new CancellationException("Application is stopping"));
         }
-        // Stop the poll loop before draining creates so a late snapshot cannot fail the shutdown.
+        // Stop the watch before draining creates so a late event cannot fail the shutdown.
         if (workerWatch != null) {
             workerWatch.close();
         }

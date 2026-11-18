@@ -59,7 +59,10 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import io.debezium.connector.postgresql.TypeRegistry;
 import io.debezium.connector.postgresql.connection.Lsn;
+import io.debezium.connector.postgresql.connection.PostgresConnection;
+import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
@@ -71,6 +74,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -1272,6 +1276,75 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                 POSTGRES_CONTAINER.getJdbcUrl(),
                 POSTGRES_CONTAINER.getUsername(),
                 POSTGRES_CONTAINER.getPassword());
+    }
+
+    @Test
+    public void shouldResolveNewTypesUsingPostgresSearchPath() throws SQLException {
+        JdbcConfiguration config =
+                JdbcConfiguration.create()
+                        .withHostname(POSTGRES_CONTAINER.getHost())
+                        .withPort(
+                                POSTGRES_CONTAINER.getMappedPort(
+                                        PostgreSQLContainer.POSTGRESQL_PORT))
+                        .withDatabase(POSTGRES_CONTAINER.getDatabaseName())
+                        .withUser(POSTGRES_CONTAINER.getUsername())
+                        .withPassword(POSTGRES_CONTAINER.getPassword())
+                        .build();
+
+        try (PostgresConnection connection =
+                new PostgresConnection(config, "type-registry-search-path-test")) {
+            // Create the types after priming so get(String) exercises SQL_NAME_LOOKUP.
+            TypeRegistry registry = new TypeRegistry(connection);
+            try (Statement statement = connection.connection().createStatement()) {
+                try {
+                    statement.execute("CREATE SCHEMA type_lookup_a");
+                    statement.execute("CREATE SCHEMA type_lookup_b");
+                    statement.execute("CREATE TYPE type_lookup_b.late_mood AS ENUM ('b')");
+                    statement.execute("CREATE TYPE type_lookup_a.late_mood AS ENUM ('a')");
+                    statement.execute("SET search_path TO type_lookup_a, public");
+                    Assertions.assertEquals(
+                            visibleTypeOid(connection.connection(), "late_mood"),
+                            registry.get("late_mood").getOid());
+
+                    statement.execute("CREATE TYPE type_lookup_a.reverse_mood AS ENUM ('a')");
+                    statement.execute("CREATE TYPE type_lookup_b.reverse_mood AS ENUM ('b')");
+                    statement.execute("SET search_path TO type_lookup_b, type_lookup_a, public");
+                    Assertions.assertEquals(
+                            visibleTypeOid(connection.connection(), "reverse_mood"),
+                            registry.get("reverse_mood").getOid());
+
+                    statement.execute("CREATE TYPE type_lookup_b.hidden_mood AS ENUM ('b')");
+                    statement.execute("CREATE TYPE type_lookup_a.hidden_mood AS ENUM ('a')");
+                    statement.execute("SET search_path TO public");
+                    try (ResultSet resultSet =
+                            statement.executeQuery(
+                                    "SELECT MIN(oid) FROM pg_catalog.pg_type WHERE typname = 'hidden_mood'")) {
+                        Assertions.assertTrue(resultSet.next());
+                        // Keep the old fallback of returning a type even when none is visible.
+                        Assertions.assertEquals(
+                                resultSet.getInt(1), registry.get("hidden_mood").getOid());
+                    }
+
+                    int otherOid =
+                            visibleTypeOid(connection.connection(), "type_lookup_a.reverse_mood");
+                    Assertions.assertEquals(otherOid, registry.get(otherOid).getOid());
+                } finally {
+                    statement.execute("DROP SCHEMA IF EXISTS type_lookup_a CASCADE");
+                    statement.execute("DROP SCHEMA IF EXISTS type_lookup_b CASCADE");
+                }
+            }
+        }
+    }
+
+    private int visibleTypeOid(Connection connection, String name) throws SQLException {
+        try (PreparedStatement statement =
+                connection.prepareStatement("SELECT to_regtype(?)::oid")) {
+            statement.setString(1, name);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                Assertions.assertTrue(resultSet.next());
+                return resultSet.getInt(1);
+            }
+        }
     }
 
     /**

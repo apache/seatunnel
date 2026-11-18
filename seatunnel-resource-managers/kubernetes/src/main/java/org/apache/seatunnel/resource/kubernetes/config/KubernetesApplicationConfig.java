@@ -19,14 +19,13 @@ package org.apache.seatunnel.resource.kubernetes.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionUtil;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -60,8 +59,16 @@ import java.util.stream.Collectors;
  * resolved values and contain no configuration parsing logic.
  */
 @Getter
+@Slf4j
 public final class KubernetesApplicationConfig {
-    private static final Logger LOG = LoggerFactory.getLogger(KubernetesApplicationConfig.class);
+
+    /** Prefixes of options whose keys are dynamic, for example {@code kubernetes.env.<NAME>}. */
+    private static final List<String> DYNAMIC_OPTION_PREFIXES =
+            Arrays.asList(
+                    KubernetesConstants.ENV_PREFIX,
+                    KubernetesConstants.ENV_FROM_PREFIX,
+                    KubernetesConstants.SECRET_DATA_PREFIX,
+                    KubernetesConstants.CONFIG_MAP_PREFIX);
 
     /** Sections of one {@code kubernetes.configmap.<entry>} option. */
     private static final String SECTION_REF = "ref";
@@ -111,6 +118,7 @@ public final class KubernetesApplicationConfig {
     private final List<KubernetesEnvFromReference> envFromReferences;
     private final List<KubernetesConfigMapEntry> configMaps;
     private final int retentionSeconds;
+    private final Long activeDeadlineSeconds;
     private final String checkpointPvc;
     private final Map<String, String> masterLabels;
     private final Map<String, String> workerLabels;
@@ -149,6 +157,7 @@ public final class KubernetesApplicationConfig {
         this.jobConfigFile = resolveJobConfigFile(options, seatunnelHome);
         requireJobConfiguration(specification.getJobConfig(), jobConfigFile);
         Map<String, String> rawOptions = rawOptions(options);
+        validateDeclaredOptions(rawOptions);
         this.applicationSecretRef = optionalNonBlank(options, KubernetesOptions.SECRET_REF);
         this.applicationSecretName = optionalNonBlank(options, KubernetesOptions.SECRET_NAME);
         this.applicationSecretData = secretData(rawOptions);
@@ -157,11 +166,10 @@ public final class KubernetesApplicationConfig {
         this.envFromReferences = envFromReferences(rawOptions);
         this.configMaps = configMaps(rawOptions);
         validateConfigMapMounts();
-        this.retentionSeconds = options.get(KubernetesOptions.RETENTION_SECONDS);
-        if (retentionSeconds < 1) {
-            throw new IllegalArgumentException(
-                    "kubernetes.finished-job-retention-seconds must be positive");
-        }
+        this.retentionSeconds = requirePositive(options, KubernetesOptions.RETENTION_SECONDS);
+        // Unset keeps the Job active until it finishes; setting it bounds startup plus the run.
+        this.activeDeadlineSeconds =
+                optionalPositive(options, KubernetesOptions.ACTIVE_DEADLINE_SECONDS);
         this.checkpointPvc = optionalNonBlank(options, KubernetesOptions.CHECKPOINT_PVC);
         this.masterLabels = labels(options, KubernetesOptions.MASTER_LABELS);
         this.workerLabels = labels(options, KubernetesOptions.WORKER_LABELS);
@@ -218,8 +226,10 @@ public final class KubernetesApplicationConfig {
      * replaces the inline job configuration. By default that is {@code job.conf} inside the mounted
      * application Secret; a ConfigMap key mounted at an absolute path works the same way.
      *
-     * <p>When that file is missing, the inline job configuration is used (the submitter carries it
-     * as a fallback); a submission that carries no inline configuration fails here instead.
+     * <p>Submitters omit the inline job text whenever {@code kubernetes.job-config-file} is set, so
+     * a missing file fails here instead of starting without the job the file was meant to provide.
+     * A specification written by an older submitter still carries the text and falls back to it
+     * with a warning.
      *
      * @param encodedSpecification value of {@link
      *     org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants#SPECIFICATION_ENV}
@@ -243,9 +253,11 @@ public final class KubernetesApplicationConfig {
                         KubernetesOptions.JOB_CONFIG_FILE.key()
                                 + " "
                                 + jobConfigFile
-                                + " does not exist and the submission carried no inline job configuration");
+                                + " does not exist in the Pod and the localized specification carries no"
+                                + " inline job configuration");
             } else {
-                LOG.warn(
+                // Only reachable for specifications written before the inline text was omitted.
+                log.warn(
                         "Configured {} {} does not exist; using the inline job configuration",
                         KubernetesOptions.JOB_CONFIG_FILE.key(),
                         jobConfigFile);
@@ -303,6 +315,10 @@ public final class KubernetesApplicationConfig {
      * <p>The master reads this content from its container environment to recreate the settings it
      * needs when it creates workers. Common fields and the generated job ID come from the
      * specification; the explicit fields below are the Kubernetes settings needed after submission.
+     *
+     * <p>When {@code kubernetes.job-config-file} is configured the inline job text is dropped: the
+     * master reads the mounted file instead, so credentials inside {@code -c} never reach the Job
+     * object.
      */
     public void write(Writer writer) throws IOException {
         Properties properties = SeatunnelApplicationConfig.toProperties(specification);
@@ -316,6 +332,9 @@ public final class KubernetesApplicationConfig {
         properties.setProperty(KubernetesOptions.CHECKPOINT_DIRECTORY.key(), checkpointDirectory);
         properties.setProperty(KubernetesOptions.SECRET_DIRECTORY.key(), secretDirectory);
         if (jobConfigFile != null) {
+            // The master replaces the inline job with the mounted file. Keeping the submitted text
+            // as well would expose it through the Job object for the retention period.
+            properties.remove(SeatunnelApplicationConfig.JOB_CONFIG_KEY);
             properties.setProperty(KubernetesOptions.JOB_CONFIG_FILE.key(), jobConfigFile);
         }
         if (masterHazelcastConfig != null) {
@@ -339,6 +358,11 @@ public final class KubernetesApplicationConfig {
         properties.setProperty(KubernetesOptions.LOG4J_CONFIG_FILE.key(), log4jConfigFile);
         properties.setProperty(
                 KubernetesOptions.RETENTION_SECONDS.key(), Integer.toString(retentionSeconds));
+        if (activeDeadlineSeconds != null) {
+            properties.setProperty(
+                    KubernetesOptions.ACTIVE_DEADLINE_SECONDS.key(),
+                    Long.toString(activeDeadlineSeconds));
+        }
         if (applicationSecretRef != null) {
             properties.setProperty(KubernetesOptions.SECRET_REF.key(), applicationSecretRef);
         }
@@ -724,8 +748,40 @@ public final class KubernetesApplicationConfig {
 
     private static String serializePairs(Map<String, String> pairs) {
         return pairs.entrySet().stream()
-                .map(entry -> entry.getKey() + ":" + entry.getValue())
+                .map(entry -> entry.getKey() + ":" + entry.getValue().replace(",", "\\,"))
                 .collect(Collectors.joining(","));
+    }
+
+    /**
+     * Rejects unknown {@code kubernetes.*} options so a misspelled key fails fast instead of being
+     * dropped silently.
+     *
+     * <p>Keys with dynamic names, such as {@code kubernetes.env.<NAME>} or {@code
+     * kubernetes.configmap.<entry>.data.<key>}, are validated by their own parsers.
+     *
+     * @param options raw deployment options
+     * @throws IllegalArgumentException if an option is neither declared nor dynamic
+     */
+    private static void validateDeclaredOptions(Map<String, String> options) {
+        Set<String> declared = OptionUtil.getDeclaredOptionKeys(KubernetesOptions.class);
+        for (String key : options.keySet()) {
+            if (!key.startsWith(KubernetesConstants.OPTION_PREFIX)
+                    || declared.contains(key)
+                    || startsWithAny(key, DYNAMIC_OPTION_PREFIXES)) {
+                continue;
+            }
+            throw new IllegalArgumentException(
+                    "Unknown Kubernetes option " + key + "; check the option name");
+        }
+    }
+
+    private static boolean startsWithAny(String value, List<String> prefixes) {
+        for (String prefix : prefixes) {
+            if (value.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String requireNonBlank(ReadonlyConfig options, Option<String> option) {
@@ -979,6 +1035,22 @@ public final class KubernetesApplicationConfig {
         return value;
     }
 
+    private static int requirePositive(ReadonlyConfig options, Option<Integer> option) {
+        int value = options.get(option);
+        if (value < 1) {
+            throw new IllegalArgumentException(option.key() + " must be positive");
+        }
+        return value;
+    }
+
+    private static Long optionalPositive(ReadonlyConfig options, Option<Long> option) {
+        Long value = options.get(option);
+        if (value != null && value < 1) {
+            throw new IllegalArgumentException(option.key() + " must be positive");
+        }
+        return value;
+    }
+
     private static List<String> parseList(String value) {
         if (value == null || value.trim().isEmpty()) {
             return Collections.emptyList();
@@ -1011,14 +1083,14 @@ public final class KubernetesApplicationConfig {
             return Collections.emptyMap();
         }
         Map<String, String> result = new LinkedHashMap<>();
-        for (String pair : value.split(",")) {
+        for (String pair : splitPairs(value)) {
             int separator = pair.indexOf(':');
             if (separator <= 0 || separator == pair.length() - 1) {
                 throw new IllegalArgumentException(
                         option.key() + " must contain comma-separated key:value pairs");
             }
             String key = pair.substring(0, separator).trim();
-            String configuredValue = pair.substring(separator + 1).trim();
+            String configuredValue = pair.substring(separator + 1).trim().replace("\\,", ",");
             if (key.isEmpty()
                     || configuredValue.isEmpty()
                     || result.put(key, configuredValue) != null) {
@@ -1027,5 +1099,36 @@ public final class KubernetesApplicationConfig {
             }
         }
         return Collections.unmodifiableMap(result);
+    }
+
+    /**
+     * Splits comma-separated pairs while keeping an escaped comma ({@code \,}) inside one pair.
+     *
+     * @param value configured pairs
+     * @return the raw pairs, with escapes preserved for the value parser
+     */
+    private static List<String> splitPairs(String value) {
+        List<String> pairs = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean escaped = false;
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if (escaped) {
+                current.append('\\').append(character);
+                escaped = false;
+            } else if (character == '\\') {
+                escaped = true;
+            } else if (character == ',') {
+                pairs.add(current.toString());
+                current.setLength(0);
+            } else {
+                current.append(character);
+            }
+        }
+        if (escaped) {
+            current.append('\\');
+        }
+        pairs.add(current.toString());
+        return pairs;
     }
 }

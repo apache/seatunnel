@@ -56,9 +56,12 @@ import ChangeLog from '../changelog/connector-doris.md';
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
 | JSON                                 | STRING                                                                                                                                              |
 | VARIANT                              | STRING                                                                                                                                              |
+| IPV4<br/>IPV6                        | STRING                                                                                                                                              |
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |
+
+`IPV4` 和 `IPV6` 以文本形式读取，例如 `192.168.0.1`、`2001:db8::1`。只有当 Doris 版本在 `information_schema.columns` 中正确报告这两种类型时才能识别（已在 Doris 4.0.6 上验证；Doris 2.1.0 会把这类列报告为 `unknown`）。
 
 ## 源选项
 
@@ -91,7 +94,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 | doris.batch.size                 | int    | no       | 1024       | 每次能够从BE中读取到的最大行数                                                                           |
 | doris.exec.mem.limit             | long   | no       | 2147483648 | 单个be扫描请求可以使用的最大内存。默认内存为2G（2147483648）                                                |
  
-注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。如果不配置 `table_list`，必须在 source 外层配置 `database` 和 `table`。
+注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。如果不配置 `table_list`，必须在 source 外层配置 `database` 和 `table`。`table_list` 中的每个 `database`.`table` 必须唯一，重复配置会在作业提交时被拒绝。
 
 ### 提示
 

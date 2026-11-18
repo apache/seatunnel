@@ -13,7 +13,7 @@ Used to read data from the [Shopify Admin REST API](https://shopify.dev/docs/api
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
@@ -65,7 +65,7 @@ The structure of the data, including field names and field types. For more detai
 
 ### format [String]
 
-the format of upstream data, now only support `json` `text`, default `text`.
+the format of upstream data, supports `json` and `text` (the underlying HTTP source also accepts `binary`), default `text`.
 
 ### params [Map]
 

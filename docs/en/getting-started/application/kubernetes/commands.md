@@ -44,15 +44,23 @@ Application ID: example-9f2c41a0b7d3
 Status: RUNNING
 ```
 
-`--wait` keeps polling until a terminal status is reported; `FAILED`, `CANCELED` and `UNKNOWN` make
-the command exit non-zero, which turns it into a completion gate for schedulers and CI.
+A plain `status` prints the snapshot and exits `0` when the query succeeds, including for `FAILED`
+and `UNKNOWN`; query errors exit non-zero. `--wait` keeps polling until a terminal status or `UNKNOWN`
+is reported. Both `status --wait` and `submit --wait` exit `1` for `FAILED`, `2` for `UNKNOWN`
+(an indeterminate outcome, not a confirmed success or failure), and `0` for `SUCCEEDED` or `CANCELED`.
+See [Status and waiting](../cli.md#status-and-waiting) for the shared exit-code contract.
+`--wait-timeout` bounds that polling and fails with the last observed status when the limit is
+reached, while the default `0` keeps waiting indefinitely; `--wait-interval` sets the poll interval
+(500 ms by default).
 
 ## cancel
 
 `cancel` deletes the owner Job of the application. Owned Pods, Services, Secrets and ConfigMaps are
 garbage-collected through the owner reference; referenced objects created outside SeaTunnel are
-never modified or deleted. After cancellation the application reports `CANCELED`, and a finished
-Job is retained until `kubernetes.finished-job-retention-seconds` expires.
+never modified or deleted. The command reports `Cancellation requested` once the delete is accepted.
+Because the owner Job is removed, a later `status` returns `UNKNOWN`; use `kubectl` to confirm that
+the Pods are gone. If the delete call fails before the Job is removed, retry `cancel` after the API
+outage is resolved.
 
 ## Inspecting in Kubernetes
 

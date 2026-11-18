@@ -33,15 +33,12 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 
@@ -49,50 +46,7 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
     @TempDir private Path jarDirectory;
 
     @Test
-    void testInjectedResolverLoadsLocalJarAndRetainsOriginalIdentity() throws Exception {
-        Path localJar = jarDirectory.resolve("plugin with spaces.jar");
-        createJar(localJar);
-        URL original = new URL("file:/remote-node/connectors/plugin.jar");
-        AtomicInteger resolutions = new AtomicInteger();
-        DefaultClassLoaderService service =
-                new DefaultClassLoaderService(
-                        false,
-                        null,
-                        jars -> {
-                            Assertions.assertEquals(Collections.singletonList(original), jars);
-                            resolutions.incrementAndGet();
-                            return Collections.singletonList(localJar.toUri().toURL());
-                        });
-        try (SeaTunnelChildFirstClassLoader loader =
-                (SeaTunnelChildFirstClassLoader)
-                        service.getClassLoader(7L, Collections.singletonList(original))) {
-            Assertions.assertEquals(localJar.toUri().toURL(), loader.getURLs()[0]);
-            URL marker = loader.getResource("resolver-marker.txt");
-            Assertions.assertNotNull(marker);
-            URLConnection connection = marker.openConnection();
-            // This test-owned connection must not retain a global cached JarFile on Windows.
-            connection.setUseCaches(false);
-            try (InputStream resource = connection.getInputStream()) {
-                Assertions.assertEquals('w', resource.read());
-            }
-            Assertions.assertSame(
-                    loader, service.getClassLoader(7L, Collections.singletonList(original)));
-            Assertions.assertEquals(1, resolutions.get());
-            Assertions.assertTrue(
-                    service.queryClassLoaderById(7L, Collections.singletonList(original))
-                            .isPresent());
-            service.releaseClassLoader(7L, Collections.singletonList(original));
-            Assertions.assertEquals(1, service.queryClassLoaderCount());
-            service.releaseClassLoader(7L, Collections.singletonList(original));
-            Assertions.assertEquals(0, service.queryClassLoaderCount());
-        } finally {
-            service.close();
-        }
-        Files.delete(localJar);
-    }
-
-    @Test
-    void testExistingConstructorKeepsOriginalJarUrl() throws Exception {
+    void testLoadsTheSerializedJarUrl() throws Exception {
         Path jar = jarDirectory.resolve("unchanged.jar");
         createJar(jar);
         URL original = jar.toUri().toURL();
@@ -102,36 +56,6 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
                     (SeaTunnelChildFirstClassLoader)
                             service.getClassLoader(8L, Collections.singletonList(original));
             Assertions.assertEquals(original, loader.getURLs()[0]);
-        } finally {
-            service.close();
-        }
-    }
-
-    @Test
-    void testResolverFailureDoesNotCacheFailedLoader() throws Exception {
-        Path jar = jarDirectory.resolve("retry.jar");
-        createJar(jar);
-        URL original = jar.toUri().toURL();
-        AtomicInteger attempts = new AtomicInteger();
-        DefaultClassLoaderService service =
-                new DefaultClassLoaderService(
-                        false,
-                        null,
-                        jars -> {
-                            if (attempts.getAndIncrement() == 0) {
-                                throw new IOException("artifact unavailable");
-                            }
-                            return jars;
-                        });
-        try {
-            Assertions.assertThrows(
-                    IOException.class,
-                    () -> service.getClassLoader(9L, Collections.singletonList(original)));
-            Assertions.assertEquals(0, service.queryClassLoaderCount());
-            Assertions.assertNotNull(
-                    service.getClassLoader(9L, Collections.singletonList(original)));
-            service.releaseClassLoader(9L, Collections.singletonList(original));
-            Assertions.assertEquals(0, service.queryClassLoaderCount());
         } finally {
             service.close();
         }

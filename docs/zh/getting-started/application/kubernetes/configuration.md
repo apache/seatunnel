@@ -15,12 +15,12 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 | 来源 | 配置内容 | 说明 |
 | --- | --- | --- |
 | 部署文件（`-a`） | `application.*` 和 `kubernetes.*` | 在提交机解析。敏感值写在这里，不要放命令行。 |
-| 命令行覆盖（`-i key=value`） | 任意部署选项 | 同样在提交机解析；命令行参数可能被同机其他用户看到。 |
-| 作业文件（`-c`） | 作业本身 | 可选：也可以用 `kubernetes.job-config-file` 在 application 内挂载作业。原样带到 Master，包含未解析的 `${VAR}` 占位符。 |
+| 命令行覆盖（`-Dkey=value`） | 任意部署选项 | 同样在提交机解析；命令行参数可能被同机其他用户看到。 |
+| 作业文件（`-c`） | 作业本身 | 可选：也可以用 `kubernetes.job-config-file` 在 application 内挂载作业。未配置挂载文件时原样带到 Master，包含未解析的 `${VAR}` 占位符；配置了则只使用挂载文件，内联正文不参与传输。 |
 | Pod 环境 | 作业中的 `${VAR}` | Master 上由 `kubernetes.env`、`kubernetes.env-from.*` 和挂载的 Secret/ConfigMap 文件组成。 |
 
 :::caution
-命令行覆盖（`-i key=value`）可能被提交主机上的其他用户看到。`kubernetes.kubeconfig` 等敏感值请
+命令行覆盖（`-Dkey=value`）可能被提交主机上的其他用户看到。`kubernetes.kubeconfig` 等敏感值请
 写入权限受限的部署文件。
 :::
 
@@ -28,57 +28,59 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 
 ### Kubernetes 选项
 
-| 配置项 | 默认值 | 含义 |
-| --- | --- | --- |
-| `kubernetes.namespace` | `default` | 所有 application 资源所在的已有 Namespace。 |
-| `kubernetes.image` | 必填 | 包含 SeaTunnel、provider 和作业插件的镜像。 |
-| `kubernetes.image-pull-policy` | `IfNotPresent` | `Always`、`IfNotPresent` 或 `Never`。 |
-| `kubernetes.image-pull-secrets` | 空 | 用于拉取私有仓库镜像的已有 Secret 名称，多个名称以逗号分隔。 |
-| `kubernetes.service-account` | `default` | Master 使用的已有 ServiceAccount。 |
-| `kubernetes.seatunnel-home` | `/opt/seatunnel` | 镜像内发行包绝对路径，不能包含 `:`。 |
-| `kubernetes.configmap.<entry>` | 未设置 | ConfigMap 挂载条目：`ref` 引用已有 ConfigMap 并按 `subPath` 挂载声明的 key；`data` 则由 SeaTunnel 创建并持有 ConfigMap。可选 `name` 覆盖默认的 `<application-id>-<entry>`，便于其他配置按名字引用。 |
-| `kubernetes.secret-ref` | 未设置 | 已有 Secret，只读挂载到 `/etc/seatunnel-secrets/application`，永不创建或删除；由它提供作业配置时，把 `kubernetes.job-config-file` 指向 `<secret-directory>/job.conf`。 |
-| `kubernetes.secret.name` | application Job 名称 | SeaTunnel 根据 `kubernetes.secret.data.*` 创建 Secret 时使用的名称。 |
-| `kubernetes.secret.data.<KEY>` | 未设置 | SeaTunnel 创建的 application Secret 键值；该 Secret 由 Job 拥有，取消时自动删除。 |
-| `kubernetes.secret-directory` | `/etc/seatunnel-secrets/application` | application Secret 只读挂载的绝对路径；由它提供作业配置时，把 `kubernetes.job-config-file` 指到该目录下的文件。 |
-| `kubernetes.job-config-file` | 未设置 | 可选的作业配置文件，在解析前替换内联作业配置：`<seatunnel-home>/config` 下的文件名（ConfigMap 友好）或绝对路径（例如 `<secret-directory>/job.conf`）；不设置时使用提交的 `-c` 文件。 |
-| `kubernetes.env.<NAME>` | 未设置 | 每个环境变量一行：字面值、`secret:<name>/<key>` 或 `configmap:<name>/<key>`。 |
-| `kubernetes.env-from.secret` / `kubernetes.env-from.configmap` | 未设置 | 已有 Secret/ConfigMap，其全部 key 注入为环境变量（等价 Kubernetes `envFrom`）。 |
-| `kubernetes.kubeconfig` | SDK 默认 | 提交端本地 kubeconfig；不会分发到 Master。应写入权限受限的部署配置文件，不要通过 `-i` 传递。 |
-| `kubernetes.finished-job-retention-seconds` | `86400` | 完成或失败 Job 的保留秒数，必须为正数。 |
-| `kubernetes.checkpoint-pvc` | 未设置 | 已有 PVC，挂载到 Master 的 `kubernetes.checkpoint-directory`。 |
-| `kubernetes.checkpoint-directory` | `/opt/seatunnel/checkpoints` | checkpoint PVC 在 Master 上的绝对挂载路径。 |
-| `kubernetes.master.hazelcast-config` | 未设置（内置配置） | Master 的 Hazelcast 成员配置：`<seatunnel-home>/config` 下的文件名，或 `.yaml`/`.yml`/`.xml` 绝对路径；不设置时使用内置配置。 |
-| `kubernetes.worker.hazelcast-config` | 未设置（内置配置） | Worker 容器的 Hazelcast 成员配置，写法与 Master 选项一致。 |
-| `kubernetes.master.jvm-options-file` | `jvm_master_options` | Master 的 JVM 参数文件：`<seatunnel-home>/config` 下的文件名或绝对路径，通过 Java `@argfile` 语法生效；设为 `disabled` 表示 Master 不传参数文件。 |
-| `kubernetes.worker.jvm-options-file` | `jvm_worker_options` | Worker 的 JVM 参数文件，取值形式与 Master 相同。 |
-| `kubernetes.jvm-options-file` | `jvm_options` | 公共 JVM 参数文件，先于角色文件应用于 Master 和 Worker；设为 `disabled` 表示不传公共参数文件。 |
-| `kubernetes.log4j-config-file` | `log4j2_client.properties` | 传给 `-Dlog4j2.configurationFile` 的 Log4j2 配置：`<seatunnel-home>/config` 下的文件名或绝对路径。默认保持 console 日志；设为 `log4j2.properties` 使用写文件的服务端配置。 |
-| `kubernetes.seatunnel-config-file` | `config/seatunnel.yaml` | 传给 `-Dseatunnel.config` 的引擎配置文件：相对 `<seatunnel-home>` 的路径或绝对 `.yaml`/`.yml` 路径。 |
-| `kubernetes.master.labels` | 空 | Master Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
-| `kubernetes.worker.labels` | 空 | Worker Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
-| `kubernetes.master.annotations` | 空 | Master Pod annotation，格式为逗号分隔的 `key:value`。 |
-| `kubernetes.worker.annotations` | 空 | Worker Pod annotation，格式为逗号分隔的 `key:value`。 |
-| `kubernetes.master.node-selector` | 空 | Master Pod 的 node selector，格式为逗号分隔的 `key:value`。 |
-| `kubernetes.worker.node-selector` | 空 | Worker Pod 的 node selector，格式为逗号分隔的 `key:value`。 |
-| `kubernetes.master.tolerations` | 空 | Master Pod 的 tolerations，格式为 `;` 分隔的 `key[=value][:Effect]`，例如 `dedicated=seatunnel:NoSchedule`。 |
-| `kubernetes.worker.tolerations` | 空 | Worker Pod 的 tolerations，语法与 master 选项一致。 |
+| 名称 | 类型 | 是否必须 | 默认值 | 描述 |
+| --- | --- | --- | --- | --- |
+| `kubernetes.namespace` | string | no | `default` | 所有 application 资源所在的已有 Namespace。 |
+| `kubernetes.image` | string | yes | - | 包含 SeaTunnel、provider 和作业插件的镜像。 |
+| `kubernetes.image-pull-policy` | enum | no | `IfNotPresent` | `Always`、`IfNotPresent` 或 `Never`。 |
+| `kubernetes.image-pull-secrets` | list | no | - | 用于拉取私有仓库镜像的已有 Secret 名称，多个名称以逗号分隔。 |
+| `kubernetes.service-account` | string | no | `default` | Master 使用的已有 ServiceAccount。 |
+| `kubernetes.seatunnel-home` | string | no | `/opt/seatunnel` | 镜像内发行包绝对路径，不能包含 `:`。 |
+| `kubernetes.configmap.<entry>` | map | no | - | ConfigMap 挂载条目：`ref` 引用已有 ConfigMap 并按 `subPath` 挂载声明的 key；`data` 则由 SeaTunnel 创建并持有 ConfigMap。可选 `name` 覆盖默认的 `<application-id>-<entry>`，便于其他配置按名字引用。 |
+| `kubernetes.secret-ref` | string | no | - | 已有 Secret，只读挂载到 `/etc/seatunnel-secrets/application`，永不创建或删除；由它提供作业配置时，把 `kubernetes.job-config-file` 指向 `<secret-directory>/job.conf`。 |
+| `kubernetes.secret.name` | string | no | application Job 名称 | SeaTunnel 根据 `kubernetes.secret.data.*` 创建 Secret 时使用的名称。 |
+| `kubernetes.secret.data.<KEY>` | map | no | - | SeaTunnel 创建的 application Secret 键值；该 Secret 由 Job 拥有，取消时自动删除。 |
+| `kubernetes.secret-directory` | string | no | `/etc/seatunnel-secrets/application` | application Secret 只读挂载的绝对路径；由它提供作业配置时，把 `kubernetes.job-config-file` 指到该目录下的文件。 |
+| `kubernetes.job-config-file` | string | no | - | 可选的作业配置文件，在解析前替换内联作业配置：`<seatunnel-home>/config` 下的文件名（ConfigMap 友好）或绝对路径（例如 `<secret-directory>/job.conf`）；不设置时使用提交的 `-c` 文件。 |
+| `kubernetes.env.<NAME>` | map | no | - | 每个环境变量一行：字面值、`secret:<name>/<key>` 或 `configmap:<name>/<key>`。 |
+| `kubernetes.env-from.secret` | string | no | - | 已有 Secret，其全部 key 注入为环境变量（等价 Kubernetes `envFrom.secretRef`）。 |
+| `kubernetes.env-from.configmap` | string | no | - | 已有 ConfigMap，其全部 key 注入为环境变量（等价 Kubernetes `envFrom.configMapRef`）。 |
+| `kubernetes.kubeconfig` | string | no | SDK 默认 | 提交端本地 kubeconfig；不会分发到 Master。应写入权限受限的部署配置文件，不要通过 `-D` 传递。 |
+| `kubernetes.finished-job-retention-seconds` | int | no | `86400` | 完成或失败 Job 的保留秒数，必须为正数。 |
+| `kubernetes.active-deadline-seconds` | long | no | - | 整个 application 的绝对超时秒数，从 Job 创建算起，包含 Master 启动。无人值守的批作业建议设置；不设置时 Job 会一直处于 Active，直到作业结束或被取消。 |
+| `kubernetes.checkpoint-pvc` | string | no | - | 已有 PVC，挂载到 Master 的 `kubernetes.checkpoint-directory`。 |
+| `kubernetes.checkpoint-directory` | string | no | `/opt/seatunnel/checkpoints` | checkpoint PVC 在 Master 上的绝对挂载路径。 |
+| `kubernetes.master.hazelcast-config` | string | no | - | Master 的 Hazelcast 成员配置：`<seatunnel-home>/config` 下的文件名，或 `.yaml`/`.yml`/`.xml` 绝对路径；不设置时使用内置配置。 |
+| `kubernetes.worker.hazelcast-config` | string | no | - | Worker 容器的 Hazelcast 成员配置，写法与 Master 选项一致。 |
+| `kubernetes.master.jvm-options-file` | string | no | `jvm_master_options` | Master 的 JVM 参数文件：`<seatunnel-home>/config` 下的文件名或绝对路径，通过 Java `@argfile` 语法生效；设为 `disabled` 表示 Master 不传参数文件。 |
+| `kubernetes.worker.jvm-options-file` | string | no | `jvm_worker_options` | Worker 的 JVM 参数文件，取值形式与 Master 相同。 |
+| `kubernetes.jvm-options-file` | string | no | `jvm_options` | 公共 JVM 参数文件，先于角色文件应用于 Master 和 Worker；设为 `disabled` 表示不传公共参数文件。 |
+| `kubernetes.log4j-config-file` | string | no | `log4j2_client.properties` | 传给 `-Dlog4j2.configurationFile` 的 Log4j2 配置：`<seatunnel-home>/config` 下的文件名或绝对路径。默认保持 console 日志；设为 `log4j2.properties` 使用写文件的服务端配置。 |
+| `kubernetes.seatunnel-config-file` | string | no | `config/seatunnel.yaml` | 传给 `-Dseatunnel.config` 的引擎配置文件：相对 `<seatunnel-home>` 的路径或绝对 `.yaml`/`.yml` 路径。 |
+| `kubernetes.master.labels` | map | no | - | Master Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
+| `kubernetes.worker.labels` | map | no | - | Worker Pod 的附加 label，格式为逗号分隔的 `key:value`；SeaTunnel 所有权 label 为保留项。 |
+| `kubernetes.master.annotations` | map | no | - | Master Pod annotation，格式为逗号分隔的 `key:value`。 |
+| `kubernetes.worker.annotations` | map | no | - | Worker Pod annotation，格式为逗号分隔的 `key:value`。 |
+| `kubernetes.master.node-selector` | map | no | - | Master Pod 的 node selector，格式为逗号分隔的 `key:value`。 |
+| `kubernetes.worker.node-selector` | map | no | - | Worker Pod 的 node selector，格式为逗号分隔的 `key:value`。 |
+| `kubernetes.master.tolerations` | list | no | - | Master Pod 的 tolerations，格式为 `;` 分隔的 `key[=value][:Effect]`，例如 `dedicated=seatunnel:NoSchedule`。 |
+| `kubernetes.worker.tolerations` | list | no | - | Worker Pod 的 tolerations，语法与 master 选项一致。 |
 
 ### Application 选项
 
-| 配置项 | 默认值 | 含义 |
-| --- | --- | --- |
-| `application.name` | `seatunnel` | 唯一 Job 名称的可读前缀。 |
-| `application.job-id` | 自动生成 | 正数原生 Zeta job ID。 |
-| `application.restore-job-id` | 未设置 | 从历史 job ID 的最新有效 checkpoint 恢复。 |
-| `application.worker-count` | `1` | 固定 Worker Pod 数量。 |
-| `application.worker.memory-mb` | `1024` | 每个 Worker 的 memory request 和 limit，单位 MiB。 |
-| `application.worker.cpu-cores` | `1` | 每个 Worker 的 CPU request 和 limit。 |
-| `application.worker.slots` | `2` | 每个 Worker 的固定执行 slot。 |
-| `application.master.memory-mb` | `1024` | Master memory request 和 limit，单位 MiB。 |
-| `application.master.cpu-cores` | `1` | Master CPU request 和 limit。 |
-| `application.master.port` | `5801` | Master Hazelcast TCP 端口。 |
-| `application.startup-timeout-millis` | `120000` | 用于 Master 等待 Worker 创建和注册，以及客户端连接建立；提交本身不等待 Master 启动。 |
+| 名称 | 类型 | 是否必须 | 默认值 | 描述 |
+| --- | --- | --- | --- | --- |
+| `application.name` | string | no | `seatunnel` | 唯一 Job 名称的可读前缀。 |
+| `application.job-id` | long | no | 自动生成 | 正数原生 Zeta job ID。 |
+| `application.restore-job-id` | long | no | - | 从历史 job ID 的最新有效 checkpoint 恢复。 |
+| `application.worker-count` | int | no | `1` | 固定 Worker Pod 数量。 |
+| `application.worker.memory-mb` | int | no | `1024` | 每个 Worker 的 memory request 和 limit，单位 MiB。 |
+| `application.worker.cpu-cores` | int | no | `1` | 每个 Worker 的 CPU request 和 limit。 |
+| `application.worker.slots` | int | no | `2` | 每个 Worker 的固定执行 slot。 |
+| `application.master.memory-mb` | int | no | `1024` | Master memory request 和 limit，单位 MiB。 |
+| `application.master.cpu-cores` | int | no | `1` | Master CPU request 和 limit。 |
+| `application.master.port` | int | no | `5801` | Master Hazelcast TCP 端口。 |
+| `application.startup-timeout-millis` | long | no | `120000` | 用于 Master 等待 Worker 创建和注册，以及客户端连接建立；提交本身不等待 Master 启动。 |
 
 :::note
 每个 Pod 的 JVM 堆使用内存上限的 75%，剩余空间用于堆外内存和 JVM 开销。
@@ -90,9 +92,7 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 事件观察；Master 使用同一超时等待 Worker。
 :::
 
-## 指南
-
-### 镜像与凭据
+## 镜像与凭据
 
 通过 `kubernetes.image-pull-secrets` 引用已有的私有镜像仓库 Secret。
 
@@ -101,7 +101,34 @@ Provider 不创建这类凭据，也不提供任意 Pod template。Connector 引
 下载，必须已经存在于镜像中。
 :::
 
-### 调度
+## 权限
+
+访问 Kubernetes API 的有两个身份。
+
+**Master Pod** 以 `kubernetes.service-account` 运行，需要：
+
+| 资源 | 动词 | 需要时机 |
+| --- | --- | --- |
+| Pod | `create`、`list`、`watch`、`delete`、`deletecollection` | 始终需要；`create`/`delete`/`deletecollection` 管理 Worker Pod，`watch` 用于发现 Worker 丢失 |
+| Job | `get` | 始终需要；读取 owner Job |
+
+**提交身份** 运行 `bin/seatunnel-application.sh`，需要：
+
+| 资源 | 动词 | 需要时机 |
+| --- | --- | --- |
+| Job | `create`、`get`、`patch`、`delete` | 始终需要；`patch` 用于解除 Job 挂起 |
+| Pod | `list`、`deletecollection` | 始终需要；`list` 供 `status` 查询，`deletecollection` 供 `cancel` 清理 |
+| Service | `create`、`delete` | 始终需要；用于选中 Master Pod 的 headless Service |
+| ConfigMap | `get` | `kubernetes.configmap.<entry>.ref`；无权限时校验降级为告警 |
+| ConfigMap | `create`、`delete` | 仅使用创建型条目时（`kubernetes.configmap.<entry>.data`） |
+| Secret | `create`、`delete` | 仅使用 `kubernetes.secret` 时 |
+| Secret | `get` | 仅使用 `kubernetes.secret-ref` 时；无权限时校验降级为告警 |
+
+quick start 的 manifest 只授予示例作业需要的动词；部署用到 ConfigMap 引用或 Secret 时再补上对应的
+`get` 与 Secret 规则，并把提交身份 RoleBinding 的 subjects 换成你的用户、用户组或 CI
+ServiceAccount。
+
+## 调度
 
 用 `kubernetes.master.node-selector` / `kubernetes.worker.node-selector` 指定节点池，配合
 `kubernetes.*.tolerations` 容忍节点池上的 taint。Worker 是 master 运行时创建的，所以 worker 的
@@ -120,18 +147,27 @@ kubernetes {
 effect 只能是 `NoSchedule`、`PreferNoSchedule` 或 `NoExecute`。不配 tolerations 时，Pod 会在带
 taint 的节点池上一直 `Pending`，事件里是 `had untolerated taint`。
 
-### 作业配置
+## 作业配置
 
 `-c job.conf` 在提交机上是**原样读取**并放入本地化配置的，提交端只做一次“允许占位符未解析”的
 解析检查。作业也可以来自 Pod 内的挂载文件，由 `kubernetes.job-config-file` 选择——正是这个选项
 让 `-c` 变成可选；两个来源都没有的提交会在创建任何资源之前被拒绝。
 
+:::caution
+内联作业配置以 Base64 编码保存在 application Job 的 Pod 模板里（只是编码，不是加密），凡是能
+读取该 Namespace 中 Job 或 Pod 的身份都能看到它，包括作业文件里明文写的凭据；暴露时间与 Job
+的保留时间一致（`kubernetes.finished-job-retention-seconds`，默认 24 小时）。建议不要把凭据
+放在内联作业里：用 `kubernetes.job-config-file` 从 Secret 挂载作业文件，或对敏感值启用
+[配置加密](../../../introduction/configuration/config-encryption-decryption.md)，由 Master 在
+运行时解密。
+:::
+
 该选项解析出的是 `<seatunnel-home>/config` 下的文件名，或 Secret/ConfigMap key 挂载的绝对路径。
 作业解析前：
 
 - **未配置该选项（默认）**：使用提交的 `-c` 文件，此时 `-c` 必传。
-- **已配置且文件存在**：用挂载文件替换提交的内容。
-- **已配置但文件不存在**：Master 打印 WARN 回退到 `-c`；没有提交文件时直接失败，而不是无作业启动。
+- **已配置且文件存在**：用挂载文件替换提交的内容，内联 `-c` 正文不会进入 Job 对象。
+- **已配置但文件不存在**：Master 直接失败，而不是无作业启动；只有老版本提交端写出的配置仍会回退到内联正文。
 
 最终文本只在 Master 解析一次，`${VAR}` 在此时结合 Pod 环境解析，所以提交机的值不会被烘进作业。
 
@@ -162,7 +198,7 @@ kubernetes {
 因此由 SeaTunnel 创建的 Secret/ConfigMap data 也可以承载带 Master 端占位符的作业文件。
 :::
 
-### Secret
+## Secret
 
 application Secret 有两种互斥模式。两种模式都会把 Secret 只读挂载到 Master 和 Worker Pod 的
 `kubernetes.secret-directory`（默认 `/etc/seatunnel-secrets/application`）；需要由 Secret 提供
@@ -232,7 +268,7 @@ kubernetes {
 `${VAR}` 注入。
 :::
 
-### ConfigMap 与运行时文件
+## ConfigMap 与运行时文件
 
 每个 `kubernetes.configmap.<entry>` 条目都会在 Master 和 Worker Pod 中按 `subPath` 挂载一个或
 多个文件。每个挂载的 key 都必须在 `mount` 中声明完整的容器内路径，SeaTunnel 不假设任何配置目录。
@@ -350,7 +386,7 @@ application 一起删除；其他选项需要按名字引用它时必须设置 `
 `kubernetes.jvm-options-file` 及角色文件、`kubernetes.log4j-config-file`、
 `kubernetes.job-config-file`。
 
-### 环境变量
+## 环境变量
 
 `kubernetes.env.<NAME>` 每个变量一行，值可以是字面量、Secret key 引用 `secret:<name>/<key>` 或
 ConfigMap key 引用 `configmap:<name>/<key>`；`kubernetes.env-from.secret` /
@@ -373,7 +409,7 @@ kubernetes {
 同名时显式 `env.<NAME>` 优先于 `env-from`；Kubernetes 会跳过 `envFrom` 中不是合法环境变量名的 key。
 :::
 
-### JVM 参数与日志
+## JVM 参数与日志
 
 Application mode 会把发行版的 JVM 参数文件通过 Java `@argfile` 语法传给 JVM：先加载公共的
 `jvm_options`，Master 容器再加载 `jvm_master_options`，Worker 容器再加载 `jvm_worker_options`。
@@ -415,7 +451,7 @@ application {
 
 kubernetes {
   namespace = seatunnel
-  image = "registry.example.com/seatunnel/application:3.0.1"
+  image = "registry.example.com/seatunnel/application:3.1.0"
   image-pull-policy = IfNotPresent
   service-account = seatunnel-application
   job-config-file = job.conf

@@ -22,11 +22,11 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
-import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
@@ -111,7 +111,6 @@ public class SeaTunnelServer
     @Getter private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
 
     @Getter private final SeaTunnelConfig seaTunnelConfig;
-    private final JarPathResolver jarPathResolver;
     @Getter private final ResourceManagerFactory resourceManagerFactory;
 
     private volatile boolean isRunning = true;
@@ -119,37 +118,19 @@ public class SeaTunnelServer
     @Getter private EventService eventService;
 
     /**
-     * Constructs an uninitialized server using unchanged jar identities for class loading.
+     * Constructs an uninitialized server.
      *
      * @param seaTunnelConfig Engine and cluster configuration retained for initialization
      */
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
-        this(seaTunnelConfig, JarPathResolver.identity(), new ResourceManagerFactory());
-    }
-
-    /**
-     * Constructs an uninitialized server with a resolver for its node-local task jars.
-     *
-     * <p>Hazelcast owns server initialization and shutdown. The resolver is retained and passed to
-     * the classloader service during initialization; its resource ownership remains with the
-     * caller.
-     *
-     * @param seaTunnelConfig Engine and cluster configuration retained for initialization
-     * @param jarPathResolver stable resolver used by this server's classloader service
-     * @throws NullPointerException if either argument is null
-     */
-    public SeaTunnelServer(
-            @NonNull SeaTunnelConfig seaTunnelConfig, @NonNull JarPathResolver jarPathResolver) {
-        this(seaTunnelConfig, jarPathResolver, new ResourceManagerFactory());
+        this(seaTunnelConfig, new ResourceManagerFactory());
     }
 
     public SeaTunnelServer(
             @NonNull SeaTunnelConfig seaTunnelConfig,
-            @NonNull JarPathResolver jarPathResolver,
             @NonNull ResourceManagerFactory resourceManagerFactory) {
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
-        this.jarPathResolver = jarPathResolver;
         this.resourceManagerFactory = resourceManagerFactory;
     }
 
@@ -192,9 +173,7 @@ public class SeaTunnelServer
 
         classLoaderService =
                 new DefaultClassLoaderService(
-                        seaTunnelConfig.getEngineConfig().isClassloaderCacheMode(),
-                        nodeEngine,
-                        jarPathResolver);
+                        seaTunnelConfig.getEngineConfig().isClassloaderCacheMode(), nodeEngine);
 
         eventService = new EventService(nodeEngine);
 
@@ -237,7 +216,27 @@ public class SeaTunnelServer
     private void startMaster() {
         checkpointService =
                 new CheckpointService(seaTunnelConfig.getEngineConfig().getCheckpointConfig());
-        checkpointMonitorService = new CheckpointMonitorService(engineContext, 32);
+        int monitorHistorySize =
+                seaTunnelConfig.getEngineConfig().getCheckpointConfig().getMonitorHistorySize();
+        if (monitorHistorySize
+                > ServerConfigOptions.MasterServerConfigOptions
+                        .CHECKPOINT_MONITOR_HISTORY_SIZE_WARN_THRESHOLD) {
+            // Legal but worth saying out loud: every checkpoint event rewrites
+            // the whole checkpoint overview entry in the IMap, so a large
+            // window is paid on every trigger and acknowledgement rather than
+            // once. Logged here, at the only place the value is read, so the
+            // line appears in the master log next to the rest of startup.
+            log.warn(
+                    "seatunnel.engine.checkpoint.monitor-history-size is set to {}, above the "
+                            + "recommended {}. The checkpoint overview is rewritten in full on "
+                            + "every checkpoint event, so a window this large costs master CPU, "
+                            + "network and backup traffic proportional to history size x running "
+                            + "pipelines. Lower it unless you need that much history.",
+                    monitorHistorySize,
+                    ServerConfigOptions.MasterServerConfigOptions
+                            .CHECKPOINT_MONITOR_HISTORY_SIZE_WARN_THRESHOLD);
+        }
+        checkpointMonitorService = new CheckpointMonitorService(engineContext, monitorHistorySize);
         monitorService = Executors.newSingleThreadScheduledExecutor();
         coordinatorService =
                 new CoordinatorService(
@@ -372,9 +371,12 @@ public class SeaTunnelServer
     public CoordinatorService awaitCoordinatorService(long timeoutMillis)
             throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
-        while (!isCoordinatorActive()) {
+        while (true) {
             if (!isMasterNode()) {
                 throw new SeaTunnelEngineException("This is not a master node now.");
+            }
+            if (isCoordinatorActive()) {
+                return coordinatorService;
             }
             if (System.nanoTime() >= deadline) {
                 throw new SeaTunnelEngineRetryableException(
@@ -382,7 +384,6 @@ public class SeaTunnelServer
             }
             Thread.sleep(COORDINATOR_ACTIVATION_POLL_MILLIS);
         }
-        return coordinatorService;
     }
 
     synchronized void startRealtimeMetricsService(CoordinatorService activeCoordinatorService) {

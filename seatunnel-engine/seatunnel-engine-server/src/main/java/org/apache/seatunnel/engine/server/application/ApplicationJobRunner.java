@@ -33,6 +33,8 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -41,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /** Runs one application job on an existing master, independently of the resource platform. */
+@Slf4j
 public final class ApplicationJobRunner {
 
     private final SeaTunnelServer server;
@@ -71,7 +74,7 @@ public final class ApplicationJobRunner {
         CompletableFuture<Void> cancellation = new CompletableFuture<>();
         CompletableFuture<JobResult> execution = null;
         JobResult result = null;
-        Exception failure = null;
+        Throwable failure = null;
         try {
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(specification.getName());
@@ -96,7 +99,7 @@ public final class ApplicationJobRunner {
             result =
                     (JobResult)
                             CompletableFuture.anyOf(execution, resources.getFailureFuture()).get();
-        } catch (Exception e) {
+        } catch (Throwable e) {
             failure = e;
         } finally {
             boolean interrupted = Thread.interrupted() || failure instanceof InterruptedException;
@@ -124,15 +127,17 @@ public final class ApplicationJobRunner {
 
     /**
      * Releases workers, publishes the application outcome and closes the driver, in that order.
-     * Cleanup failures are retained on the original execution failure and turn success into
-     * failure. The master must remain alive until this method returns so late allocations can be
-     * drained.
+     * Cleanup failures are retained on the original execution failure; when the native job already
+     * finished, the application stays successful and the cleanup failure is only logged, because
+     * workers are job-owned and exit with the master while a failed status would make orchestrators
+     * re-run a committed job. The master must remain alive until this method returns so late
+     * allocations can be drained. A JVM {@link Error} is rethrown as-is instead of being replaced
+     * by a synthetic failure, so the original diagnosis survives the cleanup.
      */
     private void completed(
-            ApplicationResourceManager<?> resources, JobResult result, Exception executionFailure)
+            ApplicationResourceManager<?> resources, JobResult result, Throwable executionFailure)
             throws Exception {
-        Exception outcome =
-                executionFailure == null ? null : ExceptionUtils.unwrap(executionFailure);
+        Throwable outcome = ExceptionUtils.unwrap(executionFailure);
         ApplicationStatus status = determineStatus(result, outcome);
 
         if (outcome == null && status != ApplicationStatus.SUCCEEDED) {
@@ -151,8 +156,16 @@ public final class ApplicationJobRunner {
                     60,
                     "stop application workers");
         } catch (Exception failure) {
-            outcome = ExceptionUtils.collect(outcome, ExceptionUtils.unwrap(failure));
-            status = ApplicationStatus.FAILED;
+            Exception cleanupFailure = ExceptionUtils.unwrap(failure);
+            if (status == ApplicationStatus.SUCCEEDED) {
+                log.warn(
+                        "Application {} finished but worker cleanup failed",
+                        resources.getApplicationId(),
+                        cleanupFailure);
+            } else {
+                outcome = ExceptionUtils.collect(outcome, cleanupFailure);
+                status = ApplicationStatus.FAILED;
+            }
         }
 
         String diagnostics = outcome == null ? "" : outcome.toString();
@@ -178,8 +191,14 @@ public final class ApplicationJobRunner {
             outcome = ExceptionUtils.collect(outcome, ExceptionUtils.unwrap(failure));
         }
 
+        if (outcome instanceof Error) {
+            throw (Error) outcome;
+        }
+        if (outcome instanceof Exception) {
+            throw (Exception) outcome;
+        }
         if (outcome != null) {
-            throw outcome;
+            throw new IllegalStateException(outcome);
         }
     }
 
@@ -207,7 +226,7 @@ public final class ApplicationJobRunner {
         }
     }
 
-    private ApplicationStatus determineStatus(JobResult result, Exception outcome) {
+    private ApplicationStatus determineStatus(JobResult result, Throwable outcome) {
         if (outcome == null && result != null) {
             return applicationStatus(result.getStatus());
         }

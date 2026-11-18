@@ -73,6 +73,9 @@ node/
 dist/
 
 seatunnel-engine/seatunnel-engine-server/**/ui/*
+# The engine server module keeps a placeholder UI in its test resources, so that unit tests can
+# exercise the Jetty wiring that only exists when the packaged Web UI is on the classpath.
+!seatunnel-engine/seatunnel-engine-server/src/test/resources/ui/index.html
 
 seatunnel-edge-agent/**/edge-agent.id
 seatunnel-edge-agent/**/tmp/

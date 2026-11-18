@@ -12,7 +12,15 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## Description
 
-Used to write data to RabbitMQ queues.
+The RabbitMQ sink connector publishes each upstream row as a message to a RabbitMQ
+queue, exchange, or routing key. By default messages are sent directly to the named
+`queue_name` via the default exchange; when `routing_key` (and optionally `exchange`) is
+configured, the connector routes the message through the specified exchange instead.
+
+The sink declares the target queue if it does not already exist, applying the
+`durable`, `exclusive`, and `auto_delete` arguments, and reconnects on broker failures
+using the standard AMQP recovery options (`network_recovery_interval`,
+`topology_recovery_enabled`, `AUTOMATIC_RECOVERY_ENABLED`).
 
 ## Key features
 
@@ -21,58 +29,58 @@ Used to write data to RabbitMQ queues.
 
 ## Options
 
-|            name            |  type   | required | default value |
-|----------------------------|---------|----------|---------------|
-| host                       | string  | yes      | -             |
-| port                       | int     | yes      | -             |
-| virtual_host               | string  | yes      | -             |
-| username                   | string  | no       | -             |
-| password                   | string  | no       | -             |
-| queue_name                 | string  | yes      | -             |
-| format                     | string  | no       | json          |
-| protobuf_schema            | string  | no       | -             |
-| protobuf_message_name      | string  | no       | -             |
-| url                        | string  | no       | -             |
-| uri                        | string  | no       | -             |
-| ssl                        | boolean | no       | false         |
-| routing_key                | string  | no       | -             |
-| exchange                   | string  | no       | -             |
-| network_recovery_interval  | int     | no       | -             |
-| topology_recovery_enabled  | boolean | no       | -             |
-| AUTOMATIC_RECOVERY_ENABLED | boolean | no       | -             |
-| connection_timeout         | int     | no       | -             |
-| rabbitmq.config            | map     | no       | -             |
-| common-options             |         | no       | -             |
-| durable                    | boolean | no       | true          |
-| exclusive                  | boolean | no       | false         |
-| auto_delete                | boolean | no       | false         |
-| passive                    | boolean | no       | false         |
+|            name            |  type   | required | default value | description                                                                                                                  |
+|----------------------------|---------|----------|---------------|------------------------------------------------------------------------------------------------------------------------------|
+| host                       | string  | yes      | -             | The default host to use for connections.                                                                                    |
+| port                       | int     | yes      | -             | The default port to use for connections.                                                                                    |
+| virtual_host               | string  | yes      | -             | Virtual host to use when connecting to the broker.                                                                          |
+| username                   | string  | no       | -             | The AMQP user name to use when connecting to the broker.                                                                    |
+| password                   | string  | no       | -             | The password to use when connecting to the broker. Must be configured together with `username`.                              |
+| queue_name                 | string  | yes      | -             | The queue to write the message to. If `routing_key` is not configured, the connector publishes to this queue through the default exchange. |
+| url                        | string  | no       | -             | Convenience method for setting host, port, username, password and virtual host in an AMQP URI.                              |
+| routing_key                | string  | no       | -             | Routing key used to publish messages. Configure together with `exchange` to publish through a specific exchange.              |
+| exchange                   | string  | no       | -             | Exchange used when `routing_key` is configured.                                                                             |
+| network_recovery_interval  | int     | no       | -             | How long automatic recovery waits before attempting to reconnect, in milliseconds.                                          |
+| topology_recovery_enabled  | boolean | no       | -             | Whether to enable topology recovery.                                                                                        |
+| AUTOMATIC_RECOVERY_ENABLED | boolean | no       | -             | Whether to enable connection recovery. The option key is currently uppercase in the connector configuration.                |
+| connection_timeout         | int     | no       | -             | TCP connection establishment timeout, in milliseconds; `0` means infinite.                                                  |
+| rabbitmq.config            | map     | no       | -             | Extra RabbitMQ client parameters. See the [official RabbitMQ documentation](https://www.rabbitmq.com/configure.html).        |
+| common-options             |         | no       | -             | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md).                         |
+| durable                    | boolean | no       | true          | Whether the queue survives a server restart. Used when the connector declares the target queue.                             |
+| exclusive                  | boolean | no       | false         | Whether the queue is used only by the current connection and is deleted when the connection closes.                         |
+| auto_delete                | boolean | no       | false         | Whether the queue is deleted automatically when the last consumer unsubscribes.                                             |
+| format | string | no | json | The message payload format: `json` or `protobuf`. |
+| protobuf_schema | string | no | - | Protobuf schema used when `format` is `protobuf`. |
+| protobuf_message_name | string | no | - | Protobuf message name used when `format` is `protobuf`. |
+| uri | string | no | - | Legacy alias for `url`; configure only one. |
+| ssl | boolean | no | false | Enable SSL/TLS for host-and-port connections. |
+| passive | boolean | no | false | Check that the configured queue exists without declaring it. |
 
 ### host [string]
 
-the default host to use for connections
+The default host to use for connections.
 
 ### port [int]
 
-the default port to use for connections
+The default port to use for connections.
 
 ### virtual_host [string]
 
-virtual host – the virtual host to use when connecting to the broker
+Virtual host – the virtual host to use when connecting to the broker.
 
 ### username [string]
 
-the AMQP user name to use when connecting to the broker
+The AMQP user name to use when connecting to the broker.
 
 ### password [string]
 
-the password to use when connecting to the broker
+The password to use when connecting to the broker.
 
 `username` and `password` should be configured together.
 
 ### url [string]
 
-convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host
+Convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host.
 
 ### uri [string]
 
@@ -110,44 +118,46 @@ The exchange used when `routing_key` is configured.
 
 ### network_recovery_interval [int]
 
-how long will automatic recovery wait before attempting to reconnect, in ms
+How long automatic recovery waits before attempting to reconnect, in milliseconds.
 
 ### topology_recovery_enabled [boolean]
 
-if true, enables topology recovery
+If `true`, enables topology recovery.
 
 ### AUTOMATIC_RECOVERY_ENABLED [boolean]
 
-If true, enables connection recovery.
+If `true`, enables connection recovery.
 
 The option key is currently uppercase in the connector configuration. Use `AUTOMATIC_RECOVERY_ENABLED`, not `automatic_recovery_enabled`.
 
 ### connection_timeout [int]
 
-connection TCP establishment timeout in milliseconds; zero for infinite
+TCP connection establishment timeout in milliseconds; `0` means infinite.
 
 ### rabbitmq.config [map]
 
 In addition to the above parameters that must be specified by the RabbitMQ client, the user can also specify multiple non-mandatory parameters for the client, covering [all the parameters specified in the official RabbitMQ document](https://www.rabbitmq.com/configure.html).
 
+Note: the sink currently parses this option but does not apply its entries to the RabbitMQ client. To tune connection behavior, use the dedicated options above such as `connection_timeout`, `network_recovery_interval`, `AUTOMATIC_RECOVERY_ENABLED`, and `topology_recovery_enabled`.
+
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
+Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md) for details.
 
 ### durable
 
-- true: The queue will survive on server restart.
-- false: The queue will be deleted on server restart.
+- `true`: The queue will survive on server restart.
+- `false`: The queue will be deleted on server restart.
 
 ### exclusive
 
-- true: The queue is used only by the current connection and will be deleted when the connection closes.
-- false: The queue can be used by multiple connections.
+- `true`: The queue is used only by the current connection and will be deleted when the connection closes.
+- `false`: The queue can be used by multiple connections.
 
 ### auto_delete
 
-- true: The queue will be deleted automatically when the last consumer unsubscribes.
-- false: The queue will not be automatically deleted.
+- `true`: The queue will be deleted automatically when the last consumer unsubscribes.
+- `false`: The queue will not be automatically deleted.
 
 ### passive
 
@@ -194,10 +204,6 @@ sink {
           username = "guest"
           password = "guest"
           queue_name = "test1"
-          rabbitmq.config = {
-            requested-heartbeat = 10
-            connection-timeout = 10
-          }
       }
 }
 ```
@@ -235,10 +241,6 @@ sink {
           durable = true
           exclusive = false
           auto_delete = false
-          rabbitmq.config = {
-            requested-heartbeat = 10
-            connection-timeout = 10
-          }
       }
 }
 ```
@@ -273,7 +275,7 @@ Yes. The sink publishes messages to RabbitMQ by binding to the target queue or r
 
 ### How does RabbitMQ sink handle network reconnects and timeouts?
 
-You can tune client connection resilience using the `rabbitmq.config` block (such as `connection-timeout`, `requested-heartbeat`, and retry intervals) to prevent premature disconnection during transient network blips.
+Use the dedicated options to tune client connection resilience: `AUTOMATIC_RECOVERY_ENABLED` enables automatic connection recovery, `network_recovery_interval` sets how long recovery waits before reconnecting (in ms), `topology_recovery_enabled` enables topology recovery, and `connection_timeout` bounds the TCP connection establishment time (in ms). The `rabbitmq.config` block is accepted for backward compatibility, but its entries are currently not applied by the sink.
 
 ## Changelog
 

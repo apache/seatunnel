@@ -49,21 +49,24 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 |                                                          Mysql 数据类型                                                          |                                                                 SeaTunnel 数据类型                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
-| TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
+| BIT(1)                                                                                                                            | BOOLEAN                                                                                                                                             |
+| TINYINT                                                                                                                           | TINYINT                                                                                                                                             |
+| TINYINT UNSIGNED<br/>SMALLINT                                                                                                     | SMALLINT                                                                                                                                            |
+| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR                                               | INT                                                                                                                                                 |
 | INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                                                      | BIGINT                                                                                                                                              |
 | BIGINT UNSIGNED                                                                                                                   | DECIMAL(20,0)                                                                                                                                       |
 | DECIMAL(x,y)(获取指定列的列大小<38)                                                               | DECIMAL(x,y)                                                                                                                                        |
 | DECIMAL(x,y)(获取指定列的列大小>38)                                                               | DECIMAL(38,18)                                                                                                                                      |
-| DECIMAL UNSIGNED                                                                                                                  | DECIMAL((DECIMAL((获取指定列的列大小)+1,<br/>(获取指定列的小数点右侧的位数))) |
+| DECIMAL UNSIGNED                                                                                                                  | DECIMAL((获取指定列的列大小)+1,<br/>(获取指定列的小数点右侧的位数)))                                              |
 | FLOAT<br/>FLOAT UNSIGNED                                                                                                          | FLOAT                                                                                                                                               |
 | DOUBLE<br/>DOUBLE UNSIGNED                                                                                                        | DOUBLE                                                                                                                                              |
 | CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON                                                       | STRING                                                                                                                                              |
 | DATE                                                                                                                              | DATE                                                                                                                                                |
 | TIME                                                                                                                              | TIME                                                                                                                                                |
-| DATETIME<br/>TIMESTAMP                                                                                                            | TIMESTAMP                                                                                                                                           |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
-| GEOMETRY<br/>UNKNOWN                                                                                                              | Not supported yet                                                                                                                                   |
+| DATETIME                                                                                                                          | TIMESTAMP                                                                                                                                           |
+| TIMESTAMP                                                                                                                         | TIMESTAMP_TZ                                                                                                                                        |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)<br/>GEOMETRY                                    | BYTES                                                                                                                                               |
+| UNKNOWN                                                                                                                           | Not supported yet                                                                                                                                   |
 
 ## Sink 参数
 
@@ -98,7 +101,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 提示
 
->如果未设置partition_column，它将以单并发运行，如果设置了partition_column，它将根据任务的并发性并行执行。
+> Sink 的写入并发度由作业或管道的并行度决定。`partition_column` 是 JDBC Source
+> 用于拆分读取的选项，不控制 Sink 的写入分配。
 
 ## 任务示例
 
@@ -235,7 +239,7 @@ transform {
 }
 
 sink {
-  Mysql {
+  jdbc {
     url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
     driver = "com.mysql.cj.jdbc.Driver"
     username = "root"
@@ -279,7 +283,7 @@ transform {
 }
 
 sink {
-  Mysql {
+  jdbc {
     url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
     driver = "com.mysql.cj.jdbc.Driver"
     username = "root"

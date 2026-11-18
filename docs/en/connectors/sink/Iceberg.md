@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 
 ## Support Iceberg Version
 
-- 1.6.1
+- 1.10.2, writing tables of format version 1, 2 and 3
 
 ## Support Those Engines
 
@@ -46,6 +46,8 @@ libfb303-xxx.jar
 | SeaTunnel Data type | Iceberg Data type |
 |---------------------|-------------------|
 | BOOLEAN             | BOOLEAN           |
+| TINYINT             | INTEGER           |
+| SMALLINT            | INTEGER           |
 | INT                 | INTEGER           |
 | BIGINT              | LONG              |
 | FLOAT               | FLOAT             |
@@ -53,12 +55,17 @@ libfb303-xxx.jar
 | DATE                | DATE              |
 | TIME                | TIME              |
 | TIMESTAMP           | TIMESTAMP         |
+| TIMESTAMP_TZ        | TIMESTAMPTZ       |
 | STRING              | STRING            |
 | BYTES               | FIXED<br/>BINARY  |
 | DECIMAL             | DECIMAL           |
 | ROW                 | STRUCT            |
 | ARRAY               | LIST              |
 | MAP                 | MAP               |
+
+When the sink creates a table with `format-version = 3`, `TIMESTAMP` and `TIMESTAMP_TZ` columns with nanosecond precision (column scale 9, for example an Iceberg `timestamp_ns` column read by the Iceberg source) are created as `TIMESTAMP_NS` and `TIMESTAMPTZ_NS`. These types only hold values from the year 1677 to 2262; a value outside that range fails the write. Other scales, nested fields, columns added by schema evolution and tables of format version 1 and 2 keep microsecond timestamps. On the Spark engine, rows carry `TIMESTAMP` values in microseconds and `TIMESTAMP_TZ` values in milliseconds, so the extra precision is already cut before it reaches the sink.
+
+Writing into an existing format version 3 table also accepts `TIMESTAMP_NS` and `TIMESTAMPTZ_NS` columns. `UNKNOWN` columns only accept null values. `VARIANT` columns are not supported yet: leave them out of the written rows, which works for Parquet data files only. Tables with `GEOMETRY` or `GEOGRAPHY` columns cannot be written yet.
 
 ## Sink Options
 
@@ -82,11 +89,24 @@ libfb303-xxx.jar
 | custom_sql                             | string  | Required when `data_save_mode` is `CUSTOM_PROCESSING` | -                            | Custom `delete` SQL for `CUSTOM_PROCESSING` data save mode, for example `delete from ... where ...`.                                                                                                                                                                                                                     |
 | iceberg.table.commit-branch            | string  | no       | -                            | Default branch for commits                                                                                                                                                                                                                                                                                                |
 | multi_table_sink_replica               | int     | no       | 1                            | Replica number for every table writer in multi-table sink mode. Use this when one upstream job writes to multiple Iceberg tables and each table needs more than one sink writer.                                                                                                                                           |
+| flush_row_size                         | long    | no       | -                            | Rotate a sink writer after it has handled this many rows, instead of keeping it open until the next checkpoint. Bounds the writer memory of large upsert and CDC loads. Must be greater than 0. Please refer to `flush_row_size` below.                                                                     |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | The path of `krb5.conf`, used for Kerberos authentication.                                                                                                                                                                                                                                                                |
 | kerberos_principal                     | string  | no       | -                            | The principal for Kerberos authentication.                                                                                                                                                                                                                                                                               |
 | kerberos_keytab_path                   | string  | no       | -                            | The keytab file path for Kerberos authentication.                                                                                                                                                                                                                                                                         |
 
 ## Sink Option descriptions
+
+### iceberg.table.auto-create-props [map]
+
+Table properties used when the sink creates the table. Set `format-version` to choose the Iceberg table format version; supported values are `1`, `2` and `3`, and Iceberg creates format version 2 tables when it is not set. Any other value fails the job before the table is created. The property only applies to tables the sink creates: an existing table keeps its format version, upgrade it with your Iceberg engine, for example `ALTER TABLE ... SET TBLPROPERTIES ('format-version' = '3')` in Spark.
+
+```hocon
+iceberg.table.auto-create-props = {
+  "format-version" = "3"
+}
+```
+
+Format version 3 tables support append writes. Upsert and CDC writes are rejected with error `ICEBERG-04` before any data is written, because the sink writes position delete files, which format version 3 replaces with deletion vectors. This covers `iceberg.table.primary-keys`, `iceberg.table.upsert-mode-enabled` and existing tables with identifier fields, and also creating a format version 3 table for a source table with a primary key, which would otherwise become the identifier fields. Use a format version 2 table for upsert and CDC pipelines.
 
 ### iceberg.table.upsert-mode-enabled [boolean]
 
@@ -99,6 +119,27 @@ Use a comma-separated list, for example `dt,region` or Iceberg transforms such a
 ### iceberg.table.commit-branch [string]
 
 Write commits to the specified Iceberg branch. Leave it empty to commit to the table's default branch.
+
+### flush_row_size [long]
+
+By default a sink writer keeps its task writer open until the next checkpoint. With a primary key (`iceberg.table.primary-keys`, upsert mode or a CDC source), the task writer remembers every key it has written so that a later change of the same row can be written as a position delete, and only frees them when it is completed. A large batch load with a long checkpoint interval, or a batch job that only checkpoints at the end, can therefore run out of memory.
+
+Set `flush_row_size` to complete the task writer after it has handled this many rows and start a new one. This closes the current files early and releases the remembered keys, so the writer memory no longer grows with the number of rows per checkpoint. When it is not set, the writer is only rotated at checkpoints, as before.
+
+Equality deletes written after a rotation must apply to rows written before it, which Iceberg only does for files committed in an earlier snapshot. So when a checkpoint contains equality deletes written after a rotation, it is committed as several snapshots in the order the task writers were completed, instead of one. Readers can see these snapshots one by one; each of them holds a prefix of the changes of the checkpoint. Resuming a partly committed split checkpoint is only supported on Zeta, where a job restored from that checkpoint commits only the snapshots that are missing. The Flink translation layers do not call this restore path, which also affects checkpoints that are not split. Flink 1.13 and 1.15 discard recovered global committables, so the missing snapshots in them are not committed and the checkpoint can stay partly published. Flink 1.20 passes recovered commits to the normal commit path, which does not skip snapshots already in the table and can commit their files again. Run upsert and CDC jobs that can split checkpoints, through `flush_row_size` or through schema changes with `iceberg.table.schema-evolution-enabled`, on Zeta. This is not checked when the job starts. Append-only writes are still committed as one snapshot per checkpoint. The snapshots of one checkpoint are committed one after another before the checkpoint completes, so a very small value also makes checkpoints take longer.
+
+Smaller values use less memory but produce more and smaller files. A rotation completes the files of all open partitions of a partitioned table, not only of the current one. In upsert mode every row writes an equality delete, so every rotation becomes its own snapshot: a checkpoint is committed as about (rows per writer in the checkpoint / `flush_row_size`) snapshots. CDC writes split a checkpoint at each rotation that is followed by updates or deletes. Too small a value can therefore bloat the table metadata and slow down planning; keep it large, for example a few hundred thousand to a few million rows, and expire old snapshots regularly.
+
+```hocon
+sink {
+  Iceberg {
+    ...
+    iceberg.table.primary-keys = "id"
+    iceberg.table.upsert-mode-enabled = true
+    flush_row_size = 1000000
+  }
+}
+```
 
 ### custom_sql [string]
 

@@ -48,9 +48,12 @@ The current source runs a bounded SQL query. It is suitable for batch reads and 
 | FLOAT           | FLOAT               |
 | DOUBLE          | DOUBLE              |
 | TEXT            | STRING              |
-| STRING          | STRING              |
 | time column     | BIGINT              |
 | time column     | TIMESTAMP           |
+
+The source is built on the IoTDB `0.13.x` session client, which only knows the data types listed
+above. Columns that use the `STRING`, `BLOB`, `DATE` or `TIMESTAMP` data types introduced in
+IoTDB 1.3 are not supported; store string values as `TEXT` if they need to be read by this source.
 
 ## Source Options
 
@@ -276,7 +279,7 @@ The data format loaded to SeaTunnelRow is as follows:
 
 The split rule is:
 
-- If `num_partitions = 1`, the entire range `[lower_bound, upper_bound)` is used as a single partition.
+- If `num_partitions = 1`, the entire range `[lower_bound, upper_bound]` is used as a single partition.
 - Otherwise the range is divided into `num_partitions` equal slices. If `upper_bound - lower_bound < num_partitions`, the connector falls back to `upper_bound - lower_bound` partitions.
 
 For example, with `lower_bound = 1`, `upper_bound = 10`, and `num_partitions = 2` against the SQL `select * from test where age > 0 and age < 10`, the connector generates:

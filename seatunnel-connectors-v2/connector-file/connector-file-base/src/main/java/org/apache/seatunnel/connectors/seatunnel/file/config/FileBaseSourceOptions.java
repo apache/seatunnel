@@ -97,6 +97,14 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .defaultValue(0L)
                     .withDescription("The number of rows to skip");
 
+    public static final Option<Boolean> EXCEL_USE_HEADER_LINE =
+            Options.key("excel_use_header_line")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Use the first Excel row as column headers for name-based mapping. "
+                                    + "Only used when file_format_type is excel.");
+
     public static final Option<List<String>> READ_PARTITIONS =
             Options.key("read_partitions")
                     .listType()

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
@@ -25,9 +27,6 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesR
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.kubernetes.client.custom.V1Patch;
 import io.kubernetes.client.openapi.ApiClient;
@@ -39,16 +38,11 @@ import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1Service;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
 
 /**
  * Namespace-scoped SDK connection shared by submission, status and resource management.
@@ -57,16 +51,22 @@ import java.util.function.Consumer;
  * deployer or driver that opens this connection owns its lifetime and must close it after pending
  * requests and resource cleanup complete.
  */
+@Slf4j
 final class DefaultKubernetesClient implements KubernetesClient {
-    private static final Logger LOG = LoggerFactory.getLogger(DefaultKubernetesClient.class);
 
     private final ApiClient client;
+    private final ApiClient watchClient;
     private final CoreV1Api core;
     private final BatchV1Api batch;
     private final String namespace;
 
     DefaultKubernetesClient(ApiClient client, String namespace) {
+        this(client, client, namespace);
+    }
+
+    DefaultKubernetesClient(ApiClient client, ApiClient watchClient, String namespace) {
         this.client = client;
+        this.watchClient = watchClient;
         this.namespace = namespace;
         this.core = new CoreV1Api(client);
         this.batch = new BatchV1Api(client);
@@ -76,6 +76,15 @@ final class DefaultKubernetesClient implements KubernetesClient {
     public KubernetesConfigMap getConfigMap(String name) {
         try {
             return new KubernetesConfigMap(core.readNamespacedConfigMap(name, namespace, null));
+        } catch (ApiException failure) {
+            throw wrap(failure);
+        }
+    }
+
+    @Override
+    public KubernetesSecret getSecret(String name) {
+        try {
+            return new KubernetesSecret(core.readNamespacedSecret(name, namespace, null));
         } catch (ApiException failure) {
             throw wrap(failure);
         }
@@ -207,121 +216,10 @@ final class DefaultKubernetesClient implements KubernetesClient {
     }
 
     @Override
-    public KubernetesWatch watchPods(
-            String selector,
-            long intervalMillis,
-            Consumer<List<KubernetesPod>> listener,
-            Consumer<Exception> errorHandler) {
-        ScheduledExecutorService executor =
-                Executors.newSingleThreadScheduledExecutor(
-                        runnable -> {
-                            Thread thread = new Thread(runnable, "seatunnel-kubernetes-pod-watch");
-                            thread.setDaemon(true);
-                            return thread;
-                        });
-
-        AtomicBoolean stopped = new AtomicBoolean();
-        AtomicLong firstFailureNanos = new AtomicLong();
-
-        Runnable runnable =
-                () -> {
-                    if (stopped.get()) {
-                        return;
-                    }
-                    List<KubernetesPod> pods;
-                    try {
-                        pods = listPods(selector);
-                    } catch (Exception failure) {
-                        handleListFailure(
-                                executor,
-                                stopped,
-                                errorHandler,
-                                firstFailureNanos,
-                                selector,
-                                failure);
-                        return;
-                    }
-                    // A successful poll clears the accumulated transient failure budget.
-                    firstFailureNanos.set(0L);
-                    // The listener is the driver's observation callback. A failure here is terminal
-                    // for the watch and must be reported directly: treating it as a list failure
-                    // would clear the budget on the next successful poll and never escalate.
-                    try {
-                        listener.accept(pods);
-                    } catch (Exception failure) {
-                        stopAndReport(executor, stopped, errorHandler, failure);
-                    }
-                };
-        executor.scheduleWithFixedDelay(runnable, 0, intervalMillis, TimeUnit.MILLISECONDS);
-        return () -> {
-            stopped.set(true);
-            executor.shutdownNow();
-        };
-    }
-
-    /**
-     * Applies the transient-failure policy to one failed pod listing. A non-retryable failure or an
-     * exhausted budget stops the watch and reports the failure; otherwise it is logged and the
-     * budget keeps accumulating across polls until the next successful listing.
-     */
-    private static void handleListFailure(
-            ScheduledExecutorService executor,
-            AtomicBoolean stopped,
-            Consumer<Exception> errorHandler,
-            AtomicLong firstFailureNanos,
-            String selector,
-            Exception failure) {
-        if (isNonRetryable(failure)) {
-            stopAndReport(executor, stopped, errorHandler, failure);
-            return;
-        }
-        long started = firstFailureNanos.get();
-        if (started == 0L) {
-            firstFailureNanos.compareAndSet(0L, System.nanoTime());
-            started = firstFailureNanos.get();
-        }
-        LOG.warn(
-                "Could not list application pods for selector {}; will keep polling",
-                selector,
-                failure);
-        if (transientFailureBudgetExhausted(started)) {
-            stopAndReport(
-                    executor,
-                    stopped,
-                    errorHandler,
-                    new IllegalStateException(
-                            "Kubernetes pod watch exceeded the transient failure budget for selector "
-                                    + selector,
-                            failure));
-        }
-    }
-
-    /**
-     * @param startedNanos {@link System#nanoTime()} of the first failure in the current streak
-     * @return whether the tolerated transient pod-listing failure budget has elapsed
-     */
-    private static boolean transientFailureBudgetExhausted(long startedNanos) {
-        return System.nanoTime() - startedNanos
-                >= TimeUnit.MILLISECONDS.toNanos(
-                        KubernetesConstants.WATCH_TRANSIENT_FAILURE_BUDGET_MILLIS);
-    }
-
-    private static void stopAndReport(
-            ScheduledExecutorService executor,
-            AtomicBoolean stopped,
-            Consumer<Exception> errorHandler,
-            Exception failure) {
-        stopped.set(true);
-        executor.shutdown();
-        errorHandler.accept(failure);
-    }
-
-    private static boolean isNonRetryable(Exception failure) {
-        if (failure instanceof KubernetesClientException) {
-            int code = ((KubernetesClientException) failure).getCode();
-            return code == 401 || code == 403 || code == 404;
-        }
-        return false;
+    public KubernetesWatch watchPods(String selector, PodWatchCallback callback) {
+        InformerPodWatch watch = new InformerPodWatch(watchClient, namespace, selector, callback);
+        watch.start();
+        return watch;
     }
 
     /**
@@ -342,6 +240,10 @@ final class DefaultKubernetesClient implements KubernetesClient {
     /**
      * Deletes the owner Job with foreground propagation so Kubernetes removes the Pods, Secret and
      * Service created for this application, then removes any remaining labeled Pods.
+     *
+     * <p>Workers are disposable and are deleted immediately. The master Pod keeps its own
+     * termination grace period so its shutdown hook and checkpoint retention can finish before the
+     * container is killed.
      */
     @Override
     public void deleteApplication(String id) {
@@ -354,7 +256,20 @@ final class DefaultKubernetesClient implements KubernetesClient {
             }
         }
         try {
-            deletePods(KubernetesResourceIdentity.selector(id));
+            // Workers are disposable, so they are deleted immediately.
+            deletePods(KubernetesResourceIdentity.selector(id, KubernetesConstants.WORKER_ROLE), 0);
+        } catch (KubernetesClientException e) {
+            if (failure == null) {
+                failure = e;
+            } else {
+                failure.addSuppressed(e);
+            }
+        }
+        try {
+            // The master keeps its own termination grace period so its shutdown hook and
+            // checkpoint retention can finish before the container is killed.
+            deletePods(
+                    KubernetesResourceIdentity.selector(id, KubernetesConstants.MASTER_ROLE), null);
         } catch (KubernetesClientException e) {
             if (failure == null) {
                 failure = e;
@@ -387,10 +302,21 @@ final class DefaultKubernetesClient implements KubernetesClient {
      */
     @Override
     public void deleteWorkers(String id) {
-        deletePods(KubernetesResourceIdentity.selector(id, KubernetesConstants.WORKER_ROLE));
+        deletePods(KubernetesResourceIdentity.selector(id, KubernetesConstants.WORKER_ROLE), 0);
     }
 
-    private void deletePods(String selector) {
+    /**
+     * Deletes the Pods selected by the given label selector without waiting for their termination.
+     *
+     * <p>Deletion uses {@code Background} propagation, so Kubernetes removes the Pods on its own
+     * schedule and a missing collection is tolerated.
+     *
+     * @param selector label selector of the Pods to delete
+     * @param gracePeriodSeconds termination grace period in seconds, or {@code null} to keep the
+     *     {@code terminationGracePeriodSeconds} declared by each Pod
+     * @throws KubernetesClientException if the request fails for a reason other than absence
+     */
+    private void deletePods(String selector, Integer gracePeriodSeconds) {
         try {
             core.deleteCollectionNamespacedPod(
                     namespace,
@@ -398,7 +324,7 @@ final class DefaultKubernetesClient implements KubernetesClient {
                     null,
                     null,
                     null,
-                    0,
+                    gracePeriodSeconds,
                     selector,
                     null,
                     null,
@@ -413,14 +339,41 @@ final class DefaultKubernetesClient implements KubernetesClient {
         }
     }
 
-    /** Returns one SDK failure as the provider's own exception type. */
-    private static KubernetesClientException wrap(ApiException failure) {
+    /**
+     * Returns one SDK failure as the provider's own exception type.
+     *
+     * <p>Shared with {@link InformerPodWatch} so failures that the informer observes through the
+     * SDK keep the provider's exception type and the per-code watch policy.
+     */
+    static KubernetesClientException wrap(ApiException failure) {
         String detail = failure.getMessage();
         String message =
                 detail == null || detail.isEmpty()
                         ? "Kubernetes API request failed (HTTP " + failure.getCode() + ")"
                         : detail;
+        String body = responseBody(failure);
+        if (!body.isEmpty()) {
+            message = message + " - " + body;
+        }
         return new KubernetesClientException(failure.getCode(), message, failure);
+    }
+
+    /**
+     * Returns the response body of one failed request for diagnosis.
+     *
+     * <p>RBAC, quota and admission failures explain themselves in the Kubernetes `Status` body,
+     * which the SDK message does not include. The body is collapsed to a single bounded line so it
+     * cannot break log formatting or flood the output.
+     *
+     * @param failure failed SDK request
+     * @return the collapsed body, or an empty string when the response carried none
+     */
+    private static String responseBody(ApiException failure) {
+        String body = failure.getResponseBody();
+        if (body == null || body.trim().isEmpty()) {
+            return "";
+        }
+        return StringUtils.abbreviate(body.trim().replaceAll("\\s+", " "), 512);
     }
 
     private static void rethrowUnlessMissing(ApiException failure) {
@@ -437,7 +390,14 @@ final class DefaultKubernetesClient implements KubernetesClient {
      */
     @Override
     public void close() {
-        client.getHttpClient().dispatcher().executorService().shutdown();
-        client.getHttpClient().connectionPool().evictAll();
+        closeClient(client);
+        if (watchClient != client) {
+            closeClient(watchClient);
+        }
+    }
+
+    private static void closeClient(ApiClient apiClient) {
+        apiClient.getHttpClient().dispatcher().executorService().shutdown();
+        apiClient.getHttpClient().connectionPool().evictAll();
     }
 }

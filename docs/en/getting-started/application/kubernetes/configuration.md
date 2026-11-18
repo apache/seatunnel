@@ -16,12 +16,12 @@ deployment file; see [Quick start](quick-start.md) for the first submission and
 | Source | Configures | Notes |
 | --- | --- | --- |
 | Deployment file (`-a`) | `application.*` and `kubernetes.*` | Resolved on the submitting host. Put sensitive values here, not on the command line. |
-| Option overrides (`-i key=value`) | Any deployment option | Resolved on the submitter too; command-line arguments may be visible to other users. |
-| Job file (`-c`) | The job itself | Optional: `kubernetes.job-config-file` can mount the job inside the application instead. Carried to the master verbatim, including unresolved `${VAR}` placeholders. |
+| Option overrides (`-Dkey=value`) | Any deployment option | Resolved on the submitter too; command-line arguments may be visible to other users. |
+| Job file (`-c`) | The job itself | Optional: `kubernetes.job-config-file` can mount the job inside the application instead. Carried to the master verbatim, including unresolved `${VAR}` placeholders, unless a mounted file is configured — then only the file is used. |
 | Pod environment | `${VAR}` values in the job | Built from `kubernetes.env`, `kubernetes.env-from.*` and mounted Secret/ConfigMap files on the master. |
 
 :::caution
-Command-line overrides (`-i key=value`) may be visible to other users on the submitting host. Keep
+Command-line overrides (`-Dkey=value`) may be visible to other users on the submitting host. Keep
 `kubernetes.kubeconfig` and other sensitive values in a permission-restricted deployment file.
 :::
 
@@ -29,57 +29,59 @@ Command-line overrides (`-i key=value`) may be visible to other users on the sub
 
 ### Kubernetes options
 
-| Option | Default | Description |
-| --- | --- | --- |
-| `kubernetes.namespace` | `default` | Existing namespace containing all application resources. |
-| `kubernetes.image` | Required | Image containing SeaTunnel, the provider, and job plugins. |
-| `kubernetes.image-pull-policy` | `IfNotPresent` | `Always`, `IfNotPresent`, or `Never`. |
-| `kubernetes.image-pull-secrets` | Empty | Comma-separated existing Secret names used to pull images from private registries. |
-| `kubernetes.service-account` | `default` | Existing ServiceAccount used by the master. |
-| `kubernetes.seatunnel-home` | `/opt/seatunnel` | Absolute distribution path in the image, without `:`. |
-| `kubernetes.configmap.<entry>` | Unset | ConfigMap mount entry: `ref` references an existing ConfigMap and mounts declared keys through `subPath`, while `data` entries are written into a ConfigMap SeaTunnel creates and owns. An optional `name` overrides the default `<application-id>-<entry>` so other options can reference it. |
-| `kubernetes.secret-ref` | Unset | Existing Secret mounted read-only at `/etc/seatunnel-secrets/application`; never created or deleted. Point `kubernetes.job-config-file` at `<secret-directory>/job.conf` when it carries the job configuration. |
-| `kubernetes.secret.name` | Application Job name | Name of the Secret SeaTunnel creates from `kubernetes.secret.data.*` entries. |
-| `kubernetes.secret.data.<KEY>` | Unset | Key/value entry of the application Secret SeaTunnel creates; the Secret is owned by the Job and removed on cancellation. |
-| `kubernetes.secret-directory` | `/etc/seatunnel-secrets/application` | Absolute directory where the configured application Secret is mounted read-only; set `kubernetes.job-config-file` to a file there when the Secret carries the job configuration. |
-| `kubernetes.job-config-file` | Unset | Optional job configuration file that replaces the inline job configuration before parsing: a file name under `<seatunnel-home>/config` (ConfigMap-friendly) or an absolute path such as `<secret-directory>/job.conf`. Unset keeps the submitted `-c` file. |
-| `kubernetes.env.<NAME>` | Unset | One environment variable per name: a literal value, `secret:<name>/<key>` or `configmap:<name>/<key>`. |
-| `kubernetes.env-from.secret` / `kubernetes.env-from.configmap` | Unset | Existing Secret/ConfigMap whose keys are all injected as environment variables (Kubernetes `envFrom`). |
-| `kubernetes.kubeconfig` | SDK default | Local submitter kubeconfig; it is not sent to the master. Configure it in a permission-restricted deployment file rather than with `-i`. |
-| `kubernetes.finished-job-retention-seconds` | `86400` | Positive retention period for completed or failed Jobs. |
-| `kubernetes.checkpoint-pvc` | Unset | Existing PVC mounted at `kubernetes.checkpoint-directory` in the master. |
-| `kubernetes.checkpoint-directory` | `/opt/seatunnel/checkpoints` | Absolute container path where the checkpoint PVC is mounted on the master. |
-| `kubernetes.master.hazelcast-config` | Unset (built-in) | Hazelcast member configuration for the master: a file name under `<seatunnel-home>/config` or an absolute `.yaml`/`.yml`/`.xml` path. Unset keeps the built-in configuration. |
-| `kubernetes.worker.hazelcast-config` | Unset (built-in) | Hazelcast member configuration for worker containers, using the same forms as the master option. |
-| `kubernetes.master.jvm-options-file` | `jvm_master_options` | Master JVM options file: a file name under `<seatunnel-home>/config` or an absolute path, applied through the Java `@argfile` syntax; `disabled` passes no argument file for the master. |
-| `kubernetes.worker.jvm-options-file` | `jvm_worker_options` | Worker JVM options file, using the same forms as the master option. |
-| `kubernetes.jvm-options-file` | `jvm_options` | Common JVM options file applied to master and workers before the role-specific file; `disabled` passes no common argument file. |
-| `kubernetes.log4j-config-file` | `log4j2_client.properties` | Log4j2 configuration passed as `-Dlog4j2.configurationFile`: a file name under `<seatunnel-home>/config` or an absolute path. The default keeps console logs; set `log4j2.properties` for the file-based server configuration. |
-| `kubernetes.seatunnel-config-file` | `config/seatunnel.yaml` | Engine configuration passed as `-Dseatunnel.config`: a path relative to `<seatunnel-home>` or an absolute `.yaml`/`.yml` path. |
-| `kubernetes.master.labels` | Empty | Additional master Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
-| `kubernetes.worker.labels` | Empty | Additional worker Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
-| `kubernetes.master.annotations` | Empty | Master Pod annotations as comma-separated `key:value` pairs. |
-| `kubernetes.worker.annotations` | Empty | Worker Pod annotations as comma-separated `key:value` pairs. |
-| `kubernetes.master.node-selector` | Empty | Master Pod node selector as comma-separated `key:value` pairs. |
-| `kubernetes.worker.node-selector` | Empty | Worker Pod node selector as comma-separated `key:value` pairs. |
-| `kubernetes.master.tolerations` | Empty | Master Pod tolerations as `key[=value][:Effect]` entries separated by `;`, for example `dedicated=seatunnel:NoSchedule`. |
-| `kubernetes.worker.tolerations` | Empty | Worker Pod tolerations, using the same syntax as the master option. |
+| Name | Type | Required | Default value | Description |
+| --- | --- | --- | --- | --- |
+| `kubernetes.namespace` | string | no | `default` | Existing namespace containing all application resources. |
+| `kubernetes.image` | string | yes | - | Image containing SeaTunnel, the provider, and job plugins. |
+| `kubernetes.image-pull-policy` | enum | no | `IfNotPresent` | `Always`, `IfNotPresent`, or `Never`. |
+| `kubernetes.image-pull-secrets` | list | no | - | Comma-separated existing Secret names used to pull images from private registries. |
+| `kubernetes.service-account` | string | no | `default` | Existing ServiceAccount used by the master. |
+| `kubernetes.seatunnel-home` | string | no | `/opt/seatunnel` | Absolute distribution path in the image, without `:`. |
+| `kubernetes.configmap.<entry>` | map | no | - | ConfigMap mount entry: `ref` references an existing ConfigMap and mounts declared keys through `subPath`, while `data` entries are written into a ConfigMap SeaTunnel creates and owns. An optional `name` overrides the default `<application-id>-<entry>` so other options can reference it. |
+| `kubernetes.secret-ref` | string | no | - | Existing Secret mounted read-only at `/etc/seatunnel-secrets/application`; never created or deleted. Point `kubernetes.job-config-file` at `<secret-directory>/job.conf` when it carries the job configuration. |
+| `kubernetes.secret.name` | string | no | Application Job name | Name of the Secret SeaTunnel creates from `kubernetes.secret.data.*` entries. |
+| `kubernetes.secret.data.<KEY>` | map | no | - | Key/value entry of the application Secret SeaTunnel creates; the Secret is owned by the Job and removed on cancellation. |
+| `kubernetes.secret-directory` | string | no | `/etc/seatunnel-secrets/application` | Absolute directory where the configured application Secret is mounted read-only; set `kubernetes.job-config-file` to a file there when the Secret carries the job configuration. |
+| `kubernetes.job-config-file` | string | no | - | Optional job configuration file that replaces the inline job configuration before parsing: a file name under `<seatunnel-home>/config` (ConfigMap-friendly) or an absolute path such as `<secret-directory>/job.conf`. Not set keeps the submitted `-c` file. |
+| `kubernetes.env.<NAME>` | map | no | - | One environment variable per name: a literal value, `secret:<name>/<key>` or `configmap:<name>/<key>`. |
+| `kubernetes.env-from.secret` | string | no | - | Existing Secret whose keys are all injected as environment variables (Kubernetes `envFrom.secretRef`). |
+| `kubernetes.env-from.configmap` | string | no | - | Existing ConfigMap whose keys are all injected as environment variables (Kubernetes `envFrom.configMapRef`). |
+| `kubernetes.kubeconfig` | string | no | SDK default | Local submitter kubeconfig; it is not sent to the master. Configure it in a permission-restricted deployment file rather than with `-D`. |
+| `kubernetes.finished-job-retention-seconds` | int | no | `86400` | Positive retention period for completed or failed Jobs. |
+| `kubernetes.active-deadline-seconds` | long | no | - | Absolute deadline in seconds counted from Job creation for the whole application, including master startup. Set it for unattended batch runs; unset keeps the Job active until the job finishes or is canceled. |
+| `kubernetes.checkpoint-pvc` | string | no | - | Existing PVC mounted at `kubernetes.checkpoint-directory` in the master. |
+| `kubernetes.checkpoint-directory` | string | no | `/opt/seatunnel/checkpoints` | Absolute container path where the checkpoint PVC is mounted on the master. |
+| `kubernetes.master.hazelcast-config` | string | no | - | Hazelcast member configuration for the master: a file name under `<seatunnel-home>/config` or an absolute `.yaml`/`.yml`/`.xml` path. Not set keeps the built-in configuration. |
+| `kubernetes.worker.hazelcast-config` | string | no | - | Hazelcast member configuration for worker containers, using the same forms as the master option. |
+| `kubernetes.master.jvm-options-file` | string | no | `jvm_master_options` | Master JVM options file: a file name under `<seatunnel-home>/config` or an absolute path, applied through the Java `@argfile` syntax; `disabled` passes no argument file for the master. |
+| `kubernetes.worker.jvm-options-file` | string | no | `jvm_worker_options` | Worker JVM options file, using the same forms as the master option. |
+| `kubernetes.jvm-options-file` | string | no | `jvm_options` | Common JVM options file applied to master and workers before the role-specific file; `disabled` passes no common argument file. |
+| `kubernetes.log4j-config-file` | string | no | `log4j2_client.properties` | Log4j2 configuration passed as `-Dlog4j2.configurationFile`: a file name under `<seatunnel-home>/config` or an absolute path. The default keeps console logs; set `log4j2.properties` for the file-based server configuration. |
+| `kubernetes.seatunnel-config-file` | string | no | `config/seatunnel.yaml` | Engine configuration passed as `-Dseatunnel.config`: a path relative to `<seatunnel-home>` or an absolute `.yaml`/`.yml` path. |
+| `kubernetes.master.labels` | map | no | - | Additional master Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
+| `kubernetes.worker.labels` | map | no | - | Additional worker Pod labels as comma-separated `key:value` pairs. SeaTunnel ownership labels are reserved. |
+| `kubernetes.master.annotations` | map | no | - | Master Pod annotations as comma-separated `key:value` pairs. |
+| `kubernetes.worker.annotations` | map | no | - | Worker Pod annotations as comma-separated `key:value` pairs. |
+| `kubernetes.master.node-selector` | map | no | - | Master Pod node selector as comma-separated `key:value` pairs. |
+| `kubernetes.worker.node-selector` | map | no | - | Worker Pod node selector as comma-separated `key:value` pairs. |
+| `kubernetes.master.tolerations` | list | no | - | Master Pod tolerations as `key[=value][:Effect]` entries separated by `;`, for example `dedicated=seatunnel:NoSchedule`. |
+| `kubernetes.worker.tolerations` | list | no | - | Worker Pod tolerations, using the same syntax as the master option. |
 
 ### Application options
 
-| Option | Default | Description |
-| --- | --- | --- |
-| `application.name` | `seatunnel` | Readable prefix of the unique Job name. |
-| `application.job-id` | Generated | Positive native Zeta job ID. |
-| `application.restore-job-id` | Unset | Historical job ID whose latest eligible checkpoint initializes this execution. |
-| `application.worker-count` | `1` | Fixed number of worker Pods. |
-| `application.worker.memory-mb` | `1024` | Worker memory request and limit in MiB. |
-| `application.worker.cpu-cores` | `1` | Worker CPU request and limit. |
-| `application.worker.slots` | `2` | Fixed execution slots per worker. |
-| `application.master.memory-mb` | `1024` | Master memory request and limit in MiB. |
-| `application.master.cpu-cores` | `1` | Master CPU request and limit. |
-| `application.master.port` | `5801` | Master Hazelcast TCP port. |
-| `application.startup-timeout-millis` | `120000` | Applied to worker creation and registration on the master and to client connection setup; submission does not wait for master startup. |
+| Name | Type | Required | Default value | Description |
+| --- | --- | --- | --- | --- |
+| `application.name` | string | no | `seatunnel` | Readable prefix of the unique Job name. |
+| `application.job-id` | long | no | Generated | Positive native Zeta job ID. |
+| `application.restore-job-id` | long | no | - | Historical job ID whose latest eligible checkpoint initializes this execution. |
+| `application.worker-count` | int | no | `1` | Fixed number of worker Pods. |
+| `application.worker.memory-mb` | int | no | `1024` | Worker memory request and limit in MiB. |
+| `application.worker.cpu-cores` | int | no | `1` | Worker CPU request and limit. |
+| `application.worker.slots` | int | no | `2` | Fixed execution slots per worker. |
+| `application.master.memory-mb` | int | no | `1024` | Master memory request and limit in MiB. |
+| `application.master.cpu-cores` | int | no | `1` | Master CPU request and limit. |
+| `application.master.port` | int | no | `5801` | Master Hazelcast TCP port. |
+| `application.startup-timeout-millis` | long | no | `120000` | Applied to worker creation and registration on the master and to client connection setup; submission does not wait for master startup. |
 
 :::note
 Pod JVM heap uses 75% of the memory limit, leaving the remainder for off-heap allocations and JVM
@@ -93,9 +95,7 @@ or scheduling problems never fail the submit command; observe them with `status`
 The master uses the same timeout separately for workers.
 :::
 
-## Guides
-
-### Images and registry credentials
+## Images and registry credentials
 
 Use `kubernetes.image-pull-secrets` for existing private-registry Secrets.
 
@@ -105,7 +105,34 @@ plugin JARs referenced by a job are not downloaded dynamically and must already 
 image.
 :::
 
-### Scheduling
+## Permissions
+
+Two identities access the Kubernetes API.
+
+The **master Pod** runs with `kubernetes.service-account` and needs:
+
+| Resource | Verbs | Required when |
+| --- | --- | --- |
+| Pods | `create`, `list`, `watch`, `delete`, `deletecollection` | always; `create`/`delete`/`deletecollection` manage worker Pods, `watch` reports a lost worker |
+| Jobs | `get` | always; reads the owner Job |
+
+The **submitting identity** runs `bin/seatunnel-application.sh` and needs:
+
+| Resource | Verbs | Required when |
+| --- | --- | --- |
+| Jobs | `create`, `get`, `patch`, `delete` | always; `patch` unsuspends the Job after creation |
+| Pods | `list`, `deletecollection` | always; `list` resolves the application status, `deletecollection` removes the Pods on `cancel` |
+| Services | `create`, `delete` | always; the headless Service that selects the master Pod |
+| ConfigMaps | `get` | `kubernetes.configmap.<entry>.ref`; without it the validation is skipped with a warning |
+| ConfigMaps | `create`, `delete` | only with a created entry (`kubernetes.configmap.<entry>.data`) |
+| Secrets | `create`, `delete` | only with `kubernetes.secret` |
+| Secrets | `get` | only with `kubernetes.secret-ref`; without it the validation is skipped with a warning |
+
+The quick start grants only the verbs its demo job uses; add the ConfigMap `get` rule and the
+Secret rules when the deployment needs references or Secrets, then replace the submitter
+RoleBinding subject with your user, group or CI ServiceAccount.
+
+## Scheduling
 
 Use `kubernetes.master.node-selector` / `kubernetes.worker.node-selector` to target a node pool,
 and the matching `kubernetes.*.tolerations` to tolerate its taints. Workers are created by the
@@ -125,7 +152,7 @@ operator, and an explicit effect must be `NoSchedule`, `PreferNoSchedule` or `No
 tolerations, the Pods stay `Pending` on a tainted node pool and report `had untolerated taint`
 events.
 
-### Job configuration
+## Job configuration
 
 `-c job.conf` is read verbatim on the submitting host and carried inside the localized
 specification; the submitter only parse-checks it with placeholders left unresolved. The job may
@@ -133,13 +160,24 @@ also come from a file inside the Pod, which is what `kubernetes.job-config-file`
 option is what makes `-c` optional: a submission that provides neither source is rejected before the
 first resource is created.
 
+:::caution
+The inline job text is carried Base64-encoded in the Pod template of the application Job, so anyone
+who can read Jobs or Pods in the namespace can read it, including credentials written in the job
+file, for as long as the Job is retained (`kubernetes.finished-job-retention-seconds`, 24 hours by
+default). Base64 is not encryption. Keep credentials out of the inline job, mount the job file from
+a Secret through `kubernetes.job-config-file`, or encrypt the affected values with
+[config encryption](../../../introduction/configuration/config-encryption-decryption.md), which the
+master decrypts at runtime.
+:::
+
 The option resolves to a file name under `<seatunnel-home>/config` or to the absolute path a Secret
 or ConfigMap key is mounted at. Before the job is parsed:
 
 - **Option unset (the default):** the submitted `-c` file is used, so `-c` is required.
-- **Option set and the file exists:** the mounted file replaces the submitted content.
-- **Option set and the file is missing:** the master warns and falls back to `-c`; without a
-  submitted file it fails instead of starting without a job.
+- **Option set and the file exists:** the mounted file replaces the submitted content, and the
+  inline `-c` text is not carried in the Job object.
+- **Option set and the file is missing:** the master fails instead of starting without a job; only
+  a specification written by an older submitter still falls back to its inline text.
 
 The surviving text is parsed exactly once on the master, where `${VAR}` is resolved against the Pod
 environment, so the submitting host never bakes its own values into the job.
@@ -172,7 +210,7 @@ inside a quoted (or triple-quoted) value is carried literally, which lets create
 ConfigMap data hold a job file with master-side placeholders.
 :::
 
-### Secrets
+## Secrets
 
 An application Secret has two mutually exclusive modes. Both mount the Secret read-only at
 `kubernetes.secret-directory` (default `/etc/seatunnel-secrets/application`) in the master and
@@ -245,7 +283,7 @@ Keep connector credentials out of ConfigMaps: they are not confidential. Use a S
 `kubernetes.env`/`${VAR}` when the job needs them.
 :::
 
-### ConfigMaps and runtime files
+## ConfigMaps and runtime files
 
 Every `kubernetes.configmap.<entry>` entry mounts one or more files through `subPath` in both the
 master and worker Pods. Each mounted key must declare its full container path in `mount`, so
@@ -367,7 +405,7 @@ configuration), `kubernetes.master.hazelcast-config` / `kubernetes.worker.hazelc
 `kubernetes.jvm-options-file` plus the role-specific files, `kubernetes.log4j-config-file` and
 `kubernetes.job-config-file`.
 
-### Environment variables
+## Environment variables
 
 `kubernetes.env.<NAME>` injects one variable per name; the value is a literal, a Secret key
 reference `secret:<name>/<key>` or a ConfigMap key reference `configmap:<name>/<key>`.
@@ -393,7 +431,7 @@ An explicit `env.<NAME>` wins over a duplicate key from `env-from`, and Kubernet
 keys that are not valid environment variable names.
 :::
 
-### JVM options and logging
+## JVM options and logging
 
 Application mode passes the distribution JVM option files to the JVM through the Java `@argfile`
 syntax: the common `jvm_options` first, then `jvm_master_options` in the master container and
@@ -438,7 +476,7 @@ application {
 
 kubernetes {
   namespace = seatunnel
-  image = "registry.example.com/seatunnel/application:3.0.1"
+  image = "registry.example.com/seatunnel/application:3.1.0"
   image-pull-policy = IfNotPresent
   service-account = seatunnel-application
   job-config-file = job.conf

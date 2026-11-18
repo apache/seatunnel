@@ -98,8 +98,22 @@ public class MySqlTypeUtils {
         if (column.length() >= 0) {
             builder.length((long) column.length()).precision((long) column.length());
         }
-
-        switch (column.typeName().toUpperCase()) {
+        String dataType = column.typeName().toUpperCase();
+        //  Handle edge case where Debezium may report type as "SET UNSIGNED" #issue-10451
+        if ("SET UNSIGNED".equals(dataType)) {
+            log.warn(
+                    "Normalizing unexpected type name 'SET UNSIGNED' to 'SET' for column {}",
+                    column.name());
+            dataType = "SET";
+            // Drop the synthetic suffix from columnType as well: it is exposed as
+            // Column#getSourceType() and reaches generated DDL verbatim on the paths that do not
+            // re-render the type from the option list (SeatunnelDDLParser#
+            // getSourceColumnTypeWithLengthScale does, upstream). Only the suffix is dropped here;
+            // the option list itself stays owned by the parser.
+            builder.columnType(dataType);
+        }
+        builder.dataType(dataType);
+        switch (dataType) {
             case MySqlTypeConverter.MYSQL_CHAR:
             case MySqlTypeConverter.MYSQL_VARCHAR:
                 if (column.length() <= 0) {
@@ -162,7 +176,7 @@ public class MySqlTypeUtils {
                 // non-MySQL sink, via JdbcDialect#applySchemaChange -> reconvert) turn into an
                 // undersized column. Derive the real length from the option list instead; it is
                 // available on the DDL path and, for completeness, whenever the column carries it.
-                long optionListLength = maxOptionListLength(column);
+                long optionListLength = maxOptionListLength(column, dataType);
                 if (optionListLength > 0) {
                     builder.length(optionListLength).precision(optionListLength);
                 }
@@ -184,14 +198,17 @@ public class MySqlTypeUtils {
      * SET}.
      *
      * @param column Debezium column, whose option list is populated on the DDL-parsing path
+     * @param dataType the normalized type name the caller switched on, i.e. {@code SET} or {@code
+     *     ENUM}; it cannot be read back from the column, whose raw name may still be the synthetic
+     *     {@code SET UNSIGNED}
      * @return the derived length, or {@code -1} when no option list is available
      */
-    private static long maxOptionListLength(Column column) {
+    private static long maxOptionListLength(Column column, String dataType) {
         List<String> enumValues = column.enumValues();
         if (enumValues == null || enumValues.isEmpty()) {
             return -1L;
         }
-        boolean isSet = MySqlTypeConverter.MYSQL_SET.equalsIgnoreCase(column.typeName());
+        boolean isSet = MySqlTypeConverter.MYSQL_SET.equalsIgnoreCase(dataType);
         long totalLength = 0L;
         long maxLength = 0L;
         for (String enumValue : enumValues) {

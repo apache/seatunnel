@@ -24,6 +24,7 @@ public final class KubernetesPod extends KubernetesResource<V1Pod> {
     private static final String RUNNING = "Running";
     private static final String FAILED = "Failed";
     private static final String SUCCEEDED = "Succeeded";
+    private static final String UNKNOWN = "Unknown";
 
     /**
      * Wraps one Kubernetes Pod model.
@@ -55,6 +56,11 @@ public final class KubernetesPod extends KubernetesResource<V1Pod> {
     public boolean isTerminated() {
         String phase = getPhase();
         return FAILED.equals(phase) || SUCCEEDED.equals(phase);
+    }
+
+    /** @return whether the Pod phase is Unknown, for example after its node was lost */
+    public boolean isUnknown() {
+        return UNKNOWN.equals(getPhase());
     }
 
     /** @return whether Kubernetes has accepted deletion of this Pod */

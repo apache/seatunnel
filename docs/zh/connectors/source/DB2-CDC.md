@@ -68,7 +68,7 @@ Debezium DB2，在初始快照完成后会继续读取已提交的 INSERT、UPDA
 |------|------|----------|--------|------|
 | username | String | 是 | - | 连接 DB2 时使用的用户名。 |
 | password | String | 是 | - | 连接 DB2 时使用的密码。 |
-| url | String | 是 | - | DB2 JDBC URL。URL 必须包含数据库名，例如 `jdbc:db2://127.0.0.1:50000/testdb`。 |
+| url | String | 是 | - | DB2 JDBC URL。该值不能为空或仅包含空白字符。URL 必须包含数据库名，例如 `jdbc:db2://127.0.0.1:50000/testdb`。 |
 | database-names | List | 否 | 从 `url` 中解析出的数据库 | 要监控的数据库名。DB2 CDC 一个 source 监控一个数据库。 |
 | table-names | List | 未设置 `table-pattern` 时必填 | - | 要监控的表名，格式为 `databaseName.schemaName.tableName`，例如 `testdb.DB2INST1.CUSTOMERS`。 |
 | table-pattern | String | 未设置 `table-names` 时必填 | - | 用于发现已开启 capture mode 的表的正则表达式。 |
@@ -192,6 +192,20 @@ source {
   }
 }
 ```
+
+### Capture 注册与恢复
+
+活动 Capture 注册在 `CD_NEW_SYNCHPOINT` 推进后继续读取增量。
+`CD_OLD_SYNCHPOINT` 表示可读取的起点，不表示停止位点。
+`table-names` 和 `table-names-config.table` 中的 schema 和表名会在 catalog 查询与 Capture 过滤前
+先按 DB2 catalog 解析：若存在与配置拼写完全一致的对象，则使用该拼写，即使同时存在大写同名对象，
+已有任务也会继续选择原来的表；否则将其转为大写，即 DB2 对不带引号标识符的存储拼写。需要选择特定对象时，
+请按 DB2 catalog（`SYSCAT.TABLES`）中存储的拼写填写 schema 和表名。这些配置项不解析双引号：
+包含引号字符的名称会连同引号原样使用，无法匹配对应对象。
+数据库名保留配置中的拼写，`table-pattern` 正则表达式保持原样。
+
+保存点恢复应保留 DB2 两段表标识中的 schema。恢复后的任务可以追平停机期间的变化，
+并发现新配置且已启用 Capture 的表。既有配置项、offset 和 checkpoint 序列化格式保持不变。
 
 ## 变更日志
 

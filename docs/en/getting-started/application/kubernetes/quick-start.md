@@ -11,13 +11,26 @@ fixed workers, runs exactly one job, releases the workers and exits.
 
 ## 1. Prepare the image
 
-Use a released distribution that includes Application Mode, or build one from source:
+The application image is the standard SeaTunnel distribution with the Kubernetes resource manager
+in `resource-managers/kubernetes/`. Use a released image that includes Application Mode, or build
+your own to pick up unreleased changes or extra connectors.
+
+### Released image
+
+```bash
+docker pull apache/seatunnel:<version>
+docker tag apache/seatunnel:<version> registry.example.com/seatunnel:application
+```
+
+### Custom image
+
+Build the distribution from source:
 
 ```bash
 ./mvnw -Prelease,seatunnel -pl seatunnel-dist -am -DskipTests -Dskip.ui=true package
 ```
 
-Build the application image from the standard distribution:
+Build the image from the produced archive:
 
 ```dockerfile
 FROM eclipse-temurin:11-jdk
@@ -26,6 +39,17 @@ RUN mv /opt/apache-seatunnel-<version> /opt/seatunnel
 ENV SEATUNNEL_HOME=/opt/seatunnel
 WORKDIR /opt/seatunnel
 ```
+
+Put `apache-seatunnel-<version>-bin.tar.gz` from `seatunnel-dist/target/` next to the Dockerfile
+(the `ADD` path is relative to the build context) and build the image:
+
+```bash
+cp seatunnel-dist/target/apache-seatunnel-<version>-bin.tar.gz .
+docker build -t registry.example.com/seatunnel:application .
+```
+
+Either way, `kubernetes.image` must name an image the cluster can pull: push it to a registry, or
+load it into a local cluster (`minikube image load`, `kind load docker-image`).
 
 :::note
 The image must contain `starter/`, `config/`, `lib/`, `connectors/` and
@@ -54,7 +78,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["pods"]
-    verbs: ["create", "get", "list", "delete", "deletecollection"]
+    verbs: ["create", "list", "watch", "delete", "deletecollection"]
   - apiGroups: ["batch"]
     resources: ["jobs"]
     verbs: ["get"]
@@ -72,41 +96,48 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: seatunnel-application
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: seatunnel-application-submitter
+  namespace: seatunnel-apps
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create", "delete"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: seatunnel-application-submitter
+  namespace: seatunnel-apps
+subjects:
+  - kind: ServiceAccount
+    name: seatunnel-submitter
+    namespace: seatunnel-apps
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: seatunnel-application-submitter
 ```
 
 ```bash
 kubectl apply -f application-rbac.yaml
 ```
 
-The ServiceAccount above is used by the **master Pod** to create, observe and delete worker Pods
-and to read the owner Job. The **submitting identity** separately needs:
+Replace the submitter subject with the identity that runs `bin/seatunnel-application.sh`.
 
-- required: create/get/delete Jobs, create/delete Services, and get ConfigMaps (references are
-  validated before submission);
-- only with `kubernetes.secret`: create/delete Secrets;
-- only with a created ConfigMap entry (`kubernetes.configmap.<entry>.data`): create/delete
-  ConfigMaps;
-- only with `kubernetes.secret-ref`: get Secrets (validation is skipped with a warning when the
-  identity cannot read them).
-
-The localized specification travels in the master Pod environment; no application Secret is
-created by default.
-
-## 3. Create the runtime ConfigMap
-
-The master and worker Pods need `seatunnel.yaml` and `log4j2_client.properties` from the
-distribution. Create one ConfigMap and mount the keys per file:
-
-```bash
-kubectl -n seatunnel-apps create configmap seatunnel-configuration \
-  --from-file=seatunnel.yaml=config/seatunnel.yaml \
-  --from-file=log4j2_client.properties=config/log4j2_client.properties
-```
-
-Mounts use `subPath`, so only the declared files are replaced and the rest of the image
-configuration directory stays untouched.
-
-## 4. Create the deployment configuration
+## 3. Create the deployment configuration
 
 Start from `config/v1.kubernetes.conf.template`, which already carries a demo job, and set the
 platform options:
@@ -128,11 +159,6 @@ kubernetes {
   # The demo job is mounted from a ConfigMap SeaTunnel creates for this application, so the first
   # submission needs no -c file.
   job-config-file = job.conf
-  configmap.runtime {
-    ref = "seatunnel-configuration"
-    mount.seatunnel.yaml = "/opt/seatunnel/config/seatunnel.yaml"
-    mount.log4j2_client.properties = "/opt/seatunnel/config/log4j2_client.properties"
-  }
   configmap.job-conf {
     data.job.conf = """
       env {
@@ -161,23 +187,7 @@ ConfigMap is named `<application-id>-job-conf` and is deleted with the applicati
 in its own file instead, pass it with `-c job.conf` and remove `job-config-file`.
 :::
 
-To pass credentials, inject platform-managed values and reference them from the job file:
-
-```hocon
-kubernetes {
-  # Reference a Secret managed by your platform, or let SeaTunnel create one:
-  secret-ref = "platform-job-secrets"
-  # secret { name = "example-job-secrets", data.MYSQL_PASSWORD = ${MYSQL_PASSWORD} }
-  env.MYSQL_PASSWORD = "secret:platform-job-secrets/password"
-}
-```
-
-:::tip
-Use `${MYSQL_PASSWORD}` in `job.conf`; placeholders are resolved inside the Pod, never on the
-submitting host.
-:::
-
-## 5. Submit and inspect
+## 4. Submit and inspect
 
 ```bash
 bin/seatunnel-application.sh submit --target kubernetes -a kubernetes.conf

@@ -13,7 +13,7 @@ Reads data from Lemlist APIs. The connector uses `password` as the Lemlist API k
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
@@ -30,7 +30,7 @@ In streaming mode, the connector repeatedly calls the configured API. Set `poll_
 | url                         | String | Yes      | -             | Lemlist API URL. |
 | password                    | String | Yes      | -             | Lemlist API key. |
 | method                      | String | No       | GET           | HTTP method. Supported values are `GET` and `POST`. |
-| headers                     | Map    | No       | -             | Extra HTTP request headers. Do not put `Authorization` here unless you intentionally want to override the generated header. |
+| headers                     | Map    | No       | -             | Extra HTTP request headers. Any `Authorization` value set here is overwritten by the generated Basic auth header. |
 | params                      | Map    | No       | -             | HTTP query parameters. |
 | body                        | String | No       | -             | HTTP request body, usually used with `POST`. |
 | format                      | String | No       | TEXT          | Response format. Use `json` when the response should be parsed by `schema`, `json_field`, or `content_field`. |

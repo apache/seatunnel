@@ -20,8 +20,8 @@
 
 SEATUNNEL_HOME=$(cd "$(dirname "$0")"; cd ../; pwd)
 
-# Connector default version is 3.0.1. You can also choose a custom version.
-version=3.0.1
+# Connector default version is 3.1.0. You can also choose a custom version.
+version=3.1.0
 if [ -n "$1" ]; then
     version="$1"
 fi

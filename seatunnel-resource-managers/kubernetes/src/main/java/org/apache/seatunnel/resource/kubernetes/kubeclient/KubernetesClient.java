@@ -22,10 +22,10 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesC
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesResource;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesSecret;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
 import java.util.List;
-import java.util.function.Consumer;
 
 /**
  * Namespace-scoped operations required by native SeaTunnel application mode.
@@ -43,6 +43,13 @@ public interface KubernetesClient extends AutoCloseable {
      * @throws KubernetesClientException if the ConfigMap is absent or the request fails
      */
     KubernetesConfigMap getConfigMap(String name);
+
+    /**
+     * Reads an existing Secret that Pods reference for runtime configuration or key values.
+     *
+     * @throws KubernetesClientException if the Secret is absent or the request fails
+     */
+    KubernetesSecret getSecret(String name);
 
     /**
      * Creates the suspended owner Job and returns its server-assigned metadata.
@@ -92,19 +99,13 @@ public interface KubernetesClient extends AutoCloseable {
     List<KubernetesPod> listPods(String selector);
 
     /**
-     * Observes matching Pods and emits complete snapshots at a bounded interval.
+     * Observes matching Pods and delivers one callback per watch event.
      *
      * @param selector namespace-local Pod label selector
-     * @param intervalMillis interval between snapshots
-     * @param listener snapshot callback invoked by the watch thread
-     * @param errorHandler terminal API or callback failure handler
+     * @param callback event and failure callback invoked by the watch threads
      * @return handle that stops observation
      */
-    KubernetesWatch watchPods(
-            String selector,
-            long intervalMillis,
-            Consumer<List<KubernetesPod>> listener,
-            Consumer<Exception> errorHandler);
+    KubernetesWatch watchPods(String selector, PodWatchCallback callback);
 
     /**
      * Deletes one worker Pod and accepts an already absent Pod.

@@ -1347,8 +1347,14 @@ public class CoordinatorService {
 
         ResourceManager manager = resourceManager;
         resourceManager = null;
-        if (manager != null) {
-            manager.close();
+        try {
+            if (manager != null) {
+                manager.close();
+            }
+        } catch (Exception e) {
+            // Continue the shutdown: the event processor and the remaining cleanup must still
+            // run even when a resource manager refuses to close.
+            logger.warning("close resource manager error: " + e);
         }
 
         try {
@@ -1631,14 +1637,19 @@ public class CoordinatorService {
         }
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
-            JobHistoryService.JobState jobDetailState = jobHistoryService.getJobDetailState(jobId);
-            return null == jobDetailState ? JobStatus.UNKNOWABLE : jobDetailState.getJobStatus();
+            return resolveHistoryStatus(jobHistoryService.getJobDetailState(jobId));
         }
         JobStatus jobStatus = runningJobMaster.getJobStatus();
         if (jobStatus == null) {
-            return jobHistoryService.getFinishedJobStateImap().get(jobId).getJobStatus();
+            return resolveHistoryStatus(jobHistoryService.getFinishedJobStateImap().get(jobId));
         }
         return jobStatus;
+    }
+
+    static JobStatus resolveHistoryStatus(JobHistoryService.JobState jobState) {
+        return jobState == null || jobState.getJobStatus() == null
+                ? JobStatus.UNKNOWABLE
+                : jobState.getJobStatus();
     }
 
     public boolean shouldShowAsRunningJob(long jobId) {

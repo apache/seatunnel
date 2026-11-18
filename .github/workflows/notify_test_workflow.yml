@@ -23,14 +23,31 @@
 # So, the name was changed to make sense in that context too.
 # See also https://github.community/t/specify-check-suite-when-creating-a-checkrun/118380/10
 name: On pull request update
+# Runs from the default branch after `PR signal` (pr-signal.yml) completes for a
+# pull request, which replaces `pull_request_target`. Everything it needs (head
+# SHA, head repository and branch) comes from the workflow_run payload; no pull
+# request code is checked out or run.
 on:
-  pull_request_target:
-    types: [opened, reopened, synchronize]
+  workflow_run:
+    workflows: ["PR signal"]
+    types: [completed]
 
+permissions: {}
+
+# `action_required` is a signal run of a first-time contributor that waits for workflow
+# approval. Nothing of theirs has run, and this job only reads API metadata, so it does not
+# wait for the approval. After approval the signal completes again and this job runs again,
+# which is harmless.
 jobs:
   notify:
     name: Notify test workflow
+    if: >-
+      github.event.workflow_run.event == 'pull_request'
+      && (github.event.workflow_run.conclusion == 'success'
+          || github.event.workflow_run.conclusion == 'action_required')
+      && github.event.workflow_run.head_repository != null
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       actions: read
       checks: write
@@ -48,23 +65,24 @@ jobs:
             // TODO: Should use pull_request.user and pull_request.user.repos_url?
             // If a different person creates a commit to another forked repo,
             // it wouldn't be able to detect.
-            const head_sha = context.payload.pull_request.head.sha
+            const signal_run = context.payload.workflow_run
+            const head_sha = signal_run.head_sha
             const params = {
-              owner: context.payload.pull_request.head.repo.owner.login,
-              repo: context.payload.pull_request.head.repo.name,
+              owner: signal_run.head_repository.owner.login,
+              repo: signal_run.head_repository.name,
               workflow_id: 'build_main.yml',
-              branch: context.payload.pull_request.head.ref,
+              branch: signal_run.head_branch,
               per_page: 100,
             }
             const check_run_params = {
-              owner: context.payload.pull_request.head.repo.owner.login,
-              repo: context.payload.pull_request.head.repo.name,
-              ref: context.payload.pull_request.head.ref,
+              owner: signal_run.head_repository.owner.login,
+              repo: signal_run.head_repository.name,
+              ref: signal_run.head_branch,
               per_page: 100,
             }
 
-            console.log('Ref: ' + context.payload.pull_request.head.ref)
-            console.log('SHA: ' + context.payload.pull_request.head.sha)
+            console.log('Ref: ' + signal_run.head_branch)
+            console.log('SHA: ' + head_sha)
 
             const name = 'Build'
             const createDetectionFailedCheck = async () => {
@@ -144,7 +162,7 @@ jobs:
             const check_runs = await github.request(check_run_endpoint, check_run_params)
             console.log('check_runs: ' + JSON.stringify(check_runs))
             const actions_url = 'https://github.com/'
-              + context.payload.pull_request.head.repo.full_name
+              + signal_run.head_repository.full_name
               + '/actions/runs/'
               + run_id
             const run_url_part = '/actions/runs/' + run_id
@@ -171,8 +189,8 @@ jobs:
                 title: 'Test results',
                 summary: '[See test results](' + check_run_url + ')',
                 text: JSON.stringify({
-                  owner: context.payload.pull_request.head.repo.owner.login,
-                  repo: context.payload.pull_request.head.repo.name,
+                  owner: signal_run.head_repository.owner.login,
+                  repo: signal_run.head_repository.name,
                   run_id: run_id
                 })
               },
