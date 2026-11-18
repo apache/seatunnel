@@ -48,9 +48,12 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | FLOAT      | FLOAT          |
 | DOUBLE     | DOUBLE         |
 | TEXT       | STRING         |
-| STRING     | STRING         |
 | 时间列        | BIGINT         |
 | 时间列        | TIMESTAMP      |
+
+该 Source 基于 IoTDB `0.13.x` session 客户端实现，只能识别上表列出的数据类型。不支持 IoTDB 1.3
+新增的 `STRING`、`BLOB`、`DATE`、`TIMESTAMP` 数据类型的列；如需通过该 Source 读取字符串数据，请使用
+`TEXT` 类型存储。
 
 ## Source 选项
 

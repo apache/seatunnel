@@ -29,15 +29,15 @@ Assert is a sink connector used to validate pipeline output. It checks row count
 |------------------------------------------------------------------------------------------------|-------------------------------------------------|----------|---------|
 | rules                                                                                          | ConfigMap                                       | yes      | -       |
 | rules.field_rules                                                                              | ConfigList                                      | no       | -       |
-| rules.field_rules.field_name                                                                   | string\|ConfigMap                               | yes      | -       |
-| rules.field_rules.field_type                                                                   | string                                          | no       | -       |
+| rules.field_rules.field_name                                                                   | string                                          | yes      | -       |
+| rules.field_rules.field_type                                                                   | string\|ConfigMap                               | no       | -       |
 | rules.field_rules.field_value                                                                  | ConfigList                                      | no       | -       |
 | rules.field_rules.field_value.rule_type                                                        | string                                          | no       | -       |
 | rules.field_rules.field_value.rule_value                                                       | numeric                                         | no       | -       |
 | rules.field_rules.field_value.equals_to                                                        | boolean\|numeric\|string\|ConfigList\|ConfigMap | no       | -       |
 | rules.row_rules                                                                                | ConfigList                                      | no       | -       |
 | rules.row_rules.rule_type                                                                      | string                                          | no       | -       |
-| rules.row_rules.rule_value                                                                     | string                                          | no       | -       |
+| rules.row_rules.rule_value                                                                     | numeric                                         | no       | -       |
 | rules.catalog_table_rule                                                                       | ConfigMap                                       | no       | -       |
 | rules.catalog_table_rule.primary_key_rule                                                      | ConfigMap                                       | no       | -       |
 | rules.catalog_table_rule.primary_key_rule.primary_key_name                                     | string                                          | no       | -       |

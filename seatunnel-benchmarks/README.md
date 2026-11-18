@@ -47,14 +47,30 @@ Run only the `ProtoStuffSerializer` benchmarks:
 java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark
 ```
 
+Run only the `IncrementalSourceRecordEmitter` benchmark.
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar IncrementalSourceRecordEmitterBenchmark
+```
+
+The default uses 20 columns and covers INSERT/UPDATE with exactly-once disabled/enabled (4 cases).
+Override the row width with `-p columns=40`.
+
 Run the `MultiTableSink` record handoff benchmark without starting an engine or database:
 
 ```bash
-java -jar seatunnel-benchmarks/target/benchmarks.jar MultiTableSinkBenchmark -p replicaNum=1,5,15
+java -jar seatunnel-benchmarks/target/benchmarks.jar 'MultiTableSinkBenchmark.recordHandoff$' \
+  -p replicaNum=1,5,15
 ```
 
 The score measures bounded record handoff throughput with per-writer sequence checks; final
 draining and count verification run outside the timed iteration.
+
+Run the `MultiTableSink` timer flush benchmark.
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar 'MultiTableSinkBenchmark.timerFlush$'
+```
 
 Write JSON results:
 
@@ -63,6 +79,16 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
   -rf json \
   -rff seatunnel-benchmarks/target/benchmark-result.json
 ```
+
+Run only the `JdbcRowConverter` benchmarks.
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar JdbcRowConverterBenchmark
+```
+
+The default uses a mixed 20-column row covering booleans, integers, floating-point numbers, decimals,
+strings, binary, temporal and NULL values. It measures both conversion directions (2 cases).
+Override the row width with `-p columns=40`.
 
 ## Run Zeta full-pipeline benchmarks
 
