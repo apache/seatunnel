@@ -120,7 +120,7 @@ class SubPlanResourceRestoreTest {
                 failedPipeline(master, PipelineStatus.CREATED, Collections.singletonList(vertex));
 
         Assertions.assertDoesNotThrow(plan::restorePipelineState);
-        Assertions.assertEquals(PipelineStatus.RUNNING, plan.getPipelineState());
+        Assertions.assertEquals(PipelineStatus.DEPLOYING, plan.getPipelineState());
         Assertions.assertEquals(0, plan.getPipelineRestoreNum());
         Mockito.verify(master)
                 .setOwnedSlotProfiles(
@@ -163,6 +163,24 @@ class SubPlanResourceRestoreTest {
         Assertions.assertEquals(PipelineStatus.CANCELING, plan.getPipelineState());
         Mockito.verify(vertex, Mockito.atLeastOnce()).cancel();
         Mockito.verify(vertex, Mockito.never()).makeTaskGroupDeploy();
+    }
+
+    @Test
+    void allocatedResourcesWithRestoreCancellationMustNotThrow() throws Exception {
+        JobMaster master = Mockito.mock(JobMaster.class, Mockito.RETURNS_DEEP_STUBS);
+        SubPlan plan = failedPipeline(master);
+        Mockito.when(master.preApplyResources(plan))
+                .thenAnswer(
+                        invocation -> {
+                            Mockito.when(master.isNeedRestore()).thenReturn(false);
+                            return true;
+                        });
+
+        Assertions.assertDoesNotThrow(plan::startSubPlanStateProcess);
+        Assertions.assertEquals(PipelineStatus.CANCELING, plan.getPipelineState());
+        Assertions.assertNull(plan.getErrorByPhysicalVertex().get());
+        Mockito.verify(plan, Mockito.never()).restorePipeline();
+        Mockito.verify(master, Mockito.times(2)).releasePipelineResource(plan);
     }
 
     @Test

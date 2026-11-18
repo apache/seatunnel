@@ -284,14 +284,39 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             assertJobStatusWithTimeout(pendingJob, JobStatus.PENDING, 120);
             assertPendingQueueState(activeMaster, pendingJobId, 1);
 
+            JobMaster holderJobMaster = getJobMaster(activeMaster, holderJob.getJobId());
+            Assertions.assertNotNull(holderJobMaster);
+            JobMaster pendingJobMaster = getJobMaster(activeMaster, pendingJobId);
+            Assertions.assertNotNull(pendingJobMaster);
+
             holderJob.cancelJob();
             assertEventuallyCanceled(holderJob);
+
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            holderJobMaster
+                                                    .getPhysicalPlan()
+                                                    .getPreApplyResourceFutures()
+                                                    .isEmpty()));
 
             assertJobStatusWithTimeout(pendingJob, JobStatus.RUNNING, 180);
             assertPendingQueueNotContainsJob(activeMaster, pendingJobId);
 
             pendingJob.cancelJob();
             assertEventuallyCanceled(pendingJob);
+
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            pendingJobMaster
+                                                    .getPhysicalPlan()
+                                                    .getPreApplyResourceFutures()
+                                                    .isEmpty()));
         } finally {
             if (engineClient != null) {
                 engineClient.close();

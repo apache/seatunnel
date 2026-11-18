@@ -843,13 +843,17 @@ public class SubPlan {
                         return;
                     }
                     jobMaster.releasePipelineResource(this);
-                    if (!jobMaster.preApplyResources(this)) {
-                        // Resource allocation also waits; do not turn a user cancellation into
-                        // a resource failure after that wait completes.
-                        if (!jobMaster.isNeedRestore()) {
-                            cancelPipeline();
-                            return;
+                    boolean preApplyResult = jobMaster.preApplyResources(this);
+                    // Check cancellation again immediately after preApplyResources returns.
+                    if (!jobMaster.isNeedRestore()) {
+                        // If resources were allocated successfully, release them before canceling.
+                        if (preApplyResult) {
+                            jobMaster.releasePipelineResource(this);
                         }
+                        cancelPipeline();
+                        return;
+                    }
+                    if (!preApplyResult) {
                         // Failed allocation leaves the previous futures unchanged; never deploy
                         // them.
                         makePipelineFailing(
