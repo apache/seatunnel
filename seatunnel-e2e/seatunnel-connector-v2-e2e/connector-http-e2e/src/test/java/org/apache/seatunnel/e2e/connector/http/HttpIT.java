@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.http;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.flink.AbstractTestFlinkContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
@@ -35,6 +37,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.mockserver.client.MockServerClient;
+import org.mockserver.matchers.TimeToLive;
 import org.mockserver.matchers.Times;
 import org.mockserver.model.ClearType;
 import org.mockserver.model.Format;
@@ -64,12 +67,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -100,13 +103,11 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     private static final String FAILING_AFTER_CHECKPOINT_PATH =
             "/example/restart/failing-after-checkpoint";
     private static final String RECOVERING_PATH = "/example/restart/recovering";
-    /** Requests the server answers before it rejects every request of the checkpoint case. */
-    private static final int ANSWERED_BEFORE_FAILING = 8;
+    /** The Flink job name: the test containers name a job after its config file. */
+    private static final String FAILING_AFTER_CHECKPOINT_JOB_NAME =
+            "http_source_failing_after_checkpoint.conf";
     /** The first attempt and the two restarts that the job configs allow on Flink. */
     private static final int FLINK_ATTEMPTS = 3;
-    /** The line of the Flink client that names the submitted job. */
-    private static final Pattern FLINK_JOB_ID =
-            Pattern.compile("Job has been submitted with JobID ([0-9a-f]{32})");
 
     private static final String PG_IMAGE = "postgres:14-alpine";
     private static final String PG_DRIVER_CONTAINER_PATH =
@@ -276,8 +277,10 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     }
 
     /**
-     * The same source failing after a completed checkpoint (#13253). The reader got its split
-     * before that checkpoint, so on a restart Flink hands an empty list back to {@code
+     * The same source failing after a completed checkpoint (#13253). The server answers until the
+     * test has seen, through the Flink REST API, two checkpoints of the job complete after the
+     * reader read a row; only then does it reject every request. The reader got its split before
+     * those checkpoints, so on a restart Flink hands an empty list back to {@code
      * SingleSplitEnumerator}, which threw before the fix. The restored reader takes its split from
      * the checkpoint, fails again, and the job must end with the error of the source after its two
      * restarts.
@@ -290,34 +293,56 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                     "Only Flink hands back the splits assigned since the last checkpoint; the Zeta"
                             + " restore order is covered by SingleSplitEnumeratorTest")
     public void testSingleSplitSourceFailingAfterACheckpointFailsWithItsOwnError(
-            TestContainer container) throws IOException, InterruptedException {
+            TestContainer container) throws Exception {
+        AbstractTestFlinkContainer flink = (AbstractTestFlinkContainer) container;
         mockServerClient
-                .when(
-                        request().withPath(FAILING_AFTER_CHECKPOINT_PATH),
-                        Times.exactly(ANSWERED_BEFORE_FAILING))
+                .when(request().withPath(FAILING_AFTER_CHECKPOINT_PATH))
                 .respond(
                         response()
                                 .withStatusCode(200)
                                 .withBody("[{\"c_string\":\"a\",\"c_int\":1}]"));
-        mockServerClient
-                .when(request().withPath(FAILING_AFTER_CHECKPOINT_PATH))
-                .respond(response().withStatusCode(500).withBody("failing after checkpoint"));
         try {
-            Container.ExecResult execResult =
-                    container.executeJob("/http_source_failing_after_checkpoint.conf");
-            String output =
-                    assertFailedWithTheErrorOfTheSource(
-                            container, execResult, "failing after checkpoint");
-            Matcher jobId = FLINK_JOB_ID.matcher(execResult.getStdout() + execResult.getStderr());
-            Assertions.assertTrue(jobId.find(), "the Flink client printed no job id");
-            Assertions.assertTrue(
-                    Pattern.compile("Completed checkpoint \\d+ for job " + jobId.group(1))
-                            .matcher(output)
-                            .find(),
-                    "no checkpoint of the job completed");
+            CompletableFuture<Container.ExecResult> job =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            "/http_source_failing_after_checkpoint.conf");
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+            String jobId = awaitRunningFlinkJob(flink, FAILING_AFTER_CHECKPOINT_JOB_NAME);
+            await().atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            responsesTo(FAILING_AFTER_CHECKPOINT_PATH, 200) > 0,
+                                            "the reader read no row yet"));
+            // The job config allows one checkpoint at a time, so the second one to complete from
+            // now on was triggered after the reader read a row with its split.
+            long completedBefore = completedFlinkCheckpoints(flink, jobId);
+            await().atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            completedFlinkCheckpoints(flink, jobId)
+                                                    >= completedBefore + 2,
+                                            "no checkpoint of job " + jobId + " completed yet"));
+            // A higher priority than the expectation above, so every request from now on fails
+            mockServerClient
+                    .when(
+                            request().withPath(FAILING_AFTER_CHECKPOINT_PATH),
+                            Times.unlimited(),
+                            TimeToLive.unlimited(),
+                            1)
+                    .respond(response().withStatusCode(500).withBody("failing after checkpoint"));
+            Container.ExecResult execResult = job.get(5, TimeUnit.MINUTES);
+            assertFailedWithTheErrorOfTheSource(container, execResult, "failing after checkpoint");
             Assertions.assertEquals(
-                    ANSWERED_BEFORE_FAILING + FLINK_ATTEMPTS,
-                    requestsTo(FAILING_AFTER_CHECKPOINT_PATH));
+                    FLINK_ATTEMPTS, responsesTo(FAILING_AFTER_CHECKPOINT_PATH, 500));
         } finally {
             mockServerClient.clear(request().withPath(FAILING_AFTER_CHECKPOINT_PATH));
         }
@@ -385,6 +410,48 @@ public class HttpIT extends TestSuiteBase implements TestResource {
 
     private int requestsTo(String path) {
         return mockServerClient.retrieveRecordedRequests(request().withPath(path)).length;
+    }
+
+    private long responsesTo(String path, int statusCode) {
+        return Arrays.stream(
+                        mockServerClient.retrieveRecordedRequestsAndResponses(
+                                request().withPath(path)))
+                .filter(r -> r.getHttpResponse().getStatusCode() == statusCode)
+                .count();
+    }
+
+    /** Waits until the Flink job named {@code jobName} runs and returns its id. */
+    private static String awaitRunningFlinkJob(AbstractTestFlinkContainer flink, String jobName) {
+        AtomicReference<String> jobId = new AtomicReference<>();
+        await().atMost(2, TimeUnit.MINUTES)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            JsonNode overview =
+                                    flinkRest(flink, "http://localhost:8081/jobs/overview");
+                            for (JsonNode job : overview.path("jobs")) {
+                                if (jobName.equals(job.path("name").asText())
+                                        && "RUNNING".equals(job.path("state").asText())) {
+                                    jobId.set(job.path("jid").asText());
+                                }
+                            }
+                            Assertions.assertNotNull(
+                                    jobId.get(), "job " + jobName + " not running");
+                        });
+        return jobId.get();
+    }
+
+    private static long completedFlinkCheckpoints(AbstractTestFlinkContainer flink, String jobId)
+            throws IOException, InterruptedException {
+        return flinkRest(flink, "http://localhost:8081/jobs/" + jobId + "/checkpoints")
+                .path("counts")
+                .path("completed")
+                .asLong();
+    }
+
+    private static JsonNode flinkRest(AbstractTestFlinkContainer flink, String url)
+            throws IOException, InterruptedException {
+        return new ObjectMapper().readTree(flink.executeJobManagerInnerCommand("curl -s " + url));
     }
 
     private Long queryCount(String sql) {
