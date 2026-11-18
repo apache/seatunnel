@@ -35,6 +35,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class HiveSinkOptionsTest {
 
     @Test
+    void testUseTableCompressionOption() {
+        assertEquals("use_table_compression", HiveSinkOptions.USE_TABLE_COMPRESSION.key());
+        assertFalse(
+                ReadonlyConfig.fromMap(new HashMap<>()).get(HiveSinkOptions.USE_TABLE_COMPRESSION));
+        Map<String, Object> options = new HashMap<>();
+        options.put(HiveSinkOptions.USE_TABLE_COMPRESSION.key(), true);
+        assertTrue(ReadonlyConfig.fromMap(options).get(HiveSinkOptions.USE_TABLE_COMPRESSION));
+    }
+
+    @Test
     void testSchemaSaveModeOption() {
         assertNotNull(HiveSinkOptions.SCHEMA_SAVE_MODE);
         assertEquals("schema_save_mode", HiveSinkOptions.SCHEMA_SAVE_MODE.key());

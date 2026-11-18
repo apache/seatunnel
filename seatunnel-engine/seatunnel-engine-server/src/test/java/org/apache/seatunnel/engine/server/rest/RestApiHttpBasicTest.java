@@ -62,7 +62,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_WORK
 /** Test for Rest API with Basic. */
 class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
 
-    private static final int HTTP_PORT = 18081;
+    private static final int HTTP_PORT = TestUtils.getAvailablePort();
     private static final int HTTP_TIMEOUT_MILLIS = 10_000;
     private static final Long JOB_1 = System.currentTimeMillis() + 1L;
     private static final String USER = "admin";

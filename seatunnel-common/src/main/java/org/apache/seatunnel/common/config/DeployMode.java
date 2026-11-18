@@ -18,6 +18,7 @@
 package org.apache.seatunnel.common.config;
 
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -46,7 +47,20 @@ public enum DeployMode {
             Arrays.stream(DeployMode.values())
                     .collect(Collectors.toMap(DeployMode::getDeployMode, Function.identity()));
 
+    /**
+     * Resolves a command line deploy mode token.
+     *
+     * <p>The token is lower-cased with {@link Locale#ROOT}, so {@code CLIENT} resolves to {@link
+     * #CLIENT} on a JVM whose default locale is Turkish or Azerbaijani, where {@code toLowerCase()}
+     * would otherwise produce a dotless {@code ı}.
+     *
+     * @param deployMode the raw token, may be {@code null}
+     * @return the matching mode, or {@link Optional#empty()} for {@code null} and unknown tokens
+     */
     public static Optional<DeployMode> from(String deployMode) {
-        return Optional.ofNullable(NAME_MAP.get(deployMode.toLowerCase()));
+        if (deployMode == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(NAME_MAP.get(deployMode.toLowerCase(Locale.ROOT)));
     }
 }
