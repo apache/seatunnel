@@ -67,6 +67,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for FileMapStore.
@@ -254,7 +255,9 @@ public class FileMapStoreTest {
     /**
      * Hazelcast loads a map by calling {@code loadAllKeys()} once and then {@code loadAll(keys)}
      * once for every partition that holds keys, and the 40 keys here fall into about 37 partitions.
-     * Verifies that the IMap storage is read once for the whole initial load, not once per call.
+     * Verifies that the IMap storage is read once for the whole initial load, not once per call,
+     * and that the shared entries are released after the load completes without waiting for a
+     * write.
      */
     @Test
     public void testInitialLoadReadsStorageOnce() {
@@ -283,6 +286,15 @@ public class FileMapStoreTest {
                 Assertions.assertEquals("value-" + key, map.get(key));
             }
             Assertions.assertEquals(1, CountingStorageFactory.scans(mapName));
+
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                map.loadAll(true);
+                                Assertions.assertTrue(
+                                        CountingStorageFactory.scans(mapName) > 1,
+                                        "a load after EAGER loading must read the storage again");
+                            });
         } finally {
             restarted.shutdown();
         }
@@ -305,7 +317,15 @@ public class FileMapStoreTest {
 
         CountingStorageFactory.resetScans();
         FileMapStore store = new FileMapStore();
-        store.init(mock(HazelcastInstance.class), props, "test-map");
+        CountDownLatch initialLoadComplete = new CountDownLatch(1);
+        HazelcastInstance hazelcastInstance = mock(HazelcastInstance.class);
+        when(hazelcastInstance.getMap("test-map"))
+                .thenAnswer(
+                        invocation -> {
+                            initialLoadComplete.await();
+                            return mock(IMap.class);
+                        });
+        store.init(hazelcastInstance, props, "test-map");
         int loaders = 8;
         ExecutorService executor = Executors.newFixedThreadPool(loaders);
         try {
@@ -337,6 +357,7 @@ public class FileMapStoreTest {
             Assertions.assertEquals("v2", loaded.get("k2").getValue());
             Assertions.assertEquals(2, CountingStorageFactory.scans(businessName));
         } finally {
+            initialLoadComplete.countDown();
             executor.shutdownNow();
             store.destroy();
         }

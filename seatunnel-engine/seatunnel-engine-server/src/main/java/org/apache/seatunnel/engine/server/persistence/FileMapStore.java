@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.map.EntryLoader.MetadataAwareValue;
 import com.hazelcast.map.EntryStore;
 import com.hazelcast.map.MapLoaderLifecycleSupport;
@@ -58,8 +59,15 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
 
     private final Object initialLoadLock = new Object();
 
+    private HazelcastInstance hazelcastInstance;
+
+    private String mapName;
+
     /** Live entries read for the initial load; guarded by {@link #initialLoadLock}. */
     private Map<Object, ExpirableValue> initialLoadEntries;
+
+    /** Whether the thread that releases {@link #initialLoadEntries} has started. */
+    private boolean initialLoadCompletionWatcherStarted;
 
     private volatile boolean initialLoadFinished;
 
@@ -67,6 +75,7 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
         if (isAuxiliaryObservabilityMap(mapName)) {
             this.mapStorage = NoOpMapStorage.INSTANCE;
+            finishInitialLoad();
             log.info(
                     "Skip persistence for map '{}' because it holds auxiliary observability state "
                             + "and should not write to persistent IMAP storage.",
@@ -74,6 +83,8 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
             return;
         }
 
+        this.hazelcastInstance = hazelcastInstance;
+        this.mapName = mapName;
         Map<String, Object> initMap = new HashMap<>(Maps.fromProperties(properties));
         String storageType = (String) initMap.get("type");
         try {
@@ -186,6 +197,7 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
                 if (!initialLoadFinished) {
                     if (initialLoadEntries == null) {
                         initialLoadEntries = mapStorage.loadAllWithExpirationTime();
+                        startInitialLoadCompletionWatcher();
                     }
                     return initialLoadEntries;
                 }
@@ -195,8 +207,47 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
     }
 
     /**
-     * Ends the initial load before the map store is first written to or destroyed, so that no later
-     * load is answered with entries read before the write.
+     * Releases the shared entries after Hazelcast finishes the EAGER map load.
+     *
+     * <p>For an EAGER map, {@code getMap()} does not return until the key load and every partition
+     * load have completed. The wait must run on another thread because this method is called from a
+     * map loader callback that participates in that load. Starting the watcher only after the first
+     * storage scan avoids creating a thread for map stores that never create a shared snapshot.
+     */
+    private void startInitialLoadCompletionWatcher() {
+        if (initialLoadCompletionWatcherStarted) {
+            return;
+        }
+        initialLoadCompletionWatcherStarted = true;
+        Thread watcher =
+                new Thread(
+                        () -> {
+                            try {
+                                hazelcastInstance.getMap(mapName);
+                            } catch (HazelcastInstanceNotActiveException e) {
+                                log.debug(
+                                        "Stop waiting for the initial load of map '{}' because the "
+                                                + "Hazelcast instance is no longer active.",
+                                        mapName,
+                                        e);
+                            } catch (RuntimeException e) {
+                                log.warn(
+                                        "Failed while waiting for the initial load of map '{}'. "
+                                                + "The shared entries will still be released.",
+                                        mapName,
+                                        e);
+                            } finally {
+                                finishInitialLoad();
+                            }
+                        },
+                        "seatunnel-imap-initial-load-watcher-" + mapName);
+        watcher.setDaemon(true);
+        watcher.start();
+    }
+
+    /**
+     * Ends the initial load after EAGER loading completes or before the map store is first written
+     * to or destroyed, so that no later load is answered with entries read before a write.
      *
      * <p>Hazelcast does not write loaded entries back to the map store, and EAGER loading blocks
      * map operations until the map is loaded, so the first write comes after the initial load.
