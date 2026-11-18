@@ -83,6 +83,14 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
     }
 
     @Override
+    public void validateInputTableCount(ReadonlyConfig options, int inputTableCount) {
+        if (inputTableCount > 1 && options.get(JdbcSinkOptions.DUCKLAKE_BULK_WRITE)) {
+            throw new IllegalArgumentException(
+                    "ducklake_bulk_write requires a single input table. Multi-table and union inputs are not supported.");
+        }
+    }
+
+    @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         validateDuckLakeIgnoreInheritedKeys(config);

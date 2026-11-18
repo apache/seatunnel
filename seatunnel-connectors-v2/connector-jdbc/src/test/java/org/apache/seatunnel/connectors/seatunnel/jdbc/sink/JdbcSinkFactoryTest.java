@@ -212,6 +212,35 @@ class JdbcSinkFactoryTest {
                 OptionValidationException.class, () -> createSinkViaFactoryContext(cfg, true));
     }
 
+    @Test
+    void bulkCountTwoRejects() {
+        Map<String, Object> config = duckLakeBulkConfig();
+        ReadonlyConfig readonly = ReadonlyConfig.fromMap(config);
+        IllegalArgumentException ex =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> factory.validateInputTableCount(readonly, 2));
+        Assertions.assertTrue(ex.getMessage().contains("ducklake_bulk_write"));
+        Assertions.assertTrue(ex.getMessage().contains("single input table"));
+    }
+
+    @Test
+    void bulkCountOnePasses() {
+        Map<String, Object> config = duckLakeBulkConfig();
+        ReadonlyConfig readonly = ReadonlyConfig.fromMap(config);
+        Assertions.assertDoesNotThrow(() -> factory.validateInputTableCount(readonly, 1));
+    }
+
+    @Test
+    void ordinaryJdbcTemplateCountTwoPasses() {
+        Map<String, Object> config = duckLakeBulkConfig();
+        config.put("ducklake_bulk_write", false);
+        config.put("table", "${table_name}");
+        config.put("database", "${database_name}");
+        ReadonlyConfig readonly = ReadonlyConfig.fromMap(config);
+        Assertions.assertDoesNotThrow(() -> factory.validateInputTableCount(readonly, 2));
+    }
+
     private Map<String, Object> duckLakeBulkConfig() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("url", "jdbc:duckdb:");
