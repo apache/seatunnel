@@ -181,40 +181,6 @@ sink {
 }
 ```
 
-### CDC 数据流写入
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "STREAMING"
-  checkpoint.interval = 10000
-}
-
-source {
-  MySQL-CDC {
-    username = "cdc_user"
-    password = "cdc_pass"
-    table-list = ["cdc_test.orders"]
-    base-url = "jdbc:mysql://localhost:3306/cdc_test"
-    startup.mode = "initial"
-  }
-}
-
-sink {
-  Jdbc {
-    driver = "org.postgresql.Driver"
-    url = "jdbc:postgresql://localhost:5432/testdb"
-    username = "tester"
-    password = "pivotal"
-    generate_sink_sql = true
-    database = "testdb"
-    table = "orders"
-    primary_keys = ["id"]
-    enable_upsert = true
-  }
-}
-```
-
 ## 变更日志
 
 <ChangeLog />

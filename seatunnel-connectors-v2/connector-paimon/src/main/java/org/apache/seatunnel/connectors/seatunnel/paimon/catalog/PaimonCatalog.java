@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
@@ -52,7 +53,6 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -85,10 +85,13 @@ public class PaimonCatalog implements Catalog, PaimonTable {
 
     @Override
     public void close() throws CatalogException {
-        if (catalog != null && catalog instanceof Closeable) {
+        if (catalog != null
+                && (catalog instanceof Closeable
+                        || readonlyConfig.get(PaimonBaseOptions.CATALOG_TYPE)
+                                == PaimonCatalogEnum.REST)) {
             try {
-                ((Closeable) catalog).close();
-            } catch (IOException e) {
+                catalog.close();
+            } catch (Exception e) {
                 log.error("Error while closing PaimonCatalog.", e);
                 throw new CatalogException(e);
             }
