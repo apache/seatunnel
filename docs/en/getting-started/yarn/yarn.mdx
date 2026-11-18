@@ -21,70 +21,39 @@ limitations under the License.
 
 # YARN Deployment
 
-A Hadoop YARN Service keeps a shared SeaTunnel Zeta cluster running between jobs. Its ApplicationMaster requests containers from YARN. The SeaTunnel CLI submits jobs to the running Zeta cluster. When a job finishes, the service keeps its containers for the next job.
+Run a single Zeta job in local mode or use a Hadoop YARN Service to keep a hybrid or separated cluster available for multiple jobs. In local mode the job releases its container when it finishes. In either cluster mode, subsequent jobs reuse the running Zeta members.
 
 ## Deployment modes
 
 | Mode | YARN Service components | When to use it |
 | --- | --- | --- |
+| [Local mode](local-mode.md) | One `local` container runs the job with an embedded Zeta engine. | Trying a connector or running a one-off batch job. |
 | [Hybrid cluster](hybrid-cluster-mode.md) | One `hybrid` component. Each container runs Master and Worker roles in one JVM. | Small clusters where scheduling and execution can share resources. |
 | [Separated cluster](separated-cluster-mode.md) | Separate `master` and `worker` components. Each container runs one role. | Production clusters that need resource isolation or independent Worker scaling. |
 
-Dashed lines show container management. Solid lines show where jobs are submitted and scheduled.
+## Separated cluster topology
 
-### Hybrid cluster
-
-The example has one hybrid member. With several members, each executes tasks and participates in Master election.
+In the `zeta-session` example, the YARN Service ApplicationMaster (AM) requests containers from the ResourceManager and asks the NodeManagers on the allocated hosts to start the Zeta Master and Worker. The SeaTunnel CLI submits jobs directly to the Zeta Master, which schedules tasks on the Worker.
 
 ```mermaid
 flowchart TB
   client["SeaTunnel CLI"]
 
   subgraph yarn["YARN cluster"]
-    rm["ResourceManager"]
-
-    subgraph session["YARN Service: zeta-hybrid"]
-      am["ApplicationMaster"]
-      hybrid["Master + Worker JVM"]
+    subgraph management["Container management"]
+      rm["ResourceManager"]
+      am["YARN Service AM"]
+      nm["NodeManagers"]
     end
+
+    master["Zeta Master JVM"]
+    worker["Zeta Worker JVM"]
   end
 
   rm -. "Allocates containers" .-> am
-  am -.-> hybrid
-  client -->|Submit jobs| hybrid
-
-  classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
-  classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
-  classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
-
-  class yarn,session layerBlue;
-  class rm,am layerCyan;
-  class client,hybrid layerPurple;
-  linkStyle default stroke:#5db8e2,stroke-width:2px;
-  linkStyle 0,1 stroke:#5db8e2,stroke-width:2px,stroke-dasharray:4 3;
-```
-
-### Separated cluster
-
-The example has one Master and one Worker. For Master failover, deploy at least two Masters on different hosts and configure discovery and IMap backups. [Separated cluster deployment](../../engines/zeta/separated-cluster-deployment.md)
-
-```mermaid
-flowchart TB
-  client["SeaTunnel CLI"]
-
-  subgraph yarn["YARN cluster"]
-    rm["ResourceManager"]
-
-    subgraph session["YARN Service: zeta-session"]
-      am["ApplicationMaster"]
-      master["Zeta Master JVM"]
-      worker["Zeta Worker JVM"]
-    end
-  end
-
-  rm -. "Allocates containers" .-> am
-  am -.-> master
-  am -.-> worker
+  am -. "Launch requests" .-> nm
+  nm -.-> master
+  nm -.-> worker
   client -->|Submit jobs| master
   master -->|Schedule tasks| worker
 
@@ -92,17 +61,17 @@ flowchart TB
   classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
   classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
 
-  class yarn,session layerBlue;
-  class rm,am layerCyan;
+  class yarn,management layerBlue;
+  class rm,nm,am layerCyan;
   class client,master,worker layerPurple;
   linkStyle default stroke:#5db8e2,stroke-width:2px;
-  linkStyle 0,1,2 stroke:#5db8e2,stroke-width:2px,stroke-dasharray:4 3;
+  linkStyle 0,1,2,3 stroke:#5db8e2,stroke-width:2px,stroke-dasharray:4 3;
 ```
 
 ## Prerequisites
 
-- A Hadoop cluster with HDFS and YARN Service enabled. The example uses Hadoop 3.3.6. Set `yarn.webapp.api-service.enable=true` on the ResourceManager. The submitting user needs write access to the HDFS staging and checkpoint directories and capacity in the queue for the ApplicationMaster and the containers in the selected mode. [Hadoop YARN Service Quick Start](https://hadoop.apache.org/docs/r3.3.6/hadoop-yarn/hadoop-yarn-site/yarn-service/QuickStart.html)
-- Stable discovery addresses for the hybrid members or Masters, resolvable by the client and the containers. Zeta members must be able to reach each other. The example uses YARN Registry DNS. [YARN service discovery](https://hadoop.apache.org/docs/r3.3.6/hadoop-yarn/hadoop-yarn-site/yarn-service/ServiceDiscovery.html)
+- A Hadoop cluster with HDFS and YARN Service enabled. The example uses Hadoop 3.3.6. Set `yarn.webapp.api-service.enable=true` on the ResourceManager. The submitting user needs access to the HDFS staging directory and enough queue capacity for the ApplicationMaster and the containers in the selected mode. For jobs using HDFS checkpoints, grant write access to the checkpoint directory as well. [Hadoop YARN Service Quick Start](https://hadoop.apache.org/docs/r3.3.6/hadoop-yarn/hadoop-yarn-site/yarn-service/QuickStart.html)
+- For hybrid and separated clusters, use stable discovery addresses for the hybrid members or Masters, resolvable by the client and the containers. Zeta members must be able to reach each other. The example uses YARN Registry DNS. [YARN service discovery](https://hadoop.apache.org/docs/r3.3.6/hadoop-yarn/hadoop-yarn-site/yarn-service/ServiceDiscovery.html)
 - A SeaTunnel binary distribution on the submission host and Java 11 or 17 on the submission host and in the containers. Set `SEATUNNEL_HOME` to the extracted distribution. The example uses SeaTunnel 3.1.0 with the FakeSource and Console connectors.
 
 ## Deploy and operate the cluster

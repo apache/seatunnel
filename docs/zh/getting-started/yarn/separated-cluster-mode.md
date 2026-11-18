@@ -1,5 +1,5 @@
 ---
-sidebar_position: 3
+sidebar_position: 4
 ---
 
 <!--
@@ -33,11 +33,13 @@ limitations under the License.
 
 ```bash
 tar -czf /tmp/zeta-session-3.1.0.tgz -C "$SEATUNNEL_HOME" .
-hdfs dfs -mkdir -p /user/etl/seatunnel/releases /user/etl/seatunnel/checkpoints
+hdfs dfs -mkdir -p /user/etl/seatunnel/releases /user/etl/seatunnel/checkpoints/zeta-session
 hdfs dfs -put /tmp/zeta-session-3.1.0.tgz /user/etl/seatunnel/releases/
 ```
 
-将以下内容保存为 `zeta-session.json`。队列除了要容纳两个 Zeta 容器，还要为 YARN Service 的 ApplicationMaster 预留资源。YARN 将压缩包分发到各容器。每个角色分别解压到自己的可写目录，用于存放日志和运行时文件。Master 的成员端口就绪后才启动 Worker。两条启动命令都让 JVM 在前台运行，便于 YARN 跟踪进程状态。
+将以下内容保存为 `zeta-session.json`。Master 和 Worker 各申请 8 个 vcore 和 24 GiB（24576 MiB）内存。队列需要为这两个容器提供 16 个 vcore 和 48 GiB 内存，并额外为 YARN Service 的 ApplicationMaster 预留资源。确认调度器和队列允许申请 8 个 vcore、24 GiB 的单个容器，且每个容器都能在可调度的 NodeManager 上获得足够资源。
+
+YARN 将压缩包分发到各容器。每个角色分别解压到自己的可写目录，用于存放日志和运行时文件。Master 的成员端口就绪后才启动 Worker。两条启动命令都让 JVM 在前台运行，便于 YARN 跟踪进程状态。
 
 ```json
 {
@@ -57,7 +59,7 @@ hdfs dfs -put /tmp/zeta-session-3.1.0.tgz /user/etl/seatunnel/releases/
     {
       "name": "master",
       "number_of_containers": 1,
-      "resource": { "cpus": 1, "memory": "2048" },
+      "resource": { "cpus": 8, "memory": "24576" },
       "readiness_check": { "type": "PORT", "properties": { "port": "5801" } },
       "launch_command": "mkdir -p seatunnel && tar -xzf zeta.tgz -C seatunnel && exec bash seatunnel/bin/seatunnel-cluster.sh -r master"
     },
@@ -65,7 +67,7 @@ hdfs dfs -put /tmp/zeta-session-3.1.0.tgz /user/etl/seatunnel/releases/
       "name": "worker",
       "number_of_containers": 1,
       "dependencies": ["master"],
-      "resource": { "cpus": 2, "memory": "4096" },
+      "resource": { "cpus": 8, "memory": "24576" },
       "configuration": { "env": { "SEATUNNEL_CONFIG": "seatunnel/config/seatunnel-worker.yaml" } },
       "launch_command": "mkdir -p seatunnel && tar -xzf zeta.tgz -C seatunnel && exec bash seatunnel/bin/seatunnel-cluster.sh -r worker"
     }

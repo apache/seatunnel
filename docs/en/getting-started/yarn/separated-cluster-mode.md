@@ -1,5 +1,5 @@
 ---
-sidebar_position: 3
+sidebar_position: 4
 ---
 
 <!--
@@ -33,11 +33,13 @@ Package the **contents** of the prepared distribution so `bin/` and `config/` ar
 
 ```bash
 tar -czf /tmp/zeta-session-3.1.0.tgz -C "$SEATUNNEL_HOME" .
-hdfs dfs -mkdir -p /user/etl/seatunnel/releases /user/etl/seatunnel/checkpoints
+hdfs dfs -mkdir -p /user/etl/seatunnel/releases /user/etl/seatunnel/checkpoints/zeta-session
 hdfs dfs -put /tmp/zeta-session-3.1.0.tgz /user/etl/seatunnel/releases/
 ```
 
-Save the following as `zeta-session.json`. The queue must have capacity for the service ApplicationMaster in addition to the two Zeta containers. YARN localizes the archive into each container. Each role extracts its own writable installation for logs and runtime files. The Worker starts after the Master's member port is reachable. Both launch commands keep the JVM in the foreground so YARN can track it.
+Save the following as `zeta-session.json`. The Master and Worker each request 8 vcores and 24 GiB (24576 MiB). The queue needs 16 vcores and 48 GiB for the pair, plus capacity for the YARN Service ApplicationMaster. Check that the scheduler and queue allow an 8-vcore, 24-GiB container and that each container fits on an eligible NodeManager.
+
+YARN localizes the archive into each container. Each role extracts its own writable installation for logs and runtime files. The Worker starts after the Master's member port is reachable. Both launch commands keep the JVM in the foreground so YARN can track it.
 
 ```json
 {
@@ -57,7 +59,7 @@ Save the following as `zeta-session.json`. The queue must have capacity for the 
     {
       "name": "master",
       "number_of_containers": 1,
-      "resource": { "cpus": 1, "memory": "2048" },
+      "resource": { "cpus": 8, "memory": "24576" },
       "readiness_check": { "type": "PORT", "properties": { "port": "5801" } },
       "launch_command": "mkdir -p seatunnel && tar -xzf zeta.tgz -C seatunnel && exec bash seatunnel/bin/seatunnel-cluster.sh -r master"
     },
@@ -65,7 +67,7 @@ Save the following as `zeta-session.json`. The queue must have capacity for the 
       "name": "worker",
       "number_of_containers": 1,
       "dependencies": ["master"],
-      "resource": { "cpus": 2, "memory": "4096" },
+      "resource": { "cpus": 8, "memory": "24576" },
       "configuration": { "env": { "SEATUNNEL_CONFIG": "seatunnel/config/seatunnel-worker.yaml" } },
       "launch_command": "mkdir -p seatunnel && tar -xzf zeta.tgz -C seatunnel && exec bash seatunnel/bin/seatunnel-cluster.sh -r worker"
     }
