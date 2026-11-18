@@ -905,6 +905,10 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Job-id submit and cancel are only implemented by the Zeta container")
     public void testDatabaseNameWithDot(TestContainer container) throws Exception {
         initializeSqlServerTable("test_dotted_db_name");
 
