@@ -404,6 +404,9 @@ public class CheckpointCoordinatorFailoverIT {
                                 Assertions.assertTrue(
                                         scheduler.isShutdown(),
                                         "A canceled recovered pipeline must not recreate its scheduler");
+                                Assertions.assertTrue(
+                                        scheduler.isTerminated(),
+                                        "All recovered checkpoint scheduler workers must exit after cancellation");
                             });
         } finally {
             if (engineClient != null) {

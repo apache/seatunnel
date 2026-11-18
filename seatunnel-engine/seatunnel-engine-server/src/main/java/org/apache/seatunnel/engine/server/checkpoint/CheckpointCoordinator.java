@@ -289,10 +289,11 @@ public class CheckpointCoordinator {
     }
 
     /**
-     * Builds a live 2-thread scheduler for this coordinator.
+     * Builds a scheduler with capacity for two workers, started lazily when tasks are scheduled.
      *
-     * <p>Only called from the constructor and from a {@code CHECKPOINT_COORDINATOR_RESET} cleanup:
-     * a terminal coordinator must not get a replacement scheduler, or its threads outlive the job.
+     * <p>Only called from the constructor and from a {@code CHECKPOINT_COORDINATOR_RESET} cleanup.
+     * Non-reset cleanup leaves the scheduler shut down until {@link #restoreCoordinator(boolean)}
+     * revives it for pipeline restore or master failover.
      */
     private ScheduledExecutorService createScheduler() {
         ScheduledThreadPoolExecutor executor =
@@ -565,8 +566,8 @@ public class CheckpointCoordinator {
                         try {
                             tryTriggerPendingCheckpoint(checkpointType);
                         } catch (Throwable e) {
-                            // Preserve failure propagation from a scheduled trigger on shutdown
-                            // races.
+                            // A thrown trigger would otherwise drop the scheduled checkpoint chain
+                            // silently; fail the coordinator so the job can handle the error.
                             handleCoordinatorError(
                                     String.format(
                                             "Failed to trigger %s for job id: %s, pipeline id: %s",
@@ -1262,14 +1263,15 @@ public class CheckpointCoordinator {
      *       caused by a coordinator reset)
      *   <li>Clearing all internal tracking structures
      *   <li>Resetting counters and schema change flags
-     *   <li>Stopping and recreating the scheduler thread pool
+     *   <li>Stopping the scheduler thread pool; recreating it only for {@code
+     *       CHECKPOINT_COORDINATOR_RESET}
      * </ul>
      *
      * <p>If the close reason is {@code CHECKPOINT_COORDINATOR_RESET}, the monitor service will
      * clear all in-progress checkpoint metadata without reporting them as failures.
      *
-     * <p>This method ensures that no residual checkpoint state remains in memory and that the
-     * coordinator is ready for a clean restart if necessary.
+     * <p>This method clears residual checkpoint state. Only reset cleanup prepares the scheduler
+     * for a restart; other close reasons leave it shut down until {@code restoreCoordinator} runs.
      *
      * @param closedReason the reason why pending checkpoints are being closed; determines how
      *     monitoring and cleanup are handled
@@ -1309,16 +1311,15 @@ public class CheckpointCoordinator {
             pendingCounter.set(0);
             schemaChanging.set(false);
             // Only remove the persisted ready-to-close state when the coordinator truly ends
-            // (completed/failed/cancelled). During a reset (master failover), the IMap entry
-            // must be preserved so restoreCoordinator() can recover from it.
+            // (completed/failed/cancelled). During pipeline restore or master failover, RESET
+            // preserves the IMap entry so restoreCoordinator() can recover from it.
             if (closedReason != CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
                 runningJobStateIMap.remove(readyToCloseImapKey);
             }
             scheduler.shutdownNow();
-            // A terminal coordinator must not create a replacement executor. Recreating it here
-            // leaves an idle checkpoint-coordinator thread alive after the job is cancelled or
-            // completed. A replacement is only needed when a master-failover reset restarts the
-            // coordinator.
+            // Non-reset cleanup leaves the scheduler shut down, so late callbacks cannot start
+            // workers on a replacement after the pipeline ends. restoreCoordinator() revives it
+            // through RESET for either pipeline restore or master failover.
             if (closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
                 scheduler = createScheduler();
             }

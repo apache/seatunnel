@@ -1166,9 +1166,8 @@ public class CheckpointCoordinatorTest
     }
 
     /**
-     * The other half of the same invariant: a master-failover reset does need the scheduler back,
-     * so this pins that {@code CHECKPOINT_COORDINATOR_RESET} still leaves a live one rather than
-     * relying on unrelated tests tripping over it.
+     * Pipeline restore and master failover both revive the scheduler through {@code
+     * CHECKPOINT_COORDINATOR_RESET}; reset cleanup must leave a live scheduler.
      */
     @Test
     void testResetRecreatesLiveScheduler() {
