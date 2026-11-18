@@ -26,6 +26,11 @@ import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.Locale;
 
+/**
+ * Verifies that the {@code -pt} plugin type argument is parsed independently of the JVM default
+ * locale, through the command line parser and the metadata export converter.
+ */
+@ResourceLock("java.util.Locale")
 public class ConnectorCheckCommandArgsTest {
     @Test
     public void testConnectorCheckCommandArgs() {
@@ -49,25 +54,27 @@ public class ConnectorCheckCommandArgsTest {
     }
 
     @Test
-    @ResourceLock("default-locale")
-    public void testSinkPluginTypeUnderTurkishLocale() {
-        Locale originalLocale = Locale.getDefault();
-        Locale originalDisplayLocale = Locale.getDefault(Locale.Category.DISPLAY);
-        Locale originalFormatLocale = Locale.getDefault(Locale.Category.FORMAT);
+    public void testPluginTypeArgumentIsLocaleIndependent() {
+        Locale base = Locale.getDefault();
+        Locale display = Locale.getDefault(Locale.Category.DISPLAY);
+        Locale format = Locale.getDefault(Locale.Category.FORMAT);
         try {
-            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
-            String[] args = {"-l", "-pt", "sink"};
+            Locale.setDefault(new Locale("tr", "TR"));
+
+            String[] args = {"-pt", "sink"};
             ConnectorCheckCommandArgs connectorCheckCommandArgs =
                     CommandLineUtils.parse(
                             args, new ConnectorCheckCommandArgs(), "seatunnel-connector.sh", false);
             Assertions.assertEquals(PluginType.SINK, connectorCheckCommandArgs.getPluginType());
-            Assertions.assertEquals(
-                    PluginType.SINK,
+
+            MetadataExportCommandArgs metadataExportCommandArgs = new MetadataExportCommandArgs();
+            metadataExportCommandArgs.setPluginType(
                     new MetadataExportCommandArgs.PluginTypeConverter().convert("sink"));
+            Assertions.assertEquals(PluginType.SINK, metadataExportCommandArgs.getPluginType());
         } finally {
-            Locale.setDefault(originalLocale);
-            Locale.setDefault(Locale.Category.DISPLAY, originalDisplayLocale);
-            Locale.setDefault(Locale.Category.FORMAT, originalFormatLocale);
+            Locale.setDefault(base);
+            Locale.setDefault(Locale.Category.DISPLAY, display);
+            Locale.setDefault(Locale.Category.FORMAT, format);
         }
     }
 }
