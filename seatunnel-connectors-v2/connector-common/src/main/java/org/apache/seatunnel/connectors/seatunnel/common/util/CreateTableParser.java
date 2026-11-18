@@ -30,17 +30,23 @@ public class CreateTableParser {
 
     /**
      * Parses the column definitions between the first {@code (} of a create table template and the
-     * matching top-level {@code )}.
+     * {@code )} that closes it. Parentheses inside a column definition are tracked one level deep,
+     * as in {@code VARCHAR(10)} or {@code DECIMAL(15, 2)}; nested ones, such as {@code DEFAULT
+     * (abs(1))}, end the column list early.
      *
      * <p>Text inside {@code '...'}, {@code "..."} or {@code `...`} is kept as is, so commas and
      * parentheses in it do not end a column definition. Inside {@code '...'} and {@code "..."} a
      * backslash escapes the next character. A doubled quote, such as {@code ''} or {@code ``},
      * closes the quoted text and opens it again, so it needs no special handling.
      *
+     * <p>SQL comments, {@code -- ...} up to the end of the line and {@code /* ... *}{@code /}, are
+     * kept as is too, and quotes, commas and parentheses in them are ignored.
+     *
      * <p>The start and end index of each {@link ColumnInfo} are offsets of the column name in the
      * original template.
      *
-     * @throws IllegalArgumentException if a quote is not closed before the end of the template
+     * @throws IllegalArgumentException if a quote or a {@code /*} comment is not closed before the
+     *     end of the template
      */
     public static Map<String, ColumnInfo> getColumnList(String createTableSql) {
         Map<String, ColumnInfo> columns = new HashMap<>();
@@ -61,6 +67,20 @@ public class CreateTableParser {
                 } else if (c == quote) {
                     quote = 0;
                 }
+            } else if (c == '-' && createTableSql.startsWith("-", i + 1)) {
+                // A line comment, such as -- don't change this type, ends at the end of the line.
+                int end = createTableSql.indexOf('\n', i);
+                end = end < 0 ? createTableSql.length() : end;
+                columnBuilder.append(createTableSql, i, end);
+                i = end - 1;
+            } else if (c == '/' && createTableSql.startsWith("*", i + 1)) {
+                int end = createTableSql.indexOf("*/", i + 2);
+                if (end < 0) {
+                    throw new IllegalArgumentException(
+                            "Unterminated /* comment in save_mode_create_template");
+                }
+                columnBuilder.append(createTableSql, i, end + 2);
+                i = end + 1;
             } else if (c == '\'' || c == '"' || c == '`') {
                 quote = c;
                 columnBuilder.append(c);

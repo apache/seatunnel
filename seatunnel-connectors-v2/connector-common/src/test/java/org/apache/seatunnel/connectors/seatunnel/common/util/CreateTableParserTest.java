@@ -96,4 +96,33 @@ public class CreateTableParserTest {
         Assertions.assertThrows(
                 IllegalArgumentException.class, () -> CreateTableParser.getColumnList(template));
     }
+
+    @Test
+    public void testQuotesInsideSqlCommentsAreIgnored() {
+        String template =
+                "CREATE TABLE `db`.`tbl` (\n"
+                        + "`id` BIGINT NOT NULL -- don't change, (this) type\n"
+                        + ", `level` STRING /* it's a, b) */,\n"
+                        + "`creator`,\n"
+                        + "${rowtype_fields}\n"
+                        + ") ENGINE=OLAP";
+
+        Map<String, CreateTableParser.ColumnInfo> columns =
+                CreateTableParser.getColumnList(template);
+
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList("id", "level", "creator")), columns.keySet());
+        Assertions.assertEquals(
+                "BIGINT NOT NULL -- don't change, (this) type", columns.get("id").getInfo());
+        Assertions.assertEquals("STRING /* it's a, b) */", columns.get("level").getInfo());
+
+        CreateTableParser.ColumnInfo creator = columns.get("creator");
+        Assertions.assertEquals(
+                "creator", template.substring(creator.getStartIndex(), creator.getEndIndex()));
+
+        String unterminated = "CREATE TABLE `db`.`tbl` (\n`id` /* no end,\n${rowtype_fields}\n)";
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> CreateTableParser.getColumnList(unterminated));
+    }
 }
