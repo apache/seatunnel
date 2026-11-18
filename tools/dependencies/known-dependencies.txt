@@ -136,6 +136,7 @@ seatunnel-shade-jackson-yaml-2.15.4-3.0.1.jar
 annotations-13.0.jar
 bcpkix-jdk18on-1.76.jar
 bcprov-jdk18on-1.76.jar
+bcprov-jdk18on-1.87.jar
 bcutil-jdk18on-1.76.jar
 client-java-19.0.1.jar
 client-java-api-19.0.1.jar

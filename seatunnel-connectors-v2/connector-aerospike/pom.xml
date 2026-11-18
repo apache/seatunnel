@@ -44,6 +44,17 @@
             <groupId>com.aerospike</groupId>
             <artifactId>aerospike-client</artifactId>
             <version>4.4.17</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.gnu</groupId>
+                    <artifactId>gnu-crypto</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.87</version>
         </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
@@ -58,12 +69,29 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <configuration>
-                    <artifactSet>
-                        <excludes combine.children="append">
-                            <!-- Keep the client's RIPEMD-160 implementation in a separate runtime JAR. -->
-                            <exclude>org.gnu:gnu-crypto</exclude>
-                        </excludes>
-                    </artifactSet>
+                    <filters combine.children="append">
+                        <filter>
+                            <artifact>com.aerospike:aerospike-client</artifact>
+                            <excludes>
+                                <!-- Compile the upstream Bouncy Castle variant in this module. -->
+                                <exclude>com/aerospike/client/util/Crypto.class</exclude>
+                            </excludes>
+                        </filter>
+                        <filter>
+                            <artifact>org.bouncycastle:bcprov-jdk18on</artifact>
+                            <excludes>
+                                <!-- The connector uses the lightweight API without installing a JCA provider. -->
+                                <exclude>META-INF/services/java.security.Provider</exclude>
+                                <exclude>META-INF/versions/**</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                    <relocations>
+                        <relocation>
+                            <pattern>org.bouncycastle</pattern>
+                            <shadedPattern>org.apache.seatunnel.shade.aerospike.org.bouncycastle</shadedPattern>
+                        </relocation>
+                    </relocations>
                 </configuration>
             </plugin>
         </plugins>

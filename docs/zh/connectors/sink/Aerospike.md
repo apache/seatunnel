@@ -10,14 +10,13 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 > Flink<br/>
 > Seatunnel Zeta<br/>
 
-## 运行时依赖
+## 许可证
 
 连接器打包了采用 Apache License 2.0 的 [Aerospike Java 客户端 4.4.17](https://github.com/aerospike/aerospike-client-java/blob/4.4.17/LICENSE.md)。
-客户端依赖 GNU Crypto 2.0.1，其许可证为 GPL 第 2 版或更高版本，附带链接例外条款。
-SeaTunnel 将 GNU Crypto 作为独立的运行时 JAR 加载。
+客户端的 [Bouncy Castle 加密实现](https://github.com/aerospike/aerospike-client-java/blob/4.4.17/CRYPTO.md) 生成相同的 RIPEMD-160 记录键摘要。
+所需 Bouncy Castle 代码已包含在连接器 JAR 中，按常规方式安装连接器即可。
 
-安装连接器后，从 Maven Central 下载 [gnu-crypto-2.0.1.jar](https://repo.maven.apache.org/maven2/org/gnu/gnu-crypto/2.0.1/gnu-crypto-2.0.1.jar)，在运行 Aerospike 作业前，将它放入 SeaTunnel 作业提交端和工作节点的 `${SEATUNNEL_HOME}/plugins/Aerospike/lib/` 目录。
-同一仓库也提供[对应源码及源码文件中的许可证声明](https://repo.maven.apache.org/maven2/org/gnu/gnu-crypto/2.0.1/gnu-crypto-2.0.1-sources.jar)。
+运行分布式 Zeta 作业时，若未开启[连接器 JAR 上传](../../engines/zeta/engine-jar-storage-mode.md)，请在提交端和引擎节点使用相同的绝对路径安装连接器。
 
 ## 主要特性
 

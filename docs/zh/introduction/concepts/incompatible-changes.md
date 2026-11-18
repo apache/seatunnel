@@ -4,10 +4,6 @@
 
 ## dev
 
-### Aerospike Sink：单独安装 GNU Crypto
-
-升级 Aerospike 连接器时，请在作业提交端和工作节点的 `${SEATUNNEL_HOME}/plugins/Aerospike/lib/` 目录中安装 `gnu-crypto-2.0.1.jar`。重新启动作业前，请参照 [Aerospike 安装说明](../../connectors/sink/Aerospike.md)。安装独立 JAR 后，原有作业配置和记录键可继续使用。
-
 ### Http Sink：`array_mode = true` 时每行作为 JSON 对象发送
 
 - **行为变更：请求体数组的元素是 JSON 对象，而不再是字符串**

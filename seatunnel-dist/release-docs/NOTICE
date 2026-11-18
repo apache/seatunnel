@@ -866,7 +866,7 @@ The initial codebase was donated to the ASF by HugeGraph Authors, copyright 2017
  + Third-party dependencies for Aerospike connector:
  +===============================================================================
  + com.aerospike:aerospike-client (https://github.com/aerospike/aerospike-client-java)
- + Copyright 2012-2023 Aerospike, Inc.
+ + Copyright 2012-2020 Aerospike, Inc.
  + Licensed under the Apache License, Version 2.0
 
 ========================================================================

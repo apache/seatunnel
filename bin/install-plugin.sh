@@ -253,12 +253,11 @@ download_plugin_with_maven() {
     artifact_id=$1
 
     echo "Install connector with Maven: ${artifact_id}"
-    "${SEATUNNEL_HOME}/mvnw" dependency:get \
-        -Dtransitive=false \
-        -DgroupId=org.apache.seatunnel \
-        -DartifactId="$artifact_id" \
-        -Dversion="$version" \
-        -Ddest="${SEATUNNEL_HOME}/connectors"
+    "${SEATUNNEL_HOME}/mvnw" org.apache.maven.plugins:maven-dependency-plugin:3.1.1:copy \
+        "-Dartifact=org.apache.seatunnel:${artifact_id}:${version}:jar" \
+        "-DoutputDirectory=${SEATUNNEL_HOME}/connectors" \
+        -Dmdep.overWriteReleases=true \
+        -Dmdep.overWriteSnapshots=true
 }
 
 while IFS= read -r line || [ -n "$line" ]; do

@@ -10,14 +10,13 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## Runtime dependency
+## License
 
 The connector bundles the [Aerospike Java client 4.4.17](https://github.com/aerospike/aerospike-client-java/blob/4.4.17/LICENSE.md) under the Apache License 2.0.
-The client requires GNU Crypto 2.0.1 under the GPL version 2 or later with a linking exception.
-SeaTunnel uses GNU Crypto as a separate runtime JAR.
+Its [Bouncy Castle crypto variant](https://github.com/aerospike/aerospike-client-java/blob/4.4.17/CRYPTO.md) uses the same RIPEMD-160 record key digests.
+The connector JAR includes the Bouncy Castle code it needs, so the standard connector installation is sufficient.
 
-After installing the connector, download [gnu-crypto-2.0.1.jar](https://repo.maven.apache.org/maven2/org/gnu/gnu-crypto/2.0.1/gnu-crypto-2.0.1.jar) and place it in `${SEATUNNEL_HOME}/plugins/Aerospike/lib/` on the SeaTunnel submission host and workers before running Aerospike jobs.
-The [corresponding sources and license headers](https://repo.maven.apache.org/maven2/org/gnu/gnu-crypto/2.0.1/gnu-crypto-2.0.1-sources.jar) are available from the same repository.
+For distributed Zeta jobs, install the connector at the same absolute path on the submission and engine hosts when [connector JAR upload](../../engines/zeta/engine-jar-storage-mode.md) is disabled.
 
 ## Key Features
 

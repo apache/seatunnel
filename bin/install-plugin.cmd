@@ -45,7 +45,11 @@ for /f "usebackq delims=" %%a in ("%SEATUNNEL_HOME%\config\plugin_config") do (
     setlocal enabledelayedexpansion
     if "!line:~0,1!" neq "-" if "!line:~0,1!" neq "#" (
         echo install connector : !line!
-        call "%SEATUNNEL_HOME%\mvnw.cmd" dependency:get -Dtransitive=false -DgroupId="org.apache.seatunnel" -DartifactId="!line!" -Dversion="%version%" -Ddest="%SEATUNNEL_HOME%\connectors"
+        call "%SEATUNNEL_HOME%\mvnw.cmd" org.apache.maven.plugins:maven-dependency-plugin:3.1.1:copy ^
+            "-Dartifact=org.apache.seatunnel:!line!:%version%:jar" ^
+            "-DoutputDirectory=%SEATUNNEL_HOME%\connectors" ^
+            -Dmdep.overWriteReleases=true -Dmdep.overWriteSnapshots=true
+        if errorlevel 1 exit /b 1
     )
     endlocal
 )
