@@ -42,8 +42,11 @@ import org.mockito.Mockito;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -178,6 +181,56 @@ class AbstractWriteStrategyTest {
     }
 
     @Test
+    void generatorPartitionDirWithNullPartitionValue() {
+        TestTextWriteStrategy writeStrategy =
+                new TestTextWriteStrategy(
+                        newPartitionedFileSinkConfig(newPartitionRowType(), null));
+
+        LinkedHashMap<String, List<String>> partitionDirAndValues =
+                writeStrategy.generatorPartitionDir(new SeaTunnelRow(new Object[] {1, null}));
+
+        Assertions.assertEquals(
+                Collections.singletonList("c_null=null"),
+                new ArrayList<>(partitionDirAndValues.keySet()));
+        Assertions.assertEquals(
+                Collections.singletonList("null"), partitionDirAndValues.get("c_null=null"));
+    }
+
+    @Test
+    void generatorPartitionDirWithNullPartitionValueAndExpression() {
+        // "${k0}/${v0}" renders differently from the default branch on purpose: if the expression
+        // were ignored, the directory would be "c_null=null" and the assertion below would fail.
+        TestTextWriteStrategy writeStrategy =
+                new TestTextWriteStrategy(
+                        newPartitionedFileSinkConfig(newPartitionRowType(), "${k0}/${v0}"));
+
+        LinkedHashMap<String, List<String>> partitionDirAndValues =
+                writeStrategy.generatorPartitionDir(new SeaTunnelRow(new Object[] {1, null}));
+
+        Assertions.assertEquals(
+                Collections.singletonList("c_null/null"),
+                new ArrayList<>(partitionDirAndValues.keySet()));
+        Assertions.assertEquals(
+                Collections.singletonList("null"), partitionDirAndValues.get("c_null/null"));
+    }
+
+    @Test
+    void generatorPartitionDirKeepsNonNullPartitionValue() {
+        TestTextWriteStrategy writeStrategy =
+                new TestTextWriteStrategy(
+                        newPartitionedFileSinkConfig(newPartitionRowType(), null));
+
+        LinkedHashMap<String, List<String>> partitionDirAndValues =
+                writeStrategy.generatorPartitionDir(new SeaTunnelRow(new Object[] {1, "alice"}));
+
+        Assertions.assertEquals(
+                Collections.singletonList("c_null=alice"),
+                new ArrayList<>(partitionDirAndValues.keySet()));
+        Assertions.assertEquals(
+                Collections.singletonList("alice"), partitionDirAndValues.get("c_null=alice"));
+    }
+
+    @Test
     void shouldNotCloseOrcWriterWhileWriteIsInProgress() throws Exception {
         assertCloseWaitsForColumnarWrite(Mockito.spy(new OrcWriteStrategy(newFileSinkConfig())));
     }
@@ -256,6 +309,26 @@ class AbstractWriteStrategyTest {
         Mockito.when(fileSinkConfig.isSingleFileMode()).thenReturn(false);
         Mockito.when(fileSinkConfig.getTmpPath()).thenReturn(TMP_PATH);
         return fileSinkConfig;
+    }
+
+    private static SeaTunnelRowType newPartitionRowType() {
+        return new SeaTunnelRowType(
+                new String[] {"id", "c_null"},
+                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+    }
+
+    private static FileSinkConfig newPartitionedFileSinkConfig(
+            SeaTunnelRowType rowType, String partitionDirExpression) {
+        Map<String, Object> writeConfig = new HashMap<>();
+        writeConfig.put("tmp_path", TMP_PATH);
+        writeConfig.put("path", "/tmp/seatunnel-target");
+        writeConfig.put("file_format_type", FileFormat.TEXT.name());
+        writeConfig.put("partition_by", Collections.singletonList("c_null"));
+        if (partitionDirExpression != null) {
+            writeConfig.put("partition_dir_expression", partitionDirExpression);
+        }
+        return new FileSinkConfig(
+                ReadonlyConfig.fromConfig(ConfigFactory.parseMap(writeConfig)), rowType);
     }
 
     private static FileSinkConfig newTextFileSinkConfig(SeaTunnelRowType rowType) {

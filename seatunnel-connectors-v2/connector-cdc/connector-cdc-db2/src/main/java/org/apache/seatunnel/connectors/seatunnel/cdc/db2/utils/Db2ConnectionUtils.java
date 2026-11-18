@@ -27,6 +27,6 @@ public class Db2ConnectionUtils {
 
     public static Db2Connection createDb2Connection(Configuration dbzConfiguration) {
         final Db2ConnectorConfig connectorConfig = new Db2ConnectorConfig(dbzConfiguration);
-        return new Db2Connection(JdbcConfiguration.adapt(connectorConfig.getJdbcConfig()));
+        return new Db2CdcConnection(JdbcConfiguration.adapt(connectorConfig.getJdbcConfig()));
     }
 }

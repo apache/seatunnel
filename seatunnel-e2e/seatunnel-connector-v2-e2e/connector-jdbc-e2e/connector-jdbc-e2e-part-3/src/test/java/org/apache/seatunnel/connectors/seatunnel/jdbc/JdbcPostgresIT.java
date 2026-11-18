@@ -521,8 +521,10 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
 
     /**
      * Verifies that the numeric special values are also read as null when the driver uses the
-     * binary transfer protocol, where the driver fails with a ClassCastException instead of a
-     * PSQLException.
+     * binary transfer protocol, where the driver fails with a ClassCastException for NaN and an
+     * IllegalArgumentException for Infinity and -Infinity instead of a PSQLException. The driver
+     * only switches to binary results for server-prepared statements, so the job sets
+     * prepareThreshold=-1 to prepare the statement before its first execution.
      */
     @TestTemplate
     public void testNumericSpecialValueAsNullWithBinaryTransfer(TestContainer container)

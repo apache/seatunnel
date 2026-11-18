@@ -195,6 +195,26 @@ source {
 }
 ```
 
+
+### Capture registrations and recovery
+
+Active Capture registrations remain readable as `CD_NEW_SYNCHPOINT` advances.
+`CD_OLD_SYNCHPOINT` is the readable starting point, not a stop watermark.
+The schema and table components in `table-names` and `table-names-config.table` are resolved
+against the DB2 catalog before catalog lookup and capture filtering. If an object with exactly the
+configured spelling exists, that spelling is used, so existing jobs keep selecting the same table
+even when an object with the uppercase spelling also exists. Otherwise the components are
+normalized to uppercase, the spelling DB2 gives unquoted identifiers. To select a specific object,
+write its schema and table names exactly as stored in the DB2 catalog (`SYSCAT.TABLES`). Double
+quotes are not interpreted in these options: a name that contains a quote character is used as
+written, including the quotes, and does not match the object. The database component retains its
+configured spelling, and `table-pattern` is kept unchanged.
+
+Savepoint recovery must preserve the schema component of DB2's two-part table identifiers.
+A restored job can catch up changes committed while it was stopped and discover a newly
+configured capture-enabled table. Existing configuration keys, offsets and checkpoint
+serialization formats remain unchanged.
+
 ## Changelog
 
 <ChangeLog />

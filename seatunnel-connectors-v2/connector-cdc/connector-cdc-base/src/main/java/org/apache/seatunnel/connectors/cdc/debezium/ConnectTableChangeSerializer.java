@@ -119,7 +119,11 @@ public class ConnectTableChangeSerializer
             String tableId = struct.getString(ID_KEY);
             TableChanges.TableChangeType changeType =
                     TableChanges.TableChangeType.valueOf(struct.getString(TYPE_KEY));
-            Table table = toTable(struct.getStruct(TABLE_KEY), TableId.parse(tableId));
+            // Two-part identifiers mean catalog.table or schema.table depending on the caller.
+            Table table =
+                    toTable(
+                            struct.getStruct(TABLE_KEY),
+                            TableId.parse(tableId, useCatalogBeforeSchema));
             switch (changeType) {
                 case CREATE:
                     tableChanges.create(table);
