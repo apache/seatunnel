@@ -295,6 +295,49 @@ public class PlaceholderUtils {
     }
 
     /**
+     * Returns the raw, verbatim user-provided value ({@code -i}) that resolves the single
+     * placeholder in {@code input}, or {@code null} when the placeholder does not resolve from the
+     * user config map.
+     *
+     * <p>Unlike the substituted text produced by {@link #processPlaceholders(String, Predicate,
+     * Map, Map)}, this preserves the surrounding double quotes when the user quoted the value, e.g.
+     * {@code -i option="[a-z]"}. Callers use this to honor the explicit string type hint and avoid
+     * re-parsing an already-unwrapped replacement as a structured (Map/List) value.
+     *
+     * @param input the original config value, expected to contain exactly one placeholder
+     * @param userConfigMap the raw {@code -i} values (keys trimmed, values kept verbatim)
+     * @return the raw user-provided value if the placeholder resolves from it, otherwise {@code
+     *     null}
+     */
+    public static String getRawUserValueForSinglePlaceholder(
+            String input, Map<String, String> userConfigMap) {
+        if (input == null || !hasOnlyOnePlaceholder(input)) {
+            return null;
+        }
+        String trimmedInput = input.trim();
+        int closePos = findPlaceholderClosePos(trimmedInput, 2);
+        if (closePos == -1) {
+            return null;
+        }
+        int colonPos = trimmedInput.indexOf(':', 2);
+        if (colonPos == -1 || colonPos > closePos) {
+            colonPos = -1;
+        }
+        String key =
+                colonPos > 0
+                        ? trimmedInput.substring(2, colonPos).trim()
+                        : trimmedInput.substring(2, closePos).trim();
+        String rawValue = userConfigMap.get(key);
+        // An empty -i value is treated as absent by processPlaceholders, so it must not be used
+        // here either.
+        String unwrapped = StringUtils.unwrap(rawValue, "\"");
+        if (unwrapped == null || unwrapped.isEmpty()) {
+            return null;
+        }
+        return rawValue;
+    }
+
+    /**
      * check placeholder with default value contains placeholder, throws ConfigException.BadValue
      * Exception if it contains placeholder without quotes wrapped.
      *

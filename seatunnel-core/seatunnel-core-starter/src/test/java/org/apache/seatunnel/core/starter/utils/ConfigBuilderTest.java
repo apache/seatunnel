@@ -164,6 +164,36 @@ public class ConfigBuilderTest {
                 "prefix-quoted_key_job", config.getConfig("env").getString("job.name"));
     }
 
+    /** A quoted -i value is the user's signal that the value is a String, not a List. */
+    @Test
+    public void testQuotedUserValueStaysStringForSinglePlaceholder(@TempDir Path tempDir)
+            throws IOException {
+        String configText =
+                "option = \"${option}\"\n" + "source { FakeSource {} }\n" + "sink { Console {} }\n";
+
+        Path configFile = tempDir.resolve("quoted_single_placeholder.conf");
+        Files.write(configFile, configText.getBytes(StandardCharsets.UTF_8));
+
+        Config config = ConfigBuilder.of(configFile, Arrays.asList("option=\"[a-z]\""));
+
+        Assertions.assertEquals("[a-z]", config.getString("option"));
+    }
+
+    /** An unquoted -i value that looks like a List is re-typed into a List. */
+    @Test
+    public void testUnquotedUserValueIsListForSinglePlaceholder(@TempDir Path tempDir)
+            throws IOException {
+        String configText =
+                "option = \"${option}\"\n" + "source { FakeSource {} }\n" + "sink { Console {} }\n";
+
+        Path configFile = tempDir.resolve("unquoted_single_placeholder.conf");
+        Files.write(configFile, configText.getBytes(StandardCharsets.UTF_8));
+
+        Config config = ConfigBuilder.of(configFile, Arrays.asList("option=[a-z]"));
+
+        Assertions.assertEquals(Arrays.asList("a-z"), config.getStringList("option"));
+    }
+
     @Test
     public void testConfigDesensitizationSort() {
         Map<String, Object> config = new LinkedHashMap<>();
