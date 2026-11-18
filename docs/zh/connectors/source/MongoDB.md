@@ -31,8 +31,9 @@ split，实现并行读取。
 - 使用 `match.projection` 控制结果中返回的字段。
 - 使用 `flat.sync-string` 把整篇文档作为一条 JSON `STRING` 列读入，跳过固定 schema 的定义。
 
-连接器会通过 checkpoint 跟踪 split 的读取进度，任务重启后会从上次提交的 split 继续读取，
-而不需要重新扫描整张集合。
+checkpoint 只保存尚未读完的 split，split 本身不会记录范围内的读取位置。任务从 checkpoint 重启时，
+enumerator 会先恢复这些待处理的 split，然后对整张集合重新执行一次切分策略，因此已经读过的文档可能会被
+再次读取。如果无法接受恢复后的重复数据，请让下游写入保持幂等（例如按主键 upsert）。
 
 ## 支持的数据源信息
 

@@ -224,8 +224,8 @@ seatunnel:
 
 | Action | Covered by expire? |
 |---|---|
-| Remove from `finished-job-state` IMap | Yes |
-| Remove from `finished-job-metrics` IMap | Yes |
+| Remove from `engine_finishedJobState` IMap | Yes |
+| Remove from `engine_finishedJobMetrics` IMap | Yes |
 | Keep the job removed after a cluster restart (IMap persistence enabled) | Yes (the expiration time is persisted with the entry, so an expired job is not loaded again and a job that has not expired yet keeps its remaining time) |
 | Delete MapStore persistence files for that job | **No** (the expired records stay in the IMap storage files) |
 | Delete checkpoint storage directories | **No** |

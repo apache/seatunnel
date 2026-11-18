@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 ## Description
 
-Output data to Elasticsearch or OpenSearch-compatible clusters. The connector uses the Bulk API to buffer documents and flush them in batches. Document IDs are derived from the primary key columns, which makes the sink suitable for CDC workloads that need update and delete semantics. Elasticsearch `2.x` through `8.x` is supported.
+Output data to Elasticsearch or OpenSearch-compatible clusters. The connector uses the Bulk API to buffer documents and flush them in batches. Document IDs are derived from the primary key columns, which makes the sink suitable for CDC workloads that need update and delete semantics. Elasticsearch `2.x` through `9.x` is supported.
 
 ## Key features
 
@@ -23,7 +23,7 @@ Output data to Elasticsearch or OpenSearch-compatible clusters. The connector us
 
 Engine Supported
 
-* supported  `ElasticSearch version is >= 2.x and <= 8.x`
+* supported  `ElasticSearch version is >= 2.x and <= 9.x`
 
 :::
 
