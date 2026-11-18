@@ -274,6 +274,28 @@ class SqlServerIncrementalSourceFactoryTest {
                 SqlServerIncrementalSourceFactory.toTablePath("dbo.orders", databaseNames, true));
     }
 
+    @Test
+    void testSchemaOptionTakesPrecedenceForDottedTableName() {
+        Map<String, Object> fields = new HashMap<>();
+        fields.put("id", "int");
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("fields", fields);
+        Map<String, Object> config = validConfig();
+        config.put("plugin_name", "SqlServer-CDC");
+        config.put("database-names", Collections.singletonList("LIS6.0"));
+        config.put("table-names", Collections.singletonList("LIS6.0.dbo.LIS_ITEM"));
+        config.put("schema", schema);
+
+        // no SQL Server is reachable here: the schema block must win before any catalog is opened
+        Assertions.assertEquals(
+                1,
+                SqlServerIncrementalSourceFactory.getCatalogTables(
+                                ReadonlyConfig.fromMap(config),
+                                Collections.singletonList("LIS6.0"),
+                                getClass().getClassLoader())
+                        .size());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"LIS6.0.dbo.LIS_ITEM", "seatunnel.my.schema.orders"})
     void testTablePathRejectsUnresolvableDottedName(String tableName) {

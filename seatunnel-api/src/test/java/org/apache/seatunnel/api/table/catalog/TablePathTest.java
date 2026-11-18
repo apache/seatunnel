@@ -33,6 +33,13 @@ public class TablePathTest {
     }
 
     @Test
+    public void testOfTableIdKeepsTrailingEmptyPartBehaviorOfOf() {
+        // TablePath.of drops trailing empty parts, so a short name must parse the same way
+        Assertions.assertEquals(TablePath.of("db.sch.t."), TablePath.ofTableId("db.sch.t."));
+        Assertions.assertEquals(TablePath.of("db.t.."), TablePath.ofTableId("db.t.."));
+    }
+
+    @Test
     public void testRejectMalformedStructuredTableNameWithTooManyParts() {
         Assertions.assertThrows(
                 IllegalArgumentException.class,

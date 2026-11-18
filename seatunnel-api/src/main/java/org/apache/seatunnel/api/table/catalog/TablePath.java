@@ -76,6 +76,10 @@ public final class TablePath implements Serializable {
      * does.
      */
     public static TablePath ofTableId(String tableId) {
+        // same part count as of(): split drops trailing empty parts, so "db.sch.t." has 3 parts
+        if (tableId.split("\\.").length <= 3) {
+            return of(tableId);
+        }
         int tableDot = tableId.lastIndexOf('.');
         int schemaDot = tableDot < 0 ? -1 : tableId.lastIndexOf('.', tableDot - 1);
         int databaseDot = schemaDot < 0 ? -1 : tableId.lastIndexOf('.', schemaDot - 1);

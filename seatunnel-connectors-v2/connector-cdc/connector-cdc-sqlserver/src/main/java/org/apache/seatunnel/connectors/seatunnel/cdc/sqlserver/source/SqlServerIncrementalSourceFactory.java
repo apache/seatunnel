@@ -145,10 +145,12 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
         };
     }
 
-    private static List<CatalogTable> getCatalogTables(
+    static List<CatalogTable> getCatalogTables(
             ReadonlyConfig options, List<String> databaseNames, ClassLoader classLoader) {
         List<String> tableNames = options.get(ConnectorCommonOptions.TABLE_NAMES);
+        // an explicit schema has the highest priority and never opens the catalog
         if (tableNames == null
+                || options.get(ConnectorCommonOptions.SCHEMA) != null
                 || tableNames.stream().allMatch(name -> name.split("\\.").length <= 3)) {
             return CatalogTableUtil.getCatalogTables(options, classLoader);
         }

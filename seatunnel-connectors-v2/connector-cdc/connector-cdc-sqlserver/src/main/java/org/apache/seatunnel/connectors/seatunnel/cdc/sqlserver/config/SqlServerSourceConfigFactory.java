@@ -42,11 +42,6 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
     private Properties jdbcUrlProperties;
 
     /**
-     * Adds SQL Server JDBC properties parsed from the connector URL.
-     *
-     * <p>Explicit Debezium properties are applied afterwards and therefore take precedence.
-     */
-    /**
      * Returns {@code schema.table} of a {@code database.schema.table} id. The database name in
      * front may contain '.', so only the last two parts are kept.
      */
@@ -54,6 +49,11 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
         return tableId.substring(tableId.lastIndexOf('.', tableId.lastIndexOf('.') - 1) + 1);
     }
 
+    /**
+     * Adds SQL Server JDBC properties parsed from the connector URL.
+     *
+     * <p>Explicit Debezium properties are applied afterwards and therefore take precedence.
+     */
     public SqlServerSourceConfigFactory jdbcUrlProperties(Properties jdbcUrlProperties) {
         this.jdbcUrlProperties = jdbcUrlProperties;
         return this;
