@@ -304,6 +304,17 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    public void testReportLineageHeartbeatSkipsWhenJobMasterIsAbsent()
+            throws CheckpointStorageException {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointManager checkpointManager =
+                createCheckpointManager(
+                        jobId, false, createCheckpointStorage(), new CheckpointConfig());
+
+        Assertions.assertDoesNotThrow(checkpointManager::reportLineageHeartbeat);
+    }
+
+    @Test
     public void testRetainCheckpointAfterCancelledWhenEnabled() throws CheckpointStorageException {
         long jobId = (long) (Math.random() * 1000000L);
         CheckpointStorage checkpointStorage = createCheckpointStorage();

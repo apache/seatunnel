@@ -276,8 +276,16 @@ public class CheckpointManager {
         }
     }
 
-    /** Reports a completed-checkpoint lineage heartbeat through the owning job master. */
+    /**
+     * Reports a completed-checkpoint lineage heartbeat through the owning job master.
+     *
+     * <p>A manager constructed without a job master, such as a checkpoint benchmark, has nowhere to
+     * send lineage. Skipping the heartbeat keeps that completed checkpoint from failing.
+     */
     public void reportLineageHeartbeat() {
+        if (jobMaster == null) {
+            return;
+        }
         jobMaster.reportLineageHeartbeat();
     }
 
