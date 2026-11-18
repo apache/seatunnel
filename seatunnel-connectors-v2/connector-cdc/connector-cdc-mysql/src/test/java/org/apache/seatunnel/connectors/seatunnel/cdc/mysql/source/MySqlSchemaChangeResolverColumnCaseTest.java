@@ -51,6 +51,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * MySQL DDL that names an existing column in another case than the table stores it.
+ *
+ * <p>Each case runs a DDL record through {@link MySqlSchemaChangeResolver} and applies the event
+ * with {@link AlterTableSchemaEventHandler}, as the source does. The resulting schema must keep the
+ * column names of Debezium's own table model, because the change records that follow the DDL carry
+ * those names, and a column the schema names differently gets no value.
+ */
 class MySqlSchemaChangeResolverColumnCaseTest {
 
     private static final String DATABASE = "test_db";
