@@ -39,6 +39,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -76,13 +77,65 @@ public class JobRuntimeDiagnosticsTest {
         return timestamps;
     }
 
+    @Test
+    void testRestoreCausesAreExposedInOrder() {
+        // restoreCount says a pipeline is restarting; this says why. Asserting the field here is
+        // what makes removing it from JobRuntimeDiagnostics turn a test red.
+        mockPipelines(
+                mockSubPlan(
+                        1,
+                        PipelineStatus.RUNNING,
+                        2,
+                        100,
+                        Arrays.asList(
+                                "restore 1: java.net.ConnectException: Connection refused",
+                                "restore 2: java.sql.SQLException: Access denied")));
+
+        JsonObject diagnostics = JobRuntimeDiagnostics.build(server, JOB_ID);
+        JsonObject pipeline =
+                diagnostics.get(JobRuntimeDiagnostics.PIPELINES).asArray().get(0).asObject();
+        JsonArray causes = pipeline.get(JobRuntimeDiagnostics.RESTORE_CAUSES).asArray();
+
+        Assertions.assertEquals(2, causes.size());
+        // Oldest first: anything reading this as a sequence depends on that order.
+        Assertions.assertEquals(
+                "restore 1: java.net.ConnectException: Connection refused",
+                causes.get(0).asString());
+        Assertions.assertEquals(
+                "restore 2: java.sql.SQLException: Access denied", causes.get(1).asString());
+    }
+
+    @Test
+    void testRestoreCausesIsAnEmptyArrayWhenNothingHasRestarted() {
+        // An empty array rather than a missing field or null, so a client can read it
+        // unconditionally.
+        mockPipelines(mockSubPlan(1, PipelineStatus.RUNNING, 0, 100));
+
+        JsonObject diagnostics = JobRuntimeDiagnostics.build(server, JOB_ID);
+        JsonObject pipeline =
+                diagnostics.get(JobRuntimeDiagnostics.PIPELINES).asArray().get(0).asObject();
+
+        Assertions.assertTrue(
+                pipeline.get(JobRuntimeDiagnostics.RESTORE_CAUSES).asArray().isEmpty());
+    }
+
     private SubPlan mockSubPlan(int pipelineId, PipelineStatus status, int restoreNum, int maxNum) {
+        return mockSubPlan(pipelineId, status, restoreNum, maxNum, Collections.emptyList());
+    }
+
+    private SubPlan mockSubPlan(
+            int pipelineId,
+            PipelineStatus status,
+            int restoreNum,
+            int maxNum,
+            List<String> restoreCauses) {
         SubPlan subPlan = mock(SubPlan.class);
         when(subPlan.getPipelineId()).thenReturn(pipelineId);
         when(subPlan.getPipelineState()).thenReturn(status);
         when(subPlan.getPipelineRestoreNum()).thenReturn(restoreNum);
         when(subPlan.getPipelineMaxRestoreNum()).thenReturn(maxNum);
         when(subPlan.getPipelineLocation()).thenReturn(new PipelineLocation(JOB_ID, pipelineId));
+        when(subPlan.getRestoreCauses()).thenReturn(restoreCauses);
         return subPlan;
     }
 
