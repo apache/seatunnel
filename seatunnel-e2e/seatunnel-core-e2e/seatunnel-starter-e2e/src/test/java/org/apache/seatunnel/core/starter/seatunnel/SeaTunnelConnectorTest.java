@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.core.starter.seatunnel;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceFactory;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -168,10 +169,13 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
                             "--format",
                             "json"
                         });
+        ObjectMapper strictJson =
+                new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
         Assertions.assertEquals(0, valid.getExitCode(), valid.getStdout() + valid.getStderr());
         Assertions.assertEquals(1, valid.getStdout().trim().split("\\R").length, valid.getStdout());
         Assertions.assertTrue(
-                JsonUtils.readTree(valid.getStdout().getBytes(StandardCharsets.UTF_8))
+                strictJson
+                        .readTree(valid.getStdout().getBytes(StandardCharsets.UTF_8))
                         .get("valid")
                         .asBoolean());
 
@@ -188,7 +192,8 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
         Assertions.assertEquals(
                 1, invalid.getStdout().trim().split("\\R").length, invalid.getStdout());
         Assertions.assertFalse(
-                JsonUtils.readTree(invalid.getStdout().getBytes(StandardCharsets.UTF_8))
+                strictJson
+                        .readTree(invalid.getStdout().getBytes(StandardCharsets.UTF_8))
                         .get("valid")
                         .asBoolean());
         Assertions.assertFalse(invalid.getStderr().contains("Config Error"), invalid.getStderr());
