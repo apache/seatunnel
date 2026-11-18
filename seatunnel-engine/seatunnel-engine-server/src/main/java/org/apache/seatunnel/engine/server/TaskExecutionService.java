@@ -106,7 +106,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 import static com.hazelcast.jet.impl.util.Util.uncheckRun;
@@ -367,28 +366,32 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      * @param taskGroupExecutionTracker the tracker for the task group execution
      * @param tasks the list of tasks to submit
      */
+    /**
+     * Initializes the thread-share tasks of a task group and queues them for the cooperative
+     * workers.
+     *
+     * <p>Every task either reaches the queue or is reported done here. A task that fails {@code
+     * init()} records its error; the tasks after it, and every task once the group has failed or
+     * was cancelled, are not initialized. The completion latch of the group counts all its tasks,
+     * so a task that is neither queued nor done would keep the group from ever finishing: its
+     * context would stay published, a redeploy of the location would be skipped, and the job would
+     * hang.
+     */
     private void submitThreadShareTask(
             TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
-        Stream<TaskTracker> taskTrackerStream =
-                tasks.stream()
-                        .map(
-                                t -> {
-                                    if (!taskGroupExecutionTracker
-                                            .executionCompletedExceptionally()) {
-                                        try {
-                                            TaskTracker taskTracker =
-                                                    new TaskTracker(t, taskGroupExecutionTracker);
-                                            taskTracker.task.init();
-                                            return taskTracker;
-                                        } catch (Exception e) {
-                                            taskGroupExecutionTracker.exception(e);
-                                            taskGroupExecutionTracker.taskDone(t);
-                                        }
-                                    }
-                                    return null;
-                                });
-        if (!taskGroupExecutionTracker.executionCompletedExceptionally()) {
-            taskTrackerStream.forEach(threadShareTaskQueue::add);
+        for (Task task : tasks) {
+            if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
+                taskGroupExecutionTracker.taskDone(task);
+                continue;
+            }
+            try {
+                TaskTracker taskTracker = new TaskTracker(task, taskGroupExecutionTracker);
+                taskTracker.task.init();
+                threadShareTaskQueue.add(taskTracker);
+            } catch (Exception e) {
+                taskGroupExecutionTracker.exception(e);
+                taskGroupExecutionTracker.taskDone(task);
+            }
         }
     }
 

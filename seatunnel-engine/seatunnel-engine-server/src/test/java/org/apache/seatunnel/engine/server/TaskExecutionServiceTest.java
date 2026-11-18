@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
@@ -242,6 +244,72 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             workers.awaitTermination(10, TimeUnit.SECONDS);
             deployer.awaitTermination(10, TimeUnit.SECONDS);
             ReflectionUtils.setField(service, "executorService", originalExecutor);
+        }
+    }
+
+    /**
+     * In thread-share mode a task whose {@code init()} fails used to make the submission queue a
+     * null tracker, which threw a NullPointerException and left the tasks after it neither queued
+     * nor done. The completion latch of the group then never reached zero, so the group never
+     * finished and its context stayed published. Now the group completes FAILED with the error of
+     * {@code init()}, the tasks after the failing one are not initialized, and the context is
+     * removed.
+     */
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    public void testThreadShareTaskInitFailureCompletesTheGroup(int failingTaskIndex)
+            throws Exception {
+        TaskExecutionService service = server.getTaskExecutionService();
+        SeaTunnelConfig config = getField(service, "seaTunnelConfig");
+        ThreadShareMode originalMode = config.getEngineConfig().getTaskExecutionThreadShareMode();
+        String failureMessage = "Source permission denied during initialization";
+        AtomicInteger initAfterFailure = new AtomicInteger();
+        List<Task> tasks = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            boolean failing = i == failingTaskIndex;
+            boolean afterFailure = i > failingTaskIndex;
+            tasks.add(
+                    new TestTask(new AtomicBoolean(true), 0, true) {
+                        @Override
+                        public void init() throws Exception {
+                            if (failing) {
+                                throw new IllegalStateException(failureMessage);
+                            }
+                            if (afterFailure) {
+                                initAfterFailure.incrementAndGet();
+                            }
+                            super.init();
+                        }
+                    });
+        }
+        TaskGroupLocation location = newTaskGroupLocation();
+        TaskGroup group = new TaskGroupDefaultImpl(location, "thread-share-init-failure", tasks);
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        for (Task task : tasks) {
+            classLoaders.put(task.getTaskID(), Thread.currentThread().getContextClassLoader());
+        }
+        config.getEngineConfig().setTaskExecutionThreadShareMode(ThreadShareMode.PART);
+        try {
+            PassiveCompletableFuture<TaskExecutionState> result =
+                    service.deployLocalTask(
+                            FLAKE_ID_GENERATOR.newId(),
+                            group,
+                            classLoaders,
+                            new ConcurrentHashMap<>(),
+                            () -> {},
+                            failure -> {});
+
+            TaskExecutionState state = result.get(10, TimeUnit.SECONDS);
+            assertEquals(FAILED, state.getExecutionState());
+            assertTrue(state.getThrowableMsg().contains(failureMessage), state.getThrowableMsg());
+            assertEquals(0, initAfterFailure.get());
+            Map<TaskGroupLocation, TaskGroupContext> executionContexts =
+                    getField(service, "executionContexts");
+            await().atMost(10, TimeUnit.SECONDS)
+                    .until(() -> !executionContexts.containsKey(location));
+        } finally {
+            config.getEngineConfig().setTaskExecutionThreadShareMode(originalMode);
+            service.cancelTaskGroup(location);
         }
     }
 
