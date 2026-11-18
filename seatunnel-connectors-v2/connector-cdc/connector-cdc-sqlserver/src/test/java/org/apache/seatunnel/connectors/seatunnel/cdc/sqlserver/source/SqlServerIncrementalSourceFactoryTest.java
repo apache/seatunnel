@@ -304,4 +304,14 @@ class SqlServerIncrementalSourceFactoryTest {
                 "dbo.LIS_ITEM,dbo.orders",
                 sourceConfig.getDbzConfiguration().getString("table.include.list"));
     }
+
+    @Test
+    void testBackfillTableIncludeEntryWithDottedDatabaseName() {
+        Assertions.assertEquals(
+                "dbo.LIS_ITEM",
+                SqlServerSourceConfigFactory.toTableIncludeEntry("LIS6.0.dbo.LIS_ITEM"));
+        Assertions.assertEquals(
+                "dbo.orders",
+                SqlServerSourceConfigFactory.toTableIncludeEntry("seatunnel.dbo.orders"));
+    }
 }

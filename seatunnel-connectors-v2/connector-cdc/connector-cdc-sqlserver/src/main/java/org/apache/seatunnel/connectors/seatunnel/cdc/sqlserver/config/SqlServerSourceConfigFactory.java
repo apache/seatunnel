@@ -46,6 +46,14 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
      *
      * <p>Explicit Debezium properties are applied afterwards and therefore take precedence.
      */
+    /**
+     * Returns {@code schema.table} of a {@code database.schema.table} id. The database name in
+     * front may contain '.', so only the last two parts are kept.
+     */
+    public static String toTableIncludeEntry(String tableId) {
+        return tableId.substring(tableId.lastIndexOf('.', tableId.lastIndexOf('.') - 1) + 1);
+    }
+
     public SqlServerSourceConfigFactory jdbcUrlProperties(Properties jdbcUrlProperties) {
         this.jdbcUrlProperties = jdbcUrlProperties;
         return this;
@@ -86,12 +94,7 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
             // because the database name in front of them may contain '.'.
             String tableIncludeList =
                     tableList.stream()
-                            .map(
-                                    table ->
-                                            table.substring(
-                                                    table.lastIndexOf(
-                                                                    '.', table.lastIndexOf('.') - 1)
-                                                            + 1))
+                            .map(SqlServerSourceConfigFactory::toTableIncludeEntry)
                             .collect(Collectors.joining(","));
             props.setProperty("table.include.list", tableIncludeList);
         }

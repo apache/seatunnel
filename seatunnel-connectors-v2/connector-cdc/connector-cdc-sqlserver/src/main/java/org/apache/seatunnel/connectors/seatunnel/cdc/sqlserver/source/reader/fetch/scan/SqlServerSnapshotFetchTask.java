@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.reader.fetch.SqlServerSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.reader.fetch.transactionlog.SqlServerTransactionLogFetchTask;
 
@@ -142,9 +143,8 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                         .edit()
                         .with(
                                 "table.include.list",
-                                split.getTableId()
-                                        .toString()
-                                        .substring(split.getTableId().toString().indexOf(".") + 1))
+                                SqlServerSourceConfigFactory.toTableIncludeEntry(
+                                        split.getTableId().toString()))
                         // Disable heartbeat event in snapshot split fetcher
                         .with(Heartbeat.HEARTBEAT_INTERVAL, 0)
                         .build();
