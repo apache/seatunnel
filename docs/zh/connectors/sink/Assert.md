@@ -29,15 +29,15 @@ Assert 是一个用于校验任务输出结果的数据接收器。它可以按�
 |------------------------------------------------------------------------------------------------|-------------------------------------------------|----------|---------|
 | rules                                                                                          | ConfigMap                                       | 是       | -       |
 | rules.field_rules                                                                              | ConfigList                                      | 否       | -       |
-| rules.field_rules.field_name                                                                   | string\|ConfigMap                               | 是       | -       |
-| rules.field_rules.field_type                                                                   | string                                          | 否       | -       |
+| rules.field_rules.field_name                                                                   | string                                          | 是       | -       |
+| rules.field_rules.field_type                                                                   | string\|ConfigMap                               | 否       | -       |
 | rules.field_rules.field_value                                                                  | ConfigList                                      | 否       | -       |
 | rules.field_rules.field_value.rule_type                                                        | string                                          | 否       | -       |
 | rules.field_rules.field_value.rule_value                                                       | numeric                                         | 否       | -       |
 | rules.field_rules.field_value.equals_to                                                        | boolean\|numeric\|string\|ConfigList\|ConfigMap | 否       | -       |
 | rules.row_rules                                                                                | ConfigList                                      | 否       | -       |
 | rules.row_rules.rule_type                                                                      | string                                          | 否       | -       |
-| rules.row_rules.rule_value                                                                     | string                                          | 否       | -       |
+| rules.row_rules.rule_value                                                                     | numeric                                         | 否       | -       |
 | rules.catalog_table_rule                                                                       | ConfigMap                                       | 否       | -       |
 | rules.catalog_table_rule.primary_key_rule                                                      | ConfigMap                                       | 否       | -       |
 | rules.catalog_table_rule.primary_key_rule.primary_key_name                                     | string                                          | 否       | -       |

@@ -41,7 +41,7 @@ schema before starting the job.
 | username          | String  | No       | -           | Cassandra username. Configure it together with `password`. |
 | password          | String  | No       | -           | Cassandra password. Configure it together with `username`. |
 | datacenter        | String  | No       | datacenter1 | Local datacenter name used by the Cassandra Java driver. |
-| consistency_level | String  | No       | LOCAL_ONE   | Write consistency level, such as `LOCAL_ONE`, `ONE`, `QUORUM`, or `LOCAL_QUORUM`. |
+| consistency_level | String  | No       | LOCAL_ONE   | Accepted for compatibility and validated, but currently NOT applied to write statements by this sink; writes use the driver default consistency level. |
 | fields            | Array   | No       | -           | Target columns to write. If not set, all target table columns are used. |
 | batch_size        | int     | No       | 5000        | Maximum number of rows buffered before one flush. |
 | batch_type        | String  | No       | UNLOGGED    | Cassandra batch type. Supported driver values include `LOGGED`, `UNLOGGED`, and `COUNTER`. |
@@ -77,7 +77,8 @@ The `Cassandra` datacenter, default is `datacenter1`.
 
 ### consistency_level [String]
 
-The `Cassandra` write consistency level, default is `LOCAL_ONE`.
+This option is parsed and validated (default `LOCAL_ONE`), but the current sink writer does not
+apply it to write statements; writes use the driver default consistency level.
 
 ### fields [array]
 
@@ -114,9 +115,9 @@ Sink plugin common parameters. For details, see [Sink Common Options](../common-
 
 - The target keyspace and table must already exist before the job starts.
 - `fields` is useful when the upstream row has extra columns. It is not a schema creation option.
-- `async_write = true` improves throughput, while `batch_size` controls how many rows are grouped
-  before a flush. At each checkpoint the sink writes the buffered rows and waits for the writes in
-  flight, so the sink gives at-least-once delivery: a restored job may write some rows again.
+- `async_write = true` (default) sends each row as an individual async statement, and the sink waits for the writes in flight once `batch_size` rows have been sent. With `async_write = false`, rows are grouped into one `batch_type` batch of at most `batch_size` statements per flush.
+  At each checkpoint the sink writes the buffered rows and waits for the writes in flight, so the
+  sink gives at-least-once delivery: a restored job may write some rows again.
 - The sink drops the rows it still holds, without sending them, only when the engine aborts the
   writer: Spark does so after a failed write or checkpoint preparation, and Zeta after a failed
   checkpoint preparation. In other cases a failed task closes the sink normally, and closing writes
@@ -127,9 +128,9 @@ Sink plugin common parameters. For details, see [Sink Common Options](../common-
   metadata, and reads the schema from the server once more if the table is missing there. A NULL
   key then fails the job with the table and column before anything is sent. If the primary key
   still cannot be read, the job fails with error `CASSANDRA-06`.
-- The sink uses the Cassandra Java driver. Authentication and consistency options match the
-  driver's terminology; configure `consistency_level` together with the cluster's replication
-  strategy when stronger guarantees are required.
+- The sink uses the Cassandra Java driver. Authentication options match the driver's terminology.
+  Note that `consistency_level` is currently accepted but not applied to write statements; to
+  change the write consistency level, adjust the driver default in your cluster/client setup.
 - `batch_type = "UNLOGGED"` is the typical default. Use `LOGGED` for atomic batches when
   correctness outweighs throughput, or `COUNTER` for counter tables.
 
@@ -215,7 +216,6 @@ sink {
     keyspace = "test"
     table = "orders"
     fields = ["id", "order_id", "customer", "amount", "is_deleted"]
-    consistency_level = "LOCAL_QUORUM"
     batch_size = 2000
     batch_type = "UNLOGGED"
     async_write = true

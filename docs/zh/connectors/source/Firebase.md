@@ -13,7 +13,7 @@ Firebase Source Connector 支持通过 REST API 从 Google Firebase Realtime Dat
 - [x] 批处理 (Batch)
 - [ ] 流处理 (Stream)
 - [ ] 精确一次 (Exactly-Once)
-- [x] 列裁剪 (Column Projection)
+- [ ] 列裁剪 (Column Projection)
 
 ---
 

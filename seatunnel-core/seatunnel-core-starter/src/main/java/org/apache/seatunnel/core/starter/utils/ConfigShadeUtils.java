@@ -62,6 +62,8 @@ public final class ConfigShadeUtils {
                 "client_secret",
                 "security_token",
                 "connection_string",
+                "dlf.access-key-id",
+                "dlf.access-key-secret",
                 "consumer_key",
                 "consumer_secret"
             };

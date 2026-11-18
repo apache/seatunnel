@@ -26,11 +26,11 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistExceptio
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientSettingsFactory;
 
 import org.bson.Document;
 
 import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
@@ -44,17 +44,26 @@ public class MongodbCatalog implements Catalog {
     private transient MongoClient mongoClient;
     private final String defaultDatabase;
 
+    /** Optional PEM CA bundle for TLS connections; {@code null} when not configured. */
+    private final String tlsCaFile;
+
     public MongodbCatalog(String catalogName, String baseUrl, String defaultDatabase) {
+        this(catalogName, baseUrl, defaultDatabase, null);
+    }
+
+    public MongodbCatalog(
+            String catalogName, String baseUrl, String defaultDatabase, String tlsCaFile) {
         this.catalogName = catalogName;
         this.baseUrl = baseUrl;
         this.defaultDatabase = defaultDatabase;
+        this.tlsCaFile = tlsCaFile;
     }
 
     @Override
     public void open() throws CatalogException {
         try {
             if (mongoClient == null) {
-                mongoClient = MongoClients.create(baseUrl);
+                mongoClient = MongodbClientSettingsFactory.createClient(baseUrl, tlsCaFile);
             }
         } catch (Exception e) {
             throw new CatalogException("Failed to open MongoDB Catalog: " + e.getMessage(), e);

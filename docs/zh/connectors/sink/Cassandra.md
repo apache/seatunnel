@@ -39,7 +39,7 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 | username          | String  | 否       | -           | Cassandra 用户名，需要和 `password` 一起配置。 |
 | password          | String  | 否       | -           | Cassandra 密码，需要和 `username` 一起配置。 |
 | datacenter        | String  | 否       | datacenter1 | Cassandra Java Driver 使用的本地数据中心名称。 |
-| consistency_level | String  | 否       | LOCAL_ONE   | 写入一致性级别，例如 `LOCAL_ONE`、`ONE`、`QUORUM`、`LOCAL_QUORUM`。 |
+| consistency_level | String  | 否       | LOCAL_ONE   | 该选项会被解析和校验，但当前 Sink 不会把它应用到写入语句；写入一致性由 Driver 默认值决定。 |
 | fields            | Array   | 否       | -           | 要写入的目标字段。不配置时写入目标表的全部字段。 |
 | batch_size        | int     | 否       | 5000        | 每次 flush 前最多缓存的行数。 |
 | batch_type        | String  | 否       | UNLOGGED    | Cassandra batch 类型，常用值包括 `LOGGED`、`UNLOGGED`、`COUNTER`。 |
@@ -75,7 +75,8 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 
 ### consistency_level [String]
 
-`Cassandra` 写入一致性级别, 默认为 `LOCAL_ONE`.
+该选项会被解析和校验（默认 `LOCAL_ONE`），但当前 Sink 写入器不会把它应用到写入语句；写入一致性
+使用 Driver 默认级别。
 
 ### fields [array]
 
@@ -108,16 +109,16 @@ Sink 插件通用参数，详情请参考 [Sink 常用选项](../common-options/
 
 - 任务启动前，目标 keyspace 和表必须已经存在。
 - `fields` 适合上游数据有额外字段、只想写入其中一部分字段的场景；它不是建表配置。
-- `async_write = true` 可以提升吞吐，`batch_size` 用来控制每次 flush 前聚合的行数。每次 checkpoint 时，
-  Sink 会写入缓冲的行并等待正在进行的写入完成，因此 Sink 提供至少一次（at-least-once）语义：恢复后的作业可能会再次写入部分行。
+- `async_write = true`（默认）下每行都会作为独立的异步语句发送，每发送 `batch_size` 行，Sink 会等待正在进行的写入完成；`async_write = false` 时，行才会按 `batch_type` 聚合成一个批次，每次 flush 最多包含 `batch_size` 条。
+  每次 checkpoint 时，Sink 会写入缓冲的行并等待正在进行的写入完成，因此 Sink 提供至少一次（at-least-once）语义：恢复后的作业可能会再次写入部分行。
 - 只有引擎中止 writer 时，Sink 才会丢弃仍在缓冲中的行而不发送：Spark 在写入或准备 checkpoint 失败后中止，
   Zeta 在准备 checkpoint 失败后中止。其他情况下，失败的任务会正常关闭 Sink，关闭时会先写入缓冲的行，
   因此失败前收到的行可能已经写入表中。无论哪种情况，引擎在重试任务或恢复作业时都会再次写入最后一个
   checkpoint 之后的行，即上文所述的至少一次语义。
 - 启动时，Sink 会从 Driver 的 schema 元数据中读取目标表的主键；如果元数据中没有该表，会再从服务端读取一次 schema。
   这样，主键为 NULL 的行会在发送任何数据之前使作业失败，并给出表名和列名。如果仍然无法读取主键，作业会以错误 `CASSANDRA-06` 失败。
-- 连接器底层使用 Cassandra Java Driver；认证和一致性相关参数与 Driver 保持一致，需要更强一致性时请结合
-  集群的副本策略设置 `consistency_level`。
+- 连接器底层使用 Cassandra Java Driver；认证相关参数与 Driver 保持一致。注意：`consistency_level` 当前
+  仅被接受、不会应用到写入语句；如需调整写入一致性级别，请调整集群/客户端的 Driver 默认配置。
 - `batch_type = "UNLOGGED"` 是常见默认值；当正确性优先于吞吐时使用 `LOGGED`，counter 表使用 `COUNTER`。
 
 ## 任务示例
@@ -201,7 +202,6 @@ sink {
     keyspace = "test"
     table = "orders"
     fields = ["id", "order_id", "customer", "amount", "is_deleted"]
-    consistency_level = "LOCAL_QUORUM"
     batch_size = 2000
     batch_type = "UNLOGGED"
     async_write = true

@@ -176,7 +176,7 @@ If object storage is used, every Master and Worker Pod must have network access 
 
 Master nodes handle IMap state storage. In production, enable MapStore and write data to shared storage or object storage. In separated cluster mode, configure MapStore only in `hazelcast-master.yaml`; Workers do not need MapStore.
 
-MapStore uses `FileMapStoreFactory`. The `type: hdfs` entry is the identifier of the IMap file storage factory and must stay unchanged even when S3 or OSS is used. The actual backend is selected by `storage.type`, which currently supports `hdfs`, `s3`, and `oss`.
+MapStore uses `FileMapStoreFactory`. The `type: hdfs` entry is the identifier of the IMap file storage factory and must stay unchanged even when S3, OSS or GCS is used. The actual backend is selected by `storage.type`, which currently supports `hdfs`, `s3`, `oss`, and `gcs`.
 
 ### Checkpoint Monitor MapStore
 

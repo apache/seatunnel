@@ -82,4 +82,16 @@ public class MongodbSinkOptions extends MongodbBaseOptions {
                             Arrays.asList(DROP_DATA, APPEND_DATA, ERROR_WHEN_DATA_EXISTS))
                     .defaultValue(APPEND_DATA)
                     .withDescription("The save mode of collection data");
+
+    public static final Option<String> TLS_CA_FILE =
+            Options.key("tls_ca_file")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Path to a PEM file with the CA certificates that the sink trusts for "
+                                    + "TLS connections, for example the Amazon RDS CA bundle for "
+                                    + "Amazon DocumentDB. Only these certificates are trusted, for "
+                                    + "this job only; JVM-wide trust settings are not used or "
+                                    + "changed. Setting it enables TLS. Hostname verification stays "
+                                    + "enabled unless the URI sets tlsAllowInvalidHostnames=true.");
 }
