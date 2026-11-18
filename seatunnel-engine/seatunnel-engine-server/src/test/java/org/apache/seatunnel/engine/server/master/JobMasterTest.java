@@ -428,6 +428,71 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                 "all pre-start savepoint failures should keep the job retryable");
     }
 
+    @Test
+    void testCleanJobFailureStillCompletesJobMasterFuture() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster = newJobMasterWithFailingCleanJob(jobId);
+
+        // init() registers the job completion callback via initStateFuture()
+        jobMaster.init(System.currentTimeMillis(), false);
+
+        PassiveCompletableFuture<JobResult> jobMasterCompleteFuture =
+                jobMaster.getJobMasterCompleteFuture();
+
+        jobMaster.getPhysicalPlan().completeJobEndFuture(new JobResult(JobStatus.FINISHED, null));
+
+        // Without the fix, the cleanJob() failure is swallowed by withTryCatch and
+        // jobMasterCompleteFuture is never completed, so this await times out.
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertTrue(jobMasterCompleteFuture.isDone()));
+        JobResult jobResult = jobMasterCompleteFuture.get();
+        Assertions.assertNull(jobResult.getError());
+        Assertions.assertEquals(jobMaster.getJobStatus(), jobResult.getStatus());
+    }
+
+    private JobMaster newJobMasterWithFailingCleanJob(long jobId) {
+        runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
+        runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
+        runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
+        ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+
+        LogicalDag testLogicalDag =
+                TestUtils.createTestLogicalPlan(
+                        "stream_fakesource_to_file.conf",
+                        "test_clean_job_failure_completes_future",
+                        jobId);
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        jobId,
+                        "Test",
+                        false,
+                        nodeEngine.getSerializationService(),
+                        testLogicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
+
+        return new JobMaster(
+                jobId,
+                data,
+                nodeEngine,
+                jobMasterTestExecutor,
+                server.getCoordinatorService().getResourceManager(),
+                server.getCoordinatorService().getJobHistoryService(),
+                runningJobStateIMap,
+                runningJobStateTimestampsIMap,
+                ownedSlotProfilesIMap,
+                runningJobInfoIMap,
+                ConfigProvider.locateAndGetSeaTunnelConfig().getEngineConfig(),
+                server) {
+            @Override
+            public void cleanJob() {
+                throw new RuntimeException("simulated cleanJob failure");
+            }
+        };
+    }
+
     private void assertCloseIdleTask(JobMaster jobMaster) {
         SlotService slotService = server.getSlotService();
         long jobId = jobMaster.getJobId();
