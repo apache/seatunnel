@@ -52,6 +52,8 @@ public class ConnectorCheckCommandArgsTest {
     @ResourceLock("default-locale")
     public void testSinkPluginTypeUnderTurkishLocale() {
         Locale originalLocale = Locale.getDefault();
+        Locale originalDisplayLocale = Locale.getDefault(Locale.Category.DISPLAY);
+        Locale originalFormatLocale = Locale.getDefault(Locale.Category.FORMAT);
         try {
             Locale.setDefault(Locale.forLanguageTag("tr-TR"));
             String[] args = {"-l", "-pt", "sink"};
@@ -64,6 +66,8 @@ public class ConnectorCheckCommandArgsTest {
                     new MetadataExportCommandArgs.PluginTypeConverter().convert("sink"));
         } finally {
             Locale.setDefault(originalLocale);
+            Locale.setDefault(Locale.Category.DISPLAY, originalDisplayLocale);
+            Locale.setDefault(Locale.Category.FORMAT, originalFormatLocale);
         }
     }
 }

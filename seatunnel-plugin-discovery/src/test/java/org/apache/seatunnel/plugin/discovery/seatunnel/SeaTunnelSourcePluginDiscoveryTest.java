@@ -324,6 +324,8 @@ class SeaTunnelSourcePluginDiscoveryTest {
     @ResourceLock("default-locale")
     void getSinkPluginJarPathsUnderTurkishLocale() throws Exception {
         Locale originalLocale = Locale.getDefault();
+        Locale originalDisplayLocale = Locale.getDefault(Locale.Category.DISPLAY);
+        Locale originalFormatLocale = Locale.getDefault(Locale.Category.FORMAT);
         try {
             // Under tr-TR, "sink".toUpperCase() turns the 'i' into a dotted capital I
             // (U+0130), so the result no longer matches the PluginType.SINK constant.
@@ -348,6 +350,8 @@ class SeaTunnelSourcePluginDiscoveryTest {
                     new File(pluginJarPaths.get(1).toURI()).getPath());
         } finally {
             Locale.setDefault(originalLocale);
+            Locale.setDefault(Locale.Category.DISPLAY, originalDisplayLocale);
+            Locale.setDefault(Locale.Category.FORMAT, originalFormatLocale);
         }
     }
 
