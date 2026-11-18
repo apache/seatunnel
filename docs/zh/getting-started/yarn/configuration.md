@@ -1,5 +1,5 @@
 ---
-sidebar_position: 3
+sidebar_position: 4
 ---
 
 <!--
@@ -29,9 +29,16 @@ cd "$SEATUNNEL_HOME"
 
 ## 成员发现与客户端连接
 
-示例使用服务名 `zeta-session`、提交用户 `etl` 和 Registry DNS 域名 `example.net`。第一个 Master 的地址为 `master-0.zeta-session.etl.example.net`。请将三个 Hazelcast 配置文件中的这个地址替换为实际地址。如果直接使用主机名，请将 YARN 的 Master 容器固定调度到该主机。容器和提交客户端都需要能解析 Master 域名，并能访问各成员通告的地址。[YARN 服务发现](https://hadoop.apache.org/docs/r3.3.6/hadoop-yarn/hadoop-yarn-site/yarn-service/ServiceDiscovery.html)
+示例使用提交用户 `etl` 和 Registry DNS 域名 `example.net`。成员和客户端配置都应使用所选模式对应的集群名和发现地址。
 
-在 `config/hazelcast-master.yaml` 和 `config/hazelcast-worker.yaml` 中，将 `hazelcast.cluster-name` 设为 `zeta-session`。将 `hazelcast.network.join` 替换为以下配置，并保留两个文件中各自的成员端口。
+| 模式 | 集群名 | `config/` 下的成员配置 | 成员发现地址 |
+| --- | --- | --- | --- |
+| [混合模式](hybrid-cluster-mode.md) | `zeta-hybrid` | `hazelcast.yaml` | `hybrid-0.zeta-hybrid.etl.example.net:5801` |
+| [分离模式](separated-cluster-mode.md) | `zeta-session` | `hazelcast-master.yaml`、`hazelcast-worker.yaml` | `master-0.zeta-session.etl.example.net:5801` |
+
+容器和客户端都需要能解析成员发现地址，并能访问各成员通告的地址。如果使用固定主机名，请配置 YARN 调度约束，将对应成员调度到该主机。[YARN 服务发现](https://hadoop.apache.org/docs/r3.3.6/hadoop-yarn/hadoop-yarn-site/yarn-service/ServiceDiscovery.html)
+
+在对应的成员配置文件中设置 `hazelcast.cluster-name`，替换 `hazelcast.network.join`，并保留发行包中的成员端口。以下成员与客户端配置展示分离模式；使用混合模式时，将集群名和地址替换为表中第一行的值。
 
 ```yaml
 join:
@@ -53,18 +60,19 @@ hazelcast-client:
 
 ## 容器端口与内存
 
-Master 和 Worker 以进程形式运行在 NodeManager 主机上，可能被调度到同一台主机。为两个角色分别设置成员端口和 HTTP 端口。
+下表每行对应一个 YARN 容器。混合节点在同一 JVM 和堆内存中运行 Master 和 Worker。分离模式为两种角色使用不同端口，便于一个 Master 和一个 Worker 共享同一台 NodeManager 主机。
 
-| 角色 | Hazelcast 成员端口 | SeaTunnel HTTP 端口 |
-| --- | --- | --- |
-| Master | 5801 | 8080 |
-| Worker | 5802 | 8081 |
+| 组件 | Hazelcast 端口 | HTTP 端口 | 容器内存 | `config/` 下的 JVM 配置 | 示例堆大小 |
+| --- | --- | --- | --- | --- | --- |
+| 混合节点 | 5801 | 8080 | 4 GiB | `jvm_options` | `-Xmx2g` |
+| 分离模式 Master | 5801 | 8080 | 2 GiB | `jvm_master_options` | `-Xmx1g` |
+| 分离模式 Worker | 5802 | 8081 | 4 GiB | `jvm_worker_options` | `-Xmx2g` |
 
-示例为 Master 容器申请 2 GiB 内存，为 Worker 容器申请 4 GiB。可先在 `config/jvm_master_options` 中设置 `-Xmx1g`，在 `config/jvm_worker_options` 中设置 `-Xmx2g`，其余空间留给元空间、直接缓冲区和线程栈。
+在对应组件的文件中设置堆大小，并在容器内为元空间、直接缓冲区和线程栈留出空间。
 
 ## 引擎配置与存储
 
-将以下配置合并到 `config/seatunnel.yaml`。把 `fs.defaultFS` 替换为实际的 HDFS URI，并授予服务用户 checkpoint 目录的写权限。示例只有一个 Master，因此设置 `backup-count: 0`。
+将以下配置合并到 `config/seatunnel.yaml`。把 `fs.defaultFS` 替换为实际的 HDFS URI，并授予服务用户 checkpoint 目录的写权限。两种示例都只有一个可以存储 IMap 数据的成员，因此设置 `backup-count: 0`。混合模式示例将 `namespace` 设为 `/user/etl/seatunnel/checkpoints/zeta-hybrid`。
 
 ```yaml
 seatunnel:
@@ -82,13 +90,13 @@ seatunnel:
       port: 8080
 ```
 
-为 Worker 复制一份配置，并将副本中的 `seatunnel.engine.http.port` 改为 `8081`。YARN 服务定义中的 Worker 组件通过 `SEATUNNEL_CONFIG` 加载这份配置。
+分离模式需要为 Worker 复制一份配置，并将副本中的 `seatunnel.engine.http.port` 改为 `8081`。YARN 服务定义中的 Worker 组件通过 `SEATUNNEL_CONFIG` 加载这份配置。
 
 ```bash
 cp config/seatunnel.yaml config/seatunnel-worker.yaml
 ```
 
-HDFS checkpoint 保存算子状态。若还需在整个集群重启后自动恢复作业，请在 `config/hazelcast-master.yaml` 中为 IMap 配置共享 MapStore，持久化恢复所需的作业元数据。[状态存储与恢复](../../engines/zeta/state-storage-and-recovery.md)
+HDFS checkpoint 保存算子状态。若还需在整个集群重启后自动恢复作业，请为 IMap 配置共享 MapStore，以持久化恢复所需的作业元数据。混合模式在所有节点的 `config/hazelcast.yaml` 中配置，分离模式在各 Master 的 `config/hazelcast-master.yaml` 中配置。[状态存储与恢复](../../engines/zeta/state-storage-and-recovery.md)
 
 ## Kerberos
 

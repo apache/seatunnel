@@ -85,6 +85,7 @@ const sidebars = {
                     "label": "YARN",
                     "items": [
                         "getting-started/yarn/yarn",
+                        "getting-started/yarn/hybrid-cluster-mode",
                         "getting-started/yarn/separated-cluster-mode",
                         "getting-started/yarn/configuration",
                         "getting-started/yarn/operations"
