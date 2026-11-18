@@ -38,6 +38,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.TimeZone;
@@ -47,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.startsWith;
@@ -324,6 +326,31 @@ public class DatabendSinkWriterTest {
         sinkWriter.close();
 
         verify(statement, never()).execute(startsWith("MERGE INTO"));
+    }
+
+    @Test
+    public void testProcessRowWritesTimeAsText() throws Exception {
+        // databend-jdbc's setObject throws "Unsupported object type" for a LocalTime, so a TIME
+        // value has to reach the driver as text, the type the column is created with.
+        DatabendSinkWriter sinkWriter = mock(DatabendSinkWriter.class);
+        PreparedStatement preparedStatement = mock(PreparedStatement.class);
+        setPrivateField(sinkWriter, "preparedStatement", preparedStatement);
+        SeaTunnelRow row =
+                new SeaTunnelRow(
+                        new Object[] {
+                            1, LocalTime.of(8, 0), LocalTime.of(10, 15, 30, 123_000_000)
+                        });
+
+        Method processRow =
+                DatabendSinkWriter.class.getDeclaredMethod("processRow", SeaTunnelRow.class);
+        processRow.setAccessible(true);
+        processRow.invoke(sinkWriter, row);
+
+        verify(preparedStatement).setObject(1, 1);
+        verify(preparedStatement).setString(2, "08:00:00");
+        verify(preparedStatement).setString(3, "10:15:30.123");
+        verify(preparedStatement, never()).setObject(anyInt(), any(LocalTime.class));
+        verify(preparedStatement).addBatch();
     }
 
     /** 2023-11-14 22:13:20 UTC. */

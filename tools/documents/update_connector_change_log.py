@@ -17,7 +17,7 @@
 import os
 import subprocess
 import html
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 from pathlib import Path
 
 
@@ -64,19 +64,29 @@ def get_tag_commit_list():
         raise RuntimeError("Failed to fetch tags")
 
     tags = result.stdout.decode('utf-8').splitlines()
-    # Only consider tags starting with 2. for now
-    tags = [tag for tag in tags if tag.startswith('2.')]
-    sorted_versions = sorted(tags, key=Version, reverse=True)
+    release_versions = {}
+    for tag in tags:
+        try:
+            version = Version(tag)
+        except InvalidVersion:
+            continue
+
+        # Keep the existing 2.x tag history and accept optional v prefixes for later releases.
+        if tag.startswith('2.') or version.major >= 3:
+            release_versions[tag] = version
+
+    sorted_tags = sorted(release_versions, key=release_versions.get, reverse=True)
 
     commit_version_map = {}
-    for version in sorted_versions:
-        result = subprocess.run(['git', 'log', version, '--abbrev=10', '--pretty=format:%h'],
+    for tag in sorted_tags:
+        result = subprocess.run(['git', 'log', tag, '--abbrev=10', '--pretty=format:%h'],
                                 cwd=directory, stdout=subprocess.PIPE)
         if result.returncode != 0:
             raise RuntimeError("Failed to fetch tag logs")
         commits = result.stdout.decode('utf-8').splitlines()
+        release_version = tag.lstrip('vV')
         for commit in commits:
-            commit_version_map[commit] = version
+            commit_version_map[commit] = release_version
 
     return commit_version_map
 

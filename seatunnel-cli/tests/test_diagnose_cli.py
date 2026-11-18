@@ -31,6 +31,7 @@ import pytest
 from rich.console import Console
 
 from seatunnel_cli import cli as cli_module
+from test_diagnose_job import _realtime_payloads
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -645,3 +646,114 @@ def test_brackets_in_an_engine_message_cannot_corrupt_the_output(engine):
     flat = " ".join(out.split())
     assert code == 0
     assert "Table[/bold] row[nope] idx[0]" in flat
+
+
+def _realtime_routes(edges, vertices, checkpoints=None, edge_status=200):
+    def script(handler):
+        if "/metrics/realtime/" in handler.path:
+            if "/edges?" in handler.path:
+                return edge_status, json.dumps(edges)
+            return 200, json.dumps(vertices)
+        if "/jobs/checkpoints/" in handler.path:
+            return 200, json.dumps(checkpoints or {"pipelines": []})
+        return 200, json.dumps(
+            {
+                "jobId": "852",
+                "jobStatus": "RUNNING",
+                "diagnostics": {
+                    "generatedAt": _NOW,
+                    "stateTimestamps": {"RUNNING": _NOW - 5000},
+                },
+            }
+        )
+
+    return script
+
+
+def test_realtime_pressure_reaches_model_free_read_only_cli(engine, monkeypatch):
+    edges, vertices = _realtime_payloads()
+    engine.script = _realtime_routes(edges, vertices)
+
+    def unexpected_provider(*args, **kwargs):
+        raise AssertionError("diagnosis must not construct a provider")
+
+    monkeypatch.setattr(cli_module.SeaTunnelCLI, "__init__", unexpected_provider)
+
+    code, out = _run()
+
+    assert code == 0
+    assert "[warning] Queue -3 into vertex 1" in out
+    assert "sink writes were busy" in out
+    assert "queueId=-3 targetVertexId=1 buckets=3" in out
+    assert "window=0..15000ms" in out
+    assert "bucketMs=5000" in out
+    assert engine.paths == [
+        "/job-info/852",
+        "/jobs/checkpoints/852",
+        "/metrics/realtime/jobs/852/edges?windowMs=180000",
+        "/metrics/realtime/jobs/852/vertices?windowMs=180000",
+    ]
+
+
+@pytest.mark.parametrize("body", [{}, {"enabled": False}, None, []])
+def test_optional_realtime_data_gap_is_not_a_healthy_diagnosis(engine, body):
+    _, vertices = _realtime_payloads()
+    engine.script = _realtime_routes(body, vertices)
+    code, out = _run()
+    assert code == 0
+    assert "Realtime pressure checks unavailable" in out
+    assert "Nothing to report" not in out
+    assert "persistently backpressured" not in out
+
+
+@pytest.mark.parametrize("bp", [0.0, 0.8])
+def test_stale_realtime_samples_are_reported_as_a_gap_in_the_cli(engine, bp):
+    edges, vertices = _realtime_payloads(bp=bp)
+    edges["toMs"] = vertices["toMs"] = 22000
+    for point in vertices["vertices"][0]["points"]:
+        point["sinkCommitNs"] = 4_000_000_000
+    engine.script = _realtime_routes(edges, vertices)
+
+    code, out = _run()
+
+    assert code == 0
+    assert "Realtime pressure checks unavailable" in out
+    assert "Nothing to report" not in out
+    assert "persistently backpressured" not in out
+    assert "substantial time preparing/committing" not in out
+    assert len(engine.paths) == 4
+
+
+def test_missing_realtime_endpoint_preserves_checkpoint_slowdown(engine):
+    _, vertices = _realtime_payloads()
+    engine.script = _realtime_routes(
+        {},
+        vertices,
+        edge_status=404,
+        checkpoints={
+            "pipelines": [{"pipelineId": 1, "history": _slow_checkpoint_history()}]
+        },
+    )
+    code, out = _run()
+    assert code == 0
+    assert "getting slower" in out
+    assert "Realtime pressure checks unavailable" in out
+    assert len(engine.paths) == 3
+
+
+def test_malformed_vertex_json_preserves_other_diagnosis(engine):
+    edges, vertices = _realtime_payloads()
+    routed = _realtime_routes(edges, vertices)
+    engine.script = lambda h: (200, "not JSON") if "/vertices?" in h.path else routed(h)
+    code, out = _run()
+    assert code == 0
+    assert "Realtime pressure checks unavailable" in out
+    assert "persistently backpressured" not in out
+
+
+def test_a_pre_running_job_does_not_fetch_running_only_metrics(engine):
+    engine.script = _routed({"jobId": "852", "jobStatus": "PENDING"}, {"pipelines": []})
+    code, out = _run()
+    assert code == 0
+    assert engine.paths == ["/job-info/852", "/jobs/checkpoints/852"]
+    assert "Realtime pressure checks unavailable" not in out
