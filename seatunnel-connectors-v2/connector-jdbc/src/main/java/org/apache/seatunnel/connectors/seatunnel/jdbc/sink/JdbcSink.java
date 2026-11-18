@@ -171,6 +171,10 @@ public class JdbcSink
      * first column of the key the sink writes by: {@code primary_keys}, which the factory also
      * fills from a UNIQUE key of the table. Without either, there is no routing key.
      *
+     * <p>The multi-table sink hashes the value with {@code hashCode()}, so the changes of one
+     * record reach the same writer only when equal values have equal hash codes. A {@code BYTES}
+     * column holds a {@code byte[]}, whose hash code is its identity, and gives no such guarantee.
+     *
      * @param tableSchema the schema of the rows this sink receives
      * @param sinkPrimaryKeys the {@code primary_keys} the sink upserts by, may be {@code null}
      * @return the column position, or empty when the table has no usable key
