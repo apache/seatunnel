@@ -84,7 +84,10 @@ const sidebars = {
                     "type": "category",
                     "label": "YARN",
                     "items": [
-                        "getting-started/yarn/long-running-cluster"
+                        "getting-started/yarn/yarn",
+                        "getting-started/yarn/separated-cluster-mode",
+                        "getting-started/yarn/configuration",
+                        "getting-started/yarn/operations"
                     ]
                 },
                 {

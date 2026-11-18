@@ -29,10 +29,10 @@ For a broader comparison, see [Engine Overview](../engines/overview.md).
 
 ## Choose A Zeta Deployment Mode
 
-- **Long-running cluster**: deploy and maintain a shared Zeta cluster, then submit jobs to it. See [Zeta Deployment](../engines/zeta/deployment.md) or [run a shared cluster on YARN](./yarn/long-running-cluster.md).
+- **Long-running cluster**: deploy and maintain a shared Zeta cluster, then submit jobs to it. Choose a deployment guide for [standalone hosts](../engines/zeta/deployment.md), [Kubernetes](./kubernetes/kubernetes.mdx), or [YARN](./yarn/yarn.mdx).
 - **Application Mode (experimental)**: run one job with its own master and fixed workers on Kubernetes, releasing compute resources when the application ends. Start with the [Application Mode Overview](./application/overview.md).
 
-If you already operate Kubernetes, follow the [Kubernetes Quick Start](./application/kubernetes/quick-start.md). Application Mode is a Zeta deployment mode, not a separate execution engine.
+To try Application Mode on Kubernetes, follow the [Application Mode Quick Start](./application/kubernetes/quick-start.md). Application Mode is a deployment option for the Zeta engine.
 
 ## Recommended First Run
 

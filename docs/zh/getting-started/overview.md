@@ -29,10 +29,10 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 
 ## 如何选择 Zeta 部署模式
 
-- **常驻集群**：部署并维护共享的 Zeta 集群，再向集群提交作业。参见 [Zeta 安装部署](../engines/zeta/deployment.md) 或 [在 YARN 上部署常驻集群](./yarn/long-running-cluster.md)。
+- **常驻集群**：部署并维护共享的 Zeta 集群，再向集群提交作业。根据运行环境选择 [独立主机部署](../engines/zeta/deployment.md)、[Kubernetes 部署](./kubernetes/kubernetes.mdx) 或 [YARN 部署](./yarn/yarn.mdx)。
 - **Application Mode（实验性）**：在 Kubernetes 上为一个作业启动独立的 Master 和固定数量的 Worker，应用结束后释放计算资源。参见 [Application Mode 总览](./application/overview.md)。
 
-如果已有 Kubernetes 资源平台，可以直接阅读 [Kubernetes 快速开始](./application/kubernetes/quick-start.md)。Application Mode 是 Zeta 的一种部署模式，不是另一种执行引擎。
+在 Kubernetes 上试用 Application Mode，请阅读 [Application Mode 快速开始](./application/kubernetes/quick-start.md)。Application Mode 是 Zeta 引擎的一种部署模式。
 
 ## 最短首跑路径
 
