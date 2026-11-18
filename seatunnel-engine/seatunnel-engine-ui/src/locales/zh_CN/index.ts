@@ -20,11 +20,13 @@ import jobs from '@/locales/zh_CN/jobs'
 import detail from '@/locales/zh_CN/detail'
 import common from '@/locales/zh_CN/common'
 import managers from '@/locales/zh_CN/managers'
+import operations from '@/locales/zh_CN/operations'
 
 export default {
   menu,
   jobs,
   detail,
   common,
-  managers
+  managers,
+  operations
 }

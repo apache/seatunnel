@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-import { defineComponent, getCurrentInstance, h, ref } from 'vue'
-import { NSpace, NLayout, NLayoutContent } from 'naive-ui'
+import { defineComponent } from 'vue'
+import { NLayout, NLayoutContent } from 'naive-ui'
+import JobOperations from '@/views/jobs/job-operations'
 import RunningJobs from '@/views/jobs/running-jobs'
 import FinishedJobs from '@/views/jobs/finished-jobs'
 
@@ -26,6 +27,7 @@ export default defineComponent({
     return (
       <NLayout>
         <NLayoutContent>
+          <JobOperations class="mb-6" />
           <RunningJobs class="mb-6" />
           <FinishedJobs />
         </NLayoutContent>
