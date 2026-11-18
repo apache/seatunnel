@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.diagnostic;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
@@ -64,18 +65,23 @@ public final class PendingDiagnosticsCollector {
         if (pendingJobInfo == null) {
             return null;
         }
-        JobMaster jobMaster = pendingJobInfo.getJobMaster();
+        JobMaster jobMaster = pendingJobInfo.getInitializedJobMaster();
         PendingJobDiagnostic diagnostic = new PendingJobDiagnostic();
-        diagnostic.setJobId(jobMaster.getJobId());
-        diagnostic.setJobName(jobMaster.getJobImmutableInformation().getJobName());
+        diagnostic.setJobId(pendingJobInfo.getJobId());
+        diagnostic.setJobName(pendingJobInfo.getJobImmutableInformation().getJobName());
         diagnostic.setPendingSourceState(pendingJobInfo.getPendingSourceState());
-        diagnostic.setJobStatus(jobMaster.getJobStatus());
+        diagnostic.setJobStatus(jobMaster == null ? JobStatus.PENDING : jobMaster.getJobStatus());
         diagnostic.setEnqueueTimestamp(pendingJobInfo.getEnqueueTimestamp());
         diagnostic.setCheckTime(System.currentTimeMillis());
         diagnostic.setWaitDurationMs(
                 diagnostic.getCheckTime() - pendingJobInfo.getEnqueueTimestamp());
         diagnostic.setTagFilter(
                 tagFilter == null ? Collections.emptyMap() : new HashMap<>(tagFilter));
+        if (jobMaster == null) {
+            diagnostic.setFailureReason(REASON_WAITING);
+            diagnostic.setFailureMessage("Job is waiting for its turn after master failover");
+            return diagnostic;
+        }
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> requestFutures =
                 Optional.ofNullable(jobMaster.getPhysicalPlan())
                         .map(PhysicalPlan::getPreApplyResourceFutures)
