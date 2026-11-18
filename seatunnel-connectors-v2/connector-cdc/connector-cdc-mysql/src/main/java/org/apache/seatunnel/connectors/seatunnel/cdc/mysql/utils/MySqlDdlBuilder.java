@@ -50,9 +50,6 @@ public class MySqlDdlBuilder {
         StringBuilder ddl =
                 new StringBuilder(
                         String.format("CREATE TABLE %s (%s", tableId.table(), columnDefinitions));
-        // A table without a primary key has no key columns, and Collectors.joining would still
-        // return the prefix/suffix ("PRIMARY KEY ()") for an empty stream. Emitting that clause
-        // makes the DDL unparseable, which breaks the `DESC` fallback in MySqlSchema.
         if (!primaryKeys.isEmpty()) {
             ddl.append(", ")
                     .append(
