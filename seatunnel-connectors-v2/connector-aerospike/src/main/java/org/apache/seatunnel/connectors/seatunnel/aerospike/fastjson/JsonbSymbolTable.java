@@ -30,17 +30,22 @@ public final class JsonbSymbolTable {
         put(hash, symbol);
     }
 
+    /** Returns the cached symbol ID or {@code -1} if the hash is absent. Zero is always absent. */
     public int get(long hash) {
         return symbols.getOrDefault(hash, -1);
     }
 
+    /** Stores or replaces the symbol ID for a nonzero hash. A zero hash is ignored. */
     public void put(long hash, int symbol) {
-        // A zero hash keeps the original JSONB writer's uncached-symbol behavior.
         if (hash != 0L) {
             symbols.put(hash, symbol);
         }
     }
 
+    /**
+     * Returns the cached symbol ID if present. Otherwise stores and returns {@code symbol}. For a
+     * zero hash, returns {@code symbol} without caching it.
+     */
     public int putIfAbsent(long hash, int symbol) {
         if (hash == 0L) {
             return symbol;

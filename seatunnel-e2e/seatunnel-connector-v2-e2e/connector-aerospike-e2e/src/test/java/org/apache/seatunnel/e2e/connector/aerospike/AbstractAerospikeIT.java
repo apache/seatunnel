@@ -40,6 +40,7 @@ import com.aerospike.client.Record;
 import com.aerospike.client.policy.ClientPolicy;
 import com.aerospike.client.policy.WritePolicy;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -115,18 +116,38 @@ public abstract class AbstractAerospikeIT extends TestSuiteBase implements TestR
 
     @TestTemplate
     public void testAerospikeSink(TestContainer container) throws Exception {
+        String sinkSet = "seatunnel_sink";
+        int firstId = 20;
+        int rowCount = 9;
+        // The engine test cases share the Aerospike instance.
+        for (int id = firstId; id < firstId + rowCount; id++) {
+            client.delete(null, new Key(NAMESPACE, sinkSet, String.valueOf(id)));
+        }
+
         // Seed with the stock 6.1.0 client. The self-contained 4.4.17 sink must update the same
         // key.
-        Key key = new Key(NAMESPACE, "seatunnel_sink", "20");
-        client.put(null, key, new Bin("compat_marker", "seeded"), new Bin("data", "{}"));
+        Key seededKey = new Key(NAMESPACE, sinkSet, String.valueOf(firstId));
+        client.put(null, seededKey, new Bin("compat_marker", "seeded"), new Bin("data", "{}"));
 
         Container.ExecResult execResult = container.executeJob("/fake_to_aerospike_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
-        Record record = client.get(null, key);
-        Assertions.assertNotNull(record);
-        Assertions.assertEquals("seeded", record.getString("compat_marker"));
-        Assertions.assertEquals(20, JSON.parseObject(record.getString("data")).getIntValue("c_id"));
+        AtomicInteger storedRows = new AtomicInteger();
+        client.scanAll(null, NAMESPACE, sinkSet, (key, record) -> storedRows.incrementAndGet());
+        Assertions.assertEquals(rowCount, storedRows.get());
+
+        for (int id = firstId; id < firstId + rowCount; id++) {
+            Key key = new Key(NAMESPACE, sinkSet, String.valueOf(id));
+            Record record = client.get(null, key);
+            Assertions.assertNotNull(record, "Missing record for key " + id);
+            JSONObject payload = JSON.parseObject(record.getString("data"));
+            Assertions.assertNotNull(payload, "Missing data bin for key " + id);
+            Assertions.assertEquals(id, payload.getIntValue("c_id"));
+            Assertions.assertEquals("customer-" + id, payload.getString("c_name"));
+            Assertions.assertEquals(44.25 + id - firstId, payload.getDoubleValue("c_money"));
+            Assertions.assertTrue(payload.get("c_birth") instanceof Number);
+        }
+        Assertions.assertEquals("seeded", client.get(null, seededKey).getString("compat_marker"));
     }
 
     @TestTemplate
