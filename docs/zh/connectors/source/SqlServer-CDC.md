@@ -97,7 +97,7 @@ Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量
 | split.allow-sampling                         | Boolean  | 否       | true    | 是否启用基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都将回退到非均匀分片方式（迭代查询方式）。默认值为 true。 |
 | enable_concurrent_read                       | Boolean  | 否       | true    | 是否在快照阶段启用基于分片的并发读取。当设置为 false 时，source 会跳过分片分析，并以单个 split 读取整张表，适合没有索引的表。默认值为 true。 |
 | exactly_once                                   | Boolean  | 否       | false   | 启用精确一次语义。                                                                                                                                                                                                                                                                                                  |
-| debezium.*                                     | config   | 否       | -       | 将 Debezium 的属性传递给 Debezium Embedded Engine，用于捕获来自 SqlServer 服务器的数据变更。<br/>了解更多关于<br/>[Debezium 的 SqlServer 连接器属性](https://github.com/debezium/debezium/blob/1.6/documentation/modules/ROOT/pages/connectors/sqlserver.adoc#connector-properties)                                 |
+| debezium.*                                     | config   | 否       | -       | 将 Debezium 的属性传递给 Debezium Embedded Engine，用于捕获来自 SqlServer 服务器的数据变更。<br/>了解更多关于<br/>[Debezium 的 SqlServer 连接器属性](https://debezium.io/documentation/reference/1.9/connectors/sqlserver.html)                                 |
 | format                                         | Enum     | 否       | DEFAULT | SqlServer CDC 的可选输出格式，有效枚举为 "DEFAULT"、"COMPATIBLE_DEBEZIUM_JSON"。                                                                                                                                                                                                                                    |
 | schema-changes.enabled                         | Boolean  | 否       | false   | 模式演进默认是禁用的。当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`。                                                                                                                                                                                                                |
 | schema-changes.include                          | List     | 否       | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                          |
@@ -314,6 +314,31 @@ source {
 }
 ```
 
+### 心跳动作
+
+当上游长时间没有变更时，可以使用 `debezium.heartbeat.action.query` 参数让 CDC slot 保持活动状态。请配合
+`debezium.heartbeat.interval.ms` 使用，使该动作按固定节奏执行。
+
+```hocon
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = ["column_type_test.dbo.full_types"]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+    debezium {
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO column_type_test.dbo.heartbeat (ts) VALUES (GETDATE())"
+    }
+  }
+}
+```
+
+心跳表和对应的插入语句必须已经存在于目标数据库中。如果没有心跳，在没有活动时 SQL Server 可能会回收
+LSN 窗口，从而导致支持断点恢复的流式作业中断。
+
 ### Schema change 事件过滤
 
 当 `schema-changes.enabled = true` 时，可通过 `schema-changes.include` / `schema-changes.exclude` 进一步
@@ -348,6 +373,47 @@ source {
 
 **排除 `drop.column` 时的数据处理方式。** 对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
 NOT NULL 列排除 `drop.column` 会在 sink 端失败。
+
+### 名称中包含特殊字符的数据库
+
+`database-names` 列表以及 JDBC URL 中的 `databaseName` 参数必须使用与服务器上存储完全一致的标识符。当数据库名称
+包含 `-` 或 `.` 等字符时，在 SQL 中需要为数据库名称加上引号，而 URL 参数则按字面值书写。连接器不会自动对数据库名称
+进行 URL 编码。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["test-db-name"]
+    table-names = ["test-db-name.dbo.simple_table"]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=test-db-name"
+    exactly_once = false
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=test-db-name;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "test-db-name"
+    table = "dbo.simple_table_sink"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
 
 ## 变更日志
 

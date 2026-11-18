@@ -12,7 +12,13 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## 描述
 
-用于从 RabbitMQ 队列读取数据。
+RabbitMQ 源连接器从一个或多个 RabbitMQ 队列中读取消息，并将每条 AMQP 消息转换为一行
+SeaTunnel 数据。它以流处理模式运行，既可以消费单个队列，也可以通过多表选项 `tables_configs`
+同时消费多个队列。
+
+使用手动确认时，连接器在检查点完成后确认消息。开启 `use_correlation_id` 后，
+连接器通过消息发布方提供的 correlation ID 对尚未确认的消息去重。每个配置的队列
+只分配给一个 reader；通过 `tables_configs` 配置的不同队列可以分配到多个 reader。
 
 ## 主要特性
 
@@ -26,7 +32,8 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 :::tip
 
-为了实现精确一次，源必须是非并行的（并行度设置为 1）。这个限制主要是由于 RabbitMQ 从单个队列向多个消费者分派消息的方式。
+单个队列只由一个 reader 读取，提高并行度不会拆分该队列。需要使用多个 reader 时，
+请通过 `tables_configs` 配置不同的队列。
 
 :::
 

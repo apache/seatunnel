@@ -33,6 +33,8 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableNameEvent;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
+import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.util.Arrays;
@@ -118,6 +120,20 @@ public class AlterTableSchemaEventHandler implements TableSchemaChangeEventHandl
             newColumns.addFirst(column);
         } else if (addColumnEvent.getAfterColumn() != null) {
             int index = originFields.indexOf(addColumnEvent.getAfterColumn());
+            if (index < 0) {
+                // -1 + 1 == 0 would silently insert the column first, misaligning every positional
+                // mapping downstream. The event names a column this schema does not have, so it
+                // does not describe this table.
+                throw new SchemaEvolutionException(
+                        SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
+                        String.format(
+                                "Cannot add column '%s' after '%s': table %s has no such column,"
+                                        + " existing columns: %s",
+                                column.getName(),
+                                addColumnEvent.getAfterColumn(),
+                                addColumnEvent.tableIdentifier(),
+                                originFields));
+            }
             newColumns.add(index + 1, column);
         } else {
             newColumns.addLast(column);
