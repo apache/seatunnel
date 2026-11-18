@@ -275,12 +275,14 @@ public class ConfigBuilder {
             Config originalConfig, Map<String, String> userConfigMap) {
         Config userConfig =
                 ConfigFactory.parseMap(
-                        userConfigMap.entrySet().stream()
-                                .collect(
-                                        Collectors.toMap(
-                                                Map.Entry::getKey,
-                                                entry ->
-                                                        parseValue(entry.getValue()).unwrapped())));
+                        ConfigMapPathUtils.quoteInvalidPathKeys(
+                                userConfigMap.entrySet().stream()
+                                        .collect(
+                                                Collectors.toMap(
+                                                        Map.Entry::getKey,
+                                                        entry ->
+                                                                parseValue(entry.getValue())
+                                                                        .unwrapped()))));
 
         Config systemConfig =
                 Parseable.newProperties(
@@ -399,12 +401,18 @@ public class ConfigBuilder {
                                                 userConfigMap,
                                                 defaultConfigMap);
                                 if (!replacedValue.equals(variableString)) {
-                                    if (hasOnlyOnePlaceholder(variableString)
-                                            && isStructured(replacedValue)) {
-                                        return parseStructured(replacedValue);
-                                    } else {
-                                        return StringUtils.unwrap(replacedValue, "\"");
+                                    if (hasOnlyOnePlaceholder(variableString)) {
+                                        String rawUserValue =
+                                                PlaceholderUtils
+                                                        .getRawUserValueForSinglePlaceholder(
+                                                                variableString, userConfigMap);
+                                        if (rawUserValue != null) {
+                                            return parseValue(rawUserValue);
+                                        } else if (isStructured(replacedValue)) {
+                                            return parseStructured(replacedValue);
+                                        }
                                     }
+                                    return StringUtils.unwrap(replacedValue, "\"");
                                 }
 
                             } else if (variable instanceof Map) {
@@ -440,8 +448,17 @@ public class ConfigBuilder {
                         defaultConfigMap);
 
         if (!replacedValue.equals(variableString)) {
-            if (hasOnlyOnePlaceholder(variableString) && isStructured(replacedValue)) {
-                variableValue = parseStructured(replacedValue);
+            if (hasOnlyOnePlaceholder(variableString)) {
+                String rawUserValue =
+                        PlaceholderUtils.getRawUserValueForSinglePlaceholder(
+                                variableString, userConfigMap);
+                if (rawUserValue != null) {
+                    variableValue = parseValue(rawUserValue);
+                } else if (isStructured(replacedValue)) {
+                    variableValue = parseStructured(replacedValue);
+                } else {
+                    variableValue = StringUtils.unwrap(replacedValue, "\"");
+                }
             } else {
                 variableValue = StringUtils.unwrap(replacedValue, "\"");
             }

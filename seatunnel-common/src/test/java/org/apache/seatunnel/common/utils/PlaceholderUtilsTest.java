@@ -213,7 +213,7 @@ public class PlaceholderUtilsTest {
         assertEquals(
                 "default",
                 PlaceholderUtils.processPlaceholders(
-                        "${k:default}", userVars::containsKey, userVars, new LinkedHashMap<>()));
+                        "${k:default}", key -> false, userVars, new LinkedHashMap<>()));
     }
 
     @Test
