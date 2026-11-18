@@ -206,35 +206,36 @@ class Mem0SinkWriterTest {
                     }
                 });
         server.start();
-        HttpParameter parameter = parameter();
-        parameter.setUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/v3/memories/add/");
-        parameter.setRetry(2);
-        parameter.setConnectTimeoutMs(2000);
-        parameter.setSocketTimeoutMs(2000);
-        parameter.setRetryBackoffMultiplierMillis(1);
-        parameter.setRetryBackoffMaxMillis(2);
-        Mem0SinkWriter writer =
-                new Mem0SinkWriter(
-                        rowType, parameter, "messages", "user_id", null, null, null, null);
         try {
-            assertThrows(IOException.class, () -> writer.write(row()));
-            assertEquals(1, requests.get());
-            writer.write(row());
-            assertEquals(2, requests.get());
-            List<String> expected =
-                    List.of(
-                            "POST",
-                            "/v3/memories/add/",
-                            "Token secret",
-                            "application/json",
-                            "application/json");
-            assertEquals(List.of(expected, expected), received);
-        } finally {
+            HttpParameter parameter = parameter();
+            parameter.setUrl(
+                    "http://127.0.0.1:" + server.getAddress().getPort() + "/v3/memories/add/");
+            parameter.setRetry(2);
+            parameter.setConnectTimeoutMs(2000);
+            parameter.setSocketTimeoutMs(2000);
+            parameter.setRetryBackoffMultiplierMillis(1);
+            parameter.setRetryBackoffMaxMillis(2);
+            Mem0SinkWriter writer =
+                    new Mem0SinkWriter(
+                            rowType, parameter, "messages", "user_id", null, null, null, null);
             try {
-                writer.close();
+                assertThrows(IOException.class, () -> writer.write(row()));
+                assertEquals(1, requests.get());
+                writer.write(row());
+                assertEquals(2, requests.get());
+                List<String> expected =
+                        List.of(
+                                "POST",
+                                "/v3/memories/add/",
+                                "Token secret",
+                                "application/json",
+                                "application/json");
+                assertEquals(List.of(expected, expected), received);
             } finally {
-                server.stop(0);
+                writer.close();
             }
+        } finally {
+            server.stop(0);
         }
     }
 
