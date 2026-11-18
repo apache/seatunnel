@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.rest.service;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
@@ -365,7 +366,15 @@ public class JobInfoService extends BaseService {
         return local;
     }
 
-    private JobBasicInfo decodeJobBasicInfo(long jobId, JobInfo jobInfo) {
+    /**
+     * Returns the name and create time of a running job: from the leading bytes of its serialized
+     * {@link JobImmutableInformation} when they have the expected layout, otherwise from the full
+     * deserialization.
+     *
+     * @return {@code null} when there is nothing to decode or the data cannot be deserialized
+     */
+    @VisibleForTesting
+    JobBasicInfo decodeJobBasicInfo(long jobId, JobInfo jobInfo) {
         if (jobInfo == null || jobInfo.getJobImmutableInformation() == null) {
             return null;
         }
@@ -405,8 +414,8 @@ public class JobInfoService extends BaseService {
      * @return the decoded values, or {@code null} when the data does not have that layout or the
      *     decoded values are not plausible, in which case the caller deserializes the whole object
      */
-    private JobBasicInfo decodeJobBasicInfoFromPrefix(long expectedJobId, Data data)
-            throws IOException {
+    @VisibleForTesting
+    JobBasicInfo decodeJobBasicInfoFromPrefix(long expectedJobId, Data data) throws IOException {
         if (data.getType() != SerializationConstants.CONSTANT_TYPE_DATA_SERIALIZABLE) {
             return null;
         }
@@ -462,9 +471,10 @@ public class JobInfoService extends BaseService {
         }
     }
 
-    private static final class JobBasicInfo {
-        private final String jobName;
-        private final long createTime;
+    @VisibleForTesting
+    static final class JobBasicInfo {
+        final String jobName;
+        final long createTime;
 
         private JobBasicInfo(String jobName, long createTime) {
             this.jobName = jobName;

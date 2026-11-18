@@ -49,8 +49,6 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -105,7 +103,7 @@ class JobInfoServiceNullSafetyTest {
     }
 
     @Test
-    void shouldDecodeLegacyJobImmutableInformationInFastPath() throws Exception {
+    void shouldDecodeLegacyJobImmutableInformationInFastPath() {
         long createTime = 123456L;
         JobInfo jobInfo =
                 new JobInfo(
@@ -113,20 +111,20 @@ class JobInfoServiceNullSafetyTest {
                         serializationService.toData(
                                 new LegacyJobImmutableInformation(jobId, createTime)));
 
-        Object basicInfo = invokeDecodeJobBasicInfo(jobId, jobInfo);
+        JobInfoService.JobBasicInfo basicInfo = jobInfoService.decodeJobBasicInfo(jobId, jobInfo);
 
         Assertions.assertNotNull(basicInfo);
-        Assertions.assertEquals("legacy-job", getFieldValue(basicInfo, "jobName"));
-        Assertions.assertEquals(createTime, getFieldValue(basicInfo, "createTime"));
+        Assertions.assertEquals("legacy-job", basicInfo.jobName);
+        Assertions.assertEquals(createTime, basicInfo.createTime);
     }
 
     /**
      * The fast path must read the bytes that {@code SerializationService.toData} really produces
-     * and return what the normal deserialization returns. It is invoked directly, so the full
-     * deserialization fallback cannot make this pass.
+     * and return what the normal deserialization returns. The prefix decoder is called directly, so
+     * the full deserialization fallback cannot make this pass.
      */
     @Test
-    void shouldDecodeSameBasicInfoInFastPathAsFullDeserialization() throws Exception {
+    void shouldDecodeSameBasicInfoInFastPathAsFullDeserialization() throws IOException {
         long[] jobIds = {1L, 0x0123456789ABCD01L, 1088526349862699008L, -1L};
         String[] jobNames = {"cdc_example", "", "任务-ジョブ-job", null};
 
@@ -135,12 +133,12 @@ class JobInfoServiceNullSafetyTest {
                 Data data = serializationService.toData(buildJobImmutableInformation(id, jobName));
                 JobImmutableInformation expected = serializationService.toObject(data);
 
-                Object basicInfo = invokeDecodeJobBasicInfoFromPrefix(id, data);
+                JobInfoService.JobBasicInfo basicInfo =
+                        jobInfoService.decodeJobBasicInfoFromPrefix(id, data);
 
                 Assertions.assertNotNull(basicInfo, "fast path rejected job " + id);
-                Assertions.assertEquals(expected.getJobName(), getFieldValue(basicInfo, "jobName"));
-                Assertions.assertEquals(
-                        expected.getCreateTime(), getFieldValue(basicInfo, "createTime"));
+                Assertions.assertEquals(expected.getJobName(), basicInfo.jobName);
+                Assertions.assertEquals(expected.getCreateTime(), basicInfo.createTime);
             }
         }
     }
@@ -180,38 +178,41 @@ class JobInfoServiceNullSafetyTest {
 
     /** Data the fast path does not trust still gets decoded, by the full deserialization. */
     @Test
-    void shouldFallBackToFullDeserializationWhenFastPathRejectsData() throws Exception {
+    void shouldFallBackToFullDeserializationWhenFastPathRejectsData() throws IOException {
         char[] longNameChars = new char[100_000];
         Arrays.fill(longNameChars, 'n');
         String longName = new String(longNameChars);
         JobImmutableInformation longNamed = buildJobImmutableInformation(jobId, longName);
         Data longNamedData = serializationService.toData(longNamed);
 
-        Assertions.assertNull(invokeDecodeJobBasicInfoFromPrefix(jobId, longNamedData));
-        Object basicInfo = invokeDecodeJobBasicInfo(jobId, new JobInfo(1L, longNamedData));
-        Assertions.assertEquals(longName, getFieldValue(basicInfo, "jobName"));
-        Assertions.assertEquals(longNamed.getCreateTime(), getFieldValue(basicInfo, "createTime"));
+        Assertions.assertNull(jobInfoService.decodeJobBasicInfoFromPrefix(jobId, longNamedData));
+        JobInfoService.JobBasicInfo basicInfo =
+                jobInfoService.decodeJobBasicInfo(jobId, new JobInfo(1L, longNamedData));
+        Assertions.assertEquals(longName, basicInfo.jobName);
+        Assertions.assertEquals(longNamed.getCreateTime(), basicInfo.createTime);
 
         // A job id that differs from the map key means the layout is not the expected one.
         JobImmutableInformation other = buildJobImmutableInformation(2L, "other-job");
         Data otherData = serializationService.toData(other);
 
-        Assertions.assertNull(invokeDecodeJobBasicInfoFromPrefix(jobId, otherData));
-        basicInfo = invokeDecodeJobBasicInfo(jobId, new JobInfo(1L, otherData));
-        Assertions.assertEquals("other-job", getFieldValue(basicInfo, "jobName"));
-        Assertions.assertEquals(other.getCreateTime(), getFieldValue(basicInfo, "createTime"));
+        Assertions.assertNull(jobInfoService.decodeJobBasicInfoFromPrefix(jobId, otherData));
+        basicInfo = jobInfoService.decodeJobBasicInfo(jobId, new JobInfo(1L, otherData));
+        Assertions.assertEquals("other-job", basicInfo.jobName);
+        Assertions.assertEquals(other.getCreateTime(), basicInfo.createTime);
 
         // A create time that is not a timestamp is not trusted either.
         for (long implausibleCreateTime : new long[] {0L, -1L, Long.MIN_VALUE}) {
             Data implausibleData =
                     serializationService.toData(
                             new LegacyJobImmutableInformation(jobId, implausibleCreateTime));
-            Assertions.assertNull(invokeDecodeJobBasicInfoFromPrefix(jobId, implausibleData));
+            Assertions.assertNull(
+                    jobInfoService.decodeJobBasicInfoFromPrefix(jobId, implausibleData));
         }
 
         // Not a DataSerializable at all.
         Assertions.assertNull(
-                invokeDecodeJobBasicInfoFromPrefix(jobId, serializationService.toData("job")));
+                jobInfoService.decodeJobBasicInfoFromPrefix(
+                        jobId, serializationService.toData("job")));
     }
 
     /**
@@ -379,28 +380,6 @@ class JobInfoServiceNullSafetyTest {
 
         Map.Entry<Object, Object> entry = new AbstractMap.SimpleEntry<>(id, jobInfo);
         when(runningJobInfoMap.entrySet()).thenReturn(Collections.singleton(entry));
-    }
-
-    private Object invokeDecodeJobBasicInfo(long id, JobInfo jobInfo) throws Exception {
-        Method method =
-                JobInfoService.class.getDeclaredMethod(
-                        "decodeJobBasicInfo", long.class, JobInfo.class);
-        method.setAccessible(true);
-        return method.invoke(jobInfoService, id, jobInfo);
-    }
-
-    private Object invokeDecodeJobBasicInfoFromPrefix(long id, Data data) throws Exception {
-        Method method =
-                JobInfoService.class.getDeclaredMethod(
-                        "decodeJobBasicInfoFromPrefix", long.class, Data.class);
-        method.setAccessible(true);
-        return method.invoke(jobInfoService, id, data);
-    }
-
-    private Object getFieldValue(Object target, String fieldName) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
-        field.setAccessible(true);
-        return field.get(target);
     }
 
     private static final class LegacyJobImmutableInformation
