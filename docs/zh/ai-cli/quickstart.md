@@ -127,7 +127,8 @@ seatunnel "Sync MySQL users table to S3 Parquet"
 该提供商使用 OpenAI Chat Completions 协议，因此支持 CLI 内部的工具调用循环、流式输出、
 多轮会话，以及兼容推理模型的 reasoning_content 回放。
 
-未设置 `UBERLLM_MODEL` 时，回退到 `OPENAI_MODEL`。未设置 `AI_PROVIDER` 且同时设置了
+未设置 `UBERLLM_MODEL` 时，回退到 `OPENAI_MODEL`；未设置 `UBERLLM_SMALL_FAST_MODEL` 时，回退到
+`OPENAI_SMALL_FAST_MODEL`。未设置 `AI_PROVIDER` 且同时设置了
 `UBERLLM_API_KEY` 和 `OPENAI_API_KEY` 时，自动检测选择 UberLLM。
 
 ### bedrock-mantle：Bedrock 上的 OpenAI 系模型

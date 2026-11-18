@@ -133,7 +133,8 @@ The provider speaks the OpenAI Chat Completions protocol, so it supports the
 CLI's internal tool-calling loop, streaming output, multi-turn sessions, and
 reasoning-content replay for compatible reasoning models.
 
-`UBERLLM_MODEL` falls back to `OPENAI_MODEL` when unset. When `AI_PROVIDER` is
+`UBERLLM_MODEL` falls back to `OPENAI_MODEL` when unset, and
+`UBERLLM_SMALL_FAST_MODEL` falls back to `OPENAI_SMALL_FAST_MODEL`. When `AI_PROVIDER` is
 unset and both `UBERLLM_API_KEY` and `OPENAI_API_KEY` are set, auto-detect
 selects UberLLM.
 

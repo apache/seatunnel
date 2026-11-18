@@ -273,7 +273,7 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 | `ORCAROUTER_SMALL_FAST_MODEL` | No | `orcarouter/auto` | Fast model for OrcaRouter provider |
 | `ORCAROUTER_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models (parity with `OPENAI_ECHO_REASONING_CONTENT`) |
 | `UBERLLM_MODEL` | No | `deepseek/deepseek-v4-pro` | Primary model for UberLLM provider (vendor/model namespace). Falls back to `OPENAI_MODEL` |
-| `UBERLLM_SMALL_FAST_MODEL` | No | `deepseek/deepseek-v4.1-flash` | Fast model for UberLLM provider |
+| `UBERLLM_SMALL_FAST_MODEL` | No | `deepseek/deepseek-v4.1-flash` | Fast model for UberLLM provider. Falls back to `OPENAI_SMALL_FAST_MODEL` |
 | `UBERLLM_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models (parity with `OPENAI_ECHO_REASONING_CONTENT`) |
 | `SEATUNNEL_HOME` | No | Auto-detect | SeaTunnel installation directory. Auto-detected in distribution tarball; set manually for source install |
 | `SEATUNNEL_API_BASE` | No | `http://localhost:8080` | SeaTunnel REST API endpoint (the engine's Jetty HTTP port, not the 5801 member port) |

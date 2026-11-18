@@ -52,6 +52,21 @@ def _chunk(delta, finish_reason=None):
     )
 
 
+class _fake_openai:
+    """Replace the openai SDK module so no real client (and no connection
+    pool) is created, and the SDK does not have to be installed."""
+
+    def __enter__(self):
+        self.module = mock.MagicMock()
+        self._patch = mock.patch.dict("sys.modules", {"openai": self.module})
+        self._patch.start()
+        return self.module
+
+    def __exit__(self, *exc):
+        self._patch.stop()
+        return False
+
+
 class UberLLMProviderTest(unittest.TestCase):
     def test_default_model_and_base_url(self):
         provider = UberLLMProvider.__new__(UberLLMProvider)
@@ -61,35 +76,58 @@ class UberLLMProviderTest(unittest.TestCase):
         self.assertEqual(UberLLMProvider.DEFAULT_FAST_MODEL, "deepseek/deepseek-v4.1-flash")
 
     def test_init_requires_api_key(self):
-        with mock.patch.dict("os.environ", {}, clear=True):
-            from seatunnel_cli import llm_provider
+        with mock.patch.dict("os.environ", {}, clear=True), _fake_openai():
             with self.assertRaises(ValueError):
-                llm_provider.UberLLMProvider()
+                UberLLMProvider()
+
+    def test_init_does_not_fall_back_to_openai_key_or_base_url(self):
+        env = {"OPENAI_API_KEY": "sk-other", "OPENAI_BASE_URL": "https://example.invalid/v1"}
+        with mock.patch.dict("os.environ", env, clear=True), _fake_openai():
+            with self.assertRaises(ValueError):
+                UberLLMProvider()
+
+        env["UBERLLM_API_KEY"] = "ull_test"
+        with mock.patch.dict("os.environ", env, clear=True), _fake_openai() as fake:
+            UberLLMProvider()
+            fake.OpenAI.assert_called_once_with(
+                api_key="ull_test", base_url="https://api.uberllm.dev/v1"
+            )
+
+    def test_model_precedence(self):
+        """UBERLLM_* wins, then OPENAI_*, then the class defaults."""
+        key = {"UBERLLM_API_KEY": "ull_test"}
+        with mock.patch.dict("os.environ", key, clear=True), _fake_openai():
+            provider = UberLLMProvider()
+            self.assertEqual(provider.model_id, UberLLMProvider.DEFAULT_MODEL)
+            self.assertEqual(provider.fast_model_id, UberLLMProvider.DEFAULT_FAST_MODEL)
+
+        openai_only = dict(key, OPENAI_MODEL="o-main", OPENAI_SMALL_FAST_MODEL="o-fast")
+        with mock.patch.dict("os.environ", openai_only, clear=True), _fake_openai():
+            provider = UberLLMProvider()
+            self.assertEqual(provider.model_id, "o-main")
+            self.assertEqual(provider.fast_model_id, "o-fast")
+
+        both = dict(openai_only, UBERLLM_MODEL="u-main", UBERLLM_SMALL_FAST_MODEL="u-fast")
+        with mock.patch.dict("os.environ", both, clear=True), _fake_openai():
+            provider = UberLLMProvider()
+            self.assertEqual(provider.model_id, "u-main")
+            self.assertEqual(provider.fast_model_id, "u-fast")
 
     def test_echo_reasoning_content_env_override(self):
+        key = {"UBERLLM_API_KEY": "ull_test"}
         with mock.patch.dict(
-            "os.environ",
-            {"UBERLLM_API_KEY": "ull_test", "UBERLLM_ECHO_REASONING_CONTENT": "false"},
-            clear=False,
-        ):
-            from seatunnel_cli import llm_provider
-            provider = llm_provider.UberLLMProvider()
-            self.assertFalse(provider._echo_reasoning_content)
+            "os.environ", dict(key, UBERLLM_ECHO_REASONING_CONTENT="false"), clear=True
+        ), _fake_openai():
+            self.assertFalse(UberLLMProvider()._echo_reasoning_content)
 
         with mock.patch.dict(
-            "os.environ",
-            {"UBERLLM_API_KEY": "ull_test", "UBERLLM_ECHO_REASONING_CONTENT": "true"},
-            clear=False,
-        ):
-            from seatunnel_cli import llm_provider
-            provider = llm_provider.UberLLMProvider()
-            self.assertTrue(provider._echo_reasoning_content)
+            "os.environ", dict(key, UBERLLM_ECHO_REASONING_CONTENT="true"), clear=True
+        ), _fake_openai():
+            self.assertTrue(UberLLMProvider()._echo_reasoning_content)
 
         # Defaults to True when unset (parity with OPENAI_ECHO_REASONING_CONTENT).
-        with mock.patch.dict("os.environ", {"UBERLLM_API_KEY": "ull_test"}, clear=False):
-            from seatunnel_cli import llm_provider
-            provider = llm_provider.UberLLMProvider()
-            self.assertTrue(provider._echo_reasoning_content)
+        with mock.patch.dict("os.environ", key, clear=True), _fake_openai():
+            self.assertTrue(UberLLMProvider()._echo_reasoning_content)
 
     def test_stream_uses_openai_protocol_and_collects_text(self):
         provider = UberLLMProvider.__new__(UberLLMProvider)
@@ -176,8 +214,8 @@ class UberLLMProviderTest(unittest.TestCase):
             with mock.patch.dict(
                 "os.environ",
                 {"UBERLLM_API_KEY": "ull_test", "ANTHROPIC_MODEL": "claude-other"},
-                clear=False,
-            ):
+                clear=True,
+            ), _fake_openai():
                 llm_provider.save_config(
                     {
                         "provider": "uberllm",

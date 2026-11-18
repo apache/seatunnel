@@ -675,8 +675,10 @@ class SeaTunnelCLI:
                     "  [dim]Get a key: https://uberllm.dev/signup[/dim]\n",
                 )
                 try:
+                    # Password mode: the key is not echoed to the terminal.
                     key_input = pt_prompt(
                         "  Enter API key for this session (or Enter to skip): ",
+                        is_password=True,
                     ).strip()
                 except (EOFError, KeyboardInterrupt):
                     key_input = ""
@@ -1905,8 +1907,14 @@ def main():
     # bedrock/anthropic read ANTHROPIC_MODEL*; orcarouter and uberllm
     # have their own.
     _OPENAI_FAMILY = ("openai", "bedrock-mantle")
+    # Resolve the provider the same way create_provider will (flag,
+    # AI_PROVIDER, saved config, credential auto-detection), so the flags
+    # reach a saved or auto-detected provider too.
+    provider = ""
+    if args.model or args.fast_model:
+        from .llm_provider import resolve_provider_name
+        provider = resolve_provider_name() or ""
     if args.model:
-        provider = os.environ.get("AI_PROVIDER", "").lower()
         if provider == "orcarouter":
             os.environ["ORCAROUTER_MODEL"] = args.model
         elif provider == "uberllm":
@@ -1916,7 +1924,6 @@ def main():
         else:
             os.environ["ANTHROPIC_MODEL"] = args.model
     if args.fast_model:
-        provider = os.environ.get("AI_PROVIDER", "").lower()
         if provider == "orcarouter":
             os.environ["ORCAROUTER_SMALL_FAST_MODEL"] = args.fast_model
         elif provider == "uberllm":

@@ -238,7 +238,7 @@ export SEATUNNEL_API_BASE=http://localhost:8080  # 默认值：引擎的 Jetty H
 | `ORCAROUTER_SMALL_FAST_MODEL` | 否 | `orcarouter/auto` | OrcaRouter 提供商的快速模型 |
 | `ORCAROUTER_ECHO_REASONING_CONTENT` | 否 | `true` | 保留并回传 `reasoning_content`（与 `OPENAI_ECHO_REASONING_CONTENT` 对齐） |
 | `UBERLLM_MODEL` | 否 | `deepseek/deepseek-v4-pro` | UberLLM 提供商的主模型（vendor/model 命名空间）。未设置时回退到 `OPENAI_MODEL` |
-| `UBERLLM_SMALL_FAST_MODEL` | 否 | `deepseek/deepseek-v4.1-flash` | UberLLM 提供商的快速模型 |
+| `UBERLLM_SMALL_FAST_MODEL` | 否 | `deepseek/deepseek-v4.1-flash` | UberLLM 提供商的快速模型。未设置时回退到 `OPENAI_SMALL_FAST_MODEL` |
 | `UBERLLM_ECHO_REASONING_CONTENT` | 否 | `true` | 保留并回传 `reasoning_content`（与 `OPENAI_ECHO_REASONING_CONTENT` 对齐） |
 | `SEATUNNEL_HOME` | 否 | 自动检测 | SeaTunnel 安装目录。发行版压缩包中自动检测；源码安装需手动设置 |
 | `SEATUNNEL_API_BASE` | 否 | `http://localhost:8080` | SeaTunnel REST API 端点（引擎的 Jetty HTTP 端口，不是 5801 成员端口） |

@@ -1335,6 +1335,26 @@ class UberLLMProvider(OpenAIProvider):
     DEFAULT_FAST_MODEL = "deepseek/deepseek-v4.1-flash"
 
     def __init__(self):
+        """Build the client from environment variables only.
+
+        Contract:
+          * Credential: ``UBERLLM_API_KEY`` is required. There is no
+            fallback to ``OPENAI_API_KEY``; a missing key raises
+            ``ValueError`` before any client is created.
+          * Primary model: ``UBERLLM_MODEL``, then ``OPENAI_MODEL``, then
+            :attr:`DEFAULT_MODEL`.
+          * Fast model: ``UBERLLM_SMALL_FAST_MODEL``, then
+            ``OPENAI_SMALL_FAST_MODEL``, then :attr:`DEFAULT_FAST_MODEL`.
+          * Base URL: always :attr:`DEFAULT_BASE_URL`. This class owns the
+            endpoint; ``OPENAI_BASE_URL`` is ignored so an UberLLM key is
+            never sent to another host.
+          * ``UBERLLM_ECHO_REASONING_CONTENT`` (default true) controls
+            whether reasoning content is echoed back in later turns.
+
+        Raises:
+            ImportError: If the ``openai`` package is not installed.
+            ValueError: If ``UBERLLM_API_KEY`` is not set.
+        """
         try:
             import openai
         except ImportError:
@@ -1448,6 +1468,25 @@ _PROVIDERS = {
 }
 
 
+def resolve_provider_name(provider: str | None = None) -> str | None:
+    """Return the provider name `create_provider` will pick, or None.
+
+    Same resolution order as :func:`create_provider`: explicit argument,
+    AI_PROVIDER, the config file's "provider" field, then auto-detection
+    from credentials. Callers that route per-provider settings (such as
+    the ``--model`` / ``--fast-model`` flags) must use this instead of
+    reading AI_PROVIDER alone, so a saved or auto-detected provider gets
+    the same treatment as an explicit one.
+    """
+    name = (
+        provider
+        or os.environ.get("AI_PROVIDER")
+        or load_config().get("provider")
+        or _auto_detect_provider()
+    )
+    return name.lower().strip() if name else None
+
+
 def create_provider(provider: str | None = None) -> LLMProvider:
     """Create an LLM provider instance.
 
@@ -1466,17 +1505,9 @@ def create_provider(provider: str | None = None) -> LLMProvider:
     """
     available = ", ".join(sorted(_PROVIDERS.keys()))
 
-    # 1. Explicit argument
-    name = provider
-
-    # 2. Environment variable
-    if not name:
-        name = os.environ.get("AI_PROVIDER")
-
-    # 3. Config file
+    # 1-3. Explicit argument, environment variable, config file
     config = load_config()
-    if not name:
-        name = config.get("provider")
+    name = provider or os.environ.get("AI_PROVIDER") or config.get("provider")
 
     # NOTE: API keys are NEVER stored in config.json — only environment variables.
     # Only non-secret settings (base_url) can be loaded from config.
