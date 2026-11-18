@@ -82,6 +82,13 @@ const sidebars = {
                 },
                 {
                     "type": "category",
+                    "label": "YARN",
+                    "items": [
+                        "getting-started/yarn/long-running-cluster"
+                    ]
+                },
+                {
+                    "type": "category",
                     "label": "Application Mode (Experimental)",
                     "items": [
                         "getting-started/application/overview",
