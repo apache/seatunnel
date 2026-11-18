@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
@@ -211,6 +212,27 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener
                 },
                 columnDefinitionListener);
         super.exitAlterByChangeColumn(ctx);
+    }
+
+    /**
+     * {@code RENAME COLUMN old TO new} keeps the column definition, so the event carries only the
+     * new name. The schema change resolver completes it with the definition of the renamed column.
+     * Column names are case-insensitive in MySQL, and Debezium keeps the name of a column that a
+     * rename changes only in case, so such a rename has no event.
+     */
+    @Override
+    public void enterAlterByRenameColumn(MySqlParser.AlterByRenameColumnContext ctx) {
+        String oldColumnName = parser.parseName(ctx.oldColumn);
+        String newColumnName = parser.parseName(ctx.newColumn);
+        if (StringUtils.isNotBlank(newColumnName)
+                && !StringUtils.equalsIgnoreCase(oldColumnName, newColumnName)) {
+            changes.add(
+                    AlterTableChangeColumnEvent.change(
+                            tableIdentifier,
+                            oldColumnName,
+                            PhysicalColumn.builder().name(newColumnName).build()));
+        }
+        super.enterAlterByRenameColumn(ctx);
     }
 
     @Override

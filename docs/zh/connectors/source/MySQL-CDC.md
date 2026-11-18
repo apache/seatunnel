@@ -360,7 +360,7 @@ sink {
 | `add.column`    | 新增列                                                      |
 | `drop.column`   | 删除列                                                      |
 | `modify.column`  | 修改列的类型/属性，列名不变                  |
-| `change.column`  | 列重命名，可同时改类型                       |
+| `change.column`  | 列重命名：`CHANGE COLUMN`（可同时改类型）或 `RENAME COLUMN` |
 | `update.columns` | 上述四种列级变更的分组别名                   |
 
 优先级规则（确定性）：

@@ -34,3 +34,11 @@ values (155,"scooter","Small 2-wheel scooter",3.14,1),
        (162,"jacket","water resistent black wind breaker",0.1,8),
        (163,"spare tire","24 inch spare tire",22.2,9);
 
+-- RENAME COLUMN keeps the definition of the column. The column keeps the new name: the sink may
+-- apply schema changes later than the source, and a name used only in between would be missing
+-- from the sink while the source no longer has it.
+alter table products rename column add_column to add_column_renamed;
+insert into products
+values (196,"scooter","Small 2-wheel scooter",3.14,10),
+       (197,"car battery","12V car battery",8.1,11);
+

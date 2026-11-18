@@ -361,7 +361,7 @@ Use these SeaTunnel-owned canonical names:
 | `add.column`    | add a column                                                              |
 | `drop.column`   | drop a column                                                             |
 | `modify.column` | change a column's type/attributes, name unchanged                         |
-| `change.column` | rename a column, optionally re-type                                       |
+| `change.column` | rename a column: `CHANGE COLUMN` (may also re-type it) or `RENAME COLUMN` |
 | `update.columns`| group alias for all four column-level changes above                        |
 
 Precedence is deterministic:
