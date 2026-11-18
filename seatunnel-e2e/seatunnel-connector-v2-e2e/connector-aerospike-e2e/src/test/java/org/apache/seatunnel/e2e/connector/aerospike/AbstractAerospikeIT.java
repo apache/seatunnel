@@ -31,6 +31,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
 import com.aerospike.client.AerospikeClient;
 import com.aerospike.client.Bin;
@@ -38,16 +39,20 @@ import com.aerospike.client.Host;
 import com.aerospike.client.Key;
 import com.aerospike.client.Record;
 import com.aerospike.client.policy.ClientPolicy;
-import com.aerospike.client.policy.ScanPolicy;
 import com.aerospike.client.policy.WritePolicy;
 import com.alibaba.fastjson.JSON;
+import gnu.crypto.hash.RipeMD160;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.apache.seatunnel.e2e.common.container.AbstractTestContainer.SEATUNNEL_HOME;
 
 public abstract class AbstractAerospikeIT extends TestSuiteBase implements TestResource {
 
@@ -116,9 +121,36 @@ public abstract class AbstractAerospikeIT extends TestSuiteBase implements TestR
 
     @TestTemplate
     public void testAerospikeSink(TestContainer container) throws Exception {
+        Path cryptoJar =
+                Paths.get(
+                        RipeMD160.class
+                                .getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI());
+        Assertions.assertEquals("gnu-crypto-2.0.1.jar", cryptoJar.getFileName().toString());
+        String cryptoLibDir = SEATUNNEL_HOME + "plugins/Aerospike/lib";
+        container.executeExtraCommands(
+                engine -> {
+                    Container.ExecResult mkdir =
+                            engine.execInContainer("mkdir", "-p", cryptoLibDir);
+                    Assertions.assertEquals(0, mkdir.getExitCode(), mkdir.getStderr());
+                    engine.copyFileToContainer(
+                            MountableFile.forHostPath(cryptoJar),
+                            cryptoLibDir + "/" + cryptoJar.getFileName());
+                });
+
+        // The host client seeds a record the sink must update using the same key digest.
+        Key key = new Key(NAMESPACE, "seatunnel_sink", "20");
+        client.put(null, key, new Bin("compat_marker", "seeded"), new Bin("data", "{}"));
+
         Container.ExecResult execResult = container.executeJob("/fake_to_aerospike_sink.conf");
-        validateSinkData();
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        Record record = client.get(null, key);
+        Assertions.assertNotNull(record);
+        Assertions.assertEquals("seeded", record.getString("compat_marker"));
+        Assertions.assertEquals(20, JSON.parseObject(record.getString("data")).getIntValue("c_id"));
     }
 
     @TestTemplate
@@ -257,19 +289,6 @@ public abstract class AbstractAerospikeIT extends TestSuiteBase implements TestR
         AtomicInteger count = new AtomicInteger();
         client.scanAll(null, NAMESPACE, tempSet, (key, record) -> count.incrementAndGet());
         Assertions.assertEquals(0, count.get(), "data deletion is not complete");
-    }
-
-    private void validateSinkData() {
-        ScanPolicy scanPolicy = new ScanPolicy();
-
-        client.scanAll(
-                scanPolicy,
-                NAMESPACE,
-                SET_NAME,
-                (key, record) -> {
-                    System.out.println("key: " + key.toString());
-                    System.out.println("record: " + JSON.toJSONString(record));
-                });
     }
 
     @AfterAll

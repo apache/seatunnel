@@ -51,4 +51,21 @@
             <version>2.0.33</version>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <configuration>
+                    <artifactSet>
+                        <excludes combine.children="append">
+                            <!-- Keep the client's RIPEMD-160 implementation in a separate runtime JAR. -->
+                            <exclude>org.gnu:gnu-crypto</exclude>
+                        </excludes>
+                    </artifactSet>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

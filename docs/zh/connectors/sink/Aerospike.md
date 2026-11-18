@@ -10,10 +10,14 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 > Flink<br/>
 > Seatunnel Zeta<br/>
 
-## 许可证兼容性通知
+## 运行时依赖
 
-此连接器依赖于根据AGPL 3.0许可的Aerospike客户端库。
-使用此连接器时，您需要遵守AGPL 3.0许可条款。
+连接器打包了采用 Apache License 2.0 的 [Aerospike Java 客户端 4.4.17](https://github.com/aerospike/aerospike-client-java/blob/4.4.17/LICENSE.md)。
+客户端依赖 GNU Crypto 2.0.1，其许可证为 GPL 第 2 版或更高版本，附带链接例外条款。
+SeaTunnel 将 GNU Crypto 作为独立的运行时 JAR 加载。
+
+安装连接器后，从 Maven Central 下载 [gnu-crypto-2.0.1.jar](https://repo.maven.apache.org/maven2/org/gnu/gnu-crypto/2.0.1/gnu-crypto-2.0.1.jar)，在运行 Aerospike 作业前，将它放入 SeaTunnel 作业提交端和工作节点的 `${SEATUNNEL_HOME}/plugins/Aerospike/lib/` 目录。
+同一仓库也提供[对应源码及源码文件中的许可证声明](https://repo.maven.apache.org/maven2/org/gnu/gnu-crypto/2.0.1/gnu-crypto-2.0.1-sources.jar)。
 
 ## 主要特性
 

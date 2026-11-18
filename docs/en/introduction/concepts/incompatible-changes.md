@@ -5,6 +5,10 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Aerospike sink: install GNU Crypto separately
+
+When upgrading the Aerospike connector, install `gnu-crypto-2.0.1.jar` in `${SEATUNNEL_HOME}/plugins/Aerospike/lib/` on the submission host and workers. Follow the [Aerospike runtime dependency instructions](../../connectors/sink/Aerospike.md#runtime-dependency) before restarting jobs. Existing job configuration and record keys continue to work with the separate JAR.
+
 ### Http sink: `array_mode = true` sends each row as a JSON object
 
 - **Behavior change: the elements of the request body are JSON objects instead of strings**

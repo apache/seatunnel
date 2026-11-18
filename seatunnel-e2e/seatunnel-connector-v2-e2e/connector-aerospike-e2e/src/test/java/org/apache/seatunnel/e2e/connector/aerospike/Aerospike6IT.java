@@ -21,7 +21,7 @@ import org.testcontainers.utility.DockerImageName;
 public class Aerospike6IT extends AbstractAerospikeIT {
     @Override
     DockerImageName getDockerImage() {
-        return DockerImageName.parse("aerospike/aerospike-server:latest");
+        return DockerImageName.parse("aerospike/aerospike-server:6.4.0.34_1");
     }
 
     @Override
