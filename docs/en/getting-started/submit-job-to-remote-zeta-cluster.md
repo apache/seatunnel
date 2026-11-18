@@ -299,12 +299,12 @@ The SeaTunnel Helm chart is published as an OCI artifact on Docker Hub (there is
 
 ```bash
 # Keep the chart version in sync with kubernetes/helm.md
-export VERSION=3.1.1
+export VERSION=3.1.0
 helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm
 
-helm install seatunnel . \
+helm install seatunnel . --set-string image.tag="${VERSION}" \
   --namespace seatunnel \
   --create-namespace
 ```
@@ -312,7 +312,7 @@ helm install seatunnel . \
 Scale masters and workers with the `master.replicas` and `worker.replicas` values:
 
 ```bash
-helm upgrade seatunnel . --namespace seatunnel \
+helm upgrade seatunnel . --reuse-values --namespace seatunnel \
   --set master.replicas=2 \
   --set worker.replicas=4
 ```
@@ -370,7 +370,7 @@ The chart has no `seatunnel.config` values tree. To customize engine files such 
 Apply with:
 
 ```bash
-helm upgrade seatunnel . \
+helm upgrade seatunnel . --reuse-values \
   --namespace seatunnel \
   -f values-prod.yaml
 ```

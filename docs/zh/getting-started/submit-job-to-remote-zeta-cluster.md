@@ -291,12 +291,12 @@ SeaTunnel 的 Helm chart 以 OCI 构件形式发布在 Docker Hub 上（不存�
 
 ```bash
 # 版本号请与 kubernetes/helm.md 保持一致
-export VERSION=3.1.1
+export VERSION=3.1.0
 helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm
 
-helm install seatunnel . \
+helm install seatunnel . --set-string image.tag="${VERSION}" \
   --namespace seatunnel \
   --create-namespace
 ```
@@ -304,7 +304,7 @@ helm install seatunnel . \
 使用 `master.replicas` 和 `worker.replicas` 调整 master / worker 副本数：
 
 ```bash
-helm upgrade seatunnel . --namespace seatunnel \
+helm upgrade seatunnel . --reuse-values --namespace seatunnel \
   --set master.replicas=2 \
   --set worker.replicas=4
 ```
@@ -360,7 +360,7 @@ chart 不存在 `seatunnel.config` 这个 values 配置树。若要自定义 `se
 应用配置：
 
 ```bash
-helm upgrade seatunnel . \
+helm upgrade seatunnel . --reuse-values \
   --namespace seatunnel \
   -f values-prod.yaml
 ```
