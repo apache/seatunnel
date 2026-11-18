@@ -18,20 +18,21 @@
 package org.apache.seatunnel.resource.yarn.client;
 
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
+import org.apache.seatunnel.resource.yarn.exception.YarnClientException;
 import org.apache.seatunnel.resource.yarn.launch.YarnStagingDirectory;
+import org.apache.seatunnel.resource.yarn.launch.resources.YarnApplication;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
-import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.client.api.YarnClient;
+import org.apache.hadoop.yarn.exceptions.ApplicationNotFoundException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /** Closing a client leaves a detached application running; cancel explicitly stops it. */
+@Slf4j
 public final class YarnApplicationClient implements AutoCloseable {
-    private static final Logger LOG = LoggerFactory.getLogger(YarnApplicationClient.class);
 
     private final YarnClient client;
     private final Configuration configuration;
@@ -50,27 +51,57 @@ public final class YarnApplicationClient implements AutoCloseable {
         return yarnId;
     }
 
-    /** Reads native application state and retries artifact cleanup after any terminal state. */
-    public ApplicationStatus getStatus() throws Exception {
-        ApplicationReport report = client.getApplicationReport(yarnId);
-        ApplicationStatus status = YarnApplicationStatus.fromApplicationReport(report);
-        LOG.debug("YARN application {} status: {}", yarnId, status);
-        if (status.isTerminal()) {
-            YarnStagingDirectory.cleanup(configuration, staging);
+    /**
+     * Reads the RM report and removes this application's staging directory after a terminal result.
+     *
+     * @return engine application status, or {@link ApplicationStatus#UNKNOWN} if the RM has no
+     *     record
+     * @throws YarnClientException if reading the report or cleaning up staging fails
+     */
+    public ApplicationStatus getStatus() {
+        try {
+            YarnApplication application =
+                    new YarnApplication(yarnId, client.getApplicationReport(yarnId));
+            ApplicationStatus status = application.getStatus();
+            log.debug("YARN application {} status: {}", yarnId, status);
+            if (status.isTerminal()) {
+                YarnStagingDirectory.cleanup(configuration, staging);
+            }
+            return status;
+        } catch (ApplicationNotFoundException missing) {
+            return ApplicationStatus.UNKNOWN;
+        } catch (Exception failure) {
+            throw new YarnClientException("Could not query YARN application " + yarnId, failure);
         }
-        return status;
     }
 
-    /** Kills the remote application and removes only its staged submission artifacts. */
-    public void cancel() throws Exception {
-        LOG.info("Canceling YARN application {}", yarnId);
-        client.killApplication(yarnId);
-        YarnStagingDirectory.cleanup(configuration, staging);
+    /**
+     * Requests termination and removes the application's staging directory. An application already
+     * absent from the RM can still have files to clean up.
+     *
+     * @throws YarnClientException if the kill request or filesystem cleanup fails
+     */
+    public void cancel() {
+        log.info("Canceling YARN application {}", yarnId);
+        try {
+            try {
+                client.killApplication(yarnId);
+            } catch (ApplicationNotFoundException missing) {
+                log.debug("YARN application {} is already absent", yarnId);
+            }
+            YarnStagingDirectory.cleanup(configuration, staging);
+        } catch (Exception failure) {
+            throw new YarnClientException("Could not cancel YARN application " + yarnId, failure);
+        }
     }
 
     /** Releases the submitting process's RPC client without affecting the remote application. */
     @Override
     public void close() {
-        client.stop();
+        try {
+            client.stop();
+        } catch (RuntimeException failure) {
+            throw new YarnClientException("Could not close YARN client for " + yarnId, failure);
+        }
     }
 }

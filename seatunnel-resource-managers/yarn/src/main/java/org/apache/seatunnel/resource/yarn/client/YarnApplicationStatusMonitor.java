@@ -17,22 +17,22 @@
 
 package org.apache.seatunnel.resource.yarn.client;
 
-import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
+import org.apache.seatunnel.resource.yarn.exception.YarnClientException;
+import org.apache.seatunnel.resource.yarn.launch.resources.YarnApplication;
 
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /** Observes YARN application startup without mixing polling policy into submission code. */
+@Slf4j
 public final class YarnApplicationStatusMonitor {
-    private static final Logger LOG = LoggerFactory.getLogger(YarnApplicationStatusMonitor.class);
 
     private static final long STATUS_POLL_INTERVAL_MILLIS = 500;
 
@@ -43,35 +43,41 @@ public final class YarnApplicationStatusMonitor {
     }
 
     /**
-     * Waits until the ApplicationMaster is running or the application reaches a terminal state.
+     * Polls RM reports during startup. A short job can finish successfully between two polls.
      *
      * @param applicationId native YARN application identifier
      * @param timeoutMillis maximum startup wait
-     * @throws Exception when status retrieval fails or the startup deadline expires
+     * @return the first observed running or successful report
+     * @throws YarnClientException if the RM query fails or the application is killed or fails
+     * @throws TimeoutException if the startup deadline expires
+     * @throws InterruptedException if the caller interrupts the wait
      */
     public ApplicationReport awaitRunning(ApplicationId applicationId, long timeoutMillis)
             throws Exception {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         YarnApplicationState previous = null;
         while (true) {
-            ApplicationReport report = client.getApplicationReport(applicationId);
-            YarnApplicationState state = report.getYarnApplicationState();
+            ApplicationReport report =
+                    YarnClientRequest.call(
+                            "Could not read YARN application report for " + applicationId,
+                            () -> client.getApplicationReport(applicationId));
+            YarnApplication application = new YarnApplication(applicationId, report);
+            YarnApplicationState state = application.getState();
             if (state != previous) {
-                LOG.debug("YARN application {} state: {}", applicationId, state);
+                log.debug("YARN application {} state: {}", applicationId, state);
                 previous = state;
             }
-            ApplicationStatus status = YarnApplicationStatus.fromApplicationReport(report);
-            if (status == ApplicationStatus.RUNNING || status == ApplicationStatus.SUCCEEDED) {
-                return report;
+            if (application.isRunning() || application.isSucceeded()) {
+                return application.getInternalResource();
             }
-            if (status == ApplicationStatus.FAILED || status == ApplicationStatus.CANCELED) {
-                throw new IllegalStateException(
+            if (application.isTerminated()) {
+                throw new YarnClientException(
                         "YARN application "
                                 + applicationId
                                 + " has no live master ("
                                 + state
                                 + "): "
-                                + report.getDiagnostics());
+                                + application.getDiagnostics());
             }
             long remaining = deadline - System.nanoTime();
             if (remaining <= 0) {

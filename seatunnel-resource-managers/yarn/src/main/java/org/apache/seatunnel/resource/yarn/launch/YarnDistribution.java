@@ -17,30 +17,41 @@
 
 package org.apache.seatunnel.resource.yarn.launch;
 
+import org.apache.seatunnel.shade.com.google.common.io.Closer;
+
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipFile;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+
+import lombok.Getter;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.Files;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.Properties;
+import java.util.Set;
 import java.util.zip.GZIPInputStream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 
-/** Records the distribution's native archive layout instead of requiring users to repack it. */
+/** An inspected archive, its localization metadata and the SeaTunnel installation inside it. */
 public final class YarnDistribution {
-    /** Private manifest describing the archive name and its discovered top-level directory. */
-    private static final String MANIFEST = "distribution.properties";
-
-    /** Manifest property containing the localized archive file name. */
+    /** Qualified source path, or a staging-relative filename in older manifests. */
     private static final String ARCHIVE_PROPERTY = "archive";
+
+    private static final String SIZE_PROPERTY = "archive.size";
+    private static final String TIMESTAMP_PROPERTY = "archive.timestamp";
 
     /** Manifest property containing the path prefix before the SeaTunnel distribution. */
     private static final String ROOT_PROPERTY = "root";
@@ -52,38 +63,96 @@ public final class YarnDistribution {
     private static final String LOCALIZED_ZIP = "distribution.zip";
 
     private static final String LOCALIZED_TAR_GZ = "distribution.tar.gz";
-    private final String archiveName;
+    private final Set<String> configFiles;
+    @Getter private final Path path;
+    @Getter private final long size;
+    @Getter private final long timestamp;
     private final String root;
 
-    private YarnDistribution(String archiveName, String root) {
-        this.archiveName = archiveName;
+    private YarnDistribution(FileStatus archive, String root, Set<String> configFiles) {
+        this(archive.getPath(), archive.getLen(), archive.getModificationTime(), root, configFiles);
+    }
+
+    private YarnDistribution(
+            Path path, long size, long timestamp, String root, Set<String> configFiles) {
+        this.path = path;
+        this.size = size;
+        this.timestamp = timestamp;
+        this.configFiles = configFiles;
         this.root = root;
     }
 
-    /** Validates an archive and discovers the distribution root before uploading its files. */
+    /**
+     * Inspects a local copy before staging. The distribution marker identifies the SeaTunnel home
+     * inside the archive, and discovered configuration files determine which defaults can be used.
+     *
+     * @param archive local ZIP or gzip-compressed tar archive
+     * @return layout used when staging and localizing this distribution
+     * @throws IOException if the archive cannot be read
+     * @throws IllegalArgumentException if the format or distribution layout is unsupported
+     */
     public static YarnDistribution inspect(File archive) throws IOException {
-        String name = archive.getName();
-        String distributionRoot = null;
-        if (name.endsWith(".zip")) {
-            try (ZipFile zip = new ZipFile(archive)) {
-                Enumeration<? extends ZipEntry> entries = zip.entries();
-                while (entries.hasMoreElements()) {
-                    distributionRoot =
-                            detectRoot(entries.nextElement().getName(), distributionRoot);
-                }
-            }
-            return new YarnDistribution(LOCALIZED_ZIP, requireRoot(distributionRoot));
+        Path path = new Path(archive.toURI());
+        try (FileSystem local = FileSystem.newInstanceLocal(new Configuration())) {
+            return inspect(local, local.getFileStatus(path));
         }
-        if (name.endsWith(".tar.gz") || name.endsWith(".tgz")) {
-            try (TarArchiveInputStream tar =
-                    new TarArchiveInputStream(
-                            new GZIPInputStream(Files.newInputStream(archive.toPath())))) {
+    }
+
+    /** Reads the layout from the same file that the NodeManager will later unpack. */
+    static YarnDistribution inspect(FileSystem fileSystem, FileStatus archive) throws IOException {
+        String name = archiveName(archive.getPath().getName());
+        String distributionRoot = null;
+        Set<String> configFiles = new HashSet<>();
+        Closer closer = Closer.create();
+        try {
+            if (LOCALIZED_ZIP.equals(name)) {
+                HadoopArchiveChannel channel =
+                        closer.register(
+                                new HadoopArchiveChannel(
+                                        fileSystem.open(archive.getPath()), archive.getLen()));
+                // The layout only needs the central directory. Seeking to every local header would
+                // add a remote read per entry on HDFS.
+                ZipFile zip =
+                        closer.register(
+                                new ZipFile(
+                                        channel,
+                                        archive.getPath().toString(),
+                                        StandardCharsets.UTF_8.name(),
+                                        false,
+                                        true));
+                Enumeration<ZipArchiveEntry> entries = zip.getEntries();
+                CharsetDecoder names = StandardCharsets.UTF_8.newDecoder();
+                while (entries.hasMoreElements()) {
+                    // Match the JDK names used by NodeManager, before Commons normalizes
+                    // separators.
+                    String entry =
+                            names.decode(ByteBuffer.wrap(entries.nextElement().getRawName()))
+                                    .toString();
+                    distributionRoot = detectRoot(entry, distributionRoot, configFiles);
+                }
+            } else {
+                InputStream input = closer.register(fileSystem.open(archive.getPath()));
+                TarArchiveInputStream tar =
+                        closer.register(new TarArchiveInputStream(new GZIPInputStream(input)));
                 TarArchiveEntry entry;
                 while ((entry = tar.getNextTarEntry()) != null) {
-                    distributionRoot = detectRoot(entry.getName(), distributionRoot);
+                    distributionRoot = detectRoot(entry.getName(), distributionRoot, configFiles);
                 }
             }
-            return new YarnDistribution(LOCALIZED_TAR_GZ, requireRoot(distributionRoot));
+        } catch (Throwable failure) {
+            throw closer.rethrow(failure);
+        } finally {
+            closer.close();
+        }
+        return new YarnDistribution(archive, requireRoot(distributionRoot), configFiles);
+    }
+
+    static String archiveName(String name) {
+        if (name.endsWith(".zip")) {
+            return LOCALIZED_ZIP;
+        }
+        if (name.endsWith(".tar.gz") || name.endsWith(".tgz")) {
+            return LOCALIZED_TAR_GZ;
         }
         throw new IllegalArgumentException(
                 "yarn.distribution must be a .tar.gz, .tgz or .zip archive");
@@ -97,7 +166,7 @@ public final class YarnDistribution {
         return root;
     }
 
-    private static String detectRoot(String name, String previous) {
+    private static String detectRoot(String name, String previous, Set<String> configFiles) {
         while (name.startsWith("./")) {
             name = name.substring(2);
         }
@@ -105,6 +174,11 @@ public final class YarnDistribution {
                 || name.contains("\\")
                 || Arrays.asList(name.split("/")).contains("..")) {
             throw new IllegalArgumentException("Unsafe distribution archive entry: " + name);
+        }
+        if (!name.endsWith("/")
+                && (name.startsWith(YarnConstants.CONFIG_DIRECTORY)
+                        || name.contains("/" + YarnConstants.CONFIG_DIRECTORY))) {
+            configFiles.add(name);
         }
         if (name.equals(STARTER_MARKER) || name.endsWith("/" + STARTER_MARKER)) {
             String root = name.substring(0, name.length() - STARTER_MARKER.length());
@@ -119,26 +193,90 @@ public final class YarnDistribution {
 
     /** Uploads the archive and its layout manifest to the private application directory. */
     public void stage(FileSystem fileSystem, Path staging, File source) throws IOException {
-        fileSystem.copyFromLocalFile(new Path(source.toURI()), new Path(staging, archiveName));
-        Properties manifest = new Properties();
-        manifest.setProperty(ARCHIVE_PROPERTY, archiveName);
+        stage(fileSystem, staging, source, new Properties());
+    }
+
+    public boolean containsFile(String path) {
+        return configFiles.contains(root + path);
+    }
+
+    /**
+     * Copies the archive and records its staged filename and internal root alongside the container
+     * settings. The AM later reads this manifest when preparing worker containers.
+     *
+     * @param fileSystem caller-owned staging filesystem
+     * @param staging application-private directory
+     * @param source local archive whose layout was inspected
+     * @param manifest runtime settings to augment with the archive layout and persist
+     * @throws IOException if copying the archive or writing the manifest fails
+     */
+    public void stage(FileSystem fileSystem, Path staging, File source, Properties manifest)
+            throws IOException {
+        stageArchive(fileSystem, staging, source)
+                .writeManifest(
+                        fileSystem,
+                        new Path(staging, YarnConstants.DISTRIBUTION_MANIFEST),
+                        manifest);
+    }
+
+    /** Copies a previously inspected local archive for callers that supply its layout directly. */
+    YarnDistribution stageArchive(FileSystem fileSystem, Path staging, File source)
+            throws IOException {
+        FileStatus staged =
+                YarnDistributionSource.register(
+                        source.toURI(), fileSystem, staging, fileSystem.getConf());
+        return new YarnDistribution(staged, root, configFiles);
+    }
+
+    /** Persists the exact YARN resource and the runtime settings selected from this archive. */
+    public void writeManifest(FileSystem fileSystem, Path target, Properties manifest)
+            throws IOException {
+        manifest.setProperty(ARCHIVE_PROPERTY, path.toString());
+        manifest.setProperty(SIZE_PROPERTY, Long.toString(size));
+        manifest.setProperty(TIMESTAMP_PROPERTY, Long.toString(timestamp));
         manifest.setProperty(ROOT_PROPERTY, root);
-        try (OutputStream output = fileSystem.create(new Path(staging, MANIFEST), false)) {
+        try (OutputStream output = fileSystem.create(target, false)) {
             manifest.store(output, "SeaTunnel localized distribution");
         }
     }
 
-    static YarnDistribution read(FileSystem fileSystem, Path staging) throws IOException {
+    static Properties readManifest(FileSystem fileSystem, Path staging) throws IOException {
         Properties manifest = new Properties();
-        try (InputStream input = fileSystem.open(new Path(staging, MANIFEST))) {
+        Path path = new Path(staging, YarnConstants.DISTRIBUTION_MANIFEST);
+        try (InputStream input = fileSystem.open(path)) {
             manifest.load(input);
         }
-        return new YarnDistribution(
-                manifest.getProperty(ARCHIVE_PROPERTY), manifest.getProperty(ROOT_PROPERTY));
+        return manifest;
     }
 
-    Path archive(Path staging) {
-        return new Path(staging, archiveName);
+    /** Older manifests recorded only the staged filename and the distribution root. */
+    static YarnDistribution fromManifest(FileSystem fileSystem, Path staging, Properties manifest)
+            throws IOException {
+        String location = manifest.getProperty(ARCHIVE_PROPERTY);
+        String root = manifest.getProperty(ROOT_PROPERTY);
+        if (location == null || location.isEmpty() || root == null) {
+            throw new IOException("Incomplete distribution manifest in " + staging);
+        }
+        Path archive = new Path(staging, location);
+        if (!manifest.containsKey(SIZE_PROPERTY) && !manifest.containsKey(TIMESTAMP_PROPERTY)) {
+            FileStatus status = fileSystem.getFileStatus(archive);
+            return new YarnDistribution(status, root, Collections.emptySet());
+        }
+        try {
+            return new YarnDistribution(
+                    archive,
+                    Long.parseLong(manifest.getProperty(SIZE_PROPERTY)),
+                    Long.parseLong(manifest.getProperty(TIMESTAMP_PROPERTY)),
+                    root,
+                    Collections.emptySet());
+        } catch (NumberFormatException failure) {
+            throw new IOException("Invalid distribution archive metadata in " + staging, failure);
+        }
+    }
+
+    /** Returns the private staging path for a copy in this archive format. */
+    public Path archive(Path staging) {
+        return new Path(staging, archiveName(path.getName()));
     }
 
     String localizedHome() {

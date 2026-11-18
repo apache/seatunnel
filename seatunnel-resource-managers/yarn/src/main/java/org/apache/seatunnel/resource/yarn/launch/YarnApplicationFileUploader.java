@@ -18,15 +18,16 @@
 package org.apache.seatunnel.resource.yarn.launch;
 
 import org.apache.seatunnel.resource.yarn.config.YarnApplicationConfiguration;
+import org.apache.seatunnel.resource.yarn.launch.factory.ApplicationMasterContainerFactory;
+import org.apache.seatunnel.resource.yarn.launch.resources.YarnApplicationStaging;
+import org.apache.seatunnel.resource.yarn.launch.resources.YarnLocalResource;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
-import org.apache.hadoop.yarn.api.records.LocalResource;
-import org.apache.hadoop.yarn.api.records.LocalResourceType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,11 +35,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.List;
 
 /** Owns application staging, file uploads and registration of YARN local resources. */
 public final class YarnApplicationFileUploader implements Closeable {
@@ -48,14 +45,12 @@ public final class YarnApplicationFileUploader implements Closeable {
 
     private final Configuration configuration;
     private final YarnApplicationConfiguration deployment;
-    private final YarnDistribution distribution;
     private final FileSystem fileSystem;
     private final Path applicationDir;
-    private final Map<String, LocalResource> localResources = new LinkedHashMap<>();
 
     /**
-     * Validates the distribution and opens an independently owned filesystem client. The
-     * application directory is created only when {@link #upload()} is called.
+     * Opens an independently owned staging filesystem client. The application directory is created
+     * by {@link #upload()}.
      *
      * @param configuration merged Hadoop settings used for staging and localized into containers
      * @param deployment resolved application submission configuration
@@ -71,7 +66,6 @@ public final class YarnApplicationFileUploader implements Closeable {
             throws IOException {
         this.configuration = configuration;
         this.deployment = deployment;
-        this.distribution = YarnDistribution.inspect(deployment.getDistribution());
         this.fileSystem =
                 FileSystem.newInstance(deployment.getStagingRoot().toUri(), configuration);
         try {
@@ -101,47 +95,35 @@ public final class YarnApplicationFileUploader implements Closeable {
      * @throws Exception if uploading or registering any resource fails
      */
     public YarnLocalResourceDescriptor upload() throws Exception {
-        boolean created = false;
+        List<YarnLocalResource> files = masterFiles(deployment);
+        LOG.debug("Registering application resources in {}", applicationDir);
+        if (fileSystem.exists(applicationDir)) {
+            throw new IllegalStateException(
+                    "Application staging directory already exists: " + applicationDir);
+        }
+        if (!fileSystem.mkdirs(applicationDir, STAGING_PERMISSION)) {
+            throw new IOException(
+                    "Could not create application staging directory " + applicationDir);
+        }
         try {
-            LOG.debug("Uploading application resources to {}", applicationDir);
-            if (fileSystem.exists(applicationDir)) {
-                throw new IllegalStateException(
-                        "Application staging directory already exists: " + applicationDir);
-            }
-            if (!fileSystem.mkdirs(applicationDir, STAGING_PERMISSION)) {
-                throw new IOException(
-                        "Could not create application staging directory " + applicationDir);
-            }
-            created = true;
             fileSystem.setPermission(applicationDir, STAGING_PERMISSION);
-            upload(
-                    fileSystem,
-                    applicationDir,
-                    distribution,
-                    deployment.getDistribution(),
-                    deployment,
-                    configuration);
-            registerLocalResource(
-                    YarnConstants.LOCALIZED_DISTRIBUTION_NAME,
-                    distribution.archive(applicationDir),
-                    LocalResourceType.ARCHIVE);
-            registerLocalResource(
-                    YarnConstants.LOCALIZED_SPECIFICATION_NAME,
-                    new Path(applicationDir, YarnConstants.LOCALIZED_SPECIFICATION_NAME),
-                    LocalResourceType.FILE);
-            registerLocalResource(
-                    YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME,
-                    new Path(applicationDir, YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME),
-                    LocalResourceType.FILE);
-            return new YarnLocalResourceDescriptor(localResources, distribution.localizedHome());
+            FileStatus archive =
+                    YarnDistributionSource.register(
+                            deployment.getDistributionUri(),
+                            fileSystem,
+                            applicationDir,
+                            configuration);
+            YarnDistribution distribution = YarnDistribution.inspect(fileSystem, archive);
+            YarnApplicationStaging staging =
+                    new YarnApplicationStaging(
+                            fileSystem, applicationDir, distribution, deployment, configuration);
+            staging.stage(files);
+            return YarnLocalResources.resolve(fileSystem, applicationDir, true);
         } catch (Exception failure) {
-            if (created) {
-                localResources.clear();
-                try {
-                    YarnStagingDirectory.cleanup(configuration, applicationDir);
-                } catch (Exception cleanup) {
-                    failure.addSuppressed(cleanup);
-                }
+            try {
+                YarnStagingDirectory.cleanup(configuration, applicationDir);
+            } catch (Exception cleanup) {
+                failure.addSuppressed(cleanup);
             }
             throw failure;
         }
@@ -150,11 +132,6 @@ public final class YarnApplicationFileUploader implements Closeable {
     /** Returns the qualified application directory retained for lifecycle cleanup. */
     public Path getApplicationDir() {
         return applicationDir;
-    }
-
-    private void registerLocalResource(String key, Path path, LocalResourceType type)
-            throws IOException {
-        localResources.put(key, YarnLocalResources.resource(fileSystem, path, type));
     }
 
     /** Closes only the owned filesystem client; submitted applications still need their files. */
@@ -183,26 +160,19 @@ public final class YarnApplicationFileUploader implements Closeable {
             YarnApplicationConfiguration deployment,
             Configuration hadoopConfiguration)
             throws Exception {
-        LOG.debug("Uploading distribution archive to {}", staging);
-        distribution.stage(fileSystem, staging, archive);
-        LOG.debug(
-                "Writing application specification to {}",
-                new Path(staging, YarnConstants.LOCALIZED_SPECIFICATION_NAME));
-        try (Writer specificationWriter =
-                new OutputStreamWriter(
-                        fileSystem.create(
-                                new Path(staging, YarnConstants.LOCALIZED_SPECIFICATION_NAME),
-                                false),
-                        StandardCharsets.UTF_8)) {
-            deployment.write(specificationWriter);
-        }
-        LOG.debug(
-                "Writing Hadoop configuration to {}",
-                new Path(staging, YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME));
-        try (FSDataOutputStream output =
-                fileSystem.create(
-                        new Path(staging, YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME), false)) {
-            hadoopConfiguration.writeXml(output);
-        }
+        YarnApplicationStaging inputs =
+                new YarnApplicationStaging(
+                        fileSystem,
+                        staging,
+                        distribution.stageArchive(fileSystem, staging, archive),
+                        deployment,
+                        hadoopConfiguration);
+        inputs.stage(masterFiles(deployment));
+    }
+
+    private static List<YarnLocalResource> masterFiles(YarnApplicationConfiguration deployment) {
+        return YarnLocalResources.collect(
+                ApplicationMasterContainerFactory.decorators(
+                        deployment.getContainerSettings(), deployment.getJobFile() != null));
     }
 }

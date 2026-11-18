@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.resource.yarn.launch;
 
+import org.apache.seatunnel.resource.yarn.config.YarnContainerSettings;
+
 import org.apache.hadoop.yarn.api.records.LocalResource;
 
 import lombok.Getter;
@@ -30,9 +32,12 @@ import java.util.Map;
 public final class YarnLocalResourceDescriptor {
     private final Map<String, LocalResource> resources;
     private final String home;
+    private final YarnContainerSettings settings;
 
-    YarnLocalResourceDescriptor(Map<String, LocalResource> resources, String home) {
+    YarnLocalResourceDescriptor(
+            Map<String, LocalResource> resources, String home, YarnContainerSettings settings) {
         this.resources = Collections.unmodifiableMap(new LinkedHashMap<>(resources));
         this.home = home;
+        this.settings = settings;
     }
 }

@@ -11,7 +11,7 @@ Each submission creates one YARN application. The submission client prepares and
 flowchart TB
   client["SeaTunnel Application CLI"]
   rm["YARN ResourceManager"]
-  hdfs[("HDFS staging")]
+  hdfs[("HDFS")]
   checkpoint[("Persistent checkpoint storage")]
 
   subgraph yarnApp["One YARN application"]
@@ -20,7 +20,7 @@ flowchart TB
     workerN["Worker Container N"]
   end
 
-  client -->|upload distribution and config| hdfs
+  client -->|register archive and stage config| hdfs
   client -->|submit application| rm
   rm -->|start AM| am
   am -->|request fixed containers| rm
@@ -45,12 +45,28 @@ flowchart TB
 ## Submission lifecycle
 
 1. The client allocates an application ID from the ResourceManager.
-2. It creates a private `0700` staging directory. The application file uploader stores the validated distribution, job configuration, and resolved Hadoop configuration as one localization set.
+2. The client creates a private `0700` staging directory for configuration and the distribution manifest. It inspects a named snapshot on the staging HDFS in place. Other archives are copied into staging and inspected there. The manifest records the archive URL, size and modification time used by both roles.
 3. The client status monitor waits for the ResourceManager to start the ApplicationMaster or report a terminal state. The NodeManager localizes and extracts the same distribution.
-4. The ApplicationMaster starts an isolated Zeta master and requests a fixed number of worker containers through `AMRMClient`.
+4. The ApplicationMaster starts an isolated Zeta master, registers with `AMRMClientAsync` and requests a fixed number of worker containers.
 5. `NMClient` starts worker JVMs. Each allocated container is tracked as one worker node, and workers join the isolated Hazelcast cluster using the master's actual address.
 6. After all workers register their membership and slots, the master submits one Zeta job.
 7. When the job reaches a terminal state, the master releases workers, unregisters the YARN application, and removes staging.
+
+## Identity and localization
+
+On a simple-authentication cluster the containers use the configured Hadoop user. On a secure cluster the submitter logs in using a ticket or keytab, acquires the staging filesystem's delegation tokens, and attaches them to the AM launch context. The AM forwards HDFS tokens when it launches a worker.
+
+The AM and worker factories each declare an ordered list of steps for their `YarnContainerSpec`, which wraps Hadoop's `ContainerLaunchContext`. The submission client uses the AM steps to stage the files declared by `build()` and then applies `decorate(spec)` to prepare the launch. Only the AM steps include the private job specification. The AM reads the size and timestamp of the worker files once and reuses that metadata when launching workers. Each worker launch receives fresh credentials.
+
+NodeManagers expand the same `ARCHIVE` in each container. The AM also receives the application specification and selected job file, including a job generated from inline content. Shipped configuration files and the merged Hadoop XML reach both roles. Each worker resolves distribution JARs under its own localized installation.
+
+The submitter polls the ResourceManager's application report while waiting for the AM to start. Inside the AM, Hadoop sends allocation heartbeats and delivers worker events to registered callbacks. `onContainersAllocated` starts workers through the NodeManager. `onContainersCompleted` reports unexpected exits to the engine with the container ID, exit status and diagnostics. If the ResourceManager asks the AM to shut down, the driver notifies the engine and stops accepting worker requests.
+
+At DEBUG level, `YarnResourceManagerCallbackHandler` also logs container resource updates and NodeManager state changes. Workers keep the slots configured at startup. A decommissioning node can continue running its existing containers until YARN reports their completion.
+
+### Worker events
+
+An allocated container has a YARN container ID. Zeta counts its slots only after the worker JVM joins the AM and registers. Use the application attempt and container reports to distinguish a scheduler allocation from a worker that is ready to run tasks.
 
 ## Network and capacity
 
@@ -63,6 +79,8 @@ application.worker-count × application.worker.slots
 ```
 
 Requests must also fit queue quotas, the ResourceManager maximum container capability, and available NodeManager capacity.
+
+When `yarn.master.http-port` is set, the AM binds a second, fixed port for HTTP and registers its NodeManager host and web address with the ResourceManager. Workers use the Hazelcast endpoint. Clients connecting directly to the UI and the YARN web proxy need access to the AM HTTP port.
 
 ## Staging and checkpoints
 

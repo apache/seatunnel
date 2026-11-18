@@ -20,6 +20,9 @@ package org.apache.seatunnel.resource.yarn.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
+import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
+import org.apache.seatunnel.resource.yarn.launch.resources.YarnFileSource;
+import org.apache.seatunnel.resource.yarn.launch.resources.YarnLocalResourceGroup;
 
 import org.apache.hadoop.fs.Path;
 
@@ -29,6 +32,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Collections;
@@ -49,12 +53,17 @@ import java.util.Set;
 public final class YarnApplicationConfiguration {
     private final ApplicationSpecification specification;
     private final YarnDeploymentTarget deploymentTarget;
-    private final File distribution;
+    private final URI distributionUri;
+    private final YarnFileSource jobFile;
+    private final YarnContainerSettings containerSettings;
+    private final Map<String, YarnFileSource> shipFiles;
+    private final Long activeDeadlineSeconds;
     private final Path stagingRoot;
     private final String queue;
     private final int priority;
     private final Set<String> tags;
     private final String masterNodeLabel;
+    private final Integer masterHttpPort;
     private final String workerNodeLabel;
     private final String hadoopUserName;
 
@@ -69,14 +78,39 @@ public final class YarnApplicationConfiguration {
             if (requireDistribution) {
                 throw new IllegalArgumentException("Required option yarn.distribution is missing");
             }
-            this.distribution = null;
+            this.distributionUri = null;
         } else {
-            this.distribution = new File(distributionPath).getAbsoluteFile();
-            if (requireDistribution && !Files.isRegularFile(distribution.toPath())) {
+            this.distributionUri =
+                    YarnFileSource.sourceUri(distributionPath, YarnOptions.DISTRIBUTION.key());
+            File local = getDistribution();
+            if (local != null
+                    && (!Files.isRegularFile(local.toPath())
+                            || !Files.isReadable(local.toPath()))) {
                 throw new IllegalArgumentException(
                         "yarn.distribution must be a readable local distribution archive: "
-                                + distribution);
+                                + local);
             }
+        }
+        String job = emptyToNull(options.get(YarnOptions.JOB_CONFIG_FILE));
+        Map<String, YarnFileSource> sources = YarnLocalResourceGroup.resolve(options);
+        YarnFileSource selected = sources.remove(job);
+        this.jobFile =
+                selected != null || job == null
+                        ? selected
+                        : YarnFileSource.fromUri(
+                                YarnFileSource.sourceUri(job, YarnOptions.JOB_CONFIG_FILE.key()));
+        if (requireDistribution
+                && jobFile == null
+                && specification.getJobConfig().trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Pass --config or configure " + YarnOptions.JOB_CONFIG_FILE.key());
+        }
+        this.shipFiles = Collections.unmodifiableMap(sources);
+        this.containerSettings = new YarnContainerSettings(options, sources.keySet());
+        this.activeDeadlineSeconds = options.get(YarnOptions.ACTIVE_DEADLINE_SECONDS);
+        if (activeDeadlineSeconds != null && activeDeadlineSeconds <= 0) {
+            throw new IllegalArgumentException(
+                    YarnOptions.ACTIVE_DEADLINE_SECONDS.key() + " must be positive");
         }
         this.stagingRoot = new Path(options.get(YarnOptions.STAGING_DIRECTORY));
         this.queue = options.get(YarnOptions.QUEUE).trim();
@@ -89,6 +123,11 @@ public final class YarnApplicationConfiguration {
         }
         this.tags = parseTags(options.get(YarnOptions.TAGS));
         this.masterNodeLabel = emptyToNull(options.get(YarnOptions.MASTER_NODE_LABEL));
+        this.masterHttpPort = options.get(YarnOptions.MASTER_HTTP_PORT);
+        if (masterHttpPort != null && (masterHttpPort < 1 || masterHttpPort > 65535)) {
+            throw new IllegalArgumentException(
+                    YarnOptions.MASTER_HTTP_PORT.key() + " must be between 1 and 65535");
+        }
         String worker = emptyToNull(options.get(YarnOptions.WORKER_NODE_LABEL));
         this.workerNodeLabel = worker == null ? masterNodeLabel : worker;
         this.hadoopUserName = options.get(YarnOptions.HADOOP_USER_NAME).trim();
@@ -98,7 +137,8 @@ public final class YarnApplicationConfiguration {
     }
 
     /**
-     * Resolves submission parameters and validates the local distribution archive path.
+     * Resolves the archive location. Paths without a scheme are relative to the submitter's working
+     * directory even when Hadoop uses HDFS by default.
      *
      * @param specification immutable application launch specification
      * @param options platform deployment settings
@@ -109,24 +149,45 @@ public final class YarnApplicationConfiguration {
         return new YarnApplicationConfiguration(specification, options, true);
     }
 
+    /** Returns the local archive for a file source, or null for an HDFS source or a container. */
+    public File getDistribution() {
+        return distributionUri != null && "file".equals(distributionUri.getScheme())
+                ? new File(distributionUri)
+                : null;
+    }
+
     /**
      * Resolves parameters needed by the localized ApplicationMaster and worker allocator.
      *
-     * <p>YARN localizes application.properties into the container working directory. This is a
-     * generated runtime file, not the submitter's original HOCON file. Only the resolved worker
-     * node label and Hadoop user name are needed from YARN deployment options; Hadoop settings and
-     * the staging path arrive through the localized Hadoop XML and container environment
-     * respectively.
+     * <p>The AM reads the generated application properties from its working directory. When the
+     * submitter selected a separate job file, the AM loads its sibling {@code job.conf}. The
+     * properties also carry the worker node label and Hadoop user needed for worker allocation.
      *
      * @param path localized application configuration file
-     * @return YARN configuration that does not require the submitter-local distribution path
+     * @return the AM's application specification and resolved worker settings
+     * @throws IOException if the properties or the selected job file cannot be read, or the job
+     *     file is empty
      */
     public static YarnApplicationConfiguration read(java.nio.file.Path path) throws IOException {
         Properties properties = new Properties();
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             properties.load(reader);
         }
+        if (properties.containsKey(YarnOptions.JOB_CONFIG_FILE.key())) {
+            java.nio.file.Path jobFile =
+                    path.resolveSibling(YarnConstants.LOCALIZED_JOB_CONFIG_NAME);
+            String job = Files.readString(jobFile, StandardCharsets.UTF_8);
+            if (job.trim().isEmpty()) {
+                throw new IOException(YarnOptions.JOB_CONFIG_FILE.key() + " contains an empty job");
+            }
+            properties.setProperty(SeatunnelApplicationConfig.JOB_CONFIG_KEY, job);
+        }
         Map<String, Object> options = new HashMap<>();
+        if (properties.containsKey(YarnOptions.MASTER_HTTP_PORT.key())) {
+            options.put(
+                    YarnOptions.MASTER_HTTP_PORT.key(),
+                    properties.getProperty(YarnOptions.MASTER_HTTP_PORT.key()));
+        }
         options.put(
                 YarnOptions.WORKER_NODE_LABEL.key(),
                 properties.getProperty(YarnOptions.WORKER_NODE_LABEL.key(), ""));
@@ -145,14 +206,24 @@ public final class YarnApplicationConfiguration {
      * Writes common application fields, resolved worker placement and Hadoop user for the remote
      * master.
      *
-     * <p>Queue, priority, tags and local distribution paths are submission inputs, not driver
-     * settings. Do not serialize the original options map here. The uploader owns this writer and
-     * the private staging directory because the job content may contain credentials.
+     * <p>When a separate job file is staged, the properties record its container-local name. The
+     * uploader owns the writer and the private directory holding the job content.
+     *
+     * @param writer destination for the AM's application properties, closed by the caller
+     * @throws IOException if the properties cannot be written
      */
     public void write(Writer writer) throws IOException {
         Properties properties = SeatunnelApplicationConfig.toProperties(specification);
+        if (jobFile != null) {
+            properties.remove(SeatunnelApplicationConfig.JOB_CONFIG_KEY);
+            properties.setProperty(
+                    YarnOptions.JOB_CONFIG_FILE.key(), YarnConstants.LOCALIZED_JOB_CONFIG_NAME);
+        }
         if (workerNodeLabel != null) {
             properties.setProperty(YarnOptions.WORKER_NODE_LABEL.key(), workerNodeLabel);
+        }
+        if (masterHttpPort != null) {
+            properties.setProperty(YarnOptions.MASTER_HTTP_PORT.key(), masterHttpPort.toString());
         }
         properties.setProperty(YarnOptions.HADOOP_USER_NAME.key(), hadoopUserName);
         properties.store(writer, "SeaTunnel YARN application");

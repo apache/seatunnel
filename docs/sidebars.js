@@ -96,6 +96,7 @@ const sidebars = {
                             "items": [
                                 "getting-started/application/yarn/architecture",
                                 "getting-started/application/yarn/quick-start",
+                                "getting-started/application/yarn/commands",
                                 "getting-started/application/yarn/configuration",
                                 "getting-started/application/yarn/checkpoint-recovery",
                                 "getting-started/application/yarn/faq"

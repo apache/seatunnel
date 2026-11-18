@@ -1,5 +1,5 @@
 ---
-sidebar_position: 5
+sidebar_position: 6
 title: Checkpoint 恢复
 ---
 
@@ -9,7 +9,7 @@ Application Mode 通过显式提交新的 YARN application 恢复历史作业。
 
 ## 1. 配置持久化存储
 
-在第一次提交前，在发行包的 `config/seatunnel.yaml` 中配置原生 checkpoint 存储。checkpoint 目录必须位于 `yarn.staging-dir` 之外。
+首次提交前，在发行包的 `config/seatunnel.yaml` 或通过 `yarn.seatunnel-config-file` 指定的分发文件中配置 checkpoint 存储。选择位于 `yarn.staging-dir` 之外的持久化目录。
 
 HDFS 示例：
 
@@ -65,6 +65,8 @@ bin/seatunnel-application.sh submit --target yarn \
 ```
 
 新 application 会读取 Job `10001` 的最新有效 checkpoint，并把后续 checkpoint 写入 Job `10002` 的目录。找不到有效 checkpoint 时提交失败，不会静默从头执行。
+
+YARN application ID 用于定位资源和日志。示例中的两个 Zeta job ID 分别标识两次执行的 checkpoint 历史。部署文件若已用 `yarn.job-config-file` 选定内联或 HDFS 作业，恢复时应修改该作业或覆盖这个选项。它的优先级高于 `--config`。
 
 ## 恢复要求
 

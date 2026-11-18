@@ -1,5 +1,5 @@
 ---
-sidebar_position: 5
+sidebar_position: 6
 title: Checkpoint Recovery
 ---
 
@@ -9,7 +9,7 @@ Application Mode recovers by explicitly submitting a new YARN application. It do
 
 ## 1. Configure durable storage
 
-Before the first submission, configure native checkpoint storage in the distribution's `config/seatunnel.yaml`. The checkpoint directory must be outside `yarn.staging-dir`.
+Before the first submission, configure checkpoint storage in the distribution's `config/seatunnel.yaml` or ship an engine YAML and select it with `yarn.seatunnel-config-file`. Choose a persistent directory outside `yarn.staging-dir`.
 
 HDFS example:
 
@@ -65,6 +65,8 @@ bin/seatunnel-application.sh submit --target yarn \
 ```
 
 The new application loads the latest eligible checkpoint for Job `10001` and writes later checkpoints below Job `10002`. Missing checkpoints fail submission instead of silently starting over.
+
+The running YARN application ID identifies resource allocation and logs. The two Zeta job IDs in this example identify checkpoint histories. If your deployment file selects an inline or HDFS job with `yarn.job-config-file`, edit that job or override the option when restoring. It takes precedence over `--config`.
 
 ## Recovery requirements
 

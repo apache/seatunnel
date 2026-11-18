@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.resource.yarn;
 
+import org.apache.seatunnel.shade.com.google.common.io.Closer;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.deployment.ClusterDescriptor;
@@ -28,22 +30,25 @@ import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.yarn.client.YarnApplicationClient;
 import org.apache.seatunnel.resource.yarn.client.YarnApplicationStatusMonitor;
+import org.apache.seatunnel.resource.yarn.client.YarnClientRequest;
 import org.apache.seatunnel.resource.yarn.config.YarnApplicationConfiguration;
 import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
 import org.apache.seatunnel.resource.yarn.config.YarnDeploymentTarget;
 import org.apache.seatunnel.resource.yarn.config.YarnOptions;
+import org.apache.seatunnel.resource.yarn.config.YarnSecurityContext;
+import org.apache.seatunnel.resource.yarn.exception.YarnClientException;
 import org.apache.seatunnel.resource.yarn.launch.YarnApplicationFileUploader;
-import org.apache.seatunnel.resource.yarn.launch.YarnContainerLaunchContextFactory;
 import org.apache.seatunnel.resource.yarn.launch.YarnLocalResourceDescriptor;
 import org.apache.seatunnel.resource.yarn.launch.YarnStagingDirectory;
+import org.apache.seatunnel.resource.yarn.launch.factory.ApplicationMasterContainerFactory;
+import org.apache.seatunnel.resource.yarn.launch.resources.YarnContainerSpec;
+import org.apache.seatunnel.resource.yarn.launch.resources.YarnResourceRequirements;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
-import org.apache.hadoop.yarn.api.records.Priority;
-import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
@@ -53,6 +58,7 @@ import org.slf4j.LoggerFactory;
 
 import com.hazelcast.client.config.ClientConfig;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -63,14 +69,12 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
     private static final Logger LOG =
             LoggerFactory.getLogger(YarnApplicationClusterDescriptor.class);
 
-    /** YARN application type shown by the ResourceManager UI and CLI. */
-    private static final String APPLICATION_TYPE = "SeaTunnel";
-
     private final Configuration configuration;
     private final Supplier<YarnClient> clientFactory;
     private final boolean allowLocalStaging;
     private YarnClient yarnClient;
     private final ReadonlyConfig options;
+    private final YarnSecurityContext security;
 
     /** Uses the submitting user's Hadoop configuration for YARN RPCs and shared staging. */
     public YarnApplicationClusterDescriptor(Configuration configuration) {
@@ -90,17 +94,25 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
         this.options = ReadonlyConfig.fromMap(new HashMap<>(options));
         this.allowLocalStaging = allowLocalStaging;
         this.clientFactory = clientFactory;
-        YarnConfigurationUtils.requireSimpleAuthentication(configuration);
         this.configuration = new Configuration(configuration);
+        this.security = new YarnSecurityContext(this.configuration, this.options);
     }
 
     /**
-     * Stages a private distribution and job, then submits exactly one non-restarting AM. A
-     * submission failure kills a possibly accepted application and deletes only files created here.
+     * Stages the distribution and job under the YARN application ID and submits a single AM attempt
+     * using the submitter's Hadoop identity.
+     *
+     * @param specification resolved job and container requirements
+     * @return the RM-assigned ID once the AM is running or the application has already succeeded
+     * @throws Exception if staging, submission or waiting for startup fails
      */
     @Override
     public ApplicationId deployApplication(ApplicationSpecification specification)
             throws Exception {
+        return security.run(() -> submit(specification));
+    }
+
+    private ApplicationId submit(ApplicationSpecification specification) throws Exception {
         YarnApplicationConfiguration deployment =
                 YarnApplicationConfiguration.forSubmission(specification, options);
         if (deployment.getDeploymentTarget() != YarnDeploymentTarget.APPLICATION) {
@@ -112,105 +124,57 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
         ApplicationId yarnId = null;
         boolean submitted = false;
         try {
-            YarnClientApplication application = client.createApplication();
-            ApplicationSubmissionContext submission = application.getApplicationSubmissionContext();
-            yarnId = submission.getApplicationId();
+            YarnClientApplication application =
+                    YarnClientRequest.call(
+                            "Could not create YARN application " + specification.getName(),
+                            client::createApplication);
+            ApplicationSubmissionContext allocated = application.getApplicationSubmissionContext();
+            yarnId = allocated.getApplicationId();
             LOG.info("Submitting YARN application {}", yarnId);
-            validateResourceCapabilities(application, specification);
-            configureSubmission(submission, deployment, specification);
-            staging = stageResources(deployment, submission, specification);
+            ApplicationMasterContainerFactory.validateResources(
+                    specification,
+                    application.getNewApplicationResponse().getMaximumResourceCapability());
+
+            YarnContainerSpec master;
+            Closer closer = Closer.create();
+            try {
+                YarnApplicationFileUploader uploader =
+                        closer.register(
+                                new YarnApplicationFileUploader(
+                                        configuration, deployment, yarnId, allowLocalStaging));
+                YarnLocalResourceDescriptor resources = uploader.upload();
+                staging = uploader.getApplicationDir();
+                master =
+                        ApplicationMasterContainerFactory.create(
+                                configuration,
+                                staging,
+                                YarnResourceRequirements.forMaster(specification),
+                                resources,
+                                deployment.getHadoopUserName());
+            } catch (Throwable failure) {
+                throw closer.rethrow(failure, Exception.class);
+            } finally {
+                closer.close();
+            }
+            ApplicationSubmissionContext submission =
+                    ApplicationMasterContainerFactory.createSubmission(
+                            allocated, deployment, master);
             // A lost submit response can still mean the RM accepted the application.
             submitted = true;
-            client.submitApplication(submission);
+            YarnClientRequest.call(
+                    "Could not submit YARN application " + yarnId,
+                    () -> client.submitApplication(submission));
             new YarnApplicationStatusMonitor(client)
                     .awaitRunning(yarnId, specification.getStartupTimeoutMillis());
             LOG.info("YARN application {} master is running", yarnId);
             return yarnId;
         } catch (Exception failure) {
             cleanupFailedSubmission(client, yarnId, staging, submitted, failure);
+            if (failure instanceof IOException) {
+                throw new YarnClientException(
+                        "Could not prepare YARN application " + yarnId, failure);
+            }
             throw failure;
-        }
-    }
-
-    /**
-     * Rejects submissions whose master or worker resources exceed the YARN cluster maximum.
-     *
-     * @param application YARN application response carrying the cluster capability
-     * @param specification resolved application resource requirements
-     */
-    private void validateResourceCapabilities(
-            YarnClientApplication application, ApplicationSpecification specification) {
-        Resource maximum = application.getNewApplicationResponse().getMaximumResourceCapability();
-        if (specification.getMasterMemoryMb() > maximum.getMemorySize()
-                || specification.getMasterCpuCores() > maximum.getVirtualCores()
-                || specification.getWorkerSpecification().getMemoryMb() > maximum.getMemorySize()
-                || specification.getWorkerSpecification().getCpuCores()
-                        > maximum.getVirtualCores()) {
-            throw new IllegalArgumentException(
-                    "Requested master/worker resources exceed YARN maximum container capability");
-        }
-    }
-
-    /**
-     * Populates the common YARN submission fields from the resolved application settings.
-     *
-     * @param submission YARN application submission context being prepared
-     * @param deployment resolved YARN deployment options
-     * @param specification resolved application fields
-     */
-    private void configureSubmission(
-            ApplicationSubmissionContext submission,
-            YarnApplicationConfiguration deployment,
-            ApplicationSpecification specification) {
-        submission.setApplicationName(specification.getName());
-        submission.setApplicationType(APPLICATION_TYPE);
-        submission.setQueue(deployment.getQueue());
-        if (deployment.getPriority() >= 0) {
-            submission.setPriority(Priority.newInstance(deployment.getPriority()));
-        }
-        if (!deployment.getTags().isEmpty()) {
-            submission.setApplicationTags(deployment.getTags());
-        }
-        if (deployment.getMasterNodeLabel() != null) {
-            submission.setNodeLabelExpression(deployment.getMasterNodeLabel());
-        }
-        submission.setMaxAppAttempts(1);
-        submission.setResource(
-                Resource.newInstance(
-                        specification.getMasterMemoryMb(), specification.getMasterCpuCores()));
-    }
-
-    /**
-     * Uploads localized resources and attaches the generated ApplicationMaster launch context.
-     *
-     * @param deployment resolved YARN deployment options
-     * @param submission YARN application submission context being prepared
-     * @param specification resolved application fields
-     * @return the application-owned staging directory retained for cleanup
-     * @throws Exception if localization or upload fails
-     */
-    private Path stageResources(
-            YarnApplicationConfiguration deployment,
-            ApplicationSubmissionContext submission,
-            ApplicationSpecification specification)
-            throws Exception {
-        LOG.debug("Staging application resources for {}", submission.getApplicationId());
-        try (YarnApplicationFileUploader uploader =
-                new YarnApplicationFileUploader(
-                        configuration,
-                        deployment,
-                        submission.getApplicationId(),
-                        allowLocalStaging)) {
-            YarnLocalResourceDescriptor resources = uploader.upload();
-            Path staging = uploader.getApplicationDir();
-            LOG.debug("Staged application resources at {}", staging);
-            submission.setAMContainerSpec(
-                    YarnContainerLaunchContextFactory.master(
-                            staging,
-                            specification.getMasterMemoryMb(),
-                            resources,
-                            deployment.getHadoopUserName()));
-            return staging;
         }
     }
 
@@ -254,9 +218,20 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
         }
     }
 
-    /** Discovers the master endpoint without creating an Engine client. */
+    /**
+     * Looks up the running AM's registered endpoint. The returned provider opens the engine
+     * connection when its caller requests a client.
+     *
+     * @param applicationId native YARN application ID printed at submission
+     * @return a client provider bound to this application's Hazelcast cluster
+     * @throws Exception if the AM has no live endpoint or the startup deadline expires
+     */
     @Override
     public SeatunnelClientProvider retrieve(ApplicationId applicationId) throws Exception {
+        return security.run(() -> retrieveClient(applicationId));
+    }
+
+    private SeatunnelClientProvider retrieveClient(ApplicationId applicationId) throws Exception {
         long timeout = options.get(ApplicationOptions.STARTUP_TIMEOUT_MILLIS);
         ApplicationReport report =
                 new YarnApplicationStatusMonitor(yarnClient()).awaitRunning(applicationId, timeout);
@@ -267,14 +242,25 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
         return createClientProvider(applicationId, report, timeout);
     }
 
+    /**
+     * Queries the RM as the submitter. Observing a terminal result also triggers staging cleanup.
+     */
     @Override
     public ApplicationStatus getApplicationStatus(ApplicationId applicationId) throws Exception {
-        return application(applicationId).getStatus();
+        return security.run(() -> application(applicationId).getStatus());
     }
 
+    /**
+     * Asks the RM to kill the application and then removes the application's private staging
+     * directory.
+     */
     @Override
     public void cancelApplication(ApplicationId applicationId) throws Exception {
-        application(applicationId).cancel();
+        security.run(
+                () -> {
+                    application(applicationId).cancel();
+                    return null;
+                });
     }
 
     private YarnApplicationClient application(ApplicationId applicationId) {
@@ -329,16 +315,21 @@ public final class YarnApplicationClusterDescriptor implements ClusterDescriptor
             } catch (RuntimeException cleanup) {
                 failure.addSuppressed(cleanup);
             }
-            throw failure;
+            throw new YarnClientException("Could not start YARN client", failure);
         }
     }
 
+    /** Releases the local YARN RPC client. A detached application continues running. */
     @Override
     public void close() {
         if (yarnClient != null) {
             YarnClient client = yarnClient;
             yarnClient = null;
-            client.stop();
+            try {
+                client.stop();
+            } catch (RuntimeException failure) {
+                throw new YarnClientException("Could not close YARN client", failure);
+            }
         }
     }
 }

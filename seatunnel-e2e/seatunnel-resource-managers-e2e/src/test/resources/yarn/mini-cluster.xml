@@ -61,4 +61,9 @@
         <name>yarn.nodemanager.env-whitelist</name>
         <value>JAVA_HOME,PATH,LANG</value>
     </property>
+    <!-- The AM and workers share this host. Use loopback even when VPN interfaces are present. -->
+    <property>
+        <name>yarn.nodemanager.admin-env</name>
+        <value>JAVA_TOOL_OPTIONS=-Dhazelcast.local.localAddress=127.0.0.1</value>
+    </property>
 </configuration>

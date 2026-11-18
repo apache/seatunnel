@@ -17,65 +17,87 @@
 
 package org.apache.seatunnel.resource.yarn.launch;
 
+import org.apache.seatunnel.resource.yarn.config.YarnContainerSettings;
+import org.apache.seatunnel.resource.yarn.launch.decorators.YarnStepDecorator;
+import org.apache.seatunnel.resource.yarn.launch.factory.ApplicationMasterContainerFactory;
+import org.apache.seatunnel.resource.yarn.launch.factory.WorkerContainerFactory;
+import org.apache.seatunnel.resource.yarn.launch.resources.YarnLocalResource;
+
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.LocalResource;
-import org.apache.hadoop.yarn.api.records.LocalResourceType;
-import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
-import org.apache.hadoop.yarn.util.ConverterUtils;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 /** Resolves the files YARN must localize before starting a master or worker container. */
-final class YarnLocalResources {
+public final class YarnLocalResources {
     private YarnLocalResources() {}
 
     /**
-     * Loads the staged distribution manifest and creates application-private local resources.
+     * Reads the staged manifest and the size and modification time of each file for one role. The
+     * AM also receives its application specification and any separately staged job file.
      *
      * @param configuration Hadoop settings used to read shared staging storage
      * @param staging application-owned remote staging directory
+     * @param forMaster whether to resolve the AM's resource set
      * @return localized resource map and distribution home relative to the container directory
-     * @throws Exception if staged metadata or file status cannot be read
+     * @throws IOException if staged metadata or file status cannot be read
      */
-    static YarnLocalResourceDescriptor resolve(Configuration configuration, Path staging)
-            throws Exception {
-        Map<String, LocalResource> resources = new HashMap<>();
-        String home;
+    public static YarnLocalResourceDescriptor resolve(
+            Configuration configuration, Path staging, boolean forMaster) throws IOException {
         try (FileSystem fileSystem = FileSystem.newInstance(staging.toUri(), configuration)) {
-            YarnDistribution distribution = YarnDistribution.read(fileSystem, staging);
-            home = distribution.localizedHome();
-            resources.put(
-                    YarnConstants.LOCALIZED_DISTRIBUTION_NAME,
-                    resource(fileSystem, distribution.archive(staging), LocalResourceType.ARCHIVE));
-            resources.put(
-                    YarnConstants.LOCALIZED_SPECIFICATION_NAME,
-                    resource(
-                            fileSystem,
-                            new Path(staging, YarnConstants.LOCALIZED_SPECIFICATION_NAME),
-                            LocalResourceType.FILE));
-            resources.put(
-                    YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME,
-                    resource(
-                            fileSystem,
-                            new Path(staging, YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME),
-                            LocalResourceType.FILE));
+            return resolve(fileSystem, staging, forMaster);
         }
-        return new YarnLocalResourceDescriptor(resources, home);
     }
 
-    static LocalResource resource(FileSystem fileSystem, Path path, LocalResourceType type)
+    static YarnLocalResourceDescriptor resolve(
+            FileSystem fileSystem, Path staging, boolean forMaster) throws IOException {
+        Properties manifest = YarnDistribution.readManifest(fileSystem, staging);
+        YarnDistribution distribution =
+                YarnDistribution.fromManifest(fileSystem, staging, manifest);
+        YarnContainerSettings settings = YarnContainerSettings.read(manifest);
+        List<YarnStepDecorator<YarnLocalResource>> decorators;
+        if (forMaster) {
+            boolean hasJob =
+                    fileSystem.exists(new Path(staging, YarnConstants.LOCALIZED_JOB_CONFIG_NAME));
+            decorators = ApplicationMasterContainerFactory.decorators(settings, hasJob);
+        } else {
+            decorators = WorkerContainerFactory.decorators(settings);
+        }
+        return resolve(fileSystem, staging, distribution, settings, collect(decorators));
+    }
+
+    /**
+     * Collects file declarations in the role's step order. Staging and metadata lookup perform the
+     * I/O.
+     */
+    public static List<YarnLocalResource> collect(
+            List<YarnStepDecorator<YarnLocalResource>> decorators) {
+        List<YarnLocalResource> resources = new ArrayList<>();
+        for (YarnStepDecorator<YarnLocalResource> decorator : decorators) {
+            resources.addAll(decorator.build());
+        }
+        return resources;
+    }
+
+    private static YarnLocalResourceDescriptor resolve(
+            FileSystem fileSystem,
+            Path staging,
+            YarnDistribution distribution,
+            YarnContainerSettings settings,
+            List<YarnLocalResource> files)
             throws IOException {
-        FileStatus status = fileSystem.getFileStatus(path);
-        return LocalResource.newInstance(
-                ConverterUtils.getYarnUrlFromPath(fileSystem.makeQualified(path)),
-                type,
-                LocalResourceVisibility.APPLICATION,
-                status.getLen(),
-                status.getModificationTime());
+        Map<String, LocalResource> resources = new HashMap<>();
+        for (YarnLocalResource resource : files) {
+            resource.resolve(fileSystem, staging, distribution);
+            resources.put(resource.getName(), resource.getInternalResource());
+        }
+        return new YarnLocalResourceDescriptor(resources, distribution.localizedHome(), settings);
     }
 }

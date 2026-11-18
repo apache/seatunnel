@@ -109,6 +109,9 @@ class ApplicationExecuteCommandTest {
         assertEquals("test", status.getOptions().get("kubernetes.namespace"));
         assertEquals(DeployType.KUBERNETES, status.getTarget());
         assertEquals(
+                DeployType.YARN,
+                parse("status", "--target=YaRn", "--id", "application_1_0001").getTarget());
+        assertEquals(
                 "a=b", parse("status", "-t", "kubernetes", "-Dkey=a=b").getOptions().get("key"));
     }
 

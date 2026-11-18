@@ -18,10 +18,10 @@
 package org.apache.seatunnel.resource.yarn.client;
 
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
+import org.apache.seatunnel.resource.yarn.launch.resources.YarnApplication;
 
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
-import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 
 /** Centralizes YARN application state conversion used by clients and the ApplicationMaster. */
 public final class YarnApplicationStatus {
@@ -30,25 +30,7 @@ public final class YarnApplicationStatus {
 
     /** Maps a YARN application report to the platform-independent application status. */
     public static ApplicationStatus fromApplicationReport(ApplicationReport report) {
-        YarnApplicationState state = report.getYarnApplicationState();
-        switch (state) {
-            case NEW:
-            case NEW_SAVING:
-            case SUBMITTED:
-                return ApplicationStatus.CREATED;
-            case ACCEPTED:
-                return ApplicationStatus.DEPLOYING;
-            case RUNNING:
-                return ApplicationStatus.RUNNING;
-            case KILLED:
-                return ApplicationStatus.CANCELED;
-            case FAILED:
-                return ApplicationStatus.FAILED;
-            case FINISHED:
-                return fromFinalApplicationStatus(report.getFinalApplicationStatus());
-            default:
-                return ApplicationStatus.UNKNOWN;
-        }
+        return YarnApplication.statusOf(report);
     }
 
     /** Maps the final platform status published by the ApplicationMaster. */
@@ -60,16 +42,5 @@ public final class YarnApplicationStatus {
             return FinalApplicationStatus.KILLED;
         }
         return FinalApplicationStatus.FAILED;
-    }
-
-    private static ApplicationStatus fromFinalApplicationStatus(
-            FinalApplicationStatus finalStatus) {
-        if (finalStatus == FinalApplicationStatus.SUCCEEDED) {
-            return ApplicationStatus.SUCCEEDED;
-        }
-        if (finalStatus == FinalApplicationStatus.KILLED) {
-            return ApplicationStatus.CANCELED;
-        }
-        return ApplicationStatus.FAILED;
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.resource.yarn.launch;
 
+import org.apache.seatunnel.shade.com.google.common.io.Closer;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -41,12 +43,18 @@ public final class YarnStagingDirectory {
         Configuration cleanupConfiguration = new Configuration(configuration);
         // The AM shutdown hook owns this client; Hadoop's concurrent global hook must not close it.
         cleanupConfiguration.setBoolean("fs.automatic.close", false);
-        try (FileSystem fileSystem =
-                FileSystem.newInstance(staging.toUri(), cleanupConfiguration)) {
+        Closer closer = Closer.create();
+        try {
+            FileSystem fileSystem =
+                    closer.register(FileSystem.newInstance(staging.toUri(), cleanupConfiguration));
             if (!fileSystem.delete(staging, true) && fileSystem.exists(staging)) {
                 throw new IOException(
                         "Could not remove YARN application staging directory " + staging);
             }
+        } catch (Throwable failure) {
+            throw closer.rethrow(failure);
+        } finally {
+            closer.close();
         }
     }
 }

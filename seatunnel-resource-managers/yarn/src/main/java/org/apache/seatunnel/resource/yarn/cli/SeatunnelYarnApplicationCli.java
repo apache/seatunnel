@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.resource.yarn.cli;
 
-import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.spec.ApplicationSpecification;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.application.ApplicationJobRunner;
@@ -44,12 +44,15 @@ import org.slf4j.LoggerFactory;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /** Runs the YARN application master and its single native job. */
 public final class SeatunnelYarnApplicationCli {
+    private static final int SHUTDOWN_TIMEOUT_SECONDS = 155;
 
     private static final Logger LOG = LoggerFactory.getLogger(SeatunnelYarnApplicationCli.class);
 
@@ -77,10 +80,14 @@ public final class SeatunnelYarnApplicationCli {
                 ApplicationSpecification specification =
                         applicationConfiguration.getSpecification();
                 LOG.debug("Loaded application specification {}", specification.getName());
-                SeaTunnelConfig engineConfiguration = configureEngine(id, specification);
+                SeaTunnelConfig engineConfiguration = configureEngine(id, applicationConfiguration);
                 ResourceManagerDriver<?> driver =
                         createDriver(
-                                configuration, staging, applicationConfiguration, clusterName(id));
+                                configuration,
+                                staging,
+                                applicationConfiguration,
+                                clusterName(id),
+                                trackingUrl(engineConfiguration.getEngineConfig().getHttpConfig()));
                 HazelcastInstanceImpl master =
                         startMaster(engineConfiguration, specification, id, driver);
                 LOG.info("Master started for YARN application {}", id);
@@ -172,17 +179,31 @@ public final class SeatunnelYarnApplicationCli {
      * Prepares the master's Engine and Hazelcast configuration.
      *
      * @param id native YARN application ID used for the cluster name
-     * @param specification resolved application fields
+     * @param application resolved application fields and optional AM HTTP port
      * @return configuration ready for master startup
      */
     private static SeaTunnelConfig configureEngine(
-            String id, ApplicationSpecification specification) {
-        SeaTunnelConfig engineConfiguration = ConfigProvider.locateAndGetSeaTunnelConfig();
+            String id, YarnApplicationConfiguration application) {
+        ApplicationSpecification specification = application.getSpecification();
+        SeaTunnelConfig engineConfiguration = YarnConfigurationUtils.loadEngineConfig();
+        HttpConfig http = engineConfiguration.getEngineConfig().getHttpConfig();
         SeatunnelApplicationConfig.configure(
                 engineConfiguration,
                 clusterName(id),
                 null,
                 specification.getWorkerSpecification().getSlots());
+        if (application.getMasterHttpPort() != null) {
+            // The common application setup disables web listeners. Keep the user's HTTP auth,
+            // context path and request limits when enabling the AM's fixed endpoint.
+            if (http == ServerConfigOptions.MasterServerConfigOptions.HTTP.defaultValue()) {
+                http = new HttpConfig();
+            }
+            http.setEnabled(true);
+            http.setEnableHttps(false);
+            http.setEnableDynamicPort(false);
+            http.setPort(application.getMasterHttpPort());
+            engineConfiguration.getEngineConfig().setHttpConfig(http);
+        }
         SeatunnelApplicationConfig.configureCheckpointRetention(engineConfiguration);
         engineConfiguration
                 .getHazelcastConfig()
@@ -192,6 +213,29 @@ public final class SeatunnelYarnApplicationCli {
         return engineConfiguration;
     }
 
+    /** Builds the AM's original tracking URL on its NodeManager host for the YARN web proxy. */
+    private static String trackingUrl(HttpConfig http) throws URISyntaxException {
+        if (!http.isEnabled()) {
+            return "";
+        }
+        String path = http.getContextPath();
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        if (!path.endsWith("/")) {
+            path += "/";
+        }
+        return new URI(
+                        "http",
+                        null,
+                        System.getenv(ApplicationConstants.Environment.NM_HOST.name()),
+                        http.getPort(),
+                        path,
+                        null,
+                        null)
+                .toASCIIString();
+    }
+
     /**
      * Creates the YARN resource manager driver with resolved placement and user settings.
      *
@@ -199,13 +243,15 @@ public final class SeatunnelYarnApplicationCli {
      * @param staging application-owned staging directory
      * @param applicationConfiguration resolved YARN settings
      * @param clusterName isolated Hazelcast cluster name
+     * @param trackingUrl running AM web endpoint registered with the ResourceManager
      * @return driver used to allocate and release worker containers
      */
     private static ResourceManagerDriver<?> createDriver(
             Configuration configuration,
             Path staging,
             YarnApplicationConfiguration applicationConfiguration,
-            String clusterName) {
+            String clusterName,
+            String trackingUrl) {
         return new YarnResourceManagerDriver(
                 configuration,
                 staging,
@@ -213,7 +259,8 @@ public final class SeatunnelYarnApplicationCli {
                         clusterName,
                         applicationConfiguration.getWorkerNodeLabel(),
                         applicationConfiguration.getHadoopUserName(),
-                        System.getProperty(YarnConstants.SEATUNNEL_HOME_PROPERTY)));
+                        System.getProperty(YarnConstants.SEATUNNEL_HOME_PROPERTY),
+                        trackingUrl));
     }
 
     /**
@@ -234,7 +281,6 @@ public final class SeatunnelYarnApplicationCli {
             return SeaTunnelServerStarter.createHazelcastInstance(
                     engineConfiguration,
                     null,
-                    JarPathResolver.identity(),
                     new ResourceManagerFactory(DeployType.YARN, id, specification, driver));
         } catch (Exception failure) {
             try {
@@ -288,7 +334,7 @@ public final class SeatunnelYarnApplicationCli {
                 () -> {
                     owner.interrupt();
                     try {
-                        stopped.await(155, TimeUnit.SECONDS);
+                        stopped.await(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }

@@ -44,6 +44,13 @@ public final class YarnApplicationClusterDescriptorFactory
         return DeployType.YARN;
     }
 
+    /**
+     * Loads the cluster's Hadoop configuration for this invocation. The descriptor starts the YARN
+     * client on its first operation under the submission identity.
+     *
+     * @param options deployment options from the application CLI
+     * @return a descriptor whose RPC client is closed by the caller
+     */
     @Override
     public ClusterDescriptor<ApplicationId> create(Map<String, String> options) throws Exception {
         YarnConfiguration configuration = YarnConfigurationUtils.load(options);

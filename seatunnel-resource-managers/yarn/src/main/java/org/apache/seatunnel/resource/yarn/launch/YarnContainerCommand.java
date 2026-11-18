@@ -17,78 +17,74 @@
 
 package org.apache.seatunnel.resource.yarn.launch;
 
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-/** Builds the environment and shell-safe Java command for a localized YARN container. */
-final class YarnContainerCommand {
-    private YarnContainerCommand() {}
+/** Accumulates JVM options and renders the quoted NodeManager command once all steps have run. */
+public final class YarnContainerCommand {
+    private final String home;
+    private final String mainClass;
+    private final List<String> arguments;
+    private final List<String> options = new ArrayList<>();
 
-    /**
-     * Builds environment variables consumed by SeaTunnel and Hadoop inside the container.
-     *
-     * @param staging application-owned remote staging directory
-     * @param home localized SeaTunnel home relative to the container working directory
-     * @param submittingUser user propagated through {@code HADOOP_USER_NAME} for simple-auth HDFS
-     * @return mutable environment map owned by the launch context
-     */
-    static Map<String, String> environment(Path staging, String home, String submittingUser) {
-        String workingDirectory = ApplicationConstants.Environment.PWD.$$();
-        Map<String, String> environment = new HashMap<>();
-        environment.put(YarnConstants.STAGING_DIRECTORY_ENV, staging.toString());
-        environment.put(YarnConstants.SEATUNNEL_HOME_ENV, workingDirectory + Path.SEPARATOR + home);
-        environment.put(YarnConstants.HADOOP_CONF_DIR_ENV, workingDirectory);
-        environment.put(YarnConstants.HADOOP_USER_NAME_ENV, submittingUser);
-        return environment;
+    public YarnContainerCommand(
+            String home, int memoryMb, String mainClass, List<String> arguments) {
+        this.home = home;
+        this.mainClass = mainClass;
+        this.arguments = List.copyOf(arguments);
+        options.add("\"" + ApplicationConstants.Environment.JAVA_HOME.$() + "/bin/java\"");
+        options.add(YarnConstants.JVM_MAX_HEAP_PREFIX + heapMb(memoryMb) + "m");
+        options.add(YarnConstants.JVM_EXIT_ON_OUT_OF_MEMORY);
+        options.addAll(YarnConstants.MANDATORY_JVM_MODULE_FLAGS);
+    }
+
+    public void addOption(String option) {
+        options.add(option);
+    }
+
+    public void addFileOption(String prefix, String path) {
+        if (path != null) {
+            options.add(prefix + containerPath(path));
+        }
     }
 
     /**
-     * Builds one quoted Java command with stdout and stderr redirected to the YARN log directory.
+     * Renders the completed JVM command for the NodeManager's launch script. JVM options precede
+     * the main class and its arguments. Standard output and error go to the container log
+     * directory.
      *
-     * @param home localized SeaTunnel home relative to the container working directory
-     * @param memoryMb container memory used to size the JVM heap
-     * @param mainClass master or worker entrypoint class
-     * @param arguments entrypoint arguments, each shell quoted by this method
-     * @return shell command executed by the NodeManager
+     * @return shell-escaped command for the container launch context
      */
-    static String command(String home, int memoryMb, String mainClass, List<String> arguments) {
-        String classpath = classpath(home);
-        String workingDirectory = ApplicationConstants.Environment.PWD.$$();
-        List<String> command = new ArrayList<>();
-        command.add(javaExecutable());
-        command.add("-Xmx" + heapMb(memoryMb) + "m");
-        command.add("-XX:+ExitOnOutOfMemoryError");
-        command.add("-Dseatunnel.home=\"" + workingDirectory + "\"/" + quote(home));
-        command.add("-Dhazelcast.logging.type=log4j2");
-        command.add(
-                "-Dlog4j2.configurationFile="
-                        + quote(
-                                workingDirectory
-                                        + Path.SEPARATOR
-                                        + home
-                                        + YarnConstants.LOG4J_CONFIG_FILE));
-        command.add(
-                "-Dseatunnel.logs.path="
-                        + quote(workingDirectory + Path.SEPARATOR + home + "/logs"));
-        command.add("-Dseatunnel.logs.file_name=seatunnel-application");
+    public String render() {
+        List<String> command = new ArrayList<>(options);
         command.add("-cp");
-        command.add(quote(classpath));
+        command.add(quote(classpath(home)));
         command.add(quote(mainClass));
         for (String argument : arguments) {
             command.add(quote(argument));
         }
         command.add("1>" + quote(ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout"));
         command.add("2>" + quote(ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr"));
-        return String.join(" ", command);
+        // NodeManager embeds this entire command inside the double quotes of /bin/bash -c.
+        return escapeDoubleQuoted(String.join(" ", command));
     }
 
-    private static String javaExecutable() {
-        return "\"" + ApplicationConstants.Environment.JAVA_HOME.$$() + "/bin/java\"";
+    private static String containerPath(String path) {
+        return path.startsWith("/")
+                ? quote(path)
+                : "\"" + ApplicationConstants.Environment.PWD.$() + "\"/" + quote(path);
+    }
+
+    /**
+     * Escapes literal data for the double-quoted fields in the NodeManager's POSIX launch script.
+     */
+    public static String escapeDoubleQuoted(String value) {
+        return value.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("$", "\\$")
+                .replace("`", "\\`");
     }
 
     /** Builds the Java classpath from the localized YARN distribution layout. */
@@ -108,7 +104,7 @@ final class YarnContainerCommand {
     }
 
     /** Quotes one untrusted argument for the NodeManager's POSIX shell command. */
-    static String quote(String value) {
+    public static String quote(String value) {
         return "'" + value.replace("'", "'\"'\"'") + "'";
     }
 }

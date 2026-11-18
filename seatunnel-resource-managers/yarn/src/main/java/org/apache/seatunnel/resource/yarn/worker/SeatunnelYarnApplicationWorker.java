@@ -17,13 +17,11 @@
 
 package org.apache.seatunnel.resource.yarn.worker;
 
-import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
-import org.apache.seatunnel.engine.core.classloader.ApplicationJarPathResolver;
-import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
+import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
 
 import java.nio.file.Paths;
@@ -43,19 +41,20 @@ public final class SeatunnelYarnApplicationWorker {
             throw new IllegalArgumentException(
                     "Expected <cluster-name> <master-address> <slots> <master-distribution-home>");
         }
-        SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        YarnConfigurationUtils.loadLocalized(YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME);
+        SeaTunnelConfig config = YarnConfigurationUtils.loadEngineConfig();
         SeatunnelApplicationConfig.configure(config, args[0], args[1], Integer.parseInt(args[2]));
         config.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.enabled", "true");
         config.getHazelcastConfig().setProperty("hazelcast.shutdownhook.policy", "GRACEFUL");
-        JarPathResolver jarPathResolver =
+        ApplicationJarPathResolver jarPathResolver =
                 new ApplicationJarPathResolver(
                         args[3],
                         Paths.get(System.getProperty(YarnConstants.SEATUNNEL_HOME_PROPERTY))
                                 .toAbsolutePath()
                                 .normalize()
                                 .toString());
-        SeaTunnelServerStarter.createHazelcastInstance(
-                config, null, jarPathResolver, new ResourceManagerFactory());
+        jarPathResolver.register(config.getHazelcastConfig());
+        SeaTunnelServerStarter.createHazelcastInstance(config, null, new ResourceManagerFactory());
     }
 }

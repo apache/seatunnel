@@ -17,102 +17,66 @@
 
 package org.apache.seatunnel.resource.yarn.launch;
 
+import org.apache.seatunnel.engine.common.config.server.ApplicationOptions;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
-import org.apache.seatunnel.resource.yarn.cli.SeatunnelYarnApplicationCli;
-import org.apache.seatunnel.resource.yarn.worker.SeatunnelYarnApplicationWorker;
+import org.apache.seatunnel.resource.yarn.launch.factory.ApplicationMasterContainerFactory;
+import org.apache.seatunnel.resource.yarn.launch.factory.WorkerContainerFactory;
+import org.apache.seatunnel.resource.yarn.launch.resources.YarnResourceRequirements;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
-/** Creates master and worker launch contexts from shared localization and command factories. */
+/** Convenience entry points for constructing individual AM and worker launch contexts. */
 public final class YarnContainerLaunchContextFactory {
-    private static final Logger LOG =
-            LoggerFactory.getLogger(YarnContainerLaunchContextFactory.class);
-
     private YarnContainerLaunchContextFactory() {}
 
     /**
-     * Resolves local resources from staged Hadoop configuration and creates the master context.
-     *
-     * @param configuration Hadoop settings used to read shared staging storage
-     * @param staging application-owned remote staging directory
-     * @param memoryMb master container memory used to size its JVM heap
-     * @param hadoopUserName Hadoop user propagated to the container
-     * @return complete YARN master container launch context
-     * @throws Exception if staged local resources cannot be resolved
+     * Resolves the AM files from shared staging and uses the supplied Hadoop configuration to
+     * obtain delegation tokens on a Kerberos cluster.
      */
     public static ContainerLaunchContext master(
-            Configuration configuration, Path staging, int memoryMb, String hadoopUserName)
-            throws Exception {
-        return master(
-                staging,
-                memoryMb,
-                YarnLocalResources.resolve(configuration, staging),
-                hadoopUserName);
+            Configuration configuration, Path staging, int memoryMb, String user) throws Exception {
+        return ApplicationMasterContainerFactory.create(
+                        configuration,
+                        staging,
+                        new YarnResourceRequirements(
+                                memoryMb, ApplicationOptions.MASTER_CPU_CORES.defaultValue()),
+                        YarnLocalResources.resolve(configuration, staging, true),
+                        user)
+                .getInternalResource();
     }
 
-    /** Creates the master context with the resolved Hadoop user.name. */
+    /**
+     * Builds a simple-authentication AM context from resource metadata already held by the caller.
+     */
     public static ContainerLaunchContext master(
-            Path staging,
-            int memoryMb,
-            YarnLocalResourceDescriptor localized,
-            String hadoopUserName) {
-        return create(
-                localized,
-                staging,
-                memoryMb,
-                SeatunnelYarnApplicationCli.class.getName(),
-                Collections.emptyList(),
-                hadoopUserName);
+            Path staging, int memoryMb, YarnLocalResourceDescriptor localized, String user) {
+        return ApplicationMasterContainerFactory.create(
+                        new Configuration(false),
+                        staging,
+                        new YarnResourceRequirements(
+                                memoryMb, ApplicationOptions.MASTER_CPU_CORES.defaultValue()),
+                        localized,
+                        user)
+                .getInternalResource();
     }
 
-    /** Creates a worker context with the resolved Hadoop user.name. */
+    /**
+     * Builds a single worker context under the AM's Hadoop identity. The running AM keeps a {@link
+     * WorkerContainerFactory} to reuse staged metadata across worker launches.
+     */
     public static ContainerLaunchContext worker(
             Configuration configuration,
             Path staging,
             String clusterName,
             String masterAddress,
             WorkerSpecification specification,
-            String hadoopUserName,
+            String user,
             String masterDistributionHome)
             throws Exception {
-        return create(
-                YarnLocalResources.resolve(configuration, staging),
-                staging,
-                specification.getMemoryMb(),
-                SeatunnelYarnApplicationWorker.class.getName(),
-                Arrays.asList(
-                        clusterName,
-                        masterAddress,
-                        String.valueOf(specification.getSlots()),
-                        masterDistributionHome),
-                hadoopUserName);
-    }
-
-    private static ContainerLaunchContext create(
-            YarnLocalResourceDescriptor localized,
-            Path staging,
-            int memoryMb,
-            String mainClass,
-            List<String> arguments,
-            String submittingUser) {
-        LOG.debug("Building YARN container launch context for {}", mainClass);
-        return ContainerLaunchContext.newInstance(
-                localized.getResources(),
-                YarnContainerCommand.environment(staging, localized.getHome(), submittingUser),
-                Collections.singletonList(
-                        YarnContainerCommand.command(
-                                localized.getHome(), memoryMb, mainClass, arguments)),
-                null,
-                null,
-                null);
+        return new WorkerContainerFactory(configuration, staging)
+                .create(clusterName, masterAddress, specification, user, masterDistributionHome)
+                .getInternalResource();
     }
 }

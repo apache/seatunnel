@@ -21,41 +21,39 @@ import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceID;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceIDRetrievable;
+import org.apache.seatunnel.resource.yarn.launch.resources.YarnResource;
 
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.NodeId;
 
 /** Allocated YARN worker container with stable identity used by the resource-manager driver. */
-public final class YarnWorkerNode implements ResourceIDRetrievable {
+public final class YarnWorkerNode extends YarnResource<Container> implements ResourceIDRetrievable {
     private final ResourceID resourceID;
-    private final Container container;
 
     public YarnWorkerNode(Container container, ResourceID resourceID) {
-        Preconditions.checkNotNull(container);
-        Preconditions.checkNotNull(resourceID);
-        this.container = container;
-        this.resourceID = resourceID;
+        super(container.getId().toString(), container);
+        this.resourceID = Preconditions.checkNotNull(resourceID);
     }
 
     /** @return worker identifier exposed to the Zeta resource manager */
     public String getWorkerId() {
-        return container.getId().toString();
+        return getName();
     }
 
     /** @return native container descriptor used only for NodeManager launch */
     public Container getContainer() {
-        return container;
+        return getInternalResource();
     }
 
     /** @return native container identifier used for stop and release operations */
     public ContainerId getContainerId() {
-        return container.getId();
+        return getInternalResource().getId();
     }
 
     /** @return NodeManager identity hosting this worker */
     public NodeId getNodeId() {
-        return container.getNodeId();
+        return getInternalResource().getNodeId();
     }
 
     @Override
