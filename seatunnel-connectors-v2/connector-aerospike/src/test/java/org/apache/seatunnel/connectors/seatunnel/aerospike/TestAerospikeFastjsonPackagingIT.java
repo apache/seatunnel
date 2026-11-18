@@ -19,10 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.aerospike;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.InputStream;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.List;
@@ -33,8 +35,29 @@ import java.util.zip.ZipEntry;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestAerospikeFastjsonPackagingIT {
+    @Test
+    void connectorIncludesTheFastjsonDecimalFormatterLicense() throws Exception {
+        Path artifact = Path.of(System.getProperty("aerospike.connectorJar"));
+        try (JarFile jar = new JarFile(artifact.toFile())) {
+            ZipEntry entry = jar.getJarEntry("META-INF/LICENSE");
+            assertNotNull(entry);
+            try (InputStream input = jar.getInputStream(entry)) {
+                String license = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+                assertTrue(license.contains("com.alibaba.fastjson2.util.DoubleToDecimal"));
+                assertTrue(
+                        license.contains(
+                                "Copyright (c) 2021, 2023, Oracle and/or its affiliates."));
+                assertTrue(license.contains("Version 2, June 1991"));
+                assertTrue(license.contains("\"CLASSPATH\" EXCEPTION TO THE GPL"));
+                assertTrue(license.contains("fastjson2-2.0.33-sources.jar"));
+            }
+        }
+    }
+
     @Test
     void connectorPreservesJsonbSymbolsWithoutTheOriginalMap() throws Exception {
         Path artifact = Path.of(System.getProperty("aerospike.connectorJar"));
