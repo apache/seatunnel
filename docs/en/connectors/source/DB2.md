@@ -51,9 +51,9 @@ Read data from DB2 through JDBC. DB2 requires the IBM `db2jcc` driver; SeaTunnel
 |                                            DB2 Data Type                                             | SeaTunnel Data Type |
 |------------------------------------------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                                                              | BOOLEAN             |
-| SMALLINT                                                                                             | SHORT               |
-| INT<br/>INTEGER<br/>                                                                                 | INTEGER             |
-| BIGINT                                                                                               | LONG                |
+| SMALLINT                                                                                             | SMALLINT            |
+| INT<br/>INTEGER<br/>                                                                                 | INT                 |
+| BIGINT                                                                                               | BIGINT              |
 | DECIMAL<br/>DEC<br/>NUMERIC<br/>NUM                                                                  | DECIMAL(precision, scale) |
 | REAL                                                                                                 | FLOAT               |
 | FLOAT<br/>DOUBLE<br/>DOUBLE PRECISION<br/>DECFLOAT                                                   | DOUBLE              |

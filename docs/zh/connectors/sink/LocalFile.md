@@ -152,6 +152,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 基于选定字段进行数据分区。
 
+分区字段的值为 `NULL` 时，会以字面量 `null` 写入分区目录（例如 `c_null=null`），而不是作为缺失值处理。
+
 ### partition_dir_expression [string]
 
 仅在 `have_partition` 为 `true` 时使用。

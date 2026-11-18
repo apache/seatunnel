@@ -62,27 +62,28 @@ docker build -f src/main/docker/Dockerfile --build-arg VERSION=3.1.0-SNAPSHOT -t
 docker images | grep apache/seatunnel
 ```
 
-Dockerfile文件内容为：
+Dockerfile（`seatunnel-dist/src/main/docker/Dockerfile`）采用两阶段构建：第一阶段解压二进制包并调整日志与 Hazelcast
+配置，最终阶段安装 `python3` 并复制准备好的 `/opt/seatunnel` 目录。文件内容为：
 ```dockerfile
-FROM eclipse-temurin:11-jdk
+FROM eclipse-temurin:11-jdk as builder
 
 ARG VERSION
-# Build from Source Code And Copy it into image
+
 COPY ./target/apache-seatunnel-${VERSION}-bin.tar.gz /opt/
-
-# Download From Internet
-# Please Note this file only include fake/console connector, You'll need to download the other connectors manually
-# wget -P /opt https://dlcdn.apache.org/seatunnel/${VERSION}/apache-seatunnel-${VERSION}-bin.tar.gz
-
 RUN cd /opt && \
     tar -zxvf apache-seatunnel-${VERSION}-bin.tar.gz && \
     mv apache-seatunnel-${VERSION} seatunnel && \
     rm apache-seatunnel-${VERSION}-bin.tar.gz && \
     sed -i 's/#rootLogger.appenderRef.consoleStdout.ref/rootLogger.appenderRef.consoleStdout.ref/' seatunnel/config/log4j2.properties && \
     sed -i 's/#rootLogger.appenderRef.consoleStderr.ref/rootLogger.appenderRef.consoleStderr.ref/' seatunnel/config/log4j2.properties && \
-    sed -i 's/rootLogger.appenderRef.file.ref/#rootLogger.appenderRef.file.ref/' seatunnel/config/log4j2.properties && \    
+    sed -i 's/rootLogger.appenderRef.file.ref/#rootLogger.appenderRef.file.ref/' seatunnel/config/log4j2.properties && \
     cp seatunnel/config/hazelcast-master.yaml seatunnel/config/hazelcast-worker.yaml
 
+FROM eclipse-temurin:11-jdk
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /opt/seatunnel /opt/seatunnel
 WORKDIR /opt/seatunnel
 ```
 
