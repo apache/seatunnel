@@ -75,6 +75,12 @@ import java.util.stream.Collectors;
 @Slf4j
 public class PhysicalVertex {
 
+    /** Total attempts of the liveness probe before a failing invocation is treated as "false". */
+    @VisibleForTesting static final int CHECK_TASK_GROUP_EXECUTING_ATTEMPTS = 3;
+
+    /** Pause between two attempts of the liveness probe. */
+    private static final long CHECK_TASK_GROUP_EXECUTING_RETRY_SLEEP_MILLIS = 1000L;
+
     private final TaskGroupLocation taskGroupLocation;
 
     private final String taskFullName;
@@ -211,43 +217,85 @@ public class PhysicalVertex {
         stateProcess();
     }
 
+    /**
+     * Checks whether the worker that owns the task group is still executing it.
+     *
+     * <p>A failed invocation of {@link CheckTaskGroupIsExecutingOperation} (for example a network
+     * blip, a GC pause or a busy worker) says nothing about the task itself, so it is retried a
+     * bounded number of times before it is treated as "not executing". Only a definitive answer
+     * from the worker, or a worker that is no longer a cluster member, fails the vertex right away.
+     */
     private boolean checkTaskGroupIsExecuting(TaskGroupLocation taskGroupLocation) {
         IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
         SlotProfile slotProfile =
                 getOwnedSlotProfilesByTaskGroup(taskGroupLocation, ownedSlotProfilesIMap);
-        if (null != slotProfile) {
-            Address worker = slotProfile.getWorker();
-            List<Address> members =
-                    nodeEngine.getClusterService().getMembers().stream()
-                            .map(Member::getAddress)
-                            .collect(Collectors.toList());
-            if (!members.contains(worker)) {
-                log.warn(
-                        "The node:{} running the taskGroup {} no longer exists, return false.",
-                        worker.toString(),
-                        taskGroupLocation);
-                return false;
-            }
-            InvocationFuture<Object> invoke =
-                    nodeEngine
-                            .getOperationService()
-                            .createInvocationBuilder(
-                                    SeaTunnelServer.SERVICE_NAME,
-                                    new CheckTaskGroupIsExecutingOperation(taskGroupLocation),
-                                    worker)
-                            .invoke();
-            try {
-                return (Boolean) invoke.get();
-            } catch (InterruptedException | ExecutionException e) {
-                log.error(
-                        String.format(
-                                "Execution of CheckTaskGroupIsExecutingOperation %s failed, checkTaskGroupIsExecuting return false. ",
-                                taskGroupLocation),
-                        e);
-            }
+        if (null == slotProfile) {
+            return false;
+        }
+        return checkWorkerIsExecuting(slotProfile.getWorker(), taskGroupLocation);
+    }
+
+    @VisibleForTesting
+    boolean checkWorkerIsExecuting(Address worker, TaskGroupLocation taskGroupLocation) {
+        try {
+            return Boolean.TRUE.equals(
+                    RetryUtils.retryWithException(
+                            () -> probeTaskGroupIsExecuting(worker, taskGroupLocation),
+                            new RetryUtils.RetryMaterial(
+                                    CHECK_TASK_GROUP_EXECUTING_ATTEMPTS,
+                                    true,
+                                    e -> e instanceof ExecutionException,
+                                    CHECK_TASK_GROUP_EXECUTING_RETRY_SLEEP_MILLIS)));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error(
+                    String.format(
+                            "Interrupted while executing CheckTaskGroupIsExecutingOperation %s, checkTaskGroupIsExecuting return false. ",
+                            taskGroupLocation),
+                    e);
+        } catch (Exception e) {
+            log.error(
+                    String.format(
+                            "Execution of CheckTaskGroupIsExecutingOperation %s failed after %s attempts, checkTaskGroupIsExecuting return false. ",
+                            taskGroupLocation, CHECK_TASK_GROUP_EXECUTING_ATTEMPTS),
+                    e);
         }
         return false;
+    }
+
+    /**
+     * Asks the owning worker once whether it is executing the task group.
+     *
+     * @return {@code false} if the worker is no longer a cluster member or answered that the task
+     *     group is not executing, {@code true} if it is executing
+     * @throws ExecutionException if the invocation failed, which does not tell whether the task
+     *     group is executing
+     * @throws InterruptedException if the calling thread was interrupted while waiting
+     */
+    @VisibleForTesting
+    boolean probeTaskGroupIsExecuting(Address worker, TaskGroupLocation taskGroupLocation)
+            throws ExecutionException, InterruptedException {
+        List<Address> members =
+                nodeEngine.getClusterService().getMembers().stream()
+                        .map(Member::getAddress)
+                        .collect(Collectors.toList());
+        if (!members.contains(worker)) {
+            log.warn(
+                    "The node:{} running the taskGroup {} no longer exists, return false.",
+                    worker.toString(),
+                    taskGroupLocation);
+            return false;
+        }
+        InvocationFuture<Object> invoke =
+                nodeEngine
+                        .getOperationService()
+                        .createInvocationBuilder(
+                                SeaTunnelServer.SERVICE_NAME,
+                                new CheckTaskGroupIsExecutingOperation(taskGroupLocation),
+                                worker)
+                        .invoke();
+        return (Boolean) invoke.get();
     }
 
     private SlotProfile getOwnedSlotProfilesByTaskGroup(
