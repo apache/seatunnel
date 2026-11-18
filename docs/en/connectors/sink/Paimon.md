@@ -70,10 +70,16 @@ libfb303-xxx.jar
 
 | name                         | type    | required | default value                | Description                                                                                                                                                      |
 |------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| warehouse                    | String  | Yes      | -                            | Paimon warehouse path. Must not be blank.                                                                                                                                           |
+| warehouse                    | String  | Yes      | -                            | Paimon warehouse path. Must not be blank. For `rest`, use the managed warehouse name instead of a path.                                                                                                                                           |
 | catalog_name                 | String  | No       | paimon                       | The name of the Paimon catalog.                                                                                                                                  |
-| catalog_type                 | String  | No       | filesystem                   | Catalog type of Paimon. Supports `filesystem` and `hive`.                                                                                                        |
-| catalog_uri                  | String  | Yes when `catalog_type` is `hive` | -                            | Catalog URI of Paimon. Required when `catalog_type` is `hive`.                                                                                                  |
+| catalog_type                 | String  | No       | filesystem                   | Catalog type of Paimon. Supports `filesystem`, `hive` and `rest`.                                                                                                        |
+| catalog_uri                  | String  | Yes when `catalog_type` is `hive` or `rest` | -                            | Catalog URI of Paimon: the Hive metastore URI, or the REST catalog endpoint. Required when `catalog_type` is `hive` or `rest`.                                                                                                  |
+| token.provider               | String  | Yes when `catalog_type` is `rest` | -                            | Authentication provider for the REST catalog: exactly `bear` or `dlf`. |
+| token                        | String  | Yes when `token.provider` is `bear` | -                            | Bearer token for the REST catalog. |
+| dlf.access-key-id            | String  | Yes when `token.provider` is `dlf` | -                            | DLF access key ID. |
+| dlf.access-key-secret        | String  | Yes when `token.provider` is `dlf` | -                            | DLF access key secret. |
+| dlf.security-token           | String  | No       | -                            | Optional temporary DLF security token. |
+| dlf.region                   | String  | No       | -                            | DLF region. Inferred from `catalog_uri` when omitted. |
 | database                     | String  | Yes      | -                            | The database you want to access. Must not be blank.                                                                                                                                 |
 | table                        | String  | Yes      | -                            | The table you want to access. Must not be blank.                                                                                                                                    |
 | user                         | String  | No       | -                            | The Paimon user used to access the table. Required when the underlying catalog enforces authentication.                                                          |
@@ -177,6 +183,58 @@ CDC ingestion supports a limited number of schema changes. The currently support
 
 
 ## Examples
+
+### REST catalog authentication
+
+`catalog_type = "rest"` uses the REST implementation included in Paimon 1.1.1. Set `catalog_uri` to the HTTPS catalog endpoint and `warehouse` to the managed warehouse **name**, not an HDFS/S3 path. The REST server supplies table locations; workers still need access and credentials for the underlying storage. Existing filesystem and Hive configurations are unchanged.
+
+For REST, `catalog_uri` must be an HTTP or HTTPS URL with a host and no user information. Use HTTPS outside loopback testing: HTTP to a non-loopback host produces a warning because authentication credentials travel in clear text. `token.provider` is required and accepts exactly `bear` or `dlf`. `bear` requires a non-blank `token`; `dlf` requires both `dlf.access-key-id` and `dlf.access-key-secret`.
+
+Bearer tokens and DLF credentials are masked in parsed-configuration logs. For configuration encryption, `token` is included in the default `shade.identifier` handling; add the DLF secret keys explicitly to `shade.options` to encrypt and decrypt them. Log masking alone does not encrypt configuration. Do not put credentials in endpoint URLs. Supply secrets through environment variables or your deployment's secret mechanism.
+
+Only explicitly configured Hadoop storage properties are forwarded to REST. Catalog and authentication keys (`uri`, `warehouse`, `metastore`, `token`, `token.*`, `dlf.*`, including `hadoop.`-prefixed forms) are rejected in `paimon.hadoop.conf` and the configured Hadoop XML files. Configure REST authentication with the top-level options shown below. `dlf.token-path`, `dlf.token-loader`, `dlf.token-ecs-*`, and `token.refresh-time` are not supported in this version and cannot be enabled through `paimon.hadoop.conf`.
+
+Parsed-configuration masking does not redact dependency logs. Paimon 1.1.1 logs Hadoop storage-property values, which may include credentials, when `org.apache.paimon.utils.HadoopUtils` DEBUG logging is enabled. Keep this logger at INFO or higher when using credential-bearing storage configuration.
+
+Paimon 1.1.1's shared OkHttp client follows cross-host redirects and forwards `x-dlf-security-token`, although it strips bearer `Authorization`. Use trusted catalog endpoints that do not redirect to another host; do not rely on redirects to protect DLF temporary credentials. This dependency limitation is not changed by the connector.
+
+Bearer example:
+
+```hocon
+sink {
+  Paimon {
+    catalog_type = "rest"
+    catalog_uri = "https://catalog.example.com"
+    warehouse = "managed-warehouse"
+    database = "example_db"
+    table = "example_table"
+    "token.provider" = "bear"
+    token = ${PAIMON_REST_TOKEN}
+  }
+}
+```
+
+DLF example (replace `catalog_uri` with your DLF endpoint):
+
+```hocon
+sink {
+  Paimon {
+    catalog_type = "rest"
+    catalog_uri = "https://catalog.example.com"
+    warehouse = "managed-warehouse"
+    database = "example_db"
+    table = "example_table"
+    "token.provider" = "dlf"
+    "dlf.access-key-id" = ${DLF_ACCESS_KEY_ID}
+    "dlf.access-key-secret" = ${DLF_ACCESS_KEY_SECRET}
+    "dlf.security-token" = ${?DLF_SECURITY_TOKEN}
+    "dlf.region" = "cn-hangzhou"
+  }
+}
+```
+
+`dlf.security-token` is optional and only needed for temporary credentials. `dlf.region` may be omitted if Paimon can infer it from the DLF endpoint. The connector forwards static credentials; it does not implement automatic refresh of temporary credentials. Live DLF authentication and cloud-storage permissions must be verified in the target deployment.
+
 ### Schema evolution
 ```hocon
 env {

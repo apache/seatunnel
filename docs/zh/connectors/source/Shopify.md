@@ -13,7 +13,7 @@ import ChangeLog from '../changelog/connector-http-shopify.md';
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
@@ -65,7 +65,7 @@ http 请求方法，仅支持 GET、POST 方法。
 
 ### format [String]
 
-上游数据的格式，目前仅支持 `json` 和 `text`，默认 `text`。
+上游数据的格式，支持 `json` 和 `text`（底层 HTTP 源连接器也接受 `binary`），默认 `text`。
 
 ### params [Map]
 

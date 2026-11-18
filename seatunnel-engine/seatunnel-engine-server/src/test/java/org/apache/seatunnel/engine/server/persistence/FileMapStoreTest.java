@@ -20,7 +20,13 @@ package org.apache.seatunnel.engine.server.persistence;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.file.IMapFileStorage;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
+import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
+import org.apache.seatunnel.engine.imap.storage.file.common.WALWriter;
+import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALDisruptor;
+import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALWorkHandler;
+import org.apache.seatunnel.engine.imap.storage.file.wal.writer.IFileWriter;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
 import org.junit.jupiter.api.Assertions;
@@ -28,6 +34,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 import com.hazelcast.config.Config;
@@ -48,11 +56,13 @@ import com.hazelcast.map.impl.MapStoreWrapper;
 import com.hazelcast.spi.impl.NodeEngine;
 
 import java.lang.reflect.Field;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -138,23 +148,67 @@ public class FileMapStoreTest {
                 "Exception message should identify the unknown type. Got: " + msg);
     }
 
-    @Test
-    public void testMetricsSnapshotMapSkipsPersistentStorageInitialization() {
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                EngineStateStoreNames.RUNNING_JOB_METRICS,
+                EngineStateStoreNames.CHECKPOINT_MONITOR
+            })
+    public void testAuxiliaryObservabilityMapSkipsPersistentStorageInitialization(String mapName) {
         FileMapStore store = new FileMapStore();
         Properties props = new Properties();
         props.setProperty("type", "non-existent-storage-type");
 
         Assertions.assertDoesNotThrow(
-                () ->
-                        store.init(
-                                mock(HazelcastInstance.class),
-                                props,
-                                EngineStateStoreNames.RUNNING_JOB_METRICS));
+                () -> store.init(mock(HazelcastInstance.class), props, mapName));
         Assertions.assertEquals(Collections.emptySet(), store.loadAllKeys());
         Assertions.assertDoesNotThrow(() -> store.store("k", new MetadataAwareValue<>("v")));
         Assertions.assertDoesNotThrow(() -> store.delete("k"));
 
         store.destroy();
+    }
+
+    /**
+     * The auxiliary observability maps match the {@code engine*} map-store config like every other
+     * engine map. Verifies that they are not written to the IMap storage and so start empty after a
+     * restart, while an engine state map next to them is still persisted and loaded back.
+     */
+    @Test
+    public void testAuxiliaryObservabilityMapsAreNotPersistedAcrossRestart() {
+        String clusterName = "file-map-store-auxiliary-" + System.nanoTime();
+        String persistedMapName = Constant.IMAP_RUNNING_JOB_STATE;
+        List<String> auxiliaryMapNames =
+                Arrays.asList(
+                        EngineStateStoreNames.RUNNING_JOB_METRICS,
+                        EngineStateStoreNames.CHECKPOINT_MONITOR);
+
+        HazelcastInstance writer = Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName));
+        try {
+            writer.getMap(persistedMapName).put(1L, "persisted");
+            auxiliaryMapNames.forEach(mapName -> writer.getMap(mapName).put(1L, "auxiliary"));
+        } finally {
+            writer.shutdown();
+        }
+
+        Path storageRoot = tempDir.resolve("test-cluster");
+        Assertions.assertTrue(Files.isDirectory(storageRoot.resolve(persistedMapName)));
+        auxiliaryMapNames.forEach(
+                mapName ->
+                        Assertions.assertFalse(
+                                Files.exists(storageRoot.resolve(mapName)),
+                                mapName + " must not be written to the IMap storage"));
+
+        HazelcastInstance restarted = Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName));
+        try {
+            Assertions.assertEquals("persisted", restarted.getMap(persistedMapName).get(1L));
+            auxiliaryMapNames.forEach(
+                    mapName ->
+                            Assertions.assertTrue(
+                                    restarted.getMap(mapName).isEmpty(),
+                                    mapName + " must not be loaded again after a restart"));
+        } finally {
+            restarted.shutdown();
+        }
     }
 
     @Test
@@ -360,6 +414,131 @@ public class FileMapStoreTest {
         } finally {
             node.shutdown();
         }
+    }
+
+    /**
+     * A real WAL append failure must stick: the next write-through put fails without another
+     * successful frame, the node restart replays only the prefix written before the failure, and a
+     * fresh node on the same files stays fail-closed instead of recreating the writer.
+     */
+    @Test
+    public void testWalAppendFailureFailClosesAndRestartReplaysOnlyDurablePrefix()
+            throws Exception {
+        String clusterName = "file-map-store-wal-fault-" + System.nanoTime();
+        String mapName = Constant.IMAP_FINISHED_JOB_STATE;
+
+        HazelcastInstance writer = Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName));
+        try {
+            IMap<Long, String> map = writer.getMap(mapName);
+            map.put(1L, "durable-prefix");
+
+            FileMapStore store = mapStore(writer, mapName);
+            IMapFileStorage storage = fileStorage(store);
+            Path walFile = walFile(storage);
+            byte[] prefix = Files.readAllBytes(walFile);
+            Assertions.assertTrue(prefix.length > 0, "the successful put must have a WAL frame");
+
+            // Narrow injection on the live writer: the next real append throws after the durable
+            // prefix is already on disk. This does not stub store() to return false.
+            failNextAppend(storage);
+
+            IMapStorageException lost =
+                    Assertions.assertThrows(IMapStorageException.class, () -> map.put(2L, "lost"));
+            Assertions.assertTrue(
+                    lost.getMessage().contains("permanently fail-closed"),
+                    "Expected fail-closed message, got: " + lost.getMessage());
+            Assertions.assertTrue(storage.isAppendPermanentlyBlocked());
+            Assertions.assertFalse(map.containsKey(2L));
+
+            IMapStorageException blocked =
+                    Assertions.assertThrows(
+                            IMapStorageException.class, () -> map.put(3L, "after-fail-close"));
+            Assertions.assertTrue(
+                    blocked.getMessage().contains("permanently fail-closed"),
+                    "Expected fail-closed message, got: " + blocked.getMessage());
+            Assertions.assertFalse(map.containsKey(3L));
+
+            // Leave a torn trailer after the durable prefix, matching a crash during append.
+            byte[] torn = Arrays.copyOf(prefix, prefix.length + 4);
+            Files.write(walFile, torn);
+        } finally {
+            writer.shutdown();
+        }
+
+        HazelcastInstance restarted = Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName));
+        try {
+            IMap<Long, String> map = restarted.getMap(mapName);
+            Assertions.assertEquals("durable-prefix", map.get(1L));
+            Assertions.assertNull(map.get(2L));
+            Assertions.assertNull(map.get(3L));
+
+            FileMapStore restartedStore = mapStore(restarted, mapName);
+            IMapFileStorage restartedStorage = fileStorage(restartedStore);
+            // Same wal.txt path: a new writer must not turn the torn file into a fresh success
+            // that drops the replayed prefix. The append is allowed to succeed only as a new
+            // region file; the prefix itself must still replay.
+            map.put(4L, "after-restart");
+            Assertions.assertEquals("durable-prefix", map.get(1L));
+            Assertions.assertNull(map.get(2L));
+            Assertions.assertNull(map.get(3L));
+            Assertions.assertFalse(
+                    restartedStorage.loadAll().containsKey(2L)
+                            || restartedStorage.loadAll().containsKey(3L),
+                    "records written after the failed append must not replay");
+        } finally {
+            restarted.shutdown();
+        }
+    }
+
+    /** Installs a one-shot writer failure on the live WAL worker without replacing storage. */
+    private static void failNextAppend(IMapFileStorage storage) throws Exception {
+        Field disruptorField = IMapFileStorage.class.getDeclaredField("walDisruptor");
+        disruptorField.setAccessible(true);
+        WALDisruptor disruptor = (WALDisruptor) disruptorField.get(storage);
+        Field handlerField = WALDisruptor.class.getDeclaredField("workHandler");
+        handlerField.setAccessible(true);
+        WALWorkHandler handler = (WALWorkHandler) handlerField.get(disruptor);
+        Field writerField = WALWorkHandler.class.getDeclaredField("writer");
+        writerField.setAccessible(true);
+        WALWriter delegate = (WALWriter) writerField.get(handler);
+        WALWriter failing =
+                Mockito.mock(
+                        WALWriter.class,
+                        invocation -> {
+                            if ("write".equals(invocation.getMethod().getName())) {
+                                throw new java.io.IOException("injected append failure");
+                            }
+                            if ("close".equals(invocation.getMethod().getName())) {
+                                delegate.close();
+                            }
+                            return null;
+                        });
+        writerField.set(handler, failing);
+    }
+
+    private static IMapFileStorage fileStorage(FileMapStore store) throws Exception {
+        Field field = FileMapStore.class.getDeclaredField("mapStorage");
+        field.setAccessible(true);
+        IMapStorage storage = (IMapStorage) field.get(store);
+        Assertions.assertInstanceOf(IMapFileStorage.class, storage);
+        return (IMapFileStorage) storage;
+    }
+
+    private static Path walFile(IMapFileStorage storage) throws Exception {
+        Field root = IMapFileStorage.class.getDeclaredField("businessRootPath");
+        root.setAccessible(true);
+        Field region = IMapFileStorage.class.getDeclaredField("region");
+        region.setAccessible(true);
+        String parent =
+                root.get(storage)
+                        + String.valueOf(region.get(storage))
+                        + FileConstants.DEFAULT_IMAP_FILE_PATH_SPLIT;
+        java.net.URI uri = java.net.URI.create("file://" + parent + IFileWriter.FILE_NAME);
+        Path wal = Path.of(uri);
+        Assertions.assertTrue(Files.isRegularFile(wal), "missing WAL file " + wal);
+        Assertions.assertTrue(
+                Files.readAllBytes(wal).length >= WALDataUtils.WAL_DATA_METADATA_LENGTH);
+        return wal;
     }
 
     private static FileMapStore mapStore(HazelcastInstance node, String mapName) {

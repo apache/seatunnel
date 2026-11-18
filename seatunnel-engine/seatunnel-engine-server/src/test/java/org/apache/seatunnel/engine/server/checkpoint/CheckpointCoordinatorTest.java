@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -1335,6 +1336,103 @@ public class CheckpointCoordinatorTest
         } finally {
             executorService.shutdownNow();
         }
+    }
+
+    /**
+     * Payload persistence is not the auxiliary monitor path. A {@link CheckpointStorageException}
+     * from {@code storeCheckPoint} must escape {@code completePendingCheckpoint} and must not reach
+     * the monitor or decrement {@code pendingCounter}.
+     */
+    @Test
+    void testCompletePendingCheckpointPropagatesPayloadStorageFailure() throws Exception {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointMonitorService monitorService = Mockito.mock(CheckpointMonitorService.class);
+            CheckpointCoordinator coordinator =
+                    buildMinimalCoordinator(executorService, monitorService);
+            CheckpointStorage storage =
+                    (CheckpointStorage)
+                            ReflectionUtils.getField(coordinator, "checkpointStorage")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "checkpointStorage field not found"));
+            Mockito.doThrow(new CheckpointStorageException("payload persistence failed"))
+                    .when(storage)
+                    .storeCheckPoint(Mockito.any());
+
+            long checkpointId = 1L;
+            CompletedCheckpoint completedCheckpoint =
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            System.currentTimeMillis(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            PendingCheckpoint pendingCheckpoint =
+                    new PendingCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            new HashSet<>(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            @SuppressWarnings("unchecked")
+            ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints =
+                    (ConcurrentHashMap<Long, PendingCheckpoint>)
+                            ReflectionUtils.getField(coordinator, "pendingCheckpoints")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCheckpoints field not found"));
+            pendingCheckpoints.put(checkpointId, pendingCheckpoint);
+
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(coordinator, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCounter field not found"));
+            pendingCounter.set(1);
+
+            Exception thrown =
+                    Assertions.assertThrows(
+                            Exception.class,
+                            () -> coordinator.completePendingCheckpoint(completedCheckpoint));
+            Assertions.assertTrue(
+                    hasCause(thrown, CheckpointStorageException.class),
+                    "payload persistence failure must propagate, got: " + thrown);
+            Assertions.assertEquals(
+                    1,
+                    pendingCounter.get(),
+                    "pendingCounter must not be decremented when payload persistence fails");
+            Assertions.assertTrue(
+                    pendingCheckpoints.containsKey(checkpointId),
+                    "pending checkpoint must stay until payload persistence succeeds");
+            Mockito.verify(monitorService, Mockito.never())
+                    .onCheckpointCompleted(Mockito.any(), Mockito.anyLong());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    private static boolean hasCause(Throwable thrown, Class<? extends Throwable> type) {
+        Throwable current = thrown;
+        while (current != null) {
+            if (type.isInstance(current)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     /**

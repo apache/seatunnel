@@ -500,6 +500,54 @@ public class ArrowToSeatunnelRowReaderTest {
     }
 
     @Test
+    public void testBooleanValuesFollowDeclaredSchema() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"as_tinyint", "as_boolean", "numeric_tinyint"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.BYTE_TYPE, BasicType.BOOLEAN_TYPE, BasicType.BYTE_TYPE
+                        });
+        try (RootAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+                VectorSchemaRoot vectorRoot =
+                        new VectorSchemaRoot(
+                                Arrays.asList(
+                                        new BitVector("as_tinyint", allocator),
+                                        new BitVector("as_boolean", allocator),
+                                        new TinyIntVector("numeric_tinyint", allocator)));
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            vectorRoot.allocateNew();
+            for (int column = 0; column < 2; column++) {
+                BitVector vector = (BitVector) vectorRoot.getVector(column);
+                vector.setSafe(0, 0);
+                vector.setSafe(1, 1);
+                vector.setNull(2);
+                vector.setValueCount(3);
+            }
+            TinyIntVector numericVector = (TinyIntVector) vectorRoot.getVector(2);
+            numericVector.setSafe(0, Byte.MIN_VALUE);
+            numericVector.setSafe(1, Byte.MAX_VALUE);
+            numericVector.setNull(2);
+            numericVector.setValueCount(3);
+            vectorRoot.setRowCount(3);
+            try (ArrowStreamWriter writer = new ArrowStreamWriter(vectorRoot, null, out)) {
+                writer.start();
+                writer.writeBatch();
+                writer.end();
+            }
+            try (ArrowToSeatunnelRowReader reader =
+                    new ArrowToSeatunnelRowReader(out.toByteArray(), rowType).readArrow()) {
+                Assertions.assertArrayEquals(
+                        new Object[] {(byte) 0, false, Byte.MIN_VALUE}, reader.next().getFields());
+                Assertions.assertArrayEquals(
+                        new Object[] {(byte) 1, true, Byte.MAX_VALUE}, reader.next().getFields());
+                Assertions.assertArrayEquals(
+                        new Object[] {null, null, null}, reader.next().getFields());
+                Assertions.assertFalse(reader.hasNext());
+            }
+        }
+    }
+
+    @Test
     public void testConvertArrowSpeed() throws Exception {
         Stopwatch stopwatch = Stopwatch.createStarted();
         int count = 1000000;

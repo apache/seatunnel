@@ -45,6 +45,12 @@ public class WALDisruptor implements Closeable {
 
     private volatile Disruptor<FileWALEvent> disruptor;
 
+    /**
+     * Sole consumer installed in {@link #WALDisruptor}. Owned by this disruptor for the process
+     * lifetime: its fail-close flag is never reset in-process and is cleared only by restarting the
+     * engine node. Do not replace this handler to "un-stick" a failed writer; {@code fs.create}
+     * would truncate the fixed {@code wal.txt} path.
+     */
     private final WALWorkHandler workHandler;
 
     private static final int DEFAULT_RING_BUFFER_SIZE = 1024;

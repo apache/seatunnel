@@ -70,10 +70,16 @@ libfb303-xxx.jar
 
 | 名称                           | 类型   | 是否必须 | 默认值                          | 描述                                                                                                   |
 |------------------------------|------|------|------------------------------|------------------------------------------------------------------------------------------------------|
-| warehouse                    | 字符串  | 是    | -                            | Paimon warehouse路径，不能为空白字符串。                                                                          |
+| warehouse                    | 字符串  | 是    | -                            | warehouse 路径；REST catalog 使用托管 warehouse 名称，而不是存储路径。 |
 | catalog_name                 | 字符串  | 否    | paimon                       | Paimon catalog名称                                                                                     |
-| catalog_type                 | 字符串  | 否    | filesystem                   | Paimon的catalog类型，目前支持filesystem和hive                                                                 |
-| catalog_uri                  | 字符串  | 当 `catalog_type` 为 `hive` 时是 | -                            | Paimon catalog 的 URI。当 `catalog_type` 为 `hive` 时必须配置。                                                |
+| catalog_type                 | 字符串  | 否    | filesystem                   | catalog 类型：`filesystem`、`hive` 或 `rest`。 |
+| catalog_uri                  | 字符串  | `hive` 或 `rest` 时必填 | -                            | Hive metastore URI 或 REST catalog 服务端点。 |
+| token.provider | String | `rest` 时必填 | - | 认证提供者：仅小写 `bear` 或 `dlf`。 |
+| token | String | `bear` 时必填 | - | Bearer token。 |
+| dlf.access-key-id | String | `dlf` 时必填 | - | DLF access key ID。 |
+| dlf.access-key-secret | String | `dlf` 时必填 | - | DLF access key secret。 |
+| dlf.security-token | String | 否 | - | 可选的临时 DLF security token。 |
+| dlf.region | String | 否 | - | DLF region；未配置时从 `catalog_uri` 推断。 |
 | database                     | 字符串  | 是    | -                            | 数据库名称，不能为空白字符串。                                                                                        |
 | table                        | 字符串  | 是    | -                            | 表名，不能为空白字符串。                                                                                          |
 | user                         | 字符串  | 否    | -                            | paimon开启权限后，用户名                                                                                      |
@@ -160,9 +166,61 @@ Cdc采集支持有限数量的模式更改。目前支持的模式更改包括�
 
 * 删除列。
 
-* 更改列。
+* 重命名列（可与上文“修改列类型”中列出的类型加宽、列位置、注释、可空性变更同时进行——当新旧列名不同时，变更处理器会在同一步骤中应用这些更新并重命名该列）。
 
 ## 示例
+
+### REST catalog 认证
+
+`catalog_type = "rest"` 使用 Paimon 1.1.1 内置的 REST 实现。`catalog_uri` 为 HTTPS catalog 端点，`warehouse` 为托管 warehouse **名称**，而不是 HDFS/S3 路径。表的存储位置由 REST 服务返回；worker 仍需具有底层存储的访问权限和凭证。现有 filesystem 和 Hive 配置保持不变。
+
+REST 的 `catalog_uri` 必须是包含主机且不含用户信息的 HTTP 或 HTTPS URL。除回环地址测试外，请使用 HTTPS：非回环主机使用 HTTP 会产生警告，因为认证凭证会明文传输。`token.provider` 必填，且仅接受小写 `bear` 或 `dlf`。`bear` 要求非空白的 `token`；`dlf` 要求同时配置 `dlf.access-key-id` 和 `dlf.access-key-secret`。
+
+Bearer token 和 DLF 凭证在解析后的配置日志中自动脱敏。配置加密时，`token` 默认包含在 `shade.identifier` 的处理范围内；DLF 密钥必须显式加入 `shade.options` 才能加密和解密。日志脱敏本身不会加密配置。不要在端点 URL 中放置凭证。请通过环境变量或部署环境的密钥机制传入。
+
+REST 仅转发显式配置的 Hadoop 存储参数。`paimon.hadoop.conf` 和指定的 Hadoop XML 文件中禁止配置 catalog 和认证键（`uri`、`warehouse`、`metastore`、`token`、`token.*`、`dlf.*`，包括带 `hadoop.` 前缀的形式）。请通过下方的顶层选项配置 REST 认证。此版本不支持 `dlf.token-path`、`dlf.token-loader`、`dlf.token-ecs-*` 和 `token.refresh-time`，也不能通过 `paimon.hadoop.conf` 启用它们。
+
+解析后的配置脱敏不会过滤依赖库日志。Paimon 1.1.1 在 `org.apache.paimon.utils.HadoopUtils` 启用 DEBUG 日志时会记录 Hadoop 存储参数的值，其中可能包含凭据。使用包含凭据的存储配置时，请将此日志级别保持为 INFO 或更高。
+
+Paimon 1.1.1 的共享 OkHttp 客户端会跟随跨主机重定向并转发 `x-dlf-security-token`，但会移除 bearer `Authorization`。请使用可信且不会重定向到其他主机的 catalog 端点，不要依赖重定向保护 DLF 临时凭证。此连接器没有修改该依赖库限制。
+
+Bearer 示例：
+
+```hocon
+sink {
+  Paimon {
+    catalog_type = "rest"
+    catalog_uri = "https://catalog.example.com"
+    warehouse = "managed-warehouse"
+    database = "example_db"
+    table = "example_table"
+    "token.provider" = "bear"
+    token = ${PAIMON_REST_TOKEN}
+  }
+}
+```
+
+DLF 示例（将 `catalog_uri` 替换为实际 DLF 端点）：
+
+```hocon
+sink {
+  Paimon {
+    catalog_type = "rest"
+    catalog_uri = "https://catalog.example.com"
+    warehouse = "managed-warehouse"
+    database = "example_db"
+    table = "example_table"
+    "token.provider" = "dlf"
+    "dlf.access-key-id" = ${DLF_ACCESS_KEY_ID}
+    "dlf.access-key-secret" = ${DLF_ACCESS_KEY_SECRET}
+    "dlf.security-token" = ${?DLF_SECURITY_TOKEN}
+    "dlf.region" = "cn-hangzhou"
+  }
+}
+```
+
+`dlf.security-token` 是可选参数，仅临时凭证需要。若 Paimon 可从 DLF 端点推断 region，则可省略 `dlf.region`。此实现传递静态凭证，不提供临时凭证自动刷新。请在目标部署环境中验证真实 DLF 认证及云存储权限。
+
 
 ### 模式演变
 ```hocon
@@ -659,6 +717,64 @@ sink {
     table = "${table_name}"
     user = "paimon"
     password = "******"
+  }
+}
+```
+
+### 使用 Hive catalog 在启动时清空目标表
+
+该示例在每次作业启动时依据上游 schema 重建 Hive catalog 中的 Paimon 表
+（`schema_save_mode = "RECREATE_SCHEMA"`），并清空已有数据，使 sink 表现为全新覆写。
+适用于需要全量刷新的批处理作业。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+      primaryKey {
+        name = "pk_id"
+        columnNames = [pk_id]
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "A", 100] }
+      { kind = INSERT, fields = [2, "B", 100] }
+      { kind = INSERT, fields = [3, "C", 100] }
+      { kind = UPDATE_BEFORE, fields = [1, "A", 100] }
+      { kind = UPDATE_AFTER,  fields = [1, "A_1", 100] }
+      { kind = DELETE,        fields = [2, "B", 100] }
+    ]
+  }
+}
+
+sink {
+  Paimon {
+    warehouse = "hdfs:///tmp/paimon"
+    catalog_type = "hive"
+    catalog_uri = "thrift://hadoop04:9083"
+    database = "seatunnel_namespace12"
+    table = "st_test"
+    schema_save_mode = "RECREATE_SCHEMA"
+    data_save_mode = "DROP_DATA"
+    paimon.hadoop.conf = {
+      fs.defaultFS = "hdfs://nameservice1"
+      dfs.nameservices = "nameservice1"
+      dfs.ha.namenodes.nameservice1 = "nn1,nn2"
+      dfs.namenode.rpc-address.nameservice1.nn1 = "hadoop03:8020"
+      dfs.namenode.rpc-address.nameservice1.nn2 = "hadoop04:8020"
+      dfs.client.failover.proxy.provider.nameservice1 = "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider"
+      dfs.client.use.datanode.hostname = "true"
+    }
   }
 }
 ```

@@ -52,12 +52,13 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | connection_mode                       | string  | 否    | active_local                               | 目标FTP连接模式                                                                 |
 | remote_verification_enabled           | boolean | 否    | true                                       | 是否启用FTP数据通道的远程主机验证                                                        |
 | control_encoding                      | string  | 否    | UTF-8                                      | FTP 控制连接的字符编码，路径包含空格或非 ASCII 字符时很有用                                      |
+| control_timeout                       | int     | 否    | 60000                                      | 读取 FTP 服务端控制连接应答的超时时间（毫秒），0 表示无限等待                                            |
 | custom_filename                       | boolean | 否    | false                                      | 是否需要自定义文件名                                                                |
 | file_name_expression                  | string  | 否    | "${transactionId}"                         | 仅在 `custom_filename` 为 `true` 时使用                                         |
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在 `custom_filename` 为 `true` 时使用                                         |
 | file_format_type                      | string  | 否    | "csv"                                      |                                                                           |
 | filename_extension                    | string  | 否    | -                                          | 用自定义的文件扩展名覆盖默认的文件扩展名。例如：`.xml`、`.json`、`dat`、`.customtype`                |
-| field_delimiter                       | string  | 否    | '\001' for text and ',' for csv            | 仅在 `file_format_type` 为 `text` 时使用                                        |
+| field_delimiter                       | string  | 否    | '\001' for text and ',' for csv            | 仅在 `file_format_type` 为 `text` 和 `csv` 时使用                                    |
 | row_delimiter                         | string  | 否    | "\n"                                       | 仅在 `file_format_type` 为 `text`、`csv`、`json` 时使用                           |
 | have_partition                        | boolean | 否    | false                                      | 是否需要处理分区。                                                                 |
 | partition_by                          | array   | 否    | -                                          | 仅在 `have_partition` 为 `true` 时使用                                          |

@@ -13,7 +13,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## 关键特性
 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
-- [x] [流](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行性](../../introduction/concepts/connector-v2-features.md)
@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## 描述
 
 MongoDB 源连接器从 MongoDB 集合中读取文档，并把每个 BSON 文档转换为 SeaTunnel 行记录。
-它同时支持**批**和**流**两种作业模式，并通过 `partition.split-key` 把集合按取值范围切分为多个
+它以**批处理**（有界）方式运行，并通过 `partition.split-key` 把集合按取值范围切分为多个
 split，实现并行读取。
 
 在不扫描整张集合的前提下，可以缩小读取范围并控制返回字段：
@@ -31,8 +31,9 @@ split，实现并行读取。
 - 使用 `match.projection` 控制结果中返回的字段。
 - 使用 `flat.sync-string` 把整篇文档作为一条 JSON `STRING` 列读入，跳过固定 schema 的定义。
 
-在流模式下，连接器读取已分配的 split，并通过 checkpoint 跟踪读取位置；任务重启后会从上次提交
-的游标继续读取。
+checkpoint 只保存尚未读完的 split，split 本身不会记录范围内的读取位置。任务从 checkpoint 重启时，
+enumerator 会先恢复这些待处理的 split，然后对整张集合重新执行一次切分策略，因此已经读过的文档可能会被
+再次读取。如果无法接受恢复后的重复数据，请让下游写入保持幂等（例如按主键 upsert）。
 
 ## 支持的数据源信息
 

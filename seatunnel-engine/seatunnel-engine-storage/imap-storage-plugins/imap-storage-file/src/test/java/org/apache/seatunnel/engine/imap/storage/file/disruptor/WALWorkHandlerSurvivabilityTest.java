@@ -119,6 +119,115 @@ class WALWorkHandlerSurvivabilityTest {
         verify(out, times(1)).hsync();
     }
 
+    /**
+     * The caller may have already removed the future after its own timeout. Publishing the response
+     * must not escape {@code onEvent}, or the single disruptor worker dies and later appends never
+     * complete.
+     */
+    @Test
+    void removedFutureShouldNotKillWorker() throws Exception {
+        WALWorkHandler handler = newHandler("wal-removed-future");
+        WALWriter writer = mock(WALWriter.class);
+        replaceWriter(handler, writer);
+
+        long missingRequestId = RequestFutureCache.getRequestId();
+        long nextRequestId = RequestFutureCache.getRequestId();
+        RequestFuture nextFuture = new RequestFuture();
+        RequestFutureCache.put(nextRequestId, nextFuture);
+        try {
+            IMapFileData data = sampleData();
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            handler.onEvent(
+                                    FileWALEvent.builder()
+                                            .data(data)
+                                            .type(WALEventType.APPEND)
+                                            .requestId(missingRequestId)
+                                            .build()));
+            Assertions.assertFalse(
+                    handler.isAppendBlockedAfterWriteFailure(),
+                    "a missing future is not a write failure");
+            verify(writer, times(1)).write(any(IMapFileData.class));
+
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            handler.onEvent(
+                                    FileWALEvent.builder()
+                                            .data(data)
+                                            .type(WALEventType.APPEND)
+                                            .requestId(nextRequestId)
+                                            .build()));
+            Assertions.assertTrue(nextFuture.isDone());
+            Assertions.assertTrue(nextFuture.get());
+            verify(writer, times(2)).write(any(IMapFileData.class));
+        } finally {
+            RequestFutureCache.remove(nextRequestId);
+        }
+    }
+
+    /**
+     * {@code future.done} throwing must be swallowed by {@code executeResponse}. The worker stays
+     * alive and a later append still completes.
+     */
+    @Test
+    void throwingDoneShouldNotKillWorker() throws Exception {
+        WALWorkHandler handler = newHandler("wal-throwing-done");
+        WALWriter writer = mock(WALWriter.class);
+        replaceWriter(handler, writer);
+
+        long throwingRequestId = RequestFutureCache.getRequestId();
+        long nextRequestId = RequestFutureCache.getRequestId();
+        RequestFuture throwingFuture =
+                new RequestFuture() {
+                    @Override
+                    public void done(boolean success) {
+                        throw new IllegalStateException("done failed");
+                    }
+                };
+        RequestFuture nextFuture = new RequestFuture();
+        RequestFutureCache.put(throwingRequestId, throwingFuture);
+        RequestFutureCache.put(nextRequestId, nextFuture);
+        try {
+            IMapFileData data = sampleData();
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            handler.onEvent(
+                                    FileWALEvent.builder()
+                                            .data(data)
+                                            .type(WALEventType.APPEND)
+                                            .requestId(throwingRequestId)
+                                            .build()));
+            Assertions.assertFalse(throwingFuture.isDone());
+            Assertions.assertFalse(handler.isAppendBlockedAfterWriteFailure());
+
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            handler.onEvent(
+                                    FileWALEvent.builder()
+                                            .data(data)
+                                            .type(WALEventType.APPEND)
+                                            .requestId(nextRequestId)
+                                            .build()));
+            Assertions.assertTrue(nextFuture.isDone());
+            Assertions.assertTrue(nextFuture.get());
+            verify(writer, times(2)).write(any(IMapFileData.class));
+        } finally {
+            RequestFutureCache.remove(throwingRequestId);
+            RequestFutureCache.remove(nextRequestId);
+        }
+    }
+
+    private static IMapFileData sampleData() {
+        return IMapFileData.builder()
+                .deleted(false)
+                .key("k".getBytes())
+                .keyClassName(String.class.getName())
+                .value("v".getBytes())
+                .valueClassName(String.class.getName())
+                .timestamp(System.nanoTime())
+                .build();
+    }
+
     private WALWorkHandler newHandler(String walDirName) throws IOException {
         Configuration conf = new Configuration();
         conf.set("fs.defaultFS", "file:///");
