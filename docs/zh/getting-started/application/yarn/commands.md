@@ -3,6 +3,8 @@ sidebar_position: 4
 title: 命令
 ---
 
+# YARN 应用命令
+
 <!--
 Licensed to the Apache Software Foundation (ASF) under one or more
 contributor license agreements.  See the NOTICE file distributed with
@@ -19,8 +21,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-# YARN 应用命令
 
 使用 Application CLI 向 YARN 队列提交作业，凭 ResourceManager 分配的 application ID 查询或取消作业。提交、查询和取消时使用同一套 Hadoop 配置和有权限的身份。
 

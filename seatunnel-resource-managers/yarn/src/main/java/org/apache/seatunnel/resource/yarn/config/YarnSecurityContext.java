@@ -40,12 +40,14 @@ import java.security.PrivilegedExceptionAction;
 /** Owns the submitter identity and the filesystem credentials carried by YARN containers. */
 public final class YarnSecurityContext {
     private final Configuration configuration;
+    private final String simpleUserName;
     private final String principal;
     private final String keytab;
     private UserGroupInformation identity;
 
     public YarnSecurityContext(Configuration configuration, ReadonlyConfig options) {
         this.configuration = configuration;
+        simpleUserName = options.get(YarnOptions.HADOOP_USER_NAME);
         principal = options.get(YarnOptions.KERBEROS_PRINCIPAL);
         keytab = options.get(YarnOptions.KERBEROS_KEYTAB);
         if (isKerberos(configuration) && principal.isEmpty() != keytab.isEmpty()) {
@@ -60,9 +62,8 @@ public final class YarnSecurityContext {
     }
 
     /**
-     * Runs a submission-side operation directly in simple mode. With Kerberos, the descriptor
-     * reuses the current Hadoop identity or the configured keytab login and checks keytab-based
-     * tickets for renewal before each call.
+     * Runs each descriptor operation under the same Hadoop identity. Simple mode uses the current
+     * Hadoop user or the explicitly selected user. Kerberos uses the current ticket or keytab.
      *
      * @param action operation to run under the submission identity
      * @param <T> result type of the operation
@@ -70,18 +71,15 @@ public final class YarnSecurityContext {
      * @throws Exception if establishing the identity or executing the action fails
      */
     public <T> T run(PrivilegedExceptionAction<T> action) throws Exception {
-        if (!isKerberos(configuration)) {
-            return action.run();
-        }
         try {
             UserGroupInformation user = submitter();
-            if (user.isFromKeytab()) {
+            if (isKerberos(configuration) && user.isFromKeytab()) {
                 user.checkTGTAndReloginFromKeytab();
             }
             return user.doAs(action);
         } catch (IOException failure) {
             throw new YarnClientException(
-                    "Could not run YARN operation as the Kerberos submitter", failure);
+                    "Could not run YARN operation as the Hadoop submitter", failure);
         } catch (UndeclaredThrowableException wrapped) {
             // UGI wraps checked application exceptions other than IOException and
             // InterruptedException.
@@ -94,6 +92,10 @@ public final class YarnSecurityContext {
 
     private synchronized UserGroupInformation submitter() throws IOException {
         if (identity == null) {
+            if (!isKerberos(configuration)) {
+                identity = simpleUser(simpleUserName);
+                return identity;
+            }
             UserGroupInformation.setConfiguration(configuration);
             UserGroupInformation user =
                     principal.isEmpty()
@@ -107,6 +109,27 @@ public final class YarnSecurityContext {
             identity = user;
         }
         return identity;
+    }
+
+    /** Preserves an existing doAs subject and its credentials when it already owns the request. */
+    static UserGroupInformation simpleUser(String configuredName) {
+        try {
+            UserGroupInformation current = UserGroupInformation.getCurrentUser();
+            if (configuredName == null) {
+                return current;
+            }
+            String name = configuredName.trim();
+            if (name.isEmpty()) {
+                throw new IllegalArgumentException(
+                        YarnOptions.HADOOP_USER_NAME.key() + " must not be empty");
+            }
+            if (name.equals(current.getShortUserName()) || name.equals(current.getUserName())) {
+                return current;
+            }
+            return UserGroupInformation.createRemoteUser(name);
+        } catch (IOException failure) {
+            throw new YarnClientException("Could not resolve the current Hadoop user", failure);
+        }
     }
 
     /**

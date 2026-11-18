@@ -224,11 +224,7 @@ public final class YarnOptions {
     public static final Option<String> HADOOP_USER_NAME =
             Options.key("yarn.hadoop-user-name")
                     .stringType()
-                    .defaultValue(defaultHadoopUserName())
+                    .noDefaultValue()
                     .withDescription(
-                            "Hadoop user name propagated to YARN containers with simple authentication; defaults to the submitting OS user.");
-
-    private static String defaultHadoopUserName() {
-        return System.getProperty("user.name", "");
-    }
+                            "Hadoop user for simple-mode submission, staging and containers. Defaults to the current Hadoop user's short name.");
 }

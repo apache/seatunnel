@@ -130,10 +130,9 @@ public final class YarnApplicationConfiguration {
         }
         String worker = emptyToNull(options.get(YarnOptions.WORKER_NODE_LABEL));
         this.workerNodeLabel = worker == null ? masterNodeLabel : worker;
-        this.hadoopUserName = options.get(YarnOptions.HADOOP_USER_NAME).trim();
-        if (hadoopUserName.isEmpty()) {
-            throw new IllegalArgumentException("yarn.hadoop-user-name must not be empty");
-        }
+        this.hadoopUserName =
+                YarnSecurityContext.simpleUser(options.get(YarnOptions.HADOOP_USER_NAME))
+                        .getShortUserName();
     }
 
     /**
@@ -193,9 +192,7 @@ public final class YarnApplicationConfiguration {
                 properties.getProperty(YarnOptions.WORKER_NODE_LABEL.key(), ""));
         options.put(
                 YarnOptions.HADOOP_USER_NAME.key(),
-                properties.getProperty(
-                        YarnOptions.HADOOP_USER_NAME.key(),
-                        YarnOptions.HADOOP_USER_NAME.defaultValue()));
+                properties.getProperty(YarnOptions.HADOOP_USER_NAME.key()));
         return new YarnApplicationConfiguration(
                 SeatunnelApplicationConfig.fromProperties(properties),
                 ReadonlyConfig.fromMap(options),

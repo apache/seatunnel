@@ -54,7 +54,7 @@ Otherwise, inspect AM and worker container logs on the corresponding NodeManager
 
 ### What happens to files when the application finishes?
 
-On normal termination, the ApplicationMaster releases containers, unregisters the final result, and deletes staging. A status client also retries staging cleanup after observing a terminal state.
+On normal termination, the ApplicationMaster releases containers, unregisters the final result, and deletes staging. If a terminal status query encounters a staging cleanup error, it logs a warning and returns the ResourceManager's result. Run `status` again with the original staging path and an authorized user to retry cleanup.
 
 If the AM is killed before its shutdown hook and no client later retrieves status, HDFS staging may remain. Hadoop independently manages NodeManager local caches and log retention. Checkpoints use a separate retention policy and are not removed with staging.
 

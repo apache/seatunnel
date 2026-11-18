@@ -32,7 +32,7 @@ The deployment file (`-a`) configures the application and the YARN cluster. The 
 | `yarn.master.node-label` | String | No | Empty | Node-label expression for the ApplicationMaster. |
 | `yarn.master.http-port` | Integer | No | Unset | Enables the AM Web UI and REST API on this exact port (`1`–`65535`). Omit for a headless application. |
 | `yarn.worker.node-label` | String | No | Empty | Node-label expression for workers; empty inherits `yarn.master.node-label`. |
-| `yarn.hadoop-user-name` | String | No | Submitting OS user | Hadoop user passed to AM and workers in simple mode. |
+| `yarn.hadoop-user-name` | String | No | Effective Hadoop user's short name | User for YARN requests, HDFS staging, the AM and workers in simple mode. |
 | `yarn.active-deadline-seconds` | Long | No | Queue policy | Positive application lifetime in seconds from submission, enforced by the ResourceManager. The queue can cap this value. |
 | `yarn.job-config-file` | String | No | Unset | Local path, HDFS URI or declared localization path of the job. Only the AM receives the selected file. It takes precedence over `-c` and allows `submit` to omit `-c`. |
 | `yarn.kerberos.principal` | String | No | Empty | Principal in the submitter's keytab. |
@@ -92,7 +92,7 @@ The application staging directory has mode `0700`. Put reusable archives and dur
 
 ## Kerberos
 
-Hadoop selects the authentication mode. The default `simple` mode uses `yarn.hadoop-user-name` and ignores Kerberos options, including keytab paths. It needs neither a KDC nor a ticket.
+Hadoop selects the authentication mode. In the default `simple` mode, the submitter, AM and workers use the effective Hadoop user's short name. For example, a gateway process running as `svc` with `HADOOP_USER_NAME=etl` submits and stages files as `etl`. Set `yarn.hadoop-user-name` to select another user for all three. Simple mode ignores Kerberos options, including keytab paths.
 
 When the cluster uses `hadoop.security.authentication=kerberos`, configure the ResourceManager principal in `yarn.resourcemanager.principal`. Use an existing ticket from `kinit`, or put both of the following options in a deployment file on the submission host.
 

@@ -51,6 +51,7 @@ import org.apache.seatunnel.resource.yarn.worker.SeatunnelYarnApplicationWorker;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
@@ -86,6 +87,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -792,6 +794,32 @@ class YarnApplicationTest {
     }
 
     @Test
+    void successfulStatusSurvivesStagingFailureAndRetriesOnTheNextQuery() throws Exception {
+        YarnClient client = client();
+        ApplicationId id = ApplicationId.newInstance(1, 1);
+        ApplicationReport report = client.getApplicationReport(id);
+        report.setYarnApplicationState(YarnApplicationState.FINISHED);
+        report.setFinalApplicationStatus(FinalApplicationStatus.SUCCEEDED);
+        java.nio.file.Path staging =
+                Files.createDirectory(temporary.toPath().resolve(id.toString()));
+        Configuration configuration = localConfiguration();
+        Path directory = new Path(staging.toString());
+        YarnApplicationClient application =
+                new YarnApplicationClient(client, configuration, id, directory);
+        try {
+            FileSystem.setDefaultUri(configuration, "unavailable://staging");
+            assertEquals(ApplicationStatus.SUCCEEDED, application.getStatus());
+            assertTrue(Files.isDirectory(staging));
+
+            FileSystem.setDefaultUri(configuration, "file:///");
+            assertEquals(ApplicationStatus.SUCCEEDED, application.getStatus());
+            assertFalse(Files.exists(staging));
+        } finally {
+            application.close();
+        }
+    }
+
+    @Test
     void submitStagesPrivateArtifactsAndDisablesRetries() throws Exception {
         Configuration configuration = localConfiguration();
         configuration.set("seatunnel.test.hadoop-option", "localized-value");
@@ -802,8 +830,12 @@ class YarnApplicationTest {
         YarnApplicationClusterDescriptor descriptor =
                 new YarnApplicationClusterDescriptor(
                         configuration, () -> client, true, deploymentOptions);
+        UserGroupInformation submitter = UserGroupInformation.createRemoteUser("batch-submitter");
         try {
-            ApplicationId deployed = descriptor.deployApplication(specification);
+            ApplicationId deployed =
+                    submitter.doAs(
+                            (PrivilegedExceptionAction<ApplicationId>)
+                                    () -> descriptor.deployApplication(specification));
             assertTrue(nativeClients.constructed().isEmpty());
             ArgumentCaptor<ApplicationSubmissionContext> context =
                     ArgumentCaptor.forClass(ApplicationSubmissionContext.class);
@@ -827,7 +859,7 @@ class YarnApplicationTest {
             assertTrue(launch.getCommands().get(0).contains("-Dseatunnel.home="));
             assertEquals("{{PWD}}", launch.getEnvironment().get(YarnConstants.HADOOP_CONF_DIR_ENV));
             assertEquals(
-                    YarnOptions.HADOOP_USER_NAME.defaultValue(),
+                    submitter.getShortUserName(),
                     launch.getEnvironment().get(YarnConstants.HADOOP_USER_NAME_ENV));
             assertTrue(
                     launch.getCommands()
@@ -857,9 +889,7 @@ class YarnApplicationTest {
             assertEquals(specification.getJobId(), localized.getJobId());
             assertEquals("worker-pool", localizedDeployment.getWorkerNodeLabel());
             assertEquals(8095, localizedDeployment.getMasterHttpPort().intValue());
-            assertEquals(
-                    YarnOptions.HADOOP_USER_NAME.defaultValue(),
-                    localizedDeployment.getHadoopUserName());
+            assertEquals(submitter.getShortUserName(), localizedDeployment.getHadoopUserName());
             String localizedContent =
                     new String(
                             Files.readAllBytes(
@@ -970,10 +1000,7 @@ class YarnApplicationTest {
                                         resource.getVisibility()));
         assertEquals(
                 YarnContainerLaunchContextFactory.master(
-                                configuration,
-                                staging,
-                                512,
-                                YarnOptions.HADOOP_USER_NAME.defaultValue())
+                                configuration, staging, 512, deployment.getHadoopUserName())
                         .getLocalResources(),
                 registered.getResources());
     }

@@ -3,6 +3,8 @@ sidebar_position: 4
 title: Commands
 ---
 
+# YARN application commands
+
 <!--
 Licensed to the Apache Software Foundation (ASF) under one or more
 contributor license agreements.  See the NOTICE file distributed with
@@ -19,8 +21,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-# YARN application commands
 
 Use the application launcher to submit to a YARN queue, follow an application by its ResourceManager ID, or cancel it. The same Hadoop configuration and identity should be available to each command.
 

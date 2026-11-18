@@ -40,10 +40,12 @@ import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.net.ScriptBasedMapping;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationTimeoutType;
@@ -445,16 +447,62 @@ public class YarnApplicationIT extends TestSuiteBase {
                                 "/path/to/apache-seatunnel-<version>-bin.tar.gz",
                                 archive.toURI().toString()));
         String output =
-                applicationCli(distributionHome, "submit", "-a", deployment.toString(), "--wait");
+                applicationCli(
+                        distributionHome,
+                        Collections.emptyMap(),
+                        "submit",
+                        "-a",
+                        deployment.toString(),
+                        "--wait");
         assertTrue(output.contains("Status: SUCCEEDED"), output);
     }
 
-    @Test
-    void cliLocalizesReferencedAndGeneratedFilesFromNamedGroups() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void cliLocalizesNamedResourcesAsTheEffectiveSimpleUser(boolean explicitUser) throws Exception {
         File deployment =
                 ContainerUtil.getResourcesFile("/yarn/local-resources/application.config");
-        String output = applicationCli("submit", "-a", deployment.getAbsolutePath(), "--wait");
+        String gatewayUser = "gateway-etl";
+        String owner = explicitUser ? "orders-runner" : gatewayUser;
+        Map<String, String> gateway = Map.of(YarnConstants.HADOOP_USER_NAME_ENV, gatewayUser);
+        DistributedFileSystem fs = hdfs.getFileSystem();
+        Path root = new Path("/staging-" + owner);
+        fs.mkdirs(root, new FsPermission((short) 0700));
+        fs.setOwner(root, owner, null);
+        List<String> arguments =
+                new ArrayList<>(
+                        List.of(
+                                "-a",
+                                deployment.getAbsolutePath(),
+                                "-Dyarn.staging-dir=" + root,
+                                "--wait"));
+        if (explicitUser) {
+            arguments.add("-Dyarn.hadoop-user-name=" + owner);
+        }
+        String output = applicationCli(null, gateway, "submit", arguments.toArray(new String[0]));
         assertTrue(output.contains("Status: SUCCEEDED"), output);
+        ApplicationId id = submittedId(output);
+        assertEquals(owner, applicationReport(id).getUser());
+        assertEquals(2, launchedWorkers(id.toString()).size());
+
+        // A caller can see the RM report without permission to remove this application's files.
+        Path leftover = new Path(root, id.toString());
+        assertFalse(fs.exists(leftover));
+        fs.mkdirs(leftover);
+        arguments =
+                new ArrayList<>(
+                        List.of("--id", id.toString(), "-Dyarn.staging-dir=" + root, "--wait"));
+        Map<String, String> observer =
+                Map.of(YarnConstants.HADOOP_USER_NAME_ENV, "status-observer");
+        String status = applicationCli(null, observer, "status", arguments.toArray(new String[0]));
+        assertTrue(status.contains("Status: SUCCEEDED"), status);
+        assertTrue(fs.exists(leftover));
+        if (explicitUser) {
+            arguments.add("-Dyarn.hadoop-user-name=" + owner);
+        }
+        status = applicationCli(null, gateway, "status", arguments.toArray(new String[0]));
+        assertTrue(status.contains("Status: SUCCEEDED"), status);
+        assertFalse(fs.exists(leftover));
     }
 
     private YarnApplicationClient submitFromHdfs(Path release) throws Exception {
@@ -514,29 +562,33 @@ public class YarnApplicationIT extends TestSuiteBase {
                         "-Dyarn.env.YARN_TEST_REGION=west $HOME",
                         "-Dyarn.active-deadline-seconds=300",
                         "-Dyarn.kerberos.keytab=/unused-in-simple-mode.keytab");
-        String prefix = "Application ID: ";
-        String id =
-                output.lines()
-                        .filter(line -> line.startsWith(prefix))
-                        .map(line -> line.substring(prefix.length()).trim())
-                        .findFirst()
-                        .orElseThrow(() -> new AssertionError(output));
-        ApplicationReport report = applicationReport(ApplicationId.fromString(id));
+        ApplicationId id = submittedId(output);
+        ApplicationReport report = applicationReport(id);
         assertNotNull(report.getApplicationTimeouts().get(ApplicationTimeoutType.LIFETIME));
         assertNotEquals(
                 "UNLIMITED",
                 report.getApplicationTimeouts()
                         .get(ApplicationTimeoutType.LIFETIME)
                         .getExpiryTime());
-        return platformMonitor(id);
+        return platformMonitor(id.toString());
+    }
+
+    private ApplicationId submittedId(String output) {
+        String prefix = "Application ID: ";
+        return output.lines()
+                .filter(line -> line.startsWith(prefix))
+                .map(line -> ApplicationId.fromString(line.substring(prefix.length()).trim()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(output));
     }
 
     /** Exercises the packaged CLI against the real ResourceManager. */
     private String applicationCli(String operation, String... arguments) throws Exception {
-        return applicationCli(null, operation, arguments);
+        return applicationCli(null, Collections.emptyMap(), operation, arguments);
     }
 
-    private String applicationCli(File directory, String operation, String... arguments)
+    private String applicationCli(
+            File directory, Map<String, String> environment, String operation, String... arguments)
             throws Exception {
         File output = new File(temporary, "application-" + operation + ".log");
         List<String> command =
@@ -550,6 +602,7 @@ public class YarnApplicationIT extends TestSuiteBase {
                                 "yarn"));
         command.addAll(Arrays.asList(arguments));
         ProcessBuilder builder = new ProcessBuilder(command).directory(directory);
+        builder.environment().putAll(environment);
         builder.environment().put("JAVA_HOME", System.getProperty("java.home"));
         builder.environment()
                 .put(
@@ -622,7 +675,7 @@ public class YarnApplicationIT extends TestSuiteBase {
             assertTrue(workerCommand.contains("-Dlog4j2.configurationFile="));
             assertTrue(workerCommand.contains("-Dseatunnel.logs.path="));
             assertEquals(
-                    YarnOptions.HADOOP_USER_NAME.defaultValue(),
+                    UserGroupInformation.getCurrentUser().getShortUserName(),
                     yarn.getNodeManager(0)
                             .getNMContext()
                             .getContainers()

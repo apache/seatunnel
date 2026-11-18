@@ -54,7 +54,7 @@ yarn logs -applicationId application_0000000000000_0001
 
 ### 应用结束后会如何处理文件？
 
-正常终止时，ApplicationMaster 会释放 Container、注销最终状态并删除 staging。状态客户端观察到终态后也会重试 staging 清理。
+正常终止时，ApplicationMaster 会释放 Container、注销最终状态并删除 staging。查询终态时，如果 staging 清理失败，客户端会记录警告并返回 ResourceManager 确认的结果。使用有权限的用户和原 staging 路径再次执行 `status` 即可重试清理。
 
 如果 AM 在 shutdown hook 执行前被强杀，且之后没有客户端查询状态，HDFS staging 可能残留。NodeManager 的本地缓存和日志保留由 Hadoop 独立管理。checkpoint 使用独立保留策略，不随 staging 删除。
 

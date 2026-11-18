@@ -52,27 +52,36 @@ public final class YarnApplicationClient implements AutoCloseable {
     }
 
     /**
-     * Reads the RM report and removes this application's staging directory after a terminal result.
+     * Reads the RM report. Each terminal query retries cleanup of this application's staging
+     * directory, even when a previous cleanup failed.
      *
      * @return engine application status, or {@link ApplicationStatus#UNKNOWN} if the RM has no
      *     record
-     * @throws YarnClientException if reading the report or cleaning up staging fails
+     * @throws YarnClientException if reading the report fails
      */
     public ApplicationStatus getStatus() {
+        ApplicationStatus status;
         try {
-            YarnApplication application =
-                    new YarnApplication(yarnId, client.getApplicationReport(yarnId));
-            ApplicationStatus status = application.getStatus();
-            log.debug("YARN application {} status: {}", yarnId, status);
-            if (status.isTerminal()) {
-                YarnStagingDirectory.cleanup(configuration, staging);
-            }
-            return status;
+            status = new YarnApplication(yarnId, client.getApplicationReport(yarnId)).getStatus();
         } catch (ApplicationNotFoundException missing) {
             return ApplicationStatus.UNKNOWN;
         } catch (Exception failure) {
             throw new YarnClientException("Could not query YARN application " + yarnId, failure);
         }
+        log.debug("YARN application {} status: {}", yarnId, status);
+        if (status.isTerminal()) {
+            try {
+                YarnStagingDirectory.cleanup(configuration, staging);
+            } catch (Exception failure) {
+                log.warn(
+                        "Could not remove staging directory {} for terminal YARN application {} ({}). A later status query can retry cleanup.",
+                        staging,
+                        yarnId,
+                        status,
+                        failure);
+            }
+        }
+        return status;
     }
 
     /**

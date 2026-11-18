@@ -32,7 +32,7 @@ title: 配置参考
 | `yarn.master.node-label` | String | 否 | 空 | ApplicationMaster 使用的 node-label expression。 |
 | `yarn.master.http-port` | Integer | 否 | 未设置 | 在 AM 上启用 Web UI 和 REST API，绑定指定端口（`1` 到 `65535`）。省略时关闭 HTTP。 |
 | `yarn.worker.node-label` | String | 否 | 空 | Worker 使用的 node-label expression；为空时继承 `yarn.master.node-label`。 |
-| `yarn.hadoop-user-name` | String | 否 | 提交机 OS 用户 | simple 认证时传给 AM 和 worker 的 Hadoop 用户。 |
+| `yarn.hadoop-user-name` | String | 否 | 当前有效 Hadoop 用户的短用户名 | simple 模式下用于 YARN 请求、HDFS staging、AM 和 worker 的用户。 |
 | `yarn.active-deadline-seconds` | Long | 否 | 队列策略 | 从提交开始计算的应用运行时限，单位秒，必须为正数。ResourceManager 负责执行，队列可设置上限。 |
 | `yarn.job-config-file` | String | 否 | 未设置 | 作业的本地路径、HDFS URI 或已声明的本地化目标路径，仅分发给 AM。设置后可省略 `-c`，两者同时提供时优先使用此文件。 |
 | `yarn.kerberos.principal` | String | 否 | 空 | 提交端 keytab 中的 principal。 |
@@ -92,7 +92,7 @@ title: 配置参考
 
 ## Kerberos
 
-认证方式由 Hadoop 配置决定。默认的 `simple` 模式使用 `yarn.hadoop-user-name`，会忽略 Kerberos 选项和 keytab 路径，无需 KDC 或票据。
+认证方式由 Hadoop 配置决定。在默认的 `simple` 模式下，提交端、AM 和 worker 使用当前有效 Hadoop 用户的短用户名。例如，网关进程以 `svc` 运行并设置 `HADOOP_USER_NAME=etl` 时，提交作业和创建 staging 的身份都是 `etl`。显式设置 `yarn.hadoop-user-name` 会为三者统一选择该用户。simple 模式会忽略 Kerberos 选项和 keytab 路径。
 
 集群使用 `hadoop.security.authentication=kerberos` 时，在 Hadoop 配置中设置 `yarn.resourcemanager.principal`。可以使用已有的 `kinit` 票据，或在提交机的部署文件中同时指定以下两个选项。
 

@@ -86,7 +86,7 @@ yarn {
   # worker.hazelcast-config = "hazelcast-worker.yaml"
   # log4j-config-file = "log4j2_client.properties"
 
-  # Simple authentication is the Hadoop default. The Hadoop user defaults to the submitting OS user.
+  # Simple authentication uses the submitter's effective Hadoop user for staging and containers.
   # hadoop-user-name = "your-hadoop-user"
   # Kerberos-enabled clusters use the existing kinit ticket or both submitter-local settings below.
   # kerberos.principal = "seatunnel@EXAMPLE.COM"
