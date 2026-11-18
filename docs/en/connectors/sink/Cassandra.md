@@ -117,8 +117,12 @@ Sink plugin common parameters. For details, see [Sink Common Options](../common-
 - `async_write = true` improves throughput, while `batch_size` controls how many rows are grouped
   before a flush. At each checkpoint the sink writes the buffered rows and waits for the writes in
   flight, so the sink gives at-least-once delivery: a restored job may write some rows again.
-- When a task fails, the sink closes its session without sending the rows it still holds; the
-  engine writes them again when it retries the task or restores the job.
+- The sink drops the rows it still holds, without sending them, only when the engine aborts the
+  writer: Spark does so after a failed write or checkpoint preparation, and Zeta after a failed
+  checkpoint preparation. In other cases a failed task closes the sink normally, and closing writes
+  the buffered rows first, so rows received before the failure can reach the table. Either way the
+  engine writes the rows after the last checkpoint again when it retries the task or restores the
+  job, as the at-least-once note above says.
 - When it starts, the sink reads the primary key of the target table from the driver schema
   metadata, and reads the schema from the server once more if the table is missing there. A NULL
   key then fails the job with the table and column before anything is sent. If the primary key

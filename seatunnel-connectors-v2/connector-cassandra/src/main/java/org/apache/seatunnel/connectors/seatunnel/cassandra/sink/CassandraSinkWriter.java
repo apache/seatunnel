@@ -306,9 +306,9 @@ public class CassandraSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void>
 
     /**
      * Called on a failed writer: by Spark when a write or {@link #prepareCommit()} throws, and by
-     * Zeta when a checkpoint fails. Drops the buffered rows and the writes in flight without
-     * sending anything, because the engine writes them again when it retries or restores, and
-     * closes the session. Spark does not call {@link #close()} after it, so the session would
+     * Zeta when preparing a checkpoint fails. Drops the buffered rows and the writes in flight
+     * without sending anything, because the engine writes them again when it retries or restores,
+     * and closes the session. Spark does not call {@link #close()} after it, so the session would
      * otherwise keep its driver threads running.
      */
     @Override
