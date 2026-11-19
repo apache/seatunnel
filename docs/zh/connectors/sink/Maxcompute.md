@@ -70,6 +70,8 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 `endpoint` 您的 Maxcompute endpoint，以 http 开头。
 
+此必填选项不能为空字符串或仅包含空白字符。选项规则校验不会裁剪或改写非空白值；URL 解析和连接检查仍在运行时初始化阶段进行。
+
 ### project [string]
 
 `project` 您在阿里云中创建的 Maxcompute 项目。
