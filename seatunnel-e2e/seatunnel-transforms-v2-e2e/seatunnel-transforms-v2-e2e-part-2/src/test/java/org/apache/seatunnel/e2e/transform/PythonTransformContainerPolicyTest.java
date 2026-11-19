@@ -113,7 +113,7 @@ class PythonTransformContainerPolicyTest {
             starts.when(() -> Startables.deepStart(Mockito.any(Stream.class)))
                     .thenReturn(CompletableFuture.completedFuture(null));
             files.when(() -> ContainerUtil.adaptPathForWin(Mockito.anyString()))
-                    .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenCallRealMethod();
             files.when(
                             () ->
                                     ContainerUtil.copyConfigFileToContainer(

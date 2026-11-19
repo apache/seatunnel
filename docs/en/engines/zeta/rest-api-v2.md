@@ -662,6 +662,10 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
         "pipelineStatus": "RUNNING",
         "restoreCount": 7,
         "maxRestoreCount": 100,
+        "restoreCauses": [
+          "restore 6: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused",
+          "restore 7: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused"
+        ],
         "stateTimestamps": {
           "INITIALIZING": 1755000000000,
           "CREATED": 1755000000200,
@@ -683,6 +687,11 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 node. It is auxiliary information: if it can not be obtained, the field is omitted instead of
 failing the request. Only this endpoint returns it; `/running-jobs` does not, because collecting it
 for every running job would cost one more round trip to the master per job.
+
+`diagnostics` is read from the master's in-memory job state, so like `restoreCount` it describes
+this master's view of the job rather than its whole history. After a master switch the restore
+counters and `restoreCauses` start again from the recovered job, and causes recorded by the
+previous master are not carried over.
 
 #### Metrics field description
 
@@ -715,6 +724,7 @@ for every running job would cost one more round trip to the master per job.
 | pipelines[].pipelineStatus | Current pipeline state |
 | pipelines[].restoreCount | How many times this pipeline has been restored since the job was submitted. A value that keeps growing while `jobStatus` stays `RUNNING` is a crash loop |
 | pipelines[].maxRestoreCount | Restore limit of this pipeline, from the `job.retry.times` env option |
+| pipelines[].restoreCauses | Why earlier runs of this pipeline ended, oldest first, one entry per restore. The engine keeps only the current attempt's error, so without this a crash loop can be detected from `restoreCount` but not explained. Each entry is truncated, and the list is capped at the last 16 restores. A restore with no recorded error is still listed, because "restarted for an unknown reason" is a different state from "restarted because the sink refused the connection" |
 | pipelines[].stateTimestamps | Epoch millis when the pipeline entered each state. After a restore, the timestamps of the new attempt overwrite the previous ones |
 | totalPipelineRestoreCount | Sum of `restoreCount` over all pipelines of the job |
 
