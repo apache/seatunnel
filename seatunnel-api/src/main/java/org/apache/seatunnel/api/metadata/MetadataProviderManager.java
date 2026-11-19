@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 
+import org.apache.seatunnel.api.configuration.util.ConfigMapPathUtils;
 import org.apache.seatunnel.api.metadata.exception.MetadataProviderException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -53,6 +54,10 @@ public final class MetadataProviderManager {
 
     /**
      * Resolves and merges data source configurations for a SeaTunnel job config.
+     *
+     * <p>Unwrapping a Config drops key quoting. The map-to-config rebuild therefore uses {@link
+     * ConfigMapPathUtils#quoteInvalidPathKeys(Map)} to preserve keys rejected by the path parser as
+     * literals. Valid paths such as {@code a->b} retain their existing nested meaning.
      *
      * @param seaTunnelJobConfig the SeaTunnel job configuration (Hocon/Config format)
      * @param metaDataConfig the MetaData configuration containing provider kind and properties
@@ -103,7 +108,7 @@ public final class MetadataProviderManager {
             resultMap.put(PluginType.SINK.getType(), resolvedSinks);
         }
 
-        return ConfigFactory.parseMap(resultMap);
+        return ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(resultMap));
     }
 
     public static Optional<TableSchema> resolveTableSchema(
@@ -290,6 +295,11 @@ public final class MetadataProviderManager {
      *
      * <p>The datasource config values will override values in the original config if keys conflict.
      *
+     * <p>Unwrapping the original Config drops key quoting. Before reparsing, the shared helper
+     * quotes keys rejected by the path parser. Provider keys that are valid paths, such as {@code
+     * a->b}, still create nested values; dots remain literal under the SeaTunnel path syntax. This
+     * does not redefine every provider key as a literal.
+     *
      * @param connectorConfig the original connector configuration
      * @param datasourceConfig the configuration fetched from MetaData Center
      * @param datasourceId the datasource ID (for logging purposes)
@@ -343,7 +353,8 @@ public final class MetadataProviderManager {
             }
         }
 
-        Config mergedConfig = ConfigFactory.parseMap(mergedMap);
+        Config mergedConfig =
+                ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(mergedMap));
 
         log.info(
                 "Successfully merged datasource config for metadata_datasource_id: {}, connector: {}, merged keys count: {}",
