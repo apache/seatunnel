@@ -113,6 +113,7 @@ class YarnResourceManagerDriverTest {
             mock(ScheduledExecutorService.class);
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
     private final Queue<AllocateResponse> responses = new ConcurrentLinkedQueue<>();
+    private volatile Exception heartbeatFailure;
     private final WorkerSpecification specification = new WorkerSpecification(512, 1, 2);
     private YarnResourceManagerDriver driver;
 
@@ -127,7 +128,14 @@ class YarnResourceManagerDriverTest {
                 .execute(any());
         // The real AMRMClientAsync delivers responses from this transport to the registered
         // callbacks.
-        when(resourceManager.allocate(anyFloat())).thenAnswer(invocation -> responses.poll());
+        when(resourceManager.allocate(anyFloat()))
+                .thenAnswer(
+                        invocation -> {
+                            if (heartbeatFailure != null) {
+                                throw heartbeatFailure;
+                            }
+                            return responses.poll();
+                        });
         File archive = new File(temporary, "distribution.zip");
         Files.write(archive.toPath(), new byte[] {1});
         Files.write(
@@ -211,6 +219,12 @@ class YarnResourceManagerDriverTest {
     @CsvSource({"SUCCEEDED, SUCCEEDED", "CANCELED, KILLED", "FAILED, FAILED"})
     void resourceManagerCloseRetriesTheOriginalFinalReport(
             ApplicationStatus status, FinalApplicationStatus expected) throws Exception {
+        String diagnostics = "Job ended with " + status;
+        IOException retry = new IOException("final report unavailable");
+        doThrow(retry)
+                .doNothing()
+                .when(resourceManager)
+                .unregisterApplicationMaster(expected, diagnostics, "");
         startDriver(null);
         ApplicationResourceManager<?> manager =
                 (ApplicationResourceManager<?>)
@@ -220,12 +234,6 @@ class YarnResourceManagerDriverTest {
                                         SeatunnelApplicationConfig.parse("env {}", Map.of()),
                                         driver)
                                 .createResourceManager(mock(NodeEngine.class), new EngineConfig());
-        String diagnostics = "Job ended with " + status;
-        IOException retry = new IOException("final report unavailable");
-        doThrow(retry)
-                .doNothing()
-                .when(resourceManager)
-                .unregisterApplicationMaster(expected, diagnostics, "");
         try {
             manager.stopApplicationWorkers();
             assertTrue(driver.requestWorker(specification).isCompletedExceptionally());
@@ -260,7 +268,7 @@ class YarnResourceManagerDriverTest {
         CompletableFuture<YarnWorkerNode> first = driver.requestWorker(specification);
         CompletableFuture<YarnWorkerNode> second = driver.requestWorker(specification);
         IOException transport = new IOException("resource manager unavailable");
-        when(resourceManager.allocate(anyFloat())).thenThrow(transport);
+        heartbeatFailure = transport;
         Throwable failure =
                 assertThrows(ExecutionException.class, () -> first.get(5, TimeUnit.SECONDS))
                         .getCause();
@@ -279,9 +287,9 @@ class YarnResourceManagerDriverTest {
 
     @Test
     void failedRequestWithdrawalIsRetriedDuringShutdown() throws Exception {
-        startDriver(null);
         RuntimeException transport = new IllegalStateException("request withdrawal failed");
         doThrow(transport).doNothing().when(resourceManager).removeContainerRequest(any());
+        startDriver(null);
         CompletableFuture<YarnWorkerNode> request = driver.requestWorker(specification);
         Container container = container(1);
         allocate(container);
@@ -302,8 +310,7 @@ class YarnResourceManagerDriverTest {
     void shutdownRequestStopsAdmissionAndNotifiesTheEngine() throws Exception {
         startDriver(null);
         CompletableFuture<YarnWorkerNode> waiting = driver.requestWorker(specification);
-        when(resourceManager.allocate(anyFloat()))
-                .thenThrow(new ApplicationAttemptNotFoundException("attempt removed"));
+        heartbeatFailure = new ApplicationAttemptNotFoundException("attempt removed");
         Throwable failure =
                 assertThrows(ExecutionException.class, () -> waiting.get(5, TimeUnit.SECONDS))
                         .getCause();
