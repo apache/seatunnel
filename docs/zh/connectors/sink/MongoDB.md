@@ -109,7 +109,7 @@ MongoDB Sink 连接器将 SeaTunnel 行记录写入 MongoDB 集合。每行记�
 | transaction           | Boolean  | 否       | false          | 是否在 MongoSink 中启用事务（需要 MongoDB 4.2+）。 |
 | data_save_mode        | Enum     | 否       | APPEND_DATA    | MongoDB 集合的数据写入模式：`DROP_DATA` 表示写入前清空集合；`APPEND_DATA` 表示追加写入；`ERROR_WHEN_DATA_EXISTS` 表示集合已有数据时直接报错。 |
 | tls_ca_file           | String   | 否       | -              | PEM 格式的 CA 证书文件路径，TLS 连接只信任该文件中的证书，且只对本作业生效。设置后会启用 TLS。详见 [使用私有 CA 的 TLS 连接](#使用私有-ca-的-tls-连接)。 |
-| multi_table_sink_replica | Int   | 否       | 1              | 多表写入作业中每张表使用的写入器副本数，最小为 1。 |
+| multi_table_sink_replica | Int   | 否       | 1              | 多表写入作业中每张表使用的写入器副本数，最小为 1。请保持为 1：MongoDB writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options        | -        | 否       | -              | 通用 Sink 插件参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
 ### 提示

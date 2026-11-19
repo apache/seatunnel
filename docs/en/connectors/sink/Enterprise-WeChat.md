@@ -17,8 +17,8 @@ identifier in job configuration is `WeChat`. Each row is serialized into a plain
 the fields rendered as `fieldName: fieldValue`, joined by the literal two-character sequence `\n`
 (not real newlines) before the request is sent to the webhook.
 
-The connector extends the [Http sink](Http.md). It also accepts the generic
-`multi_table_sink_replica` option for fan-out writes. Note that `retry`,
+The connector extends the [Http sink](Http.md). Keep the generic
+`multi_table_sink_replica` option at 1, because its writer does not declare a replica mode yet. Note that `retry`,
 `retry_backoff_multiplier_ms` and `retry_backoff_max_ms` are accepted by the option rule but are
 not read by the current sink writer, so no retries are performed.
 
@@ -58,7 +58,7 @@ sequence `\n`, so no per-type JSON structure exists on the wire.
 | retry                 | int    | No       | -             | Accepted by the option rule, but the current sink writer never reads this option, so no retries are performed.            |
 | retry_backoff_multiplier_ms | int | No    | 100           | Accepted by the option rule, but not applied by the current sink writer.                                                 |
 | retry_backoff_max_ms  | int    | No       | 10000         | Accepted by the option rule, but not applied by the current sink writer.                                                 |
-| multi_table_sink_replica | int | No       | 1             | Number of writer replicas used when writing multiple tables.                                                              |
+| multi_table_sink_replica | int | No       | 1             | Number of writer replicas used when writing multiple tables. Keep it at 1: the Enterprise-WeChat writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options        |        | no       | -             | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. |
 
 ### url [string]
@@ -91,8 +91,7 @@ Accepted by the option rule, but not applied by the current sink writer.
 
 ### multi_table_sink_replica [int]
 
-Number of writer replicas used when writing multiple tables. Increase this value to add more
-parallel writers per table. Default is `1`.
+Number of writer replicas used when writing multiple tables. Default is `1`. Keep it at 1: the Enterprise-WeChat writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
 ### common options
 

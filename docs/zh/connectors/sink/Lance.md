@@ -57,7 +57,7 @@ Lance sink 用于把 SeaTunnel 数据写入 Lance 数据集。它可以根据上
 | lance.write.mode                   | string    | 否       | CREATE         | Lance 写入模式，会传给 Lance `WriteParams.WriteMode`。 |
 | lance.write.enable.stable.row.ids  | boolean   | 否       | true           | 写入 Lance 时是否启用稳定 row ID。                   |
 | lance.write.storage.options        | map       | 否       | {}             | 传给 Lance 的额外存储参数。                          |
-| multi_table_sink_replica           | int       | 否       | 1              | 多表写入时的 sink 并行副本数。                       |
+| multi_table_sink_replica           | int       | 否       | 1              | 多表写入时的 sink 并行副本数。请保持为 1：Lance writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 
 ### dataset_path
 
@@ -118,7 +118,7 @@ lance.write.storage.options = {
 
 ### multi_table_sink_replica
 
-多表写入时的 sink 并行副本数。当一个多表作业写入大量 Lance 表、单个副本成为瓶颈时调大该值。详见 [Sink 通用选项](../common-options/sink-common-options.md)。
+多表写入时的 sink 并行副本数。请保持为 1：Lance writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。
 
 ## 数据类型映射
 

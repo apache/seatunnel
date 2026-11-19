@@ -38,7 +38,7 @@ import ChangeLog from '../changelog/connector-hbase.md';
 | data_save_mode           | enum    | 否       | APPEND_DATA                    | 写入前如何处理目标端已有数据。 |
 | hbase_extra_config       | config  | 否       | -                              | 额外的 HBase 或 Hadoop 客户端配置。 |
 | ttl                      | long    | 否       | -1                             | 写入 HBase 单元格的过期时间（毫秒）；`-1` 表示永不过期。 |
-| multi_table_sink_replica | int     | 否       | 1                              | 多表写入时每张表对应的 Sink Writer 副本数。 |
+| multi_table_sink_replica | int     | 否       | 1                              | 多表写入时每张表对应的 Sink Writer 副本数。请保持为 1：Hbase writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options           |         | 否       | -                              | Sink 插件通用参数，例如 `plugin_input`。 |
 
 ### zookeeper_quorum [string]
@@ -119,7 +119,7 @@ hbase 扩展配置
 
 ### multi_table_sink_replica [int]
 
-多表写入时，每张表对应的 Sink Writer 副本数。通常保持默认值即可；只有单表写入压力较大、需要更多写入并行度时再调大。
+多表写入时，每张表对应的 Sink Writer 副本数。请保持为 1：Hbase writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。
 
 ### schema_save_mode [enum]
 

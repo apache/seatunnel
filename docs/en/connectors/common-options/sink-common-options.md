@@ -40,7 +40,9 @@ declare through `SupportMultiTableSinkWriter.replicaMode()` how that can be done
 - `KEYED`: rows are routed by the key from `primaryKey()`, so all changes of one key reach the
   same writer in order. A writer that declares it without a key is rejected. Jdbc declares it,
   except with `is_exactly_once`, so a Jdbc table needs a primary key in its schema or in
-  `primary_keys`.
+  `primary_keys`. A key of type `BYTES` (for example `BINARY` or `VARBINARY`) is hashed by array
+  identity, not content, so the changes of one binary key can reach different writers: keep the
+  option at 1 for such a table.
 - `RANDOM`: rows may go to any writer. Only for writers whose result does not depend on the
   write order.
 - `UNSUPPORTED`, the default: the job fails when the writer is created or restored, and the

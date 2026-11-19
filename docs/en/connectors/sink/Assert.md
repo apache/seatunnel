@@ -133,7 +133,7 @@ The path of the table.
 
 ### multi_table_sink_replica [int]
 
-The replica number used by the multi-table sink common option. Configure it only when the job needs more than one sink replica per table.
+The replica number used by the multi-table sink common option. Keep it at 1: the Assert writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
 ### common options
 

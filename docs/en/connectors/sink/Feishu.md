@@ -65,14 +65,14 @@ Feishu webhook URLs and custom authentication headers are sensitive. Do not prin
 | array_mode                  | Boolean | No       | false   | Send rows as a JSON array when true, or as one JSON object per request when false.                                      |
 | batch_size                  | Int     | No       | 1       | The maximum number of rows sent in one request. Only works when `array_mode` is true.                                   |
 | request_interval_ms         | Int     | No       | 0       | Interval in milliseconds between two HTTP requests, used to avoid sending requests too frequently.                      |
-| multi_table_sink_replica    | Int     | No       | 1       | Number of sink replicas used for multi-table write. See [Sink Common Options](../common-options/sink-common-options.md). |
+| multi_table_sink_replica    | Int     | No       | 1       | Number of sink replicas used for multi-table write. See [Sink Common Options](../common-options/sink-common-options.md). Keep it at 1: the Feishu writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options              |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. |
 
 ## Usage Notes
 
 - The sink always sends `POST` JSON requests; it does not expose a `method` option.
 - If the webhook URL needs query parameters, include non-sensitive parameters directly in `url`. Prefer `headers` for authentication material when the gateway supports it, because the full URL, including its query string, may appear in logs or job metadata.
-- Multi-table jobs can use `multi_table_sink_replica`, but the Feishu sink sends every row to the configured fixed `url`. It does not replace `${database_name}`, `${schema_name}`, or `${table_name}` in the URL.
+- In multi-table jobs, keep `multi_table_sink_replica` at 1, because the Feishu writer does not declare a replica mode yet. The Feishu sink sends every row to the configured fixed `url`. It does not replace `${database_name}`, `${schema_name}`, or `${table_name}` in the URL.
 - `array_mode` is useful when the receiver accepts a JSON array and you want fewer HTTP requests.
 - Feishu webhook delivery is not exactly-once. If a request is retried by an external gateway after the remote service has already handled it, the receiver may see duplicate messages. Note that the `retry` options of this sink are accepted but not applied by the current sink writer.
 

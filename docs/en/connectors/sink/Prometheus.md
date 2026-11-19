@@ -54,7 +54,7 @@ downloaded from Maven Central.
 | retry_backoff_multiplier_ms | Int    | No       | 100     | Retry backoff multiplier in milliseconds. |
 | retry_backoff_max_ms        | Int    | No       | 10000   | Maximum retry backoff in milliseconds. |
 | batch_size                  | Int    | No       | 1024    | Positive number of rows buffered before writing to Prometheus. |
-| multi_table_sink_replica    | Int    | No       | 1       | Writer replica count for each table in a multi-table sink job. |
+| multi_table_sink_replica    | Int    | No       | 1       | Writer replica count for each table in a multi-table sink job. Keep it at 1: the Prometheus writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options              | Config | No       | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### key_label
@@ -76,8 +76,7 @@ Supported timestamp field types:
 
 ### multi_table_sink_replica
 
-Replica count for multi-table sink writers. It applies to each table in a multi-table job. Keep the
-default value `1` unless one table needs more writer parallelism.
+Replica count for multi-table sink writers. It applies to each table in a multi-table job. Keep it at 1: the Prometheus writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
 ### Timer Flush
 
@@ -239,9 +238,9 @@ sink {
 ## Multi-Table Remote Write
 
 When a single job reads from multiple upstream tables and writes to a single
-Prometheus remote write endpoint, set `multi_table_sink_replica` to control how
-many writer tasks each table gets. The default of `1` is fine when tables are
-small; raise it only when one table needs more parallelism than the others.
+Prometheus remote write endpoint, keep `multi_table_sink_replica` at 1: the
+Prometheus writer does not declare a replica mode yet, so a value above 1 is
+rejected.
 
 ```hocon
 env {

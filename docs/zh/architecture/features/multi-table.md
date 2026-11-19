@@ -191,17 +191,21 @@ sink {
 ```
 
 只有当每张表的 writer 都通过 `SupportMultiTableSinkWriter.replicaMode()` 声明了记录如何在副本间分配时，
-才允许大于 1 的取值；否则作业会在写入任何记录之前失败：
+才允许大于 1 的取值；否则作业会在写入任何记录之前失败，但不早于 Sink 的 save mode（见下文）：
 
 | 副本模式 | 多个副本时的路由 |
 |----------|------------------|
-| `KEYED` | 按 `primaryKey()` 指定的字段哈希，同一键的所有变更按顺序到达同一副本；没有键时拒绝 |
+| `KEYED` | 按 `primaryKey()` 指定的字段哈希，同一键的所有变更按顺序到达同一副本；没有键时拒绝。`BYTES` 类型的键按数组对象的标识而不是内容哈希，键列为二进制类型的表请只使用一个副本 |
 | `RANDOM` | 记录随机分配到副本，只适用于写入结果与写入顺序无关的 writer |
 | `UNSUPPORTED`（默认） | 创建或恢复 writer 时拒绝该作业 |
 
 错误信息会给出该选项、取值，以及每张被拒绝的表及其连接器和 writer 类。此类 sink 请设置
 `multi_table_sink_replica = 1`。只有一个副本（默认值）时，所有记录都进入队列 0，不需要副本模式。
 `multi_table_sink_replica` 的恢复检查对任何取值都会执行：修改该值或 Sink 并行度之后恢复会失败（见 Sink 通用选项中的该选项）。
+
+该检查在创建或恢复 writer 时执行。全新启动时它在 Sink 的 save mode 之后运行，因此如果使用
+`data_save_mode = DROP_DATA` 或 `schema_save_mode = RECREATE_SCHEMA` 这类破坏性的 save mode，作业失败时目标表已经被清空或重建。
+提交这类作业之前请先将该选项设置为 1。
 
 ### 5.3 副本选择策略
 
@@ -211,7 +215,7 @@ sink {
 **基于键哈希（`KEYED`，稳定路由）**:
 
 要点:
-- 以主键（或业务唯一键）做哈希，将同一键稳定映射到同一副本
+- 以主键（或业务唯一键）做哈希，将同一键稳定映射到同一副本。对于 `BYTES` 列的 `byte[]` 这类数组键，`hashCode()` 是对象标识哈希，内容相同的两行也可能进入不同队列
 - 当前实现: $replica = (hash(pk) \mathbin{\&} \mathrm{Integer.MAX\_VALUE}) \bmod replicaNum$
 
 :::note
@@ -424,7 +428,7 @@ sink {
 
 **监控和调优**:
 
-如果单副本写入成为瓶颈（例如写入延迟持续升高、队列堆积明显），可逐步增加 `multi_table_sink_replica` 并结合目标端能力评估收益。
+如果单副本写入成为瓶颈（例如写入延迟持续升高、队列堆积明显），可逐步增加 `multi_table_sink_replica` 并结合目标端能力评估收益。只有 writer 声明了副本模式的 Sink 才接受大于 1 的取值，目前即每张表都有主键、且未开启 `is_exactly_once` 的 Jdbc；其他 Sink 请保持为 1。
 
 ### 10.3 模式管理
 

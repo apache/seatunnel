@@ -63,7 +63,7 @@ Use a larger value for high-throughput batch jobs to reduce the number of Druid 
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
-For multi-table writes, `multi_table_sink_replica` can be used with the common sink options.
+For multi-table writes, keep the common option `multi_table_sink_replica` at 1: the Druid writer does not declare a replica mode yet, so a value above 1 is rejected.
 
 ## Write Behavior
 

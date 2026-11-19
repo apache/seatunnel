@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-http-wechat.md';
 `WeChat`。每一行数据会按 `字段名: 字段值` 的格式序列化为纯文本消息，字段之间以字面的两个字符
 `\n`（并非真实换行符）拼接后发送到 webhook。
 
-该连接器继承自 [Http sink](Http.md)，并支持通用的 `multi_table_sink_replica` 选项。注意：
+该连接器继承自 [Http sink](Http.md)，请将通用的 `multi_table_sink_replica` 选项保持为 1，因为其 writer 尚未声明副本模式。注意：
 `retry`、`retry_backoff_multiplier_ms`、`retry_backoff_max_ms` 虽然会通过参数校验，但当前 Sink
 写入器不会读取它们，因此不会进行任何重试。
 
@@ -55,7 +55,7 @@ import ChangeLog from '../changelog/connector-http-wechat.md';
 | retry                 | int    | 否       | -      | 该参数会通过参数校验，但当前 Sink 写入器不会读取它，因此不会进行任何重试。                                                  |
 | retry_backoff_multiplier_ms | int | 否    | 100    | 该参数会通过参数校验，但当前 Sink 写入器不会应用它。                                                                      |
 | retry_backoff_max_ms  | int    | 否       | 10000  | 该参数会通过参数校验，但当前 Sink 写入器不会应用它。                                                                      |
-| multi_table_sink_replica | int | 否       | 1      | 多表写入时使用的写入器副本数。                                                                                      |
+| multi_table_sink_replica | int | 否       | 1      | 多表写入时使用的写入器副本数。请保持为 1：Enterprise-WeChat writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options        |        | 否       | -      | 接收器插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。                                |
 
 ### url [string]
@@ -86,7 +86,7 @@ import ChangeLog from '../changelog/connector-http-wechat.md';
 
 ### multi_table_sink_replica [int]
 
-多表写入时使用的写入器副本数。增加该值可以在每个表上启动更多并行写入器。默认 `1`。
+多表写入时使用的写入器副本数。默认 `1`。请保持为 1：Enterprise-WeChat writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。
 
 ### common options
 

@@ -93,7 +93,7 @@ JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表
 | data_save_mode               | Enum    | 否    | APPEND_DATA                  | 在同步任务开启之前，针对目标端已有数据选择不同的处理方案。                                                               |
 | custom_sql                   | String  | 否    | -                            | 当 data_save_mode 选择 CUSTOM_PROCESSING 时，应填写 CUSTOM_SQL 参数。此参数通常填写可执行的 SQL。SQL 将在同步任务之前执行。   |
 | enable_upsert                | Boolean | 否    | true                         | 通过 primary_keys 存在启用 upsert，如果任务只有 `insert`，将此参数设置为 `false` 可以加快数据导入速度                      |
-| multi_table_sink_replica     | Int     | 否    | 1                            | 多表写入时的写入器副本数。当 `multi_table_sink_replica > 1` 时，多表并行写入。                                                |
+| multi_table_sink_replica     | Int     | 否    | 1                            | 多表写入时的写入器副本数。当 `multi_table_sink_replica > 1` 时，多表并行写入。取值大于 1 时，每张表都需要主键（来自表结构或 `primary_keys`），并且不能与 `is_exactly_once = true` 同时使用。详见 [Jdbc](Jdbc.md#common-options)。 |
 
 ### 提示
 

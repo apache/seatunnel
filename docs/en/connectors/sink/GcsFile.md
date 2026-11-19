@@ -91,7 +91,7 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | date_format | string | no | `yyyy-MM-dd` | Date type format used when writing date values with `text`, `csv`, `excel`, or `xml` output. |
 | datetime_format | string | no | `yyyy-MM-dd HH:mm:ss` | Datetime type format used when writing datetime values with `text`, `csv`, `excel`, or `xml` output. |
 | time_format | string | no | `HH:mm:ss` | Time type format used when writing time values with `text`, `csv`, `excel`, or `xml` output. |
-| multi_table_sink_replica | int | no | `1` | Number of writer replicas for each table in multi-table sink mode. Must be at least 1. |
+| multi_table_sink_replica | int | no | `1` | Number of writer replicas for each table in multi-table sink mode. Must be at least 1. Keep it at 1: the GcsFile writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options | | no | - | See [Sink Common Options](../common-options/sink-common-options.md). |
 
 The sink also accepts the format-specific file sink options documented by the corresponding

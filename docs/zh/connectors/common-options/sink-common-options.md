@@ -32,7 +32,8 @@ sidebar_position: 4
 
 - `KEYED`：按 `primaryKey()` 给出的键路由，同一键的所有变更按顺序到达同一个 writer。声明该模式但没有键的
   writer 会被拒绝。Jdbc 声明该模式（`is_exactly_once` 除外），因此 Jdbc 表需要在表结构或 `primary_keys`
-  中有主键。
+  中有主键。`BYTES` 类型的键（例如 `BINARY` 或 `VARBINARY`）按数组对象的标识而不是内容哈希，同一个二进制键的
+  变更可能到达不同的 writer：此类表请将该选项保持为 1。
 - `RANDOM`：记录可以分配到任意 writer，只适用于写入结果与写入顺序无关的 writer。
 - `UNSUPPORTED`（默认）：创建或恢复 writer 时作业失败，错误信息会给出表、连接器和 writer 类。此类
   Sink 请将该选项设置为 1。

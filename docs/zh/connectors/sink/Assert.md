@@ -133,7 +133,7 @@ Assert 是一个用于校验任务输出结果的数据接收器。它可以按�
 
 ### multi_table_sink_replica [int]
 
-多表写入通用参数中的副本数。只有在每张表需要多个 sink 副本时才需要配置。
+多表写入通用参数中的副本数。请保持为 1：Assert writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。
 
 ### common options
 

@@ -348,8 +348,8 @@ sink {
 When the upstream is the HugeGraph Source, each row already carries the
 reserved columns with the assembled element ids (`~id` for a vertex;
 `~source_id` / `~target_id` for an edge). Reusing these ids preserves the
-original graph exactly. The example below sets `multi_table_sink_replica` so the
-sink can fan out across parallel writers when the source reads multiple labels.
+original graph exactly. The example below keeps `multi_table_sink_replica` at 1:
+the HugeGraph writer does not declare a replica mode yet, so a value above 1 is rejected.
 
 ```hocon
 env {

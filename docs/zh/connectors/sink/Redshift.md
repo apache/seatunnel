@@ -92,7 +92,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | data_save_mode               | Enum    | 否       | APPEND_DATA                  | 在启动同步任务之前，对目标端已有的数据选择不同的处理方案。支持的取值：`DROP_DATA`、`APPEND_DATA`、`CUSTOM_PROCESSING`、`ERROR_WHEN_DATA_EXISTS`。                                                                                                                       |
 | custom_sql                   | String  | 否       | -                            | 当 `data_save_mode = CUSTOM_PROCESSING` 时，需要填写 CUSTOM_SQL 参数。此参数通常填写一个可在同步任务前执行的 SQL。                                                                                                          |
 | enable_upsert                | Boolean | 否       | true                         | 通过 primary_keys 启用 upsert，如果任务只有 `insert`，将此参数设置为 `false` 可以加快数据导入                                                                                                                                                   |
-| multi_table_sink_replica     | Int     | 否       | 1                            | 多表写入的副本数，当 `multi_table_sink_replica > 1` 时，数据将并行写入多个表                                                                                                                                                                    |
+| multi_table_sink_replica     | Int     | 否       | 1                            | 多表写入的副本数，当 `multi_table_sink_replica > 1` 时，数据将并行写入多个表。取值大于 1 时，每张表都需要主键（来自表结构或 `primary_keys`），并且不能与 `is_exactly_once = true` 同时使用。详见 [Jdbc](Jdbc.md#common-options)。 |
 
 ## 任务示例
 

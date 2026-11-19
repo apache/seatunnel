@@ -32,7 +32,7 @@ The target table must already exist. The connector writes each row as a DynamoDB
 | secret_access_key   | string | yes      | -             | AWS secret access key.                           |
 | table               | string | yes      | -             | DynamoDB table name to write to.                 |
 | batch_size          | int    | no       | 25            | Records buffered for one batch write request.    |
-| multi_table_sink_replica | int | no       | 1             | Sink writer replicas for each table.             |
+| multi_table_sink_replica | int | no       | 1             | Sink writer replicas for each table. Keep it at 1: the AmazonDynamoDB writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | max_retries         | int    | no       | 10            | Retries for unprocessed items. Must be at least `0`. |
 | retry_base_delay_ms | long   | no       | 100           | Initial retry backoff delay in milliseconds.     |
 | retry_max_delay_ms  | long   | no       | 5000          | Maximum retry backoff delay in milliseconds.     |
@@ -71,7 +71,7 @@ Do not set this higher than `25`; larger values do not match the DynamoDB batch 
 
 ### multi_table_sink_replica [int]
 
-Optional common sink option used by multi-table sink jobs. For details, see [Sink Common Options](../common-options/sink-common-options.md).
+Optional common sink option used by multi-table sink jobs. Keep it at 1: the AmazonDynamoDB writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
 ### max_retries [int]
 

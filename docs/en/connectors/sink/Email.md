@@ -107,7 +107,7 @@ values are written as empty strings.
 ### multi_table_sink_replica [int]
 
 The replica number of sink writers used for each table in a multi-table sink job. The default value
-is `1`.
+is `1`. Keep it at 1: the Email writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
 ### Empty input behavior
 

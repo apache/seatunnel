@@ -45,7 +45,7 @@ Fluss Sink 用于在批处理或流处理作业中，将 SeaTunnel 数据写入�
 | database | string | 否 | 上游数据库名 | 目标 Fluss database。支持 `${database_name}`、`${schema_name}` 等占位符。 |
 | table | string | 否 | 上游表名 | 目标 Fluss table。支持 `${table_name}`、`${schema_name}` 等占位符。 |
 | client.config | map | 否 | - | 传递给 Fluss 连接的额外客户端参数。 |
-| multi_table_sink_replica | int | 否 | 1 | 多表写入模式下的 Sink writer 副本数。 |
+| multi_table_sink_replica | int | 否 | 1 | 多表写入模式下的 Sink writer 副本数。请保持为 1：Fluss writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options | - | 否 | - | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
 ### bootstrap.servers

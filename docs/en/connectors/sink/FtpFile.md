@@ -84,7 +84,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 | schema_save_mode                      | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Existing dir processing method                                                                                                                                         |
 | data_save_mode                        | string  | no       | APPEND_DATA                                | Existing data processing method                                                                                                                                        |
-| multi_table_sink_replica              | int     | no       | 1                                          | The replica number of sink writers used for each table in a multi-table sink job.                                                                                      |
+| multi_table_sink_replica              | int     | no       | 1                                          | The replica number of sink writers used for each table in a multi-table sink job. Keep it at 1: the FtpFile writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### host [string]
 
@@ -332,8 +332,7 @@ FtpFile {
 
 ### multi_table_sink_replica [int]
 
-The replica number of sink writers used for each table in a multi-table sink job. The default value is `1`; increase it
-only when each table needs more sink writer parallelism.
+The replica number of sink writers used for each table in a multi-table sink job. The default value is `1`. Keep it at 1: the FtpFile writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
 ## Example
 

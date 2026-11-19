@@ -59,7 +59,7 @@ It provides a sink only; there is no Lance source connector.
 | lance.write.mode                   | string  | no       | CREATE        | Lance write mode. The value is passed to Lance `WriteParams.WriteMode`.                           |
 | lance.write.enable.stable.row.ids  | boolean | no       | true          | Whether to enable stable row IDs when writing Lance data.                                         |
 | lance.write.storage.options        | map     | no       | {}            | Extra storage options passed to Lance.                                                           |
-| multi_table_sink_replica           | int     | no       | 1             | Parallel replica count for multi-table sink writing.                                              |
+| multi_table_sink_replica           | int     | no       | 1             | Parallel replica count for multi-table sink writing. Keep it at 1: the Lance writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### dataset_path
 
@@ -124,9 +124,7 @@ lance.write.storage.options = {
 
 ### multi_table_sink_replica
 
-Replica count used by the multi-table sink routing mechanism. Increase it when
-a single multi-table job writes to many Lance tables and the default single
-replica becomes a bottleneck. See [Sink Common Options](../common-options/sink-common-options.md).
+Replica count used by the multi-table sink routing mechanism. Keep it at 1: the Lance writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
 ## Data Type Mapping
 

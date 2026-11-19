@@ -314,11 +314,12 @@ sink {
 
 A value above 1 is accepted only when the writer of every table declares how its rows
 may be spread over the replicas, through `SupportMultiTableSinkWriter.replicaMode()`.
-Otherwise the job fails before any row is written:
+Otherwise the job fails before any row is written, but not before the save mode of the sink
+(see below):
 
 | Replica mode | Routing with more than one replica |
 |--------------|------------------------------------|
-| `KEYED` | Rows are hashed by the key field from `primaryKey()`, so all changes of one key reach the same replica in order; a writer without a key is rejected |
+| `KEYED` | Rows are hashed by the key field from `primaryKey()`, so all changes of one key reach the same replica in order; a writer without a key is rejected. A key of type `BYTES` is hashed by array identity, not content, so keep one replica for a table whose key column is binary |
 | `RANDOM` | Rows go to a random replica. Only for writers whose result does not depend on the write order |
 | `UNSUPPORTED` (default) | The job is rejected when the writer is created or restored |
 
@@ -328,13 +329,20 @@ default) every row goes to queue 0 and no replica mode is needed. The restore ch
 `multi_table_sink_replica` still runs for every value: a restore fails after the value or the
 sink parallelism changed (see the option in the sink common options).
 
+The check runs when the writer is created or restored. On a fresh start that is after the save
+mode of the sink, so a destructive save mode such as `data_save_mode = DROP_DATA` or
+`schema_save_mode = RECREATE_SCHEMA` has already cleared or recreated the target tables when the
+job fails. Set the option to 1 before such a job is submitted.
+
 ### 5.3 Replica Selection Strategies
 
 Both strategies select a queue index in `[0, blockingQueues.size())`. See
 `MultiTableSinkWriter.write(SeaTunnelRow)` for the full branch structure.
 
 **Hash-based (`KEYED`)** — the same key always reaches the same queue,
-which is what preserves ordering for that key:
+which is what preserves ordering for that key. For an array key such as a `byte[]` of a `BYTES`
+column, `hashCode()` is the identity hash, so two rows with the same content can reach different
+queues:
 
 ```java
 int index = (object.hashCode() & Integer.MAX_VALUE) % blockingQueues.size();
@@ -607,6 +615,9 @@ sink {
 # If write latency high → increase replicas
 multi_table_sink_replica = 2  # Double capacity
 ```
+
+A value above 1 is accepted only for a sink whose writer declares a replica mode, today Jdbc with
+a primary key for every table and without `is_exactly_once`. Other sinks keep the value at 1.
 
 ### 10.3 Schema Management
 
