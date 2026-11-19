@@ -90,6 +90,15 @@ public class MultiTableSink
         this.sinks = context.getSinks();
         this.replicaNum =
                 context.getOptions().get(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA);
+        // Options can also come from callers that construct the sink directly.
+        if (replicaNum < 1) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Option '%s' must be at least 1, but was %d. Each replica is one "
+                                    + "sink writer per subtask, so a value below 1 leaves the "
+                                    + "multi-table sink with no writers.",
+                            SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), replicaNum));
+        }
         this.failurePolicy =
                 context.getOptions().get(MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY);
         this.tableRetryTimes = context.getOptions().get(EnvCommonOptions.JOB_RETRY_TIMES);
