@@ -352,6 +352,32 @@ public class SeaTunnelConfValidateCommandTest {
     }
 
     @Test
+    public void testConnectDryRunChecksSinkInputCountBeforeUnion() {
+        String sources =
+                "source {\n"
+                        + "  FakeSource { plugin_output = left, schema = { fields { id = int } } }\n"
+                        + "  FakeSource { plugin_output = right, schema = { fields { id = int } } }\n"
+                        + "}\n";
+        ConfigCheckException failure =
+                Assertions.assertThrows(
+                        ConfigCheckException.class,
+                        () ->
+                                runConnectValidatorFromString(
+                                        sources
+                                                + "sink { DryRunTestSink { plugin_input = [left, right],"
+                                                + " single_input = true } }"));
+
+        Assertions.assertTrue(failure.getMessage().contains("sink[0](DryRunTestSink)"));
+        Assertions.assertTrue(failure.getMessage().contains("requires a single input table"));
+
+        List<DryRunConnectValidator.PluginResult> permitted =
+                runConnectValidatorFromString(
+                        sources + "sink { DryRunTestSink { plugin_input = [left, right] } }");
+        Assertions.assertEquals(
+                DryRunConnectValidator.PluginResult.Status.VALIDATED, permitted.get(2).getStatus());
+    }
+
+    @Test
     public void testConnectDryRunSinkValidationFailurePropagatesWithLocation() {
         ConfigCheckException exception =
                 Assertions.assertThrows(

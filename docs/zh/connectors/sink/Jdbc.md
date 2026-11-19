@@ -368,7 +368,7 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 
 ### ducklake_bulk_write [boolean]
 
-可选的 DuckDB/DuckLake 纯追加批量写入模式：每批先暂存在本地，再通过一条 SQL 写入已有的 DuckLake 表。默认 `false`。该模式只接收一个上游输入表；Zeta 会在作业规划阶段拒绝多表源和多个输入源。配置和交付语义见 [DuckDB Sink](DuckDB.md#ducklake-批量追加)。
+可选的 DuckDB/DuckLake 纯追加批量写入模式：每批先暂存在本地，再通过一条 SQL 写入已有的 DuckLake 表。默认 `false`。该模式只接收一个上游输入表；SeaTunnel Zeta、Flink 和 Spark 会在作业规划阶段拒绝多表输入。该模式也不支持将多个输入合并后写入。配置和交付语义见 [DuckDB Sink](DuckDB.md#ducklake-批量追加)。
 
 ### ducklake_bulk_write_ignore_inherited_keys [boolean]
 

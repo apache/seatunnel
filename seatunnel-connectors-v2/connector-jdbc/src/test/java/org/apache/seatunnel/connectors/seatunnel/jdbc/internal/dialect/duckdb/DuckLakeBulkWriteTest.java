@@ -119,6 +119,65 @@ public class DuckLakeBulkWriteTest {
     }
 
     @Test
+    void rejectingNonInsertDiscardsBufferedRows() throws Exception {
+        try (Connection connection = new DuckDBDriver().connect("jdbc:duckdb:", new Properties());
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE main.events (id INTEGER, val VARCHAR)");
+            DuckLakeBulkStatementExecutor executor =
+                    new DuckLakeBulkStatementExecutor(
+                            "main", "events", schema(), new DuckDBJdbcRowConverter());
+            executor.prepareStatements(connection);
+            executor.addToBatch(new SeaTunnelRow(new Object[] {1, "buffered"}));
+            SeaTunnelRow update = new SeaTunnelRow(new Object[] {1, "updated"});
+            update.setRowKind(RowKind.UPDATE_AFTER);
+            SQLException failure =
+                    Assertions.assertThrows(SQLException.class, () -> executor.addToBatch(update));
+            Assertions.assertEquals("0A000", failure.getSQLState());
+
+            executor.executeBatch();
+            try (ResultSet result = statement.executeQuery("SELECT COUNT(*) FROM main.events")) {
+                Assertions.assertTrue(result.next());
+                Assertions.assertEquals(0, result.getInt(1));
+            }
+
+            executor.addToBatch(new SeaTunnelRow(new Object[] {2, "next batch"}));
+            executor.executeBatch();
+            executor.closeStatements();
+            try (ResultSet result = statement.executeQuery("SELECT id FROM main.events")) {
+                Assertions.assertTrue(result.next());
+                Assertions.assertEquals(2, result.getInt(1));
+                Assertions.assertFalse(result.next());
+            }
+        }
+    }
+
+    @Test
+    void successfulTransferDoesNotReplayWhenStatementsFailToClose() throws Exception {
+        Connection connection = Mockito.mock(Connection.class);
+        Statement validation = Mockito.mock(Statement.class);
+        Statement transfer = Mockito.mock(Statement.class);
+        PreparedStatement insert = Mockito.mock(PreparedStatement.class);
+        Mockito.when(connection.createStatement()).thenReturn(validation, transfer);
+        Mockito.when(connection.prepareStatement(Mockito.anyString())).thenReturn(insert);
+        Mockito.when(transfer.executeUpdate(Mockito.startsWith("INSERT INTO "))).thenReturn(1);
+        Mockito.doThrow(new SQLException("insert close failed")).when(insert).close();
+        Mockito.doThrow(new SQLException("transfer close failed")).when(transfer).close();
+        DuckLakeBulkStatementExecutor executor =
+                new DuckLakeBulkStatementExecutor(
+                        "main", "events", schema(), new DuckDBJdbcRowConverter());
+        executor.prepareStatements(connection);
+        executor.addToBatch(new SeaTunnelRow(new Object[] {1, "one"}));
+
+        executor.executeBatch();
+        executor.executeBatch();
+
+        Mockito.verify(transfer).executeUpdate(Mockito.startsWith("INSERT INTO "));
+        Mockito.verify(insert).close();
+        Mockito.verify(transfer).close();
+        Mockito.verify(connection, Mockito.times(2)).createStatement();
+    }
+
+    @Test
     void failedTransferDoesNotPublishPartialBatchAndReplayWorks() throws Exception {
         String url = "jdbc:duckdb:" + tempDir.resolve("local.db");
         try (Connection connection = new DuckDBDriver().connect(url, new Properties());
@@ -192,7 +251,7 @@ public class DuckLakeBulkWriteTest {
     }
 
     @Test
-    void closesRemainingResourcesWhenStageInsertCloseFails() throws Exception {
+    void preservesTransferFailureWhileClosingRemainingResources() throws Exception {
         Connection connection = Mockito.mock(Connection.class);
         Statement validation = Mockito.mock(Statement.class);
         Statement flush = Mockito.mock(Statement.class);
@@ -205,13 +264,17 @@ public class DuckLakeBulkWriteTest {
                         "main", "events", schema(), new DuckDBJdbcRowConverter());
         executor.prepareStatements(connection);
         executor.addToBatch(new SeaTunnelRow(new Object[] {1, "one"}));
+        SQLException transferFailure = new SQLException("target insert failed");
         SQLException insertFailure = new SQLException("insert close failed");
         SQLException statementFailure = new SQLException("statement close failed");
+        Mockito.when(flush.executeUpdate(Mockito.startsWith("INSERT INTO ")))
+                .thenThrow(transferFailure);
         Mockito.doThrow(insertFailure).when(insert).close();
         Mockito.doThrow(statementFailure).when(flush).close();
         SQLException failure = Assertions.assertThrows(SQLException.class, executor::executeBatch);
-        Assertions.assertSame(insertFailure, failure);
-        Assertions.assertArrayEquals(new Throwable[] {statementFailure}, failure.getSuppressed());
+        Assertions.assertSame(transferFailure, failure);
+        Assertions.assertArrayEquals(
+                new Throwable[] {insertFailure, statementFailure}, failure.getSuppressed());
         Mockito.verify(flush).close();
         SQLException dropFailure = new SQLException("drop failed");
         SQLException cleanupFailure = new SQLException("cleanup close failed");

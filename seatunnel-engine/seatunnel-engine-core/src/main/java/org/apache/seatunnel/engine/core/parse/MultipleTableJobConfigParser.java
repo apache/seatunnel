@@ -232,10 +232,7 @@ public class MultipleTableJobConfigParser {
         List<URL> sourceConnectorJars = getConnectorJarList(sourceConfigs, PluginType.SOURCE);
         List<URL> transformConnectorJars =
                 getConnectorJarList(transformConfigs, PluginType.TRANSFORM);
-        List<URL> sinkConnectorJars =
-                DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())
-                        ? Collections.emptyList()
-                        : getConnectorJarList(sinkConfigs, PluginType.SINK);
+        List<URL> sinkConnectorJars = getConnectorJarList(sinkConfigs, PluginType.SINK);
         ClassLoader parentClassLoader = Thread.currentThread().getContextClassLoader();
 
         // source and transform use the same classloader
@@ -655,24 +652,22 @@ public class MultipleTableJobConfigParser {
         Set<URL> jarUrls = new HashSet<>();
         if (!DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
             jarUrls.addAll(getSinkPluginJarPaths(sinkConfig));
+        }
 
-            // Validate full input cardinality before creating per-table or union sinks.
-            int inputTableCount = inputVertices.stream().mapToInt(List::size).sum();
-            if (inputTableCount > 1) {
-                Optional<TableSinkFactory> sinkFactoryOptional;
-                try {
-                    sinkFactoryOptional =
-                            FactoryUtil.discoverOptionalFactory(
-                                    classLoader, TableSinkFactory.class, factoryId);
-                } catch (FactoryException e) {
-                    // Defer discovery errors to the existing per-table handling.
-                    sinkFactoryOptional = Optional.empty();
-                }
-                if (sinkFactoryOptional.isPresent()) {
-                    sinkFactoryOptional
-                            .get()
-                            .validateInputTableCount(readonlyConfig, inputTableCount);
-                }
+        // Validate full input cardinality before creating per-table or union sinks.
+        int inputTableCount = inputVertices.stream().mapToInt(List::size).sum();
+        if (inputTableCount > 1) {
+            Optional<TableSinkFactory> sinkFactoryOptional;
+            try {
+                sinkFactoryOptional =
+                        FactoryUtil.discoverOptionalFactory(
+                                classLoader, TableSinkFactory.class, factoryId);
+            } catch (FactoryException e) {
+                // Defer discovery errors to the existing per-table handling.
+                sinkFactoryOptional = Optional.empty();
+            }
+            if (sinkFactoryOptional.isPresent()) {
+                sinkFactoryOptional.get().validateInputTableCount(readonlyConfig, inputTableCount);
             }
         }
         List<SinkAction<?, ?, ?, ?>> sinkActions = new ArrayList<>();

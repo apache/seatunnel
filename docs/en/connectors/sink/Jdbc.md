@@ -367,7 +367,7 @@ The maximum number of buffered rows per batch. The sink flushes when the buffer 
 
 ### ducklake_bulk_write [boolean]
 
-Optional DuckDB/DuckLake insert-only batch mode. It stages each batch locally and inserts it into an existing DuckLake table with one SQL statement. The default is `false`. It accepts one upstream table; Zeta rejects multi-table sources and multiple input sources during job planning. See [DuckDB Sink](DuckDB.md#ducklake-bulk-append) for configuration and delivery limits.
+Optional DuckDB/DuckLake insert-only batch mode. It stages each batch locally and inserts it into an existing DuckLake table with one SQL statement. The default is `false`. It accepts one upstream table; SeaTunnel Zeta, Flink, and Spark reject multi-table input during planning. A union of multiple inputs is also unsupported. See [DuckDB Sink](DuckDB.md#ducklake-bulk-append) for configuration and delivery limits.
 
 ### ducklake_bulk_write_ignore_inherited_keys [boolean]
 

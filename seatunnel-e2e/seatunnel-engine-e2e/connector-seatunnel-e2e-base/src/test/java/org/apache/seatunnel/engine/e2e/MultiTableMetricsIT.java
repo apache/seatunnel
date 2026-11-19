@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-
-import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -27,8 +24,6 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
-import org.apache.seatunnel.engine.common.utils.IdGenerator;
-import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
@@ -81,79 +76,6 @@ public class MultiTableMetricsIT {
                         () ->
                                 Assertions.assertEquals(
                                         JobStatus.FINISHED, batchJobProxy.getJobStatus()));
-    }
-
-    @Test
-    public void testDuckLakeBulkRejectsMultiTableSource() {
-        assertBulkInputRejected(
-                "FakeSource { plugin_output=left, tables_configs=["
-                        + bulkTable("source.one")
-                        + ","
-                        + bulkTable("source.two")
-                        + "] }",
-                "left");
-    }
-
-    @Test
-    public void testDuckLakeBulkRejectsUnionInputs() {
-        assertBulkInputRejected(
-                "FakeSource { plugin_output=left, tables_configs=["
-                        + bulkTable("source.one")
-                        + "] }\n"
-                        + "FakeSource { plugin_output=right, tables_configs=["
-                        + bulkTable("source.two")
-                        + "] }",
-                "[left,right]");
-    }
-
-    @Test
-    public void testDuckLakeBulkAcceptsSingleInput() {
-        Assertions.assertEquals(
-                1,
-                bulkPlanner(
-                                "FakeSource { plugin_output=left, tables_configs=["
-                                        + bulkTable("source.one")
-                                        + "] }",
-                                "[left]")
-                        .parse(null)
-                        .getLeft()
-                        .size());
-    }
-
-    private void assertBulkInputRejected(String sources, String inputs) {
-        RuntimeException failure =
-                Assertions.assertThrows(
-                        RuntimeException.class, () -> bulkPlanner(sources, inputs).parse(null));
-        StringBuilder messages = new StringBuilder();
-        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
-            messages.append(cause.getMessage()).append('\n');
-        }
-        Assertions.assertTrue(
-                messages.toString().contains("ducklake_bulk_write"), messages.toString());
-        Assertions.assertTrue(
-                messages.toString().contains("single input table"), messages.toString());
-    }
-
-    private String bulkTable(String name) {
-        return "{ schema { table=\"" + name + "\", fields { id=bigint } } }";
-    }
-
-    private MultipleTableJobConfigParser bulkPlanner(String sources, String inputs) {
-        String config =
-                "env { parallelism=1, job.mode=BATCH }\n"
-                        + "source {\n"
-                        + sources
-                        + "\n}\n"
-                        + "sink { Jdbc { url=\"jdbc:duckdb:\", driver=\"org.duckdb.DuckDBDriver\","
-                        + "schema_save_mode=IGNORE, data_save_mode=APPEND_DATA,"
-                        + "generate_sink_sql=true, database=lake, table=\"main.events\","
-                        + "ducklake_bulk_write=true, plugin_input="
-                        + inputs
-                        + " } }\n";
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.setJobContext(new JobContext());
-        return new MultipleTableJobConfigParser(
-                ConfigFactory.parseString(config), new IdGenerator(), jobConfig);
     }
 
     @Test

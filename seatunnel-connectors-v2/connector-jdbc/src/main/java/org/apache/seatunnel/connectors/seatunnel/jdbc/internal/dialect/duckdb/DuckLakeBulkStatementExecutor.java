@@ -23,6 +23,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -40,6 +43,8 @@ import java.util.stream.Collectors;
  * file per row in a batch.
  */
 public class DuckLakeBulkStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
+    private static final Logger LOG = LoggerFactory.getLogger(DuckLakeBulkStatementExecutor.class);
+
     private final TableSchema tableSchema;
     private final JdbcRowConverter converter;
     private final String targetTable;
@@ -92,6 +97,7 @@ public class DuckLakeBulkStatementExecutor implements JdbcBatchStatementExecutor
     @Override
     public void addToBatch(SeaTunnelRow record) throws SQLException {
         if (record.getRowKind() != RowKind.INSERT) {
+            rows.clear();
             throw new SQLException(
                     "ducklake_bulk_write supports INSERT rows only; received "
                             + record.getRowKind(),
@@ -107,6 +113,7 @@ public class DuckLakeBulkStatementExecutor implements JdbcBatchStatementExecutor
         }
         // DELETE/TRUNCATE does not guarantee reclaiming old stage storage. Recreate per flush,
         // including after a failed transfer, so old rows and storage cannot accumulate.
+        boolean transferred = false;
         try (Statement statement = connection.createStatement()) {
             statement.execute("DROP TABLE IF EXISTS " + stageTable);
             statement.execute(
@@ -144,8 +151,15 @@ public class DuckLakeBulkStatementExecutor implements JdbcBatchStatementExecutor
                                 + columns
                                 + " FROM "
                                 + stageTable);
+                rows.clear();
+                transferred = true;
             }
-            rows.clear();
+        } catch (SQLException e) {
+            if (!transferred) {
+                throw e;
+            }
+            // The auto-commit transfer completed; a close failure cannot make the batch retryable.
+            LOG.warn("Failed to close DuckLake staging statements after a successful transfer", e);
         }
     }
 

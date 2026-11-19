@@ -331,6 +331,10 @@ class DryRunConnectValidator {
                 return;
             }
 
+            int inputTableCount =
+                    inputVertices.stream().mapToInt(input -> input.getCatalogTables().size()).sum();
+            factory.validateInputTableCount(readonlyConfig, inputTableCount);
+
             List<CatalogTable> inputCatalogTables =
                     resolveSinkInputTables(inputVertices, configIndex, factoryId);
             SupportSinkDryRunValidation validation = (SupportSinkDryRunValidation) factory;

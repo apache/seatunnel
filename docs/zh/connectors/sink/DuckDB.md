@@ -140,7 +140,7 @@ sink {
 
 该模式仅接受 INSERT 行，不支持 `query`、主键更新、COPY、XA、自动建表或 JDBC 批次自动重试。每次成功 flush 会提交一次湖表写入；如果提交结果不明而作业重放，仍可能出现重复行。Parquet 文件数还受 DuckLake 分区和文件大小策略影响，不能保证任何场景都严格每批一个文件。关闭此选项时，普通 DuckDB 写入保持原样。
 
-该模式接收一个上游输入表，并写入一个配置的目标表。Zeta 会在作业规划阶段拒绝多表源和多个输入源。默认仍拒绝从上游表继承的主键或 UNIQUE 键。对于 PostgreSQL 等只产生 INSERT 的批量源，可以明确设置 `ducklake_bulk_write_ignore_inherited_keys = true`，只在 Sink schema 副本中忽略继承键，保留源端元数据。目标表必须预建且不包含强制键约束；显式配置 `primary_keys` 仍不支持。此选项不启用 upsert、不保证唯一性、不对重放去重，UPDATE 和 DELETE 行仍会报错。仅关闭 `enable_upsert` 不会移除继承键。
+该模式接收一个上游输入表，并写入一个配置的目标表。SeaTunnel Zeta、Flink 和 Spark 会在作业规划阶段拒绝多表输入。该模式也不支持将多个输入合并后写入。默认仍拒绝从上游表继承的主键或 UNIQUE 键。对于 PostgreSQL 等只产生 INSERT 的批量源，可以明确设置 `ducklake_bulk_write_ignore_inherited_keys = true`，只在 Sink schema 副本中忽略继承键，保留源端元数据。目标表必须预建且不包含强制键约束；显式配置 `primary_keys` 仍不支持。此选项不启用 upsert、不保证唯一性、不对重放去重，UPDATE 和 DELETE 行仍会报错。仅关闭 `enable_upsert` 不会移除继承键。
 
 按行宽和 Worker 内存预算选择 `batch_size`。小行可以使用比默认 1000 更大的批次减少小文件，但 flush 期间数据同时占用 Java 缓冲和 DuckDB 暂存表。检查点、批次时间间隔和作业结束也会触发未满批次的 flush，因此只增大 `batch_size` 不能保证大文件。每次 flush 重建临时表以释放上一批的存储；关闭写入器时删除剩余临时表，同时保留池中的物理连接。这会增加每批建表和准备语句的开销。尚未测量大批次的吞吐量和峰值内存，小规模回归用例不能证明生产容量。
 

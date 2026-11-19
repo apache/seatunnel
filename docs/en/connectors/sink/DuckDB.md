@@ -155,7 +155,7 @@ replaying a job after an uncertain commit can still duplicate rows. The number o
 also depends on DuckLake partitioning and file-size policies, so one file per flush is not a
 general guarantee. The regular DuckDB sink behavior is unchanged when the option is false.
 
-This mode accepts one upstream table and writes one configured target table. Zeta rejects multi-table sources and multiple input sources during job planning.
+This mode accepts one upstream table and writes one configured target table. SeaTunnel Zeta, Flink, and Spark reject multi-table input during planning. A union of multiple inputs is also unsupported.
 Primary or UNIQUE keys inherited from an upstream table cause rejection by default.
 For an insert-only batch source such as PostgreSQL, explicitly set
 `ducklake_bulk_write_ignore_inherited_keys = true` to ignore these keys in the Sink schema
