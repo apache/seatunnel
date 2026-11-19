@@ -126,6 +126,10 @@ source {
 }
 ```
 
+> 注意：HTTP source 的 `pageing` 选项每次请求只会把页码加 1，无法表达步长。OneSignal 的 `offset`
+是记录偏移量而不是页码——与 `pageing` 组合会请求到相互重叠的窗口（offset 0、1、2……），因此上面的示例
+改为单次请求。
+
 ### 通过 JSONPath 抽取字段
 
 当不同字段位于不同 JSON 路径时，使用 `json_field`：

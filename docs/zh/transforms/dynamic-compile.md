@@ -22,6 +22,9 @@ DynamicCompile 转换插件提供一种可编程的方式来处理行，允许�
 | compile_language | Enum   | yes      |               |
 | compile_pattern  | Enum   | no       | SOURCE_CODE   |
 | absolute_path    | string | no       |               |
+| table_match_regex | string | no       | `.*`          |
+| table_transform   | array  | no       | -             |
+| rule_match_mode   | string | no       | `FIRST_MATCH` |
 
 
 ### 通用选项 [string]
@@ -46,6 +49,10 @@ SOURCE_CODE,ABSOLUTE_PATH
 
 ### source_code [string]
 源代码
+
+### table_match_regex / table_transform / rule_match_mode
+
+多表选项。当上游数据源输出多张表时，一个 DynamicCompile 转换即可处理所有这些表：`table_match_regex` 选择转换级别规则适用的表（默认 `.*`），`table_transform` 保存完整的单表规则（`table_path` 加上上述选项），`rule_match_mode`（`FIRST_MATCH` 或 `ALL_MATCH`）控制相同 `table_path` 条目的求值方式。参见 [多表转换](transform-multi-table.md)。
 
 #### 关于source_code
 在代码中，你必须实现两个方法
