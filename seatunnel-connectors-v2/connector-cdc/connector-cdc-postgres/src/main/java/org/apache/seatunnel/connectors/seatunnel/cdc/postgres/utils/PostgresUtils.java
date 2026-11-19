@@ -140,42 +140,42 @@ public class PostgresUtils {
                 });
     }
 
-    public static Object[] sampleDataFromColumn(
-            JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
-            throws SQLException {
-        final String minQuery =
-                String.format(
-                        "SELECT %s FROM %s WHERE MOD((%s - (SELECT MIN(%s) FROM %s)), %s) = 0 ORDER BY %s",
-                        quote(columnName),
-                        quote(tableId),
-                        quote(columnName),
-                        quote(columnName),
-                        quote(tableId),
-                        inverseSamplingRate,
-                        quote(columnName));
-        return jdbc.queryAndMap(
-                minQuery,
-                resultSet -> {
-                    List<Object> results = new ArrayList<>();
-                    while (resultSet.next()) {
-                        results.add(resultSet.getObject(1));
-                    }
-                    return results.toArray();
-                });
-    }
-
-    public static Object[] skipReadAndSortSampleData(
+    /**
+     * Samples the split column of a table and returns the sampled keys in the database collation
+     * order.
+     *
+     * <p>The sampled keys MUST be returned in the database collation order, NOT Java
+     * String.compareTo order. Snapshot reads later filter rows with {@code WHERE key >= chunkStart
+     * AND key < chunkEnd}, which the database evaluates using its collation (e.g. en_US.UTF-8, a
+     * case-insensitive dictionary order). If the chunk boundaries were produced from a Java
+     * byte-order sort, the two orderings disagree for mixed-case string keys: chunk ranges overlap
+     * (rows read twice) or invert (permanently empty chunks), and rows can concentrate into a
+     * single giant chunk that overloads one subtask.
+     *
+     * <p>The SELECT list keeps the {@code convertType} cast (uuid is read back as text, matching
+     * the split-key type used by the snapshot WHERE filters), but the ORDER BY deliberately uses
+     * the RAW column: an ORDER BY on the cast expression ({@code "id"::text}) cannot use the uuid
+     * btree index and would force a seq scan plus a server-side external sort on huge tables. The
+     * raw uuid column orders by uuid byte order, which is identical to the hex-text order the
+     * {@code ::text} comparisons use, so the boundaries stay consistent with the snapshot WHERE
+     * filters while the planner satisfies the ORDER BY with an index scan.
+     */
+    public static Object[] skipReadAndSampleData(
             JdbcConnection jdbc,
             TableId tableId,
             String columnName,
             Column column,
             int inverseSamplingRate)
             throws Exception {
-        columnName = quote(columnName);
-        if (column != null) {
-            columnName = JDBC_DIALECT.convertType(columnName, column.typeName());
-        }
-        final String sampleQuery = String.format("SELECT %s FROM %s", columnName, quote(tableId));
+        final String quotedColumn = quote(columnName);
+        final String selectColumn =
+                column != null
+                        ? JDBC_DIALECT.convertType(quotedColumn, column.typeName())
+                        : quotedColumn;
+        final String sampleQuery =
+                String.format(
+                        "SELECT %s FROM %s ORDER BY %s",
+                        selectColumn, quote(tableId), quotedColumn);
 
         Statement stmt = null;
         ResultSet rs = null;
@@ -229,9 +229,11 @@ public class PostgresUtils {
                 log.warn("Failed to restore auto-commit state", e);
             }
         }
-        Object[] resultsArray = results.toArray();
-        Arrays.sort(resultsArray);
-        return resultsArray;
+        // The sample is already sorted by the database (ORDER BY in sampleQuery), in the same
+        // collation order the snapshot WHERE filters use. Do NOT re-sort here with Java
+        // Arrays.sort: String.compareTo uses UTF-16 code-unit order which disagrees with the
+        // database collation and would misalign the chunk boundaries again.
+        return results.toArray();
     }
 
     /**
