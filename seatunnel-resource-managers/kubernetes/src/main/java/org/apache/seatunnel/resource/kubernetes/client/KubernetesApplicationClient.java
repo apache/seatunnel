@@ -30,6 +30,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesP
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Reads durable Kubernetes Job state without connecting to the application master. */
 @Slf4j
@@ -38,9 +39,8 @@ public final class KubernetesApplicationClient implements AutoCloseable {
     private final KubernetesClient api;
     private final String applicationId;
     private volatile boolean canceled;
-    // Sticky capability observation, not authorization: a fresh handle keeps legacy cleanup on
-    // 404, while a handle that saw an HA owner uses UID-scoped orphan cleanup after owner expiry.
-    private volatile boolean haObserved;
+    // The first observed HA Job pins this handle to one incarnation of the application.
+    private final AtomicReference<String> observedHaOwnerUid = new AtomicReference<>();
 
     public KubernetesApplicationClient(KubernetesClient api, String applicationId) {
         this.api = api;
@@ -62,7 +62,7 @@ public final class KubernetesApplicationClient implements AutoCloseable {
         }
         try {
             KubernetesJob job = api.getJob(applicationId);
-            haObserved |= HaApplicationState.enabled(job);
+            observeHaOwner(job);
             ApplicationStatus recorded = HaApplicationState.terminal(job);
             if (recorded != null) {
                 return recorded;
@@ -119,21 +119,40 @@ public final class KubernetesApplicationClient implements AutoCloseable {
             }
             // A fresh or single-master handle retains the established graceful master cleanup.
             // Only a positively observed HA owner opts into UID-scoped orphan cleanup.
-            if (!haObserved) {
+            String ownerUid = observedHaOwnerUid.get();
+            if (ownerUid == null) {
                 api.deleteApplication(applicationId);
             } else {
-                KubernetesHaClient.require(api).deleteOrphanPods(applicationId);
+                KubernetesHaClient.require(api).deleteOrphanPods(applicationId, ownerUid);
             }
             canceled = true;
             return;
         }
-        haObserved |= HaApplicationState.enabled(owner);
-        if (haObserved) {
-            KubernetesHaClient.require(api).deleteApplication(applicationId, owner.getUid());
+        String ownerUid = observeHaOwner(owner);
+        if (ownerUid != null) {
+            KubernetesHaClient.require(api).deleteApplication(applicationId, ownerUid);
         } else {
             api.deleteApplication(applicationId);
         }
         canceled = true;
+    }
+
+    /** Binds an HA handle to the first observed owner UID and rejects a replacement. */
+    private String observeHaOwner(KubernetesJob owner) {
+        String observedUid = observedHaOwnerUid.get();
+        if (observedUid == null && !HaApplicationState.enabled(owner)) {
+            return null;
+        }
+        String uid = owner.getUid();
+        if (uid == null || uid.isBlank()) {
+            throw new KubernetesClientException(409, "HA application owner has no UID");
+        }
+        observedHaOwnerUid.compareAndSet(null, uid);
+        if (!uid.equals(observedHaOwnerUid.get())) {
+            throw new KubernetesClientException(
+                    409, "Kubernetes application " + applicationId + " has a different owner UID");
+        }
+        return uid;
     }
 
     /**

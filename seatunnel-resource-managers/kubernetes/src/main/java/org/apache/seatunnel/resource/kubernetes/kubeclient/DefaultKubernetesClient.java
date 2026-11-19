@@ -346,6 +346,7 @@ final class DefaultKubernetesClient implements KubernetesHaClient {
 
     @Override
     public void deleteApplication(String id, String uid) {
+        requireOwnerUid(uid);
         // With a body, Kubernetes decodes DeleteOptions from that body, not the query parameters.
         // Keep propagation beside the UID precondition so deleting an application never orphans it.
         try {
@@ -366,24 +367,11 @@ final class DefaultKubernetesClient implements KubernetesHaClient {
     }
 
     @Override
-    public void deleteOrphanPods(String id) {
-        try {
-            getJob(id);
-            return;
-        } catch (KubernetesClientException absent) {
-            if (absent.getCode() != 404) {
-                throw absent;
-            }
-        }
+    public void deleteOrphanPods(String id, String ownerUid) {
+        requireOwnerUid(ownerUid);
+        requireOwnerAbsent(id);
         List<KubernetesPod> orphans = listPods(KubernetesConstants.APPLICATION_LABEL + "=" + id);
-        try {
-            getJob(id);
-            return;
-        } catch (KubernetesClientException absent) {
-            if (absent.getCode() != 404) {
-                throw absent;
-            }
-        }
+        requireOwnerAbsent(id);
         for (KubernetesPod pod : orphans) {
             V1ObjectMeta metadata = pod.getInternalResource().getMetadata();
             if (metadata.getUid() == null
@@ -393,7 +381,7 @@ final class DefaultKubernetesClient implements KubernetesHaClient {
                                     ref ->
                                             "Job".equals(ref.getKind())
                                                     && id.equals(ref.getName())
-                                                    && ref.getUid() != null)) {
+                                                    && ownerUid.equals(ref.getUid()))) {
                 continue;
             }
             try {
@@ -410,6 +398,26 @@ final class DefaultKubernetesClient implements KubernetesHaClient {
                 rethrowUnlessMissing(failure);
             }
         }
+    }
+
+    private static void requireOwnerUid(String ownerUid) {
+        if (ownerUid == null || ownerUid.isBlank()) {
+            throw new IllegalArgumentException("An observed Kubernetes owner UID is required");
+        }
+    }
+
+    /** Refuse to report orphan cleanup complete if a Job appeared during the cleanup. */
+    private void requireOwnerAbsent(String id) {
+        try {
+            getJob(id);
+        } catch (KubernetesClientException failure) {
+            if (failure.getCode() == 404) {
+                return;
+            }
+            throw failure;
+        }
+        throw new KubernetesClientException(
+                409, "Kubernetes Job " + id + " appeared during orphan cleanup");
     }
 
     @Override

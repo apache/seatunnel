@@ -145,7 +145,7 @@ Masters and workers do not mount Kubernetes API tokens; only the owner needs in-
   remain. Created mounted configuration remains until owner Job TTL.
 - Workers are fixed `Never`-restart Pods. Losing a worker fails the deployment and removes its
   remaining compute; no worker replacement is provided.
-- Application `cancel` deletes the owner by UID with foreground propagation. Its acknowledgement
+- After observing an HA owner, application `cancel` deletes that Job by UID with foreground propagation. Its acknowledgement
   is distinct from observing that all dependent resources have disappeared.
 
 The owner Job has no automatic retry, to avoid repeating ambiguous submissions. Owner process loss

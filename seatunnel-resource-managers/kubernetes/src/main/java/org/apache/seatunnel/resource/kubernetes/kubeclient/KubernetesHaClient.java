@@ -35,8 +35,8 @@ public interface KubernetesHaClient extends KubernetesClient {
     /** Deletes the observed application with UID preconditions, never a replacement by name. */
     void deleteApplication(String id, String uid);
 
-    /** Removes only observed Job-owned orphan Pods using their UID, never a Job by name. */
-    void deleteOrphanPods(String id);
+    /** Removes orphan Pods only when their Job owner reference matches the observed owner UID. */
+    void deleteOrphanPods(String id, String ownerUid);
 
     static KubernetesHaClient require(KubernetesClient client) {
         if (!(client instanceof KubernetesHaClient)) {

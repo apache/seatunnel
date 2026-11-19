@@ -134,7 +134,7 @@ owner 不再是仅观察元数据的进程，它接收作业配置、所需环�
   API 删除失败会重试，清理同时校验 owner UID 和资源 UID，只删除本应用生成的资源。
   用户 PVC 和引用配置不删除；生成的挂载配置保留至 owner Job TTL。
 - Worker 为固定且不重启的 Pod，丢失 Worker 会失败并释放剩余计算资源，不自动补充。
-- 应用 cancel 以 UID 前置条件和 foreground 传播删除 owner；删除确认不等于已观察到全部依赖消失。
+- 观察到 HA owner 后，应用 cancel 以该 UID 为前置条件并使用 foreground 传播删除该 Job；删除确认不等于已观察到全部依赖消失。
 
 owner Job 不自动重试，以免重复含糊的提交。owner 进程丢失不属于 Master HA：Job 会失败，
 Kubernetes 在配置 TTL 到期后回收其依赖，显式取消可以提前删除。本功能不是 Operator。

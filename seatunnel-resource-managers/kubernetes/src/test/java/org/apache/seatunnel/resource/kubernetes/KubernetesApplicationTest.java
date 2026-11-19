@@ -599,7 +599,7 @@ class KubernetesApplicationTest {
         assertEquals(ApplicationStatus.UNKNOWN, client.getStatus());
         client.cancel();
         assertEquals(ApplicationStatus.CANCELED, client.getStatus());
-        verify(api, never()).deleteOrphanPods("app");
+        verify(api, never()).deleteOrphanPods(anyString(), anyString());
         verify(api).deleteApplication("app");
         verify(api, never()).deleteApplication(anyString(), anyString());
     }
@@ -614,7 +614,32 @@ class KubernetesApplicationTest {
         assertEquals(403, failure.getCode());
         verify(api, never()).deleteApplication(anyString());
         verify(api, never()).deleteApplication(anyString(), anyString());
-        verify(api, never()).deleteOrphanPods(anyString());
+        verify(api, never()).deleteOrphanPods(anyString(), anyString());
+    }
+
+    @Test
+    void observedHaHandleCannotCancelReplacementWithSameName() throws Exception {
+        KubernetesHaClient api = mock(KubernetesHaClient.class);
+        KubernetesJob original = job(new V1JobStatus());
+        original.getInternalResource()
+                .getMetadata()
+                .setAnnotations(
+                        Map.of(
+                                HaApplicationState.ENABLED, "true",
+                                HaApplicationState.STATUS, "RUNNING"));
+        KubernetesJob replacement = job(new V1JobStatus());
+        replacement.getInternalResource().getMetadata().setUid("uid-replacement");
+        KubernetesApplicationClient handle = new KubernetesApplicationClient(api, "app");
+
+        when(api.getJob("app")).thenReturn(original, replacement, replacement);
+        assertEquals(ApplicationStatus.RUNNING, handle.getStatus());
+        KubernetesClientException failure =
+                assertThrows(KubernetesClientException.class, handle::cancel);
+        assertEquals(409, failure.getCode());
+        assertEquals(
+                409, assertThrows(KubernetesClientException.class, handle::getStatus).getCode());
+        verify(api, never()).deleteApplication(anyString());
+        verify(api, never()).deleteApplication(anyString(), anyString());
     }
 
     @Test
@@ -632,7 +657,7 @@ class KubernetesApplicationTest {
         assertEquals(ApplicationStatus.RUNNING, handle.getStatus());
         when(api.getJob("app")).thenThrow(new KubernetesClientException(404, "gone"));
         handle.cancel();
-        verify(api).deleteOrphanPods("app");
+        verify(api).deleteOrphanPods("app", "uid-1");
         verify(api, never()).deleteApplication(anyString());
     }
 

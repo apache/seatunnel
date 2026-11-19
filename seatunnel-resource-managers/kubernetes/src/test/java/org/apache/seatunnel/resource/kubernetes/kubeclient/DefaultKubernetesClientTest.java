@@ -767,7 +767,12 @@ class DefaultKubernetesClientTest {
                                                     })
                                             .build());
             try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
-                api.deleteOrphanPods("app");
+                assertEquals(
+                        409,
+                        assertThrows(
+                                        KubernetesClientException.class,
+                                        () -> api.deleteOrphanPods("app", "original"))
+                                .getCode());
             }
             assertEquals(0, deletes.get());
         }
@@ -817,11 +822,17 @@ class DefaultKubernetesClientTest {
                                                             200,
                                                             "{\"items\":[{\"metadata\":"
                                                                     + ownedMetadata("app-worker-0")
+                                                                    + "},{\"metadata\":"
+                                                                    + ownedMetadata(
+                                                                                    "different-owner-worker")
+                                                                            .replace(
+                                                                                    "original",
+                                                                                    "replacement")
                                                                     + "},{\"metadata\":{\"name\":\"user-pod\",\"uid\":\"user-owned\"}}]}");
                                                 })
                                         .build());
         try (KubernetesHaClient api = new DefaultKubernetesClient(client, "test")) {
-            api.deleteOrphanPods("app");
+            api.deleteOrphanPods("app", "original");
         }
         assertEquals(
                 java.util.Collections.singletonList("/api/v1/namespaces/test/pods/app-worker-0"),
