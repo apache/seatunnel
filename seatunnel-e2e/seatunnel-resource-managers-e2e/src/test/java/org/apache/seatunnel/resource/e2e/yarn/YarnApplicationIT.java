@@ -523,7 +523,9 @@ public class YarnApplicationIT extends TestSuiteBase {
         assertEquals(owner, applicationReport(id).getUser());
         assertEquals(2, launchedWorkers(id.toString()).size());
 
-        // A caller can see the RM report without permission to remove this application's files.
+        // The client can observe the final result before the AM finishes removing staging.
+        // Wait for the AM to exit before recreating leftovers for the status permission check.
+        awaitContainersRemoved(id);
         Path leftover = new Path(root, id.toString());
         assertFalse(fs.exists(leftover));
         fs.mkdirs(leftover);
@@ -1111,6 +1113,10 @@ public class YarnApplicationIT extends TestSuiteBase {
                                 new Path(
                                         "/seatunnel-applications/"
                                                 + client.getClusterId().toString())));
+        awaitContainersRemoved(client.getClusterId());
+    }
+
+    private void awaitContainersRemoved(ApplicationId applicationId) {
         await().atMost(Duration.ofSeconds(60))
                 .until(
                         () ->
@@ -1120,9 +1126,6 @@ public class YarnApplicationIT extends TestSuiteBase {
                                                 id ->
                                                         id.getApplicationAttemptId()
                                                                 .getApplicationId()
-                                                                .toString()
-                                                                .equals(
-                                                                        client.getClusterId()
-                                                                                .toString())));
+                                                                .equals(applicationId)));
     }
 }
