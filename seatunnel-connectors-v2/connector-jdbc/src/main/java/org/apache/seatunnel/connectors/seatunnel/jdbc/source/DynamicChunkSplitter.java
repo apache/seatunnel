@@ -192,6 +192,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         log.info("Use string hash chunks for table {}", table.getTablePath());
         long approximateRowCnt = queryApproximateRowCnt(table);
         int shardCount = Math.max((int) (approximateRowCnt / Math.max(chunkSize, 1)) + 1, 1);
+        shardCount = capHashShardCount(table.getTablePath(), splitKeyName, shardCount);
         List<JdbcSourceSplit> splits = new ArrayList<>(shardCount);
         Column column =
                 table.getCatalogTable().getTableSchema().getColumns().stream()
@@ -238,6 +239,38 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                             null));
         }
         return splits;
+    }
+
+    /**
+     * Caps the hash chunk count at the reader parallelism explicitly configured on the source
+     * plugin. A hash chunk predicate wraps the split column in a hash function (for example
+     * ABS(MD5(col) % N)) that no index can serve, so every chunk scans the whole table and the
+     * total scan cost grows linearly with the chunk count. Capping at the parallelism keeps every
+     * reader busy while bounding the scan amplification at that parallelism. The cap is skipped
+     * when the plugin-level parallelism is not explicitly configured, because the effective reader
+     * count may then come from the env-level parallelism which the connector cannot observe.
+     */
+    @VisibleForTesting
+    int capHashShardCount(TablePath tablePath, String splitKeyName, int shardCount) {
+        Integer parallelism = config.getExplicitReaderParallelism();
+        if (!config.isHashShardParallelismCap()
+                || parallelism == null
+                || parallelism <= 0
+                || shardCount <= parallelism) {
+            return shardCount;
+        }
+        log.warn(
+                "Capping hash chunk count for table {} from {} to the reader parallelism {} "
+                        + "because hash chunk predicates wrap split column {} in a hash function "
+                        + "that no index can serve, so each chunk would scan the whole table. "
+                        + "To restore fine-grained chunks, add an index on a numeric column and "
+                        + "use it as the partition column, or set "
+                        + "split.hash-shard-parallelism-cap=false.",
+                tablePath,
+                shardCount,
+                parallelism,
+                splitKeyName);
+        return parallelism;
     }
 
     private Collection<JdbcSourceSplit> createStringRangeSplits(
