@@ -44,6 +44,17 @@
             <groupId>com.aerospike</groupId>
             <artifactId>aerospike-client</artifactId>
             <version>4.4.17</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.gnu</groupId>
+                    <artifactId>gnu-crypto</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.87</version>
         </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
@@ -51,4 +62,62 @@
             <version>2.0.33</version>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <configuration>
+                    <filters combine.children="append">
+                        <filter>
+                            <artifact>com.aerospike:aerospike-client</artifact>
+                            <excludes>
+                                <!-- Compile the upstream Bouncy Castle variant in this module. -->
+                                <exclude>com/aerospike/client/util/Crypto.class</exclude>
+                            </excludes>
+                        </filter>
+                        <filter>
+                            <artifact>org.bouncycastle:bcprov-jdk18on</artifact>
+                            <excludes>
+                                <!-- The connector uses the lightweight API without installing a JCA provider. -->
+                                <exclude>META-INF/services/java.security.Provider</exclude>
+                                <exclude>META-INF/versions/**</exclude>
+                            </excludes>
+                        </filter>
+                        <filter>
+                            <artifact>com.alibaba.fastjson2:fastjson2</artifact>
+                            <excludes>
+                                <exclude>com/alibaba/fastjson2/internal/trove/map/hash/TLongIntHashMap.class</exclude>
+                                <exclude>com/alibaba/fastjson2/internal/trove/map/hash/TLongIntHashMap$*.class</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                    <relocations>
+                        <relocation>
+                            <!-- JSONWriterJSONB is the only reference to the removed internal class. -->
+                            <pattern>com.alibaba.fastjson2.internal.trove.map.hash.TLongIntHashMap</pattern>
+                            <shadedPattern>org.apache.seatunnel.connectors.seatunnel.aerospike.fastjson.JsonbSymbolTable</shadedPattern>
+                            <includes>
+                                <include>com.alibaba.fastjson2.internal.trove.map.hash.TLongIntHashMap</include>
+                            </includes>
+                        </relocation>
+                        <relocation>
+                            <pattern>org.bouncycastle</pattern>
+                            <shadedPattern>org.apache.seatunnel.shade.aerospike.org.bouncycastle</shadedPattern>
+                        </relocation>
+                    </relocations>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <aerospike.connectorJar>${project.build.directory}/${project.build.finalName}.jar</aerospike.connectorJar>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

@@ -200,8 +200,12 @@ public class InstallPluginScriptTest {
         Assertions.assertEquals(0, exitCode);
         String arguments =
                 new String(Files.readAllBytes(capturedArguments), StandardCharsets.UTF_8);
-        Assertions.assertTrue(arguments.contains("-Dversion=3.1.0-SNAPSHOT"));
-        Assertions.assertTrue(arguments.contains("-DartifactId=connector-fake"));
+        Assertions.assertTrue(arguments.contains("maven-dependency-plugin:3.1.1:copy"));
+        Assertions.assertTrue(
+                arguments.contains(
+                        "-Dartifact=org.apache.seatunnel:connector-fake:3.1.0-SNAPSHOT:jar"));
+        Assertions.assertTrue(
+                arguments.contains("-DoutputDirectory=" + distribution.resolve("connectors")));
     }
 
     /**
@@ -228,8 +232,11 @@ public class InstallPluginScriptTest {
         Assertions.assertEquals(0, exitCode);
         String arguments =
                 new String(Files.readAllBytes(capturedArguments), StandardCharsets.UTF_8);
-        Assertions.assertTrue(arguments.contains("-Dversion=2.3.13"));
-        Assertions.assertTrue(arguments.contains("-DartifactId=connector-fake"));
+        Assertions.assertTrue(arguments.contains("maven-dependency-plugin:3.1.1:copy"));
+        Assertions.assertTrue(
+                arguments.contains("-Dartifact=org.apache.seatunnel:connector-fake:2.3.13:jar"));
+        Assertions.assertTrue(
+                arguments.contains("-DoutputDirectory=" + distribution.resolve("connectors")));
     }
 
     /**
