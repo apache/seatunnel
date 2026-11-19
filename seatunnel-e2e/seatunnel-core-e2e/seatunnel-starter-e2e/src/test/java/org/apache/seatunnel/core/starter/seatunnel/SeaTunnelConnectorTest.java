@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.seatunnel;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
@@ -197,6 +198,33 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
                         .get("valid")
                         .asBoolean());
         Assertions.assertFalse(invalid.getStderr().contains("Config Error"), invalid.getStderr());
+
+        Container.ExecResult invalidConfig =
+                container.executeBaseCommand(
+                        new String[] {
+                            "--config",
+                            "/tmp/seatunnel/config/sensitive-validation.conf",
+                            "--check",
+                            "--format",
+                            "json"
+                        });
+        String invalidConfigDiagnostics = invalidConfig.getStdout() + invalidConfig.getStderr();
+        Assertions.assertEquals(1, invalidConfig.getExitCode(), invalidConfigDiagnostics);
+        Assertions.assertEquals(
+                1, invalidConfig.getStdout().trim().split("\\R").length, invalidConfig.getStdout());
+        JsonNode invalidConfigResult =
+                strictJson.readTree(invalidConfig.getStdout().getBytes(StandardCharsets.UTF_8));
+        Assertions.assertFalse(invalidConfigResult.get("valid").asBoolean());
+        Assertions.assertTrue(
+                invalidConfigResult
+                        .at("/errors/0/message")
+                        .asText()
+                        .contains("the configured JDBC URL"),
+                invalidConfig.getStdout());
+        Assertions.assertFalse(
+                invalidConfigDiagnostics.contains("fixture-password"), invalidConfigDiagnostics);
+        Assertions.assertFalse(
+                invalidConfig.getStderr().contains("Config Error"), invalidConfig.getStderr());
 
         Container.ExecResult invalidText =
                 container.executeBaseCommand(
