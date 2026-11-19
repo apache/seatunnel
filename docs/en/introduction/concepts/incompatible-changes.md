@@ -49,6 +49,23 @@ You need to check this document before you upgrade to related version.
   restart instead of retrying a batch locally or continuing after a row error. Auto-commit connections,
   jobs without checkpointing, and XA writers retain their existing behavior.
 
+### JDBC Sink: row-level errors route only the failing rows of a batch
+
+- **Affected jobs**: non-XA JDBC sinks with `sink_error_handler` (or the global `error_handler`) and a
+  manual-commit connection (`auto_commit = false`, or Oracle, which always uses manual commit), when
+  the JDBC driver supports savepoints or checkpointing is disabled.
+- **Behavior change**: when a batch fails with a row-level error (SQLState class `22` or `23`), the
+  sink rolls the batch back and writes its rows again one by one. Only the rows that fail on their own
+  reach the error handler; the other rows of the batch are written to the target table. Previously
+  every row of the failed batch was handed to the error handler and none of them was written. With
+  checkpointing, a rollback to the latest savepoint now succeeds after two or more flushed batches;
+  previously it could fail with "no such savepoint" (for example in SQLite and PostgreSQL), and the
+  row error failed the job.
+- **Migration**: no configuration change is required. Error tables and logs now hold only the failing
+  rows, so a process that backfilled the valid rows of a failed batch from the error table no longer
+  needs to. Auto-commit connections, drivers without savepoint support while checkpointing is enabled,
+  single-row batches, and jobs without an error handler keep their existing behavior.
+
 ### GraphQL connector: a response with GraphQL errors fails the job
 
 - **Behavior change: the GraphQL sink and the HTTP query mode of the GraphQL source fail when the server reports errors**

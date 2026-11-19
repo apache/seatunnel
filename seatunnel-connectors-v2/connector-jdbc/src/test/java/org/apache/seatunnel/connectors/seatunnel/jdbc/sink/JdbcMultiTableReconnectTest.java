@@ -63,6 +63,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -465,17 +466,20 @@ class JdbcMultiTableReconnectTest {
             tableA.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
             tableA.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
 
-            // Rows 3 and 4 fail with a row-level error and are rolled back to the savepoint.
-            dialect.slot().failNextBatchWith(new SQLException("constraint violated", "23000"));
+            // Row 4 violates a constraint, so the batch of rows 3 and 4 fails and is rolled back to
+            // the savepoint. Its rows are written again one by one: row 3 is kept and only row 4
+            // is reported.
+            dialect.slot().failRowWith(4, new SQLException("constraint violated", "23000"));
             tableA.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
             tableA.write(insertRow(ACTIVE_TABLE_ID, 4, "fourth"));
-            assertEquals(2, rowErrors.size());
+            assertEquals(1, rowErrors.size());
+            assertEquals(4, rowErrors.get(0).getRow().getField(0));
 
-            // Rows 1 and 2 are still pending in the shared transaction.
+            // Rows 1 to 3 are still pending in the shared transaction.
             assertTrue(dialect.transactionStateManager.hasPendingOrLostWork());
             assertFalse(dialect.transactionStateManager.isPoisoned());
 
-            // Table B commits the shared connection, which covers table A's rows 1 and 2.
+            // Table B commits the shared connection, which covers table A's rows 1 to 3.
             tableB.prepareCommit(1L);
             assertFalse(dialect.transactionStateManager.hasPendingOrLostWork());
             tableA.prepareCommit(1L);
@@ -484,7 +488,9 @@ class JdbcMultiTableReconnectTest {
             closeQuietly(tableA);
         }
 
-        assertEquals(Arrays.asList("1:first", "2:second"), queryRows(jdbcUrl, "active_table"));
+        assertEquals(
+                Arrays.asList("1:first", "2:second", "3:third"),
+                queryRows(jdbcUrl, "active_table"));
         assertTrue(queryRows(jdbcUrl, "idle_table").isEmpty());
     }
 
@@ -708,8 +714,10 @@ class JdbcMultiTableReconnectTest {
                             .collect(Collectors.toList()));
 
             // Only a data error: transaction-loss SQLStates must not poison this interval early.
-            dialect.getConnectionProvider()
-                    .failNextBatchWith(new SQLException("first constraint failure", "23000"));
+            // Both rows violate a constraint, so writing them again one by one keeps neither.
+            SQLException firstFailure = new SQLException("first constraint failure", "23000");
+            dialect.getConnectionProvider().failRowWith(3, firstFailure);
+            dialect.getConnectionProvider().failRowWith(4, firstFailure);
             writer.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
             writer.write(insertRow(ACTIVE_TABLE_ID, 4, "fourth"));
             assertEquals(
@@ -796,6 +804,50 @@ class JdbcMultiTableReconnectTest {
             dialect.slot().dropConnection();
             closeQuietly(writer);
         }
+    }
+
+    /**
+     * Two batches are flushed, each followed by a new savepoint boundary, before a batch with one
+     * bad row fails. Releasing the first boundary must not destroy the second one, so the rollback
+     * to it succeeds in real SQLite: the good row of the failed batch is written again and only the
+     * bad row is reported.
+     */
+    @Test
+    void rowErrorAfterTwoFlushedBatchesRollsBackToTheLatestBoundary() throws Exception {
+        String url = "jdbc:sqlite:" + tempDir.resolve("two-boundaries.db");
+        createTables(url);
+        TrackingSqliteDialect dialect = new TrackingSqliteDialect();
+        List<RowErrorEvent> errors = new ArrayList<>();
+        TestJdbcSinkWriter writer =
+                createWriter(
+                        url,
+                        "active_table",
+                        dialect,
+                        manualCommit(),
+                        new TestSinkWriterContext(errors::add));
+        try {
+            writer.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 4, "fourth"));
+
+            dialect.getConnectionProvider()
+                    .failRowWith(6, new SQLException("constraint violated", "23000"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 5, "fifth"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 6, "bad"));
+            assertEquals(
+                    Collections.singletonList(6),
+                    errors.stream()
+                            .map(event -> event.getRow().getField(0))
+                            .collect(Collectors.toList()));
+
+            writer.prepareCommit(1L);
+        } finally {
+            closeQuietly(writer);
+        }
+        assertEquals(
+                Arrays.asList("1:first", "2:second", "3:third", "4:fourth", "5:fifth"),
+                queryRows(url, "active_table"));
     }
 
     @Test
@@ -1009,6 +1061,8 @@ class JdbcMultiTableReconnectTest {
         private Connection delegate;
         private boolean failNextBatch;
         private SQLException nextBatchFailure;
+        // Keyed by the first statement parameter (the id) of the failing rows.
+        private final Map<String, SQLException> rowFailures = new HashMap<>();
         private Exception nextCommitFailure;
         private boolean replaceDeadConnectionOnGet;
         private int reestablishConnectionCalls;
@@ -1025,6 +1079,16 @@ class JdbcMultiTableReconnectTest {
         /** Fails the next batch with {@code failure} and keeps the connection open. */
         private void failNextBatchWith(SQLException failure) {
             nextBatchFailure = failure;
+        }
+
+        /**
+         * Fails every batch that contains the row with {@code id}, like a real constraint
+         * violation, and keeps the connection open. The batch is executed first, so its rows are in
+         * the open transaction when the failure is thrown, as with a driver that applies the
+         * statements of a batch one by one.
+         */
+        private void failRowWith(int id, SQLException failure) {
+            rowFailures.put(String.valueOf(id), failure);
         }
 
         /**
@@ -1126,11 +1190,38 @@ class JdbcMultiTableReconnectTest {
 
         private PreparedStatement wrapStatement(
                 Connection owner, PreparedStatement preparedStatement) {
+            // The id bound for the next addBatch, and the ids of the rows in the batch.
+            String[] boundId = new String[1];
+            List<String> batchIds = new ArrayList<>();
             return (PreparedStatement)
                     Proxy.newProxyInstance(
                             PreparedStatement.class.getClassLoader(),
                             new Class<?>[] {PreparedStatement.class},
                             (proxy, method, args) -> {
+                                String name = method.getName();
+                                if (name.startsWith("set")
+                                        && args != null
+                                        && args.length >= 2
+                                        && Integer.valueOf(1).equals(args[0])) {
+                                    boundId[0] = String.valueOf(args[1]);
+                                } else if ("addBatch".equals(name) && args == null) {
+                                    batchIds.add(boundId[0]);
+                                } else if ("clearBatch".equals(name)) {
+                                    batchIds.clear();
+                                }
+                                if ("executeBatch".equals(name) && !rowFailures.isEmpty()) {
+                                    SQLException rowFailure = null;
+                                    for (String id : batchIds) {
+                                        if (rowFailure == null) {
+                                            rowFailure = rowFailures.get(id);
+                                        }
+                                    }
+                                    batchIds.clear();
+                                    if (rowFailure != null) {
+                                        preparedStatement.executeBatch();
+                                        throw rowFailure;
+                                    }
+                                }
                                 if ("executeBatch".equals(method.getName()) && failNextBatch) {
                                     failNextBatch = false;
                                     owner.close();

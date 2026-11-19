@@ -481,6 +481,19 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         transactionStateManager.checkCommit(commitConnection);
     }
 
+    /**
+     * Whether flushed but uncommitted work on this writer's transaction was lost in this checkpoint
+     * interval, so that no writer on the transaction may commit any more.
+     *
+     * <p>Part of the manual-commit protocol driven by {@code JdbcSinkWriter}. Other writers, for
+     * example the XA writer, must not call it.
+     *
+     * @return whether a commit of the transaction would be refused
+     */
+    public boolean isPendingWorkLost() {
+        return transactionStateManager != null && transactionStateManager.isPoisoned();
+    }
+
     private boolean isRowLevelSqlState(SQLException sqlException) {
         Set<SQLException> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         SQLException current = sqlException;
