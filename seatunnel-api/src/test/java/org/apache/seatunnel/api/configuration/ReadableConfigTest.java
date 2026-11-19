@@ -40,6 +40,15 @@ public class ReadableConfigTest {
     private static ReadonlyConfig config;
     private static Map<String, Object> map;
 
+    @Test
+    public void testToConfigPreservesInvalidPathKey() {
+        Map<String, Object> fields = new HashMap<>();
+        fields.put("^t_nova_.*$", "string");
+
+        Config converted = ReadonlyConfig.fromMap(fields).toConfig();
+        Assertions.assertEquals("string", converted.root().unwrapped().get("^t_nova_.*$"));
+    }
+
     @BeforeAll
     public static void prepare() throws URISyntaxException {
         Config rawConfig =

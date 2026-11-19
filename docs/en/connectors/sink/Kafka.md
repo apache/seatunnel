@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-> By default, we will use 2pc to guarantee the message is sent to kafka exactly once.
+> By default, `semantics` is `NON`: messages are sent directly without transactions and delivery is not guaranteed (messages may be lost or duplicated on failure). Set `semantics = EXACTLY_ONCE` to use 2pc (Kafka transactions) for exactly-once delivery.
 
 ## Description
 
@@ -69,6 +69,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | common-options        |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                                                                                                                                                                                                              |
 | protobuf_message_name | String | No       | -       | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema       | String | No       | -       | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                |
+| avro_row_nullable     | Boolean | No      | false   | Effective when the format is set to avro. Set `true` when a ROW field (including a ROW nested in another ROW, an ARRAY or a MAP) may be `null`, so the ROW is written as a nullable Avro union instead of a bare record; the reader must enable the same option. See [Avro format](../formats/avro.md#avro_row_nullable). |
 
 
 ## Parameter Interpretation
@@ -455,7 +456,7 @@ sink {
 }
 ```
 
-Note: when the upstream rows are produced with `format = "NATIVE"`, the `key` and `value` columns are `byte[]`. Combining `kafka_headers_fields` with `format = "NATIVE"` is not a "configure carefully" situation — the sink's serializer construction throws `KafkaConnectorException(OPERATION_NOT_SUPPORTED)` at job initialization if both are set, so the job fails to start. Do not configure `kafka_headers_fields` together with `format = "NATIVE"`; headers for NATIVE inputs are already encoded inside the `value` byte array.
+Note: when the upstream rows are produced with `format = "NATIVE"`, the `key` and `value` columns are `byte[]`. Combining `kafka_headers_fields` with `format = "NATIVE"` is not a "configure carefully" situation — the sink's serializer construction throws `KafkaConnectorException(OPERATION_NOT_SUPPORTED)` at job initialization if both are set, so the job fails to start. Do not configure `kafka_headers_fields` together with `format = "NATIVE"`; for NATIVE inputs the record headers are not written into the `value` byte array — they are carried separately in the Kafka record headers, which is why `kafka_headers_fields` cannot be combined with this format.
 
 ## FAQ
 
@@ -506,27 +507,29 @@ completed checkpoint rather than lost.
 
 ### How do I configure SASL/Kerberos authentication?
 
-Pass broker authentication settings via `kafka.*` properties:
+The connector only forwards Kafka client properties that are placed inside the `kafka.config` block; top-level keys such as `kafka.security.protocol` are not recognized and are silently ignored. Put the broker authentication settings inside `kafka.config`:
 
 ```hocon
 sink {
   kafka {
     topic = "secure-topic"
     bootstrap.servers = "broker:9092"
-    kafka.security.protocol = "SASL_PLAINTEXT"
-    kafka.sasl.mechanism = "GSSAPI"
-    kafka.sasl.kerberos.service.name = "kafka"
-    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
-      useKeyTab=true
-      keyTab="/etc/kafka/kafka.keytab"
-      principal="user@REALM.COM";"""
+    kafka.config = {
+      security.protocol = "SASL_PLAINTEXT"
+      sasl.mechanism = "GSSAPI"
+      sasl.kerberos.service.name = "kafka"
+      sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+        useKeyTab=true
+        keyTab="/etc/kafka/kafka.keytab"
+        principal="user@REALM.COM";"""
+    }
   }
 }
 ```
 
 ### What message formats does Kafka Sink support?
 
-Kafka Sink supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when the upstream data is already in Kafka-native format (with headers, key, and value as byte fields).
+Kafka Sink supports: `json`, `text`, `canal_json`, `debezium_json`, `compatible_debezium_json`, `ogg_json`, `maxwell_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when the upstream data is already in Kafka-native format (with headers, key, and value as byte fields).
 
 ## Changelog
 

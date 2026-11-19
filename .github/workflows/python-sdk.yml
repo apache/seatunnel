@@ -43,7 +43,9 @@ defaults:
 jobs:
   test:
     name: Test with Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    # Pinned: actions/setup-python has no Python 3.9 build for Ubuntu 26.04, which
+    # ubuntu-latest now points to, and 3.9 is still the python_requires floor.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     strategy:

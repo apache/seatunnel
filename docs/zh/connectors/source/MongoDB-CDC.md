@@ -112,6 +112,10 @@ db.grantRolesToUser("<USER_NAME>", ["<ROLE_NAME>"])
 
 ## 源配置项
 
+> **注意：** MongoDB-CDC 复用 CDC 基础选项规则，因此少量面向 JDBC 的快照选项
+> （`snapshot.split.size`、`snapshot.fetch.size`、`enable_concurrent_read`）虽然能通过校验，
+> 但 MongoDB-CDC 并不会使用它们。快照分块大小由 `incremental.snapshot.chunk.size.mb` 控制。
+
 | 名称                               | 类型    | 必填 | 默认值  | 描述                                                                                                                       |
 |------------------------------------|---------|------|---------|----------------------------------------------------------------------------------------------------------------------------|
 | hosts                              | String  | 是   | -       | MongoDB 服务器的主机名和端口列表，也可以是使用 `mongodb://` 或 `mongodb+srv://` 的标准 MongoDB 连接 URI。例如：`localhost:27017,localhost:27018` 或 `mongodb+srv://cluster.example.net`。 |
@@ -132,9 +136,9 @@ db.grantRolesToUser("<USER_NAME>", ["<ROLE_NAME>"])
 | startup.timestamp                  | Long    | 否   | -       | 从指定的毫秒级时间戳开始消费。仅在 `startup.mode` 为 `timestamp` 时使用。                                                   |
 | stop.mode                          | Enum    | 否   | NEVER   | MongoDB CDC 的停止模式，可选值为 `never` 和 `timestamp`。详见下方[停止模式](#停止模式)。                                    |
 | stop.timestamp                     | Long    | 否   | -       | 在该毫秒级时间戳对应的变更流位置停止。仅在 `stop.mode` 为 `timestamp` 时使用。                                               |
-| exactly_once                       | Boolean | 否   | false   | 启用精确一次语义。开启后，大表快照阶段恢复时可能增加内存使用。                                                              |
+| exactly_once                       | Boolean | 否   | false   | 启用精确一次语义。设为 false 时跳过快照回填，快照期间的变更在增量阶段读取，可能输出重复记录。设为 true 时通过快照回填合并重叠变更，可能增加内存使用。 |
 | format                             | Enum    | 否   | DEFAULT | MongoDB CDC 的输出数据格式，可选值为 `DEFAULT` 和 `COMPATIBLE_DEBEZIUM_JSON`。                                              |
-| debezium                           | Config  | 否   | -       | 透传给内嵌 Debezium 引擎的配置。                                                                                            |
+| debezium                           | Config  | 否   | {key.converter.schemas.enable=false, value.converter.schemas.enable=false} | 透传给内嵌 Debezium 引擎的配置。                                                                                  |
 | common-options                     |         | 否   | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md)。                                             |
 
 ### 启动模式

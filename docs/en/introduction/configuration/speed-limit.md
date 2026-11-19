@@ -7,6 +7,10 @@ This functionality is essential when you need to ensure efficient and controlled
 The speed control is primarily governed by two key parameters: `read_limit.rows_per_second` and `read_limit.bytes_per_second`.
 This document will guide you through the usage of these parameters and how to leverage them effectively.
 
+In Zeta, the byte limit uses SeaTunnel's row-size estimate, not the exact serialized or network byte count.
+For arrays of maps or rows, null elements contribute zero and non-null elements contribute their contents.
+Correcting previously omitted row-array contents can increase reported byte metrics and reduce throughput under the same byte limit.
+
 ## Support Those Engines
 
 > SeaTunnel Zeta<br/>

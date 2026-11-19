@@ -26,6 +26,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
+import org.apache.seatunnel.api.configuration.util.ConfigMapPathUtils;
 import org.apache.seatunnel.api.sink.TablePlaceholder;
 import org.apache.seatunnel.common.utils.ConfigValueUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -104,15 +105,10 @@ public class ConfigBuilder {
         return config;
     }
 
-    /**
-     * Builds a config from an already parsed map, for example the JSON body of the REST submit-job
-     * API. Keys are kept literal, so option maps such as {@code multi_table_config.primary_keys}
-     * can use regex keys.
-     */
     public static Config of(@NonNull Map<String, Object> objectMap) {
         log.info("Loading config file from objectMap");
         Config config =
-                rebuildWithLiteralKeys(objectMap)
+                ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(objectMap))
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
@@ -243,7 +239,8 @@ public class ConfigBuilder {
         log.info("With config adapter spi {}", configAdapter.getClass().getName());
         try {
             Map<String, Object> flattenedMap = configAdapter.loadConfig(filePath);
-            Config config = ConfigFactory.parseMap(flattenedMap);
+            Config config =
+                    ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(flattenedMap));
             return ConfigShadeUtils.decryptConfig(backfillUserVariables(config, variables));
         } catch (ParserException | IllegalArgumentException e) {
             throw e;
@@ -263,41 +260,22 @@ public class ConfigBuilder {
 
         processVariablesMap(resolvedConfigMap, userConfigMap);
 
-        return rebuildWithLiteralKeys(resolvedConfigMap)
-                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
-    }
-
-    /**
-     * Rebuilds a config from a map whose keys must be taken literally, for example the regex keys
-     * of {@code multi_table_config.primary_keys}. {@link ConfigFactory#parseMap} treats every key
-     * as a path expression and rejects such keys with {@code ConfigException.BadPath}, so the map
-     * is rendered as JSON and parsed with the JSON syntax instead, which keeps the keys as they
-     * are.
-     *
-     * <p>This is shared with {@link ConfigShadeUtils#processConfig} so that both rebuilds of a
-     * loaded config keep literal keys and cannot drift apart.
-     *
-     * @param configMap the config map to rebuild
-     * @return the rebuilt config, with the keys of {@code configMap} kept literal
-     */
-    static Config rebuildWithLiteralKeys(Map<String, Object> configMap) {
-        return ConfigFactory.parseString(
-                JsonUtils.toJsonString(configMap),
-                ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON));
+        // unwrapped() drops the quoting of literal keys, so re-quote before parsing the map.
+        return ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(resolvedConfigMap));
     }
 
     public static Config substituteUserConfig(
             Config originalConfig, Map<String, String> userConfigMap) {
+        Map<String, Object> userVariableMap =
+                userConfigMap.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry ->
+                                                ConfigValueUtils.parseValue(entry.getValue())
+                                                        .unwrapped()));
         Config userConfig =
-                ConfigFactory.parseMap(
-                        userConfigMap.entrySet().stream()
-                                .collect(
-                                        Collectors.toMap(
-                                                Map.Entry::getKey,
-                                                entry ->
-                                                        ConfigValueUtils.parseValue(
-                                                                        entry.getValue())
-                                                                .unwrapped())));
+                ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(userVariableMap));
 
         Config systemConfig =
                 Parseable.newProperties(
@@ -310,7 +288,8 @@ public class ConfigBuilder {
         // Priority: userConfig > systemProperties
         Map<String, Object> mergedMap = new LinkedHashMap<>(systemConfig.root().unwrapped());
         mergedMap.putAll(userConfig.root().unwrapped());
-        Config sourceConfig = ConfigFactory.parseMap(mergedMap);
+        Config sourceConfig =
+                ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(mergedMap));
 
         return originalConfig.resolveWith(
                 sourceConfig, ConfigResolveOptions.defaults().setAllowUnresolved(true));

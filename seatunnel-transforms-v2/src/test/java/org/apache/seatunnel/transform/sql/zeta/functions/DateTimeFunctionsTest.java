@@ -36,6 +36,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 public class DateTimeFunctionsTest {
 
@@ -489,5 +490,40 @@ public class DateTimeFunctionsTest {
                         rowType,
                         LocalDateTime.now());
         Assertions.assertEquals(LocalDate.of(2024, 6, 15), row3.getField(0));
+    }
+
+    @Test
+    public void testDatetimeFieldIsLocaleIndependent() {
+        Locale original = Locale.getDefault();
+        try {
+            // In tr-TR "minute".toUpperCase() is "M\u0130NUTE", which matches no datetime field.
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+
+            SeaTunnelRowType rowType =
+                    new SeaTunnelRowType(
+                            new String[] {"dt1", "dt2"},
+                            new SeaTunnelDataType[] {
+                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                LocalTimeType.LOCAL_DATE_TIME_TYPE
+                            });
+
+            SeaTunnelRow outRow =
+                    runSql(
+                            "select DATEADD(dt1, 1, 'minute') as added,"
+                                    + " DATEDIFF(dt2, dt1, 'minute') as diff,"
+                                    + " DATE_TRUNC(dt1, 'minute') as truncated,"
+                                    + " EXTRACT(minute FROM dt1) as extracted"
+                                    + " from dual",
+                            rowType,
+                            LocalDateTime.of(2024, 1, 15, 10, 30, 45),
+                            LocalDateTime.of(2024, 1, 15, 10, 25, 45));
+
+            Assertions.assertEquals(LocalDateTime.of(2024, 1, 15, 10, 31, 45), outRow.getField(0));
+            Assertions.assertEquals(5L, outRow.getField(1));
+            Assertions.assertEquals(LocalDateTime.of(2024, 1, 15, 10, 30, 0), outRow.getField(2));
+            Assertions.assertEquals(30, outRow.getField(3));
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }

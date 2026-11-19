@@ -113,15 +113,187 @@ sink {
 
 ### format
 
-当您指定格式为 `json` 时，您还应该指定 schema 选项。
+当您指定格式为 `json` 时，您还应该指定 schema 选项，例如：
+
+上游数据如下：
+
+```json
+{
+  "code": 200,
+  "data": "get success",
+  "success": true
+}
+```
+
+您应该按如下方式指定 schema：
+
+```hocon
+
+schema {
+  fields {
+    code = int
+    data = string
+    success = boolean
+  }
+}
+
+```
+
+连接器将生成如下数据：
+
+| code |    data     | success |
+|------|-------------|---------|
+| 200  | get success | true    |
+
+当您指定格式为 `text` 时，连接器不会对上游数据做任何处理，例如：
+
+上游数据如下：
+
+```json
+{
+  "code": 200,
+  "data": "get success",
+  "success": true
+}
+```
+
+连接器将生成如下数据：
+
+|                         content                          |
+|----------------------------------------------------------|
+| {"code":  200, "data":  "get success", "success":  true} |
 
 ### content_field
 
 此参数可以获取响应中的一部分 JSON 数据。如果只需要 `book` 部分，可配置 `content_field = "$.store.book.*"`。
 
+如果您的返回数据类似于这样：
+
+```json
+{
+  "store": {
+    "book": [
+      {
+        "category": "reference",
+        "author": "Nigel Rees",
+        "title": "Sayings of the Century",
+        "price": 8.95
+      },
+      {
+        "category": "fiction",
+        "author": "Evelyn Waugh",
+        "title": "Sword of Honour",
+        "price": 12.99
+      }
+    ],
+    "bicycle": {
+      "color": "red",
+      "price": 19.95
+    }
+  },
+  "expensive": 10
+}
+```
+
+您可以配置 `content_field = "$.store.book.*"`，返回的结果如下所示：
+
+```json
+[
+  {
+    "category": "reference",
+    "author": "Nigel Rees",
+    "title": "Sayings of the Century",
+    "price": 8.95
+  },
+  {
+    "category": "fiction",
+    "author": "Evelyn Waugh",
+    "title": "Sword of Honour",
+    "price": 12.99
+  }
+]
+```
+
+然后您就可以使用更简单的 schema 获得所需的结果，例如：
+
+```hocon
+MyHours {
+  url = "http://mockserver:1080/contentjson/mock"
+  email = "seatunnel@test.com"
+  password = "********"
+  method = "GET"
+  format = "json"
+  content_field = "$.store.book.*"
+  schema = {
+    fields {
+      category = string
+      author = string
+      title = string
+      price = string
+    }
+  }
+}
+```
+
 ### json_field
 
 此参数帮助您配置模式，因此此参数必须与 schema 一起使用。
+
+如果您的数据类似于这样：
+
+```json
+{ 
+  "store": {
+    "book": [
+      {
+        "category": "reference",
+        "author": "Nigel Rees",
+        "title": "Sayings of the Century",
+        "price": 8.95
+      },
+      {
+        "category": "fiction",
+        "author": "Evelyn Waugh",
+        "title": "Sword of Honour",
+        "price": 12.99
+      }
+    ],
+    "bicycle": {
+      "color": "red",
+      "price": 19.95
+    }
+  },
+  "expensive": 10
+}
+```
+
+您可以按如下方式配置任务，获取 `book` 的内容：
+
+```hocon
+source {
+  MyHours {
+    url = "http://mockserver:1080/jsonpath/mock"
+    email = "seatunnel@test.com"
+    password = "********"
+    method = "GET"
+    format = "json"
+    json_field = {
+      category = "$.store.book[*].category"
+      author = "$.store.book[*].author"
+      title = "$.store.book[*].title"
+      price = "$.store.book[*].price"
+    }
+    schema = {
+      fields {
+        category = string
+        author = string
+        title = string
+        price = string
+      }
+    }
+  }
+}
+```
 
 ## 变更日志
 

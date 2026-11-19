@@ -52,15 +52,6 @@ public final class MultiTableFailureHelper {
                         .continueOtherTables();
     }
 
-    /**
-     * Merges two option sets with primary precedence. The merge is shallow/top-level: on a key
-     * collision, {@code primary}'s value replaces {@code fallback}'s value wholesale, and nested
-     * objects are not merged recursively.
-     *
-     * @param primary the options that take precedence
-     * @param fallback the options used to fill in keys absent from {@code primary}
-     * @return the merged options
-     */
     public static ReadonlyConfig mergeOptions(ReadonlyConfig primary, ReadonlyConfig fallback) {
         if (primary == null) {
             return fallback;
@@ -68,10 +59,7 @@ public final class MultiTableFailureHelper {
         if (fallback == null) {
             return primary;
         }
-        Map<String, Object> merged = new HashMap<>();
-        merged.putAll(fallback.getSourceMap());
-        merged.putAll(primary.getSourceMap());
-        return ReadonlyConfig.fromMap(merged);
+        return ReadonlyConfig.fromConfig(primary.toConfig().withFallback(fallback.toConfig()));
     }
 
     public static ReadonlyConfig withMultiTableFailurePolicy(

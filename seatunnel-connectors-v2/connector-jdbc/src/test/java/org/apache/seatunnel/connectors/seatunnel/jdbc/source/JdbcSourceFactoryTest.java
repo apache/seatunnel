@@ -80,11 +80,29 @@ class JdbcSourceFactoryTest {
         cfg.put("kerberos_principal", "seatunnel@EXAMPLE.COM");
         cfg.put("kerberos_keytab_path", "/etc/seatunnel.keytab");
         cfg.put("krb5_path", "/etc/krb5.conf");
+        cfg.put("access_key_id", "ak");
+        cfg.put("secret_access_key", "sk");
+        cfg.put("region", "us-east-1");
 
         Assertions.assertDoesNotThrow(
                 () ->
                         ConfigValidator.validateUnknownKeys(
                                 ReadonlyConfig.fromMap(cfg), rule, "Jdbc"));
+    }
+
+    @Test
+    void testUndeclaredSourceOptionIsUnknownKey() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("table_path", "test.users");
+        cfg.put("fetch_sise", 1000);
+
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.validateUnknownKeys(
+                                        ReadonlyConfig.fromMap(cfg), rule, "Jdbc"));
+        Assertions.assertTrue(exception.getMessage().contains("[fetch_sise]"));
     }
 
     @Test
