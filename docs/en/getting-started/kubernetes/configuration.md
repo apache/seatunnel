@@ -176,24 +176,16 @@ If object storage is used, every Master and Worker Pod must have network access 
 
 Master nodes handle IMap state storage. In production, enable MapStore and write data to shared storage or object storage. In separated cluster mode, configure MapStore only in `hazelcast-master.yaml`; Workers do not need MapStore.
 
-MapStore uses `FileMapStoreFactory`. The `type: hdfs` entry is the identifier of the IMap file storage factory and must stay unchanged even when S3 or OSS is used. The actual backend is selected by `storage.type`, which currently supports `hdfs`, `s3`, and `oss`.
+MapStore uses `FileMapStoreFactory`. The `type: hdfs` entry is the identifier of the IMap file storage factory and must stay unchanged even when S3, OSS or GCS is used. The actual backend is selected by `storage.type`, which currently supports `hdfs`, `s3`, `oss`, and `gcs`.
 
 ### Checkpoint Monitor MapStore
 
-If you do not want to persist checkpoint monitor data, add an explicit override for `engine_checkpoint_monitor`:
-
-```yaml
-hazelcast:
-  map:
-    engine_checkpoint_monitor:
-      map-store:
-        enabled: false
-```
+`engine_checkpoint_monitor` is never written to the MapStore, even when `engine*` enables it, so it needs no override.
 
 :::info Note
 This IMap stores checkpoint overview and history data used by REST APIs and UI observability. It is not the authoritative checkpoint recovery state. Checkpoint recovery state is written by `seatunnel.engine.checkpoint.storage` to HDFS, S3, OSS, or another configured checkpoint storage backend.
 
-This override is optional. Use it when you want to avoid persisting observability-only data and reduce MapStore/WAL write amplification. Omit it if you want checkpoint monitor overview/history to use the same MapStore settings as other `engine*` IMaps.
+Like `engine_runningJobMetrics`, it is excluded from MapStore persistence to avoid MapStore/WAL write amplification. After every member restarts, the checkpoint overview and history start again from the next checkpoint. An existing `engine_checkpoint_monitor` override with `enabled: false` is no longer needed and can be removed.
 :::
 
 ### HDFS

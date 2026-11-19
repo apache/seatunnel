@@ -96,6 +96,19 @@ public class SystemFunction {
     }
 
     public static Object castAs(Object arg, SeaTunnelDataType<?> type) {
+        return castAs(arg, type, true);
+    }
+
+    /**
+     * Preserves CASE conversion semantics until its inferred DECIMAL precision accounts for all
+     * branch expressions. Explicit CAST expressions inside a branch still validate their target.
+     */
+    public static Object castCaseResult(Object arg, SeaTunnelDataType<?> type) {
+        return castAs(arg, type, false);
+    }
+
+    private static Object castAs(
+            Object arg, SeaTunnelDataType<?> type, boolean checkDecimalPrecision) {
         final ArrayList<Object> args = new ArrayList<>(4);
         args.add(arg);
         args.add(type.getSqlType().toString());
@@ -104,7 +117,7 @@ public class SystemFunction {
             args.add(decimalType.getPrecision());
             args.add(decimalType.getScale());
         }
-        return castAs(args);
+        return castAs(args, checkDecimalPrecision);
     }
 
     /**
@@ -251,6 +264,10 @@ public class SystemFunction {
     }
 
     public static Object castAs(List<Object> args) {
+        return castAs(args, true);
+    }
+
+    private static Object castAs(List<Object> args, boolean checkDecimalPrecision) {
         Object v1 = args.get(0);
         String v2 = (String) args.get(1);
         if (v1 == null) {
@@ -395,12 +412,22 @@ public class SystemFunction {
                 } else {
                     bigDecimal = new BigDecimal(v1.toString());
                 }
+                Integer precision = (Integer) args.get(2);
                 Integer scale = (Integer) args.get(3);
                 // Round half away from zero for every source type: 1.21 -> 1.2,
                 // 1.25 -> 1.3, -1.25 -> -1.3. FLOAT and DOUBLE are rounded from their exact
                 // binary value, so near a boundary they can differ from the same digits as
                 // STRING or DECIMAL (1.15d is 1.1499999..., which gives 1.1 at scale 1).
-                return bigDecimal.setScale(scale, RoundingMode.HALF_UP);
+                BigDecimal rounded = bigDecimal.setScale(scale, RoundingMode.HALF_UP);
+                // A carry during rounding can exceed the declared precision.
+                if (checkDecimalPrecision && rounded.precision() > precision) {
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format(
+                                    "Value %s cannot be converted to DECIMAL(%d,%d): rounded value exceeds precision",
+                                    v1, precision, scale));
+                }
+                return rounded;
             case "BOOLEAN":
                 if (v1 instanceof Number) {
                     if (Arrays.asList(1, 0).contains(((Number) v1).intValue())) {

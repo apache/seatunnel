@@ -62,6 +62,8 @@ When CAST reduces the scale, every source type rounds half away from zero
 exact binary value, so casting a fractional numeric literal cannot recover precision
 already lost during its evaluation as `DOUBLE`.
 
+After rounding, the value must fit precision `p`. For example, `CAST('-9.95' AS DECIMAL(2,1))` fails because `-10.0` needs three digits; `TRY_CAST` returns `NULL`, while `CAST('-9.94' AS DECIMAL(2,1))` returns `-9.9`. The same precision check applies to implicit DECIMAL conversions in `COALESCE` and `IFNULL`. `CASE` retains its existing inferred-type conversion without this precision check; explicit CAST expressions within its branches still validate their declared target. Use a wider target precision when the rounded value must be retained.
+
 The exact-or-floating choice is made for each operand pair, including each
 element of an `IN` list. For `id = 9007199254740993`,
 `id IN (9007199254740992)` is false, but

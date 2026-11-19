@@ -250,6 +250,134 @@ public class SystemFunctionTest {
         Assertions.assertEquals(new BigDecimal("2.68"), castAsDecimal("2.675", 10, 2));
     }
 
+    @Test
+    public void testCastAsDecimalChecksPrecisionAfterRounding() {
+        for (Object value :
+                Arrays.asList(
+                        "9.95",
+                        "-9.95",
+                        new BigDecimal("9.95"),
+                        new BigDecimal("-9.95"),
+                        10,
+                        -10L,
+                        10.0f,
+                        -10.0d)) {
+            TransformException error =
+                    Assertions.assertThrows(
+                            TransformException.class, () -> castAsDecimal(value, 2, 1));
+            Assertions.assertTrue(error.getMessage().contains("DECIMAL(2,1)"));
+        }
+        for (String value : Arrays.asList("9.9", "-9.9", "9.94", "-9.94")) {
+            Assertions.assertEquals(
+                    new BigDecimal(value.startsWith("-") ? "-9.9" : "9.9"),
+                    castAsDecimal(value, 2, 1));
+        }
+        Assertions.assertEquals(new BigDecimal("0.00"), castAsDecimal("0", 2, 2));
+        Assertions.assertEquals(new BigDecimal("0.99"), castAsDecimal("0.994", 2, 2));
+        Assertions.assertThrows(TransformException.class, () -> castAsDecimal("0.995", 2, 2));
+        Assertions.assertEquals(new BigDecimal("99"), castAsDecimal("99.4", 2, 0));
+        Assertions.assertThrows(TransformException.class, () -> castAsDecimal("99.5", 2, 0));
+    }
+
+    @Test
+    public void testDecimalOverflowCastAndTryCastViaSqlEngine() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        for (String value : Arrays.asList("9.95", "-9.95", "100")) {
+            Assertions.assertThrows(
+                    TransformException.class,
+                    () ->
+                            runSql(
+                                    "SELECT CAST(value AS DECIMAL(2,1)) AS r FROM dual",
+                                    rowType,
+                                    value));
+            Assertions.assertNull(
+                    runSql("SELECT TRY_CAST(value AS DECIMAL(2,1)) AS r FROM dual", rowType, value)
+                            .getField(0));
+        }
+        Assertions.assertEquals(
+                new BigDecimal("-9.9"),
+                runSql("SELECT TRY_CAST(value AS DECIMAL(2,1)) AS r FROM dual", rowType, "-9.94")
+                        .getField(0));
+        Assertions.assertNull(
+                runSql("SELECT CAST(value AS DECIMAL(2,1)) AS r FROM dual", rowType, (Object) null)
+                        .getField(0));
+    }
+
+    @Test
+    public void testCasePreservesDecimalIntegerAndFractionalDigits() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"whole", "fraction"},
+                        new SeaTunnelDataType[] {new DecimalType(3, 0), new DecimalType(3, 2)});
+        for (String condition : Arrays.asList("1=1", "1=0")) {
+            String query =
+                    "SELECT CASE WHEN "
+                            + condition
+                            + " THEN whole ELSE fraction END AS r FROM dual";
+            CatalogTable table = CatalogTableUtil.getCatalogTable("test", rowType);
+            SQLTransform transform =
+                    new SQLTransform(
+                            ReadonlyConfig.fromMap(Collections.singletonMap("query", query)),
+                            table);
+            Assertions.assertEquals(
+                    new DecimalType(3, 2),
+                    transform.getProducedCatalogTable().getSeaTunnelRowType().getFieldType(0));
+            SeaTunnelRow result =
+                    transform
+                            .transformRow(
+                                    new SeaTunnelRow(
+                                            new Object[] {
+                                                new BigDecimal("999"), new BigDecimal("0.01")
+                                            }))
+                            .get(0);
+            Assertions.assertEquals(
+                    new BigDecimal(condition.equals("1=1") ? "999.00" : "0.01"),
+                    result.getField(0));
+        }
+    }
+
+    @Test
+    public void testCaseStillChecksExplicitCastInSelectedBranch() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        Assertions.assertThrows(
+                TransformException.class,
+                () ->
+                        runSql(
+                                "SELECT CASE WHEN id=1 THEN CAST('-9.95' AS DECIMAL(2,1))"
+                                        + " ELSE CAST('0' AS DECIMAL(2,1)) END AS r FROM dual",
+                                rowType,
+                                1));
+        Assertions.assertEquals(
+                new BigDecimal("0.0"),
+                runSql(
+                                "SELECT CASE WHEN id=1 THEN CAST('-9.95' AS DECIMAL(2,1))"
+                                        + " ELSE CAST('0' AS DECIMAL(2,1)) END AS r FROM dual",
+                                rowType,
+                                0)
+                        .getField(0));
+    }
+
+    @Test
+    public void testImplicitDecimalConversionRejectsOverflow() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"narrow_value", "wide_value"},
+                        new SeaTunnelDataType[] {new DecimalType(2, 1), new DecimalType(3, 2)});
+        for (String function : Arrays.asList("COALESCE", "IFNULL")) {
+            String query = "SELECT " + function + "(narrow_value, wide_value) AS r FROM dual";
+            Assertions.assertThrows(
+                    TransformException.class,
+                    () -> runSql(query, rowType, null, new BigDecimal("-9.95")));
+            Assertions.assertEquals(
+                    new BigDecimal("-9.9"),
+                    runSql(query, rowType, null, new BigDecimal("-9.94")).getField(0));
+        }
+    }
+
     private static Object castAsDecimal(Object value, int precision, int scale) {
         List<Object> args = new ArrayList<>();
         args.add(value);

@@ -1290,6 +1290,8 @@ BIGINT | LONG 也会以同样方式做范围检查，但只有超出范围的字
 `CAST(-1.25 AS DECIMAL(10,1))` 得到 `-1.3`。FLOAT 或 DOUBLE 来源会先按其精确的二进制值转换，再进行舍入。
 当 `COALESCE` 和 `IFNULL` 推断出的结果类型是小数位数少于该值的 `DECIMAL` 时，也按同样的方式舍入。
 
+舍入后的值必须符合精度 `p`。例如，`CAST('-9.95' AS DECIMAL(2,1))` 会失败，因为 `-10.0` 需要三位精度；`TRY_CAST` 返回 `NULL`，而 `CAST('-9.94' AS DECIMAL(2,1))` 返回 `-9.9`。相同的精度检查也适用于 `COALESCE`、`IFNULL` 的隐式 DECIMAL 转换。`CASE` 保留原有的推断类型转换行为，不新增该精度检查；其分支内的显式 CAST 仍校验声明的目标类型。如需保留舍入后的值，请增大目标精度。
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```
