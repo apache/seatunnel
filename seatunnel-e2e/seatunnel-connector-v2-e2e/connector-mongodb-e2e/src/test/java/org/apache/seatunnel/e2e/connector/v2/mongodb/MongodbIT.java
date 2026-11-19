@@ -349,29 +349,32 @@ public class MongodbIT extends AbstractMongodbIT {
         // Without buffer-flush.* / retry.*, the declared defaults apply: rows are batched
         // (first row, then 1000, then a 233-row tail) and the tail below the batch size is
         // still written before the job completes.
-        long insertsBefore = insertCommandCount();
-        Container.ExecResult result =
-                container.executeJob("/fake_source_to_mongodb_omitted_buffer_options.conf");
-        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
-        long batchedInserts = insertCommandCount() - insertsBefore;
-        log.info("Omitted buffer options: {} insert commands for 1234 rows", batchedInserts);
+        // The insert-command counter is server-wide; the tests of this class run sequentially.
+        try {
+            long insertsBefore = insertCommandCount();
+            Container.ExecResult result =
+                    container.executeJob("/fake_source_to_mongodb_omitted_buffer_options.conf");
+            Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+            long batchedInserts = insertCommandCount() - insertsBefore;
+            log.info("Omitted buffer options: {} insert commands for 1234 rows", batchedInserts);
 
-        Assertions.assertEquals(1234, countDocuments("test_omitted_buffer_options"));
-        // One insert command per bulk write. Per-row writing, the previous behavior, would
-        // issue 1234; the bound leaves room for engine-specific extra flushes.
-        Assertions.assertTrue(
-                batchedInserts > 0 && batchedInserts <= 10,
-                "expected batched bulk writes, got " + batchedInserts + " insert commands");
+            Assertions.assertEquals(1234, countDocuments("test_omitted_buffer_options"));
+            // One insert command per bulk write. Per-row writing, the previous behavior, would
+            // issue 1234; the bound leaves room for engine-specific extra flushes.
+            Assertions.assertTrue(
+                    batchedInserts > 0 && batchedInserts <= 10,
+                    "expected batched bulk writes, got " + batchedInserts + " insert commands");
 
-        // Control: explicit options keep their values (one bulk write per row).
-        insertsBefore = insertCommandCount();
-        result = container.executeJob("/fake_source_to_mongodb_explicit_buffer_options.conf");
-        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
-        Assertions.assertEquals(1234, countDocuments("test_explicit_buffer_options"));
-        Assertions.assertEquals(1234, insertCommandCount() - insertsBefore);
-
-        clearData("test_omitted_buffer_options");
-        clearData("test_explicit_buffer_options");
+            // Control: explicit options keep their values (one bulk write per row).
+            insertsBefore = insertCommandCount();
+            result = container.executeJob("/fake_source_to_mongodb_explicit_buffer_options.conf");
+            Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+            Assertions.assertEquals(1234, countDocuments("test_explicit_buffer_options"));
+            Assertions.assertEquals(1234, insertCommandCount() - insertsBefore);
+        } finally {
+            clearData("test_omitted_buffer_options");
+            clearData("test_explicit_buffer_options");
+        }
     }
 
     private long countDocuments(String collection) {
