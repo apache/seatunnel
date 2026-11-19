@@ -22,6 +22,8 @@ import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
+import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -95,5 +97,26 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
                 resourceManager.applyResources(jobId, resourceProfiles, null).get();
         Assertions.assertEquals(slotProfiles.size(), 3);
         resourceManager.releaseResources(jobId, slotProfiles);
+    }
+
+    @Test
+    public void testResetKeepsLiveSlotAssignment() {
+        SlotService slotService = server.getSlotService();
+        long jobId = System.currentTimeMillis();
+        SlotProfile slot = slotService.requestSlot(jobId, new ResourceProfile()).getSlotProfile();
+        Assertions.assertNotNull(slot);
+        try {
+            slotService.reset();
+
+            WorkerProfile workerProfile = slotService.getWorkerProfile();
+            Assertions.assertEquals(1, workerProfile.getAssignedSlots().length);
+            SlotProfile assigned = workerProfile.getAssignedSlots()[0];
+            Assertions.assertEquals(slot.getSlotID(), assigned.getSlotID());
+            Assertions.assertEquals(slot.getSequence(), assigned.getSequence());
+            Assertions.assertEquals(totalSlots - 1, workerProfile.getUnassignedSlots().length);
+            Assertions.assertNotNull(slotService.getSlotContext(slot));
+        } finally {
+            slotService.releaseSlot(jobId, slot);
+        }
     }
 }

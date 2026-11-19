@@ -69,7 +69,6 @@ public class DefaultSlotService implements SlotService {
     private ConcurrentMap<Integer, SlotProfile> unassignedSlots;
     private ScheduledExecutorService scheduledExecutorService;
     private final SlotServiceConfig config;
-    private volatile boolean initStatus;
     private final IdGenerator idGenerator;
     private final TaskExecutionService taskExecutionService;
     private ConcurrentMap<Integer, SlotContext> contexts;
@@ -90,7 +89,6 @@ public class DefaultSlotService implements SlotService {
 
     @Override
     public void init() {
-        initStatus = true;
         slotServiceSequence = UUID.randomUUID().toString();
         contexts = new ConcurrentHashMap<>();
         assignedSlots = new ConcurrentHashMap<>();
@@ -156,21 +154,22 @@ public class DefaultSlotService implements SlotService {
     }
 
     @Override
-    public void reset() {
-        if (!initStatus) {
-            synchronized (this) {
-                if (!initStatus) {
-                    this.close();
-                    init();
-                }
-            }
+    public synchronized void reset() {
+        // Rebuilding would drop slots and contexts that running tasks still own.
+        if (!assignedSlots.isEmpty() || !contexts.isEmpty()) {
+            LOGGER.warning(
+                    String.format(
+                            "Skip resetting slot service, it still has %d assigned slots and %d live slot contexts",
+                            assignedSlots.size(), contexts.size()));
+            return;
         }
+        this.close();
+        init();
     }
 
     @Override
     public synchronized SlotAndWorkerProfile requestSlot(
             long jobId, ResourceProfile resourceProfile) {
-        initStatus = false;
         SlotProfile profile = selectBestMatchSlot(resourceProfile);
         if (profile != null) {
             // A fixed slot can return to the same job after release, so every assignment needs a
