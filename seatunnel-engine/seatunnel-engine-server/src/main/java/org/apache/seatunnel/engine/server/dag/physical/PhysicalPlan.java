@@ -221,7 +221,8 @@ public class PhysicalPlan {
             return;
         }
 
-        if (NOT_STARTED_STATUSES.contains(jobStatus)) {
+        // Re-read after the terminal guard, as before: the job may have started meanwhile.
+        if (NOT_STARTED_STATUSES.contains(getJobStatus())) {
             updateJobState(JobStatus.CANCELED);
             jobEndFuture.complete(new JobResult(JobStatus.CANCELED));
         } else {

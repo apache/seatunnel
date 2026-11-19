@@ -201,42 +201,48 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
         Assertions.assertEquals(JobStatus.FAILED, planWithStateMaps.runningJobState.get(jobId));
     }
 
-    /**
-     * Pins the single-snapshot property of the {@code cancelJob()} decision: the status that
-     * decides the branch is the same one {@code isEndState()} validated, not a second read.
-     *
-     * <p>A quiescent test cannot tell the two apart, because both reads observe the same value.
-     * This one swaps in a map that answers {@code PENDING} on the first read and {@code RUNNING}
-     * afterwards, so the pre-fix double read picks up {@code RUNNING} and transitions to {@code
-     * CANCELING}, while branching on the validated local transitions to {@code CANCELED}. The
-     * divergence is what makes the assertion deterministic rather than dependent on a race.
-     */
+    /** A job that starts after the terminal guard must cancel its pipelines before completing. */
     @Test
-    void testCancelJobCommitsToTheJobStatusSnapshotItValidated() throws Exception {
+    void testCancelJobObservesStartedJobBeforeChoosingCancellationPath() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
         prepareForCancel(planWithStateMaps);
+        PassiveCompletableFuture<?> jobEndFuture = planWithStateMaps.physicalPlan.initStateFuture();
+        SubPlan runningPipeline = Mockito.mock(SubPlan.class);
+        planWithStateMaps.physicalPlan.getPipelineList().clear();
+        planWithStateMaps.physicalPlan.getPipelineList().add(runningPipeline);
+        ReflectionUtils.setField(planWithStateMaps.physicalPlan, "isRunning", true);
+        planWithStateMaps.runningJobState.put(jobId, JobStatus.RUNNING);
 
         @SuppressWarnings("unchecked")
         IMap<Object, Object> divergingStateMap = Mockito.mock(IMap.class);
-        Mockito.when(divergingStateMap.get(jobId)).thenReturn(JobStatus.PENDING, JobStatus.RUNNING);
-        // PhysicalPlan holds the map as a final field wired by PlanUtils; replacement is the only
-        // way to hand it a per-read divergence without rebuilding the plan.
+        Mockito.when(divergingStateMap.get(jobId))
+                .thenReturn(JobStatus.PENDING)
+                .thenAnswer(invocation -> planWithStateMaps.runningJobState.get(jobId));
+        Mockito.doAnswer(
+                        invocation -> {
+                            planWithStateMaps.runningJobState.set(
+                                    invocation.getArgument(0), invocation.getArgument(1));
+                            return null;
+                        })
+                .when(divergingStateMap)
+                .set(Mockito.eq(jobId), Mockito.any());
         ReflectionUtils.setField(
                 planWithStateMaps.physicalPlan, "runningJobStateIMap", divergingStateMap);
 
         planWithStateMaps.physicalPlan.cancelJob();
 
-        // CANCELED is only reachable by consuming the first (PENDING) read; a second read of the
-        // same key would have seen RUNNING and landed on CANCELING.
-        Mockito.verify(divergingStateMap).set(jobId, JobStatus.CANCELED);
-        Mockito.verify(divergingStateMap, Mockito.never()).set(jobId, JobStatus.CANCELING);
+        Assertions.assertEquals(JobStatus.CANCELING, planWithStateMaps.runningJobState.get(jobId));
+        Mockito.verify(divergingStateMap, Mockito.never()).set(jobId, JobStatus.CANCELED);
+        InOrder cancellation = Mockito.inOrder(runningPipeline);
+        cancellation.verify(runningPipeline).markCancelRequested();
+        cancellation.verify(runningPipeline).cancelPipeline();
+        Assertions.assertFalse(jobEndFuture.isDone(), "Pipeline cancellation has not completed");
     }
 
     // These two pin the NOT_STARTED_STATUSES classification in PhysicalPlan: cancel on a
     // not-started job goes straight to CANCELED, cancel on a running job goes through
-    // CANCELING. The single-snapshot property of the decision itself is covered separately by
-    // testCancelJobCommitsToTheJobStatusSnapshotItValidated above.
+    // CANCELING. The pending-to-running ordering is covered separately above.
     @Test
     void testCancelOnNotStartedJobGoesStraightToCanceled() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
@@ -267,9 +273,9 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
      * Pins what {@code cancelJob()} does when the job status entry has already been cleared.
      *
      * <p>{@code getJobStatus()} is a plain map read, so a cleared entry yields {@code null} and the
-     * {@code isEndState()} guard dereferences it. That NPE predates the single-snapshot change and
-     * is unchanged by it, but it is the one input the {@code NOT_STARTED_STATUSES} branch cannot
-     * answer, so it is asserted rather than left implicit.
+     * {@code isEndState()} guard dereferences it. That pre-existing NPE is unchanged by replacing
+     * the ordinal comparison, but it is the one input the {@code NOT_STARTED_STATUSES} branch
+     * cannot answer, so it is asserted rather than left implicit.
      *
      * <p>Note: this test pins pre-existing behaviour rather than a desired design contract; it
      * serves as a regression tripwire so any future change to cleared-state handling is deliberate.
