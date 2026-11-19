@@ -62,7 +62,7 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     private static final Logger LOG = LoggerFactory.getLogger(YarnResourceManagerDriver.class);
 
     /** Heartbeat interval used to request allocations and observe completed containers. */
-    private static final int HEARTBEAT_INTERVAL_MILLIS = 500;
+    private static final int HEARTBEAT_INTERVAL_MILLIS = 1000;
 
     private static final int WORKER_RELEASE_TIMEOUT_SECONDS = 30;
 
@@ -87,6 +87,9 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     // Hadoop can invoke a callback while unregister is waiting on its heartbeat thread.
     // Serialize final reports independently of the lock used by worker callbacks.
     private final Object unregisterLock = new Object();
+    // Guarded by unregisterLock. Keep the original report until YARN acknowledges it.
+    private FinalApplicationStatus requestedFinalStatus;
+    private String requestedDiagnostics;
 
     private enum RegistrationState {
         UNREGISTERED,
@@ -262,6 +265,11 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
         }
     }
 
+    /**
+     * Starts the container on the I/O executor outside the driver lock. After the RPC, the lock
+     * guards publication against shutdown or container completion. The finally block lets release
+     * proceed even when the NodeManager may have accepted a start RPC that threw.
+     */
     private void launchWorker(YarnWorkerAllocation allocation) {
         YarnWorkerNode node = allocation.getNode();
         YarnWorkerRequest request = allocation.getRequest();
@@ -296,6 +304,10 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
         }
     }
 
+    /**
+     * Fails the request and schedules release from either the allocation callback or the I/O
+     * thread. Release waits for the caller's launch completion signal before stopping the worker.
+     */
     private void failLaunch(YarnWorkerAllocation allocation, Exception cause) {
         YarnWorkerNode node = allocation.getNode();
         YarnClientException failure =
@@ -400,8 +412,8 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     }
 
     /**
-     * Unregisters the AM after the runtime releases its workers. A completed unregistration makes
-     * subsequent calls return immediately.
+     * Unregisters the AM after the runtime releases its workers. A retry uses the first requested
+     * result and diagnostics. A completed unregistration makes subsequent calls return immediately.
      *
      * @param status terminal engine result to publish to YARN
      * @param diagnostics final message included in the RM application report
@@ -416,10 +428,13 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
                 }
                 registration = RegistrationState.DRAINING;
             }
-            FinalApplicationStatus finalStatus =
-                    YarnApplicationStatus.toFinalApplicationStatus(status);
+            if (requestedFinalStatus == null) {
+                requestedFinalStatus = YarnApplicationStatus.toFinalApplicationStatus(status);
+                requestedDiagnostics = diagnostics;
+            }
             try {
-                resourceManager.unregisterApplicationMaster(finalStatus, diagnostics, "");
+                resourceManager.unregisterApplicationMaster(
+                        requestedFinalStatus, requestedDiagnostics, "");
                 registration = RegistrationState.UNREGISTERED;
             } catch (Exception failure) {
                 throw new YarnClientException(
@@ -485,8 +500,8 @@ public final class YarnResourceManagerDriver implements ResourceManagerDriver<Ya
     }
 
     /**
-     * Drains workers and stops both Hadoop clients. If the AM is still registered, it reports
-     * failure before closing the clients.
+     * Drains workers and stops both Hadoop clients. If the AM is still registered, it retries the
+     * pending final report or reports failure if the runtime never supplied a result.
      *
      * @throws Exception if cleanup fails, with later failures attached to the first
      */

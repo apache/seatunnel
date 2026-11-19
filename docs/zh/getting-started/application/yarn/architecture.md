@@ -72,6 +72,8 @@ NodeManager 为每个容器解压相同的 `ARCHIVE`。AM 还会收到应用部�
 
 YARN Container 使用宿主机网络。NodeManager 之间必须允许 Master Hazelcast 端口和 Worker 端口通信。`application.master.port` 是 Master 起始端口；发生冲突时会选择后续可用端口，并把实际地址传给 Worker。
 
+ResourceManager 的应用报告会公开 Master 的 Hazelcast 地址。默认配置使用应用专属集群名，原生客户端和集群成员连接时无需身份认证。Kerberos 认证仅覆盖 Hadoop 服务。在共享集群上，应启用 YARN ACL，限制可查看应用报告的用户。同时应限制候选 NodeManager 上 Hazelcast 端口的网络访问，只允许受信任的应用容器和获得授权的 SeaTunnel 客户端连接。隔离范围应包含同机的其他工作负载。无法隔离租户时，请使用专用节点或受信任的集群。
+
 Master 不提供 task slot。总固定容量为：
 
 ```text
@@ -80,7 +82,7 @@ application.worker-count × application.worker.slots
 
 资源请求还必须满足队列配额、ResourceManager 最大 Container 能力和 NodeManager 可用容量。
 
-设置 `yarn.master.http-port` 后，AM 会另外绑定一个固定 HTTP 端口，并向 ResourceManager 注册承载 AM 的 NodeManager 主机和网页地址。worker 使用 Hazelcast 端口。直连页面的客户端和 YARN Web Proxy 需要能够访问 AM 的 HTTP 端口。
+设置 `yarn.master.http-port` 后，AM 会另外绑定一个用于 HTTP 或 HTTPS 的固定端口，并向 ResourceManager 注册承载 AM 的 NodeManager 主机和网页地址。worker 使用 Hazelcast 端口。直连页面的客户端和 YARN Web Proxy 需要能够访问 AM 的 Web 服务端口。
 
 ## Staging 与 checkpoint
 

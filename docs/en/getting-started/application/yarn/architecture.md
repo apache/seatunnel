@@ -72,6 +72,8 @@ An allocated container has a YARN container ID. Zeta counts its slots only after
 
 YARN containers use host networking. NodeManagers must allow the master Hazelcast port and worker ports. `application.master.port` is the starting master port. On collision, the master selects a later free port and passes the actual address to workers.
 
+The ResourceManager application report exposes the master's Hazelcast address. The default native configuration uses an application-specific cluster name and does not authenticate native clients or members. Kerberos authenticates access to Hadoop services only. On a shared cluster, enable YARN ACLs and restrict who can view the application report. Also restrict network access to the Hazelcast ports on eligible NodeManagers to trusted application containers and authorized SeaTunnel clients. This restriction must cover other workloads on the same host. If tenants cannot be isolated, use dedicated nodes or a trusted cluster.
+
 The master does not provide task slots. Fixed capacity is:
 
 ```text
@@ -80,7 +82,7 @@ application.worker-count × application.worker.slots
 
 Requests must also fit queue quotas, the ResourceManager maximum container capability, and available NodeManager capacity.
 
-When `yarn.master.http-port` is set, the AM binds a second, fixed port for HTTP and registers its NodeManager host and web address with the ResourceManager. Workers use the Hazelcast endpoint. Clients connecting directly to the UI and the YARN web proxy need access to the AM HTTP port.
+When `yarn.master.http-port` is set, the AM binds a second, fixed port for HTTP or HTTPS and registers its NodeManager host and web address with the ResourceManager. Workers use the Hazelcast endpoint. Clients connecting directly to the UI and the YARN web proxy need access to the AM web port.
 
 ## Staging and checkpoints
 

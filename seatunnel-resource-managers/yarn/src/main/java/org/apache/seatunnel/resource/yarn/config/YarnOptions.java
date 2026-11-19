@@ -86,7 +86,7 @@ public final class YarnOptions {
                     .intType()
                     .noDefaultValue()
                     .withDescription(
-                            "Fixed HTTP port for the ApplicationMaster web UI and REST API. Omit to keep HTTP disabled.");
+                            "Fixed port for the ApplicationMaster web UI and REST API. Uses HTTPS when enable-https is set in seatunnel.yaml. Omit to disable the web endpoint.");
 
     public static final Option<String> LOG4J_CONFIG_FILE =
             Options.key("yarn.log4j-config-file")

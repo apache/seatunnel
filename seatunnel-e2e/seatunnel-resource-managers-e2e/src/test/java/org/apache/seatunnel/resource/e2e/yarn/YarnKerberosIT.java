@@ -25,11 +25,15 @@ import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.resource.yarn.config.YarnOptions;
 import org.apache.seatunnel.resource.yarn.config.YarnSecurityContext;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
-import org.apache.seatunnel.resource.yarn.launch.YarnContainerLaunchContextFactory;
+import org.apache.seatunnel.resource.yarn.launch.YarnLocalResources;
+import org.apache.seatunnel.resource.yarn.launch.factory.ApplicationMasterContainerFactory;
+import org.apache.seatunnel.resource.yarn.launch.factory.WorkerContainerFactory;
+import org.apache.seatunnel.resource.yarn.launch.resources.YarnResourceRequirements;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
@@ -58,6 +62,7 @@ import java.security.PrivilegedExceptionAction;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -89,9 +94,16 @@ public class YarnKerberosIT extends TestSuiteBase {
                 try (FSDataOutputStream output = fs.create(source)) {
                     output.write(42);
                 }
-                Path manifest = new Path(staging, "distribution.properties");
-                try (FSDataOutputStream output = fs.create(manifest)) {
-                    output.writeBytes("archive=distribution.zip\nroot=\n");
+                FileStatus archive = fs.getFileStatus(source);
+                Properties manifest = new Properties();
+                manifest.setProperty("archive", source.toString());
+                manifest.setProperty("archive.size", Long.toString(archive.getLen()));
+                manifest.setProperty(
+                        "archive.timestamp", Long.toString(archive.getModificationTime()));
+                manifest.setProperty("root", "");
+                try (FSDataOutputStream output =
+                        fs.create(new Path(staging, YarnConstants.DISTRIBUTION_MANIFEST))) {
+                    manifest.store(output, null);
                 }
                 fs.create(new Path(staging, YarnConstants.LOCALIZED_SPECIFICATION_NAME)).close();
                 fs.create(new Path(staging, YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME)).close();
@@ -141,8 +153,14 @@ public class YarnKerberosIT extends TestSuiteBase {
                                     SaslDataTransferTestCase.getUserPrincipal(),
                                     UserGroupInformation.getCurrentUser().getUserName());
                             ContainerLaunchContext master =
-                                    YarnContainerLaunchContextFactory.master(
-                                            conf, source.getParent(), 512, "simple-user");
+                                    ApplicationMasterContainerFactory.create(
+                                                    conf,
+                                                    source.getParent(),
+                                                    new YarnResourceRequirements(512, 1),
+                                                    YarnLocalResources.resolve(
+                                                            conf, source.getParent(), true),
+                                                    "simple-user")
+                                            .getInternalResource();
                             assertTrue(
                                     master.getLocalResources()
                                             .containsKey(
@@ -181,14 +199,14 @@ public class YarnKerberosIT extends TestSuiteBase {
                         (PrivilegedExceptionAction<Credentials>)
                                 () -> {
                                     ContainerLaunchContext worker =
-                                            YarnContainerLaunchContextFactory.worker(
-                                                    conf,
-                                                    source.getParent(),
-                                                    "app",
-                                                    "am:5801",
-                                                    new WorkerSpecification(512, 1, 1),
-                                                    "simple-user",
-                                                    "/am");
+                                            new WorkerContainerFactory(conf, source.getParent())
+                                                    .create(
+                                                            "app",
+                                                            "am:5801",
+                                                            new WorkerSpecification(512, 1, 1),
+                                                            "simple-user",
+                                                            "/am")
+                                                    .getInternalResource();
                                     assertFalse(
                                             worker.getLocalResources()
                                                     .containsKey(

@@ -39,11 +39,12 @@ import org.apache.seatunnel.resource.yarn.config.YarnOptions;
 import org.apache.seatunnel.resource.yarn.exception.YarnClientException;
 import org.apache.seatunnel.resource.yarn.launch.YarnApplicationFileUploader;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
-import org.apache.seatunnel.resource.yarn.launch.YarnContainerLaunchContextFactory;
 import org.apache.seatunnel.resource.yarn.launch.YarnLaunchParameters;
 import org.apache.seatunnel.resource.yarn.launch.YarnLocalResourceDescriptor;
+import org.apache.seatunnel.resource.yarn.launch.YarnLocalResources;
 import org.apache.seatunnel.resource.yarn.launch.YarnStagingDirectory;
 import org.apache.seatunnel.resource.yarn.launch.factory.ApplicationMasterContainerFactory;
+import org.apache.seatunnel.resource.yarn.launch.factory.WorkerContainerFactory;
 import org.apache.seatunnel.resource.yarn.launch.resources.YarnContainerSpec;
 import org.apache.seatunnel.resource.yarn.launch.resources.YarnResourceRequirements;
 import org.apache.seatunnel.resource.yarn.worker.SeatunnelYarnApplicationWorker;
@@ -467,14 +468,14 @@ class YarnApplicationTest {
                     Files.readString(jobFile),
                     YarnApplicationConfiguration.read(spec).getSpecification().getJobConfig());
             assertFalse(
-                    YarnContainerLaunchContextFactory.worker(
-                                    configuration,
-                                    staging,
+                    new WorkerContainerFactory(configuration, staging)
+                            .create(
                                     "cluster",
                                     "master:5801",
                                     inline.getWorkerSpecification(),
                                     "user",
                                     "/master")
+                            .getInternalResource()
                             .getLocalResources()
                             .containsKey(YarnConstants.LOCALIZED_JOB_CONFIG_NAME));
         } catch (Throwable failure) {
@@ -519,16 +520,23 @@ class YarnApplicationTest {
             YarnLocalResourceDescriptor localized = uploader.upload();
             Path staging = uploader.getApplicationDir();
             ContainerLaunchContext master =
-                    YarnContainerLaunchContextFactory.master(staging, 512, localized, "submitter");
+                    ApplicationMasterContainerFactory.create(
+                                    configuration,
+                                    staging,
+                                    YarnResourceRequirements.forMaster(
+                                            deployment.getSpecification()),
+                                    localized,
+                                    "submitter")
+                            .getInternalResource();
             ContainerLaunchContext worker =
-                    YarnContainerLaunchContextFactory.worker(
-                            configuration,
-                            staging,
-                            "cluster",
-                            "host:5801",
-                            deployment.getSpecification().getWorkerSpecification(),
-                            "submitter",
-                            "/master");
+                    new WorkerContainerFactory(configuration, staging)
+                            .create(
+                                    "cluster",
+                                    "host:5801",
+                                    deployment.getSpecification().getWorkerSpecification(),
+                                    "submitter",
+                                    "/master")
+                            .getInternalResource();
             Files.writeString(engine, "updated after submission");
             assertEquals(
                     "seatunnel: {}",
@@ -635,14 +643,14 @@ class YarnApplicationTest {
             assertFalse(manifest.contains("orders.conf"));
             assertTrue(master.getResources().containsKey(YarnConstants.LOCALIZED_JOB_CONFIG_NAME));
             ContainerLaunchContext worker =
-                    YarnContainerLaunchContextFactory.worker(
-                            configuration,
-                            staging,
-                            "cluster",
-                            "master:5801",
-                            deployment.getSpecification().getWorkerSpecification(),
-                            "user",
-                            "/master");
+                    new WorkerContainerFactory(configuration, staging)
+                            .create(
+                                    "cluster",
+                                    "master:5801",
+                                    deployment.getSpecification().getWorkerSpecification(),
+                                    "user",
+                                    "/master")
+                            .getInternalResource();
             assertTrue(worker.getLocalResources().containsKey("files/conf/engine.yaml"));
             assertFalse(
                     worker.getLocalResources()
@@ -876,6 +884,15 @@ class YarnApplicationTest {
             try (FileSystem fileSystem = FileSystem.newInstance(configuration)) {
                 assertEquals(
                         (short) 0700, fileSystem.getFileStatus(staging).getPermission().toShort());
+                assertEquals(
+                        (short) 0600,
+                        fileSystem
+                                .getFileStatus(
+                                        new Path(
+                                                staging,
+                                                YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME))
+                                .getPermission()
+                                .toShort());
                 assertTrue(
                         fileSystem.exists(
                                 new Path(staging, YarnConstants.LOCALIZED_SPECIFICATION_NAME)));
@@ -999,9 +1016,7 @@ class YarnApplicationTest {
                                         LocalResourceVisibility.APPLICATION,
                                         resource.getVisibility()));
         assertEquals(
-                YarnContainerLaunchContextFactory.master(
-                                configuration, staging, 512, deployment.getHadoopUserName())
-                        .getLocalResources(),
+                YarnLocalResources.resolve(configuration, staging, true).getResources(),
                 registered.getResources());
     }
 

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.resource.yarn.launch.decorators;
 
-import org.apache.seatunnel.shade.com.google.common.io.Closer;
-
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
 import org.apache.seatunnel.resource.yarn.launch.YarnContainerCommand;
 import org.apache.seatunnel.resource.yarn.launch.YarnLaunchParameters;
@@ -28,6 +26,7 @@ import org.apache.seatunnel.resource.yarn.launch.resources.YarnLocalResource;
 
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 
 import java.io.IOException;
@@ -38,6 +37,7 @@ import java.util.Map;
  * Ships the Hadoop client configuration and supplies SeaTunnel's bootstrap and user environment.
  */
 public final class EnvironmentDecorator extends AbstractYarnStepDecorator {
+    private static final FsPermission HADOOP_CONFIG_PERMISSION = new FsPermission((short) 0600);
 
     @Override
     public List<YarnLocalResource> build() {
@@ -78,15 +78,13 @@ public final class EnvironmentDecorator extends AbstractYarnStepDecorator {
 
     private void writeHadoopConfiguration(YarnApplicationStaging staging, Path path)
             throws IOException {
-        Closer closer = Closer.create();
-        try {
-            FSDataOutputStream output =
-                    closer.register(staging.getFileSystem().create(path, false));
+        try (FSDataOutputStream output =
+                staging.getFileSystem()
+                        .createFile(path)
+                        .permission(HADOOP_CONFIG_PERMISSION)
+                        .overwrite(false)
+                        .build()) {
             staging.getHadoopConfiguration().writeXml(output);
-        } catch (Throwable failure) {
-            throw closer.rethrow(failure);
-        } finally {
-            closer.close();
         }
     }
 }

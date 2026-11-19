@@ -67,7 +67,7 @@ yarn {
     #   }
     # }
   }
-  # config-dir = "/etc/hadoop/conf"  # defaults to HADOOP_CONF_DIR or the Hadoop classpath
+  # config-dir = "/etc/hadoop/conf"  # defaults to HADOOP_CONF_DIR on the submission host
 
   # Optional scheduling. An empty worker node label inherits the AM label.
   # queue = "analytics"
@@ -75,7 +75,7 @@ yarn {
   # worker.node-label = "batch"
   # active-deadline-seconds = 3600
 
-  # Enable the Web UI and REST API on this exact AM host port. Omit for a headless application.
+  # Enable the Web UI and REST API on this exact AM host port (HTTPS if enabled in seatunnel.yaml).
   # master.http-port = 8095
 
   # Optional runtime configuration shared by both roles, with a separate worker JVM file.

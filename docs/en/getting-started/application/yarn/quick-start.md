@@ -94,7 +94,7 @@ bin/seatunnel-application.sh submit --target yarn \
 
 ## 5. Inspect or cancel
 
-The template runs a short batch job. Expect `SUCCEEDED` and Console output in the worker logs. For a long-running job, query its status from another terminal. With the optional HTTP port, open `http://<AM-host>:8095/` while the AM is running. Use `yarn logs -applicationId "$APP_ID"` to inspect aggregated logs after completion.
+The template runs a short batch job. Expect `SUCCEEDED` and Console output in the worker logs. For a long-running job, query its status from another terminal. If you enabled the AM web port, open `http://<AM-host>:8095/` (or `https://<AM-host>:8095/` with engine TLS enabled) while the AM is running. Use `yarn logs -applicationId "$APP_ID"` to inspect aggregated logs after completion.
 
 ```bash
 bin/seatunnel-application.sh status --target yarn \

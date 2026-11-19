@@ -24,13 +24,13 @@ title: 配置参考
 | --- | --- | --- | --- | --- |
 | `yarn.deployment-target` | Enum | 否 | `APPLICATION` | 部署拓扑；一期仅支持每个作业对应一个独立 application。 |
 | `yarn.distribution` | String | 提交时 | — | 提交用户可读的 `.tar.gz`、`.tgz` 或 `.zip` 发行包。可填写本地路径、`file:///` URI 或 `hdfs://` URI。 |
-| `yarn.config-dir` | String | 否 | 空 | Hadoop 配置目录；为空时使用 `HADOOP_CONF_DIR`，再回退到 Hadoop classpath。 |
+| `yarn.config-dir` | String | 否 | 空 | 提交机上存放 Hadoop 集群 site XML 文件的目录。默认使用 `HADOOP_CONF_DIR`。使用发行包脚本时，通过其中一项指定集群配置目录。 |
 | `yarn.staging-dir` | String | 否 | `.seatunnel/applications` | 共享文件系统 staging 根目录；相对路径通常位于提交用户的 HDFS home。 |
 | `yarn.queue` | String | 否 | `default` | 提交 application 的 YARN 队列。 |
 | `yarn.priority` | Integer | 否 | `-1` | `-1` 沿用集群默认值，可用非负整数指定应用调度优先级。 |
 | `yarn.tags` | String | 否 | 空 | 以逗号分隔的 YARN application tag。 |
 | `yarn.master.node-label` | String | 否 | 空 | ApplicationMaster 使用的 node-label expression。 |
-| `yarn.master.http-port` | Integer | 否 | 未设置 | 在 AM 上启用 Web UI 和 REST API，绑定指定端口（`1` 到 `65535`）。省略时关闭 HTTP。 |
+| `yarn.master.http-port` | Integer | 否 | 未设置 | 在 AM 上启用 Web UI 和 REST API，绑定指定端口（`1` 到 `65535`）。引擎启用 HTTPS 时使用 HTTPS。省略端口时关闭 Web 服务。 |
 | `yarn.worker.node-label` | String | 否 | 空 | Worker 使用的 node-label expression；为空时继承 `yarn.master.node-label`。 |
 | `yarn.hadoop-user-name` | String | 否 | 当前有效 Hadoop 用户的短用户名 | simple 模式下用于 YARN 请求、HDFS staging、AM 和 worker 的用户。 |
 | `yarn.active-deadline-seconds` | Long | 否 | 队列策略 | 从提交开始计算的应用运行时限，单位秒，必须为正数。ResourceManager 负责执行，队列可设置上限。 |
@@ -90,6 +90,8 @@ title: 配置参考
 
 每个应用的暂存目录权限为 `0700`。可复用的发行包和持久化 checkpoint 应放在该目录之外。快照保留期由发布者管理。
 
+提交端将合并后的 Hadoop 配置写入权限为 `0600` 的 `hadoop-conf.xml`。YARN 会将该文件分发到 AM 和每个 worker。site XML 中的明文密钥和密码对这些容器内运行的代码可见。对于支持 Hadoop credential provider 的配置项，请将凭据存入 provider，并为应用身份授予读取权限。参见 [Hadoop CredentialProvider 指南](https://hadoop.apache.org/docs/r3.1.4/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html)。
+
 ## Kerberos
 
 认证方式由 Hadoop 配置决定。在默认的 `simple` 模式下，提交端、AM 和 worker 使用当前有效 Hadoop 用户的短用户名。例如，网关进程以 `svc` 运行并设置 `HADOOP_USER_NAME=etl` 时，提交作业和创建 staging 的身份都是 `etl`。显式设置 `yarn.hadoop-user-name` 会为三者统一选择该用户。simple 模式会忽略 Kerberos 选项和 keytab 路径。
@@ -101,7 +103,11 @@ yarn.kerberos.principal = "seatunnel@EXAMPLE.COM"
 yarn.kerberos.keytab = "/etc/security/keytabs/seatunnel.keytab"
 ```
 
-提交端为 staging 所在的 HDFS 获取 delegation token，ResourceManager 可在 HDFS 允许的最大有效期内续期。AM 将 HDFS token 转交 worker，并将自身与 ResourceManager 通信的 token 保留在 AM 内。keytab 仅在提交端使用，查询和取消作业时沿用有权限的身份。
+提交端只为 staging 所在的文件系统申请 delegation token。AM 将 HDFS token 转交 worker，自身保留与 ResourceManager 通信的 token。如果 checkpoint 位于另一个启用 Kerberos 的 HDFS nameservice，需要单独提供该 nameservice 的凭据，或将 checkpoint 放到 staging 所在文件系统中本次应用目录以外的位置。
+
+keytab 仅保存在提交机上。ResourceManager 可在 `dfs.namenode.delegation.token.max-lifetime` 指定的期限内为 HDFS token 续期（Hadoop 3.1.4 默认为七天）。达到期限后，依赖此 token 的运行中作业将失去 HDFS 访问权限，后续 checkpoint 写入也会失败。对于运行时间更长的流作业，应在到期前安排使用新凭据从 checkpoint 恢复提交。查询和取消作业时使用有权限的 Hadoop 身份。
+
+集成测试已覆盖两种提交端登录方式，以及安全 HDFS 上的凭据续期和转交。完整的 YARN 应用测试使用 simple 认证。在启用 Kerberos 的 YARN 集群上投入生产前，请验证作业的完整生命周期。
 
 ## 调度
 
@@ -125,9 +131,9 @@ yarn {
 yarn.master.http-port = 8095
 ```
 
-这个选项在 AM 上启动 HTTP 服务，并覆盖本地化 `seatunnel.yaml` 中的 HTTP 端口。AM 绑定指定端口，端口占用会使启动失败。worker 继续关闭 HTTP。`application.master.port` 单独控制 worker 连接 AM 使用的 Hazelcast 端口。
+AM 只在指定端口启动一个 Web 服务。本地化的 `seatunnel.yaml` 设置 `seatunnel.engine.http.enable-https: true` 时，AM 仅提供 HTTPS，并向 YARN 注册 `https://<AM 所在 NodeManager 主机>:8095/`。请配置引擎的 TLS 参数，确保 AM 容器能按配置路径读取 keystore。其他情况下 AM 提供 HTTP，注册地址为 `http://<AM 所在 NodeManager 主机>:8095/`。端口被占用会使 AM 启动失败。省略此选项时 AM 关闭两个监听器。worker 上的 Web 服务始终关闭。参见[引擎 TLS 配置](../../../engines/zeta/security.md)。
 
-AM 向 YARN 注册 `http://<AM 所在 NodeManager 主机>:8095/`。如果引擎指定了 HTTP 上下文路径，地址也会包含该路径。引擎配置中的基本认证、请求大小限制等 HTTP 设置继续生效。应用运行期间可直接访问 AM 地址打开随发行包提供的 UI，或访问 `/overview` 查询 REST 概览。
+注册地址包含引擎配置的上下文路径。基本认证、请求大小限制等引擎设置继续生效。应用运行期间可直接访问 AM 地址打开随发行包提供的 UI，或访问 `/overview` 查询 REST 概览。
 
 ResourceManager 的 Web Application Proxy 可转发 `/proxy/<applicationId>/` 下的请求。发行包中的前端从站点根路径加载 `/assets/` 和 `/overview` 等 API。需要完整页面时，可直连 AM，或者让专用网关域名的根路径指向 AM。外部域名、端口映射和访问权限由集群运维方配置。
 

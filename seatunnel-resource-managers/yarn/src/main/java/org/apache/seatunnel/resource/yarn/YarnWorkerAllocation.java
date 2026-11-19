@@ -34,7 +34,10 @@ final class YarnWorkerAllocation {
     @Getter(AccessLevel.PACKAGE)
     private final YarnWorkerRequest request;
 
+    /** Unblocks release with whether the NM may have received a start request. */
     private final CompletableFuture<Boolean> launchFinished = new CompletableFuture<>();
+
+    /** Guarded by the driver lock. A failed release remains owned here until a caller retries. */
     private CompletableFuture<Void> release;
 
     /**

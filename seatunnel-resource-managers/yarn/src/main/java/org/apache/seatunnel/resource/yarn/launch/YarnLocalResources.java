@@ -59,8 +59,7 @@ public final class YarnLocalResources {
     static YarnLocalResourceDescriptor resolve(
             FileSystem fileSystem, Path staging, boolean forMaster) throws IOException {
         Properties manifest = YarnDistribution.readManifest(fileSystem, staging);
-        YarnDistribution distribution =
-                YarnDistribution.fromManifest(fileSystem, staging, manifest);
+        YarnDistribution distribution = YarnDistribution.fromManifest(staging, manifest);
         YarnContainerSettings settings = YarnContainerSettings.read(manifest);
         List<YarnStepDecorator<YarnLocalResource>> decorators;
         if (forMaster) {

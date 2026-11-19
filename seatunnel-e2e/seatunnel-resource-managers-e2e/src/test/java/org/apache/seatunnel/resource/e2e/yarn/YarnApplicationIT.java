@@ -60,6 +60,7 @@ import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 import org.apache.hadoop.yarn.server.MiniYARNCluster;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Container;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerKillEvent;
+import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMApp;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 
 import org.junit.jupiter.api.AfterAll;
@@ -95,6 +96,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.jar.JarFile;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -310,10 +312,26 @@ public class YarnApplicationIT extends TestSuiteBase {
 
     @Test
     void masterPublishesItsConfiguredHttpEndpoint() throws Exception {
-        int port;
-        try (ServerSocket socket = new ServerSocket(0)) {
-            port = socket.getLocalPort();
+        for (int attempt = 1; ; attempt++) {
+            int port;
+            try (ServerSocket socket = new ServerSocket(0)) {
+                port = socket.getLocalPort();
+            }
+            String name = "seatunnel-yarn-http-" + attempt + "-" + port;
+            try {
+                verifyHttpEndpoint(name, port);
+                return;
+            } catch (Exception | AssertionError failure) {
+                // Another process can take the port while YARN localizes the AM. Retry once,
+                // only when this application's Jetty reported that exact bind collision.
+                if (attempt == 2 || !httpPortWasTaken(name, port)) {
+                    throw failure;
+                }
+            }
         }
+    }
+
+    private void verifyHttpEndpoint(String name, int port) throws Exception {
         Map<String, String> options =
                 SeatunnelApplicationConfig.load(
                         ContainerUtil.getResourcesFile("/yarn/cancel/application.config").toPath(),
@@ -323,12 +341,17 @@ public class YarnApplicationIT extends TestSuiteBase {
                 new ApplicationClusterDeployer(
                                 clientServiceLoader,
                                 DeployType.YARN,
-                                specification("cancel"),
+                                specification("cancel").toBuilder().name(name).build(),
                                 options)
                         .run();
         try (YarnApplicationClient client = platformMonitor(id.toString())) {
             try {
                 awaitWorker(client);
+                assertTrue(
+                        applicationLogContains(
+                                id.toString(),
+                                "SeaTunnel REST service started on http port " + port),
+                        "The AM must own the HTTP endpoint advertised to YARN");
                 URI direct = URI.create(applicationReport(id).getOriginalTrackingUrl());
                 assertEquals("http", direct.getScheme());
                 assertEquals(port, direct.getPort());
@@ -362,6 +385,21 @@ public class YarnApplicationIT extends TestSuiteBase {
             }
             assertEquals(ApplicationStatus.CANCELED, awaitTerminal(client));
         }
+    }
+
+    private boolean httpPortWasTaken(String name, int port) throws Exception {
+        Pattern bindFailure = Pattern.compile("Failed to bind to [^\\r\\n]+:" + port + "\\b");
+        for (RMApp app : yarn.getResourceManager().getRMContext().getRMApps().values()) {
+            if (name.equals(app.getName())) {
+                return applicationLogMatches(
+                        app.getApplicationId().toString(),
+                        "stderr",
+                        log ->
+                                bindFailure.matcher(log).find()
+                                        && log.contains("BindException: Address already in use"));
+            }
+        }
+        return false;
     }
 
     private String getHttp(HttpClient http, URI uri) throws Exception {
@@ -697,6 +735,9 @@ public class YarnApplicationIT extends TestSuiteBase {
                     hdfs.getFileSystem().getFileStatus(staging).getPermission().toShort());
             Set<String> stagedFiles = new HashSet<>();
             for (FileStatus file : hdfs.getFileSystem().listStatus(staging)) {
+                if (YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME.equals(file.getPath().getName())) {
+                    assertEquals((short) 0600, file.getPermission().toShort());
+                }
                 stagedFiles.add(file.getPath().getName());
                 assertTrue(file.isFile());
                 assertTrue(file.getLen() > 0);
@@ -1040,6 +1081,11 @@ public class YarnApplicationIT extends TestSuiteBase {
     }
 
     private boolean applicationLogContains(String applicationId, String marker) throws Exception {
+        return applicationLogMatches(applicationId, "stdout", text -> text.contains(marker));
+    }
+
+    private boolean applicationLogMatches(
+            String applicationId, String fileName, Predicate<String> matches) throws Exception {
         for (String directory :
                 yarn.getNodeManager(0)
                         .getConfig()
@@ -1049,10 +1095,8 @@ public class YarnApplicationIT extends TestSuiteBase {
                 continue;
             }
             for (File container : containers) {
-                File output = new File(container, "stdout");
-                if (output.isFile()
-                        && new String(Files.readAllBytes(output.toPath()), StandardCharsets.UTF_8)
-                                .contains(marker)) {
+                File output = new File(container, fileName);
+                if (output.isFile() && matches.test(Files.readString(output.toPath()))) {
                     return true;
                 }
             }

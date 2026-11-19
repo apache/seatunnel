@@ -27,6 +27,9 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.hazelcast.config.XmlConfigBuilder;
 
 import java.io.File;
@@ -38,6 +41,8 @@ import java.util.Map;
 
 /** Loads platform configuration and bounds Hadoop RPC retries for lifecycle cleanup. */
 public final class YarnConfigurationUtils {
+    private static final Logger LOG = LoggerFactory.getLogger(YarnConfigurationUtils.class);
+
     /** Hadoop configuration files copied into the merged application configuration. */
     private static final String[] HADOOP_CONFIGURATION_FILES =
             new String[] {"core-site.xml", "hdfs-site.xml", "yarn-site.xml"};
@@ -72,8 +77,7 @@ public final class YarnConfigurationUtils {
 
     /**
      * Loads the submitter's Hadoop configuration. An explicit {@code yarn.config-dir} takes
-     * precedence over {@code HADOOP_CONF_DIR}. With neither set, Hadoop uses its classpath
-     * configuration.
+     * precedence over {@code HADOOP_CONF_DIR}. With neither set, no site directory is loaded.
      *
      * @param options deployment options supplied to the descriptor
      * @return Hadoop configuration used by the submission clients
@@ -98,6 +102,10 @@ public final class YarnConfigurationUtils {
                     configuration.addResource(new Path(file.toURI()));
                 }
             }
+        } else {
+            LOG.warn(
+                    "No Hadoop site directory configured. Set yarn.config-dir or HADOOP_CONF_DIR "
+                            + "to load your cluster settings.");
         }
         return configuration;
     }

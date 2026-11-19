@@ -23,14 +23,12 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import lombok.Getter;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -47,7 +45,7 @@ import java.util.zip.GZIPInputStream;
 
 /** An inspected archive, its localization metadata and the SeaTunnel installation inside it. */
 public final class YarnDistribution {
-    /** Qualified source path, or a staging-relative filename in older manifests. */
+    /** Qualified path of the archive registered for localization. */
     private static final String ARCHIVE_PROPERTY = "archive";
 
     private static final String SIZE_PROPERTY = "archive.size";
@@ -80,22 +78,6 @@ public final class YarnDistribution {
         this.timestamp = timestamp;
         this.configFiles = configFiles;
         this.root = root;
-    }
-
-    /**
-     * Inspects a local copy before staging. The distribution marker identifies the SeaTunnel home
-     * inside the archive, and discovered configuration files determine which defaults can be used.
-     *
-     * @param archive local ZIP or gzip-compressed tar archive
-     * @return layout used when staging and localizing this distribution
-     * @throws IOException if the archive cannot be read
-     * @throws IllegalArgumentException if the format or distribution layout is unsupported
-     */
-    public static YarnDistribution inspect(File archive) throws IOException {
-        Path path = new Path(archive.toURI());
-        try (FileSystem local = FileSystem.newInstanceLocal(new Configuration())) {
-            return inspect(local, local.getFileStatus(path));
-        }
     }
 
     /** Reads the layout from the same file that the NodeManager will later unpack. */
@@ -191,41 +173,8 @@ public final class YarnDistribution {
         return previous;
     }
 
-    /** Uploads the archive and its layout manifest to the private application directory. */
-    public void stage(FileSystem fileSystem, Path staging, File source) throws IOException {
-        stage(fileSystem, staging, source, new Properties());
-    }
-
     public boolean containsFile(String path) {
         return configFiles.contains(root + path);
-    }
-
-    /**
-     * Copies the archive and records its staged filename and internal root alongside the container
-     * settings. The AM later reads this manifest when preparing worker containers.
-     *
-     * @param fileSystem caller-owned staging filesystem
-     * @param staging application-private directory
-     * @param source local archive whose layout was inspected
-     * @param manifest runtime settings to augment with the archive layout and persist
-     * @throws IOException if copying the archive or writing the manifest fails
-     */
-    public void stage(FileSystem fileSystem, Path staging, File source, Properties manifest)
-            throws IOException {
-        stageArchive(fileSystem, staging, source)
-                .writeManifest(
-                        fileSystem,
-                        new Path(staging, YarnConstants.DISTRIBUTION_MANIFEST),
-                        manifest);
-    }
-
-    /** Copies a previously inspected local archive for callers that supply its layout directly. */
-    YarnDistribution stageArchive(FileSystem fileSystem, Path staging, File source)
-            throws IOException {
-        FileStatus staged =
-                YarnDistributionSource.register(
-                        source.toURI(), fileSystem, staging, fileSystem.getConf());
-        return new YarnDistribution(staged, root, configFiles);
     }
 
     /** Persists the exact YARN resource and the runtime settings selected from this archive. */
@@ -249,22 +198,16 @@ public final class YarnDistribution {
         return manifest;
     }
 
-    /** Older manifests recorded only the staged filename and the distribution root. */
-    static YarnDistribution fromManifest(FileSystem fileSystem, Path staging, Properties manifest)
-            throws IOException {
+    /** Recreates the resource from the exact archive metadata recorded at submission. */
+    static YarnDistribution fromManifest(Path staging, Properties manifest) throws IOException {
         String location = manifest.getProperty(ARCHIVE_PROPERTY);
         String root = manifest.getProperty(ROOT_PROPERTY);
         if (location == null || location.isEmpty() || root == null) {
             throw new IOException("Incomplete distribution manifest in " + staging);
         }
-        Path archive = new Path(staging, location);
-        if (!manifest.containsKey(SIZE_PROPERTY) && !manifest.containsKey(TIMESTAMP_PROPERTY)) {
-            FileStatus status = fileSystem.getFileStatus(archive);
-            return new YarnDistribution(status, root, Collections.emptySet());
-        }
         try {
             return new YarnDistribution(
-                    archive,
+                    new Path(location),
                     Long.parseLong(manifest.getProperty(SIZE_PROPERTY)),
                     Long.parseLong(manifest.getProperty(TIMESTAMP_PROPERTY)),
                     root,
@@ -272,11 +215,6 @@ public final class YarnDistribution {
         } catch (NumberFormatException failure) {
             throw new IOException("Invalid distribution archive metadata in " + staging, failure);
         }
-    }
-
-    /** Returns the private staging path for a copy in this archive format. */
-    public Path archive(Path staging) {
-        return new Path(staging, archiveName(path.getName()));
     }
 
     String localizedHome() {

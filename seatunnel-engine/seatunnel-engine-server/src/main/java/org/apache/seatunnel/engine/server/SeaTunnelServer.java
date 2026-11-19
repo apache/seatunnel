@@ -454,6 +454,12 @@ public class SeaTunnelServer
         metricsSnapshotStateStore.removePipeline(pipelineLocation);
     }
 
+    /** Checks resource-manager ownership without waiting for coordinator activation. */
+    public boolean hasInitializedResourceManager() {
+        return coordinatorService != null
+                && coordinatorService.getInitializedResourceManager() != null;
+    }
+
     public boolean isCoordinatorActive() {
         return coordinatorService.isCoordinatorActive();
     }

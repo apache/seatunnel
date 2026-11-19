@@ -33,7 +33,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -138,36 +137,6 @@ public final class YarnApplicationFileUploader implements Closeable {
     @Override
     public void close() throws IOException {
         fileSystem.close();
-    }
-
-    /**
-     * Uploads the distribution, application specification and merged Hadoop configuration. The
-     * caller owns the supplied filesystem and staging directory, including failure cleanup.
-     *
-     * @param fileSystem shared filesystem owning the application staging directory
-     * @param staging application-private staging directory
-     * @param distribution validated distribution archive layout
-     * @param archive local SeaTunnel distribution archive
-     * @param deployment resolved application and platform configuration
-     * @param hadoopConfiguration merged Hadoop settings required inside containers
-     * @throws Exception when any file cannot be uploaded completely
-     */
-    public static void upload(
-            FileSystem fileSystem,
-            Path staging,
-            YarnDistribution distribution,
-            File archive,
-            YarnApplicationConfiguration deployment,
-            Configuration hadoopConfiguration)
-            throws Exception {
-        YarnApplicationStaging inputs =
-                new YarnApplicationStaging(
-                        fileSystem,
-                        staging,
-                        distribution.stageArchive(fileSystem, staging, archive),
-                        deployment,
-                        hadoopConfiguration);
-        inputs.stage(masterFiles(deployment));
     }
 
     private static List<YarnLocalResource> masterFiles(YarnApplicationConfiguration deployment) {

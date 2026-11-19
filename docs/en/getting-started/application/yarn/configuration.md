@@ -24,13 +24,13 @@ The deployment file (`-a`) configures the application and the YARN cluster. The 
 | --- | --- | --- | --- | --- |
 | `yarn.deployment-target` | Enum | No | `APPLICATION` | Deployment topology. The first release supports one isolated application per job. |
 | `yarn.distribution` | String | On submit | — | Local path, `file:///` URI, or `hdfs://` URI to a readable `.tar.gz`, `.tgz`, or `.zip` distribution. |
-| `yarn.config-dir` | String | No | Empty | Hadoop configuration directory. Empty uses `HADOOP_CONF_DIR`, then the Hadoop classpath. |
+| `yarn.config-dir` | String | No | Empty | Submitter-local directory containing the cluster's site XML files. Defaults to `HADOOP_CONF_DIR`. Set one of these to load your cluster settings with the bundled launcher. |
 | `yarn.staging-dir` | String | No | `.seatunnel/applications` | Shared-filesystem staging root. A relative path normally resolves below the submitting user's HDFS home. |
 | `yarn.queue` | String | No | `default` | YARN submission queue. |
 | `yarn.priority` | Integer | No | `-1` | `-1` uses the cluster default. Set a nonnegative integer to request an application priority. |
 | `yarn.tags` | String | No | Empty | Comma-separated YARN application tags. |
 | `yarn.master.node-label` | String | No | Empty | Node-label expression for the ApplicationMaster. |
-| `yarn.master.http-port` | Integer | No | Unset | Enables the AM Web UI and REST API on this exact port (`1`–`65535`). Omit for a headless application. |
+| `yarn.master.http-port` | Integer | No | Unset | Enables the AM Web UI and REST API on this exact port (`1`–`65535`), using HTTPS when enabled in the engine configuration. Omit for a headless application. |
 | `yarn.worker.node-label` | String | No | Empty | Node-label expression for workers; empty inherits `yarn.master.node-label`. |
 | `yarn.hadoop-user-name` | String | No | Effective Hadoop user's short name | User for YARN requests, HDFS staging, the AM and workers in simple mode. |
 | `yarn.active-deadline-seconds` | Long | No | Queue policy | Positive application lifetime in seconds from submission, enforced by the ResourceManager. The queue can cap this value. |
@@ -90,6 +90,8 @@ To reuse a release across submissions, point `yarn.distribution` at a named snap
 
 The application staging directory has mode `0700`. Put reusable archives and durable checkpoints outside it. The release owner controls snapshot retention.
 
+The submitter writes its merged Hadoop configuration to `hadoop-conf.xml` with mode `0600`. YARN localizes this file into the AM and every worker. Any plaintext secrets in the site XML files are therefore readable by code running in those containers. Use a Hadoop credential provider for supported passwords and keys, and grant the application identity access to the provider. [Hadoop CredentialProvider guide](https://hadoop.apache.org/docs/r3.1.4/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html)
+
 ## Kerberos
 
 Hadoop selects the authentication mode. In the default `simple` mode, the submitter, AM and workers use the effective Hadoop user's short name. For example, a gateway process running as `svc` with `HADOOP_USER_NAME=etl` submits and stages files as `etl`. Set `yarn.hadoop-user-name` to select another user for all three. Simple mode ignores Kerberos options, including keytab paths.
@@ -101,7 +103,11 @@ yarn.kerberos.principal = "seatunnel@EXAMPLE.COM"
 yarn.kerberos.keytab = "/etc/security/keytabs/seatunnel.keytab"
 ```
 
-The submitter obtains HDFS delegation tokens for the staging filesystem. The ResourceManager can renew them up to the HDFS token lifetime. The AM forwards HDFS tokens to workers, keeping AM control tokens in its own process. The keytab stays on the submission host. Use the same identity for status and cancellation.
+The submitter requests delegation tokens only for the staging filesystem. The AM forwards HDFS tokens to workers and keeps its ResourceManager control token. If checkpoints use a different secure HDFS nameservice, provide credentials for that nameservice separately or store checkpoints on the staging filesystem outside the application directory.
+
+The keytab stays on the submission host. The ResourceManager can renew the HDFS token until `dfs.namenode.delegation.token.max-lifetime` (seven days by default in Hadoop 3.1.4). After expiry, a running job that relies on this token loses HDFS access, including checkpoint writes. Plan checkpoint recovery and resubmission with fresh credentials before expiry for longer streaming jobs. Use an authorized Hadoop identity for status and cancellation.
+
+Integration tests cover both submitter login methods and renewal and forwarding of credentials against secure HDFS. The end-to-end YARN application tests run with simple authentication. Validate the full job lifecycle on your Kerberos-enabled YARN cluster before production use.
 
 ## Scheduling
 
@@ -125,9 +131,9 @@ yarn {
 yarn.master.http-port = 8095
 ```
 
-This setting enables HTTP on the AM and overrides the HTTP port in the localized `seatunnel.yaml`. The AM binds exactly that port. A bind conflict fails startup. Workers keep their HTTP listener disabled. `application.master.port` controls the separate Hazelcast connection used by workers.
+The AM binds one web listener on this port. With `seatunnel.engine.http.enable-https: true` in the localized `seatunnel.yaml`, it serves HTTPS only and registers `https://<AM NodeManager host>:8095/` with YARN. Configure the engine's TLS settings and make the keystore available at the configured path inside the AM. Otherwise, the AM serves HTTP and registers `http://<AM NodeManager host>:8095/`. A port conflict fails startup. Omitting the port keeps both listeners disabled. Workers run without a web listener. [Engine TLS configuration](../../../engines/zeta/security.md)
 
-The AM registers `http://<AM NodeManager host>:8095/` with YARN, including the engine's HTTP context path if configured. The existing engine settings for basic authentication and request limits apply. Open the AM address while the application is running to use the packaged UI, or request `/overview` for its REST overview.
+The tracking URL includes the configured context path. Engine settings for basic authentication and request limits apply. Open the AM address while the application is running to use the packaged UI, or request `/overview` for its REST overview.
 
 The ResourceManager Web Application Proxy can forward requests under `/proxy/<applicationId>/`. The packaged UI requests assets under `/assets/` and APIs such as `/overview` at the origin root. For the full UI, use the AM directly or route a dedicated gateway origin to it. Set up the external address, port and access policy in your network.
 

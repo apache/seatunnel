@@ -17,10 +17,15 @@
 
 package org.apache.seatunnel.resource.yarn;
 
+import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.SeatunnelApplicationConfig;
 import org.apache.seatunnel.engine.common.config.spec.WorkerSpecification;
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
+import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceEventHandler;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.resource.yarn.exception.YarnClientException;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
 import org.apache.seatunnel.resource.yarn.worker.SeatunnelYarnApplicationWorker;
@@ -54,15 +59,18 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
+import com.hazelcast.spi.impl.NodeEngine;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
@@ -120,13 +128,18 @@ class YarnResourceManagerDriverTest {
         // The real AMRMClientAsync delivers responses from this transport to the registered
         // callbacks.
         when(resourceManager.allocate(anyFloat())).thenAnswer(invocation -> responses.poll());
+        File archive = new File(temporary, "distribution.zip");
+        Files.write(archive.toPath(), new byte[] {1});
         Files.write(
-                temporary.toPath().resolve("distribution.properties"),
-                Arrays.asList("archive=distribution.zip", "root="));
-        for (String file :
-                List.of("distribution.zip", YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME)) {
-            Files.write(temporary.toPath().resolve(file), new byte[] {1});
-        }
+                temporary.toPath().resolve(YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME),
+                new byte[] {1});
+        Files.write(
+                temporary.toPath().resolve(YarnConstants.DISTRIBUTION_MANIFEST),
+                List.of(
+                        "archive=" + archive.toURI(),
+                        "archive.size=" + archive.length(),
+                        "archive.timestamp=" + archive.lastModified(),
+                        "root="));
     }
 
     @AfterEach
@@ -194,32 +207,51 @@ class YarnResourceManagerDriverTest {
         verify(resourceManager).stop();
     }
 
-    @Test
-    void drainingWorkersKeepsTheRegistrationUntilTheFinalReportSucceeds() throws Exception {
+    @ParameterizedTest
+    @CsvSource({"SUCCEEDED, SUCCEEDED", "CANCELED, KILLED", "FAILED, FAILED"})
+    void resourceManagerCloseRetriesTheOriginalFinalReport(
+            ApplicationStatus status, FinalApplicationStatus expected) throws Exception {
         startDriver(null);
-        driver.stopWorkers();
-        assertTrue(driver.requestWorker(specification).isCompletedExceptionally());
-        verify(resourceManager, never())
-                .unregisterApplicationMaster(any(), anyString(), anyString());
-
+        ApplicationResourceManager<?> manager =
+                (ApplicationResourceManager<?>)
+                        new ResourceManagerFactory(
+                                        DeployType.YARN,
+                                        "application-test",
+                                        SeatunnelApplicationConfig.parse("env {}", Map.of()),
+                                        driver)
+                                .createResourceManager(mock(NodeEngine.class), new EngineConfig());
+        String diagnostics = "Job ended with " + status;
         IOException retry = new IOException("final report unavailable");
         doThrow(retry)
                 .doNothing()
                 .when(resourceManager)
-                .unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED, "finished", "");
-        assertSame(
-                retry,
-                assertThrows(
-                                YarnClientException.class,
-                                () -> driver.finish(ApplicationStatus.SUCCEEDED, "finished"))
-                        .getCause());
-        driver.finish(ApplicationStatus.SUCCEEDED, "finished");
+                .unregisterApplicationMaster(expected, diagnostics, "");
+        try {
+            manager.stopApplicationWorkers();
+            assertTrue(driver.requestWorker(specification).isCompletedExceptionally());
+            verify(resourceManager, never())
+                    .unregisterApplicationMaster(any(), anyString(), anyString());
+            assertSame(
+                    retry,
+                    assertThrows(
+                                    YarnClientException.class,
+                                    () -> manager.finish(status, diagnostics))
+                            .getCause());
+        } finally {
+            manager.close();
+        }
+        verify(resourceManager, times(2)).unregisterApplicationMaster(expected, diagnostics, "");
+    }
+
+    @Test
+    void closingWithoutAnApplicationResultReportsFailure() throws Exception {
+        startDriver(null);
         driver.close();
-        verify(resourceManager, times(2))
-                .unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED, "finished", "");
-        verify(resourceManager, never())
+        verify(resourceManager)
                 .unregisterApplicationMaster(
-                        eq(FinalApplicationStatus.FAILED), anyString(), anyString());
+                        FinalApplicationStatus.FAILED,
+                        "Application master stopped before job completion",
+                        "");
     }
 
     @Test

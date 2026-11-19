@@ -58,17 +58,16 @@ public final class SeatunnelYarnApplicationCli {
 
     /** Runs the native job and releases staged artifacts on normal or interrupted shutdown. */
     public static void main(String[] args) {
-        int exitCode = 0;
+        System.exit(runApplication());
+    }
+
+    static int runApplication() {
         try {
             Configuration configuration =
                     YarnConfigurationUtils.loadLocalized(
                             YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME);
             Path staging = YarnStagingDirectory.fromEnvironment();
-            // Keep a shutdown hook as the fallback for asynchronous termination (SIGTERM, OOM
-            // kill, or any exit that skips the finally below). On those paths the finally never
-            // runs, so this hook is the only cleanup that executes. Without it the staging
-            // directory — which still holds the resolved job configuration and possibly
-            // credentials — would leak on HDFS after an unclean exit.
+            // SIGTERM runs JVM hooks. A forced kill can leave staging for client-side cleanup.
             Thread cleanup = stagingCleanupHook(configuration, staging);
             Runtime.getRuntime().addShutdownHook(cleanup);
             try {
@@ -80,36 +79,36 @@ public final class SeatunnelYarnApplicationCli {
                 ApplicationSpecification specification =
                         applicationConfiguration.getSpecification();
                 LOG.debug("Loaded application specification {}", specification.getName());
-                SeaTunnelConfig engineConfiguration = configureEngine(id, applicationConfiguration);
+                SeaTunnelConfig engineConfiguration = YarnConfigurationUtils.loadEngineConfig();
+                configureEngine(
+                        engineConfiguration,
+                        id,
+                        specification,
+                        applicationConfiguration.getMasterHttpPort());
                 ResourceManagerDriver<?> driver =
                         createDriver(
                                 configuration,
                                 staging,
                                 applicationConfiguration,
                                 clusterName(id),
-                                trackingUrl(engineConfiguration.getEngineConfig().getHttpConfig()));
+                                trackingUrl(
+                                        engineConfiguration.getEngineConfig().getHttpConfig(),
+                                        System.getenv(
+                                                ApplicationConstants.Environment.NM_HOST.name())));
                 HazelcastInstanceImpl master =
                         startMaster(engineConfiguration, specification, id, driver);
                 LOG.info("Master started for YARN application {}", id);
                 runJob(specification, master, driver);
             } finally {
-                LOG.info("Job finished, removing staging directory {}", staging);
-                // Remove staging eagerly now that the job has finished: the master and every
-                // worker have already localized these files, so the HDFS copy is dead data.
-                // Cleaning up here (rather than relying only on the hook) guarantees removal on a
-                // normal exit, and releases both the disk quota and any resolved credentials the
-                // staging directory still contains.
+                LOG.info("Removing YARN application staging directory {}", staging);
                 cleanupStaging(configuration, staging);
-                // Drop the hook so the eager cleanup above is not executed a second time during
-                // the upcoming System.exit shutdown sequence. The hook remains registered only on
-                // the abnormal path where this finally never runs.
                 removeShutdownHook(cleanup);
             }
-        } catch (Exception failure) {
+            return 0;
+        } catch (Throwable failure) {
             LOG.error("YARN application failed", failure);
-            exitCode = 1;
+            return 1;
         }
-        System.exit(exitCode);
     }
 
     /**
@@ -178,30 +177,36 @@ public final class SeatunnelYarnApplicationCli {
     /**
      * Prepares the master's Engine and Hazelcast configuration.
      *
+     * @param engineConfiguration localized engine configuration to prepare for master startup
      * @param id native YARN application ID used for the cluster name
-     * @param application resolved application fields and optional AM HTTP port
-     * @return configuration ready for master startup
+     * @param specification resolved application fields
+     * @param masterHttpPort optional fixed port for the AM web endpoint
      */
-    private static SeaTunnelConfig configureEngine(
-            String id, YarnApplicationConfiguration application) {
-        ApplicationSpecification specification = application.getSpecification();
-        SeaTunnelConfig engineConfiguration = YarnConfigurationUtils.loadEngineConfig();
+    static void configureEngine(
+            SeaTunnelConfig engineConfiguration,
+            String id,
+            ApplicationSpecification specification,
+            Integer masterHttpPort) {
         HttpConfig http = engineConfiguration.getEngineConfig().getHttpConfig();
         SeatunnelApplicationConfig.configure(
                 engineConfiguration,
                 clusterName(id),
                 null,
                 specification.getWorkerSpecification().getSlots());
-        if (application.getMasterHttpPort() != null) {
+        if (masterHttpPort != null) {
             // The common application setup disables web listeners. Keep the user's HTTP auth,
             // context path and request limits when enabling the AM's fixed endpoint.
             if (http == ServerConfigOptions.MasterServerConfigOptions.HTTP.defaultValue()) {
                 http = new HttpConfig();
             }
-            http.setEnabled(true);
-            http.setEnableHttps(false);
+            // Jetty creates independent HTTP and HTTPS connectors. Bind only the selected one.
+            http.setEnabled(!http.isEnableHttps());
             http.setEnableDynamicPort(false);
-            http.setPort(application.getMasterHttpPort());
+            if (http.isEnableHttps()) {
+                http.setHttpsPort(masterHttpPort);
+            } else {
+                http.setPort(masterHttpPort);
+            }
             engineConfiguration.getEngineConfig().setHttpConfig(http);
         }
         SeatunnelApplicationConfig.configureCheckpointRetention(engineConfiguration);
@@ -210,12 +215,11 @@ public final class SeatunnelYarnApplicationCli {
                 .getNetworkConfig()
                 .setPort(specification.getMasterPort())
                 .setPortAutoIncrement(true);
-        return engineConfiguration;
     }
 
     /** Builds the AM's original tracking URL on its NodeManager host for the YARN web proxy. */
-    private static String trackingUrl(HttpConfig http) throws URISyntaxException {
-        if (!http.isEnabled()) {
+    static String trackingUrl(HttpConfig http, String host) throws URISyntaxException {
+        if (!http.isEnabled() && !http.isEnableHttps()) {
             return "";
         }
         String path = http.getContextPath();
@@ -226,10 +230,10 @@ public final class SeatunnelYarnApplicationCli {
             path += "/";
         }
         return new URI(
-                        "http",
+                        http.isEnableHttps() ? "https" : "http",
                         null,
-                        System.getenv(ApplicationConstants.Environment.NM_HOST.name()),
-                        http.getPort(),
+                        host,
+                        http.isEnableHttps() ? http.getHttpsPort() : http.getPort(),
                         path,
                         null,
                         null)
@@ -272,7 +276,7 @@ public final class SeatunnelYarnApplicationCli {
      * @param driver resource manager driver owned by the master
      * @return started Hazelcast master instance
      */
-    private static HazelcastInstanceImpl startMaster(
+    static HazelcastInstanceImpl startMaster(
             SeaTunnelConfig engineConfiguration,
             ApplicationSpecification specification,
             String id,
@@ -282,13 +286,18 @@ public final class SeatunnelYarnApplicationCli {
                     engineConfiguration,
                     null,
                     new ResourceManagerFactory(DeployType.YARN, id, specification, driver));
-        } catch (Exception failure) {
-            try {
-                driver.close();
-            } catch (Exception cleanup) {
-                failure.addSuppressed(cleanup);
-            }
+        } catch (Throwable failure) {
+            closeDriverAfterFailure(driver, failure);
             throw failure;
+        }
+    }
+
+    private static void closeDriverAfterFailure(
+            ResourceManagerDriver<?> driver, Throwable failure) {
+        try {
+            driver.close();
+        } catch (Throwable cleanup) {
+            failure.addSuppressed(cleanup);
         }
     }
 
@@ -299,26 +308,30 @@ public final class SeatunnelYarnApplicationCli {
      * @param master started Hazelcast master instance
      * @param driver resource manager driver to close during cleanup
      */
-    private static void runJob(
+    static void runJob(
             ApplicationSpecification specification,
             HazelcastInstanceImpl master,
             ResourceManagerDriver<?> driver)
             throws Exception {
-        SeaTunnelServer server =
-                master.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
         CountDownLatch stopped = new CountDownLatch(1);
         Thread shutdown = shutdownHook(stopped);
-        try {
-            Runtime.getRuntime().addShutdownHook(shutdown);
-            new ApplicationJobRunner(server, specification).run();
-        } finally {
-            removeShutdownHook(shutdown);
-            closeDriverIfNeeded(server, driver);
+        try (AutoCloseable closeMaster = master::shutdown;
+                AutoCloseable removeHook = () -> removeShutdownHook(shutdown)) {
+            SeaTunnelServer server = null;
             try {
-                master.shutdown();
-            } finally {
-                stopped.countDown();
+                Runtime.getRuntime().addShutdownHook(shutdown);
+                server = master.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+                new ApplicationJobRunner(server, specification).run();
+            } catch (Throwable failure) {
+                // Before resource-manager initialization there is no runtime owner to close the
+                // driver. Checking ownership must also work when the coordinator never activated.
+                if (server == null || !server.hasInitializedResourceManager()) {
+                    closeDriverAfterFailure(driver, failure);
+                }
+                throw failure;
             }
+        } finally {
+            stopped.countDown();
         }
     }
 
@@ -340,24 +353,5 @@ public final class SeatunnelYarnApplicationCli {
                     }
                 },
                 "seatunnel-yarn-application-shutdown");
-    }
-
-    /**
-     * Closes the driver when the runtime has not already initialized the resource manager.
-     *
-     * @param server running master server
-     * @param driver driver to close if cleanup ownership belongs to this process
-     */
-    private static void closeDriverIfNeeded(SeaTunnelServer server, ResourceManagerDriver<?> driver)
-            throws Exception {
-        try {
-            if (server.getCoordinatorService().getInitializedResourceManager() == null) {
-                driver.close();
-            }
-        } finally {
-            if (Thread.interrupted()) {
-                Thread.currentThread().interrupt();
-            }
-        }
     }
 }

@@ -21,6 +21,9 @@ import org.apache.seatunnel.shade.com.google.common.io.Closer;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import org.junit.jupiter.api.Test;
@@ -66,9 +69,16 @@ class YarnLaunchContextTest {
         } finally {
             closer.close();
         }
-        YarnDistribution layout = YarnDistribution.inspect(archive);
-        assertEquals("seatunnel/" + distributionRoot, layout.localizedHome());
-        assertEquals("distribution.tar.gz", layout.archive(new Path("/staging")).getName());
+        Configuration configuration = new Configuration();
+        Path staging = new Path(temporary.toURI());
+        try (FileSystem fs = FileSystem.newInstanceLocal(configuration)) {
+            FileStatus staged =
+                    YarnDistributionSource.register(archive.toURI(), fs, staging, configuration);
+            assertEquals("distribution.tar.gz", staged.getPath().getName());
+            assertEquals(
+                    "seatunnel/" + distributionRoot,
+                    YarnDistribution.inspect(fs, staged).localizedHome());
+        }
     }
 
     @ParameterizedTest
@@ -79,7 +89,11 @@ class YarnLaunchContextTest {
             zip.putNextEntry(new ZipEntry(name));
             zip.closeEntry();
         }
-        assertThrows(IllegalArgumentException.class, () -> YarnDistribution.inspect(archive));
+        try (FileSystem fs = FileSystem.newInstanceLocal(new Configuration())) {
+            FileStatus source = fs.getFileStatus(new Path(archive.toURI()));
+            assertThrows(
+                    IllegalArgumentException.class, () -> YarnDistribution.inspect(fs, source));
+        }
     }
 
     @Test

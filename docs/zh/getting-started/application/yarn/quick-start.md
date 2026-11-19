@@ -94,7 +94,7 @@ bin/seatunnel-application.sh submit --target yarn \
 
 ## 5. 查询或取消
 
-模板运行的是短批作业，预期状态为 `SUCCEEDED`，Console 输出可在 worker 日志中找到。对于长时间运行的作业，可以另开终端查询状态。启用了 HTTP 端口时，可在 AM 运行期间打开 `http://<AM-host>:8095/`。完成后可执行 `yarn logs -applicationId "$APP_ID"` 查看聚合日志。
+模板运行的是短批作业，预期状态为 `SUCCEEDED`，Console 输出可在 worker 日志中找到。对于长时间运行的作业，可以另开终端查询状态。启用了 AM 的 Web 服务端口时，可在运行期间打开 `http://<AM-host>:8095/`。引擎启用 TLS 时使用 `https://<AM-host>:8095/`。完成后可执行 `yarn logs -applicationId "$APP_ID"` 查看聚合日志。
 
 ```bash
 bin/seatunnel-application.sh status --target yarn \
