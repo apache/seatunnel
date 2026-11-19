@@ -57,7 +57,7 @@ Column[] getInlineOutputColumns(CatalogTable inputCatalogTable)
 Object[] getInlineOutputFieldValues(SeaTunnelRowAccessor inputRow)
 ```
 
-The first method defines the columns to produce. A returned column with an existing name replaces that column's definition; a new name appends a column. Other input columns remain.
+The first method defines the columns to produce. For an existing name, the callback replaces the row value and may change the column's data type; the column keeps its position and other metadata, such as nullability. A new name appends a column using the returned definition. Other input columns remain.
 
 The second method computes the values for one row. Return one value per declared output column, in the same order and with compatible types. Read input fields by their input-schema indexes through `SeaTunnelRowAccessor`.
 

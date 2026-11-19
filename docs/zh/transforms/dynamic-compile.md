@@ -57,7 +57,7 @@ Column[] getInlineOutputColumns(CatalogTable inputCatalogTable)
 Object[] getInlineOutputFieldValues(SeaTunnelRowAccessor inputRow)
 ```
 
-第一个方法定义输出列。与现有列同名的返回列会替换该列定义，新名称的列会追加到表结构，其他输入列保持不变。
+第一个方法定义输出列。对于现有列名，回调会替换行中的字段值，并可改变该列的数据类型；列的位置和其他元数据（例如是否可为空）保持不变。新名称的列按返回的列定义追加到表结构，其他输入列保持不变。
 
 第二个方法计算单行的输出值。返回值数量必须与声明的输出列数一致，顺序和类型也必须匹配。通过 `SeaTunnelRowAccessor` 按输入表结构的字段索引读取输入值。
 
