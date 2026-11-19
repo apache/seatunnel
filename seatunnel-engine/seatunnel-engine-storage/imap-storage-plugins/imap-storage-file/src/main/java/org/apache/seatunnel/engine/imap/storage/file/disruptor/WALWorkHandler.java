@@ -23,6 +23,7 @@ package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALWriter;
+import org.apache.seatunnel.engine.imap.storage.file.config.CompactionConfig;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
@@ -46,12 +47,27 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
             FileConfiguration fileConfiguration,
             String parentPath,
             Serializer serializer) {
+        this(fs, fileConfiguration, parentPath, serializer, CompactionConfig.disabled());
+    }
+
+    public WALWorkHandler(
+            FileSystem fs,
+            FileConfiguration fileConfiguration,
+            String parentPath,
+            Serializer serializer,
+            CompactionConfig compaction) {
         try {
-            writer = new WALWriter(fs, fileConfiguration, new Path(parentPath), serializer);
+            writer =
+                    new WALWriter(
+                            fs, fileConfiguration, new Path(parentPath), serializer, compaction);
         } catch (IOException e) {
             throw new IMapStorageException(
                     e, "create new current writer failed, parent path is %s", parentPath);
         }
+    }
+
+    public void stopCompaction() throws IOException {
+        writer.stopCompaction();
     }
 
     @Override

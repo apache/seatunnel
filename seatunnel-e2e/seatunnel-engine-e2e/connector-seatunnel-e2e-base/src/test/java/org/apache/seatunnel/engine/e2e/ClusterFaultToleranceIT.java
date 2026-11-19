@@ -49,10 +49,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
@@ -794,6 +797,9 @@ public class ClusterFaultToleranceIT {
                             + TestUtils.getClusterName(testClusterName)
                             + "\n"
                             + "          fs.defaultFS: file:///\n"
+                            + "          compaction.enabled: true\n"
+                            + "          compaction.interval-seconds: 1\n"
+                            + "          wal.segment-size: 1\n"
                             + "\n"
                             + "  properties:\n"
                             + "    hazelcast.invocation.max.retry.count: 200\n"
@@ -866,6 +872,21 @@ public class ClusterFaultToleranceIT {
                     new File(imapStorageRoot, Constant.IMAP_RUNNING_JOB_STATE).isDirectory());
             Assertions.assertFalse(
                     new File(imapStorageRoot, EngineStateStoreNames.CHECKPOINT_MONITOR).exists());
+
+            // Repeated writes to real recovery metadata produce sealed WAL segments. Await an
+            // actual committed snapshot before stopping the cluster so recovery exercises the
+            // compaction output rather than only its configuration.
+            IMap<Long, Object> runningJobInfo = finalNode.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            Object persistedJobInfo = runningJobInfo.get(jobId);
+            Assertions.assertNotNull(persistedJobInfo);
+            for (int i = 0; i < 16; i++) {
+                runningJobInfo.set(jobId, persistedJobInfo);
+            }
+            Path runningJobInfoDirectory =
+                    new File(imapStorageRoot, Constant.IMAP_RUNNING_JOB_INFO).toPath();
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .until(() -> containsCompactionSnapshot(runningJobInfoDirectory));
 
             Thread.sleep(5000);
             // shutdown all node
@@ -968,6 +989,16 @@ public class ClusterFaultToleranceIT {
             if (node2 != null) {
                 node2.shutdown();
             }
+        }
+    }
+
+    private static boolean containsCompactionSnapshot(Path directory) throws IOException {
+        try (Stream<Path> files = Files.walk(directory)) {
+            return files.anyMatch(
+                    path ->
+                            path.getFileName().toString().contains("snapshot-")
+                                    && path.getFileName().toString().endsWith("wal.txt")
+                                    && Files.isRegularFile(path));
         }
     }
 

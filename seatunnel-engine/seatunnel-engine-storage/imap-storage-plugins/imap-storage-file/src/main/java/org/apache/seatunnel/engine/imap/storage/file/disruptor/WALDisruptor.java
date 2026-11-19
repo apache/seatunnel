@@ -22,6 +22,7 @@ package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.config.CompactionConfig;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
@@ -44,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 public class WALDisruptor implements Closeable {
 
     private volatile Disruptor<FileWALEvent> disruptor;
+    private final WALWorkHandler handler;
 
     private static final int DEFAULT_RING_BUFFER_SIZE = 1024;
 
@@ -64,6 +66,16 @@ public class WALDisruptor implements Closeable {
             FileConfiguration fileConfiguration,
             String parentPath,
             Serializer serializer) {
+        this(fs, fileConfiguration, parentPath, serializer, CompactionConfig.disabled());
+    }
+
+    public WALDisruptor(
+            FileSystem fs,
+            FileConfiguration fileConfiguration,
+            String parentPath,
+            Serializer serializer,
+            CompactionConfig compaction) {
+        handler = new WALWorkHandler(fs, fileConfiguration, parentPath, serializer, compaction);
         // todo should support multi thread producer
         ThreadFactory threadFactory = DaemonThreadFactory.INSTANCE;
         this.disruptor =
@@ -74,8 +86,7 @@ public class WALDisruptor implements Closeable {
                         ProducerType.SINGLE,
                         new BlockingWaitStrategy());
 
-        disruptor.handleEventsWithWorkerPool(
-                new WALWorkHandler(fs, fileConfiguration, parentPath, serializer));
+        disruptor.handleEventsWithWorkerPool(handler);
 
         disruptor.start();
     }
@@ -98,6 +109,7 @@ public class WALDisruptor implements Closeable {
 
     @Override
     public void close() throws IOException {
+        handler.stopCompaction();
         // we can wait for 5 seconds, so that backlog can be committed
         try {
             tryPublish(null, WALEventType.CLOSED, 0L);

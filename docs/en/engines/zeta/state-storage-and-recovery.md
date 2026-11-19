@@ -171,8 +171,9 @@ map:
         fs.defaultFS: hdfs://localhost:9000
 ```
 
-In separated cluster mode only the Master node stores IMap data, so this configuration takes effect
-on the Master node.
+In separated cluster mode, Master-role members store IMap data; Worker-role members are Hazelcast
+lite members and do not own IMap partitions. Persistence can therefore run on multiple Master-role
+members, not only the elected active master.
 
 ### Relationship between IMap, MapStore, and Checkpoint
 
@@ -191,8 +192,56 @@ and pipeline mapping must be re-submitted** because the running job state is los
 
 The IMap persistence is an append-only write-ahead log: `FileMapStore` delegates to `IMapFileStorage`,
 which appends every state change through the WAL writer into region files under the configured
-`namespace`. Entries of all jobs are appended into the same region files, so the files keep growing
-while jobs keep running.
+`namespace`. Each writer has its own region for each IMap. On restart, replay reads all regions of
+the IMap and selects the latest mutation of each key in memory; it does not compact the files.
+
+### Optional regional WAL compaction
+
+Regional snapshot compaction reduces repeated updates to the same key in a writer's current
+region. It is disabled by default. Enable it in the `map-store.properties` of the relevant IMaps:
+
+```yaml
+        type: hdfs
+        storage.type: hdfs
+        fs.defaultFS: hdfs://localhost:9000  # or file:/// for a single-node cluster
+        compaction.enabled: true
+        compaction.interval-seconds: 300
+        wal.segment-size: 67108864
+```
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `compaction.enabled` | boolean | `false` | Enable regional snapshot compaction for HDFS or local-file IMap storage. |
+| `compaction.interval-seconds` | long | `300` | Delay in seconds between compaction checks; must be greater than zero. Used when compaction is enabled. |
+| `wal.segment-size` | long | `67108864` (64 MiB) | WAL segment rotation size in bytes; must be greater than zero. Used when compaction is enabled. |
+
+Compaction requires `storage.type: hdfs` backed by an `hdfs://` or `file:///` file system.
+Enabling it for S3, OSS, GCS, or another file-system scheme is rejected; their existing writers
+remain unchanged. Keep compaction disabled for those backends.
+
+When enabled, the writer rotates the WAL into segments. One shared background thread per JVM
+processes its IMaps sequentially. Each compaction merges only closed segments and the previous
+snapshot in that writer's current region. The active segment, other writers' regions, and regions
+left by earlier runs are not compacted or adopted. Restart still reads those older regions.
+
+The snapshot retains the latest raw mutation per key, including delete markers and expired puts.
+These records must remain because an older value can exist in another region. Consequently,
+regional compaction reduces update history but does not bound the total number of historical keys
+or reclaim all expired-job metadata. It does not change IMap expiration or checkpoint retention.
+If latest mutations compare equal but carry different expiration times, compaction is deferred
+without deleting inputs to preserve existing replay semantics.
+
+A snapshot becomes visible through atomic rename only after it is completely written. Replay
+retries if a snapshot changes during loading. Segments and uniquely named snapshots retain the
+existing WAL record format and filenames ending in `wal.txt`, so earlier releases can replay
+stable files. However, older releases cannot safely load while compaction is running. Upgrade all
+members using IMap persistence to a release with compaction-aware replay before enabling
+compaction. Before rollback or replay with an older release, disable compaction and let any
+running compaction finish. The default remains `false`; with compaction disabled, the legacy
+single `wal.txt` writer is unchanged.
+
+Compaction keeps one latest mutation per distinct key in its input in memory. Size the JVM heap
+for that additional work alongside the in-memory IMaps, and continue monitoring storage growth.
 
 **Mitigation:**
 
@@ -227,7 +276,7 @@ seatunnel:
 | Remove from `engine_finishedJobState` IMap | Yes |
 | Remove from `engine_finishedJobMetrics` IMap | Yes |
 | Keep the job removed after a cluster restart (IMap persistence enabled) | Yes (the expiration time is persisted with the entry, so an expired job is not loaded again and a job that has not expired yet keeps its remaining time) |
-| Delete MapStore persistence files for that job | **No** (the expired records stay in the IMap storage files) |
+| Delete MapStore persistence files for that job | **No** (regional compaction also retains the latest expired mutation per key) |
 | Delete checkpoint storage directories | **No** |
 | Delete savepoint data | **No** |
 

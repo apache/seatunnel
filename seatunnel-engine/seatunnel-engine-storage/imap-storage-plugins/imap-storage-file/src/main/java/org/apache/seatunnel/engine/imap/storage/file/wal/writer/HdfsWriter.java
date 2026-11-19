@@ -47,7 +47,13 @@ public class HdfsWriter implements IFileWriter<IMapFileData> {
     @Override
     public void initialize(FileSystem fs, Path parentPath, Serializer serializer)
             throws IOException {
-        Path path = new Path(parentPath, FILE_NAME);
+        open(fs, new Path(parentPath, FILE_NAME), serializer);
+    }
+
+    /**
+     * Opens one append-only file; segmented writers keep its path stable throughout its lifetime.
+     */
+    protected void open(FileSystem fs, Path path, Serializer serializer) throws IOException {
         this.out = fs.create(path);
         this.serializer = serializer;
     }
@@ -73,7 +79,7 @@ public class HdfsWriter implements IFileWriter<IMapFileData> {
         this.out.hflush();
     }
 
-    private void write(byte[] bytes) throws IOException {
+    protected void write(byte[] bytes) throws IOException {
         byte[] data = WALDataUtils.wrapperBytes(bytes);
         this.out.write(data);
         this.flush();

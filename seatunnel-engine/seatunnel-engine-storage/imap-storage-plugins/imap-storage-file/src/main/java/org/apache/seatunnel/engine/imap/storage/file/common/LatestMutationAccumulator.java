@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -32,6 +33,7 @@ class LatestMutationAccumulator {
 
     private final Map<SerializedKey, IMapFileData> latestMutations = new HashMap<>();
     private final Set<SerializedKey> searchKeys;
+    private final Set<SerializedKey> ambiguousExpirationTimes = new HashSet<>();
 
     LatestMutationAccumulator(Set<SerializedKey> searchKeys) {
         this.searchKeys = searchKeys;
@@ -49,9 +51,20 @@ class LatestMutationAccumulator {
             latestMutations.put(serializedKey, mutation);
             return;
         }
-        if (mutation.compareTo(current) < 0) {
+        int comparison = mutation.compareTo(current);
+        if (comparison < 0) {
             latestMutations.put(serializedKey, mutation);
+            ambiguousExpirationTimes.remove(serializedKey);
+        } else if (comparison == 0
+                && !Objects.equals(mutation.getExpirationTime(), current.getExpirationTime())) {
+            // compareTo predates persisted TTLs and does not order this otherwise-equal pair.
+            // Reordering it into a snapshot could change the expiry selected by replay.
+            ambiguousExpirationTimes.add(serializedKey);
         }
+    }
+
+    boolean hasAmbiguousExpirationTimes() {
+        return !ambiguousExpirationTimes.isEmpty();
     }
 
     int size() {

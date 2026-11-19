@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALReader;
 import org.apache.seatunnel.engine.imap.storage.file.config.AbstractConfiguration;
+import org.apache.seatunnel.engine.imap.storage.file.config.CompactionConfig;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALDisruptor;
 import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALEventType;
@@ -49,6 +50,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -125,6 +127,11 @@ public class IMapFileStorage implements IMapStorage {
                         configuration.getOrDefault(
                                 STORAGE_TYPE_KEY, FileConfiguration.HDFS.toString()));
         this.fileConfiguration = FileConfiguration.valueOf(storageType.toUpperCase());
+        CompactionConfig compaction = new CompactionConfig(configuration);
+        if (compaction.isEnabled() && this.fileConfiguration != FileConfiguration.HDFS) {
+            throw new IllegalArgumentException(
+                    "compaction.enabled currently supports storage.type=hdfs only");
+        }
         // build configuration
         AbstractConfiguration fileConfiguration = this.fileConfiguration.getConfiguration();
         Map<String, String> stringMap =
@@ -145,7 +152,10 @@ public class IMapFileStorage implements IMapStorage {
                                 WRITE_DATA_TIMEOUT_MILLISECONDS_KEY,
                                 DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS);
 
-        this.region = String.valueOf(System.nanoTime());
+        this.region =
+                compaction.isEnabled()
+                        ? UUID.randomUUID().toString()
+                        : String.valueOf(System.nanoTime());
         this.businessRootPath =
                 namespace
                         + DEFAULT_IMAP_FILE_PATH_SPLIT
@@ -165,7 +175,8 @@ public class IMapFileStorage implements IMapStorage {
                         fs,
                         FileConfiguration.valueOf(storageType.toUpperCase()),
                         businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT,
-                        serializer);
+                        serializer,
+                        compaction);
     }
 
     @Override

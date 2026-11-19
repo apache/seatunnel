@@ -338,6 +338,32 @@ map:
            fs.defaultFS: file:///
 ```
 
+**Optional WAL compaction**
+
+For `storage.type: hdfs` backed by `hdfs://` or `file:///`, add the following properties to enable
+regional snapshot compaction:
+
+```yaml
+           compaction.enabled: true
+           compaction.interval-seconds: 300
+           wal.segment-size: 67108864
+```
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `compaction.enabled` | boolean | `false` | Enable regional snapshot compaction. |
+| `compaction.interval-seconds` | long | `300` | Delay between compaction checks, in seconds; must be greater than zero. |
+| `wal.segment-size` | long | `67108864` (64 MiB) | WAL rotation size in bytes when compaction is enabled; must be greater than zero. |
+
+One shared background thread per JVM compacts closed WAL segments and the previous snapshot in
+each writer's current region. Other writers' regions and regions from previous runs remain
+untouched. Delete markers and expired puts are retained to prevent older values from reappearing.
+The interval and segment-size settings are inactive when compaction is disabled, and the legacy
+WAL writer remains unchanged.
+Enabling compaction for S3, OSS, GCS, or another file-system scheme is rejected. See
+[MapStore File Maintenance](state-storage-and-recovery.md#4-mapstore-file-maintenance) for capacity
+and recovery considerations.
+
 Note: `engine_runningJobMetrics` stores high-frequency runtime metrics snapshots and
 `engine_checkpoint_monitor` stores the checkpoint overview and history served by the REST API.
 Both are intentionally excluded from persistent IMAP storage even when `map.engine*` uses
