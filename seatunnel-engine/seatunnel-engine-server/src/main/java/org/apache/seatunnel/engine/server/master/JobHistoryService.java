@@ -154,33 +154,11 @@ public class JobHistoryService {
 
     public List<JobStatusData> getJobStatusData() {
         List<JobStatusData> status = new ArrayList<>();
-        final List<JobState> runningJobStateList =
-                runningJobMasterMap.values().stream()
-                        .map(master -> toJobStateMapper(master, true))
-                        .collect(Collectors.toList());
+        final List<JobState> runningJobStateList = getRunningJobStates();
         Set<Long> runningJonIds =
                 runningJobStateList.stream().map(JobState::getJobId).collect(Collectors.toSet());
 
-        List<JobState> pendingJobStateList =
-                pendingJobInfoMap.entrySet().stream()
-                        .map(
-                                entry -> {
-                                    Long jobId = entry.getKey();
-                                    JobImmutableInformation jobImmutableInformation =
-                                            entry.getValue()
-                                                    .getJobMaster()
-                                                    .getJobImmutableInformation();
-                                    return new JobState(
-                                            jobId,
-                                            jobImmutableInformation.getJobName(),
-                                            JobStatus.PENDING,
-                                            jobImmutableInformation.getCreateTime(),
-                                            null,
-                                            null,
-                                            null,
-                                            null);
-                                })
-                        .collect(Collectors.toList());
+        List<JobState> pendingJobStateList = getPendingJobStates();
         Set<Long> pendingJobIds =
                 pendingJobStateList.stream().map(JobState::getJobId).collect(Collectors.toSet());
 
@@ -205,6 +183,47 @@ public class JobHistoryService {
                             status.add(jobStatusData);
                         });
         return status;
+    }
+
+    /** Counts retained states on their owning members without returning full job records. */
+    public Map<JobStatus, Long> getJobStatusCounts() {
+        List<JobState> runningJobStates = getRunningJobStates();
+        List<JobState> pendingJobStates = getPendingJobStates();
+        Set<Long> activeJobIds =
+                Stream.concat(runningJobStates.stream(), pendingJobStates.stream())
+                        .map(JobState::getJobId)
+                        .collect(Collectors.toSet());
+        Map<JobStatus, Long> counts =
+                finishedJobStateImap.aggregate(new JobStatusCountAggregator(activeJobIds));
+        Stream.concat(runningJobStates.stream(), pendingJobStates.stream())
+                .forEach(state -> counts.merge(state.getJobStatus(), 1L, Long::sum));
+        return counts;
+    }
+
+    private List<JobState> getRunningJobStates() {
+        return runningJobMasterMap.values().stream()
+                .map(master -> toJobStateMapper(master, true))
+                .collect(Collectors.toList());
+    }
+
+    private List<JobState> getPendingJobStates() {
+        return pendingJobInfoMap.entrySet().stream()
+                .map(
+                        entry -> {
+                            Long jobId = entry.getKey();
+                            JobImmutableInformation information =
+                                    entry.getValue().getJobMaster().getJobImmutableInformation();
+                            return new JobState(
+                                    jobId,
+                                    information.getJobName(),
+                                    JobStatus.PENDING,
+                                    information.getCreateTime(),
+                                    null,
+                                    null,
+                                    null,
+                                    null);
+                        })
+                .collect(Collectors.toList());
     }
 
     // Get detailed status of a single job

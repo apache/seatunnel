@@ -96,7 +96,7 @@ Option descriptions:
 | STRING | STRING |
 | BYTES | VARBINARY |
 | DATE | DATE |
-| TIME | TIME |
+| TIME | STRING |
 | TIMESTAMP | TIMESTAMP |
 
 ## Task Examples

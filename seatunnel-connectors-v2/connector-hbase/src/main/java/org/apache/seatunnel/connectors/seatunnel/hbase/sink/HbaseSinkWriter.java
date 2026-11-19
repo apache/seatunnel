@@ -76,10 +76,10 @@ public class HbaseSinkWriter
     private final List<byte[]> writtenFamilies;
 
     /**
-     * Set once a flush failed. The HBase client drops the mutations of a failed flush, so a later
-     * flush on the same writer would succeed with those rows gone; the writer refuses to go on.
+     * Retains the first client failure that may have discarded buffered mutations. Both mutate and
+     * flush can drain the buffer, so neither may be retried on this writer after that failure.
      */
-    private IOException flushFailure;
+    private IOException bufferedWriteFailure;
 
     public HbaseSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
@@ -123,10 +123,10 @@ public class HbaseSinkWriter
         switch (element.getRowKind()) {
             case INSERT:
             case UPDATE_AFTER:
-                hbaseClient.mutate((Mutation) convertRowToPut(element));
+                mutate(convertRowToPut(element));
                 break;
             case DELETE:
-                hbaseClient.mutate(convertRowToDelete(element));
+                mutate(convertRowToDelete(element));
                 break;
             case UPDATE_BEFORE:
                 // Before images are ignored. Images may reach different
@@ -137,10 +137,22 @@ public class HbaseSinkWriter
         }
     }
 
+    /** Submits a mutation, which can also flush rows already accepted into the client buffer. */
+    private void mutate(Mutation mutation) throws IOException {
+        try {
+            hbaseClient.mutate(mutation);
+        } catch (IOException e) {
+            bufferedWriteFailure = e;
+            throw e;
+        }
+    }
+
     /**
-     * Pushes every buffered mutation to the region servers before the checkpoint is acknowledged.
-     * Without this the {@code BufferedMutator} keeps up to {@code write_buffer_size} bytes in
-     * memory, and a task failure after the checkpoint would lose rows the engine considers written.
+     * Flushes the client buffer at a checkpoint. Keep the native HBase periodic flush disabled when
+     * relying on checkpoint delivery because the timer can send mutations and report errors
+     * independently of this writer. Without this explicit flush the {@code BufferedMutator} keeps
+     * up to {@code write_buffer_size} bytes in memory, and a task failure after the checkpoint
+     * would lose rows the engine considers written.
      */
     @Override
     public Optional<HbaseCommitInfo> prepareCommit() throws IOException {
@@ -148,7 +160,7 @@ public class HbaseSinkWriter
         try {
             hbaseClient.flush();
         } catch (IOException e) {
-            flushFailure = e;
+            bufferedWriteFailure = e;
             throw e;
         }
         return Optional.empty();
@@ -156,12 +168,13 @@ public class HbaseSinkWriter
 
     /** Rejects further writes/checkpoints after a flush that may have discarded buffered rows. */
     private void failIfUnusable() throws IOException {
-        if (flushFailure != null) {
+        if (bufferedWriteFailure != null) {
             throw new IOException(
-                    "The HBase sink writer cannot continue after a failed flush: the client dropped"
-                            + " the rows of that flush, and only a restore from the last checkpoint"
-                            + " brings them back",
-                    flushFailure);
+                    "The HBase sink writer for table "
+                            + hbaseParameters.getTable()
+                            + " cannot continue after a client write failure because buffered rows"
+                            + " may have been lost. Restore from the last successful checkpoint.",
+                    bufferedWriteFailure);
         }
     }
 
@@ -178,9 +191,18 @@ public class HbaseSinkWriter
     /**
      * A DELETE row removes every version up to its timestamp of the column families this writer
      * writes to. Families the job does not map, for example ones owned by another pipeline on the
-     * same table, are left alone. A row type with no data columns falls back to a whole-row delete.
+     * same table, are left alone. With no mapped family, HBase would interpret a marker-free
+     * mutation as a whole-row delete, so reject it before submitting it.
      */
     private Delete convertRowToDelete(SeaTunnelRow row) {
+        if (writtenFamilies.isEmpty()) {
+            throw new HbaseConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    "Cannot apply a DELETE to HBase table "
+                            + hbaseParameters.getTable()
+                            + " with no mapped column families. Include a non-key payload column"
+                            + " to scope the delete.");
+        }
         long timestamp = mutationTimestamp(row);
         Delete delete = new Delete(getRowkeyFromRow(row), timestamp);
         for (byte[] family : writtenFamilies) {

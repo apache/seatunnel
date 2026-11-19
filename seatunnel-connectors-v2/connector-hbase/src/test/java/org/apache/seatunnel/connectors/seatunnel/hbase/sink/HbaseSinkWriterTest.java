@@ -36,6 +36,8 @@ import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -53,6 +55,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -158,6 +161,31 @@ class HbaseSinkWriterTest {
     }
 
     @Test
+    void testDeleteWithoutMappedColumnsIsRejectedBeforeMutation() {
+        HbaseClient hbaseClient = Mockito.mock(HbaseClient.class);
+        HbaseParameters parameters =
+                HbaseParameters.builder()
+                        .table("shared_table")
+                        .familyNames(Collections.singletonMap("all_columns", "info"))
+                        .build();
+        SeaTunnelRowType keyOnlyType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "version"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.LONG_TYPE});
+        HbaseSinkWriter writer =
+                new HbaseSinkWriter(
+                        keyOnlyType, parameters, Collections.singletonList(0), 1, hbaseClient);
+        SeaTunnelRow delete = new SeaTunnelRow(new Object[] {7, 10L});
+        delete.setRowKind(RowKind.DELETE);
+
+        HbaseConnectorException failure =
+                assertThrows(HbaseConnectorException.class, () -> writer.write(delete));
+        assertTrue(failure.getMessage().contains("shared_table"));
+        assertTrue(failure.getMessage().contains("no mapped column families"));
+        Mockito.verifyNoInteractions(hbaseClient);
+    }
+
+    @Test
     void testUpdateKeepingRowKeyOnlyWritesTheAfterImage() throws Exception {
         HbaseClient hbaseClient = Mockito.mock(HbaseClient.class);
         HbaseSinkWriter writer = newWriter(hbaseClient, HbaseParameters.builder(), -1);
@@ -242,6 +270,31 @@ class HbaseSinkWriterTest {
         assertEquals("retries exhausted", retry.getCause().getMessage());
         assertThrows(IOException.class, () -> writer.write(row(RowKind.INSERT, 2, "b", 10L)));
         Mockito.verify(hbaseClient, Mockito.times(1)).flush();
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = RowKind.class,
+            names = {"INSERT", "UPDATE_AFTER", "DELETE"})
+    void testWriterIsUnusableAfterMutationDrainsBufferAndFails(RowKind failingKind)
+            throws Exception {
+        HbaseClient hbaseClient = Mockito.mock(HbaseClient.class);
+        IOException drainFailure = new IOException("implicit drain retries exhausted");
+        Mockito.doNothing()
+                .doThrow(drainFailure)
+                .doNothing()
+                .when(hbaseClient)
+                .mutate(Mockito.any(Mutation.class));
+        HbaseSinkWriter writer = newWriter(hbaseClient, HbaseParameters.builder(), 2);
+        writer.write(row(RowKind.INSERT, 1, "buffered", 10L));
+        SeaTunnelRow next = row(failingKind, 2, "next", 11L);
+
+        assertSame(drainFailure, assertThrows(IOException.class, () -> writer.write(next)));
+        assertSame(
+                drainFailure, assertThrows(IOException.class, () -> writer.write(next)).getCause());
+        assertSame(drainFailure, assertThrows(IOException.class, writer::prepareCommit).getCause());
+        Mockito.verify(hbaseClient, Mockito.times(2)).mutate(Mockito.any(Mutation.class));
+        Mockito.verify(hbaseClient, Mockito.never()).flush();
     }
 
     @Test

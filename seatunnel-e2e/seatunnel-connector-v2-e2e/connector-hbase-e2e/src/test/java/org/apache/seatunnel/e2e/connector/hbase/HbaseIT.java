@@ -40,6 +40,7 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
@@ -59,8 +60,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -264,25 +267,58 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testHbaseSinkWithCdcRows(TestContainer container)
             throws IOException, InterruptedException {
-        deleteData(table);
-        Container.ExecResult execResult = container.executeJob("/fake-to-hbase-with-cdc-rows.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Map<String, Map<String, byte[]>> rows = new HashMap<>();
-        for (Result result : readData(table)) {
-            Map<String, byte[]> cells = new HashMap<>();
-            for (Cell cell : result.listCells()) {
-                cells.put(Bytes.toString(CellUtil.cloneQualifier(cell)), CellUtil.cloneValue(cell));
+        String tableName = "seatunnel_cdc_" + UUID.randomUUID().toString().replace("-", "");
+        TableName cdcTable = TableName.valueOf(tableName);
+        hbaseCluster.createTable(tableName, Arrays.asList(FAMILY_NAME, "other"));
+        List<String> variables = Collections.singletonList("cdc_table=" + tableName);
+        byte[] foreignFamily = Bytes.toBytes("other");
+        byte[] qualifier = Bytes.toBytes("name");
+        byte[] deletedKey = Bytes.toBytes("3");
+        byte[] foreignValue = Bytes.toBytes("other pipeline");
+        try (Table sharedTable = hbaseConnection.getTable(cdcTable)) {
+            sharedTable.put(
+                    new Put(deletedKey).addColumn(foreignFamily, qualifier, 1000L, foreignValue));
+            Container.ExecResult execResult =
+                    container.executeJob("/fake-to-hbase-with-cdc-rows.conf", variables);
+            Assertions.assertEquals(0, execResult.getExitCode());
+
+            Map<String, Map<String, byte[]>> rows = new HashMap<>();
+            try (ResultScanner results =
+                    sharedTable.getScanner(new Scan().addFamily(Bytes.toBytes(FAMILY_NAME)))) {
+                for (Result result : results) {
+                    Map<String, byte[]> cells = new HashMap<>();
+                    for (Cell cell : result.listCells()) {
+                        cells.put(
+                                Bytes.toString(CellUtil.cloneQualifier(cell)),
+                                CellUtil.cloneValue(cell));
+                    }
+                    rows.put(Bytes.toString(result.getRow()), cells);
+                }
             }
-            rows.put(Bytes.toString(result.getRow()), cells);
+            // id 2 is updated, BEFORE is ignored, id 4 is written, and id 3's mapped family is
+            // gone.
+            Assertions.assertEquals(new HashSet<>(Arrays.asList("1", "2", "4")), rows.keySet());
+            Assertions.assertEquals("A", Bytes.toString(rows.get("1").get("name")));
+            Assertions.assertEquals(10, Bytes.toInt(rows.get("1").get("age")));
+            Assertions.assertEquals("B2", Bytes.toString(rows.get("2").get("name")));
+            Assertions.assertEquals(21, Bytes.toInt(rows.get("2").get("age")));
+            Assertions.assertEquals("A", Bytes.toString(rows.get("4").get("name")));
+            Assertions.assertEquals(10, Bytes.toInt(rows.get("4").get("age")));
+            Get foreignCell = new Get(deletedKey).addColumn(foreignFamily, qualifier);
+            Assertions.assertArrayEquals(
+                    foreignValue, sharedTable.get(foreignCell).getValue(foreignFamily, qualifier));
+
+            Container.ExecResult keyOnly =
+                    container.executeJob("/fake-to-hbase-with-key-only-delete.conf", variables);
+            Assertions.assertNotEquals(0, keyOnly.getExitCode());
+            Assertions.assertTrue(
+                    (keyOnly.getStdout() + keyOnly.getStderr())
+                            .contains("with no mapped column families"));
+            Assertions.assertArrayEquals(
+                    foreignValue, sharedTable.get(foreignCell).getValue(foreignFamily, qualifier));
+        } finally {
+            dropTable(cdcTable);
         }
-        // id 2 is updated, BEFORE is ignored (id 1 remains), id 4 is written and id 3 deleted
-        Assertions.assertEquals(new HashSet<>(Arrays.asList("1", "2", "4")), rows.keySet());
-        Assertions.assertEquals("A", Bytes.toString(rows.get("1").get("name")));
-        Assertions.assertEquals(10, Bytes.toInt(rows.get("1").get("age")));
-        Assertions.assertEquals("B2", Bytes.toString(rows.get("2").get("name")));
-        Assertions.assertEquals(21, Bytes.toInt(rows.get("2").get("age")));
-        Assertions.assertEquals("A", Bytes.toString(rows.get("4").get("name")));
-        Assertions.assertEquals(10, Bytes.toInt(rows.get("4").get("age")));
     }
 
     @TestTemplate

@@ -148,7 +148,9 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
   existing rows are kept, dropped, or treated as an error.
 - Change data capture rows are applied by row key: `INSERT` and `UPDATE_AFTER` rows are written as
   a `Put`, a `DELETE` row deletes the column families this sink writes to for that row key (other
-  families of the table are left alone). `UPDATE_BEFORE` is ignored. The sink does not pair
+  families of the table are left alone). A projection of only row-key and version columns has no
+  mapped family, so the sink rejects DELETE rows. Include a payload column for the family you
+  intend to delete. `UPDATE_BEFORE` is ignored. The sink does not pair
   before/after images, which can reach different replicas or checkpoints. If a row-key column
   changes, send an explicit `DELETE` for the old key and an `INSERT` for the new key upstream.
   With `null_mode = skip` (the default), an update that sets a column to null keeps the old cell;
@@ -158,9 +160,14 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
   timestamp, so a value far in the future hides later writes to that row key until it is
   compacted away. Without `version_column`, a `DELETE` and an `INSERT` of the same row key in the
   same millisecond resolve to the delete, so set `version_column` for change data capture sources.
-- Rows buffered in the HBase client (`write_buffer_size`) are flushed at every checkpoint, so a
-  checkpoint only completes once its rows have been accepted by the region servers. With
-  `wal_write = false` (the default) they are not yet durable against a region server crash.
+- With the default HBase client configuration, each checkpoint flushes the pending mutations from
+  `write_buffer_size` and waits for the region servers to accept them. If the client reports a
+  failed drain during a write or checkpoint, the writer rejects further writes and checkpoints
+  because some buffered rows may have been lost. Keep the HBase client periodic flush disabled
+  (`hbase.client.write.buffer.periodicflush.timeout.ms = 0`) if the job relies on this checkpoint
+  behavior. A native client timer can drain rows independently of the checkpoint and only log
+  its own failures. With `wal_write = false` (the default), accepted rows can still be lost in a
+  region server crash.
 
 ## Example
 
