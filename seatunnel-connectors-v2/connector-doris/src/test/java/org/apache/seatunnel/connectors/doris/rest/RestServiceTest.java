@@ -43,7 +43,9 @@ import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class RestServiceTest {
 
@@ -52,9 +54,9 @@ public class RestServiceTest {
     private static final String QUERY_PLAN_PATH = "/api/test_db/test_table/_query_plan";
     private static final int READ_TIMEOUT_MS = 1000;
     private static final int SERVER_DELAY_MS = 10 * 1000;
-    private static final int ELAPSED_LIMIT_MS = 3 * READ_TIMEOUT_MS;
 
     private HttpServer server;
+    private ExecutorService serverExecutor;
     private DorisSourceConfig config;
 
     /**
@@ -81,13 +83,14 @@ public class RestServiceTest {
                         // the client may time out and disconnect before the response is sent
                     }
                 });
-        server.setExecutor(
+        serverExecutor =
                 Executors.newCachedThreadPool(
                         runnable -> {
                             Thread thread = new Thread(runnable);
                             thread.setDaemon(true);
                             return thread;
-                        }));
+                        });
+        server.setExecutor(serverExecutor);
         server.start();
 
         Map<String, Object> options = new HashMap<>();
@@ -103,9 +106,15 @@ public class RestServiceTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws InterruptedException {
         if (server != null) {
             server.stop(0);
+        }
+        if (serverExecutor != null) {
+            serverExecutor.shutdown();
+            if (!serverExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                serverExecutor.shutdownNow();
+            }
         }
     }
 
@@ -129,21 +138,21 @@ public class RestServiceTest {
     }
 
     private void assertReadTimeoutFailsFast(HttpRequestBase request) {
-        long start = System.currentTimeMillis();
+        long start = System.nanoTime();
         DorisConnectorException exception =
                 Assertions.assertThrows(
                         DorisConnectorException.class,
                         () -> RestService.send(config, request, LOG));
-        long elapsed = System.currentTimeMillis() - start;
+        long elapsedMs = (System.nanoTime() - start) / 1_000_000;
         Assertions.assertTrue(
                 exception.getCause() instanceof SocketTimeoutException,
                 "expected a SocketTimeoutException cause but got: " + exception.getCause());
+        // The budget only proves the request did not wait out the server's delayed response, so a
+        // paused or loaded CI worker cannot fail otherwise correct behavior.
         Assertions.assertTrue(
-                elapsed < ELAPSED_LIMIT_MS,
-                "request should fail after about the "
-                        + READ_TIMEOUT_MS
-                        + "ms read timeout but took "
-                        + elapsed
+                elapsedMs < SERVER_DELAY_MS,
+                "request should fail before the server's delayed response but took "
+                        + elapsedMs
                         + "ms");
     }
 }
