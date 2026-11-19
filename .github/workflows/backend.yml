@@ -760,7 +760,7 @@ jobs:
 
   benchmark-test:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.benchmarks == 'true'
+    if: needs.changes.outputs.benchmarks == 'true' || needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -801,7 +801,7 @@ jobs:
 
   benchmark-tools-test:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.benchmark_tools == 'true'
+    if: needs.changes.outputs.benchmark_tools == 'true' || needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
