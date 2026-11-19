@@ -360,13 +360,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * Submits tasks to the thread-share queue for cooperative execution. Each task is wrapped in a
-     * TaskTracker and initialized before being added to the queue.
-     *
-     * @param taskGroupExecutionTracker the tracker for the task group execution
-     * @param tasks the list of tasks to submit
-     */
-    /**
      * Initializes the thread-share tasks of a task group and queues them for the cooperative
      * workers.
      *
@@ -376,6 +369,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      * so a task that is neither queued nor done would keep the group from ever finishing: its
      * context would stay published, a redeploy of the location would be skipped, and the job would
      * hang.
+     *
+     * @param taskGroupExecutionTracker the tracker for the task group execution
+     * @param tasks the list of tasks to submit
      */
     private void submitThreadShareTask(
             TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {

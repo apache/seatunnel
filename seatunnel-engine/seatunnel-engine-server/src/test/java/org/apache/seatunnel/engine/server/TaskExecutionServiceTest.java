@@ -307,6 +307,34 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                     getField(service, "executionContexts");
             await().atMost(10, TimeUnit.SECONDS)
                     .until(() -> !executionContexts.containsKey(location));
+
+            // deployTask skips a location that is still active, so a group that never
+            // finished would block every later deployment there. A redeploy must start.
+            long redeployExecutionId = FLAKE_ID_GENERATOR.newId();
+            TaskGroupImmutableInformation redeploy =
+                    new TaskGroupImmutableInformation(
+                            location.getJobId(),
+                            redeployExecutionId,
+                            TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                            location,
+                            "thread-share-init-failure-redeploy",
+                            Arrays.asList(
+                                    nodeEngine
+                                            .getSerializationService()
+                                            .toData(
+                                                    new TestTask(
+                                                            new AtomicBoolean(false), 100, true)),
+                                    nodeEngine
+                                            .getSerializationService()
+                                            .toData(
+                                                    new TestTask(
+                                                            new AtomicBoolean(false), 100, false))),
+                            Arrays.asList(emptySet(), emptySet()),
+                            Arrays.asList(emptySet(), emptySet()));
+            assertEquals(TaskDeployState.success(), service.deployTask(redeploy));
+            assertEquals(
+                    redeployExecutionId,
+                    service.getActiveExecutionContext(location).getExecutionId());
         } finally {
             config.getEngineConfig().setTaskExecutionThreadShareMode(originalMode);
             service.cancelTaskGroup(location);
