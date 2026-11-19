@@ -68,6 +68,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     // so the position can follow the column after a schema change moves or renames it.
     private volatile String primaryKeyColumn;
     private volatile Integer primaryKeyIndex;
+    private final boolean schemaRoutingKey;
     private final Optional<RowErrorCollector> rowErrorCollector;
     private final int batchSize;
     private final Object batchLock = new Object();
@@ -137,6 +138,9 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.primaryKeyIndex = primaryKeyIndex;
         this.primaryKeyColumn = resolvePrimaryKeyColumn(tableSchema, primaryKeyIndex);
+        this.schemaRoutingKey =
+                primaryKeyColumn != null
+                        && Boolean.TRUE.equals(jdbcSinkConfig.getPrimaryKeyFromSchema());
         // Without checkpointing there is no prepareCommit boundary to commit manual-commit
         // connections (for example Oracle, which is forced to manual commit above), so every
         // successful batch flush must carry its own commit or flushed rows stay in one unbounded
@@ -311,7 +315,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         } finally {
             // The parent assigns the new table schema before it rebuilds the output format, so
             // the key position is refreshed even when the rebuild fails and the table is retried.
-            if (applied) {
+            if (applied && jdbcSinkConfig.getPrimaryKeyFromSchema() == null) {
                 followPrimaryKeyRename(event);
             }
             refreshPrimaryKeyIndex();
@@ -365,13 +369,20 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
      * front of it or dropped ahead of it. A dropped key column leaves the writer unkeyed.
      */
     private void refreshPrimaryKeyIndex() {
-        if (primaryKeyColumn == null || tableSchema == null) {
+        if (tableSchema == null) {
+            return;
+        }
+        if (schemaRoutingKey) {
+            // Prefer the checkpoint's key identity even if an ordinary column uses its old name.
+            primaryKeyColumn = firstPrimaryKeyColumn(tableSchema);
+        }
+        if (primaryKeyColumn == null) {
+            primaryKeyIndex = null;
             return;
         }
         int index = tableSchema.toPhysicalRowDataType().indexOf(primaryKeyColumn, false);
-        if (index < 0) {
-            // A restored schema can already carry a renamed key column; its own primary key
-            // metadata is then the authority.
+        if (index < 0 && jdbcSinkConfig.getPrimaryKeyFromSchema() == null) {
+            // Preserve fallback behavior for existing configurations without key provenance.
             String schemaKeyColumn = firstPrimaryKeyColumn(tableSchema);
             if (schemaKeyColumn != null) {
                 index = tableSchema.toPhysicalRowDataType().indexOf(schemaKeyColumn, false);

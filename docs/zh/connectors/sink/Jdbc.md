@@ -282,9 +282,9 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 ### dialect [string]
 
-指定的方言，如果不存在，仍然按照url获取，优先级高于url。例如，当使用 starrocks 时，你需要将其值设置为 starrocks，同理，当使用mysql时，你需要将其值设置为mysql。
+指定的方言。设置后，取值必须是下方方言列表中的名称（不区分大小写），并优先于根据 url 推断的方言；未设置时根据 url 推断方言。例如，当使用 mysql 时，你需要将其值设置为 `mysql`。注意：StarRocks 不是方言名称，使用 StarRocks 时请保持 `dialect` 不设置，并将 `compatible_mode` 设置为 `starrocks`。Inceptor 也不是方言名称，使用 Inceptor 时请保持 `dialect` 不设置或将 `dialect` 设置为 `HIVE`，并将 `compatible_mode` 设置为 `inceptor`。
 
-如果 SeaTunnel 不支持某种方言，它将使用默认方言 `GenericDialect`。请确保您提供的驱动程序支持您想要连接的数据库。
+如果未设置 `dialect` 且 url 无法被任何方言识别，SeaTunnel 会使用默认方言 `GenericDialect`；如果 `dialect` 设置了无法匹配任何受支持方言名称的值，任务初始化会直接失败而不是回退。请确保您提供的驱动程序支持您想要连接的数据库。
 
 #### 示例可选
 
@@ -292,14 +292,15 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 |-----------|------------|----------|
 | Greenplum | DB2        | Dameng   |
 | Gbase8a   | HIVE       | KingBase |
-| MySQL     | StarRocks  | Oracle   |
+| MySQL     | OpenGauss  | Oracle   |
 | Phoenix   | Postgres   | Redshift |
 | SapHana   | Snowflake  | Sqlite   |
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase  | XUGU     |
-| IRIS      | Inceptor   | Highgo   |
-| OpenGauss | Presto     | Dsql        |
-| DuckDB    | YashanDB  | CockroachDB |
+| IRIS      | Presto   | Highgo   |
+| DSQL      |            |          |
+| YashanDB  | CockroachDB |          |
+| DuckDB    |              |          |
 
 ### database [string]
 
@@ -429,7 +430,7 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 
 Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-common-options.md) 了解详情
 
-当 `multi_table_sink_replica > 1` 时，数据按第一个主键字段路由，同一主键的变更进入同一个写入器。`BINARY` 和 `VARBINARY` 主键按字节内容计算哈希。模式变更屏障排空之前的数据后，JDBC 会刷新主键位置，包括组合事件中的主键重命名；恢复时使用当前模式中的主键元数据。删除路由主键后，写入器不再按主键路由，并输出警告。不同主键之间不保证写入顺序。
+当 `multi_table_sink_replica > 1` 时，数据按第一个主键字段路由，同一主键的变更进入同一个写入器。`BINARY` 和 `VARBINARY` 主键按字节内容计算哈希。模式变更屏障排空之前的数据后，JDBC 会根据变更后的模式刷新主键位置。对于非 XA JDBC Sink，从上游继承的主键随模式重命名和恢复，即使旧列名被用作普通字段，生成的 SQL 和路由也使用当前主键。显式配置的 `primary_keys` 仍表示配置的目标列。删除路由字段后，写入器会输出警告并停止按该字段路由。不同主键之间不保证写入顺序。
 
 ### schema_save_mode [Enum]
 

@@ -1,6 +1,6 @@
 # Avro format
 
-Avro is very popular in streaming data pipeline. Now seatunnel supports Avro format in kafka connector.
+Avro is very popular in streaming data pipeline. Now seatunnel supports Avro format in Kafka and Pulsar connectors.
 
 :::note Confluent Schema Registry is not supported
 

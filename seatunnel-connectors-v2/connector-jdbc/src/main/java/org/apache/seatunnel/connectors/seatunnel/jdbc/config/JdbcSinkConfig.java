@@ -36,6 +36,8 @@ public class JdbcSinkConfig implements Serializable {
     private String database;
     private String table;
     private List<String> primaryKeys;
+    // Null is the legacy configuration without key provenance. This is not a job option.
+    private Boolean primaryKeyFromSchema;
     private boolean enableUpsert;
     @Builder.Default private boolean isPrimaryKeyUpdated = true;
     private boolean supportUpsertByInsertOnly;

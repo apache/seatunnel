@@ -267,7 +267,10 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 MYSQL_DATABASE, SOURCE_TABLE, "Updated product catalog with sports equipment");
     }
 
-    /** Exercises binary routing with two replicas across a live key shift and savepoint restore. */
+    /**
+     * Exercises binary routing with two replicas across a key rename, name reuse, and savepoint
+     * restore.
+     */
     @Order(6)
     @TestTemplate
     public void testBinaryKeyRoutingAfterSchemaChangeAndRestore(TestContainer container)
@@ -288,7 +291,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         CompletableFuture<?> execution = runBinaryRoutingJob(container, config, jobId, false);
         Throwable testFailure = null;
         try {
-            assertBinaryRoutingRows(execution, "value", 0, true);
+            assertBinaryRoutingRows(execution, "id", "value", 0, true);
             CompletableFuture<?> initialExecution = execution;
             await().atMost(DEFAULT_TABLE_SYNC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
@@ -308,19 +311,25 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
             try (Connection connection = getJdbcConnection();
                     Statement statement = connection.createStatement()) {
                 statement.execute(
-                        "ALTER TABLE " + source + " ADD COLUMN prefix INT DEFAULT 0 FIRST");
+                        "ALTER TABLE " + source + " CHANGE COLUMN id uid VARBINARY(16) NOT NULL");
+            }
+            assertBinaryRoutingRows(execution, "uid", "value", 0, true);
+            try (Connection connection = getJdbcConnection();
+                    Statement statement = connection.createStatement()) {
+                // Reuse the old key name as an ordinary column, at a different position.
+                statement.execute("ALTER TABLE " + source + " ADD COLUMN id INT DEFAULT 0 FIRST");
                 for (int value = 1; value <= 32; value++) {
                     statement.execute(
                             "UPDATE "
                                     + source
-                                    + " SET prefix="
+                                    + " SET id="
                                     + value
                                     + ", value="
                                     + value
-                                    + " WHERE id=X'010203'");
+                                    + " WHERE uid=X'010203'");
                 }
             }
-            assertBinaryRoutingRows(execution, "prefix", 32, true);
+            assertBinaryRoutingRows(execution, "uid", "id", 32, true);
             Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
             execution.get(60, TimeUnit.SECONDS);
             try (Connection connection = getJdbcConnection();
@@ -329,21 +338,21 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                     statement.execute(
                             "UPDATE "
                                     + source
-                                    + " SET prefix="
+                                    + " SET id="
                                     + value
                                     + ", value="
                                     + value
-                                    + " WHERE id=X'010203'");
+                                    + " WHERE uid=X'010203'");
                 }
-                statement.execute("DELETE FROM " + source + " WHERE id=X'040506'");
+                statement.execute("DELETE FROM " + source + " WHERE uid=X'040506'");
                 statement.execute("INSERT INTO " + source + " VALUES (64, X'070809', 64)");
             }
             execution = runBinaryRoutingJob(container, config, jobId, true);
-            assertBinaryRoutingRows(execution, "prefix", 64, false);
+            assertBinaryRoutingRows(execution, "uid", "id", 64, false);
             // Recheck after the savepoint drains every replica, not only at transient convergence.
             Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
             execution.get(60, TimeUnit.SECONDS);
-            assertBinaryRoutingRows(execution, "prefix", 64, false);
+            assertBinaryRoutingRows(execution, "uid", "id", 64, false);
         } catch (Exception | AssertionError failure) {
             testFailure = failure;
             throw failure;
@@ -384,7 +393,11 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
     /** Compares the complete sink contents, including the key deleted after the savepoint. */
     private void assertBinaryRoutingRows(
-            CompletableFuture<?> execution, String prefix, int value, boolean originalSecondKey) {
+            CompletableFuture<?> execution,
+            String key,
+            String projectedValue,
+            int value,
+            boolean originalSecondKey) {
         await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .ignoreExceptionsMatching(
                         error ->
@@ -402,9 +415,12 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                                     ? Arrays.asList("040506", 0, 0)
                                                     : Arrays.asList("070809", 64, 64)),
                                     query(
-                                            "SELECT HEX(id),"
-                                                    + prefix
-                                                    + ",value FROM shop.binary_routing_sink ORDER BY id"));
+                                            "SELECT HEX("
+                                                    + key
+                                                    + "),"
+                                                    + projectedValue
+                                                    + ",value FROM shop.binary_routing_sink ORDER BY "
+                                                    + key));
                         });
     }
 

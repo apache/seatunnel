@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
+import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -181,6 +183,71 @@ class JdbcSinkWriterPrimaryKeyIndexTest {
     }
 
     @Test
+    void checkpointSchemaRetainsRenamedInferredKeyWhenOldNameIsReused() throws Exception {
+        TableSchema original = schema("id", "name");
+        TableSchema checkpoint =
+                new TableSchemaChangeEventDispatcher()
+                        .reset(original)
+                        .apply(
+                                new AlterTableColumnsEvent(TABLE_IDENTIFIER)
+                                        .addEvent(
+                                                AlterTableChangeColumnEvent.change(
+                                                        TABLE_IDENTIFIER, "id", column("uid")))
+                                        .addEvent(
+                                                AlterTableAddColumnEvent.addFirst(
+                                                        TABLE_IDENTIFIER, column("id"))));
+
+        JdbcSinkWriter writer = writer(original, 0);
+        writer.applySchemaChange(restore(checkpoint));
+
+        Assertions.assertArrayEquals(
+                new String[] {"id", "uid", "name"}, checkpoint.getFieldNames());
+        Assertions.assertAll(
+                () ->
+                        Assertions.assertEquals(
+                                Collections.singletonList("uid"),
+                                checkpoint.getPrimaryKey().getColumnNames()),
+                () -> Assertions.assertEquals(Optional.of(1), writer.primaryKey()));
+    }
+
+    @Test
+    void configuredRoutingKeyDoesNotSilentlySwitchToSourceKeyOnRestore() throws Exception {
+        JdbcSinkWriter writer =
+                writer(
+                        schemaWithKey("route", "id", "route", "name"),
+                        1,
+                        Collections.singletonList("route"));
+
+        writer.applySchemaChange(restore(schemaWithKey("uid", "uid", "name")));
+
+        Assertions.assertEquals(Optional.empty(), writer.primaryKey());
+    }
+
+    @Test
+    void configuredRoutingKeyRemainsAuthoritativeWhenSourceKeyChanges() throws Exception {
+        JdbcSinkWriter writer =
+                writer(
+                        schemaWithKey("route", "id", "route", "name"),
+                        1,
+                        Collections.singletonList("route"));
+
+        writer.applySchemaChange(restore(schemaWithKey("uid", "route", "uid", "name")));
+
+        Assertions.assertEquals(Optional.of(0), writer.primaryKey());
+    }
+
+    private static RestoreTableSchemaEvent restore(TableSchema schema) {
+        return new RestoreTableSchemaEvent(
+                CatalogTable.of(
+                        TABLE_IDENTIFIER,
+                        schema,
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null,
+                        "jdbc"));
+    }
+
+    @Test
     void dropKeyColumnClearsPrimaryKeyIndex() throws Exception {
         JdbcSinkWriter writer = writer(schema("id", "name"), 0);
 
@@ -201,6 +268,12 @@ class JdbcSinkWriterPrimaryKeyIndexTest {
 
     private static JdbcSinkWriter writer(TableSchema schema, Integer primaryKeyIndex)
             throws Exception {
+        return writer(schema, primaryKeyIndex, null);
+    }
+
+    private static JdbcSinkWriter writer(
+            TableSchema schema, Integer primaryKeyIndex, List<String> configuredKeys)
+            throws Exception {
         JdbcConnectionConfig connectionConfig =
                 JdbcConnectionConfig.builder()
                         .url("jdbc:mysql://localhost:3306/defaultdb")
@@ -210,6 +283,8 @@ class JdbcSinkWriterPrimaryKeyIndexTest {
         JdbcSinkConfig sinkConfig =
                 JdbcSinkConfig.builder()
                         .jdbcConnectionConfig(connectionConfig)
+                        .primaryKeys(configuredKeys)
+                        .primaryKeyFromSchema(configuredKeys == null)
                         .database("defaultdb")
                         .table("public.target")
                         .build();

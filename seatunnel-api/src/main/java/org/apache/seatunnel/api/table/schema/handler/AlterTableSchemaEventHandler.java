@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.table.schema.handler;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
@@ -33,6 +34,8 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableNameEvent;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
+import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.util.Arrays;
@@ -118,6 +121,20 @@ public class AlterTableSchemaEventHandler implements TableSchemaChangeEventHandl
             newColumns.addFirst(column);
         } else if (addColumnEvent.getAfterColumn() != null) {
             int index = originFields.indexOf(addColumnEvent.getAfterColumn());
+            if (index < 0) {
+                // -1 + 1 == 0 would silently insert the column first, misaligning every positional
+                // mapping downstream. The event names a column this schema does not have, so it
+                // does not describe this table.
+                throw new SchemaEvolutionException(
+                        SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
+                        String.format(
+                                "Cannot add column '%s' after '%s': table %s has no such column,"
+                                        + " existing columns: %s",
+                                column.getName(),
+                                addColumnEvent.getAfterColumn(),
+                                addColumnEvent.tableIdentifier(),
+                                originFields));
+            }
             newColumns.add(index + 1, column);
         } else {
             newColumns.addLast(column);
@@ -212,9 +229,23 @@ public class AlterTableSchemaEventHandler implements TableSchemaChangeEventHandl
         } else {
             originColumns.set(columnIndex, column);
         }
+        String oldName = schema.getColumns().get(columnIndex).getName();
+        String newName = column.getName();
+        PrimaryKey primaryKey = schema.getPrimaryKey();
+        if (!oldName.equals(newName) && PrimaryKey.isPrimaryKeyField(primaryKey, oldName)) {
+            // The resulting schema is also stored in CDC checkpoints and restored without
+            // replaying this rename event.
+            primaryKey =
+                    PrimaryKey.of(
+                            primaryKey.getPrimaryKey(),
+                            primaryKey.getColumnNames().stream()
+                                    .map(name -> oldName.equals(name) ? newName : name)
+                                    .collect(Collectors.toList()),
+                            primaryKey.getEnableAutoId());
+        }
         return TableSchema.builder()
                 .columns(originColumns)
-                .primaryKey(schema.getPrimaryKey())
+                .primaryKey(primaryKey)
                 .constraintKey(schema.getConstraintKeys())
                 .build();
     }
