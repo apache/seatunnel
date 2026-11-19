@@ -20,13 +20,22 @@ The following options are available in a job `env` block unless noted otherwise.
 | `openlineage_url` | String | None | Base URL of the OpenLineage receiver. Required when reporting is enabled. |
 | `openlineage_namespace` | String | `seatunnel` | OpenLineage job namespace. |
 | `openlineage_auth_token` | String | None | Receiver bearer token. It may come only from an environment variable or cluster configuration. |
-| `openlineage_timeout_ms` | Int | `10000` | Timeout for one send attempt, in milliseconds. |
-| `openlineage_retry_times` | Int | `3` | Number of retries after a failed send. |
+| `openlineage_timeout_ms` | Int | `10000` | Timeout for one send attempt, in milliseconds. Must be from 1 through 60000. Values outside that range are rejected, not clamped. |
+| `openlineage_retry_times` | Int | `3` | Number of retries after a failed send. Must be from 0 through 10. Values outside that range are rejected, not clamped. |
 | `openlineage_run_facet` | String | `seatunnel_properties` | Name of the custom run facet. |
 | `openlineage_run_properties` | Map | None | Custom properties copied to the run facet. |
 | `openlineage_heartbeat_min_interval_ms` | Long | `3600000` | Minimum interval between streaming-job heartbeat events, in milliseconds. `0` disables heartbeat reporting. |
 | `openlineage_producer` | String | `https://seatunnel.apache.org/<version>` | OpenLineage producer identifier. The default is derived from the running SeaTunnel version at runtime. |
 | `openlineage_job_name_per_output` | Boolean | `false` | Zeta only. Reports each output under its own job name, `<job name>::<output namespace>/<output name>`, instead of the shared job name. Enable it for a receiver that keeps one current run per job, where a job with several outputs would otherwise show only one of them. |
+
+A job turns reporting on in its `env` block. No events are emitted by this module alone; engine support arrives with [Zeta (PR #12209)](https://github.com/apache/seatunnel/pull/12209) and [Flink (PR #12210)](https://github.com/apache/seatunnel/pull/12210).
+
+```hocon
+env {
+  openlineage_enabled = true
+  openlineage_url = "http://lineage.example/api/v1/lineage"
+}
+```
 
 Values are resolved independently with this precedence:
 
@@ -34,18 +43,28 @@ Values are resolved independently with this precedence:
 job env {} > process environment > cluster configuration > default
 ```
 
+Cluster configuration is the engine file, not the job file:
+
+- Zeta reads the `seatunnel.engine.openlineage` block from `config/seatunnel.yaml`. [PR #12209](https://github.com/apache/seatunnel/pull/12209) wires that block into lineage resolution.
+- Flink reads keys prefixed with `openlineage.` from the Flink cluster configuration. Flink 1.20 and later load `config.yaml`; older versions load `flink-conf.yaml`. [PR #12210](https://github.com/apache/seatunnel/pull/12210) wires those keys.
+
+A malformed `openlineage_enabled` in the process environment or cluster configuration disables reporting and logs a warning that names the key. The same malformed value in the job `env {}` fails resolution. When reporting resolves to disabled, the other options are not validated, so a bad environment timeout cannot fail a job that never enables lineage. When reporting is enabled, a malformed or out-of-range environment or cluster value still fails resolution.
+
 The token is the exception to this rule. `openlineage_auth_token` is resolved as
 `OPENLINEAGE_AUTH_TOKEN` > cluster configuration. `LineageConfig.resolve` rejects a token in a job
 `env {}` block when resolving lineage configuration. Engine integrations must invoke this validation
 before persisting job configuration or serializing it into a Flink JobGraph, even when lineage
 reporting is disabled. The option rule alone does not enforce this validation.
 
-When a token is configured, the receiver URL and transport are resolved from process environment,
-cluster configuration, then defaults. A job-level URL or transport must match these trusted values;
-otherwise configuration resolution fails. Put the receiver URL beside the token in trusted
-configuration instead of only in the job. This check also applies when Flink re-resolves credentials
-on the JobManager. Tokens remain outside the serialized JobGraph. Without a token, job-level receiver
-overrides remain supported; this is not a general restriction on outbound network destinations.
+When a token is configured and reporting is enabled, the receiver URL and transport are resolved
+from process environment, cluster configuration, then defaults. A job-level URL or transport must
+match these trusted values; otherwise configuration resolution fails. The transport comparison is
+case-insensitive. The URL comparison lower-cases the scheme and host and ignores a trailing slash.
+The comparison is skipped when reporting is disabled. Put the receiver URL beside the token in
+trusted configuration instead of only in the job. This check also applies when Flink re-resolves
+credentials on the JobManager. Tokens remain outside the serialized JobGraph. Without a token,
+job-level receiver overrides remain supported; this is not a general restriction on outbound network
+destinations.
 
 Lineage delivery is unconditionally best effort, and there is deliberately no option to change that.
 A receiver or network failure is contained at the engine integration boundary and reported as a
@@ -56,12 +75,13 @@ available, the new event is dropped and logged. Shutdown and failed delivery aft
 retries can also lose events.
 
 
-For Zeta, a job already being delivered drains its pending lifecycle events in the same worker. The
-`openlineage_timeout_ms` and `openlineage_retry_times` environment/cluster values also define the
-maximum job overrides (defaults: 10000 ms and 3 retries); larger job values are rejected. Heartbeat
-metrics use one shared collection deadline bounded by the effective timeout. Missing worker metrics
-are logged and statistics are omitted, while the heartbeat can still be sent. Heartbeat throttling
-counts send attempts, not HTTP acknowledgements: queued or evicted heartbeats do not advance it.
+For Zeta, a job already being delivered drains its pending lifecycle events in the same worker.
+Job overrides of `openlineage_timeout_ms` and `openlineage_retry_times` are rejected outside 1
+through 60000 milliseconds and 0 through 10 retries; the defaults remain 10000 ms and 3 retries.
+Heartbeat metrics use one shared collection deadline bounded by the effective timeout. Missing
+worker metrics are logged and statistics are omitted, while the heartbeat can still be sent.
+Heartbeat throttling counts send attempts, not HTTP acknowledgements: queued or evicted heartbeats
+do not advance it.
 
 ### Environment variable names
 
@@ -117,9 +137,9 @@ still emitted.
 ## Run facet properties
 
 Besides the properties configured through `openlineage_run_properties`, the run facet carries an
-`engine` property naming the execution engine that reported the run. Each engine adds the
-identifiers that make its run findable in that engine's own UI; those are described in the engine
-sections below.
+`engine` property naming the execution engine that reported the run. Zeta adds the identifiers
+described in the Zeta section below. Flink identifiers are added by
+[PR #12210](https://github.com/apache/seatunnel/pull/12210).
 
 ## Zeta
 

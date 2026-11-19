@@ -18,13 +18,22 @@ SeaTunnel 可以向任意兼容 OpenLineage 的接收端发射表级 `RunEvent` 
 | `openlineage_url` | String | 无 | OpenLineage 接收端基址。启用上报时必须配置。 |
 | `openlineage_namespace` | String | `seatunnel` | OpenLineage job namespace。 |
 | `openlineage_auth_token` | String | 无 | 接收端 bearer token，只能来自环境变量或集群配置。 |
-| `openlineage_timeout_ms` | Int | `10000` | 单次发送尝试的超时时间，单位为毫秒。 |
-| `openlineage_retry_times` | Int | `3` | 发送失败后的重试次数。 |
+| `openlineage_timeout_ms` | Int | `10000` | 单次发送尝试的超时时间，单位为毫秒。取值必须在 1 到 60000 之间，超出范围会被拒绝，而不是被截断。 |
+| `openlineage_retry_times` | Int | `3` | 发送失败后的重试次数。取值必须在 0 到 10 之间，超出范围会被拒绝，而不是被截断。 |
 | `openlineage_run_facet` | String | `seatunnel_properties` | 自定义 run facet 的名称。 |
 | `openlineage_run_properties` | Map | 无 | 写入 run facet 的自定义属性。 |
 | `openlineage_heartbeat_min_interval_ms` | Long | `3600000` | 流作业心跳的最小间隔，单位为毫秒。设置为 `0` 表示关闭心跳上报。 |
 | `openlineage_producer` | String | `https://seatunnel.apache.org/<version>` | OpenLineage producer 标识。默认值在运行时根据当前 SeaTunnel 版本生成。 |
 | `openlineage_job_name_per_output` | Boolean | `false` | 仅适用于 Zeta。每个输出使用独立的 job name `<job name>::<输出 namespace>/<输出 name>`，而不是共用作业名。接收端对每个 job 只保留一个当前 run 时，多输出作业否则只会显示其中一个输出。 |
+
+在作业 `env` 块中打开上报。本模块本身不会发射事件；引擎支持随 [Zeta（PR #12209）](https://github.com/apache/seatunnel/pull/12209) 和 [Flink（PR #12210）](https://github.com/apache/seatunnel/pull/12210) 提供。
+
+```hocon
+env {
+  openlineage_enabled = true
+  openlineage_url = "http://lineage.example/api/v1/lineage"
+}
+```
 
 每个配置项独立按照以下优先级解析：
 
@@ -32,13 +41,21 @@ SeaTunnel 可以向任意兼容 OpenLineage 的接收端发射表级 `RunEvent` 
 作业 env {} > 进程环境变量 > 集群配置 > 默认值
 ```
 
+集群配置写在引擎自己的配置文件里，而不是作业文件里：
+
+- Zeta 从 `config/seatunnel.yaml` 的 `seatunnel.engine.openlineage` 块读取集群级配置。[PR #12209](https://github.com/apache/seatunnel/pull/12209) 把该配置块接入血缘解析。
+- Flink 从集群配置中读取 `openlineage.` 前缀的键。Flink 1.20 及以后使用 `config.yaml`，更早版本使用 `flink-conf.yaml`。[PR #12210](https://github.com/apache/seatunnel/pull/12210) 把这些键接入血缘解析。
+
+进程环境变量或集群配置里的 `openlineage_enabled` 如果不是 `true`/`false`，上报会被关闭，并记录一条点名该配置项的 warning。作业 `env {}` 中的同样错误仍会使解析失败。上报解析为关闭时，其余配置项不再校验，因此环境中错误的 timeout 不会让一个未启用血缘的作业失败。上报启用时，环境或集群配置中格式错误或超出范围的值仍会使解析失败。
+
 Token 是例外：`openlineage_auth_token` 按 `OPENLINEAGE_AUTH_TOKEN` > 集群配置解析。
 `LineageConfig.resolve` 在解析血缘配置时拒绝作业 `env {}` 中的 token。引擎集成必须在持久化
 作业配置或将其序列化到 Flink JobGraph 之前执行此校验，即使血缘上报未启用也不例外。
 仅声明选项规则不会执行此校验。
 
-配置 token 后，接收端 URL 和 transport 按进程环境变量、集群配置、默认值解析。
-作业中的 URL 或 transport 必须与这些可信值一致，否则配置解析失败。请将接收端 URL
+配置 token 且上报启用时，接收端 URL 和 transport 按进程环境变量、集群配置、默认值解析。
+作业中的 URL 或 transport 必须与这些可信值一致，否则配置解析失败。transport 比较忽略大小写。
+URL 比较会把 scheme 和 host 转为小写，并忽略末尾的斜杠。上报关闭时不做这次比较。请将接收端 URL
 与 token 一起放入可信配置，不要仅在作业中配置 URL。Flink 在 JobManager 重新解析凭据时
 也执行此校验，token 仍不会进入序列化的 JobGraph。未配置 token 时保留作业覆盖接收端的能力；
 这项保护不等于对所有出站网络地址的通用限制。
@@ -50,9 +67,9 @@ Zeta 使用两个投递线程，最多允许 64 个作业等待投递，并合�
 服务关闭或重试耗尽后仍投递失败时也可能丢失事件。
 
 
-Zeta 已经开始投递的作业在同一线程中排空其待发送生命周期事件。环境或集群配置中的
-`openlineage_timeout_ms` 和 `openlineage_retry_times` 同时约束作业覆盖值的上限
-（默认 10000 毫秒和 3 次重试），超出上限的作业配置会被拒绝。心跳指标采集使用由有效
+Zeta 已经开始投递的作业在同一线程中排空其待发送生命周期事件。作业对
+`openlineage_timeout_ms` 和 `openlineage_retry_times` 的覆盖值若超出 1 到 60000 毫秒、
+0 到 10 次重试的范围会被拒绝；默认值仍是 10000 毫秒和 3 次重试。心跳指标采集使用由有效
 timeout 限定的统一 deadline；缺少 worker 指标时记录日志并省略统计，仍可发送心跳。
 心跳节流按发送尝试计时，不代表 HTTP 接收确认；仅排队或被驱逐的心跳不会推进节流时间。
 
@@ -105,7 +122,8 @@ Paimon 数据集。Doris 的 `fenodes` 通常是 HTTP Stream Load
 ## Run facet 属性
 
 除 `openlineage_run_properties` 配置的属性外，run facet 还会携带 `engine` 属性，标明上报该 run
-的执行引擎。各引擎还会补充能在自己 UI 中定位该 run 的标识，见下面各引擎章节。
+的执行引擎。Zeta 补充的标识见下面的 Zeta 章节。Flink 的标识由
+[PR #12210](https://github.com/apache/seatunnel/pull/12210) 提供。
 
 ## Zeta
 
