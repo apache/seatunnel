@@ -22,6 +22,8 @@ import org.apache.seatunnel.shade.com.google.common.collect.Iterables;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult;
 
 import org.apache.iceberg.DataFile;
@@ -156,10 +158,31 @@ class IcebergFilesCommitterTest {
     void legacyUnknownCheckpointRequiresEveryFile() {
         table.newAppend().appendFile(dataFile("legacy")).commit();
         assertTrue(committer.isAlreadyCommitted(0, results(dataFile("legacy"))));
-        assertThrows(
-                IllegalStateException.class,
-                () -> committer.doCommit(results(dataFile("legacy"), dataFile("pending")), 0));
+        IcebergConnectorException error =
+                assertThrows(
+                        IcebergConnectorException.class,
+                        () ->
+                                committer.doCommit(
+                                        results(dataFile("legacy"), dataFile("pending")), 0));
+        assertEquals(
+                IcebergConnectorErrorCode.COMMIT_PUBLICATION_STATE_UNCERTAIN,
+                error.getSeaTunnelErrorCode());
+        assertTrue(error.getMessage().contains("table ns.tbl, branch main (1 of 2 files)"));
         assertEquals(1, Iterables.size(table.snapshots()));
+    }
+
+    @Test
+    void invalidGroupErrorIdentifiesTheTableAndBranch() {
+        IcebergFilesCommitter branchCommitter = newCommitter("audit");
+        IcebergConnectorException error =
+                assertThrows(
+                        IcebergConnectorException.class,
+                        () -> branchCommitter.doCommit(results(dataFile("pending")), 7, 2, 2));
+        assertEquals(IcebergConnectorErrorCode.INVALID_COMMIT_GROUP, error.getSeaTunnelErrorCode());
+        assertTrue(
+                error.getMessage()
+                        .contains("group 2 of 2 for table ns.tbl, branch audit, checkpoint 7"));
+        assertNull(table.currentSnapshot());
     }
 
     @Test
@@ -185,9 +208,15 @@ class IcebergFilesCommitterTest {
                 .thenReturn(Map.of(IcebergFilesCommitter.SNAPSHOT_PROPERTY_CHECKPOINT_ID, "1"));
         when(snapshot.addedDataFiles(null))
                 .thenThrow(new UncheckedIOException(new IOException("missing manifest")));
-        assertThrows(
-                UncheckedIOException.class,
-                () -> committer.doCommit(results(dataFile("pending")), 1));
+        IcebergConnectorException error =
+                assertThrows(
+                        IcebergConnectorException.class,
+                        () -> committer.doCommit(results(dataFile("pending")), 1));
+        assertEquals(
+                IcebergConnectorErrorCode.COMMIT_PUBLICATION_STATE_UNCERTAIN,
+                error.getSeaTunnelErrorCode());
+        assertTrue(error.getMessage().contains("table ns.tbl, branch main, checkpoint 1"));
+        assertTrue(error.getCause() instanceof UncheckedIOException);
         verify(unreadable, never()).newAppend();
     }
 

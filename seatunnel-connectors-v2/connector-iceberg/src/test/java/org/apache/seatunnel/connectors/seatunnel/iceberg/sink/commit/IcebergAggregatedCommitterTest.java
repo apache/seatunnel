@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit;
 
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult;
 
+import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileContent;
 
@@ -41,9 +42,9 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -63,7 +64,10 @@ class IcebergAggregatedCommitterTest {
 
     @Test
     void testWriterGenerationsRemainOrderedAcrossUnevenWorkers() throws Exception {
-        WriteResult first = new WriteResult(Collections.emptyList(), Collections.emptyList(), null);
+        DataFile data = mock(DataFile.class);
+        when(data.recordCount()).thenReturn(1L);
+        WriteResult first =
+                new WriteResult(Collections.singletonList(data), Collections.emptyList(), null);
         DeleteFile equalityDelete = mock(DeleteFile.class);
         when(equalityDelete.recordCount()).thenReturn(1L);
         when(equalityDelete.content()).thenReturn(FileContent.EQUALITY_DELETES);
@@ -79,10 +83,11 @@ class IcebergAggregatedCommitterTest {
                                         new IcebergCommitInfo(
                                                 Collections.singletonList(other), 3L)))));
 
-        org.mockito.InOrder order = org.mockito.Mockito.inOrder(filesCommitter);
-        order.verify(filesCommitter).doCommit(Arrays.asList(first, other), 3L, 0, 2);
-        order.verify(filesCommitter).doCommit(Collections.singletonList(second), 3L, 1, 2);
-        order.verifyNoMoreInteractions();
+        verify(filesCommitter)
+                .doCommitInOrder(
+                        Arrays.asList(
+                                Arrays.asList(first, other), Collections.singletonList(second)),
+                        3L);
     }
 
     @Test
@@ -132,7 +137,7 @@ class IcebergAggregatedCommitterTest {
         IcebergAggregatedCommitInfo aggregated = committer.combine(Arrays.asList(empty0, empty1));
         committer.commit(Collections.singletonList(aggregated));
 
-        verify(filesCommitter, never()).doCommit(any(), anyLong());
+        verifyNoInteractions(filesCommitter);
     }
 
     @Test
@@ -261,7 +266,7 @@ class IcebergAggregatedCommitterTest {
         IcebergAggregatedCommitInfo aggregated = committer.combine(Arrays.asList(empty0, empty1));
         committer.restoreCommit(Collections.singletonList(aggregated));
 
-        verify(filesCommitter, never()).doCommit(any(), anyLong());
+        verifyNoInteractions(filesCommitter);
     }
 
     @Test

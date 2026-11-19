@@ -64,6 +64,7 @@ import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.RowDelta;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
@@ -113,6 +114,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -125,6 +127,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class IcebergFormatVersionTest {
@@ -824,6 +828,146 @@ class IcebergFormatVersionTest {
         assertEquals("updated", rows.get(1000L).getField(1));
         assertFalse(rows.containsKey(999L));
         assertFalse(rows.containsKey(2099L));
+    }
+
+    @Test
+    void readsMatchingLegacySnapshotFilesOncePerGroupedCommit() throws Exception {
+        IcebergSinkConfig config = deltaConfig("3", "parquet", false, false);
+        Table table = SchemaUtils.autoCreateTable(catalog, TABLE, config, idAndName());
+        SeaTunnelRowType rowType = idAndName().toPhysicalRowDataType();
+        List<WriteResult> legacyResults =
+                write(table, config, rowType, change(1, "legacy", RowKind.INSERT));
+        table.newAppend()
+                .appendFile(legacyResults.get(0).getDataFiles().get(0))
+                .set("seatunnel.checkpoint-id", "41")
+                .commit();
+        long legacyId = table.currentSnapshot().snapshotId();
+        Snapshot legacy = Mockito.spy(table.currentSnapshot());
+        Table observed = Mockito.spy(table);
+        doReturn(legacy).when(observed).snapshot(legacyId);
+        Mockito.doAnswer(
+                        invocation -> {
+                            Snapshot head = table.currentSnapshot();
+                            return head.snapshotId() == legacyId ? legacy : head;
+                        })
+                .when(observed)
+                .currentSnapshot();
+
+        List<WriteResult> groups = new ArrayList<>();
+        groups.addAll(write(table, config, rowType, change(2, "fresh", RowKind.INSERT)));
+        groups.addAll(write(table, config, rowType, change(1, "legacy", RowKind.DELETE)));
+        publish(observed, config, checkpoint(groups, 41), false);
+        verify(legacy, times(1)).addedDataFiles(table.io());
+        verify(legacy, times(1)).addedDeleteFiles(table.io());
+        assertEquals(3, Iterables.size(table.snapshots()));
+        assertEquals(Collections.singleton(2L), readAll(table, toCatalogTable(table)).keySet());
+
+        // Separate calls must see the current branch and can reuse the same checkpoint number.
+        publish(
+                observed,
+                config,
+                checkpoint(write(table, config, rowType, change(3, "later", RowKind.INSERT)), 41),
+                false);
+        verify(legacy, times(2)).addedDataFiles(table.io());
+        verify(legacy, times(2)).addedDeleteFiles(table.io());
+        assertEquals(4, Iterables.size(table.snapshots()));
+        assertEquals(2, readAll(table, toCatalogTable(table)).size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"close", "abort", "write", "prepare", "cleanup"})
+    void sinkCleansUpUnpreparedGenerationsWithoutDeletingPreparedFiles(String failure)
+            throws Exception {
+        Map<String, Object> options = new HashMap<>();
+        options.put(IcebergSinkOptions.TABLE_PRIMARY_KEYS.key(), "id");
+        options.put(IcebergSinkOptions.TABLE_SCHEMA_EVOLUTION_ENABLED_PROP.key(), true);
+        IcebergSinkConfig config = sinkConfig(formatVersion("3"), options);
+        Table table = SchemaUtils.autoCreateTable(catalog, TABLE, config, idAndName());
+        List<String> unprepared = new ArrayList<>();
+        AtomicBoolean trackUnprepared = new AtomicBoolean();
+        AtomicBoolean failOutput = new AtomicBoolean();
+        FileIO io = Mockito.spy(table.io());
+        when(io.newOutputFile(anyString()))
+                .thenAnswer(
+                        invocation -> {
+                            String path = invocation.getArgument(0);
+                            if (failOutput.get()) {
+                                throw new IllegalStateException("injected output creation failure");
+                            }
+                            if (trackUnprepared.get()) {
+                                unprepared.add(path);
+                            }
+                            return table.io().newOutputFile(path);
+                        });
+        Table withTrackedIO = Mockito.spy(table);
+        doReturn(io).when(withTrackedIO).io();
+
+        IcebergSinkWriter writer =
+                new IcebergSinkWriter(loader(withTrackedIO), config, idAndName(), null);
+        writer.write(change(1, "prepared", RowKind.INSERT));
+        IcebergCommitInfo prepared = writer.prepareCommit(41).get();
+        trackUnprepared.set(true);
+        writer.write(change(2, "schema generation", RowKind.INSERT));
+        writer.applySchemaChange(
+                AlterTableAddColumnEvent.add(
+                        null,
+                        PhysicalColumn.of(
+                                "note", BasicType.STRING_TYPE, (Long) null, true, null, null)));
+        writer.write(new SeaTunnelRow(new Object[] {3L, "in flight", null}));
+        SeaTunnelRow update = new SeaTunnelRow(new Object[] {3L, "changed", "note"});
+        update.setRowKind(RowKind.UPDATE_AFTER);
+        writer.write(update);
+
+        // One closed generation and one live generation have output files before cleanup.
+        assertEquals(2, unprepared.size());
+        assertTrue(io.newInputFile(unprepared.get(0)).exists());
+        if ("write".equals(failure) || "cleanup".equals(failure)) {
+            if ("cleanup".equals(failure)) {
+                doThrow(new IllegalStateException("injected delete failure"))
+                        .doCallRealMethod()
+                        .when(io)
+                        .deleteFile(unprepared.get(0));
+            }
+            failOutput.set(true);
+            SeaTunnelRow delete = new SeaTunnelRow(new Object[] {4L, "unseen", null});
+            delete.setRowKind(RowKind.DELETE);
+            RuntimeException writeFailure =
+                    assertThrows(RuntimeException.class, () -> writer.write(delete));
+            assertTrue(writeFailure.getMessage().contains("injected output creation failure"));
+            failOutput.set(false);
+            assertThrows(RuntimeException.class, () -> writer.prepareCommit(42));
+            if ("cleanup".equals(failure)) {
+                assertEquals(1, writeFailure.getSuppressed().length);
+                assertEquals(
+                        "injected delete failure",
+                        writeFailure.getSuppressed()[0].getCause().getMessage());
+                assertTrue(io.newInputFile(unprepared.get(0)).exists());
+                // The failed path remains owned until a later close can delete it.
+                writer.close();
+            }
+        } else if ("prepare".equals(failure)) {
+            failOutput.set(true);
+            assertThrows(RuntimeException.class, () -> writer.prepareCommit(42));
+            failOutput.set(false);
+            assertThrows(RuntimeException.class, () -> writer.prepareCommit(42));
+        } else if ("abort".equals(failure)) {
+            writer.abortPrepare();
+            assertThrows(RuntimeException.class, () -> writer.prepareCommit(42));
+        } else {
+            writer.close();
+        }
+
+        for (String path : unprepared) {
+            assertThrows(NotFoundException.class, () -> io.newInputFile(path), path);
+        }
+        writer.close();
+        restore(
+                table,
+                config,
+                new IcebergAggregatedCommitInfo(Collections.singletonList(prepared)));
+        Map<Long, SeaTunnelRow> rows = readAll(table, toCatalogTable(table));
+        assertEquals(Collections.singleton(1L), rows.keySet());
+        assertEquals("prepared", rows.get(1L).getField(1));
     }
 
     @Test

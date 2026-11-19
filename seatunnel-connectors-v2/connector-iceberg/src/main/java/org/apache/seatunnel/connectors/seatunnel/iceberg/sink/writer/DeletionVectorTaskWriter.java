@@ -50,6 +50,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -262,10 +263,23 @@ class DeletionVectorTaskWriter implements TaskWriter<Record> {
         } catch (IOException ignored) {
             // A failed close must not prevent cleanup of files created before the failure.
         }
+        deleteOwnedFiles(io, createdFiles);
+    }
+
+    /** Transfer file ownership after a successful flush, without retaining closed writers. */
+    void transferCreatedFiles(Set<String> pendingFiles) {
+        pendingFiles.addAll(createdFiles);
+        createdFiles.clear();
+    }
+
+    static void deleteOwnedFiles(FileIO io, Set<String> paths) throws IOException {
         IOException cleanupFailure = null;
-        for (String path : createdFiles) {
+        Iterator<String> remaining = paths.iterator();
+        while (remaining.hasNext()) {
+            String path = remaining.next();
             try {
                 io.deleteFile(path);
+                remaining.remove();
             } catch (RuntimeException e) {
                 if (cleanupFailure == null) {
                     cleanupFailure = new IOException("Failed to clean up Iceberg delta files", e);

@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit;
 
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult;
 
 import org.apache.iceberg.AppendFiles;
@@ -47,10 +49,13 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 @Slf4j
@@ -61,8 +66,9 @@ public class IcebergFilesCommitter implements Serializable {
     public static final String SNAPSHOT_PROPERTY_CHECKPOINT_ID = "seatunnel.checkpoint-id";
     static final String SNAPSHOT_PROPERTY_COMMIT_ID = "seatunnel.commit-ids";
     // Group properties are diagnostics only; file payloads establish publication during replay.
-    static final String SNAPSHOT_PROPERTY_COMMIT_GROUP = "seatunnel.commit-group";
-    static final String SNAPSHOT_PROPERTY_COMMIT_GROUP_COUNT = "seatunnel.commit-group-count";
+    public static final String SNAPSHOT_PROPERTY_COMMIT_GROUP = "seatunnel.commit-group";
+    public static final String SNAPSHOT_PROPERTY_COMMIT_GROUP_COUNT =
+            "seatunnel.commit-group-count";
     private static final String COMMIT_ID_VERSION = "v1:";
 
     private IcebergTableLoader icebergTableLoader;
@@ -92,16 +98,54 @@ public class IcebergFilesCommitter implements Serializable {
      * are matched against the committed file payloads.
      */
     public void doCommit(List<WriteResult> results, long checkpointId, int group, int groupCount) {
-        if (group < 0 || group >= groupCount) {
-            throw new IllegalArgumentException("Invalid Iceberg commit group");
-        }
         TableIdentifier tableIdentifier = icebergTableLoader.getTableIdentifier();
-        commit(tableIdentifier, results, checkpointId, group, groupCount);
+        if (group < 0 || group >= groupCount) {
+            throw new IcebergConnectorException(
+                    IcebergConnectorErrorCode.INVALID_COMMIT_GROUP,
+                    String.format(
+                            "Invalid Iceberg commit group %d of %d for table %s, branch %s, checkpoint %d",
+                            group, groupCount, tableIdentifier, branchName(), checkpointId));
+        }
+        commit(tableIdentifier, results, checkpointId, group, groupCount, new HashMap<>());
     }
 
+    /** Publishes each generation group in order and reuses immutable legacy file evidence. */
+    void doCommitInOrder(List<List<WriteResult>> groups, long checkpointId) {
+        if (groups.isEmpty()) {
+            return;
+        }
+        TableIdentifier tableIdentifier = icebergTableLoader.getTableIdentifier();
+        Map<Long, Set<String>> legacySnapshotFiles = new HashMap<>();
+        for (int group = 0; group < groups.size(); group++) {
+            commit(
+                    tableIdentifier,
+                    groups.get(group),
+                    checkpointId,
+                    group,
+                    groups.size(),
+                    legacySnapshotFiles);
+        }
+    }
+
+    /**
+     * Retains the existing entry point. Publication is always verified, including ordinary writes
+     * and engines that replay through the ordinary commit path.
+     */
+    public void doCommitInOrder(
+            List<List<WriteResult>> groups, long checkpointId, boolean skipCommittedGroups) {
+        doCommitInOrder(groups, checkpointId);
+    }
+
+    /** Read-only publication probe. The commit path independently rechecks publication. */
     public boolean isAlreadyCommitted(long checkpointId, List<WriteResult> results) {
         return !fileIds(results).isEmpty()
-                && pendingResults(icebergTableLoader.loadTable(), checkpointId, results).isEmpty();
+                && pendingResults(
+                                icebergTableLoader.getTableIdentifier(),
+                                icebergTableLoader.loadTable(),
+                                checkpointId,
+                                results,
+                                new HashMap<>())
+                        .isEmpty();
     }
 
     /**
@@ -112,7 +156,11 @@ public class IcebergFilesCommitter implements Serializable {
      * the caller must preserve checkpoint order and external job/attempt ownership through commit.
      */
     private List<WriteResult> pendingResults(
-            Table table, long checkpointId, List<WriteResult> results) {
+            TableIdentifier tableIdentifier,
+            Table table,
+            long checkpointId,
+            List<WriteResult> results,
+            Map<Long, Set<String>> legacySnapshotFiles) {
         table.refresh();
         Set<String> wantedIds = new HashSet<>();
         for (WriteResult result : results) {
@@ -162,26 +210,61 @@ public class IcebergFilesCommitter implements Serializable {
                     if (legacyFiles == null) {
                         legacyFiles = new HashSet<>();
                         for (Snapshot snapshot : legacyCandidates) {
-                            for (DataFile file : snapshot.addedDataFiles(table.io())) {
-                                legacyFiles.add(fileId(file));
-                            }
-                            for (DeleteFile file : snapshot.addedDeleteFiles(table.io())) {
-                                legacyFiles.add(fileId(file));
-                            }
+                            // Cache only within this call to doCommitInOrder. Only snapshots
+                            // still reached from this group's refreshed branch contribute proof.
+                            legacyFiles.addAll(
+                                    legacySnapshotFiles.computeIfAbsent(
+                                            snapshot.snapshotId(),
+                                            ignored ->
+                                                    legacyFileIds(
+                                                            tableIdentifier,
+                                                            table,
+                                                            checkpointId,
+                                                            snapshot)));
                         }
                         // Without an ID, live files can preserve legacy proof across expiration.
                         // Intact ancestry already supplies it; positive IDs never scan live files.
                         if (head != null && checkpointId <= 0 && historyGap) {
-                            addLiveFiles(table, head, legacyFiles);
+                            try {
+                                addLiveFiles(table, head, legacyFiles);
+                            } catch (RuntimeException e) {
+                                throw publicationCheckFailed(tableIdentifier, checkpointId, e);
+                            }
                         }
                     }
-                    if (!alreadyPublished(checkpointId, files, legacyFiles)) {
+                    if (!alreadyPublished(tableIdentifier, checkpointId, files, legacyFiles)) {
                         pending.add(result);
                     }
                 }
             }
         }
         return pending;
+    }
+
+    private Set<String> legacyFileIds(
+            TableIdentifier tableIdentifier, Table table, long checkpointId, Snapshot snapshot) {
+        try {
+            Set<String> files = new HashSet<>();
+            for (DataFile file : snapshot.addedDataFiles(table.io())) {
+                files.add(fileId(file));
+            }
+            for (DeleteFile file : snapshot.addedDeleteFiles(table.io())) {
+                files.add(fileId(file));
+            }
+            return files;
+        } catch (RuntimeException e) {
+            throw publicationCheckFailed(tableIdentifier, checkpointId, e);
+        }
+    }
+
+    private IcebergConnectorException publicationCheckFailed(
+            TableIdentifier tableIdentifier, long checkpointId, RuntimeException cause) {
+        return new IcebergConnectorException(
+                IcebergConnectorErrorCode.COMMIT_PUBLICATION_STATE_UNCERTAIN,
+                String.format(
+                        "Cannot establish Iceberg publication for table %s, branch %s, checkpoint %d",
+                        tableIdentifier, branchName(), checkpointId),
+                cause);
     }
 
     private static void addLiveFiles(Table table, Snapshot snapshot, Set<String> ids) {
@@ -209,19 +292,32 @@ public class IcebergFilesCommitter implements Serializable {
     }
 
     private boolean alreadyPublished(
-            long checkpointId, Set<String> files, Set<String> publishedFiles) {
-        Set<String> remaining = new HashSet<>(files);
-        remaining.removeAll(publishedFiles);
-        if (remaining.isEmpty()) {
+            TableIdentifier tableIdentifier,
+            long checkpointId,
+            Set<String> files,
+            Set<String> publishedFiles) {
+        int matches = 0;
+        for (String file : files) {
+            if (publishedFiles.contains(file)) {
+                matches++;
+            }
+        }
+        if (matches == files.size()) {
             return true;
         }
-        if (remaining.size() != files.size()) {
-            throw new IllegalStateException(
-                    "Iceberg checkpoint "
-                            + checkpointId
-                            + " is only partially published; refusing to replay the whole payload");
+        if (matches > 0) {
+            throw new IcebergConnectorException(
+                    IcebergConnectorErrorCode.COMMIT_PUBLICATION_STATE_UNCERTAIN,
+                    String.format(
+                            "Iceberg checkpoint %d is only partially published for table %s, branch %s"
+                                    + " (%d of %d files); refusing to replay the whole payload",
+                            checkpointId, tableIdentifier, branchName(), matches, files.size()));
         }
         return false;
+    }
+
+    private String branchName() {
+        return branch == null ? SnapshotRef.MAIN_BRANCH : branch;
     }
 
     private Snapshot headSnapshot(Table table) {
@@ -307,7 +403,8 @@ public class IcebergFilesCommitter implements Serializable {
             List<WriteResult> results,
             long checkpointId,
             int group,
-            int groupCount) {
+            int groupCount,
+            Map<Long, Set<String>> legacySnapshotFiles) {
         List<DataFile> dataFiles =
                 results.stream()
                         .filter(payload -> payload.getDataFiles() != null)
@@ -326,9 +423,15 @@ public class IcebergFilesCommitter implements Serializable {
             log.info(String.format("Nothing to commit to table %s, skipping", tableIdentifier));
         } else {
             Table table = icebergTableLoader.loadTable();
-            List<WriteResult> pending = pendingResults(table, checkpointId, results);
+            List<WriteResult> pending =
+                    pendingResults(
+                            tableIdentifier, table, checkpointId, results, legacySnapshotFiles);
             if (pending.isEmpty()) {
-                log.info("Iceberg payload for checkpoint {} is already published", checkpointId);
+                log.info(
+                        "Iceberg payload for table {}, branch {}, checkpoint {} is already published",
+                        tableIdentifier,
+                        branchName(),
+                        checkpointId);
                 return;
             }
             dataFiles =
@@ -353,7 +456,7 @@ public class IcebergFilesCommitter implements Serializable {
                                                                     Collections.singletonList(
                                                                             result))))
                                     .sorted()
-                                    .collect(java.util.stream.Collectors.joining(","));
+                                    .collect(joining(","));
             log.info("do commit table : {}", table.toString());
             if (deleteFiles.isEmpty()) {
                 AppendFiles append = table.newAppend();

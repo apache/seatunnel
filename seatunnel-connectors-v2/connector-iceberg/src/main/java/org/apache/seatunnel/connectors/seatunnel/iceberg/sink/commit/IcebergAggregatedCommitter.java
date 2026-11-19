@@ -31,6 +31,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** Iceberg aggregated committer */
 public class IcebergAggregatedCommitter
@@ -91,58 +93,73 @@ public class IcebergAggregatedCommitter
     }
 
     private void commitFiles(List<IcebergCommitInfo> commitInfos, long checkpointId) {
-        List<List<WriteResult>> groups = orderedGroups(commitInfos);
-        for (int group = 0; group < groups.size(); group++) {
-            if (groups.size() == 1) {
-                filesCommitter.doCommit(groups.get(group), checkpointId);
-            } else {
-                filesCommitter.doCommit(groups.get(group), checkpointId, group, groups.size());
-            }
+        List<List<WriteResult>> groups = planCommits(commitInfos);
+        if (groups.size() == 1) {
+            filesCommitter.doCommit(groups.get(0), checkpointId);
+        } else if (!groups.isEmpty()) {
+            filesCommitter.doCommitInOrder(groups, checkpointId);
         }
     }
 
     /**
-     * Combines writers by result-list index, which is each writer's chronological generation,
-     * rather than by writer arrival order. Writers must retain key affinity within a checkpoint:
-     * generations from independent writers do not establish an order for the same key. An equality
-     * delete after accumulated data starts a new publication group so it can see that older data.
+     * Splits the results of one checkpoint into groups that must be committed one after another.
+     *
+     * <p>Each writer reports one result per task writer it completed, in order. Iceberg applies an
+     * equality delete only to data files with a smaller sequence number, so an equality delete
+     * written after a rotation does not remove a row written before it if both land in the same
+     * snapshot. The i-th results of all writers form round i, and a round that carries equality
+     * deletes starts a new group. Without rotation, or without equality deletes, there is a single
+     * group, which is the same single snapshot as before.
      */
-    private List<List<WriteResult>> orderedGroups(List<IcebergCommitInfo> commitInfos) {
-        int rounds = 0;
-        for (IcebergCommitInfo writer : commitInfos) {
-            if (writer.getResults() != null) {
-                rounds = Math.max(rounds, writer.getResults().size());
-            }
-        }
+    static List<List<WriteResult>> planCommits(List<IcebergCommitInfo> commitInfos) {
+        List<List<WriteResult>> perWriter =
+                commitInfos.stream()
+                        .map(IcebergCommitInfo::getResults)
+                        .filter(results -> results != null && !results.isEmpty())
+                        .collect(Collectors.toList());
+        int rounds = perWriter.stream().mapToInt(List::size).max().orElse(0);
         List<List<WriteResult>> groups = new ArrayList<>();
-        List<WriteResult> pending = new ArrayList<>();
         for (int round = 0; round < rounds; round++) {
-            List<WriteResult> results = new ArrayList<>();
-            for (IcebergCommitInfo writer : commitInfos) {
-                if (writer.getResults() != null && round < writer.getResults().size()) {
-                    results.add(writer.getResults().get(round));
+            List<WriteResult> roundResults = new ArrayList<>();
+            for (List<WriteResult> results : perWriter) {
+                if (round < results.size()) {
+                    roundResults.add(results.get(round));
                 }
             }
-            // A reset writer cannot position-delete an earlier generation's rows. Its equality
-            // deletes require an older data sequence number, hence a separate snapshot.
-            boolean equalityDeletes =
-                    results.stream()
-                            .filter(result -> result.getDeleteFiles() != null)
-                            .flatMap(result -> result.getDeleteFiles().stream())
-                            .anyMatch(
-                                    file ->
-                                            file.recordCount() > 0
-                                                    && file.content()
-                                                            == FileContent.EQUALITY_DELETES);
-            if (equalityDeletes && !pending.isEmpty()) {
-                groups.add(pending);
-                pending = new ArrayList<>();
+            // A group without records (for example from a flush right after a schema change)
+            // commits no snapshot, so later rounds join it instead of opening another group.
+            if (groups.isEmpty()
+                    || (hasEqualityDeletes(roundResults)
+                            && hasRecords(groups.get(groups.size() - 1)))) {
+                groups.add(roundResults);
+            } else {
+                groups.get(groups.size() - 1).addAll(roundResults);
             }
-            pending.addAll(results);
-        }
-        if (!pending.isEmpty()) {
-            groups.add(pending);
         }
         return groups;
+    }
+
+    private static boolean hasRecords(List<WriteResult> results) {
+        return results.stream()
+                .flatMap(
+                        result ->
+                                Stream.concat(
+                                        result.getDataFiles() == null
+                                                ? Stream.empty()
+                                                : result.getDataFiles().stream(),
+                                        result.getDeleteFiles() == null
+                                                ? Stream.empty()
+                                                : result.getDeleteFiles().stream()))
+                .anyMatch(file -> file.recordCount() > 0);
+    }
+
+    private static boolean hasEqualityDeletes(List<WriteResult> results) {
+        return results.stream()
+                .filter(result -> result.getDeleteFiles() != null)
+                .flatMap(result -> result.getDeleteFiles().stream())
+                .anyMatch(
+                        file ->
+                                file.content() == FileContent.EQUALITY_DELETES
+                                        && file.recordCount() > 0);
     }
 }

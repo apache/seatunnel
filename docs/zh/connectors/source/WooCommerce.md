@@ -23,6 +23,14 @@ import ChangeLog from '../changelog/connector-http-woocommerce.md';
 
 通过 HTTPS 调用 `GET /wp-json/wc/v3/orders`，批量读取指定 UTC 创建时间范围内的订单。仅支持 BATCH 和 parallelism=1，不支持 CDC、流式读取、Exactly-once 或事务一致性快照。连接器只发送 GET，不修改订单。
 
+## 主要特性
+
+- [x] 批处理
+- [ ] 流处理
+- [ ] 精确一次
+
+并行度必须为 1。恢复时会重新读取整个配置的时间窗口，不会对远程分页位置做 checkpoint。作业失败时，可能已经有部分记录写入了非事务型 sink。如果重放语义重要，请使用按商店和订单 ID 幂等的 sink。
+
 ## 使用前提
 
 为有订单读取权限的用户创建 Read 权限 REST API 密钥。配置最终 HTTPS 商店地址（可包含 WordPress 子目录）；不跟随重定向。服务器证书必须通过 JVM 校验，私有 CA 应导入每个工作节点的 JVM truststore。WordPress 需要向 WooCommerce 转发 Authorization 头。连接器使用 consumer key/secret 的 Basic 认证，不使用 WordPress 登录密码或公开 Store API。
