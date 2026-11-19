@@ -191,13 +191,17 @@ public class EnvCommonOptions {
             Options.key("openlineage_timeout_ms")
                     .intType()
                     .defaultValue(10000)
-                    .withDescription("Timeout of one send attempt, in milliseconds.");
+                    .withDescription(
+                            "Timeout of one send attempt, in milliseconds. Must be from 1 through 60000;"
+                                    + " larger values are rejected.");
 
     public static Option<Integer> OPENLINEAGE_RETRY_TIMES =
             Options.key("openlineage_retry_times")
                     .intType()
                     .defaultValue(3)
-                    .withDescription("Number of retries after a failed send attempt.");
+                    .withDescription(
+                            "Number of retries after a failed send attempt. Must be from 0 through 10;"
+                                    + " larger values are rejected.");
 
     public static Option<String> OPENLINEAGE_RUN_FACET =
             Options.key("openlineage_run_facet")

@@ -19,12 +19,22 @@ package org.apache.seatunnel.lineage;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,8 +43,9 @@ class LineageConfigTest {
     @Test
     void resolvesAndPreservesPerOutputJobNaming() {
         assertFalse(LineageConfig.defaults().jobNamePerOutput());
-        Map<String, Object> cluster =
-                Collections.singletonMap("openlineage.job_name_per_output", true);
+        Map<String, Object> cluster = new HashMap<>();
+        cluster.put("openlineage.job_name_per_output", true);
+        cluster.put(LineageConfig.ENABLED, true);
         Map<String, Object> environment =
                 Collections.singletonMap("OPENLINEAGE_JOB_NAME_PER_OUTPUT", "false");
         assertTrue(
@@ -61,15 +72,15 @@ class LineageConfigTest {
 
     @Test
     void rejectsMalformedPerOutputJobNaming() {
+        Map<String, Object> job = new HashMap<>();
+        job.put(LineageConfig.ENABLED, true);
+        job.put(LineageConfig.JOB_NAME_PER_OUTPUT, "tru");
         IllegalArgumentException failure =
                 assertThrows(
                         IllegalArgumentException.class,
                         () ->
                                 LineageConfig.resolve(
-                                        Collections.singletonMap(
-                                                LineageConfig.JOB_NAME_PER_OUTPUT, "tru"),
-                                        Collections.emptyMap(),
-                                        Collections.emptyMap()));
+                                        job, Collections.emptyMap(), Collections.emptyMap()));
         assertTrue(failure.getMessage().contains(LineageConfig.JOB_NAME_PER_OUTPUT));
     }
 
@@ -121,15 +132,13 @@ class LineageConfigTest {
         Map<String, Object> cluster = new HashMap<>();
         cluster.put(LineageConfig.AUTH_TOKEN, "fixture-token");
         cluster.put(LineageConfig.URL, "https://trusted.example/lineage");
+        Map<String, Object> job = new HashMap<>();
+        job.put(LineageConfig.ENABLED, true);
+        job.put(LineageConfig.URL, "https://job.example/lineage");
         IllegalArgumentException failure =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () ->
-                                LineageConfig.resolve(
-                                        Collections.singletonMap(
-                                                LineageConfig.URL, "https://job.example/lineage"),
-                                        cluster,
-                                        Collections.emptyMap()));
+                        () -> LineageConfig.resolve(job, cluster, Collections.emptyMap()));
         assertTrue(failure.getMessage().contains(LineageConfig.URL));
         assertFalse(failure.getMessage().contains("fixture-token"));
     }
@@ -157,6 +166,7 @@ class LineageConfigTest {
         environment.put("OPENLINEAGE_AUTH_TOKEN", "fixture-token");
         environment.put("OPENLINEAGE_URL", "https://environment.example/lineage");
         Map<String, Object> job = new HashMap<>();
+        job.put(LineageConfig.ENABLED, true);
         job.put(LineageConfig.URL, "https://environment.example/lineage");
         LineageConfig config = LineageConfig.resolve(job, cluster, environment);
         assertEquals("https://environment.example/lineage", config.url());
@@ -169,11 +179,11 @@ class LineageConfigTest {
 
     @Test
     void rejectsUntrustedReceiverWhenTokenAppearsOnlyAtExecutionTime() {
+        Map<String, Object> job = new HashMap<>();
+        job.put(LineageConfig.ENABLED, true);
+        job.put(LineageConfig.URL, "https://job.example/lineage");
         LineageConfig client =
-                LineageConfig.resolve(
-                        Collections.singletonMap(LineageConfig.URL, "https://job.example/lineage"),
-                        Collections.emptyMap(),
-                        Collections.emptyMap());
+                LineageConfig.resolve(job, Collections.emptyMap(), Collections.emptyMap());
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
@@ -188,6 +198,7 @@ class LineageConfigTest {
     @Test
     void preservesAuthenticatedReceiverAcrossNonSensitiveRoundTrip() {
         Map<String, Object> cluster = new HashMap<>();
+        cluster.put(LineageConfig.ENABLED, true);
         cluster.put("openlineage.auth_token", "fixture-token");
         cluster.put("openlineage.url", "https://trusted.example/lineage");
         cluster.put(LineageConfig.TRANSPORT, null);
@@ -213,6 +224,7 @@ class LineageConfigTest {
     @Test
     void parsesStringRunPropertiesWithSourcePriority() {
         Map<String, Object> cluster = new HashMap<>();
+        cluster.put(LineageConfig.ENABLED, true);
         cluster.put("openlineage.run_properties", "cluster: value, shared: cluster");
         Map<String, Object> environment = new HashMap<>();
         environment.put("OPENLINEAGE_RUN_PROPERTIES", "{environment: value, shared: environment}");
@@ -233,6 +245,7 @@ class LineageConfigTest {
     @Test
     void parsesPrefixedClusterRunProperties() {
         Map<String, Object> cluster = new HashMap<>();
+        cluster.put(LineageConfig.ENABLED, true);
         cluster.put("openlineage.run_properties.owner", "platform");
         cluster.put("openlineage.run_properties.region", "cn");
 
@@ -249,14 +262,13 @@ class LineageConfigTest {
      */
     @Test
     void namesTheBlankOptionItRejects() {
+        Map<String, Object> job = Collections.singletonMap(LineageConfig.ENABLED, true);
         Map<String, Object> cluster = Collections.singletonMap(LineageConfig.NAMESPACE, "  ");
 
         IllegalArgumentException failure =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () ->
-                                LineageConfig.resolve(
-                                        Collections.emptyMap(), cluster, Collections.emptyMap()));
+                        () -> LineageConfig.resolve(job, cluster, Collections.emptyMap()));
 
         assertTrue(
                 failure.getMessage().contains(LineageConfig.NAMESPACE),
@@ -265,14 +277,13 @@ class LineageConfigTest {
 
     @Test
     void rejectsMalformedStringRunProperties() {
+        Map<String, Object> job = Collections.singletonMap(LineageConfig.ENABLED, true);
         Map<String, Object> environment =
                 Collections.singletonMap("OPENLINEAGE_RUN_PROPERTIES", "not-a-map");
 
         assertThrows(
                 IllegalArgumentException.class,
-                () ->
-                        LineageConfig.resolve(
-                                Collections.emptyMap(), Collections.emptyMap(), environment));
+                () -> LineageConfig.resolve(job, Collections.emptyMap(), environment));
     }
 
     /**
@@ -282,10 +293,11 @@ class LineageConfigTest {
      */
     @Test
     void keepsSeparatorsThatAppearInsideQuotedRunPropertyValues() {
-        Map<String, Object> cluster =
-                Collections.singletonMap(
-                        "openlineage.run_properties",
-                        "owner: \"data, platform\", docs: 'http://wiki/x', plain: value");
+        Map<String, Object> cluster = new HashMap<>();
+        cluster.put(LineageConfig.ENABLED, true);
+        cluster.put(
+                "openlineage.run_properties",
+                "owner: \"data, platform\", docs: 'http://wiki/x', plain: value");
 
         LineageConfig config =
                 LineageConfig.resolve(Collections.emptyMap(), cluster, Collections.emptyMap());
@@ -302,7 +314,9 @@ class LineageConfigTest {
      */
     @Test
     void namesTheNumericOptionThatCouldNotBeParsed() {
-        Map<String, Object> job = Collections.singletonMap(LineageConfig.TIMEOUT_MS, "10s");
+        Map<String, Object> job = new HashMap<>();
+        job.put(LineageConfig.ENABLED, true);
+        job.put(LineageConfig.TIMEOUT_MS, "10s");
 
         IllegalArgumentException failure =
                 assertThrows(
@@ -336,15 +350,14 @@ class LineageConfigTest {
 
     @Test
     void namesTheHeartbeatOptionThatCouldNotBeParsed() {
+        Map<String, Object> job = Collections.singletonMap(LineageConfig.ENABLED, true);
         Map<String, Object> cluster =
                 Collections.singletonMap("openlineage.heartbeat_min_interval_ms", "1h");
 
         IllegalArgumentException failure =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () ->
-                                LineageConfig.resolve(
-                                        Collections.emptyMap(), cluster, Collections.emptyMap()));
+                        () -> LineageConfig.resolve(job, cluster, Collections.emptyMap()));
 
         assertTrue(
                 failure.getMessage().contains(LineageConfig.HEARTBEAT_MIN_INTERVAL_MS),
@@ -353,13 +366,199 @@ class LineageConfigTest {
 
     @Test
     void rejectsRunPropertiesThatEndInsideAQuote() {
+        Map<String, Object> job = Collections.singletonMap(LineageConfig.ENABLED, true);
         Map<String, Object> cluster =
                 Collections.singletonMap("openlineage.run_properties", "owner: \"unterminated");
 
         assertThrows(
                 IllegalArgumentException.class,
+                () -> LineageConfig.resolve(job, cluster, Collections.emptyMap()));
+    }
+
+    @Test
+    void acceptsHttpTransportAndATrailingSlashWhenTheyNameTheTrustedReceiver() {
+        Map<String, Object> environment = new HashMap<>();
+        environment.put("OPENLINEAGE_AUTH_TOKEN", "fixture-token");
+        environment.put("OPENLINEAGE_URL", "https://marquez.example/api/lineage");
+        Map<String, Object> job = new HashMap<>();
+        job.put(LineageConfig.ENABLED, true);
+        job.put(LineageConfig.TRANSPORT, "HTTP");
+        job.put(LineageConfig.URL, "https://Marquez.Example/api/lineage/");
+
+        LineageConfig config = LineageConfig.resolve(job, Collections.emptyMap(), environment);
+
+        assertEquals("http", config.transport());
+        assertEquals("https://marquez.example/api/lineage", config.url());
+        assertEquals("fixture-token", config.authToken());
+    }
+
+    @Test
+    void skipsTheReceiverCheckWhenLineageIsDisabled() {
+        Map<String, Object> job = new HashMap<>();
+        job.put(LineageConfig.ENABLED, false);
+        job.put(LineageConfig.TRANSPORT, "HTTP");
+        job.put(LineageConfig.URL, "https://job.example/lineage");
+        Map<String, Object> cluster = new HashMap<>();
+        cluster.put(LineageConfig.AUTH_TOKEN, "fixture-token");
+        cluster.put(LineageConfig.URL, "https://trusted.example/lineage");
+
+        LineageConfig config = LineageConfig.resolve(job, cluster, Collections.emptyMap());
+
+        assertFalse(config.enabled());
+        assertNull(config.url());
+        assertEquals("fixture-token", config.authToken());
+    }
+
+    @Test
+    void dropsTheAuthTokenAcrossJavaSerialization() throws Exception {
+        Map<String, Object> cluster = new HashMap<>();
+        cluster.put(LineageConfig.ENABLED, true);
+        cluster.put(LineageConfig.AUTH_TOKEN, "serialization-secret");
+        cluster.put(LineageConfig.URL, "https://trusted.example/lineage");
+        LineageConfig config =
+                LineageConfig.resolve(Collections.emptyMap(), cluster, Collections.emptyMap());
+        assertEquals("serialization-secret", config.toMap().get(LineageConfig.AUTH_TOKEN));
+
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+            output.writeObject(config);
+        }
+        assertFalse(
+                new String(bytes.toByteArray(), StandardCharsets.UTF_8)
+                        .contains("serialization-secret"));
+
+        LineageConfig restored;
+        try (ObjectInputStream input =
+                new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            restored = (LineageConfig) input.readObject();
+        }
+
+        assertNull(restored.authToken());
+        assertFalse(restored.toMap().containsKey(LineageConfig.AUTH_TOKEN));
+        assertEquals(config.url(), restored.url());
+        assertTrue(restored.enabled());
+        assertEquals(
+                "serialization-secret", restored.withAuthToken("serialization-secret").authToken());
+    }
+
+    @Test
+    void acceptsTimeoutAndRetryAtTheUpperBound() {
+        Map<String, Object> job = new HashMap<>();
+        job.put(LineageConfig.ENABLED, true);
+        job.put(LineageConfig.TIMEOUT_MS, LineageConfig.MAX_TIMEOUT_MS);
+        job.put(LineageConfig.RETRY_TIMES, LineageConfig.MAX_RETRY_TIMES);
+
+        LineageConfig config =
+                LineageConfig.resolve(job, Collections.emptyMap(), Collections.emptyMap());
+
+        assertEquals(LineageConfig.MAX_TIMEOUT_MS, config.timeoutMs());
+        assertEquals(LineageConfig.MAX_RETRY_TIMES, config.retryTimes());
+    }
+
+    @Test
+    void rejectsTimeoutAndRetryAboveTheUpperBound() {
+        Map<String, Object> timeout = new HashMap<>();
+        timeout.put(LineageConfig.ENABLED, true);
+        timeout.put(LineageConfig.TIMEOUT_MS, LineageConfig.MAX_TIMEOUT_MS + 1);
+        IllegalArgumentException timeoutFailure =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                LineageConfig.resolve(
+                                        timeout, Collections.emptyMap(), Collections.emptyMap()));
+        assertTrue(timeoutFailure.getMessage().contains(LineageConfig.TIMEOUT_MS));
+
+        Map<String, Object> retries = new HashMap<>();
+        retries.put(LineageConfig.ENABLED, true);
+        retries.put(LineageConfig.RETRY_TIMES, LineageConfig.MAX_RETRY_TIMES + 1);
+        IllegalArgumentException retryFailure =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                LineageConfig.resolve(
+                                        retries, Collections.emptyMap(), Collections.emptyMap()));
+        assertTrue(retryFailure.getMessage().contains(LineageConfig.RETRY_TIMES));
+
+        retries.put(LineageConfig.RETRY_TIMES, Integer.MAX_VALUE);
+        assertThrows(
+                IllegalArgumentException.class,
                 () ->
                         LineageConfig.resolve(
-                                Collections.emptyMap(), cluster, Collections.emptyMap()));
+                                retries, Collections.emptyMap(), Collections.emptyMap()));
+    }
+
+    @Test
+    void ignoresAMalformedEnvironmentValueWhenTheJobDisablesLineage() {
+        Map<String, Object> job = Collections.singletonMap(LineageConfig.ENABLED, false);
+        Map<String, Object> environment = new HashMap<>();
+        environment.put("OPENLINEAGE_TIMEOUT_MS", "not-a-number");
+        environment.put("OPENLINEAGE_NAMESPACE", "  ");
+
+        LineageConfig config = LineageConfig.resolve(job, Collections.emptyMap(), environment);
+
+        assertFalse(config.enabled());
+        assertEquals(LineageConfig.DEFAULT_TIMEOUT_MS, config.timeoutMs());
+        assertEquals(LineageConfig.DEFAULT_NAMESPACE, config.namespace());
+    }
+
+    @Test
+    void disablesLineageWhenTheEnvironmentEnabledFlagIsMalformed() {
+        Map<String, Object> environment = Collections.singletonMap("OPENLINEAGE_ENABLED", "1");
+        Logger logger = Logger.getLogger(LineageConfig.class.getName());
+        RecordingHandler handler = new RecordingHandler();
+        logger.addHandler(handler);
+        try {
+            assertFalse(
+                    LineageConfig.isEnabled(
+                            Collections.emptyMap(), Collections.emptyMap(), environment));
+            LineageConfig config =
+                    LineageConfig.resolve(
+                            Collections.emptyMap(), Collections.emptyMap(), environment);
+            assertFalse(config.enabled());
+        } finally {
+            logger.removeHandler(handler);
+        }
+
+        assertFalse(handler.records.isEmpty());
+        String warnings =
+                handler.records.stream()
+                        .map(LogRecord::getMessage)
+                        .reduce("", (left, right) -> left + "\n" + right);
+        assertTrue(warnings.contains(LineageConfig.ENABLED), warnings);
+        assertEquals(Level.WARNING, handler.records.get(0).getLevel());
+
+        Map<String, Object> job =
+                Collections.singletonMap(LineageConfig.AUTH_TOKEN, "not-a-real-token");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> LineageConfig.resolve(job, Collections.emptyMap(), environment));
+    }
+
+    @Test
+    void stillRejectsAMalformedEnvironmentTimeoutWhenLineageIsEnabled() {
+        Map<String, Object> job = Collections.singletonMap(LineageConfig.ENABLED, true);
+        Map<String, Object> environment = Collections.singletonMap("OPENLINEAGE_TIMEOUT_MS", "0");
+
+        IllegalArgumentException failure =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> LineageConfig.resolve(job, Collections.emptyMap(), environment));
+
+        assertTrue(failure.getMessage().contains(LineageConfig.TIMEOUT_MS), failure.getMessage());
+    }
+
+    private static final class RecordingHandler extends Handler {
+        private final java.util.List<LogRecord> records = new java.util.ArrayList<>();
+
+        @Override
+        public void publish(LogRecord record) {
+            records.add(record);
+        }
+
+        @Override
+        public void flush() {}
+
+        @Override
+        public void close() {}
     }
 }
