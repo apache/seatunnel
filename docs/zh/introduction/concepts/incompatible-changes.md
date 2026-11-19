@@ -22,6 +22,13 @@
   对 LIKE 谓词，需要注意目前无法转义字面的 `%` 或 `_`，因为不支持 `LIKE ... ESCAPE`。
   详见[模式匹配](../../transforms/sql.md#模式匹配)。
 
+### Http Sink：`array_mode = true` 时每行作为 JSON 对象发送
+
+- **行为变更：请求体数组的元素是 JSON 对象，而不再是字符串**
+  - **描述**：`array_mode = true` 时，Http Sink 此前把每行的序列化结果作为字符串加入请求数组，请求体为 `["{\"id\":1}","{\"id\":2}"]`，而不是文档描述的 JSON 数组。现在发送的是 `[{"id":1},{"id":2}]`。自 2.3.11 起的各版本发送的都是字符串数组。`array_mode = false` 不受影响。
+  - **影响**：此前因请求体格式报错的接口现在可以正常接收。专门适配旧格式、把每个元素再按 JSON 字符串解码的接收方，现在收到的是对象，需要修改。
+  - **迁移指南**：无需修改配置。如果接收方会把数组的每个元素从字符串解码，请改为直接使用该元素。
+
 ### Lance Sink：BIGINT 列创建为 int64
 
 - **行为变更：Lance Sink 创建的数据集中，`BIGINT` 列为 Arrow `int64`**
@@ -36,6 +43,13 @@
   - **影响**：读取 Databend `DECIMAL` 列的作业现在输出 decimal 值。SeaTunnel 通过 `schema_save_mode` 创建的 Sink 表会得到 decimal 列而不是字符串列，原本期望字符串的 Transform 或 Sink 现在会收到 decimal。
   - **迁移指南**：无需修改配置。如果下游步骤需要文本，请显式转换该列，例如在 SQL Transform 中使用 `CAST(price AS STRING)`。早期运行中已创建为字符串列的 Sink 表会保留原有类型。
 
+### JDBC Source：可空的键列不再被选为分片键
+
+- **行为变化：自动选择分片键时跳过可空列**
+  - **描述**：未配置 `partition_column` 时，JDBC Source 依次从主键和唯一索引中选择分片键。范围和哈希分片条件都不会匹配 NULL（CockroachDB 的哈希分片除外），而唯一索引可以包含 NULL 值，因此当选中可空的键列并按其分片时，该列为 NULL 的行不会被任何分片读取，作业也不会报错。现在自动选择会跳过可空的主键列和唯一键列，与 CDC Source 的做法一致，并为每个被跳过的列输出一条 WARN 日志。
+  - **影响**：之前按可空主键列或唯一键列分片的表，现在会按下一个 NOT NULL 的键列分片；如果没有这样的列，则作为一个分片读取。这样表中的所有行都会被读取，回退为单个分片时并行度会降低。按 NOT NULL 主键或唯一键列分片的表、未配置 `partition_column` 的 `query` 数据源，以及配置了 `partition_column` 的作业不受影响。从 checkpoint 恢复的作业会保留已生成的分片，此变化只作用于恢复后才分片的表。
+  - **迁移指南**：无需修改配置。如需重新并行读取这类表，请将该键列声明为 `NOT NULL`，或将 `partition_column` 设置为不含 NULL 值的列。如果下游表由受影响的作业写入，请重新加载以补齐被跳过的行。
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，
@@ -47,6 +61,13 @@
   因为仅重试提交无法重放已回滚的事务。此前这些路径可能在记录缺失时仍完成 checkpoint。
 - **升级说明**：无需迁移配置或 checkpoint 格式。受影响的作业可能由批次原地重试或忽略行级错误继续运行，
   转为失败恢复。自动提交连接、未开启 checkpoint 的作业和 XA Writer 保持原有行为。
+
+### GraphQL 连接器：响应中带有 GraphQL errors 时作业会失败
+
+- **行为变更：服务端报告错误时，GraphQL Sink 和 GraphQL Source 的 HTTP 查询模式会失败**
+  - **描述**：GraphQL 服务通常用 HTTP 200 加 `errors` 数组来表示查询或 mutation 被拒绝。Sink 此前只检查状态码，状态码不是 200 时也只记录日志，因此被拒绝的 mutation 会被丢弃，作业照常结束。Source 会把这样的响应当作数据读取，因此被拒绝的查询不会产生任何行。现在两者都会失败，并在错误信息中带上服务端返回的错误；状态码不是 200 时 Sink 也会失败。日期和时间字段现在以 ISO 8601 字符串发送；此前在 Java 11 上会被发送为嵌套的 JSON 对象，在 Java 17 上写入会失败。未配置 `variables` 时，现在发送空对象，而不是服务端会拒绝的字符串 `"{}"`；此前未配置 `variables` 的 Sink 每一行都会失败。
+  - **影响**：请求被服务端拒绝的作业现在会失败，而不是在缺少数据的情况下正常结束。这也包括同时带有 `data` 和非空 `errors` 数组的 Source 响应：此前会被读取为数据行，出错的字段为 `null`；现在作业会失败，且没有选项可以恢复以前的行为。在流式 HTTP 查询模式下，只要有一次轮询的响应带有错误，任务现在就会失败；此前这次轮询不产生数据，轮询继续进行。订阅模式不受影响。
+  - **迁移指南**：无需修改配置。如果作业开始失败，请根据错误信息查看服务端拒绝的内容，并修正查询、mutation、变量类型或服务端的权限。例如，对于 PostgreSQL 的 `double precision` 列，Hasura 期望的类型是 `float8` 而不是 `Float`。
 
 ### Lance Sink：TIMESTAMP 值保留微秒
 
@@ -128,6 +149,14 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **描述**：`NVARCHAR(n)` 和 `NVARCHAR2(n)` 可容纳 n 个字符，但 Catalog 此前从 `ALL_TAB_COLUMNS.DATA_LENGTH` 读取长度，该字段是字节数：GB18030 库上是 2n，UTF-8 库上是 4n，与 `LENGTH_IN_CHAR` 的取值无关。因此 `NVARCHAR(10)` 会被上报为 `NVARCHAR(20)` 或 `NVARCHAR(40)`。现在长度取自 `SYS.SYSCOLUMNS.LENGTH$`，即声明长度。
   - **影响**：这类列的源类型会变化，例如从 `NVARCHAR(20)` 变为 `NVARCHAR(10)`；Sink 自动建表使用的列长度变为原来的 1/2（GB18030）或 1/4（UTF-8），例如 `NVARCHAR(10)` 写入 MySQL Sink 时建为 `VARCHAR(40)`，而不是 `VARCHAR(80)`。由于长度按字符计算，新列仍能容纳源列的所有值。下游已存在的表不会被修改。`CHAR`、`VARCHAR`、`VARCHAR2` 和 `NCHAR` 列不受影响。
   - **迁移指南**：无需修改。如果作业依赖原来较宽的自动建表列（例如还要从其他数据源向同一张表写入更长的值），请自行创建 Sink 表。
+
+### Iceberg Sink：writer 轮换后带有 equality delete 的 checkpoint 拆成多个快照提交
+
+- **行为变更：Iceberg Sink 可能把一个 checkpoint 按顺序提交为多个快照**
+  - **影响组件**：`seatunnel-connectors-v2/connector-iceberg`
+  - **描述**：此前 Sink 把一个 checkpoint 的所有文件放在一个快照中提交。当 task writer 在 checkpoint 中途完成时（开启 `iceberg.table.schema-evolution-enabled` 后发生 schema 变更，以及现在新增的 `flush_row_size` 选项），之后写出的 equality delete 会和它要删除的行落在同一个快照里。Iceberg 不会把 equality delete 应用到相同序列号的数据文件上，因此对同一 checkpoint 中先前写入的行做 upsert、更新或删除时，旧行会留在表中。现在这样的 checkpoint 会按 task writer 完成的顺序拆成多个快照提交。每个快照带有 `seatunnel.checkpoint-id`，以及 `seatunnel.commit-group` 和 `seatunnel.commit-group-count`。
+  - **影响**：只影响在 checkpoint 内轮换了 task writer 的 upsert 和 CDC 写入；纯追加写入和没有轮换的 checkpoint 仍然只产生一个快照。读端可能逐个看到这样一个 checkpoint 的多个快照，每个 checkpoint 的快照数随轮换次数增加。
+  - **迁移指南**：无需修改配置。从旧版本提交的 checkpoint 恢复的作业处理方式不变：带有 checkpoint id 但没有 `seatunnel.commit-group` 的快照视为整个 checkpoint。如果作业在提交一个被拆成多个快照的 checkpoint 时中断，请在 Zeta 上用当前或更新的版本恢复。旧版本只要找到该 checkpoint 的任意一个快照就会跳过整个 checkpoint，Flink 翻译层也不会调用 Sink 的恢复路径，这两种情况下剩下的快照都无法正确续提交；详见 Iceberg Sink 文档中的 `flush_row_size`。
 
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
