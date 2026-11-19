@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 import org.apache.seatunnel.engine.server.CoordinatorService;
+import org.apache.seatunnel.engine.server.NodeExtension;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
@@ -45,7 +46,11 @@ import com.hazelcast.internal.nio.IOUtil;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.serialization.InternalSerializationService;
 import com.hazelcast.internal.serialization.impl.DefaultSerializationServiceBuilder;
+import com.hazelcast.internal.serialization.impl.HeapData;
 import com.hazelcast.map.IMap;
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.io.IOException;
@@ -102,16 +107,18 @@ class JobInfoServiceNullSafetyTest {
         jobInfoService = new JobInfoService(nodeEngine);
     }
 
+    /**
+     * The prefix decoder is called directly: the fixture can also be read by the full
+     * deserialization, which would hide a fast path that rejects the legacy layout.
+     */
     @Test
-    void shouldDecodeLegacyJobImmutableInformationInFastPath() {
+    void shouldDecodeLegacyJobImmutableInformationInFastPath() throws IOException {
         long createTime = 123456L;
-        JobInfo jobInfo =
-                new JobInfo(
-                        1L,
-                        serializationService.toData(
-                                new LegacyJobImmutableInformation(jobId, createTime)));
+        Data data =
+                serializationService.toData(new LegacyJobImmutableInformation(jobId, createTime));
 
-        JobInfoService.JobBasicInfo basicInfo = jobInfoService.decodeJobBasicInfo(jobId, jobInfo);
+        JobInfoService.JobBasicInfo basicInfo =
+                jobInfoService.decodeJobBasicInfoFromPrefix(jobId, data);
 
         Assertions.assertNotNull(basicInfo);
         Assertions.assertEquals("legacy-job", basicInfo.jobName);
@@ -144,6 +151,43 @@ class JobInfoServiceNullSafetyTest {
     }
 
     /**
+     * Hazelcast sets the versioned flag in the header and writes two version bytes after the class
+     * id when it serializes with a version. The data here is a valid one with the flag set and the
+     * two bytes inserted. Hazelcast's own deserialization reads it too, which shows that it has the
+     * layout Hazelcast expects.
+     */
+    @Test
+    void shouldSkipVersionBytesInFastPath() throws IOException {
+        String jobName = "cdc_example";
+        JobImmutableInformation information = buildJobImmutableInformation(jobId, jobName);
+        byte[] bytes = serializationService.toData(information).toByteArray();
+        int headerPosition = HeapData.DATA_OFFSET;
+        // The header byte, the factory id and the class id come before the version bytes.
+        int versionPosition = headerPosition + Byte.BYTES + 2 * Integer.BYTES;
+        byte[] versionedBytes = new byte[bytes.length + 2];
+        System.arraycopy(bytes, 0, versionedBytes, 0, versionPosition);
+        versionedBytes[versionPosition] = 5;
+        versionedBytes[versionPosition + 1] = 1;
+        System.arraycopy(
+                bytes,
+                versionPosition,
+                versionedBytes,
+                versionPosition + 2,
+                bytes.length - versionPosition);
+        versionedBytes[headerPosition] |= 1 << 1;
+        Data versionedData = new HeapData(versionedBytes);
+        JobImmutableInformation expected = serializationService.toObject(versionedData);
+        Assertions.assertEquals(jobName, expected.getJobName());
+
+        JobInfoService.JobBasicInfo basicInfo =
+                jobInfoService.decodeJobBasicInfoFromPrefix(jobId, versionedData);
+
+        Assertions.assertNotNull(basicInfo);
+        Assertions.assertEquals(jobName, basicInfo.jobName);
+        Assertions.assertEquals(information.getCreateTime(), basicInfo.createTime);
+    }
+
+    /**
      * Regression for a fast path that started reading one byte too early: the job name length was
      * then taken from the last byte of the job id and the first three bytes of the real length. For
      * a job id ending in 0x01 that is 16,777,216, and once the serialized information was larger
@@ -153,8 +197,9 @@ class JobInfoServiceNullSafetyTest {
     void shouldReturnBoundedSummaryForLargeJobImmutableInformation() {
         long largeJobId = 0x0F1B2C3D4E5F6A01L;
         String jobName = "cdc_example";
+        // The padding is serialized twice, so 9 MiB of it gives about 18 MiB of data.
         JobImmutableInformation information =
-                buildJobImmutableInformation(largeJobId, jobName, 17 * 1024 * 1024);
+                buildJobImmutableInformation(largeJobId, jobName, 9 * 1024 * 1024);
         Data data = serializationService.toData(information);
         Assertions.assertTrue(data.totalSize() > (1 << 24) + 1024);
 
@@ -213,6 +258,20 @@ class JobInfoServiceNullSafetyTest {
         Assertions.assertNull(
                 jobInfoService.decodeJobBasicInfoFromPrefix(
                         jobId, serializationService.toData("job")));
+
+        // A negative name length other than the one of a null string.
+        Assertions.assertNull(
+                jobInfoService.decodeJobBasicInfoFromPrefix(
+                        jobId,
+                        serializationService.toData(
+                                new TruncatedJobImmutableInformation(jobId, -2, 64))));
+
+        // A name length within the limit, in data that ends before the name does.
+        Assertions.assertNull(
+                jobInfoService.decodeJobBasicInfoFromPrefix(
+                        jobId,
+                        serializationService.toData(
+                                new TruncatedJobImmutableInformation(jobId, 1000, 4))));
     }
 
     /**
@@ -348,7 +407,12 @@ class JobInfoServiceNullSafetyTest {
         return buildJobImmutableInformation(id, jobName, 0);
     }
 
-    /** {@code paddingBytes} inflates the serialized form the way a job with many tables does. */
+    /**
+     * {@code paddingBytes} inflates the serialized form the way a job with many tables does. The
+     * padding sits in the job config, which {@link JobImmutableInformation} serializes twice:
+     * inside the logical DAG and on its own. The serialized form therefore grows by about twice
+     * {@code paddingBytes}.
+     */
     private JobImmutableInformation buildJobImmutableInformation(
             long id, String jobName, int paddingBytes) {
         JobConfig jobConfig = new JobConfig();
@@ -367,8 +431,7 @@ class JobInfoServiceNullSafetyTest {
 
     private void mockRunningJob(long id, JobInfo jobInfo) {
         Node node = mock(Node.class);
-        org.apache.seatunnel.engine.server.NodeExtension nodeExtension =
-                mock(org.apache.seatunnel.engine.server.NodeExtension.class);
+        NodeExtension nodeExtension = mock(NodeExtension.class);
         SeaTunnelServer seaTunnelServer = mock(SeaTunnelServer.class);
         CoordinatorService coordinatorService = mock(CoordinatorService.class);
         when(nodeEngine.getNode()).thenReturn(node);
@@ -382,8 +445,7 @@ class JobInfoServiceNullSafetyTest {
         when(runningJobInfoMap.entrySet()).thenReturn(Collections.singleton(entry));
     }
 
-    private static final class LegacyJobImmutableInformation
-            implements com.hazelcast.nio.serialization.IdentifiedDataSerializable {
+    private static final class LegacyJobImmutableInformation implements IdentifiedDataSerializable {
 
         private final long jobId;
         private final long createTime;
@@ -404,7 +466,7 @@ class JobInfoServiceNullSafetyTest {
         }
 
         @Override
-        public void writeData(com.hazelcast.nio.ObjectDataOutput out) throws IOException {
+        public void writeData(ObjectDataOutput out) throws IOException {
             out.writeLong(jobId);
             out.writeString("legacy-job");
             out.writeBoolean(true);
@@ -417,7 +479,47 @@ class JobInfoServiceNullSafetyTest {
         }
 
         @Override
-        public void readData(com.hazelcast.nio.ObjectDataInput in) {
+        public void readData(ObjectDataInput in) {
+            throw new UnsupportedOperationException("write-only test fixture");
+        }
+    }
+
+    /**
+     * Has the header of a {@link JobImmutableInformation}, then the job id, a job name length and
+     * {@code trailingBytes} zero bytes in place of the name and everything after it.
+     */
+    private static final class TruncatedJobImmutableInformation
+            implements IdentifiedDataSerializable {
+
+        private final long jobId;
+        private final int jobNameLength;
+        private final int trailingBytes;
+
+        private TruncatedJobImmutableInformation(long jobId, int jobNameLength, int trailingBytes) {
+            this.jobId = jobId;
+            this.jobNameLength = jobNameLength;
+            this.trailingBytes = trailingBytes;
+        }
+
+        @Override
+        public int getFactoryId() {
+            return JobDataSerializerHook.FACTORY_ID;
+        }
+
+        @Override
+        public int getClassId() {
+            return JobDataSerializerHook.JOB_IMMUTABLE_INFORMATION;
+        }
+
+        @Override
+        public void writeData(ObjectDataOutput out) throws IOException {
+            out.writeLong(jobId);
+            out.writeInt(jobNameLength);
+            out.write(new byte[trailingBytes]);
+        }
+
+        @Override
+        public void readData(ObjectDataInput in) {
             throw new UnsupportedOperationException("write-only test fixture");
         }
     }

@@ -80,7 +80,8 @@ public class JobInfoService extends BaseService {
     private static final byte DATA_SERIALIZABLE_VERSIONED_FLAG = 1 << 1;
     // Length that ObjectDataOutput#writeString writes for a null string.
     private static final int NULL_STRING_LENGTH = -1;
-    // Longer names are still returned, through the full deserialization.
+    // Longest job name the fast path accepts. It only decides which decoder runs and does not
+    // cap the output: a longer name is read by the full deserialization, cached and returned.
     private static final int MAX_JOB_NAME_BYTES = 64 * 1024;
 
     public JobInfoService(NodeEngineImpl nodeEngine) {
@@ -371,6 +372,8 @@ public class JobInfoService extends BaseService {
      * {@link JobImmutableInformation} when they have the expected layout, otherwise from the full
      * deserialization.
      *
+     * @param jobId the key of the entry in the running-job map
+     * @param jobInfo the value of that entry
      * @return {@code null} when there is nothing to decode or the data cannot be deserialized
      */
     @VisibleForTesting
@@ -391,7 +394,11 @@ public class JobInfoService extends BaseService {
         } catch (Exception e) {
             // Data that the fast path cannot read is expected here. Errors are not caught, so a
             // fatal VM error is not followed by a full deserialization.
-            log.debug("Fast decode of job basic info failed for job {}", jobId, e);
+            log.debug(
+                    "Fast decode of job basic info failed for job {}, data size {} bytes",
+                    jobId,
+                    data.totalSize(),
+                    e);
         }
 
         // Fallback to full deserialization for compatibility.
@@ -410,14 +417,20 @@ public class JobInfoService extends BaseService {
      * <p>The reads mirror Hazelcast's {@code DataSerializableSerializer}: a one-byte header, the
      * factory id and class id of an {@code IdentifiedDataSerializable}, two version bytes when the
      * header says so, then the fields in the order of {@link JobImmutableInformation#writeData}.
+     * Every rejection is logged at debug level with the check that failed.
      *
+     * @param expectedJobId the key of the entry in the running-job map; the job id in the data must
+     *     equal it, which shows that the reads are aligned with the data
+     * @param data the serialized {@link JobImmutableInformation}
      * @return the decoded values, or {@code null} when the data does not have that layout or the
      *     decoded values are not plausible, in which case the caller deserializes the whole object
+     * @throws IOException when the data ends before the leading fields do; the caller then
+     *     deserializes the whole object
      */
     @VisibleForTesting
     JobBasicInfo decodeJobBasicInfoFromPrefix(long expectedJobId, Data data) throws IOException {
         if (data.getType() != SerializationConstants.CONSTANT_TYPE_DATA_SERIALIZABLE) {
-            return null;
+            return rejectPrefix(expectedJobId, data, "serializer type id");
         }
         InternalSerializationService serializationService =
                 (InternalSerializationService) nodeEngine.getSerializationService();
@@ -426,7 +439,7 @@ public class JobInfoService extends BaseService {
         if ((header & DATA_SERIALIZABLE_IDENTIFIED_FLAG) == 0
                 || in.readInt() != JobDataSerializerHook.FACTORY_ID
                 || in.readInt() != JobDataSerializerHook.JOB_IMMUTABLE_INFORMATION) {
-            return null;
+            return rejectPrefix(expectedJobId, data, "header flag, factory id or class id");
         }
         if ((header & DATA_SERIALIZABLE_VERSIONED_FLAG) != 0) {
             in.readByte();
@@ -435,7 +448,7 @@ public class JobInfoService extends BaseService {
 
         // A job id other than the map key means the reads are not aligned with the data.
         if (in.readLong() != expectedJobId) {
-            return null;
+            return rejectPrefix(expectedJobId, data, "job id");
         }
 
         // Check the string length before reading it, so that a misread length can never turn a
@@ -445,7 +458,7 @@ public class JobInfoService extends BaseService {
         if (jobNameBytes < NULL_STRING_LENGTH
                 || jobNameBytes > MAX_JOB_NAME_BYTES
                 || jobNameBytes > data.totalSize() - in.position()) {
-            return null;
+            return rejectPrefix(expectedJobId, data, "job name length");
         }
         in.position(jobNamePosition);
         String jobName = in.readString();
@@ -453,9 +466,24 @@ public class JobInfoService extends BaseService {
         long createTime = in.readLong();
         // The create time is an epoch timestamp, so anything else means misaligned reads.
         if (createTime <= 0) {
-            return null;
+            return rejectPrefix(expectedJobId, data, "create time");
         }
         return new JobBasicInfo(jobName, createTime);
+    }
+
+    /**
+     * Logs which check of the fast path failed. Without it the full deserialization covers a fast
+     * path that rejects every job, and nothing shows that the fast path is not in use.
+     *
+     * @return always {@code null}, the result of a rejected prefix
+     */
+    private JobBasicInfo rejectPrefix(long jobId, Data data, String failedCheck) {
+        log.debug(
+                "Fast decode of job basic info rejected for job {}: check [{}] failed, data size {} bytes, using the full deserialization",
+                jobId,
+                failedCheck,
+                data.totalSize());
+        return null;
     }
 
     private JobImmutableInformation decodeJobImmutableInformation(JobInfo jobInfo) {
