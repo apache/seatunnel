@@ -551,7 +551,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 taskImmutableInfo.getJobId(), entry.getValue());
                     }
                     acquiredClassLoaderJars.clear();
-                    return TaskDeployState.success();
+                    // Tell the master which deployment was actually kept, so the terminal
+                    // events of that deployment are matched against it instead of against the
+                    // id the master just generated for the skipped redeploy (#13317).
+                    return TaskDeployState.success(
+                            executionContexts
+                                    .get(taskGroup.getTaskGroupLocation())
+                                    .getExecutionId());
                 }
                 AtomicBoolean classLoaderOwnershipTransferred = new AtomicBoolean();
                 deployLocalTask(

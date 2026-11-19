@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskDeployState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
@@ -260,5 +261,36 @@ class PhysicalVertexTest extends AbstractSeaTunnelServerTest<PhysicalVertexTest>
 
         Assertions.assertTrue(applied);
         Assertions.assertEquals(ExecutionState.FINISHED, vertex.getExecutionState());
+    }
+
+    @Test
+    void shouldAdoptTheKeptExecutionIdWhenTheWorkerSkipsRedeploy() {
+        // During a master-failover restore the worker keeps the deployment of the previous
+        // attempt and skips the redeploy; the vertex must track that deployment's id, or the
+        // terminal events of the still-running task would be dropped (#13317).
+        PhysicalVertex vertex = newPhysicalVertex(ExecutionState.CREATED, "skip-redeploy");
+        vertex.startPhysicalVertex();
+        long generatedId = vertex.getTaskGroupImmutableInformation().getExecutionId();
+
+        vertex.finishDeployment(TaskDeployState.success(41L));
+
+        boolean keptAccepted =
+                vertex.updateStateByExecutionService(
+                        new TaskExecutionState(
+                                vertex.getTaskGroupLocation(),
+                                ExecutionState.FINISHED,
+                                "kept deployment finished",
+                                41L));
+        boolean generatedDropped =
+                vertex.updateStateByExecutionService(
+                        new TaskExecutionState(
+                                vertex.getTaskGroupLocation(),
+                                ExecutionState.FINISHED,
+                                "stale id of the skipped redeploy",
+                                generatedId));
+
+        Assertions.assertTrue(keptAccepted, "the kept deployment's event must be applied");
+        Assertions.assertFalse(
+                generatedDropped, "the id of the skipped redeploy was never deployed");
     }
 }

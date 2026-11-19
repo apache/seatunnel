@@ -338,6 +338,13 @@ public class PhysicalVertex {
     @VisibleForTesting
     TaskDeployState finishDeployment(TaskDeployState state) {
         if (state.isSuccess()) {
+            // A worker that skipped the redeploy kept the deployment of a previous attempt (a
+            // master-failover restore re-deploys tasks that never stopped on the worker): adopt
+            // that deployment's executionId, so its terminal events are matched instead of
+            // dropped as if they belonged to a superseded attempt (#13317).
+            if (state.getExistingExecutionId() != null) {
+                this.currentExecutionId = state.getExistingExecutionId();
+            }
             updateTaskState(ExecutionState.RUNNING);
         }
         return state;
