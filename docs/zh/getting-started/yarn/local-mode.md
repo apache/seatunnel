@@ -2,6 +2,8 @@
 sidebar_position: 2
 ---
 
+# 本地模式
+
 <!--
 Licensed to the Apache Software Foundation (ASF) under one or more
 contributor license agreements.  See the NOTICE file distributed with
@@ -18,8 +20,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-# 本地模式
 
 在一个 YARN 组件容器中运行一个 SeaTunnel 作业。CLI 启动内嵌的 Zeta 引擎，作业结束后进程退出。部署[混合集群](hybrid-cluster-mode.md)或[分离集群](separated-cluster-mode.md)前，可用此模式验证连接器或作业配置。
 

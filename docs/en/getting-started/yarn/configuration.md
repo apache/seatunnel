@@ -2,6 +2,8 @@
 sidebar_position: 5
 ---
 
+# YARN Configuration
+
 <!--
 Licensed to the Apache Software Foundation (ASF) under one or more
 contributor license agreements.  See the NOTICE file distributed with
@@ -18,8 +20,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-# YARN Configuration
 
 Prepare the SeaTunnel distribution on the submission host before uploading it to HDFS. Start in the directory where you unpacked the distribution.
 

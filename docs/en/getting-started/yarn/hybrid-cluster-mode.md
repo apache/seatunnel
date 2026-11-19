@@ -2,6 +2,8 @@
 sidebar_position: 3
 ---
 
+# Hybrid Cluster Mode
+
 <!--
 Licensed to the Apache Software Foundation (ASF) under one or more
 contributor license agreements.  See the NOTICE file distributed with
@@ -18,8 +20,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-# Hybrid Cluster Mode
 
 In hybrid mode, each Zeta member can participate in Master election and execute tasks in the same JVM. A small shared cluster can start with a single member. Coordination and task execution share the container's CPU and memory. To size and scale the two roles independently, use [Separated Cluster Mode](separated-cluster-mode.md).
 

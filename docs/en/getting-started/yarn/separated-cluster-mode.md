@@ -2,6 +2,8 @@
 sidebar_position: 4
 ---
 
+# Separated Cluster Mode
+
 <!--
 Licensed to the Apache Software Foundation (ASF) under one or more
 contributor license agreements.  See the NOTICE file distributed with
@@ -18,8 +20,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-# Separated Cluster Mode
 
 This walkthrough launches the `zeta-session` service with one Master and one Worker. Use `yarn app` to manage the shared service and `bin/seatunnel.sh` to submit individual jobs.
 

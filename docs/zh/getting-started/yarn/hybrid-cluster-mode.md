@@ -2,6 +2,8 @@
 sidebar_position: 3
 ---
 
+# 混合集群模式
+
 <!--
 Licensed to the Apache Software Foundation (ASF) under one or more
 contributor license agreements.  See the NOTICE file distributed with
@@ -18,8 +20,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-# 混合集群模式
 
 混合模式下，每个 Zeta 成员在同一个 JVM 中参与 Master 选举并执行任务。小规模常驻集群可以从一个成员起步，调度和任务执行共享容器的 CPU 和内存。如果需要为两个角色分别配置资源和扩缩容，请使用[分离集群模式](separated-cluster-mode.md)。
 

@@ -2,6 +2,8 @@
 sidebar_position: 4
 ---
 
+# 分离集群模式
+
 <!--
 Licensed to the Apache Software Foundation (ASF) under one or more
 contributor license agreements.  See the NOTICE file distributed with
@@ -18,8 +20,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-# 分离集群模式
 
 下面以一个 Master 和一个 Worker 为例启动 `zeta-session` 常驻服务。使用 `yarn app` 管理共享服务，使用 `bin/seatunnel.sh` 向集群提交各个作业。
 
