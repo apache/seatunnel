@@ -236,6 +236,22 @@ public class PhysicalVertex {
         return checkWorkerIsExecuting(slotProfile.getWorker(), taskGroupLocation);
     }
 
+    /**
+     * Asks the owning worker whether it is executing the task group, retrying a failed probe.
+     *
+     * <p>Only an {@link ExecutionException} from the probe is retried, up to {@link
+     * #CHECK_TASK_GROUP_EXECUTING_ATTEMPTS} attempts in total with a fixed pause in between. A
+     * definitive answer (a departed worker or the worker's own {@code false}) is returned right
+     * away without a retry.
+     *
+     * <p>If every attempt fails, the result is {@code false}, so the caller falls back to restoring
+     * the pipeline exactly as before. If the calling thread is interrupted, the retries stop, the
+     * interrupt flag is restored for the caller to observe and {@code false} is returned.
+     *
+     * @param worker the worker that owns the task group's slot
+     * @param taskGroupLocation the task group to check
+     * @return {@code true} only if the worker confirmed that it is executing the task group
+     */
     @VisibleForTesting
     boolean checkWorkerIsExecuting(Address worker, TaskGroupLocation taskGroupLocation) {
         try {
