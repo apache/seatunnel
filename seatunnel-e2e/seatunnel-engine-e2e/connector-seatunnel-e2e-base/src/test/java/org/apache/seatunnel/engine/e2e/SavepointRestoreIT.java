@@ -295,8 +295,15 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
                 awaitJobStatus(jobId, "RUNNING");
 
                 final long prevBucketTs = staleBucketFloorTs;
-                // Phase 1: wait (retry allowed) until 3 fresh buckets exist from the new attempt.
                 final Map<Long, List<Map<String, Object>>> freshByQueue = new HashMap<>();
+                final AtomicLong barrierTsRef = new AtomicLong(Long.MAX_VALUE);
+
+                // Phase 1: completeness barrier. Wait until every queue has a bucket where all
+                // expected
+                // owners have reported, then until >= 3 buckets exist at or after that point. A
+                // bucket
+                // emitted while task groups are still publishing can legitimately show fewer
+                // owners.
                 Awaitility.await()
                         .atMost(2, TimeUnit.MINUTES)
                         .pollInterval(1, TimeUnit.SECONDS)
@@ -309,42 +316,98 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
                                             all.keySet(),
                                             "Queue topology differs after restore in cycle "
                                                     + currentCycle);
-                                    for (List<Map<String, Object>> pts : all.values()) {
+
+                                    long barrierTs = Long.MIN_VALUE;
+                                    for (Map.Entry<Long, List<Map<String, Object>>> e :
+                                            all.entrySet()) {
+                                        long queueId = e.getKey();
+                                        long firstComplete =
+                                                firstCompleteBucketTs(
+                                                        e.getValue(),
+                                                        baselineSubtaskCountByQueueId.get(queueId),
+                                                        baselineCapacityByQueueId.get(queueId));
                                         Assertions.assertTrue(
-                                                pts.size() >= 3,
-                                                "Waiting for 3 fresh buckets in cycle "
+                                                firstComplete >= 0,
+                                                String.format(
+                                                        "No complete sample yet for queue %d in cycle %d "
+                                                                + "(expected subtaskCount %d, capacity %d)",
+                                                        queueId,
+                                                        currentCycle,
+                                                        baselineSubtaskCountByQueueId.get(queueId),
+                                                        baselineCapacityByQueueId.get(queueId)));
+                                        barrierTs = Math.max(barrierTs, firstComplete);
+                                    }
+
+                                    final long barrier = barrierTs;
+                                    for (Map.Entry<Long, List<Map<String, Object>>> e :
+                                            all.entrySet()) {
+                                        long steadyCount =
+                                                e.getValue().stream()
+                                                        .filter(p -> toLong(p.get("ts")) >= barrier)
+                                                        .count();
+                                        Assertions.assertTrue(
+                                                steadyCount >= 3,
+                                                "Waiting for 3 complete buckets after barrier in cycle "
                                                         + currentCycle);
                                     }
                                     freshByQueue.clear();
                                     freshByQueue.putAll(all);
+                                    barrierTsRef.set(barrier);
                                 });
 
-                // Phase 2: assert the invariant once, over every fresh bucket. No retry.
+                // Phase 2: assert once, no retry.
+                //  - before the barrier: owners may be missing but must never exceed the baseline
+                //    (stale-owner regression check)
+                //  - at/after the barrier: counts must equal the baseline exactly
+                final long steadyFromTs = barrierTsRef.get();
                 for (Map.Entry<Long, List<Map<String, Object>>> entry : freshByQueue.entrySet()) {
                     long queueId = entry.getKey();
+                    long expectedSubtasks = baselineSubtaskCountByQueueId.get(queueId);
+                    long expectedCapacity = baselineCapacityByQueueId.get(queueId);
                     for (Map<String, Object> point : entry.getValue()) {
                         long subtaskCount = toLong(point.get("subtaskCount"));
                         long queueCapacity = toLong(point.get("queueCapacity"));
                         long queueSize = toLong(point.get("queueSize"));
                         long pointTs = toLong(point.get("ts"));
 
-                        Assertions.assertEquals(
-                                baselineSubtaskCountByQueueId.get(queueId).longValue(),
-                                subtaskCount,
-                                String.format(
-                                        "subtaskCount drifted for queue %d in cycle %d (bucket ts %d)",
-                                        queueId, currentCycle, pointTs));
-                        Assertions.assertEquals(
-                                baselineCapacityByQueueId.get(queueId).longValue(),
-                                queueCapacity,
-                                String.format(
-                                        "queueCapacity drifted for queue %d in cycle %d (bucket ts %d)",
-                                        queueId, currentCycle, pointTs));
                         Assertions.assertTrue(
-                                queueSize >= 0 && queueSize <= queueCapacity,
+                                subtaskCount <= expectedSubtasks,
                                 String.format(
-                                        "Invalid queue size %d (capacity %d) for queue %d in cycle %d",
-                                        queueSize, queueCapacity, queueId, currentCycle));
+                                        "Stale owner: subtaskCount %d > %d for queue %d in cycle %d (bucket ts %d)",
+                                        subtaskCount,
+                                        expectedSubtasks,
+                                        queueId,
+                                        currentCycle,
+                                        pointTs));
+                        Assertions.assertTrue(
+                                queueCapacity <= expectedCapacity,
+                                String.format(
+                                        "Stale owner: queueCapacity %d > %d for queue %d in cycle %d (bucket ts %d)",
+                                        queueCapacity,
+                                        expectedCapacity,
+                                        queueId,
+                                        currentCycle,
+                                        pointTs));
+
+                        if (pointTs >= steadyFromTs) {
+                            Assertions.assertEquals(
+                                    expectedSubtasks,
+                                    subtaskCount,
+                                    String.format(
+                                            "subtaskCount drifted for queue %d in cycle %d (bucket ts %d)",
+                                            queueId, currentCycle, pointTs));
+                            Assertions.assertEquals(
+                                    expectedCapacity,
+                                    queueCapacity,
+                                    String.format(
+                                            "queueCapacity drifted for queue %d in cycle %d (bucket ts %d)",
+                                            queueId, currentCycle, pointTs));
+                            Assertions.assertTrue(
+                                    queueSize >= 0 && queueSize <= queueCapacity,
+                                    String.format(
+                                            "Invalid queue size %d (capacity %d) for queue %d in cycle %d",
+                                            queueSize, queueCapacity, queueId, currentCycle));
+                        }
                         lastObservedBucketTs.set(Math.max(lastObservedBucketTs.get(), pointTs));
                     }
                 }
@@ -671,6 +734,22 @@ public class SavepointRestoreIT extends SeaTunnelEngineContainer {
             return ((Number) value).longValue();
         }
         return Long.parseLong(String.valueOf(value));
+    }
+
+    /** Earliest bucket ts where all expected owners reported, or -1 if none yet. */
+    private long firstCompleteBucketTs(
+            List<Map<String, Object>> points, long expectedSubtasks, long expectedCapacity) {
+        long first = -1;
+        for (Map<String, Object> p : points) {
+            if (toLong(p.get("subtaskCount")) == expectedSubtasks
+                    && toLong(p.get("queueCapacity")) == expectedCapacity) {
+                long ts = toLong(p.get("ts"));
+                if (first < 0 || ts < first) {
+                    first = ts;
+                }
+            }
+        }
+        return first;
     }
 
     private long getCompletedCheckpointCount(long jobId) {
