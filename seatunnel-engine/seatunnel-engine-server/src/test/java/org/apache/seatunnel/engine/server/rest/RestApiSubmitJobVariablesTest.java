@@ -237,6 +237,42 @@ public class RestApiSubmitJobVariablesTest {
         assertRejected(unresolved, "variables", "pw-unresolved-xyz");
     }
 
+    @Test
+    public void testDuplicateJsonFieldsAreRejectedBeforeApplyingVariables() throws Exception {
+        assertRejected(post("/submit-job", jobWithDuplicateVariables()), "JSON", "pw-second-xyz");
+    }
+
+    @Test
+    public void testBulkSubmissionRejectsDuplicateJsonFields() throws Exception {
+        assertRejected(
+                post("/submit-jobs", "[" + jobWithDuplicateVariables() + "]"),
+                "JSON",
+                "pw-first-xyz");
+    }
+
+    @Test
+    public void testEquivalentVariablePathsAreRejectedAcrossSources() throws Exception {
+        String body =
+                "{\"variables\":{\"region\":\"valid\",\"\\\"rows\\\"\":1}," + JSON_JOB.substring(1);
+        assertRejected(
+                post("/submit-job?variables=" + encode("rows=3"), body),
+                "Duplicate variable",
+                null);
+    }
+
+    @Test
+    public void testQuotedReservedVariableNameIsRejected() throws Exception {
+        String body =
+                "{\"variables\":{\"region\":\"valid\",\"rows\":1,\"\\\"table_name\\\"\":\"pw-reserved-xyz\"},"
+                        + JSON_JOB.substring(1);
+        assertRejected(post("/submit-job", body), "reserved", "pw-reserved-xyz");
+    }
+
+    private static String jobWithDuplicateVariables() {
+        return "{\"variables\":{\"region\":\"pw-first-xyz\",\"region\":\"pw-second-xyz\",\"rows\":1},"
+                + JSON_JOB.substring(1);
+    }
+
     private void assertSubmittedAs(HttpResponse response, String jobName, String hiddenValue)
             throws Exception {
         Assertions.assertEquals(200, response.code, response.body);

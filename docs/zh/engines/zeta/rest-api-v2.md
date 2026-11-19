@@ -653,6 +653,10 @@ seatunnel:
         "pipelineStatus": "RUNNING",
         "restoreCount": 7,
         "maxRestoreCount": 100,
+        "restoreCauses": [
+          "restore 6: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused",
+          "restore 7: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused"
+        ],
         "stateTimestamps": {
           "INITIALIZING": 1755000000000,
           "CREATED": 1755000000200,
@@ -671,6 +675,8 @@ seatunnel:
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
 `finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
 `diagnostics` 字段在Job运行中且能从Master节点读取到诊断信息时返回。它属于辅助信息，读取失败时该字段会被省略，不会导致请求失败。该字段只在本接口返回，`/running-jobs` 不返回：为列表中的每个Job收集诊断信息会额外增加一次到Master的请求。
+
+`diagnostics` 读取的是 Master 内存中的 Job 状态，因此与 `restoreCount` 一样，它描述的是当前这个 Master 对该 Job 的视图，而不是完整历史。Master 切换后，恢复计数与 `restoreCauses` 会从被恢复的 Job 重新开始，上一个 Master 记录的原因不会延续。
 
 #### 指标字段说明
 
@@ -703,6 +709,7 @@ seatunnel:
 | pipelines[].pipelineStatus | Pipeline 当前状态 |
 | pipelines[].restoreCount | 自 Job 提交以来该 Pipeline 被恢复（重启）的次数。若 `jobStatus` 一直是 `RUNNING` 而该值不断增长，说明处于崩溃重启循环中 |
 | pipelines[].maxRestoreCount | 该 Pipeline 的恢复次数上限，来自 `job.retry.times` env 配置 |
+| pipelines[].restoreCauses | 该 Pipeline 此前每一次运行结束的原因，按时间从旧到新，每次恢复一条。引擎只保留当前这次尝试的错误，因此若没有该字段，仅凭 `restoreCount` 只能发现崩溃重启循环、无法知道原因。每条都会截断，且只保留最近 16 次恢复。未记录到错误的那次恢复也会列出，因为「因未知原因重启」与「因 Sink 拒绝连接而重启」是两种不同的状态 |
 | pipelines[].stateTimestamps | Pipeline 进入各状态的时间戳（毫秒）。发生恢复后，新一轮的时间戳会覆盖上一轮 |
 | totalPipelineRestoreCount | Job 下所有 Pipeline 的 `restoreCount` 之和 |
 
@@ -1059,6 +1066,7 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 调度系统可以借此复用同一份配置，只替换日期、表名或连接参数等少量内容。变量通过 `variables`
 请求参数传入，格式为 URL 编码后的、逗号分隔的 `key=value` 列表，所有配置格式都支持。
 JSON 请求体还可以在顶层的 `variables` 对象中传入变量，该对象不属于作业配置。
+提交 SQL 时，变量在 SQL 解析完成后替换配置值，例如 `WITH` 子句中的选项值，不改写 SQL 标识符或表达式。
 
 未加引号的 HOCON 可选引用也会使用提交的变量。例如，先配置 `row.num = 3`，再配置
 `row.num = ${?rows}`，提交 `rows` 时使用该变量的值，未提交时保留 `3`。
@@ -1107,7 +1115,7 @@ curl -X POST 'http://127.0.0.1:8080/submit-job?format=hocon&variables=region%3De
 - 变量值遵循 `-i` 的规则：key 和 value 会去掉首尾空白，双引号中的值可以包含逗号，写成 `[...]` 或 `{...}` 的值会被解析为列表或对象。
 - 与命令行一致，没有对应变量的带引号占位符保持原样；传入了变量但没有变量能填充不带引号的占位符时，请求会以 HTTP 400 拒绝。`${table_name}` 等 sink 表占位符始终保留给 sink 处理。
 - 与命令行不同，占位符永远不会从引擎的系统属性或环境变量中取值，变量值也不能 `include` 文件或 URL。
-- 缺少 `=` 的条目、空 key、`table_name` 等保留 key、重复的 key，或者传入多个 `variables` 参数时，请求会以 HTTP 400 拒绝。与变量相关的错误信息不会包含变量值。
+- 无效条目、空 key 或 `table_name` 等保留根路径会返回 HTTP 400。变量名按 HOCON 路径比较，因此即使通过不同输入传入，`rows` 和 `"rows"` 也会被视为重复。JSON 作业请求体中的重复属性和重复的 `variables` 查询参数同样会返回 HTTP 400。错误信息不会包含变量值。
 - 变量本身不会随作业保存，但替换后的配置会被保存。用在 `env` 或表名中的值会像其他配置项一样出现在 `/job-info` 中。请求参数可能出现在代理或访问日志中，敏感信息建议使用 JSON 的 `variables` 对象或[配置加密](../../introduction/configuration/config-encryption-decryption.md)。
 
 #### 响应

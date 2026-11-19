@@ -478,7 +478,9 @@ public class JobInfoService extends BaseService {
                 break;
             case JSON:
             default:
-                config = RestUtil.buildConfig(requestHandle(requestBody), variables);
+                config =
+                        RestUtil.buildConfig(
+                                RestUtil.readJobSubmissionJson(requestBody), variables);
                 break;
         }
 
@@ -505,7 +507,7 @@ public class JobInfoService extends BaseService {
 
     public JsonArray submitJobs(byte[] requestBody) {
         List<Tuple2<Map<String, String>, Config>> configTuples =
-                RestUtil.buildConfigList(requestHandle(requestBody));
+                RestUtil.buildConfigList(RestUtil.readJobSubmissionJson(requestBody));
 
         return configTuples.stream()
                 .map(

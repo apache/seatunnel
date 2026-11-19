@@ -180,14 +180,9 @@ public class Db2SourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     @Override
     public void close() {
-        try {
-            this.dataConnection.close();
-            if (this.metadataConnection != null) {
-                this.metadataConnection.close();
-            }
-        } catch (SQLException e) {
-            log.warn("Failed to close connection", e);
-        }
+        // A failure closing one connection must not leak the other connection.
+        closeConnection(dataConnection);
+        closeConnection(metadataConnection);
     }
 
     @Override
@@ -273,6 +268,17 @@ public class Db2SourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         return loader.load(offset.getOffset());
     }
 
+    private void closeConnection(Db2Connection connection) {
+        if (connection != null) {
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                log.warn("Failed to close DB2 CDC connection", e);
+            }
+        }
+    }
+
+    /** Extracts optional source metadata without dereferencing an absent source struct. */
     public static class Db2EventMetadataProvider implements EventMetadataProvider {
 
         @Override
@@ -282,7 +288,7 @@ public class Db2SourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 return null;
             }
             final Struct sourceInfo = value.getStruct(Envelope.FieldName.SOURCE);
-            if (source == null) {
+            if (sourceInfo == null) {
                 return null;
             }
             final Long timestamp = sourceInfo.getInt64(SourceInfo.TIMESTAMP_KEY);
@@ -296,7 +302,7 @@ public class Db2SourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 return null;
             }
             final Struct sourceInfo = value.getStruct(Envelope.FieldName.SOURCE);
-            if (source == null) {
+            if (sourceInfo == null) {
                 return null;
             }
             return Collect.hashMapOf(
@@ -311,7 +317,7 @@ public class Db2SourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 return null;
             }
             final Struct sourceInfo = value.getStruct(Envelope.FieldName.SOURCE);
-            if (source == null) {
+            if (sourceInfo == null) {
                 return null;
             }
             return sourceInfo.getString(SourceInfo.COMMIT_LSN_KEY);

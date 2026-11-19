@@ -40,6 +40,8 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -429,6 +431,48 @@ public class RestSubmitVariablesTest {
         Path file = tempDir.resolve(name);
         Files.write(file, content.getBytes(StandardCharsets.UTF_8));
         return file;
+    }
+
+    @Test
+    public void testQuotedArrowKeyIsDistinctFromNestedPath() {
+        Map<String, String> variables =
+                RestUtil.parseVariables(
+                        "owner->team=one", Collections.singletonMap("\"owner->team\"", "two"));
+        Assertions.assertEquals("one", variables.get("owner->team"));
+        Assertions.assertEquals("two", variables.get("\"owner->team\""));
+    }
+
+    @Test
+    public void testLegacyQueryRejectsAnEncodedDuplicateVariableParameter() {
+        IllegalArgumentException duplicate =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                RestUtil.buildRequestParams(
+                                        new HashMap<>(),
+                                        "/submit-job?variables=rows%3D1&%76ariables=rows%3D2"));
+        assertNamesOnly(duplicate, "variables", "rows%3D1", "rows%3D2");
+    }
+
+    @Test
+    public void testLegacyQueryAcceptsSingleEncodedVariableParameter() {
+        Map<String, String> params = new HashMap<>();
+        RestUtil.buildRequestParams(
+                params, "/submit-job?jobId=42&isStartWithSavePoint=true&%76ariables=rows%3D1");
+        Assertions.assertEquals("42", params.get(RestConstant.JOB_ID));
+        Assertions.assertEquals("true", params.get(RestConstant.IS_START_WITH_SAVE_POINT));
+        Assertions.assertEquals("rows=1", params.get(RestConstant.VARIABLES));
+    }
+
+    @Test
+    public void testLegacyQueryReportsMalformedEncodingWithoutDecoderDetails() {
+        IllegalArgumentException malformed =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                RestUtil.buildRequestParams(
+                                        new HashMap<>(), "/submit-job?variables=rows%3D%Z1"));
+        assertNamesOnly(malformed, "query parameter", "Z1", "rows");
     }
 
     private static void assertNamesOnly(Exception e, String expected, String... hidden) {

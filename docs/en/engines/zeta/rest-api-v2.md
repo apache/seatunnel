@@ -662,6 +662,10 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
         "pipelineStatus": "RUNNING",
         "restoreCount": 7,
         "maxRestoreCount": 100,
+        "restoreCauses": [
+          "restore 6: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused",
+          "restore 7: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused"
+        ],
         "stateTimestamps": {
           "INITIALIZING": 1755000000000,
           "CREATED": 1755000000200,
@@ -683,6 +687,11 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 node. It is auxiliary information: if it can not be obtained, the field is omitted instead of
 failing the request. Only this endpoint returns it; `/running-jobs` does not, because collecting it
 for every running job would cost one more round trip to the master per job.
+
+`diagnostics` is read from the master's in-memory job state, so like `restoreCount` it describes
+this master's view of the job rather than its whole history. After a master switch the restore
+counters and `restoreCauses` start again from the recovered job, and causes recorded by the
+previous master are not carried over.
 
 #### Metrics field description
 
@@ -715,6 +724,7 @@ for every running job would cost one more round trip to the master per job.
 | pipelines[].pipelineStatus | Current pipeline state |
 | pipelines[].restoreCount | How many times this pipeline has been restored since the job was submitted. A value that keeps growing while `jobStatus` stays `RUNNING` is a crash loop |
 | pipelines[].maxRestoreCount | Restore limit of this pipeline, from the `job.retry.times` env option |
+| pipelines[].restoreCauses | Why earlier runs of this pipeline ended, oldest first, one entry per restore. The engine keeps only the current attempt's error, so without this a crash loop can be detected from `restoreCount` but not explained. Each entry is truncated, and the list is capped at the last 16 restores. A restore with no recorded error is still listed, because "restarted for an unknown reason" is a different state from "restarted because the sink refused the connection" |
 | pipelines[].stateTimestamps | Epoch millis when the pipeline entered each state. After a restore, the timestamps of the new attempt overwrite the previous ones |
 | totalPipelineRestoreCount | Sum of `restoreCount` over all pipelines of the job |
 
@@ -1074,6 +1084,8 @@ that differ only in a date, a table or a connection setting. Pass the variables 
 request parameter as URL-encoded, comma separated `key=value` pairs; this works for every format.
 A JSON body can also carry them in a top-level `variables` object, which is not part of the job
 config.
+For SQL submissions, substitution applies to configuration values after SQL parsing, such as values
+in a `WITH` clause. It does not rewrite SQL identifiers or expressions.
 
 Unquoted HOCON optional references also use submitted variables. For example,
 `row.num = 3` followed by `row.num = ${?rows}` uses the submitted `rows` value when present
@@ -1126,9 +1138,10 @@ and the same job as a JSON body:
   placeholders such as `${table_name}` are always left for the sink.
 - Unlike the command line, placeholders are never filled from the system properties or the
   environment variables of the engine, and a value cannot `include` a file or a URL.
-- An entry without `=`, an empty key, a reserved key such as `table_name`, a duplicate key, or more
-  than one `variables` parameter is rejected with HTTP 400. Errors about variables never contain a
-  value.
+- Invalid entries, empty keys, and reserved roots such as `table_name` return HTTP 400. Variable
+  names are compared as HOCON paths, so `rows` and `"rows"` are duplicates even across inputs.
+  Repeated properties in JSON job submission bodies and repeated `variables` query parameters also
+  return HTTP 400. Error messages do not include variable values.
 - The variables are not kept with the job, but the resulting config is. A value used in `env` or in
   a table name is shown by `/job-info` like any other config value. Request parameters may appear
   in proxy or access logs, so prefer the JSON `variables` object or [Config Encryption](../../introduction/configuration/config-encryption-decryption.md) for secrets.

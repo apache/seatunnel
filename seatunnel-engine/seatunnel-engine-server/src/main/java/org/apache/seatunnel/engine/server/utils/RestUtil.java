@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.engine.server.utils;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectReader;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
@@ -33,12 +35,14 @@ import com.hazelcast.internal.util.StringUtil;
 import scala.Tuple2;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -48,9 +52,24 @@ public class RestUtil {
     private RestUtil() {}
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectReader JOB_SUBMISSION_READER =
+            objectMapper.reader().with(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY);
 
     public static JsonNode convertByteToJsonNode(byte[] byteData) throws IOException {
         return objectMapper.readTree(byteData);
+    }
+
+    /** Reads a job submission before the tree can overwrite repeated JSON keys. */
+    public static JsonNode readJobSubmissionJson(byte[] requestBody) {
+        if (requestBody.length == 0) {
+            throw new IllegalArgumentException("Request body is empty.");
+        }
+        try {
+            return JOB_SUBMISSION_READER.readTree(requestBody);
+        } catch (IOException e) {
+            // The parser exception can include excerpts of a job config or variable values.
+            throw new IllegalArgumentException("Invalid JSON format in request body.");
+        }
     }
 
     public static void buildRequestParams(Map<String, String> requestParams, String uri) {
@@ -67,17 +86,38 @@ public class RestUtil {
                 if (s.isEmpty()) {
                     continue;
                 }
+                int separator = s.indexOf('=');
+                if (separator < 0) {
+                    throw new IllegalArgumentException("Invalid Params format in Params.");
+                }
+                String key = s.substring(0, separator);
+                if (RestConstant.VARIABLES.equals(decodeQueryComponent(key))) {
+                    if (requestParams.containsKey(RestConstant.VARIABLES)) {
+                        throw new IllegalArgumentException(
+                                "Duplicate variables request parameter.");
+                    }
+                    requestParams.put(
+                            RestConstant.VARIABLES,
+                            decodeQueryComponent(s.substring(separator + 1)));
+                    continue;
+                }
                 String[] param = s.split("=");
-                requestParams.put(param[0], URLDecoder.decode(param[1], "UTF-8"));
+                requestParams.put(param[0], decodeQueryComponent(param[1]));
             }
         } catch (IndexOutOfBoundsException e) {
             throw new IllegalArgumentException("Invalid Params format in Params.");
-        } catch (UnsupportedEncodingException e) {
-            throw new IllegalArgumentException("Unsupported encoding exists in the parameter.");
         }
         if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
                 && requestParams.get(RestConstant.JOB_ID) == null) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
+        }
+    }
+
+    private static String decodeQueryComponent(String component) {
+        try {
+            return URLDecoder.decode(component, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid URL encoding in query parameter.");
         }
     }
 
@@ -142,6 +182,7 @@ public class RestUtil {
      */
     public static Map<String, String> parseVariables(String variables, Object bodyVariables) {
         Map<String, String> userVariables = new LinkedHashMap<>();
+        Set<List<String>> variablePaths = new HashSet<>();
         if (variables != null) {
             List<String> entries = new ParameterSplitter().split(variables);
             for (int i = 0; i < entries.size(); i++) {
@@ -155,7 +196,7 @@ public class RestUtil {
                                     "Invalid entry %d in '%s': expected key=value",
                                     i + 1, RestConstant.VARIABLES));
                 }
-                putVariable(userVariables, pair[0].trim(), pair[1].trim(), i + 1);
+                putVariable(userVariables, variablePaths, pair[0].trim(), pair[1].trim(), i + 1);
             }
         }
         if (bodyVariables != null) {
@@ -177,7 +218,7 @@ public class RestUtil {
                                     + key
                                     + "': expected a string, number or boolean");
                 }
-                putVariable(userVariables, key, value.toString().trim(), ++position);
+                putVariable(userVariables, variablePaths, key, value.toString().trim(), ++position);
             }
         }
         return userVariables;
@@ -195,15 +236,20 @@ public class RestUtil {
      * errors.
      */
     private static void putVariable(
-            Map<String, String> variables, String key, String value, int position) {
+            Map<String, String> variables,
+            Set<List<String>> variablePaths,
+            String key,
+            String value,
+            int position) {
         if (key.isEmpty()) {
             throw new IllegalArgumentException(
                     String.format(
                             "Invalid entry %d in '%s': empty key",
                             position, RestConstant.VARIABLES));
         }
+        List<String> path;
         try {
-            ConfigUtil.splitPath(key);
+            path = ConfigUtil.splitPath(key);
         } catch (ConfigException e) {
             // an unquoted comma inside a value can turn part of the value into a key
             throw new IllegalArgumentException(
@@ -211,12 +257,14 @@ public class RestUtil {
                             "Invalid entry %d in '%s': invalid variable name",
                             position, RestConstant.VARIABLES));
         }
-        if (TablePlaceholder.isSystemPlaceholder(key)) {
+        if (TablePlaceholder.isSystemPlaceholder(path.get(0))) {
             throw new IllegalArgumentException(
                     "Variable '" + key + "' is reserved for table placeholders");
         }
-        if (variables.putIfAbsent(key, value) != null) {
+        if (!variablePaths.add(path)) {
             throw new IllegalArgumentException("Duplicate variable '" + key + "'");
         }
+        // Keep the original spelling for substitution in quoted strings.
+        variables.put(key, value);
     }
 }
