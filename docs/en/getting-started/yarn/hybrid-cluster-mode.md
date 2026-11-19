@@ -54,6 +54,8 @@ In `config/seatunnel.yaml`, set `seatunnel.engine.backup-count` to `0` for the s
 
 ## Stage and launch the service
 
+Before launch, [make the client's connector JAR paths available on every eligible NodeManager](configuration.md#connector-paths-on-nodemanager-hosts).
+
 Package the distribution with the configured files and the connectors used by your jobs. The archive root must contain `bin/` and `config/`.
 
 ```bash

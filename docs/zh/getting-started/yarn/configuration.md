@@ -228,6 +228,12 @@ bash bin/install-plugin.sh 3.1.0
 
 更新配置或 JAR 时，使用新名称上传归档，例如 `zeta-hybrid-3.1.0-r2.tgz`，并更新本次部署所用服务定义中的 `configuration.files[].src_file`。只要还有容器可能按旧定义重启，就要保留原有归档。替换容器会从 HDFS 重新获取自己的副本。
 
+### NodeManager 主机上的连接器路径
+
+使用 SeaTunnel 3.1.0 的默认 JAR 配置时，集群客户端会提交作业所用连接器 JAR 的绝对路径。每个混合节点、Master 和 Worker 都必须能读取这些路径。每个容器的启动命令都会把归档解压到自己的工作目录。
+
+例如，客户端从 `/opt/seatunnel/3.1.0` 运行时，在每台可调度的 NodeManager 上，将相同的 `connector-fake-3.1.0.jar` 和 `connector-console-3.1.0.jar` 安装到 `/opt/seatunnel/3.1.0/connectors/`，也可以将该目录只读挂载到相同路径。随作业提交的其他本地 JAR 路径也要满足这一要求。如果节点无法读取客户端提交的路径，即使归档里有同名文件，作业也会报 `NOT-FOUND-JAR`。Local 模式下，客户端和引擎共用容器里解压出的发行目录。
+
 ## 收集容器日志
 
 混合节点以及分离模式下的 Master 和 Worker 都使用 `config/log4j2.properties`，默认将滚动日志写到解压后发行目录下的 `logs/`。要同时把引擎日志写到容器的标准输出和标准错误，请在打包前取消以下两行的注释。

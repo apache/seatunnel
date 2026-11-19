@@ -54,6 +54,8 @@ hazelcast-client:
 
 ## 上传发行包并启动服务
 
+启动服务前，先[确认每台可调度的 NodeManager 都能读取客户端的连接器 JAR 路径](configuration.md#nodemanager-主机上的连接器路径)。
+
 将配置好的发行目录与作业需要的连接器一起打包，使 `bin/` 和 `config/` 位于压缩包根目录。
 
 ```bash

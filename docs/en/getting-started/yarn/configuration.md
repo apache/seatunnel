@@ -228,6 +228,12 @@ Package `bin/`, `config/`, `connectors/`, `lib/` and `plugins/` with the rest of
 
 When changing configuration or JARs, upload a new archive, for example `zeta-hybrid-3.1.0-r2.tgz`, and update `configuration.files[].src_file` in the service definition used for the deployment. Retain the previous archive while containers can still be restarted from its definition. A replacement container localizes its own copy from HDFS.
 
+### Connector paths on NodeManager hosts
+
+With the default JAR settings in SeaTunnel 3.1.0, the cluster client sends absolute file paths for the job's connector JARs. Each hybrid member, Master and Worker must be able to read those paths. The launch command extracts the archive under each container's working directory.
+
+For example, if the client runs from `/opt/seatunnel/3.1.0`, install the same `connector-fake-3.1.0.jar` and `connector-console-3.1.0.jar` under `/opt/seatunnel/3.1.0/connectors/` on every eligible NodeManager, or mount that directory read-only at the same path. Apply this to any other local JAR paths submitted with the job. A missing path causes `NOT-FOUND-JAR` even when the archive contains the file. In local mode the client and engine share the container's extracted installation.
+
 ## Capture container logs
 
 Hybrid members and separated Masters and Workers use `config/log4j2.properties`. By default they write rolling files under `logs/` in the extracted installation. To also send engine messages to the container's stdout and stderr, uncomment both references before packaging:

@@ -29,6 +29,8 @@ limitations under the License.
 
 ## 上传发行包并启动服务
 
+启动服务前，先[确认每台可调度的 NodeManager 都能读取客户端的连接器 JAR 路径](configuration.md#nodemanager-主机上的连接器路径)。
+
 打包配置好的**发行目录中的内容**，使 `bin/` 和 `config/` 位于压缩包根目录。更新发行包或配置时，请使用新的归档文件名，并同步修改服务定义中的 `src_file`。
 
 ```bash

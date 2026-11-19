@@ -29,6 +29,8 @@ Complete the [YARN prerequisites](yarn.mdx) and [configure the Master, Worker an
 
 ## Stage and launch the service
 
+Before launch, [make the client's connector JAR paths available on every eligible NodeManager](configuration.md#connector-paths-on-nodemanager-hosts).
+
 Package the **contents** of the prepared distribution so `bin/` and `config/` are at the archive root. Use a new archive name when changing the distribution or configuration, and update `src_file` in the service definition.
 
 ```bash
