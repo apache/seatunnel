@@ -280,7 +280,7 @@ class OpenLineageBackendTest {
     void doesNotRetryAnEndpointThatCannotBeUsed() {
         Map<String, Object> options = new HashMap<>();
         options.put(LineageConfig.ENABLED, true);
-        options.put(LineageConfig.RETRY_TIMES, 5000);
+        options.put(LineageConfig.RETRY_TIMES, LineageConfig.MAX_RETRY_TIMES);
         LineageConfig config =
                 LineageConfig.resolve(options, Collections.emptyMap(), Collections.emptyMap());
 
@@ -290,6 +290,33 @@ class OpenLineageBackendTest {
         assertEquals(1, backend.sendOnceCalls.get(), "configuration errors must validate once");
         assertEquals(0, backend.backoffSleeps.get(), "configuration errors must not back off");
         assertTrue(logs.contains(LineageConfig.URL), logs);
+    }
+
+    /**
+     * A URL without an http(s) scheme is a configuration error. It must be attempted once, and the
+     * raw URL, including a query credential, must stay out of the log.
+     */
+    @Test
+    void rejectsANonHttpEndpointOnceWithoutLoggingTheRawUrl() {
+        String rawUrl = "marquez:5000/api/v1/lineage?api_key=SECRET";
+        Map<String, Object> options = new HashMap<>();
+        options.put(LineageConfig.ENABLED, true);
+        options.put(LineageConfig.URL, rawUrl);
+        options.put(LineageConfig.RETRY_TIMES, LineageConfig.MAX_RETRY_TIMES);
+        LineageConfig config =
+                LineageConfig.resolve(options, Collections.emptyMap(), Collections.emptyMap());
+
+        RecordingBackend backend = new RecordingBackend();
+        String logs = capturedWarnings(() -> backend.emit(config, minimalEvent()));
+
+        assertEquals(1, backend.sendOnceCalls.get(), "a non-http endpoint must be attempted once");
+        assertEquals(0, backend.backoffSleeps.get(), "a non-http endpoint must not back off");
+        assertTrue(logs.contains(LineageConfig.URL), logs);
+        assertTrue(logs.contains("<invalid>"), logs);
+        assertFalse(logs.contains(rawUrl), logs);
+        assertFalse(logs.contains("SECRET"), logs);
+        assertFalse(logs.contains("api_key"), logs);
+        assertFalse(logs.contains("marquez"), logs);
     }
 
     /** Counts send/backoff boundaries without relying on wall-clock speed. */

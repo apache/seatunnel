@@ -59,6 +59,11 @@ public final class LineageDatasetFactory {
      * option map for that block does not contain a {@code plugin_name} entry at all, so inferring
      * the name from the options alone silently yields no lineage for the most common job syntax.
      *
+     * <p>A {@link RuntimeException} from {@link LineageDatasetExtractor#supports} or {@link
+     * LineageDatasetExtractor#extract} is logged and contained here. The warning names the plugin
+     * and the extractor class only, never the option map, which can hold credentials, and the call
+     * returns an empty list so a faulty extractor cannot fail the job lineage is describing.
+     *
      * @param pluginName connector plugin name, or {@code null} to infer it from the options
      * @param options connector options, without the enclosing plugin block
      */
@@ -76,9 +81,29 @@ public final class LineageDatasetFactory {
         if (pluginName == null) {
             return Collections.emptyList();
         }
-        for (LineageDatasetExtractor extractor : EXTRACTORS) {
-            if (extractor.supports(pluginName, options)) {
-                return extractor.extract(options);
+        return fromExtractors(pluginName, options, EXTRACTORS);
+    }
+
+    /**
+     * Runs the given extractors for one connector. Package-visible so tests can supply an extractor
+     * that throws without registering it through {@link ServiceLoader}.
+     */
+    static List<LineageDataset> fromExtractors(
+            String pluginName, Map<String, ?> options, List<LineageDatasetExtractor> extractors) {
+        for (LineageDatasetExtractor extractor : extractors) {
+            try {
+                if (extractor.supports(pluginName, options)) {
+                    return extractor.extract(options);
+                }
+            } catch (RuntimeException failure) {
+                LOGGER.log(
+                        Level.WARNING,
+                        "Failed to extract lineage datasets for plugin "
+                                + pluginName
+                                + " with "
+                                + extractor.getClass().getName(),
+                        failure);
+                return Collections.emptyList();
             }
         }
         return Collections.emptyList();
@@ -111,7 +136,10 @@ public final class LineageDatasetFactory {
      * extractors visible only on a job class loader are intentionally not loaded here (Option B /
      * per-loader caching would be needed later if that becomes a requirement). Iterating with an
      * explicit {@link Iterator} lets a single {@link ServiceConfigurationError} be logged and
-     * skipped so one broken provider cannot fail class initialization for the whole factory.
+     * skipped so one broken provider cannot fail class initialization for the whole factory. An
+     * {@code order()} that throws is skipped the same way: the comparator runs while this class is
+     * initializing, and one bad provider must not turn every later call into {@link
+     * NoClassDefFoundError}.
      */
     private static List<LineageDatasetExtractor> loadExtractors() {
         ClassLoader loader = LineageDatasetFactory.class.getClassLoader();
@@ -138,7 +166,40 @@ public final class LineageDatasetFactory {
                 LOGGER.log(Level.WARNING, "Skipping a broken LineageDatasetExtractor provider", e);
             }
         }
-        extractors.sort(Comparator.comparingInt(LineageDatasetExtractor::order));
-        return Collections.unmodifiableList(extractors);
+        return Collections.unmodifiableList(orderExtractors(extractors));
+    }
+
+    /**
+     * Drops providers whose {@code order()} throws, then sorts the rest. Package-visible so tests
+     * can pin that one bad provider is skipped instead of failing class initialization.
+     */
+    static List<LineageDatasetExtractor> orderExtractors(List<LineageDatasetExtractor> discovered) {
+        List<LineageDatasetExtractor> ordered = new ArrayList<>();
+        for (LineageDatasetExtractor extractor : discovered) {
+            try {
+                extractor.order();
+                ordered.add(extractor);
+            } catch (VirtualMachineError error) {
+                throw error;
+            } catch (Throwable failure) {
+                LOGGER.log(
+                        Level.WARNING,
+                        "Skipping LineageDatasetExtractor "
+                                + extractor.getClass().getName()
+                                + " because order() failed",
+                        failure);
+            }
+        }
+        try {
+            ordered.sort(Comparator.comparingInt(LineageDatasetExtractor::order));
+        } catch (VirtualMachineError error) {
+            throw error;
+        } catch (Throwable failure) {
+            LOGGER.log(
+                    Level.WARNING,
+                    "Keeping discovered LineageDatasetExtractor order because sorting failed",
+                    failure);
+        }
+        return ordered;
     }
 }

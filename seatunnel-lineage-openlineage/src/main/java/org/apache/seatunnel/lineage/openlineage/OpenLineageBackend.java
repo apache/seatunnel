@@ -99,7 +99,7 @@ public class OpenLineageBackend implements LineageBackend {
             LOGGER.warn(
                     "Failed to send OpenLineage event to endpoint {} after {} attempt(s): {}",
                     endpointSummary(config.url()),
-                    config.retryTimes() + 1,
+                    (long) config.retryTimes() + 1L,
                     failure.toString(),
                     failure);
         }
@@ -107,7 +107,10 @@ public class OpenLineageBackend implements LineageBackend {
 
     private void sendWithRetry(LineageConfig config, String payload) throws Exception {
         Exception failure = null;
-        for (int attempt = 0; attempt <= config.retryTimes(); attempt++) {
+        // retryTimes + 1 is computed in long so Integer.MAX_VALUE cannot overflow the attempt
+        // count or make attempt <= retryTimes stay true forever.
+        long attempts = (long) config.retryTimes() + 1L;
+        for (long attempt = 0; attempt < attempts; attempt++) {
             try {
                 sendOnce(config, payload);
                 return;
@@ -117,9 +120,9 @@ public class OpenLineageBackend implements LineageBackend {
                 throw configurationError;
             } catch (Exception e) {
                 failure = e;
-                if (attempt < config.retryTimes()) {
+                if (attempt + 1L < attempts) {
                     try {
-                        sleepBeforeRetry(attempt);
+                        sleepBeforeRetry((int) attempt);
                     } catch (InterruptedException interrupted) {
                         Thread.currentThread().interrupt();
                         throw interrupted;
@@ -163,9 +166,7 @@ public class OpenLineageBackend implements LineageBackend {
      * deadline.
      */
     void sendOnce(LineageConfig config, String payload) throws IOException {
-        if (config.url() == null || config.url().trim().isEmpty()) {
-            throw new IllegalArgumentException("openlineage_url must be configured when enabled");
-        }
+        requireHttpEndpoint(config.url());
         RequestConfig requestConfig =
                 RequestConfig.custom()
                         .setConnectTimeout(config.timeoutMs())
@@ -186,6 +187,33 @@ public class OpenLineageBackend implements LineageBackend {
             if (status < HttpStatus.SC_OK || status >= HttpStatus.SC_MULTIPLE_CHOICES) {
                 throw new IOException("OpenLineage endpoint returned HTTP " + status);
             }
+        }
+    }
+
+    /**
+     * Rejects an endpoint that is blank, not a URI, or not {@code http}/{@code https} with a host.
+     *
+     * <p>The exception is an {@link IllegalArgumentException} so {@link #sendWithRetry} does not
+     * retry it, and the message does not quote the URL. {@link #emit} then logs only {@link
+     * #endpointSummary}, which drops userinfo and query credentials.
+     */
+    private static void requireHttpEndpoint(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            throw new IllegalArgumentException("openlineage_url must be configured when enabled");
+        }
+        URI uri;
+        try {
+            uri = new URI(url.trim());
+        } catch (URISyntaxException failure) {
+            throw new IllegalArgumentException(
+                    "openlineage_url must use the http or https scheme and include a host");
+        }
+        String scheme = uri.getScheme();
+        if (scheme == null
+                || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))
+                || uri.getHost() == null) {
+            throw new IllegalArgumentException(
+                    "openlineage_url must use the http or https scheme and include a host");
         }
     }
 

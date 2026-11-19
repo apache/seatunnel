@@ -18,6 +18,8 @@
 package org.apache.seatunnel.lineage;
 
 import java.io.Serializable;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -25,10 +27,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.logging.Logger;
 
 /** Immutable lineage configuration with per-option source precedence. */
 public final class LineageConfig implements Serializable {
     private static final long serialVersionUID = 1L;
+
+    private static final Logger LOGGER = Logger.getLogger(LineageConfig.class.getName());
 
     public static final String ENABLED = "openlineage_enabled";
     public static final String TRANSPORT = "openlineage_transport";
@@ -48,13 +53,25 @@ public final class LineageConfig implements Serializable {
     public static final String DEFAULT_RUN_FACET = "seatunnel_properties";
     public static final int DEFAULT_TIMEOUT_MS = 10000;
     public static final int DEFAULT_RETRY_TIMES = 3;
+
+    /** Largest accepted {@code openlineage_timeout_ms}. Larger values are rejected, not clamped. */
+    public static final int MAX_TIMEOUT_MS = 60000;
+
+    /**
+     * Largest accepted {@code openlineage_retry_times}. Larger values are rejected, not clamped.
+     */
+    public static final int MAX_RETRY_TIMES = 10;
+
     public static final long DEFAULT_HEARTBEAT_MIN_INTERVAL_MS = 3600000L;
 
     private final boolean enabled;
     private final String transport;
     private final String url;
     private final String namespace;
-    private final String authToken;
+
+    /** Not serialized. The execution side re-attaches it with {@link #withAuthToken}. */
+    private final transient String authToken;
+
     private final int timeoutMs;
     private final int retryTimes;
     private final String runFacet;
@@ -79,8 +96,16 @@ public final class LineageConfig implements Serializable {
         if (timeoutMs <= 0) {
             throw new IllegalArgumentException(TIMEOUT_MS + " must be greater than zero");
         }
+        if (timeoutMs > MAX_TIMEOUT_MS) {
+            throw new IllegalArgumentException(
+                    TIMEOUT_MS + " must not be greater than " + MAX_TIMEOUT_MS);
+        }
         if (retryTimes < 0) {
             throw new IllegalArgumentException(RETRY_TIMES + " must not be negative");
+        }
+        if (retryTimes > MAX_RETRY_TIMES) {
+            throw new IllegalArgumentException(
+                    RETRY_TIMES + " must not be greater than " + MAX_RETRY_TIMES);
         }
         if (heartbeatMinIntervalMs < 0) {
             throw new IllegalArgumentException(HEARTBEAT_MIN_INTERVAL_MS + " must not be negative");
@@ -122,11 +147,20 @@ public final class LineageConfig implements Serializable {
 
     /**
      * Resolves each option independently using job env, process env, cluster config, then defaults.
-     * The token deliberately skips job env and is rejected there instead. When a token is present,
-     * receiver URL and transport must come from trusted environment or cluster settings;
-     * conflicting job overrides are rejected. String map values accept the Flink forms {@code
-     * key:value,key2:value2} and {@code {key: value, key2: value2}}; an equals sign is also
-     * accepted for compatibility with common environment-variable syntax.
+     * The token deliberately skips job env and is rejected there instead. When a token is present
+     * and reporting is enabled, receiver URL and transport must come from trusted environment or
+     * cluster settings; conflicting job overrides are rejected. Transport is compared
+     * case-insensitively and URLs are compared with scheme and host lower-cased and a trailing
+     * slash removed. String map values accept the Flink forms {@code key:value,key2:value2} and
+     * {@code {key: value, key2: value2}}; an equals sign is also accepted for compatibility with
+     * common environment-variable syntax.
+     *
+     * <p>When {@code openlineage_enabled} resolves to false, a disabled configuration is returned
+     * without validating the remaining options. A malformed enabled flag in the process environment
+     * or cluster configuration disables reporting and is logged, because the job submitter cannot
+     * correct node configuration. A malformed enabled flag in the job env still fails resolution.
+     * When reporting is enabled, a malformed or out-of-range environment or cluster value still
+     * fails resolution.
      */
     public static LineageConfig resolve(
             Map<String, ?> jobOptions, Map<String, ?> clusterOptions, Map<String, ?> environment) {
@@ -134,9 +168,12 @@ public final class LineageConfig implements Serializable {
         Map<String, ?> job = nonNull(jobOptions);
         Map<String, ?> cluster = nonNull(clusterOptions);
         Map<String, ?> env = nonNull(environment);
+        if (!readEnabled(job, env, cluster)) {
+            return defaults().withAuthToken(asToken(env, cluster));
+        }
         String token = asToken(env, cluster);
         return new LineageConfig(
-                asBoolean(first(job, env, cluster, ENABLED), ENABLED, false),
+                true,
                 asString(
                         receiverOption(job, env, cluster, TRANSPORT, DEFAULT_TRANSPORT, token),
                         TRANSPORT,
@@ -164,10 +201,14 @@ public final class LineageConfig implements Serializable {
      * <p>Callers on the submission path need this before a full resolution is possible, and must
      * not answer it with their own lookup: a second implementation drifts from the alias rules here
      * and then disagrees with the configuration the job actually runs with.
+     *
+     * <p>A malformed value in the job env fails the call. A malformed value in the process
+     * environment or cluster configuration disables reporting and is logged, matching {@link
+     * #resolve}.
      */
     public static boolean isEnabled(
             Map<String, ?> jobOptions, Map<String, ?> clusterOptions, Map<String, ?> environment) {
-        return asBoolean(first(jobOptions, environment, clusterOptions, ENABLED), ENABLED, false);
+        return readEnabled(jobOptions, environment, clusterOptions);
     }
 
     /** Rejects a token in job options because job configuration may be persisted or serialized. */
@@ -254,7 +295,12 @@ public final class LineageConfig implements Serializable {
         return result;
     }
 
-    /** Returns a copy with a token resolved only on the execution side. */
+    /**
+     * Returns a copy with a token resolved only on the execution side.
+     *
+     * <p>{@code authToken} is transient, so a deserialized configuration has no token until this
+     * method re-attaches one.
+     */
     public LineageConfig withAuthToken(String token) {
         return new LineageConfig(
                 enabled,
@@ -271,7 +317,12 @@ public final class LineageConfig implements Serializable {
                 jobNamePerOutput);
     }
 
-    /** Returns the option map used by the contract tests and serialized callbacks. */
+    /**
+     * Returns the option map used by the contract tests.
+     *
+     * <p>The map includes {@code openlineage_auth_token} when a token is present. Serialized
+     * callbacks must use {@link #toNonSensitiveMap()}, which omits the token.
+     */
     public Map<String, Object> toMap() {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put(ENABLED, enabled);
@@ -329,12 +380,106 @@ public final class LineageConfig implements Serializable {
                 defaultValue == null
                         ? asNullableString(override)
                         : asString(override, key, defaultValue);
-        if (override.present && !Objects.equals(jobValue, trustedValue)) {
+        if (override.present && !receiverValuesMatch(key, jobValue, trustedValue)) {
             throw new IllegalArgumentException(
                     key
                             + " must match the environment or cluster receiver when an auth token is configured");
         }
         return trusted;
+    }
+
+    /**
+     * Transport matches {@link LineageBackendLoader}'s case-insensitive name. URLs match after the
+     * scheme and host are lower-cased and a trailing slash is removed.
+     */
+    private static boolean receiverValuesMatch(String key, String jobValue, String trustedValue) {
+        if (TRANSPORT.equals(key)) {
+            if (jobValue == null || trustedValue == null) {
+                return jobValue == null && trustedValue == null;
+            }
+            return jobValue.equalsIgnoreCase(trustedValue);
+        }
+        if (URL.equals(key)) {
+            return Objects.equals(
+                    normalizeReceiverUrl(jobValue), normalizeReceiverUrl(trustedValue));
+        }
+        return Objects.equals(jobValue, trustedValue);
+    }
+
+    private static String normalizeReceiverUrl(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        try {
+            URI uri = new URI(trimmed);
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            if (scheme == null || host == null) {
+                return stripTrailingSlashes(trimmed);
+            }
+            String path = uri.getPath() == null ? "" : stripTrailingSlashes(uri.getPath());
+            URI normalized =
+                    new URI(
+                            scheme.toLowerCase(Locale.ROOT),
+                            uri.getUserInfo(),
+                            host.toLowerCase(Locale.ROOT),
+                            uri.getPort(),
+                            path,
+                            uri.getQuery(),
+                            uri.getFragment());
+            return stripTrailingSlashes(normalized.toString());
+        } catch (URISyntaxException failure) {
+            return stripTrailingSlashes(trimmed);
+        }
+    }
+
+    private static String stripTrailingSlashes(String value) {
+        int end = value.length();
+        while (end > 0 && value.charAt(end - 1) == '/') {
+            end--;
+        }
+        return value.substring(0, end);
+    }
+
+    /**
+     * Resolves {@code openlineage_enabled}. Job values that are not true or false fail the call. A
+     * malformed process-environment or cluster value disables reporting instead, and names the key
+     * in a warning: the submitter cannot correct configuration that lives on the node.
+     */
+    private static boolean readEnabled(
+            Map<String, ?> job, Map<String, ?> environment, Map<String, ?> cluster) {
+        Lookup jobValue = find(job, ENABLED);
+        if (jobValue.present) {
+            return asBoolean(jobValue, ENABLED, false);
+        }
+        Lookup environmentValue = findEnvironment(environment, ENABLED);
+        if (environmentValue.present) {
+            return booleanOrDisabled(environmentValue, "process environment");
+        }
+        Lookup clusterValue = find(cluster, ENABLED);
+        if (clusterValue.present) {
+            return booleanOrDisabled(clusterValue, "cluster configuration");
+        }
+        return false;
+    }
+
+    private static boolean booleanOrDisabled(Lookup value, String source) {
+        try {
+            return asBoolean(value, ENABLED, false);
+        } catch (IllegalArgumentException failure) {
+            LOGGER.warning(
+                    "Malformed "
+                            + ENABLED
+                            + " in the "
+                            + source
+                            + "; lineage reporting is disabled. "
+                            + failure.getMessage());
+            return false;
+        }
     }
 
     private static Lookup first(

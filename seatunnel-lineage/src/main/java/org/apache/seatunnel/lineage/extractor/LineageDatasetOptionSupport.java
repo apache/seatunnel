@@ -90,19 +90,36 @@ public final class LineageDatasetOptionSupport {
 
     /**
      * Returns the host of the first comma-separated address in {@code value}, or {@code null} when
-     * {@code value} is {@code null}.
+     * {@code value} is {@code null} or the first address is empty.
+     *
+     * <p>{@code ","} splits to no addresses ({@link String#split(String)} drops trailing empties),
+     * so the first segment is guarded before it is indexed.
      */
     public static String firstHost(String value) {
         if (value == null) {
             return null;
         }
-        String first = value.split(",")[0].trim();
+        String[] hosts = value.split(",", -1);
+        if (hosts.length == 0) {
+            return null;
+        }
+        String first = hosts[0].trim();
+        if (first.isEmpty()) {
+            return null;
+        }
         try {
             URI uri = URI.create(first.contains("://") ? first : "http://" + first);
-            return uri.getHost() == null ? first.split(":")[0] : uri.getHost();
+            if (uri.getHost() != null) {
+                return uri.getHost();
+            }
         } catch (IllegalArgumentException e) {
-            return first.split(":")[0];
+            // Fall through to the text before the first colon.
         }
+        String[] hostAndPort = first.split(":", -1);
+        if (hostAndPort.length == 0 || hostAndPort[0].trim().isEmpty()) {
+            return null;
+        }
+        return hostAndPort[0].trim();
     }
 
     /**

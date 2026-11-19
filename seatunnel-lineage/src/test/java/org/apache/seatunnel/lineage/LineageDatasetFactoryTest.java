@@ -24,14 +24,20 @@ import org.apache.seatunnel.lineage.extractor.PaimonLineageDatasetExtractor;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LineageDatasetFactoryTest {
@@ -273,6 +279,175 @@ class LineageDatasetFactoryTest {
                 names);
     }
 
+    @Test
+    void returnsNoDatasetsWhenAnExtractorThrows() {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("password", "secret-value");
+        options.put("url", "jdbc:mysql://db.example.com/sales");
+        LineageDatasetExtractor throwing =
+                new LineageDatasetExtractor() {
+                    @Override
+                    public boolean supports(String pluginName, Map<String, ?> connectorOptions) {
+                        if ("ThrowingSupports".equals(pluginName)) {
+                            throw new IllegalStateException("supports failed");
+                        }
+                        return "ThrowingExtract".equals(pluginName);
+                    }
+
+                    @Override
+                    public List<LineageDataset> extract(Map<String, ?> connectorOptions) {
+                        throw new IllegalStateException("extract failed");
+                    }
+                };
+        Logger logger = Logger.getLogger(LineageDatasetFactory.class.getName());
+        RecordingHandler handler = new RecordingHandler();
+        logger.addHandler(handler);
+        try {
+            assertTrue(
+                    LineageDatasetFactory.fromExtractors(
+                                    "ThrowingSupports",
+                                    options,
+                                    Collections.singletonList(throwing))
+                            .isEmpty());
+            assertTrue(
+                    LineageDatasetFactory.fromExtractors(
+                                    "ThrowingExtract", options, Collections.singletonList(throwing))
+                            .isEmpty());
+        } finally {
+            logger.removeHandler(handler);
+        }
+
+        assertEquals(2, handler.records.size());
+        for (LogRecord record : handler.records) {
+            assertEquals(Level.WARNING, record.getLevel());
+            assertTrue(
+                    record.getMessage().contains(throwing.getClass().getName()),
+                    record.getMessage());
+            assertFalse(record.getMessage().contains("secret-value"), record.getMessage());
+            assertFalse(record.getMessage().contains("jdbc:mysql"), record.getMessage());
+        }
+        assertTrue(handler.records.get(0).getMessage().contains("ThrowingSupports"));
+        assertTrue(handler.records.get(1).getMessage().contains("ThrowingExtract"));
+    }
+
+    @Test
+    void returnsNoDatasetsWhenDorisFenodesIsOnlyAComma() {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("fenodes", ",");
+        options.put("database", "d");
+        options.put("table", "t");
+
+        assertTrue(LineageDatasetFactory.fromConnectorOptions("Doris", options).isEmpty());
+    }
+
+    @Test
+    void skipsAnExtractorWhoseOrderFails() {
+        LineageDatasetExtractor broken =
+                new LineageDatasetExtractor() {
+                    @Override
+                    public int order() {
+                        throw new IllegalStateException("bad order");
+                    }
+
+                    @Override
+                    public boolean supports(String pluginName, Map<String, ?> options) {
+                        return false;
+                    }
+
+                    @Override
+                    public List<LineageDataset> extract(Map<String, ?> options) {
+                        return Collections.emptyList();
+                    }
+                };
+
+        List<LineageDatasetExtractor> ordered =
+                LineageDatasetFactory.orderExtractors(
+                        Arrays.asList(broken, new JdbcLineageDatasetExtractor()));
+
+        assertEquals(1, ordered.size());
+        assertEquals(JdbcLineageDatasetExtractor.class, ordered.get(0).getClass());
+    }
+
+    @Test
+    void extractsOracleThinSidAndServiceUrls() {
+        Map<String, Object> sid = new LinkedHashMap<>();
+        sid.put("url", "jdbc:oracle:thin:@db.example.com:1521:ORCL");
+        sid.put("table_path", "HR.EMP");
+
+        List<LineageDataset> datasets = LineageDatasetFactory.fromConnectorOptions("Oracle", sid);
+
+        assertEquals(1, datasets.size());
+        assertEquals("oracle://db.example.com:1521", datasets.get(0).namespace());
+        assertEquals("HR.EMP", datasets.get(0).name());
+
+        Map<String, Object> service = new LinkedHashMap<>();
+        service.put("url", "jdbc:oracle:thin:@//db.example.com:1521/svc");
+        service.put("table_path", "HR.EMP");
+
+        datasets = LineageDatasetFactory.fromConnectorOptions("Oracle", service);
+
+        assertEquals(1, datasets.size());
+        assertEquals("oracle://db.example.com:1521", datasets.get(0).namespace());
+        assertEquals("HR.EMP", datasets.get(0).name());
+    }
+
+    @Test
+    void extractsSqlServerUrlWithSemicolonProperties() {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("base-url", "jdbc:sqlserver://db.example.com:1433;databaseName=app");
+        options.put("table-names", Arrays.asList("app.dbo.orders"));
+
+        List<LineageDataset> datasets =
+                LineageDatasetFactory.fromConnectorOptions("SqlServer-CDC", options);
+
+        assertEquals(1, datasets.size());
+        assertEquals("sqlserver://db.example.com:1433", datasets.get(0).namespace());
+        assertEquals("app.dbo.orders", datasets.get(0).name());
+    }
+
+    @Test
+    void usesWellKnownDefaultPortsWhenTheUrlOmitsThem() {
+        Map<String, Object> mysql = new LinkedHashMap<>();
+        mysql.put("url", "jdbc:mysql://db.example.com/sales");
+        mysql.put("table", "orders");
+
+        List<LineageDataset> datasets = LineageDatasetFactory.fromConnectorOptions("Jdbc", mysql);
+
+        assertEquals(1, datasets.size());
+        assertEquals("mysql://db.example.com:3306", datasets.get(0).namespace());
+        assertEquals("sales.orders", datasets.get(0).name());
+
+        Map<String, Object> postgres = new LinkedHashMap<>();
+        postgres.put("url", "jdbc:postgresql://db.example.com/warehouse");
+        postgres.put("table", "orders");
+
+        datasets = LineageDatasetFactory.fromConnectorOptions("Jdbc", postgres);
+
+        assertEquals(1, datasets.size());
+        assertEquals("postgresql://db.example.com:5432", datasets.get(0).namespace());
+        assertEquals("warehouse.orders", datasets.get(0).name());
+
+        Map<String, Object> sqlServer = new LinkedHashMap<>();
+        sqlServer.put("base-url", "jdbc:sqlserver://db.example.com;databaseName=app");
+        sqlServer.put("table-names", Arrays.asList("app.dbo.orders"));
+
+        datasets = LineageDatasetFactory.fromConnectorOptions("SqlServer-CDC", sqlServer);
+
+        assertEquals(1, datasets.size());
+        assertEquals("sqlserver://db.example.com:1433", datasets.get(0).namespace());
+        assertEquals("app.dbo.orders", datasets.get(0).name());
+
+        Map<String, Object> oracle = new LinkedHashMap<>();
+        oracle.put("url", "jdbc:oracle:thin:@//db.example.com/svc");
+        oracle.put("table_path", "HR.EMP");
+
+        datasets = LineageDatasetFactory.fromConnectorOptions("Oracle", oracle);
+
+        assertEquals(1, datasets.size());
+        assertEquals("oracle://db.example.com:1521", datasets.get(0).namespace());
+        assertEquals("HR.EMP", datasets.get(0).name());
+    }
+
     private static Map<String, Object> paimonOptions() {
         Map<String, Object> options = new LinkedHashMap<>();
         options.put("warehouse", "s3a://lineage-paimon-warehouse/");
@@ -283,5 +458,20 @@ class LineageDatasetFactoryTest {
         hadoopConf.put("fs.s3a.endpoint", "http://example.invalid");
         options.put("paimon.hadoop.conf", hadoopConf);
         return options;
+    }
+
+    private static final class RecordingHandler extends Handler {
+        private final List<LogRecord> records = new java.util.ArrayList<>();
+
+        @Override
+        public void publish(LogRecord record) {
+            records.add(record);
+        }
+
+        @Override
+        public void flush() {}
+
+        @Override
+        public void close() {}
     }
 }
