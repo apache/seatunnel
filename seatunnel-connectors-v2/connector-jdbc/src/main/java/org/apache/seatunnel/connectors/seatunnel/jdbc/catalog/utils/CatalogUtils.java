@@ -212,7 +212,7 @@ public class CatalogUtils {
         }
     }
 
-    private static String cleanKeyName(String keyName) {
+    public static String cleanKeyName(String keyName) {
         if (keyName != null) {
             // only keep the characters that are valid in an index name
             keyName = keyName.replaceAll("[^a-zA-Z0-9_]", "");

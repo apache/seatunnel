@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase;
 
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
@@ -27,12 +28,15 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Locale;
+import java.util.Optional;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/** Offline tests for {@link OceanBaseMySqlCatalog#buildColumn(ResultSet)}. */
+/** Offline tests for {@link OceanBaseMySqlCatalog}. */
 class OceanBaseMySqlCatalogTest {
 
     /**
@@ -81,5 +85,65 @@ class OceanBaseMySqlCatalogTest {
                         JdbcUrlUtil.getUrlInfo("jdbc:mysql://127.0.0.1:2881/test"),
                         "com.mysql.cj.jdbc.Driver")
                 .buildColumn(resultSet);
+    }
+
+    /**
+     * The JDBC metadata returns the primary key columns ordered by {@code COLUMN_NAME}, not by the
+     * order of the key, so a composite key (a, b) may come back as (b, a) and must be sorted by
+     * {@code KEY_SEQ}. Every column of the key has to be kept: the old implementation called {@code
+     * schemaBuilder.primaryKey(...)} once per row, so only the last column survived.
+     */
+    @Test
+    void shouldKeepEveryColumnOfCompositePrimaryKeyInKeySeqOrder() throws SQLException {
+        ResultSet primaryKeys = mock(ResultSet.class);
+        when(primaryKeys.next()).thenReturn(true, true, false);
+        // out of order on purpose, ordered by COLUMN_NAME
+        when(primaryKeys.getString("COLUMN_NAME")).thenReturn("b", "a");
+        when(primaryKeys.getInt("KEY_SEQ")).thenReturn(2, 1);
+        when(primaryKeys.getString("PK_NAME")).thenReturn("PRIMARY", "PRIMARY");
+
+        Optional<PrimaryKey> primaryKey = OceanBaseMySqlCatalog.buildPrimaryKey(primaryKeys);
+
+        Assertions.assertTrue(primaryKey.isPresent());
+        Assertions.assertEquals(Arrays.asList("a", "b"), primaryKey.get().getColumnNames());
+        Assertions.assertEquals("PRIMARY", primaryKey.get().getPrimaryKey());
+    }
+
+    @Test
+    void shouldKeepSingleColumnPrimaryKey() throws SQLException {
+        ResultSet primaryKeys = mock(ResultSet.class);
+        when(primaryKeys.next()).thenReturn(true, false);
+        when(primaryKeys.getString("COLUMN_NAME")).thenReturn("id");
+        when(primaryKeys.getInt("KEY_SEQ")).thenReturn(1);
+        when(primaryKeys.getString("PK_NAME")).thenReturn("PRIMARY");
+
+        Optional<PrimaryKey> primaryKey = OceanBaseMySqlCatalog.buildPrimaryKey(primaryKeys);
+
+        Assertions.assertTrue(primaryKey.isPresent());
+        Assertions.assertEquals("PRIMARY", primaryKey.get().getPrimaryKey());
+        Assertions.assertEquals(Collections.singletonList("id"), primaryKey.get().getColumnNames());
+    }
+
+    @Test
+    void shouldFallBackToFirstColumnNameWhenPrimaryKeyNameIsMissing() throws SQLException {
+        ResultSet primaryKeys = mock(ResultSet.class);
+        when(primaryKeys.next()).thenReturn(true, true, false);
+        when(primaryKeys.getString("COLUMN_NAME")).thenReturn("b", "a");
+        when(primaryKeys.getInt("KEY_SEQ")).thenReturn(2, 1);
+        when(primaryKeys.getString("PK_NAME")).thenReturn(null, null);
+
+        Optional<PrimaryKey> primaryKey = OceanBaseMySqlCatalog.buildPrimaryKey(primaryKeys);
+
+        Assertions.assertTrue(primaryKey.isPresent());
+        Assertions.assertEquals(Arrays.asList("a", "b"), primaryKey.get().getColumnNames());
+        Assertions.assertEquals("a", primaryKey.get().getPrimaryKey());
+    }
+
+    @Test
+    void shouldNotBuildPrimaryKeyWhenTableHasNoPrimaryKey() throws SQLException {
+        ResultSet primaryKeys = mock(ResultSet.class);
+        when(primaryKeys.next()).thenReturn(false);
+
+        Assertions.assertFalse(OceanBaseMySqlCatalog.buildPrimaryKey(primaryKeys).isPresent());
     }
 }
