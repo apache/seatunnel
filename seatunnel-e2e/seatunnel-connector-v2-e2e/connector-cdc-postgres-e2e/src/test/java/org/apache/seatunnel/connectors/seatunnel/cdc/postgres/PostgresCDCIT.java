@@ -132,6 +132,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             "full_types_no_primary_key_with_debezium";
 
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s order by id";
+    private static final String UDT_SCHEMA = "udt_cdc";
+    private static final String UDT_HIDDEN_SCHEMA = "udt_hidden";
     private static final String GENERATED_SLOT_PREFIX = "seatunnel_";
     /**
      * Debezium JSON change events can lag under CI load, so snapshot and DML record waits use the
@@ -1078,6 +1080,142 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             dropFieldIfExists(POSTGRESQL_SCHEMA, SOURCE_TABLE_3, "f_big");
             dropFieldIfExists(POSTGRESQL_SCHEMA, SINK_TABLE_3, "f_big");
         }
+    }
+
+    /**
+     * pgoutput reports a column type only by OID, so the sink DDL of an added column used the bare
+     * {@code typname}: a mixed-case or reserved-word name lost its quotes and a type outside the
+     * {@code search_path} lost its schema. The sink shares the database, so the types exist there.
+     * The {@code public} types are on the default {@code search_path}, {@code udt_hidden} is not.
+     * Debezium emits no values for a user-defined range column unless {@code
+     * include.unknown.datatypes} is set, so the range column is added but stays NULL in the sink.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently only Zeta supports Postgres-CDC schema evolution")
+    public void testAddColumnsOfUserDefinedTypes(TestContainer container) {
+        String sourceTable = UDT_SCHEMA + ".udt_orders";
+        String sinkTable = UDT_SCHEMA + ".sink_udt_orders";
+        String slotVariable = toSlotVariable(createSlotName());
+        Long jobId = JobIdGenerator.newJobId();
+        try {
+            dropUserDefinedTypeFixtures();
+            executeSql("CREATE SCHEMA " + UDT_SCHEMA);
+            executeSql("CREATE SCHEMA " + UDT_HIDDEN_SCHEMA);
+            executeSql("CREATE TYPE public.jobstatus_lc AS ENUM ('a', 'b')");
+            executeSql("CREATE TYPE public.\"JobStatus\" AS ENUM ('OPEN', 'DONE')");
+            executeSql("CREATE TYPE public.\"order\" AS ENUM ('x', 'y')");
+            executeSql("CREATE TYPE public.\"MyRange\" AS RANGE (subtype = int4)");
+            executeSql("CREATE TYPE " + UDT_HIDDEN_SCHEMA + ".mood AS ENUM ('happy', 'sad')");
+            executeSql("CREATE TABLE " + sourceTable + " (id INT PRIMARY KEY, name TEXT)");
+            executeSql("ALTER TABLE " + sourceTable + " REPLICA IDENTITY FULL");
+            executeSql("INSERT INTO " + sourceTable + " VALUES (1, 'a')");
+
+            CompletableFuture<Void> job =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                try {
+                                    container.executeJob(
+                                            "/postgrescdc_to_postgres_add_user_defined_type_columns.conf",
+                                            String.valueOf(jobId),
+                                            slotVariable);
+                                } catch (Exception e) {
+                                    log.error("Commit task exception :" + e.getMessage());
+                                    throw new RuntimeException(e);
+                                }
+                            });
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .failFast("The job ended before the snapshot reached the sink", job::isDone)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertIterableEquals(
+                                            query("SELECT * FROM " + sourceTable + " ORDER BY id"),
+                                            query("SELECT * FROM " + sinkTable + " ORDER BY id")));
+
+            executeSql(
+                    "ALTER TABLE "
+                            + sourceTable
+                            + " ADD COLUMN c public.jobstatus_lc,"
+                            + " ADD COLUMN st2 public.\"JobStatus\","
+                            + " ADD COLUMN o public.\"order\","
+                            + " ADD COLUMN r2 public.\"MyRange\","
+                            + " ADD COLUMN m "
+                            + UDT_HIDDEN_SCHEMA
+                            + ".mood");
+            executeSql(
+                    "INSERT INTO "
+                            + sourceTable
+                            + " VALUES (2, 'b', 'a', 'OPEN', 'x', public.\"MyRange\"(1, 5),"
+                            + " 'happy')");
+
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .failFast(
+                            "The job ended before the added columns reached the sink", job::isDone)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertAll(
+                                            () ->
+                                                    Assertions.assertIterableEquals(
+                                                            columnTypes(sourceTable),
+                                                            columnTypes(sinkTable)),
+                                            () ->
+                                                    Assertions.assertIterableEquals(
+                                                            query(
+                                                                    "SELECT id, name, c::text,"
+                                                                            + " st2::text, o::text,"
+                                                                            + " m::text FROM "
+                                                                            + sourceTable
+                                                                            + " ORDER BY id"),
+                                                            query(
+                                                                    "SELECT id, name, c::text,"
+                                                                            + " st2::text, o::text,"
+                                                                            + " m::text FROM "
+                                                                            + sinkTable
+                                                                            + " ORDER BY id")),
+                                            () ->
+                                                    Assertions.assertEquals(
+                                                            Collections.singletonList(
+                                                                    Arrays.asList(2L, 0L)),
+                                                            query(
+                                                                    "SELECT count(*),"
+                                                                            + " count(r2) FROM "
+                                                                            + sinkTable))));
+            Assertions.assertEquals("RUNNING", container.getJobStatus(String.valueOf(jobId)));
+        } finally {
+            try {
+                container.cancelJob(String.valueOf(jobId));
+            } catch (IOException | InterruptedException e) {
+                log.warn("Failed to cancel job " + jobId, e);
+            }
+            try {
+                dropUserDefinedTypeFixtures();
+            } catch (RuntimeException e) {
+                log.warn("Failed to drop the user-defined type fixtures", e);
+            }
+        }
+    }
+
+    private void dropUserDefinedTypeFixtures() {
+        executeSql("DROP SCHEMA IF EXISTS " + UDT_SCHEMA + " CASCADE");
+        executeSql("DROP SCHEMA IF EXISTS " + UDT_HIDDEN_SCHEMA + " CASCADE");
+        executeSql(
+                "DROP TYPE IF EXISTS public.jobstatus_lc, public.\"JobStatus\","
+                        + " public.\"order\", public.\"MyRange\"");
+    }
+
+    /** The {@code format_type} of each column, for example {@code "JobStatus"}. */
+    private List<List<Object>> columnTypes(String table) {
+        return query(
+                "SELECT attname, pg_catalog.format_type(atttypid, atttypmod)"
+                        + " FROM pg_catalog.pg_attribute WHERE attrelid = '"
+                        + table
+                        + "'::regclass AND attnum > 0 AND NOT attisdropped ORDER BY attnum");
     }
 
     @TestTemplate
