@@ -855,7 +855,26 @@ public class SubPlan {
                                 task.makeTaskGroupDeploy();
                             }
                         });
-                if (areAllVerticesRunningOrFinished(coordinatorVertexList, physicalVertexList)) {
+                List<PhysicalVertex> undeployableVertices = findUndeployableVertices();
+                if (!undeployableVertices.isEmpty()) {
+                    StringBuilder builder = new StringBuilder();
+                    for (PhysicalVertex vertex : undeployableVertices) {
+                        if (builder.length() > 0) {
+                            builder.append(", ");
+                        }
+                        builder.append(vertex.getTaskFullName());
+                    }
+                    makePipelineFailing(
+                            new IllegalStateException(
+                                    String.format(
+                                            "%s cannot deploy vertices [%s]: they never left the"
+                                                    + " terminal state of a previous attempt or"
+                                                    + " their deployment was rejected. Failing the"
+                                                    + " pipeline so the restore path can retry"
+                                                    + " instead of waiting at DEPLOYING forever.",
+                                            pipelineFullName, builder)));
+                } else if (areAllVerticesRunningOrFinished(
+                        coordinatorVertexList, physicalVertexList)) {
                     updatePipelineState(PipelineStatus.RUNNING);
                 }
                 break;
@@ -914,5 +933,36 @@ public class SubPlan {
     private static boolean isRunningOrFinished(PhysicalVertex vertex) {
         return ExecutionState.RUNNING.equals(vertex.getExecutionState())
                 || ExecutionState.FINISHED.equals(vertex.getExecutionState());
+    }
+
+    /**
+     * Collects the vertices that can never make progress in the current deployment pass and would
+     * therefore hang the pipeline at DEPLOYING forever:
+     *
+     * <ul>
+     *   <li>still CREATED after their deployment was attempted — the DEPLOYING transition was
+     *       rejected by the terminal-state guard, e.g. after a restore whose IMap reset could not
+     *       be persisted, so the vertex is CREATED in memory but terminal in the IMap;
+     *   <li>already FAILED or CANCELED with no terminal result received for the current attempt — a
+     *       leftover terminal state from before the restore that no callback will resolve.
+     * </ul>
+     *
+     * <p>Vertices whose terminal result already arrived are excluded: their failure propagates
+     * through the regular vertex-callback path and must not be double-reported here.
+     */
+    private List<PhysicalVertex> findUndeployableVertices() {
+        List<PhysicalVertex> undeployable = new ArrayList<>();
+        List<PhysicalVertex> allVertices = new ArrayList<>(coordinatorVertexList);
+        allVertices.addAll(physicalVertexList);
+        for (PhysicalVertex vertex : allVertices) {
+            ExecutionState state = vertex.getExecutionState();
+            if ((ExecutionState.CREATED.equals(state)
+                            || ExecutionState.FAILED.equals(state)
+                            || ExecutionState.CANCELED.equals(state))
+                    && !vertex.hasTerminalResult()) {
+                undeployable.add(vertex);
+            }
+        }
+        return undeployable;
     }
 }
