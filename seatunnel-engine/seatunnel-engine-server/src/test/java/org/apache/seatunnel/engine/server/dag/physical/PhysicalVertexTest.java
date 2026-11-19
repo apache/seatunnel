@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -198,5 +199,66 @@ class PhysicalVertexTest extends AbstractSeaTunnelServerTest<PhysicalVertexTest>
                 nodeEngine,
                 runningJobStateIMap,
                 runningJobStateTimestampsIMap);
+    }
+
+    @Test
+    void shouldDropTerminalEventsFromPreviousDeploymentAttempts() {
+        // Terminal reports are retried until delivered and can arrive after a restore; applied to
+        // the new attempt they would fail it and release its slot (#13317).
+        PhysicalVertex vertex = newPhysicalVertex(ExecutionState.RUNNING, "stale-events");
+        long previousId = vertex.getTaskGroupImmutableInformation().getExecutionId();
+        long currentId = vertex.getTaskGroupImmutableInformation().getExecutionId();
+        TaskGroupLocation location = vertex.getTaskGroupLocation();
+
+        boolean staleApplied =
+                vertex.updateStateByExecutionService(
+                        new TaskExecutionState(
+                                location, ExecutionState.FAILED, "ghost event", previousId));
+        Assertions.assertFalse(staleApplied, "a stale terminal event must be dropped");
+        Assertions.assertEquals(ExecutionState.RUNNING, vertex.getExecutionState());
+
+        boolean currentApplied =
+                vertex.updateStateByExecutionService(
+                        new TaskExecutionState(
+                                location, ExecutionState.FAILED, "real event", currentId));
+        Assertions.assertTrue(currentApplied);
+        Assertions.assertEquals(ExecutionState.FAILED, vertex.getExecutionState());
+    }
+
+    @Test
+    void shouldAcceptTerminalEventsWithoutExecutionId() {
+        // Events without an id (locally synthesized states, workers that do not set it) keep the
+        // previous behavior and are applied.
+        PhysicalVertex vertex = newPhysicalVertex(ExecutionState.RUNNING, "legacy-events");
+        vertex.getTaskGroupImmutableInformation();
+
+        boolean applied =
+                vertex.updateStateByExecutionService(
+                        new TaskExecutionState(
+                                vertex.getTaskGroupLocation(),
+                                ExecutionState.FAILED,
+                                "legacy event"));
+
+        Assertions.assertTrue(applied);
+        Assertions.assertEquals(ExecutionState.FAILED, vertex.getExecutionState());
+    }
+
+    @Test
+    void shouldAcceptTerminalEventsAfterAResetUntilRedeployment() {
+        // The reset of a restore forgets the previous attempt's id, so events accepted before the
+        // next deployment registers its own id keep working.
+        PhysicalVertex vertex = newPhysicalVertex(ExecutionState.FAILED, "reset-events");
+        vertex.getTaskGroupImmutableInformation();
+        vertex.reset();
+
+        boolean applied =
+                vertex.updateStateByExecutionService(
+                        new TaskExecutionState(
+                                vertex.getTaskGroupLocation(),
+                                ExecutionState.FINISHED,
+                                (String) null));
+
+        Assertions.assertTrue(applied);
+        Assertions.assertEquals(ExecutionState.FINISHED, vertex.getExecutionState());
     }
 }

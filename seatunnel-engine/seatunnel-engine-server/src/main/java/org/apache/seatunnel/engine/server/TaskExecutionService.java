@@ -1641,25 +1641,35 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } catch (Throwable t) {
                     logger.severe("update metrics context in imap failed", t);
                 }
+                // Tag the terminal state with this deployment's executionId: terminal reports
+                // are retried until delivered and can outlive their attempt; the master drops
+                // them instead of failing the restored attempt with a ghost event (#13317).
+                Long executionId = context.getExecutionId();
                 if (ex == null) {
                     logger.info(
                             String.format(
                                     "taskGroup %s complete with FINISHED", taskGroupLocation));
                     future.complete(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED));
+                            new TaskExecutionState(
+                                    taskGroupLocation, ExecutionState.FINISHED, null, executionId));
                     return;
                 } else if (isCancel.get()) {
                     logger.info(
                             String.format(
                                     "taskGroup %s complete with CANCELED", taskGroupLocation));
                     future.complete(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED));
+                            new TaskExecutionState(
+                                    taskGroupLocation, ExecutionState.CANCELED, null, executionId));
                     return;
                 } else {
                     logger.info(
                             String.format("taskGroup %s complete with FAILED", taskGroupLocation));
                     future.complete(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, ex));
+                            new TaskExecutionState(
+                                    taskGroupLocation,
+                                    ExecutionState.FAILED,
+                                    ExceptionUtils.getMessage(ex),
+                                    executionId));
                 }
             }
             if (!isCancel.get() && ex != null) {
