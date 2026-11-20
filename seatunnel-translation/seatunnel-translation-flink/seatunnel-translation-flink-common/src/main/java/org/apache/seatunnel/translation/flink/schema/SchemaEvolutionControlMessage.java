@@ -122,7 +122,7 @@ public final class SchemaEvolutionControlMessage {
             return;
         }
         String requiredChangeId = requiredSchemaChangeId(source);
-        if (requiredChangeId == null) {
+        if (requiredChangeId == null || requiredChangeId.equals(requiredSchemaChangeId(target))) {
             return;
         }
         Map<String, Object> options =
@@ -143,6 +143,10 @@ public final class SchemaEvolutionControlMessage {
         if (row == null
                 || row.getOptions() == null
                 || !row.getOptions().containsKey(REQUIRED_SCHEMA_CHANGE_ID)) {
+            return;
+        }
+        if (row.getOptions().size() == 1) {
+            row.setOptions(null);
             return;
         }
         Map<String, Object> options = new HashMap<>(row.getOptions());

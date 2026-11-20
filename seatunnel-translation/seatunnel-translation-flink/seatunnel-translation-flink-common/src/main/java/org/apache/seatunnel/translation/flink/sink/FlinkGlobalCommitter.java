@@ -29,7 +29,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -45,6 +47,8 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
         implements GlobalCommitter<CommitWrapper<CommT>, GlobalCommT> {
 
     private final SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter;
+    private final Set<GlobalCommT> restoredCommittables =
+            Collections.newSetFromMap(new IdentityHashMap<>());
 
     private MultiTableResourceManager resourceManager;
 
@@ -65,18 +69,41 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
     @Override
     public List<GlobalCommT> filterRecoveredCommittables(List globalCommittables)
             throws IOException {
-        return Collections.emptyList();
+        restoredCommittables.addAll(globalCommittables);
+        return globalCommittables;
     }
 
     @Override
     public GlobalCommT combine(List<CommitWrapper<CommT>> committables) throws IOException {
-        return aggregatedCommitter.combine(
-                committables.stream().map(CommitWrapper::getCommit).collect(Collectors.toList()));
+        GlobalCommT globalCommittable =
+                aggregatedCommitter.combine(
+                        committables.stream()
+                                .map(CommitWrapper::getCommit)
+                                .collect(Collectors.toList()));
+        if (committables.stream().anyMatch(CommitWrapper::isRestored)) {
+            restoredCommittables.add(globalCommittable);
+        }
+        return globalCommittable;
     }
 
     @Override
     public List<GlobalCommT> commit(List<GlobalCommT> globalCommittables) throws IOException {
-        List<GlobalCommT> reCommittable = aggregatedCommitter.commit(globalCommittables);
+        List<GlobalCommT> restored = new ArrayList<>();
+        List<GlobalCommT> regular = new ArrayList<>();
+        for (GlobalCommT globalCommittable : globalCommittables) {
+            if (restoredCommittables.remove(globalCommittable)) {
+                restored.add(globalCommittable);
+            } else {
+                regular.add(globalCommittable);
+            }
+        }
+        List<GlobalCommT> reCommittable = new ArrayList<>();
+        if (!restored.isEmpty()) {
+            reCommittable.addAll(aggregatedCommitter.restoreCommit(restored));
+        }
+        if (!regular.isEmpty()) {
+            reCommittable.addAll(aggregatedCommitter.commit(regular));
+        }
         if (reCommittable != null && !reCommittable.isEmpty()) {
             log.warn("this version not support re-commit when use flink engine");
         }

@@ -25,12 +25,22 @@ package org.apache.seatunnel.translation.flink.sink;
  */
 public class CommitWrapper<CommitT> {
     private final CommitT commit;
+    private final boolean restored;
 
     public CommitWrapper(CommitT commit) {
+        this(commit, false);
+    }
+
+    public CommitWrapper(CommitT commit, boolean restored) {
         this.commit = commit;
+        this.restored = restored;
     }
 
     public CommitT getCommit() {
         return commit;
+    }
+
+    public boolean isRestored() {
+        return restored;
     }
 }

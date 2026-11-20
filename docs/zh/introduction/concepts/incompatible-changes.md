@@ -4,6 +4,21 @@
 
 ## dev
 
+### Flink schema evolution：checkpoint 协议与按表路由
+
+启用 schema evolution 的 Flink CDC 任务改为使用按表 keyed state 保存 Sink schema 进度和等待行。
+源端协议和算子拓扑也不同于此前的本地协调器实现及 broadcast/union state 实现。
+这些旧实现生成的 checkpoint 和 savepoint 不支持直接用于升级恢复，当前没有状态迁移适配器。
+`--allowNonRestoredState` 不是安全迁移方案：保留源端位点但丢弃 schema 进度或等待行，
+可能导致数据丢失或使用错误表结构解释数据。
+
+请保留旧任务构件和可恢复的 savepoint 用于回滚。建议规划受控切换：向独立目标执行新的全量快照，
+校验表结构和数据后再切换消费者。复用已有目标时必须显式对账并协调目标结构；
+不要简单丢弃状态后从最新源端位点继续。
+
+增量读取并行度必须为一。Sink 仍支持表间并行，但每张源表只分配给一个 Flink Sink 子任务。
+连接器要求及共享物理目标表的限制见 [Flink 路由与故障恢复](../configuration/schema-evolution.md#flink-路由与故障恢复)。
+
 ### Http Sink：`array_mode = true` 时每行作为 JSON 对象发送
 
 - **行为变更：请求体数组的元素是 JSON 对象，而不再是字符串**

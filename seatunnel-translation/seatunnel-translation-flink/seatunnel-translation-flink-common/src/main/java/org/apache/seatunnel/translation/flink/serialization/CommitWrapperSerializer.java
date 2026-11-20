@@ -68,7 +68,7 @@ public class CommitWrapperSerializer<T> implements SimpleVersionedSerializer<Com
             final byte[] stateBytes = new byte[size];
             in.read(stateBytes);
             T commitT = serializer.deserialize(stateBytes);
-            return new CommitWrapper<>(commitT);
+            return new CommitWrapper<>(commitT, true);
         }
     }
 }
