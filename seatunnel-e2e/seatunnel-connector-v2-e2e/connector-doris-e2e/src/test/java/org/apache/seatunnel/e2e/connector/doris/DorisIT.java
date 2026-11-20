@@ -286,6 +286,10 @@ public class DorisIT extends AbstractDorisIT {
                                         + "\"replication_allocation\" = \"tag.location.default: 1\""
                                         + ");",
                                 sourceDB, KEYWORD_COLUMN_TABLE));
+                // A run killed before the finally block can leave a row behind. Truncate it so
+                // the Assert sink still sees exactly one row.
+                statement.execute(
+                        String.format("truncate table `%s`.`%s`", sourceDB, KEYWORD_COLUMN_TABLE));
                 statement.execute(
                         String.format(
                                 "insert into `%s`.`%s` values (1, 'beijing', 'first', 7, 'erp')",
