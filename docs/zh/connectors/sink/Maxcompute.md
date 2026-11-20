@@ -63,8 +63,16 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 `sts_token` 您的 MaxCompute STS Token，用于临时认证。 **注意：** 如果提供了 `sts_token`，则必须同时提供 `accessId` 和 `accesskey`。
 
-> **免密认证 (ECS RAM Role, 环境变量等)**
+> **免密认证 (ECS RAM Role, OIDC / RRSA, 环境变量等)**
 > 要使用免密认证，只需将 `accessId`、`accesskey` 和 `sts_token` 全部留空不填。连接器将自动回退到阿里云默认凭据链 (DefaultCredentialsProvider) 读取凭证（包括环境变量、系统属性、CLI 配置文件、OIDC 以及 ECS RAM 角色）。
+>
+> **VPC STS 端点配置 (ACK RRSA / OIDC 环境)**:
+> 在使用 RRSA (RAM Roles for Service Accounts) 或 OIDC 认证的阿里云容器服务 ACK (Kubernetes) 环境中：
+> - 可设置环境变量 `ALIBABA_CLOUD_VPC_ENDPOINT_ENABLED=true` 以及 `ALIBABA_CLOUD_STS_REGION=<region-id>`（例如 `cn-hangzhou`），使 STS AssumeRole 请求通过专有网络 VPC 端点（`sts-vpc.<region>.aliyuncs.com`）解析与访问。
+> - 这两项环境变量必须同时配置。若仅设置了 `ALIBABA_CLOUD_VPC_ENDPOINT_ENABLED=true` 而未指定 `ALIBABA_CLOUD_STS_REGION`，SDK 将回退至公网 STS 端点（`sts.aliyuncs.com`）。
+>
+> **运行时凭证刷新机制**:
+> 对于长时间运行的流式作业或耗时超出 Token 有效期的批处理任务，`AklessAccount` 会在缓存凭证过期或达到失效阈值时按需同步刷新凭证，无需手动轮换凭据或重启作业。
 
 ### endpoint [string]
 
