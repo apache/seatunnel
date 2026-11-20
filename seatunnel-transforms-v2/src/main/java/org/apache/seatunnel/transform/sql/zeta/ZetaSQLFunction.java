@@ -1106,6 +1106,16 @@ public class ZetaSQLFunction {
         return computeForValue(expressions.get(expressions.size() - 1), inputFields);
     }
 
+    /**
+     * Evaluates {@code IF(condition, trueValue, falseValue)}. Any boolean-typed condition
+     * expression (comparison, {@code IS NULL}, {@code IN}, {@code LIKE}, boolean combinations, with
+     * or without parentheses) is evaluated through the filter evaluator; a bare boolean column
+     * keeps the value path so a null value is treated as false, and a non-null non-boolean
+     * condition is an error. Type inference for both branches is eager during planning, but per row
+     * only the selected branch is evaluated, and a selected value already of the resolved common
+     * result type is returned unchanged, so identity-sensitive values such as byte arrays, arrays
+     * and maps survive; other values are converted to the common type following CAST semantics.
+     */
     private Object ifFunction(Function function, Object[] inputFields) {
         ExpressionList<Expression> expressionList =
                 (ExpressionList<Expression>) function.getParameters();

@@ -308,6 +308,14 @@ public class ZetaSQLType {
         return result;
     }
 
+    /**
+     * Resolves the common result type of the two value branches of {@code IF}. A {@code NULL}
+     * literal branch is transparent. Unlike {@link #getMaxType(SeaTunnelDataType,
+     * SeaTunnelDataType)}, a string branch widens the result to STRING (the other branch is
+     * rendered as text, following CAST semantics), so a string branch can be mixed with a numeric
+     * branch. Decimal operands are merged exactly so no branch value is truncated, as described in
+     * {@link #mergeIfDecimalType}.
+     */
     private SeaTunnelDataType<?> getIfCommonType(
             SeaTunnelDataType<?> trueType, SeaTunnelDataType<?> falseType) {
         if (trueType == null || BasicType.VOID_TYPE.equals(trueType)) {
@@ -329,6 +337,14 @@ public class ZetaSQLType {
         return getMaxType(trueType, falseType);
     }
 
+    /**
+     * Merges a decimal branch type with the other branch type of {@code IF}, or returns null when
+     * neither branch type is decimal. The merged precision keeps the wider integer part, so a
+     * DECIMAL(10,2) branch combined with a DECIMAL(10,8) branch resolves to DECIMAL(16,8) rather
+     * than truncating the integer part, and an integer branch contributes its full digit width
+     * (TINYINT 3, SMALLINT 5, INT 10, BIGINT 19). A FLOAT or DOUBLE branch resolves to DOUBLE
+     * following CAST semantics.
+     */
     private SeaTunnelDataType<?> mergeIfDecimalType(
             SeaTunnelDataType<?> trueType, SeaTunnelDataType<?> falseType) {
         DecimalType decimalType;
