@@ -808,7 +808,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         List<Object> decimalList = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
             if (!decimalVector.isNull[offset + i]) {
-                BigDecimal bigDecimal = decimalVector.vector[i].getHiveDecimal().bigDecimalValue();
+                BigDecimal bigDecimal =
+                        decimalVector.vector[offset + i].getHiveDecimal().bigDecimalValue();
                 decimalList.add(bigDecimal);
             } else {
                 decimalList.add(null);
