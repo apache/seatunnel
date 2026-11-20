@@ -19,9 +19,12 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.api.ChunkSupportStorage;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
@@ -64,6 +67,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.DriverManager;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
@@ -102,6 +106,7 @@ public class SeaTunnelServer
     @Getter private ClassLoaderService classLoaderService;
     private CoordinatorService coordinatorService;
     @Getter private CheckpointService checkpointService;
+    private volatile ChunkSupportStorage chunkStateStorage;
     @Getter private CheckpointMonitorService checkpointMonitorService;
     @Getter private ScheduledExecutorService monitorService;
     @Getter private volatile RealtimeMetricsService realtimeMetricsService;
@@ -472,5 +477,47 @@ public class SeaTunnelServer
 
     public ThreadPoolStatus getThreadPoolStatusMetrics() {
         return coordinatorService.getThreadPoolStatusMetrics();
+    }
+
+    /**
+     * Returns the checkpoint storage this node uses to read externalized (STIP-45) task state on
+     * restore. The master reuses its {@link CheckpointService} storage; other nodes create one from
+     * their own {@code checkpoint.storage} configuration on first use.
+     *
+     * @throws IllegalStateException if the configured storage plugin does not implement {@link
+     *     ChunkSupportStorage}
+     */
+    public ChunkSupportStorage getChunkStateStorage() {
+        ChunkSupportStorage storage = chunkStateStorage;
+        if (storage == null) {
+            synchronized (this) {
+                if (chunkStateStorage == null) {
+                    chunkStateStorage = createChunkStateStorage();
+                }
+                storage = chunkStateStorage;
+            }
+        }
+        return storage;
+    }
+
+    private ChunkSupportStorage createChunkStateStorage() {
+        CheckpointConfig config = seaTunnelConfig.getEngineConfig().getCheckpointConfig();
+        CheckpointStorage storage =
+                checkpointService != null
+                        ? checkpointService.getCheckpointStorage()
+                        : CheckpointService.createStorage(
+                                config,
+                                // plugins may consume entries of the map, keep the config intact
+                                new HashMap<>(config.getStorage().getStoragePluginConfig()));
+        if (!(storage instanceof ChunkSupportStorage)) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Checkpoint storage plugin '%s' on node %s cannot read externalized "
+                                    + "checkpoint state: it does not implement %s",
+                            config.getStorage().getStorage(),
+                            nodeEngine == null ? "unknown" : nodeEngine.getThisAddress(),
+                            ChunkSupportStorage.class.getSimpleName()));
+        }
+        return (ChunkSupportStorage) storage;
     }
 }

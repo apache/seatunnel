@@ -23,10 +23,11 @@ package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
-import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractChunkSupportStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.AbstractConfiguration;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.FileConfiguration;
+import org.apache.seatunnel.engine.checkpoint.storage.state.CheckpointFileLayout;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -48,7 +49,7 @@ import java.util.Set;
 import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageConstants.STORAGE_NAME_SPACE;
 
 @Slf4j
-public class HdfsStorage extends AbstractCheckpointStorage {
+public class HdfsStorage extends AbstractChunkSupportStorage {
 
     public FileSystem fs;
     private static final String STORAGE_TMP_SUFFIX = "tmp";
@@ -373,5 +374,66 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                             fileName, jobId),
                     e);
         }
+    }
+
+    private Path resolve(String relativePath) {
+        return new Path(getStorageParentDirectory() + relativePath);
+    }
+
+    /**
+     * Writes a temporary file and renames it. On HDFS the rename is atomic; on object stores
+     * (S3/OSS/COS/GCS) it is a copy, which is why {@code _metadata} carries a CRC that readers
+     * validate.
+     */
+    @Override
+    protected void writeFileAtomically(String relativePath, byte[] data) throws IOException {
+        Path target = resolve(relativePath);
+        Path tmp = resolve(relativePath + CheckpointFileLayout.TMP_SUFFIX);
+        try {
+            try (FSDataOutputStream out = fs.create(tmp, true)) {
+                out.write(data);
+            }
+            // FileSystem#rename does not overwrite, so drop a leftover of an earlier attempt
+            if (fs.exists(target)) {
+                fs.delete(target, false);
+            }
+            if (!fs.rename(tmp, target)) {
+                throw new IOException(String.format("Failed to rename %s to %s", tmp, target));
+            }
+        } finally {
+            if (fs.exists(tmp)) {
+                fs.delete(tmp, false);
+            }
+        }
+    }
+
+    @Override
+    protected byte[] readFile(String relativePath) throws IOException {
+        try (FSDataInputStream in = fs.open(resolve(relativePath));
+                ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+            IOUtils.copyBytes(in, stream, 4096);
+            return stream.toByteArray();
+        }
+    }
+
+    @Override
+    protected boolean fileExists(String relativePath) throws IOException {
+        Path path = resolve(relativePath);
+        return fs.exists(path) && fs.getFileStatus(path).isFile();
+    }
+
+    @Override
+    protected List<String> listChildDirectories(String relativePath) throws IOException {
+        Path dir = resolve(relativePath);
+        List<String> names = new ArrayList<>();
+        if (!fs.exists(dir)) {
+            return names;
+        }
+        for (FileStatus status : fs.listStatus(dir)) {
+            if (status.isDirectory()) {
+                names.add(status.getPath().getName());
+            }
+        }
+        return names;
     }
 }

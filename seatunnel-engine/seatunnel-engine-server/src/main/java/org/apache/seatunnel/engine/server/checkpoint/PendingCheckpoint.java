@@ -33,7 +33,6 @@ import lombok.Setter;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 
@@ -135,8 +134,8 @@ public class PendingCheckpoint implements Checkpoint {
             if (actionState == null) {
                 continue;
             }
-            stateSize +=
-                    state.getState().stream().filter(Objects::nonNull).map(s -> s.length).count();
+            // true bytes, also for externalized states whose bytes are not in this ack
+            stateSize += state.getStateSize();
             actionState.reportState(state.getIndex(), state);
         }
         statistics.reportSubtaskStatistics(

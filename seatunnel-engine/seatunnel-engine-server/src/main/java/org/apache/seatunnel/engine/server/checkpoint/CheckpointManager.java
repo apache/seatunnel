@@ -169,8 +169,9 @@ public class CheckpointManager {
                                         if (checkpointConfig.isCheckpointEnable() && isRestoreJob) {
                                             if (masterFailoverRestore) {
                                                 pipelineState =
-                                                        checkpointStorage
-                                                                .getLatestCheckpointByJobIdAndPipelineId(
+                                                        DualFormatCheckpointReader
+                                                                .getLatestCheckpoint(
+                                                                        checkpointStorage,
                                                                         String.valueOf(jobId),
                                                                         String.valueOf(
                                                                                 plan
@@ -220,11 +221,12 @@ public class CheckpointManager {
     private PipelineState getLatestCheckpointStateByType(
             String sourceJobId, String pipelineId, RestoreMode restoreMode) throws Exception {
         if (restoreMode == null || !restoreMode.isRestore()) {
-            return checkpointStorage.getLatestCheckpointByJobIdAndPipelineId(
-                    sourceJobId, pipelineId);
+            return DualFormatCheckpointReader.getLatestCheckpoint(
+                    checkpointStorage, sourceJobId, pipelineId);
         }
         List<PipelineState> pipelineStates =
-                checkpointStorage.getCheckpointsByJobIdAndPipelineId(sourceJobId, pipelineId);
+                DualFormatCheckpointReader.getCheckpoints(
+                        checkpointStorage, sourceJobId, pipelineId);
         return pipelineStates.stream()
                 .filter(
                         state ->

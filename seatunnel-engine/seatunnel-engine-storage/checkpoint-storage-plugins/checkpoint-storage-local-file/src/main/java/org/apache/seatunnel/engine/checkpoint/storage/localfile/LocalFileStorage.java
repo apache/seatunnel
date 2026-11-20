@@ -24,8 +24,9 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.exception.ExceptionUtils;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
-import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractChunkSupportStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.state.CheckpointFileLayout;
 
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.io.FileUtils;
@@ -34,7 +35,12 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -47,7 +53,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageConstants.STORAGE_NAME_SPACE;
 
 @Slf4j
-public class LocalFileStorage extends AbstractCheckpointStorage {
+public class LocalFileStorage extends AbstractChunkSupportStorage {
 
     private static final String[] FILE_EXTENSIONS = new String[] {FILE_FORMAT};
 
@@ -389,5 +395,52 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                         }
                     }
                 });
+    }
+
+    private Path resolve(String relativePath) {
+        return Paths.get(getStorageParentDirectory(), relativePath);
+    }
+
+    @Override
+    protected void writeFileAtomically(String relativePath, byte[] data) throws IOException {
+        Path target = resolve(relativePath);
+        Path tmp = resolve(relativePath + CheckpointFileLayout.TMP_SUFFIX);
+        Files.createDirectories(target.getParent());
+        try {
+            Files.write(tmp, data);
+            // a POSIX rename replaces the target atomically
+            Files.move(
+                    tmp,
+                    target,
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            Files.deleteIfExists(tmp);
+        }
+    }
+
+    @Override
+    protected byte[] readFile(String relativePath) throws IOException {
+        return Files.readAllBytes(resolve(relativePath));
+    }
+
+    @Override
+    protected boolean fileExists(String relativePath) {
+        return Files.isRegularFile(resolve(relativePath));
+    }
+
+    @Override
+    protected List<String> listChildDirectories(String relativePath) throws IOException {
+        Path dir = resolve(relativePath);
+        List<String> names = new ArrayList<>();
+        if (!Files.isDirectory(dir)) {
+            return names;
+        }
+        try (DirectoryStream<Path> children = Files.newDirectoryStream(dir, Files::isDirectory)) {
+            for (Path child : children) {
+                names.add(child.getFileName().toString());
+            }
+        }
+        return names;
     }
 }
