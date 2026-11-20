@@ -22,6 +22,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
 import org.awaitility.Awaitility;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
@@ -56,6 +57,9 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     protected static final List<Document> TEST_SPLIT_DATASET = generateTestDataSet(10);
 
+    protected static final List<Document> TEST_SPLIT_KEY_TYPES_DATASET =
+            generateSplitKeyTypesDataSet(300);
+
     protected static final List<Document> TEST_NULL_DATASET = generateTestDataSetWithNull(10);
 
     protected static final List<Document> TEST_DOUBLE_DATASET =
@@ -85,6 +89,11 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     protected static final String MONGODB_SPLIT_RESULT_TABLE = "test_split_op_result_db";
 
+    protected static final String MONGODB_SPLIT_KEY_TYPES_TABLE = "test_split_key_types_db";
+
+    protected static final String MONGODB_SPLIT_KEY_TYPES_RESULT_TABLE =
+            "test_split_key_types_result_db";
+
     protected static final String MONGODB_SINK_TABLE = "test_source_sink_table";
 
     protected static final String MONGODB_UPDATE_TABLE = "test_update_table";
@@ -112,12 +121,44 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
     protected void initSourceData() {
         prepareInitDataInCollection(MONGODB_MATCH_TABLE, TEST_MATCH_DATASET);
         prepareInitDataInCollection(MONGODB_SPLIT_TABLE, TEST_SPLIT_DATASET);
+        prepareInitDataInCollection(MONGODB_SPLIT_KEY_TYPES_TABLE, TEST_SPLIT_KEY_TYPES_DATASET);
         prepareInitDataInCollection(MONGODB_NULL_TABLE, TEST_NULL_DATASET);
         prepareInitDataInCollection(MONGODB_DOUBLE_TABLE, TEST_DOUBLE_DATASET);
     }
 
     protected void clearData(String table) {
         client.getDatabase(MONGODB_DATABASE).getCollection(table).drop();
+    }
+
+    /**
+     * Documents whose _id is an ObjectId, a string or a long, and whose c_key is an int, a string,
+     * NaN, missing or null. c_id numbers them from 0.
+     */
+    public static List<Document> generateSplitKeyTypesDataSet(int count) {
+        List<Document> dataSet = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            Document document = new Document();
+            if (i % 3 == 0) {
+                document.append("_id", new ObjectId());
+            } else if (i % 3 == 1) {
+                document.append("_id", String.format("s%04d", i));
+            } else {
+                document.append("_id", (long) i);
+            }
+            document.append("c_id", i);
+            if (i % 5 == 0 || i % 5 == 4) {
+                document.append("c_key", i);
+            } else if (i % 5 == 1) {
+                document.append("c_key", String.format("k%04d", i));
+            } else if (i % 10 == 3) {
+                document.append("c_key", null);
+            } else if (i % 10 == 8) {
+                document.append("c_key", Double.NaN);
+            }
+            document.append("c_pad", randomString());
+            dataSet.add(document);
+        }
+        return dataSet;
     }
 
     public static List<Document> generateTestDataSet(int count) {

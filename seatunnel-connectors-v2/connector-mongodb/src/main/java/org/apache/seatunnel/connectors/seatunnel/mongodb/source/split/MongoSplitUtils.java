@@ -69,4 +69,15 @@ public class MongoSplitUtils {
         return new MongoSplit(
                 String.format(SPLIT_ID_TEMPLATE, index), splitQuery, projection, startOffset);
     }
+
+    /** Creates a split that reads the documents of {@code matchQuery} that match {@code query}. */
+    public static MongoSplit createMongoSplit(
+            int index, BsonDocument matchQuery, BsonDocument projection, BsonDocument query) {
+        BsonDocument splitQuery = new BsonDocument();
+        if (matchQuery != null) {
+            matchQuery.forEach(splitQuery::append);
+        }
+        query.forEach(splitQuery::append);
+        return new MongoSplit(String.format(SPLIT_ID_TEMPLATE, index), splitQuery, projection, 0);
+    }
 }

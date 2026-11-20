@@ -120,6 +120,10 @@ URI 中的认证、TLS 和读取偏好设置保持不变。仅预检查客户端
 > 1. `match.query` 兼容旧版参数名 `matchQuery`，二者等价；若同时设置，以 `match.query` 为准。
 > 2. 使用 `partition.split-key` 时建议选择有索引的字段，能显著加快 split 边界扫描。
 > 3. 当 `flat.sync-string = true` 时，schema 仅用于声明单个接收文档的 `STRING` 字段。
+> 4. 分片字段的值可以有多种 BSON 类型，部分文档中也可以缺失或为 null。MongoDB 只会把范围边界与同一类型组
+>    （数字、字符串、ObjectId、日期等）的值比较，因此 Source 会按采样值的每个类型组分别构建范围，并用另一个
+>    split 读取分片字段缺失、为 null、为 NaN 或属于其他类型的文档；当大多数文档没有分片字段值时，这个 split
+>    可能读取很多文档。分片字段不能是数组：范围会按数组中的每个元素匹配，这样的文档可能被读取多次。
 
 ## 如何创建 MongoDB 数据同步作业
 

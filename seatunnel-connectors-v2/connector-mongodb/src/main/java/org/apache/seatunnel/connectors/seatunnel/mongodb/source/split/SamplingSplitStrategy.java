@@ -24,9 +24,16 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientProvider;
 
+import org.bson.BsonArray;
+import org.bson.BsonDecimal128;
 import org.bson.BsonDocument;
+import org.bson.BsonDouble;
+import org.bson.BsonNull;
 import org.bson.BsonString;
+import org.bson.BsonType;
+import org.bson.BsonValue;
 import org.bson.Document;
+import org.bson.types.Decimal128;
 
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Projections;
@@ -34,13 +41,62 @@ import com.mongodb.client.model.Sorts;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+/**
+ * Splits a collection into ranges of the split key, with bounds taken from a sample of the
+ * collection.
+ *
+ * <p>A MongoDB range filter such as {@code {key: {$lt: 5}}} only matches values of the type bracket
+ * of its bound: numbers, strings, ObjectIds, dates and so on are compared only with values of their
+ * own bracket. The splits therefore cover each bracket that the sampled bounds have with ranges of
+ * that bracket alone, and one more split reads every document whose split key is missing, null or
+ * of another type. Each document is read by exactly one split, unless its split key holds an array,
+ * which a range filter matches by each element.
+ */
 public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
+
+    /**
+     * The {@code $type} aliases of the type brackets that a range of the split key can cover. Null
+     * and missing values, arrays and the other types are read by the split of other values.
+     */
+    private static final Map<BsonType, List<String>> RANGE_TYPE_BRACKETS = rangeTypeBrackets();
+
+    /**
+     * The {@code $type} aliases of every type that a split key value can have besides null and
+     * arrays. {@code undefined} is listed because MongoDB 8.0 no longer matches it with null.
+     */
+    private static final List<String> ALL_TYPE_ALIASES =
+            Arrays.asList(
+                    "double",
+                    "string",
+                    "object",
+                    "binData",
+                    "undefined",
+                    "objectId",
+                    "bool",
+                    "date",
+                    "regex",
+                    "dbPointer",
+                    "javascript",
+                    "symbol",
+                    "javascriptWithScope",
+                    "int",
+                    "timestamp",
+                    "long",
+                    "decimal",
+                    "minKey",
+                    "maxKey");
 
     private final MongodbClientProvider clientProvider;
 
@@ -102,19 +158,46 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         }
         List<BsonDocument> samples = sampleCollection(numSamples);
         if (samples.isEmpty()) {
-            return Collections.emptyList();
+            // No sampled document has a split key value, so a range would not hold any of them
+            return Lists.newArrayList(
+                    MongoSplitUtils.createMongoSplit(
+                            0, matchQuery, projection, splitKey, null, null));
         }
 
-        List<Object> rightBoundaries =
+        List<BsonValue> rightBoundaries =
                 IntStream.range(0, samples.size())
                         .filter(
                                 i ->
                                         i % samplesPerSplit == 0
                                                 || !matchQuery.isEmpty() && i == count - 1)
-                        .mapToObj(i -> samples.get(i).get(splitKey))
+                        .mapToObj(i -> valueOf(samples.get(i), splitKey))
+                        .filter(SamplingSplitStrategy::canBoundARange)
                         .collect(Collectors.toList());
+        if (rightBoundaries.isEmpty()) {
+            return Lists.newArrayList(
+                    MongoSplitUtils.createMongoSplit(
+                            0, matchQuery, projection, splitKey, null, null));
+        }
 
         return createSplits(splitKey, rightBoundaries);
+    }
+
+    /** NaN sorts below all numbers but no range of numbers matches it, so it cannot be a bound. */
+    private static boolean canBoundARange(BsonValue value) {
+        if (!RANGE_TYPE_BRACKETS.containsKey(value.getBsonType())) {
+            return false;
+        }
+        if (value.isDouble()) {
+            return !Double.isNaN(value.asDouble().getValue());
+        }
+        return !value.isDecimal128() || !value.asDecimal128().getValue().isNaN();
+    }
+
+    /** Returns the value of {@code key}, or {@link BsonNull} when the document has none. */
+    @VisibleForTesting
+    static BsonValue valueOf(BsonDocument document, String key) {
+        BsonValue value = document.get(key);
+        return value == null || value instanceof BsonArray ? BsonNull.VALUE : value;
     }
 
     @VisibleForTesting
@@ -152,12 +235,20 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         }
     }
 
-    private List<BsonDocument> sampleCollection(int numSamples) {
+    /**
+     * Samples documents that have a split key value, sorted by it. Documents whose split key is
+     * missing or null cannot bound a range; the split of other values reads them.
+     */
+    @VisibleForTesting
+    protected List<BsonDocument> sampleCollection(int numSamples) {
+        BsonDocument hasSplitKey =
+                new BsonDocument(splitKey, new BsonDocument("$ne", BsonNull.VALUE));
         return clientProvider
                 .getDefaultCollection()
                 .aggregate(
                         Lists.newArrayList(
                                 Aggregates.match(matchQuery),
+                                Aggregates.match(hasSplitKey),
                                 Aggregates.sample(numSamples),
                                 Aggregates.project(Projections.include(splitKey)),
                                 Aggregates.sort(Sorts.ascending(splitKey))))
@@ -165,31 +256,85 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
                 .into(Lists.newArrayList());
     }
 
-    private List<MongoSplit> createSplits(String splitKey, List<Object> rightBoundaries) {
-        if (rightBoundaries.size() == 0) {
-            return Collections.emptyList();
+    /**
+     * Creates the ranges of each type bracket of the sorted bounds, from below the first bound of
+     * the bracket to above its last one, and then the split of all other values: missing, null,
+     * NaN, arrays and the types that no bound has.
+     */
+    private List<MongoSplit> createSplits(String splitKey, List<BsonValue> rightBoundaries) {
+        List<MongoSplit> splits = new ArrayList<>();
+        Set<String> coveredTypes = new LinkedHashSet<>();
+        int start = 0;
+        while (start < rightBoundaries.size()) {
+            List<String> bracket =
+                    RANGE_TYPE_BRACKETS.get(rightBoundaries.get(start).getBsonType());
+            int end = start;
+            while (end + 1 < rightBoundaries.size()
+                    && bracket.equals(
+                            RANGE_TYPE_BRACKETS.get(rightBoundaries.get(end + 1).getBsonType()))) {
+                end++;
+            }
+            splits.add(createSplit(splits.size(), null, rightBoundaries.get(start)));
+            for (int i = start + 1; i <= end; i++) {
+                splits.add(
+                        createSplit(
+                                splits.size(), rightBoundaries.get(i - 1), rightBoundaries.get(i)));
+            }
+            splits.add(createSplit(splits.size(), rightBoundaries.get(end), null));
+            coveredTypes.addAll(bracket);
+            start = end + 1;
         }
-
-        List<MongoSplit> splits =
-                IntStream.range(0, rightBoundaries.size())
-                        .mapToObj(
-                                index -> {
-                                    Object min = index > 0 ? rightBoundaries.get(index - 1) : null;
-                                    return MongoSplitUtils.createMongoSplit(
-                                            index,
-                                            matchQuery,
-                                            projection,
-                                            splitKey,
-                                            min,
-                                            rightBoundaries.get(index));
-                                })
-                        .collect(Collectors.toList());
-
-        Object lastBoundary = rightBoundaries.get(rightBoundaries.size() - 1);
         splits.add(
                 MongoSplitUtils.createMongoSplit(
-                        splits.size(), matchQuery, projection, splitKey, lastBoundary, null));
+                        splits.size(), matchQuery, projection, otherValues(coveredTypes)));
         return splits;
+    }
+
+    private MongoSplit createSplit(int index, BsonValue lowerBound, BsonValue upperBound) {
+        return MongoSplitUtils.createMongoSplit(
+                index, matchQuery, projection, splitKey, lowerBound, upperBound);
+    }
+
+    /**
+     * A filter for the split key values that no range covers: missing and null ({@code {key: null}}
+     * matches both), NaN, which no range of numbers matches, and the types of no range.
+     */
+    private BsonDocument otherValues(Set<String> coveredTypes) {
+        List<BsonValue> filters = new ArrayList<>();
+        filters.add(new BsonDocument(splitKey, BsonNull.VALUE));
+        if (coveredTypes.contains("double")) {
+            filters.add(new BsonDocument(splitKey, new BsonDouble(Double.NaN)));
+            filters.add(new BsonDocument(splitKey, new BsonDecimal128(Decimal128.NaN)));
+        }
+        BsonArray otherTypes = new BsonArray();
+        for (String alias : ALL_TYPE_ALIASES) {
+            if (!coveredTypes.contains(alias)) {
+                otherTypes.add(new BsonString(alias));
+            }
+        }
+        if (!otherTypes.isEmpty()) {
+            filters.add(new BsonDocument(splitKey, new BsonDocument("$type", otherTypes)));
+        }
+        return new BsonDocument("$or", new BsonArray(filters));
+    }
+
+    private static Map<BsonType, List<String>> rangeTypeBrackets() {
+        Map<BsonType, List<String>> brackets = new EnumMap<>(BsonType.class);
+        List<String> numbers = Arrays.asList("double", "int", "long", "decimal");
+        brackets.put(BsonType.DOUBLE, numbers);
+        brackets.put(BsonType.INT32, numbers);
+        brackets.put(BsonType.INT64, numbers);
+        brackets.put(BsonType.DECIMAL128, numbers);
+        List<String> strings = Arrays.asList("string", "symbol");
+        brackets.put(BsonType.STRING, strings);
+        brackets.put(BsonType.SYMBOL, strings);
+        brackets.put(BsonType.DOCUMENT, Collections.singletonList("object"));
+        brackets.put(BsonType.BINARY, Collections.singletonList("binData"));
+        brackets.put(BsonType.OBJECT_ID, Collections.singletonList("objectId"));
+        brackets.put(BsonType.BOOLEAN, Collections.singletonList("bool"));
+        brackets.put(BsonType.DATE_TIME, Collections.singletonList("date"));
+        brackets.put(BsonType.TIMESTAMP, Collections.singletonList("timestamp"));
+        return brackets;
     }
 
     public static Builder builder() {

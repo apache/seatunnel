@@ -459,6 +459,43 @@ public class MongodbIT extends AbstractMongodbIT {
         clearData(MONGODB_SPLIT_RESULT_TABLE);
     }
 
+    /**
+     * Splits of a split key whose values have several BSON types, or are missing, null or NaN, must
+     * read every document once. A range of the split key matches only values of the type of its
+     * bound, so splits between bounds of two types read nothing, and a sampled document without the
+     * key made a split without bounds that read the whole collection again.
+     */
+    @TestTemplate
+    public void testMongodbSourceSplitKeyOfSeveralTypes(TestContainer container)
+            throws IOException, InterruptedException {
+        List<Integer> all =
+                TEST_SPLIT_KEY_TYPES_DATASET.stream()
+                        .map(d -> d.getInteger("c_id"))
+                        .collect(Collectors.toList());
+        assertSplitKeyTypesJobReads(
+                container, "/splitIT/mongodb_split_key_types_source_to_mongodb.conf", all);
+        assertSplitKeyTypesJobReads(
+                container, "/splitIT/mongodb_split_id_types_source_to_mongodb.conf", all);
+    }
+
+    private void assertSplitKeyTypesJobReads(
+            TestContainer container, String config, List<Integer> expectedIds)
+            throws IOException, InterruptedException {
+        try {
+            Container.ExecResult result = container.executeJob(config);
+            Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+            List<Integer> readIds = new ArrayList<>();
+            client.getDatabase(MONGODB_DATABASE)
+                    .getCollection(MONGODB_SPLIT_KEY_TYPES_RESULT_TABLE)
+                    .find()
+                    .forEach(d -> readIds.add(d.getInteger("c_id")));
+            Collections.sort(readIds);
+            Assertions.assertEquals(expectedIds, readIds, config);
+        } finally {
+            clearData(MONGODB_SPLIT_KEY_TYPES_RESULT_TABLE);
+        }
+    }
+
     @TestTemplate
     public void testCompatibleParameters(TestContainer container)
             throws IOException, InterruptedException {
