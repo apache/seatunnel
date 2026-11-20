@@ -325,6 +325,15 @@ public class RestService implements Serializable {
                 logger);
     }
 
+    /**
+     * Builds the SQL that is sent to the Doris FE query plan API.
+     *
+     * <p>The read fields are the raw field names of the catalog table. Each field is quoted on its
+     * own with {@link DorisCatalogUtil#quoteIdentifier}, which wraps it in backticks and doubles
+     * any embedded backtick. When the catalog table has no fields, the projection falls back to
+     * {@code select *}. The filter query is caller-supplied SQL and is appended unchanged after
+     * {@code where}. When the filter query is empty, no {@code where} clause is added.
+     */
     @VisibleForTesting
     static String buildQuerySql(DorisSourceTable dorisSourceTable, String database, String table) {
         SeaTunnelRowType rowType = dorisSourceTable.getCatalogTable().getSeaTunnelRowType();
