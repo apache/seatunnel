@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.state.MetadataEnvelope;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -38,11 +39,14 @@ import org.mockito.Mockito;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -68,6 +72,9 @@ public class DualFormatCheckpointReaderTest {
         if (backend == Backend.LOCAL_FILE) {
             storage = new LocalFileStorage(config);
         } else {
+            // as LocalFileCheckPointTest: the Hadoop local file system needs winutils on Windows
+            Assumptions.assumeFalse(
+                    OS.WINDOWS.isCurrentOs(), "the Hadoop local file system needs winutils");
             config.put("fs.defaultFS", "file:///");
             config.put("disable.cache", "true");
             storage = new HdfsStorage(config);
@@ -246,37 +253,50 @@ public class DualFormatCheckpointReaderTest {
         use(backend);
         storeV1(3, "v1-3");
         Path file = v1File(3);
+        // checked before any POSIX call: e.g. the Windows default file system has no POSIX view
+        Assumptions.assumeTrue(
+                Files.getFileStore(file).supportsFileAttributeView(PosixFileAttributeView.class),
+                "the file system does not support POSIX permissions");
+        Set<PosixFilePermission> original = Files.getPosixFilePermissions(file);
         Files.setPosixFilePermissions(file, Collections.emptySet());
-        Assumptions.assumeFalse(Files.isReadable(file), "file permissions are not enforced");
-        // the existing v1 getters swallow the read failure: local file storage reports no latest
-        // checkpoint, the Hadoop storage skips the file when listing
-        if (backend == Backend.LOCAL_FILE) {
-            Assertions.assertNull(
-                    storage.getLatestCheckpointByJobIdAndPipelineId(JOB_ID, PIPELINE_ID));
-        } else {
-            Assertions.assertTrue(
-                    storage.getCheckpointsByJobIdAndPipelineId(JOB_ID, PIPELINE_ID).isEmpty());
+        try {
+            // privileged users (e.g. root) can still read the file
+            Assumptions.assumeFalse(Files.isReadable(file), "file permissions are not enforced");
+            // the existing v1 getters swallow the read failure: local file storage reports no
+            // latest
+            // checkpoint, the Hadoop storage skips the file when listing
+            if (backend == Backend.LOCAL_FILE) {
+                Assertions.assertNull(
+                        storage.getLatestCheckpointByJobIdAndPipelineId(JOB_ID, PIPELINE_ID));
+            } else {
+                Assertions.assertTrue(
+                        storage.getCheckpointsByJobIdAndPipelineId(JOB_ID, PIPELINE_ID).isEmpty());
+            }
+
+            CheckpointStorageException latestFailure =
+                    Assertions.assertThrows(
+                            CheckpointStorageException.class,
+                            () ->
+                                    DualFormatCheckpointReader.getLatestCheckpoint(
+                                            storage, JOB_ID, PIPELINE_ID));
+            Assertions.assertTrue(latestFailure.getMessage().contains("v1 checkpoint 3"));
+            Assertions.assertThrows(
+                    CheckpointStorageException.class,
+                    () -> DualFormatCheckpointReader.getCheckpoints(storage, JOB_ID, PIPELINE_ID));
+
+            // a readable older checkpoint is still used
+            storeV1(2, "v1-2");
+            Assertions.assertEquals(
+                    "v1-2",
+                    text(
+                            DualFormatCheckpointReader.getLatestCheckpoint(
+                                    storage, JOB_ID, PIPELINE_ID)));
+            Assertions.assertEquals(
+                    Collections.singletonList("v1-2"),
+                    texts(DualFormatCheckpointReader.getCheckpoints(storage, JOB_ID, PIPELINE_ID)));
+        } finally {
+            Files.setPosixFilePermissions(file, original);
         }
-
-        CheckpointStorageException latestFailure =
-                Assertions.assertThrows(
-                        CheckpointStorageException.class,
-                        () ->
-                                DualFormatCheckpointReader.getLatestCheckpoint(
-                                        storage, JOB_ID, PIPELINE_ID));
-        Assertions.assertTrue(latestFailure.getMessage().contains("v1 checkpoint 3"));
-        Assertions.assertThrows(
-                CheckpointStorageException.class,
-                () -> DualFormatCheckpointReader.getCheckpoints(storage, JOB_ID, PIPELINE_ID));
-
-        // a readable older checkpoint is still used
-        storeV1(2, "v1-2");
-        Assertions.assertEquals(
-                "v1-2",
-                text(DualFormatCheckpointReader.getLatestCheckpoint(storage, JOB_ID, PIPELINE_ID)));
-        Assertions.assertEquals(
-                Collections.singletonList("v1-2"),
-                texts(DualFormatCheckpointReader.getCheckpoints(storage, JOB_ID, PIPELINE_ID)));
     }
 
     @ParameterizedTest
