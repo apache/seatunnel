@@ -616,7 +616,9 @@ File modification time filter. The connector will filter some files base on the 
 
 ### enable_file_split [boolean]
 
-Turn on the file splitting function, the default is false.It can be selected when the file type is csv, text, json, parquet and non-compressed format.
+ORC files are split on complete stripe boundaries. Adjacent stripes are grouped toward `file_split_size`; a single larger stripe is not divided, so this size is a target, not a hard limit. Internal ORC compression does not prevent stripe splitting. Keep `compress_codec` and `archive_compress_codec` at `NONE` for this path; externally compressed archives are not split. Projection is preserved. A file with only one stripe still produces only one split.
+
+Enable file splitting (disabled by default) for csv, text, json, parquet, orc. External compression and archive restrictions are listed below.
 
 **Recommendations**
 - Enable when reading a few large files and you want higher read parallelism.

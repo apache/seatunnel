@@ -105,7 +105,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | common-options             |         | 否    | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../common-options/source-common-options.md) 了解详情。                                                                                                                       |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                        |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                       |
-| enable_file_split          | boolean | 否    | false               | 开启大文件拆分以提升并行度。仅支持 `text`/`csv`/`json`/`parquet` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。                                                                                 |
+| enable_file_split          | boolean | 否    | false               | 开启大文件拆分以提升并行度。仅支持 `text`/`csv`/`json`/`parquet`/`orc` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。                                                                                 |
 | file_split_size            | long    | 否    | 134217728           | `enable_file_split=true` 时生效，单位字节。`text`/`csv`/`json` 按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`；`parquet` 以 RowGroup 为拆分单位，不会切开 RowGroup。                                                |
 | quote_char                 | string  | 否    | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                          |
 | escape_char                | string  | 否    | -                   | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                                                 |
@@ -405,7 +405,9 @@ POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值
 
 ### enable_file_split [boolean]
 
-开启大文件拆分功能，默认 false。仅支持 `csv`/`text`/`json`/`parquet` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。
+ORC 按完整 stripe 边界切分，相邻 stripe 按 `file_split_size` 目标大小组合。单个超出目标大小的 stripe 不再拆分，因此该大小不是硬上限。ORC 内部压缩不影响 stripe 切分；使用此路径时保持 `compress_codec` 和 `archive_compress_codec` 为 `NONE`，不切分外层压缩归档。范围读取保留字段投影，只有一个 stripe 的文件仍只产生一个 split。
+
+开启大文件拆分功能，默认 false。仅支持 `csv`/`text`/`json`/`parquet`/`orc` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。
 
 - `text`/`csv`/`json`：按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`，避免切开一行/一条记录。
 - `parquet`：以 RowGroup 为逻辑拆分单位，不会切开 RowGroup。

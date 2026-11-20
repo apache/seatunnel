@@ -71,6 +71,9 @@ public class FileSplitStrategyFactory {
                             "file_split_size must be greater than 0 when enable_file_split=true, but got: %d",
                             fileSplitSize));
         }
+        if (FileFormat.ORC == fileFormat) {
+            return new OrcFileSplitStrategy(fileSplitSize, hadoopConf);
+        }
         if (FileFormat.PARQUET == fileFormat) {
             return new ParquetFileSplitStrategy(fileSplitSize, hadoopConf);
         }

@@ -250,7 +250,7 @@ schema {
 | xml_use_attr_format             | boolean | 否    | -                                                     | 指定是否使用标签属性格式处理数据，仅对XML文件有效。                                                                                                                                                                                                                                                                                           |
 | compress_codec                  | string  | 否    | none                                                  |                                                                                                                                                                                                                                                                                                                       |
 | archive_compress_codec          | string  | 否    | none                                                  |                                                                                                                                                                                                                                                                                                                       |
-| enable_file_split               | boolean | 否    | false                                                 | 开启大文件拆分以提升并行度。仅支持 `text`/`csv`/`json`/`parquet` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。                                                                                 |
+| enable_file_split               | boolean | 否    | false                                                 | 开启大文件拆分以提升并行度。仅支持 `text`/`csv`/`json`/`parquet`/`orc` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。                                                                                 |
 | file_split_size                 | long    | 否    | 134217728                                             | `enable_file_split=true` 时生效，单位字节。`text`/`csv`/`json` 按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`；`parquet` 以 RowGroup 为拆分单位，不会切开 RowGroup。                                                |
 | encoding                        | string  | 否    | UTF-8                                                 |                                                                                                                                                                                                                                                                                                                       |
 | null_format                     | string  | 否    | -                                                     | 当 `file_format_type` 为 `text` 或 `csv` 时使用。指定表示 null 的字段值。 对于配置了 `schema.columns[].defaultValue` 的 CSV，如果字段值匹配 `null_format`，或文件表头缺少该列，则使用配置的默认值。空 CSV 字段仍为 null，除非它与 `null_format` 匹配；未配置默认值的列保持原有行为。 CSV 默认值在创建读取器时转换为列类型。无法转换的默认值会导致作业失败，即使没有字段需要使用该默认值。DATE 和 TIMESTAMP 默认值可以使用与文件数据不同的受支持格式。 例如：`\N` |
@@ -368,7 +368,9 @@ abc.*
 
 ### enable_file_split [boolean]
 
-开启大文件拆分功能，默认 false。仅支持 `csv`/`text`/`json`/`parquet` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。
+ORC 按完整 stripe 边界切分，相邻 stripe 按 `file_split_size` 目标大小组合。单个超出目标大小的 stripe 不再拆分，因此该大小不是硬上限。ORC 内部压缩不影响 stripe 切分；使用此路径时保持 `compress_codec` 和 `archive_compress_codec` 为 `NONE`，不切分外层压缩归档。范围读取保留字段投影，只有一个 stripe 的文件仍只产生一个 split。
+
+开启大文件拆分功能，默认 false。仅支持 `csv`/`text`/`json`/`parquet`/`orc` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。
 
 - `text`/`csv`/`json`：按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`，避免切开一行/一条记录。
 - `parquet`：以 RowGroup 为逻辑拆分单位，不会切开 RowGroup。
