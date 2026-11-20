@@ -47,6 +47,15 @@ Run only the `ProtoStuffSerializer` benchmarks:
 java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark
 ```
 
+Run only the `IncrementalSourceRecordEmitter` benchmark.
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar IncrementalSourceRecordEmitterBenchmark
+```
+
+The default uses 20 columns and covers INSERT/UPDATE with exactly-once disabled/enabled (4 cases).
+Override the row width with `-p columns=40`.
+
 Run the `MultiTableSink` record handoff benchmark without starting an engine or database:
 
 ```bash
