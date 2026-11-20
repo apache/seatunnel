@@ -247,8 +247,7 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
                 .getDefaultCollection()
                 .aggregate(
                         Lists.newArrayList(
-                                Aggregates.match(matchQuery),
-                                Aggregates.match(hasSplitKey),
+                                Aggregates.match(MongoSplitUtils.combine(matchQuery, hasSplitKey)),
                                 Aggregates.sample(numSamples),
                                 Aggregates.project(Projections.include(splitKey)),
                                 Aggregates.sort(Sorts.ascending(splitKey))))

@@ -134,8 +134,9 @@ deadline (for example, DNS resolution is controlled by the JVM). Runtime setting
 >    strings, ObjectIds, dates and so on), so the source builds the ranges of each type bracket of
 >    the sampled values separately, and one more split reads the documents whose split key is
 >    missing, null, NaN or of another type. That split can read many documents when most of them
->    have no split key value. The split key must not hold arrays: a range matches an array by each
->    of its elements, so such a document can be read more than once.
+>    have no split key value. `match.query` applies to every split. The split key must not hold
+>    arrays: a range matches an array by each of its elements, so such a document can be read more
+>    than once.
 
 ## How to Create a MongoDB Data Synchronization Job
 

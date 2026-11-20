@@ -231,6 +231,28 @@ public class SamplingSplitStrategyTest {
     }
 
     /**
+     * A match query on the split key used to be replaced by the bound of the first and the last
+     * split, which then read documents that the match query excludes.
+     */
+    @Test
+    public void testEverySplitKeepsTheMatchQuery() {
+        BsonDocument matchQuery = BsonDocument.parse("{\"_id\": {\"$gte\": 1500}}");
+        List<MongoSplit> splits =
+                strategyWithSample("_id", matchQuery, new BsonInt32(1509), new BsonInt32(1808))
+                        .split();
+
+        assertEquals(4, splits.size());
+        for (MongoSplit split : splits) {
+            List<BsonValue> conditions = split.getQuery().getArray("$and").getValues();
+            assertEquals(2, conditions.size(), split.getQuery().toJson());
+            assertEquals(matchQuery, conditions.get(0));
+        }
+        assertEquals(
+                "{\"_id\": {\"$lt\": 1509}}",
+                splits.get(0).getQuery().getArray("$and").get(1).asDocument().toJson());
+    }
+
+    /**
      * When no sampled value can bound a range, one split reads the whole collection: a split of
      * other values alone would not read an empty array.
      */
