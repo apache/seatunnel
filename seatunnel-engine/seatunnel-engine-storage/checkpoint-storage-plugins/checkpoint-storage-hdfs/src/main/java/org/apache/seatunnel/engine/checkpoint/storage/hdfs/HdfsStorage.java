@@ -27,7 +27,6 @@ import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractChunkSupportSt
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.AbstractConfiguration;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.FileConfiguration;
-import org.apache.seatunnel.engine.checkpoint.storage.state.CheckpointFileLayout;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -41,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -381,19 +381,38 @@ public class HdfsStorage extends AbstractChunkSupportStorage {
     }
 
     /**
-     * Writes a temporary file and renames it. On HDFS the rename is atomic; on object stores
-     * (S3/OSS/COS/GCS) it is a copy, which is why {@code _metadata} carries a CRC that readers
-     * validate.
+     * Writes a temporary file unique to this attempt and renames it into place. On HDFS a rename is
+     * atomic, and a committed {@code _metadata} ({@code replace == false}) is never deleted or
+     * modified: the publication fails instead. On object stores (S3/OSS/COS/GCS) a rename is a
+     * copy, which is why {@code _metadata} carries a CRC that readers validate.
+     *
+     * <p>{@code replace == true} is only used for chunks of an uncommitted checkpoint, which no
+     * {@code _metadata} references yet; for those the existing file is deleted before the rename.
      */
     @Override
-    protected void writeFileAtomically(String relativePath, byte[] data) throws IOException {
+    protected void publishFile(String relativePath, byte[] data, boolean replace)
+            throws IOException {
         Path target = resolve(relativePath);
-        Path tmp = resolve(relativePath + CheckpointFileLayout.TMP_SUFFIX);
+        Path tmp = resolve(attemptTmpPath(relativePath));
         try {
-            try (FSDataOutputStream out = fs.create(tmp, true)) {
+            try (FSDataOutputStream out = fs.create(tmp, false)) {
                 out.write(data);
             }
-            // FileSystem#rename does not overwrite, so drop a leftover of an earlier attempt
+            if (!replace) {
+                // HDFS refuses to rename onto an existing file, but not every FileSystem
+                // implementation does (e.g. the local one replaces it), so check explicitly.
+                // There is a single committer per checkpoint, so check-then-rename is not racy.
+                if (fs.exists(target)) {
+                    throw new FileAlreadyExistsException(target.toString());
+                }
+                if (!fs.rename(tmp, target)) {
+                    if (fs.exists(target)) {
+                        throw new FileAlreadyExistsException(target.toString());
+                    }
+                    throw new IOException(String.format("Failed to rename %s to %s", tmp, target));
+                }
+                return;
+            }
             if (fs.exists(target)) {
                 fs.delete(target, false);
             }

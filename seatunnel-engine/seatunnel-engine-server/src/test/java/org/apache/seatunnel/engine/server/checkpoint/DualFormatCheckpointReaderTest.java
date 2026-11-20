@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.checkpoint.storage.localfile.LocalFileStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.state.CheckpointFileLayout;
 import org.apache.seatunnel.engine.checkpoint.storage.state.MetadataEnvelope;
@@ -125,6 +126,79 @@ public class DualFormatCheckpointReaderTest {
         Assertions.assertEquals(
                 "v1-2",
                 text(DualFormatCheckpointReader.getLatestCheckpoint(storage, JOB_ID, PIPELINE_ID)));
+    }
+
+    @Test
+    public void testOnlyIncompleteV2CheckpointsMeansNoCheckpoint() throws Exception {
+        // never committed: nothing to restore, which is not a failure
+        Files.createDirectories(
+                namespace.resolve(CheckpointFileLayout.checkpointDir(JOB_ID, PIPELINE_ID, 9)));
+
+        Assertions.assertNull(
+                DualFormatCheckpointReader.getLatestCheckpoint(storage, JOB_ID, PIPELINE_ID));
+    }
+
+    @Test
+    public void testAllCompletedCheckpointsUnreadableFailsClosed() throws Exception {
+        storeV2(6, "v2-6");
+        storeV2(7, "v2-7");
+        corruptMetadata(6);
+        corruptMetadata(7);
+
+        // returning null here would restart the job from its initial position
+        CheckpointStorageException latestFailure =
+                Assertions.assertThrows(
+                        CheckpointStorageException.class,
+                        () ->
+                                DualFormatCheckpointReader.getLatestCheckpoint(
+                                        storage, JOB_ID, PIPELINE_ID));
+        Assertions.assertTrue(latestFailure.getMessage().contains("Job " + JOB_ID));
+        Assertions.assertTrue(latestFailure.getMessage().contains("pipeline " + PIPELINE_ID));
+        Assertions.assertTrue(latestFailure.getMessage().contains("v2 checkpoint 7"));
+        Assertions.assertTrue(latestFailure.getMessage().contains("v2 checkpoint 6"));
+
+        Assertions.assertThrows(
+                CheckpointStorageException.class,
+                () -> DualFormatCheckpointReader.getCheckpoints(storage, JOB_ID, PIPELINE_ID));
+    }
+
+    @Test
+    public void testUnreadableV1DoesNotHideReadableV2() throws Exception {
+        storeV2(4, "v2-4");
+        LocalFileStorage brokenV1 = Mockito.spy(storage);
+        Mockito.doThrow(new CheckpointStorageException("corrupt v1 blob"))
+                .when(brokenV1)
+                .getLatestCheckpointByJobIdAndPipelineId(JOB_ID, PIPELINE_ID);
+        Mockito.doThrow(new IllegalStateException("corrupt v1 blob"))
+                .when(brokenV1)
+                .getCheckpointsByJobIdAndPipelineId(JOB_ID, PIPELINE_ID);
+
+        Assertions.assertEquals(
+                "v2-4",
+                text(
+                        DualFormatCheckpointReader.getLatestCheckpoint(
+                                brokenV1, JOB_ID, PIPELINE_ID)));
+        Assertions.assertEquals(
+                "v2-4",
+                text(
+                        DualFormatCheckpointReader.getCheckpoints(brokenV1, JOB_ID, PIPELINE_ID)
+                                .get(0)));
+    }
+
+    @Test
+    public void testUnreadableV1AndNoV2FailsClosed() throws Exception {
+        LocalFileStorage brokenV1 = Mockito.spy(storage);
+        Mockito.doThrow(new CheckpointStorageException("corrupt v1 blob"))
+                .when(brokenV1)
+                .getLatestCheckpointByJobIdAndPipelineId(JOB_ID, PIPELINE_ID);
+
+        CheckpointStorageException failure =
+                Assertions.assertThrows(
+                        CheckpointStorageException.class,
+                        () ->
+                                DualFormatCheckpointReader.getLatestCheckpoint(
+                                        brokenV1, JOB_ID, PIPELINE_ID));
+        Assertions.assertTrue(failure.getMessage().contains("corrupt v1 blob"));
     }
 
     @Test

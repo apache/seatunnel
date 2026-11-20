@@ -26,9 +26,11 @@ import org.apache.seatunnel.engine.checkpoint.storage.state.InlineStateHandle;
 import org.apache.seatunnel.engine.checkpoint.storage.state.MetadataEnvelope;
 
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Base class for file-system based storages that support the v2 checkpoint format. It implements
@@ -39,17 +41,32 @@ public abstract class AbstractChunkSupportStorage extends AbstractCheckpointStor
         implements ChunkSupportStorage {
 
     /**
-     * Writes a file so that readers never observe a partial file: write {@code path + ".tmp"}, then
-     * rename it to {@code path}, replacing an existing file. Missing parent directories are
-     * created.
+     * Publishes a file so that readers never observe a partial file: the data is written to a
+     * temporary file unique to this attempt (ending in {@code .tmp}) in the target directory, which
+     * is then moved into place. Missing parent directories are created.
+     *
+     * <ul>
+     *   <li>{@code replace == false} (create once): the move must fail with {@link
+     *       java.nio.file.FileAlreadyExistsException} if the target exists, and an existing target
+     *       must never be deleted or modified, not even when the publication fails.
+     *   <li>{@code replace == true}: an existing target is replaced. Only used for files that are
+     *       not part of a committed checkpoint, so a short window without the target is harmless.
+     * </ul>
+     *
+     * <p>The temporary file is removed when the publication fails.
      *
      * @param relativePath path relative to the storage namespace
      */
-    protected abstract void writeFileAtomically(String relativePath, byte[] data)
+    protected abstract void publishFile(String relativePath, byte[] data, boolean replace)
             throws IOException;
 
     /** Reads a whole file; throws if it does not exist. */
     protected abstract byte[] readFile(String relativePath) throws IOException;
+
+    /** Returns a temporary path for one publication attempt of {@code relativePath}. */
+    protected static String attemptTmpPath(String relativePath) {
+        return relativePath + "." + UUID.randomUUID() + CheckpointFileLayout.TMP_SUFFIX;
+    }
 
     /** Returns whether a regular file exists at the path. */
     protected abstract boolean fileExists(String relativePath) throws IOException;
@@ -61,8 +78,25 @@ public abstract class AbstractChunkSupportStorage extends AbstractCheckpointStor
     public FileChunkStateHandle writeChunk(ChunkDescriptor descriptor, List<byte[]> states)
             throws CheckpointStorageException {
         String location = CheckpointFileLayout.chunkPath(descriptor);
+        String metadata =
+                CheckpointFileLayout.metadataPath(
+                        descriptor.getJobId(),
+                        descriptor.getPipelineId(),
+                        descriptor.getCheckpointId());
         try {
-            writeFileAtomically(location, ChunkCodec.encode(states));
+            // a committed checkpoint is immutable; chunks of an uncommitted one may be rewritten,
+            // e.g. when chk-N is attempted again after restoring from checkpoint N-1
+            if (fileExists(metadata)) {
+                throw new CheckpointStorageException(
+                        String.format(
+                                "Refusing to write checkpoint chunk %s: checkpoint %d of job %s, "
+                                        + "pipeline %s is already committed",
+                                location,
+                                descriptor.getCheckpointId(),
+                                descriptor.getJobId(),
+                                descriptor.getPipelineId()));
+            }
+            publishFile(location, ChunkCodec.encode(states), true);
         } catch (IOException | RuntimeException e) {
             throw new CheckpointStorageException(
                     String.format(
@@ -95,7 +129,14 @@ public abstract class AbstractChunkSupportStorage extends AbstractCheckpointStor
             throws CheckpointStorageException {
         String location = CheckpointFileLayout.metadataPath(jobId, pipelineId, checkpointId);
         try {
-            writeFileAtomically(location, envelope.encode());
+            // the commit point is written exactly once and never replaced
+            publishFile(location, envelope.encode(), false);
+        } catch (FileAlreadyExistsException e) {
+            throw new CheckpointStorageException(
+                    String.format(
+                            "Checkpoint %d of job %s, pipeline %s is already committed (%s exists)",
+                            checkpointId, jobId, pipelineId, location),
+                    e);
         } catch (IOException | RuntimeException e) {
             throw new CheckpointStorageException(
                     String.format("Failed to write checkpoint metadata %s", location), e);

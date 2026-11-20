@@ -26,7 +26,6 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.exception.ExceptionUt
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractChunkSupportStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
-import org.apache.seatunnel.engine.checkpoint.storage.state.CheckpointFileLayout;
 
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.io.FileUtils;
@@ -402,20 +401,39 @@ public class LocalFileStorage extends AbstractChunkSupportStorage {
     }
 
     @Override
-    protected void writeFileAtomically(String relativePath, byte[] data) throws IOException {
+    protected void publishFile(String relativePath, byte[] data, boolean replace)
+            throws IOException {
         Path target = resolve(relativePath);
-        Path tmp = resolve(relativePath + CheckpointFileLayout.TMP_SUFFIX);
+        Path tmp = resolve(attemptTmpPath(relativePath));
         Files.createDirectories(target.getParent());
         try {
             Files.write(tmp, data);
-            // a POSIX rename replaces the target atomically
-            Files.move(
-                    tmp,
-                    target,
-                    StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING);
+            if (replace) {
+                // a POSIX rename replaces the target atomically
+                Files.move(
+                        tmp,
+                        target,
+                        StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING);
+            } else {
+                publishOnce(tmp, target);
+            }
         } finally {
             Files.deleteIfExists(tmp);
+        }
+    }
+
+    /**
+     * Creates {@code target} from {@code tmp} only if it does not exist yet. A hard link is created
+     * atomically and fails if the target exists, unlike a POSIX rename, which silently replaces it.
+     */
+    private static void publishOnce(Path tmp, Path target) throws IOException {
+        try {
+            Files.createLink(target, tmp);
+        } catch (UnsupportedOperationException e) {
+            // file systems without hard links: move fails if the target exists (not atomic, but
+            // there is a single committer per checkpoint)
+            Files.move(tmp, target);
         }
     }
 

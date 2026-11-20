@@ -33,9 +33,16 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
@@ -104,16 +111,20 @@ public class LocalFileStorageTest {
     }
 
     @Test
-    public void testV2ChunkRoundTrip() throws CheckpointStorageException {
+    public void testV2ChunkRoundTrip() throws Exception {
         List<byte[]> states = Arrays.asList(bytes("split-a"), null, bytes("split-bb"));
 
+        STORAGE.writeChunk(
+                new ChunkDescriptor(JOB_ID, "3", 1, "action", -1), Arrays.asList(bytes("old")));
+        // chk-1 is not committed yet, so a retried write replaces the chunk
         FileChunkStateHandle handle =
                 STORAGE.writeChunk(new ChunkDescriptor(JOB_ID, "3", 1, "action", -1), states);
 
         Assertions.assertTrue(handle.getLocation().startsWith(JOB_ID + "/3/chk-1/subtask-"));
         Assertions.assertEquals(15, handle.getStateSize());
-        Assertions.assertFalse(
-                STORAGE.fileExists(handle.getLocation() + CheckpointFileLayout.TMP_SUFFIX));
+        Assertions.assertEquals(
+                Collections.emptyList(),
+                tmpFilesIn(CheckpointFileLayout.checkpointDir(JOB_ID, "3", 1)));
         List<byte[]> restored = STORAGE.readChunk(handle);
         Assertions.assertArrayEquals(bytes("split-a"), restored.get(0));
         Assertions.assertNull(restored.get(1));
@@ -132,15 +143,52 @@ public class LocalFileStorageTest {
 
         // simulate a partially written _metadata on a store without atomic rename
         byte[] encoded = MetadataEnvelope.of(bytes("payload")).encode();
-        STORAGE.writeFileAtomically(
+        STORAGE.publishFile(
                 CheckpointFileLayout.metadataPath(JOB_ID, "4", 3),
-                Arrays.copyOf(encoded, encoded.length - 2));
+                Arrays.copyOf(encoded, encoded.length - 2),
+                false);
         Assertions.assertEquals(
                 Arrays.asList(2L, 3L), STORAGE.listCompletedCheckpointIds(JOB_ID, "4"));
         Assertions.assertThrows(
                 CheckpointStorageException.class, () -> STORAGE.readMetadata(JOB_ID, "4", 3));
         Assertions.assertThrows(
                 CheckpointStorageException.class, () -> STORAGE.readMetadata(JOB_ID, "4", 99));
+    }
+
+    @Test
+    public void testCommittedMetadataIsNeverReplaced() throws Exception {
+        STORAGE.writeMetadata(JOB_ID, "5", 6, MetadataEnvelope.of(bytes("committed")));
+
+        // a second commit of the same checkpoint fails and leaves the committed file untouched
+        CheckpointStorageException failure =
+                Assertions.assertThrows(
+                        CheckpointStorageException.class,
+                        () ->
+                                STORAGE.writeMetadata(
+                                        JOB_ID, "5", 6, MetadataEnvelope.of(bytes("other"))));
+        Assertions.assertTrue(failure.getMessage().contains("already committed"));
+        Assertions.assertArrayEquals(
+                bytes("committed"), STORAGE.readMetadata(JOB_ID, "5", 6).getPayload());
+
+        // chunks of a committed checkpoint are immutable as well
+        Assertions.assertThrows(
+                CheckpointStorageException.class,
+                () ->
+                        STORAGE.writeChunk(
+                                new ChunkDescriptor(JOB_ID, "5", 6, "action", 0),
+                                Arrays.asList(bytes("late"))));
+        Assertions.assertEquals(
+                Collections.emptyList(),
+                tmpFilesIn(CheckpointFileLayout.checkpointDir(JOB_ID, "5", 6)));
+    }
+
+    private static List<String> tmpFilesIn(String relativeDir) throws IOException {
+        try (Stream<Path> files =
+                Files.list(Paths.get(STORAGE.getStorageParentDirectory(), relativeDir))) {
+            return files.map(f -> f.getFileName().toString())
+                    .filter(name -> name.endsWith(CheckpointFileLayout.TMP_SUFFIX))
+                    .collect(Collectors.toList());
+        }
     }
 
     private static byte[] bytes(String value) {

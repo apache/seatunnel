@@ -37,13 +37,16 @@ import java.util.List;
 public interface ChunkSupportStorage extends CheckpointStorage {
 
     /**
-     * Writes the state segments of one subtask action into its chunk file. The write is atomic
-     * where the file system supports rename (write to a temporary file, then rename).
+     * Writes the state segments of one subtask action into its chunk file. Readers never observe a
+     * partially written chunk. A chunk of an uncommitted checkpoint (no {@code _metadata} yet) may
+     * be written again, which replaces it; this happens when a checkpoint id is attempted again
+     * after a restore. Chunks of a committed checkpoint are immutable.
      *
      * @param descriptor identifies the chunk, its location is derived from it
      * @param states the state segments, elements may be {@code null}
      * @return a handle referencing the written chunk
-     * @throws CheckpointStorageException if the chunk could not be written
+     * @throws CheckpointStorageException if the chunk could not be written, or the checkpoint is
+     *     already committed
      */
     FileChunkStateHandle writeChunk(ChunkDescriptor descriptor, List<byte[]> states)
             throws CheckpointStorageException;
@@ -61,7 +64,11 @@ public interface ChunkSupportStorage extends CheckpointStorage {
      * Writes the {@code _metadata} file of a checkpoint. Its existence is the single criterion that
      * the checkpoint completed, so it must be written after all chunks it references.
      *
-     * @throws CheckpointStorageException if the metadata could not be written
+     * <p>The metadata is written exactly once: if it already exists the call fails and the existing
+     * file is left untouched, also when the write itself fails half-way. Readers never observe a
+     * missing or partial metadata file of a committed checkpoint.
+     *
+     * @throws CheckpointStorageException if the metadata could not be written or already exists
      */
     void writeMetadata(
             String jobId, String pipelineId, long checkpointId, MetadataEnvelope envelope)

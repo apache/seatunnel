@@ -39,9 +39,13 @@ import java.util.List;
  *       PipelineState#getStates()}.
  * </ul>
  *
- * <p>Both are returned as {@link PipelineState}, so the restore path downstream is identical. A v2
- * metadata file that fails validation (e.g. a partial write on an object store) is skipped with a
- * warning and the next older checkpoint is used instead.
+ * <p>Both are returned as {@link PipelineState}, so the restore path downstream is identical.
+ *
+ * <p><b>Failure contract (fail closed):</b> a candidate that cannot be read (e.g. a v2 metadata
+ * file that fails its CRC after a partial write on an object store, or an unreadable v1 blob) is
+ * skipped with a warning and the next older restorable checkpoint is used. If completed checkpoints
+ * exist but <em>none</em> of them can be read, a {@link CheckpointStorageException} is thrown:
+ * returning "no checkpoint" there would silently restart the job from its initial position.
  */
 @Slf4j
 final class DualFormatCheckpointReader {
@@ -50,14 +54,30 @@ final class DualFormatCheckpointReader {
 
     /**
      * Returns the restorable checkpoint with the highest checkpoint id across both formats, or
-     * {@code null} if there is none. On an id tie the v2 checkpoint wins.
+     * {@code null} if the pipeline has no completed checkpoint at all. On an id tie the v2
+     * checkpoint wins.
+     *
+     * @throws CheckpointStorageException if completed checkpoints exist but none can be read
      */
     static PipelineState getLatestCheckpoint(
             CheckpointStorage storage, String jobId, String pipelineId)
             throws CheckpointStorageException {
-        PipelineState v1 = storage.getLatestCheckpointByJobIdAndPipelineId(jobId, pipelineId);
         if (!(storage instanceof ChunkSupportStorage)) {
-            return v1;
+            // unchanged v1-only behavior, including propagating read failures
+            return storage.getLatestCheckpointByJobIdAndPipelineId(jobId, pipelineId);
+        }
+        List<String> failures = new ArrayList<>();
+        PipelineState v1 = null;
+        try {
+            v1 = storage.getLatestCheckpointByJobIdAndPipelineId(jobId, pipelineId);
+        } catch (CheckpointStorageException | RuntimeException e) {
+            // a broken v1 blob must not hide a readable v2 checkpoint
+            failures.add("latest v1 checkpoint: " + e.getMessage());
+            log.warn(
+                    "Failed to read the latest v1 checkpoint of job {}, pipeline {}; trying v2",
+                    jobId,
+                    pipelineId,
+                    e);
         }
         ChunkSupportStorage chunkStorage = (ChunkSupportStorage) storage;
         List<Long> ids = chunkStorage.listCompletedCheckpointIds(jobId, pipelineId);
@@ -66,38 +86,77 @@ final class DualFormatCheckpointReader {
             if (v1 != null && v1.getCheckpointId() > checkpointId) {
                 return v1;
             }
-            PipelineState v2 = readV2(chunkStorage, jobId, pipelineId, checkpointId);
+            PipelineState v2 = readV2(chunkStorage, jobId, pipelineId, checkpointId, failures);
             if (v2 != null) {
                 return v2;
             }
         }
-        return v1;
+        if (v1 != null) {
+            return v1;
+        }
+        failIfUnreadable(jobId, pipelineId, failures);
+        return null;
     }
 
-    /** Returns every restorable checkpoint of the pipeline in both formats, in no fixed order. */
+    /**
+     * Returns every readable checkpoint of the pipeline in both formats, in no fixed order;
+     * unreadable candidates are skipped.
+     *
+     * @throws CheckpointStorageException if completed checkpoints exist but none can be read
+     */
     static List<PipelineState> getCheckpoints(
             CheckpointStorage storage, String jobId, String pipelineId)
             throws CheckpointStorageException {
-        List<PipelineState> states =
-                new ArrayList<>(storage.getCheckpointsByJobIdAndPipelineId(jobId, pipelineId));
-        if (storage instanceof ChunkSupportStorage) {
-            ChunkSupportStorage chunkStorage = (ChunkSupportStorage) storage;
-            for (long checkpointId : chunkStorage.listCompletedCheckpointIds(jobId, pipelineId)) {
-                PipelineState v2 = readV2(chunkStorage, jobId, pipelineId, checkpointId);
-                if (v2 != null) {
-                    states.add(v2);
-                }
+        if (!(storage instanceof ChunkSupportStorage)) {
+            return storage.getCheckpointsByJobIdAndPipelineId(jobId, pipelineId);
+        }
+        List<String> failures = new ArrayList<>();
+        List<PipelineState> states = new ArrayList<>();
+        try {
+            states.addAll(storage.getCheckpointsByJobIdAndPipelineId(jobId, pipelineId));
+        } catch (CheckpointStorageException | RuntimeException e) {
+            failures.add("v1 checkpoints: " + e.getMessage());
+            log.warn(
+                    "Failed to read the v1 checkpoints of job {}, pipeline {}; trying v2",
+                    jobId,
+                    pipelineId,
+                    e);
+        }
+        ChunkSupportStorage chunkStorage = (ChunkSupportStorage) storage;
+        for (long checkpointId : chunkStorage.listCompletedCheckpointIds(jobId, pipelineId)) {
+            PipelineState v2 = readV2(chunkStorage, jobId, pipelineId, checkpointId, failures);
+            if (v2 != null) {
+                states.add(v2);
             }
+        }
+        if (states.isEmpty()) {
+            failIfUnreadable(jobId, pipelineId, failures);
         }
         return states;
     }
 
+    private static void failIfUnreadable(String jobId, String pipelineId, List<String> failures)
+            throws CheckpointStorageException {
+        if (!failures.isEmpty()) {
+            throw new CheckpointStorageException(
+                    String.format(
+                            "Job %s, pipeline %s has %d completed checkpoint candidate(s) but none "
+                                    + "is readable, refusing to restore from scratch: %s",
+                            jobId, pipelineId, failures.size(), failures));
+        }
+    }
+
     private static PipelineState readV2(
-            ChunkSupportStorage storage, String jobId, String pipelineId, long checkpointId) {
+            ChunkSupportStorage storage,
+            String jobId,
+            String pipelineId,
+            long checkpointId,
+            List<String> failures) {
         MetadataEnvelope envelope;
         try {
             envelope = storage.readMetadata(jobId, pipelineId, checkpointId);
         } catch (CheckpointStorageException e) {
+            failures.add("v2 checkpoint " + checkpointId + ": " + e.getMessage());
             log.warn(
                     "Skip unreadable checkpoint metadata of job {}, pipeline {}, checkpoint {}; "
                             + "falling back to an older checkpoint",

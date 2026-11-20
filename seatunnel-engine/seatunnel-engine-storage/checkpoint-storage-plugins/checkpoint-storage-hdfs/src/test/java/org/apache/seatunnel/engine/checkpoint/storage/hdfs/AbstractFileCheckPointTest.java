@@ -27,12 +27,18 @@ import org.apache.seatunnel.engine.checkpoint.storage.state.ChunkDescriptor;
 import org.apache.seatunnel.engine.checkpoint.storage.state.FileChunkStateHandle;
 import org.apache.seatunnel.engine.checkpoint.storage.state.MetadataEnvelope;
 
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.Path;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public abstract class AbstractFileCheckPointTest {
@@ -82,8 +88,9 @@ public abstract class AbstractFileCheckPointTest {
         handle = STORAGE.writeChunk(new ChunkDescriptor(JOB_ID, "3", 1, "action", 0), states);
 
         Assertions.assertEquals(15, handle.getStateSize());
-        Assertions.assertFalse(
-                STORAGE.fileExists(handle.getLocation() + CheckpointFileLayout.TMP_SUFFIX));
+        Assertions.assertEquals(
+                Collections.emptyList(),
+                tmpFilesIn(CheckpointFileLayout.checkpointDir(JOB_ID, "3", 1)));
         List<byte[]> restored = STORAGE.readChunk(handle);
         Assertions.assertArrayEquals(bytes("split-a"), restored.get(0));
         Assertions.assertNull(restored.get(1));
@@ -97,11 +104,52 @@ public abstract class AbstractFileCheckPointTest {
                 bytes("payload"), STORAGE.readMetadata(JOB_ID, "4", 2).getPayload());
 
         byte[] encoded = MetadataEnvelope.of(bytes("payload")).encode();
-        STORAGE.writeFileAtomically(
+        STORAGE.publishFile(
                 CheckpointFileLayout.metadataPath(JOB_ID, "4", 3),
-                Arrays.copyOf(encoded, encoded.length - 2));
+                Arrays.copyOf(encoded, encoded.length - 2),
+                false);
         Assertions.assertThrows(
                 CheckpointStorageException.class, () -> STORAGE.readMetadata(JOB_ID, "4", 3));
+    }
+
+    @Test
+    public void testCommittedMetadataIsNeverReplaced() throws Exception {
+        STORAGE.writeMetadata(JOB_ID, "5", 6, MetadataEnvelope.of(bytes("committed")));
+
+        // a second commit of the same checkpoint fails and leaves the committed file untouched
+        CheckpointStorageException failure =
+                Assertions.assertThrows(
+                        CheckpointStorageException.class,
+                        () ->
+                                STORAGE.writeMetadata(
+                                        JOB_ID, "5", 6, MetadataEnvelope.of(bytes("other"))));
+        Assertions.assertTrue(failure.getMessage().contains("already committed"));
+        Assertions.assertArrayEquals(
+                bytes("committed"), STORAGE.readMetadata(JOB_ID, "5", 6).getPayload());
+
+        // chunks of a committed checkpoint are immutable as well
+        Assertions.assertThrows(
+                CheckpointStorageException.class,
+                () ->
+                        STORAGE.writeChunk(
+                                new ChunkDescriptor(JOB_ID, "5", 6, "action", 0),
+                                Arrays.asList(bytes("late"))));
+        Assertions.assertEquals(
+                Collections.emptyList(),
+                tmpFilesIn(CheckpointFileLayout.checkpointDir(JOB_ID, "5", 6)));
+    }
+
+    private static List<String> tmpFilesIn(String relativeDir) throws IOException {
+        List<String> names = new ArrayList<>();
+        for (FileStatus status :
+                STORAGE.fs.listStatus(
+                        new Path(STORAGE.getStorageParentDirectory() + relativeDir))) {
+            String name = status.getPath().getName();
+            if (name.endsWith(CheckpointFileLayout.TMP_SUFFIX)) {
+                names.add(name);
+            }
+        }
+        return names;
     }
 
     protected static byte[] bytes(String value) {
