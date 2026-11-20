@@ -231,7 +231,9 @@ sink {
 }
 ```
 
-`node_urls` accepts multiple IoTDB nodes. The sink will pick one as the active write node per task and fall over to the others when the active node fails.
+`node_urls` accepts multiple IoTDB nodes, which are passed to the IoTDB session client as candidate hosts. The sink
+creates a single session per task; writes are retried against the same session when a flush fails, and the sink does
+not switch to another node URL on failure.
 
 ## Changelog
 

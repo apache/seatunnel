@@ -61,6 +61,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | table_list        | Array  | 否       | -                      | 要读取的数据表列表，支持配置多表.                                                                 |
 | clickhouse.config | Map    | 否       | -                      | 除了上述必须由 `clickhouse-jdbc` 指定的必填参数外，用户还可以指定多个可选参数，这些参数涵盖了 `clickhouse-jdbc` 提供的所有[参数](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration). |
 | server_time_zone  | String | 否       | ZoneId.systemDefault() | 数据库服务中的会话时区。如果未设置，则使用ZoneId.systemDefault（）设置服务时区.                                                                                                                                                                                |
+| split.size        | Int    | 否       | Integer.MAX_VALUE      | 配置在 source 外层时，每个 SeaTunnel split 包含的 ClickHouse part 数量。仅在单个表的 `table_list` 配置展平到外层时使用；在 `table_list` 条目内部请配置 `split_size`。最小值为 `1`，值越小，拆分越多，并行读取粒度越细。 |
 | common-options    |        | 否       | -                      | 源插件常用参数，详见 [源通用选项](../common-options/source-common-options.md).                                                                                                                                                                                          |
 
 多表配置：

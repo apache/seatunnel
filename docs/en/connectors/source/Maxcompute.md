@@ -33,7 +33,7 @@ for parallel reads.
 | accesskey       | string | no                                | -             | Aliyun AccessKey secret used to access MaxCompute.                                                                  |
 | sts_token       | string | no                                | -             | STS token used for temporary MaxCompute authentication. When `sts_token` is provided, `accessId` and `accesskey` are required. |
 | endpoint        | string | yes                               | -             | MaxCompute endpoint, starting with `http`.                                                                          |
-| project         | string | yes                               | -             | MaxCompute project created in Alibaba Cloud.                                                                        |
+| project         | string | no                                | -             | MaxCompute project created in Alibaba Cloud. Not enforced by the option rule: each `table_list` entry can provide its own `project` override, so the top-level option is optional. Set it unless every `table_list` entry defines its own project. |
 | table_name      | string | yes when `table_list` is not set  | -             | Target MaxCompute table name, for example `fake`.                                                                   |
 | schema_name     | string | no                                | -             | MaxCompute schema name (namespace between project and table). Required only when the table is in a non-default schema. |
 | partition_spec  | string | no                                | -             | Partition spec for a MaxCompute partitioned table, for example `ds='20220101'`.                                     |

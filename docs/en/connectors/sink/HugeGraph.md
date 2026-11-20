@@ -95,6 +95,7 @@ Each `mappings` entry defines how input rows are mapped to one HugeGraph vertex 
 | `userdata`         | `Map<String, Object>` | No         | -             | User-defined data associated with the label.                                                             |
 | `idStrategy`       | String             | For Vertex | -             | The ID generation strategy for vertices, such as `PRIMARY_KEY`, `CUSTOMIZE_STRING`, `CUSTOMIZE_NUMBER`, `CUSTOMIZE_UUID`, or `AUTOMATIC`. |
 | `idFields`         | `List<string>`       | For Vertex | -             | A list of source field names used to generate the vertex ID. Required when `idStrategy` is not `AUTOMATIC`. |
+| `sourceTable`      | String             | No         | -             | Binds this mapping to a specific input table path, for example `hugegraph.person`. When set, the mapping only applies to the writer whose table path matches (multi-table sink). Either all mappings set `sourceTable` or none do — mixing both fails the job at config time. |
 | `sourceConfig`     | Object             | For Edge   | -             | An object defining the mapping for the edge's source vertex. See `Source/Target Config` below.           |
 | `targetConfig`     | Object             | For Edge   | -             | An object defining the mapping for the edge's target vertex. See `Source/Target Config` below.           |
 | `frequency`        | String             | For Edge   | -             | The frequency of the edge, e.g., `SINGLE`, `MULTIPLE`.                                                   |
