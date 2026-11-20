@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -148,11 +149,30 @@ public class AbstractPluginDiscoveryTest {
         Thread.currentThread().setContextClassLoader(originContextClassLoader);
         Common.setSeaTunnelHome(originSeatunnelHome);
         Common.setDeployMode(originMode);
-        Files.deleteIfExists(
-                fallbackWorkDir.resolve("connectors").resolve("connector-fallback.jar"));
-        Files.deleteIfExists(fallbackWorkDir.resolve("fallback-additional.jar"));
-        Files.deleteIfExists(fallbackWorkDir.resolve("connectors"));
-        Files.deleteIfExists(fallbackWorkDir);
+        deleteIfPossible(fallbackWorkDir.resolve("connectors").resolve("connector-fallback.jar"));
+        deleteIfPossible(fallbackWorkDir.resolve("fallback-additional.jar"));
+        deleteIfPossible(fallbackWorkDir.resolve("connectors"));
+        deleteIfPossible(fallbackWorkDir);
+    }
+
+    /**
+     * Best-effort removal of the artifacts written by {@link
+     * #testCreateOptionalPluginInstanceFallbackWithoutUrlClassLoader()}.
+     *
+     * <p>On Windows a jar can not be deleted while a {@link URLClassLoader} still holds it open.
+     * The fallback loader is created locally in {@code AbstractPluginDiscovery} and is not exposed,
+     * so the test can not close it and {@link Files#deleteIfExists(Path)} fails with "The process
+     * cannot access the file because it is being used by another process". The artifacts only live
+     * under {@code target/}, are recreated on every run and are removed by {@code mvn clean}, so a
+     * leftover jar is harmless. Only that Windows file lock is ignored here, any other {@link
+     * IOException} is still propagated.
+     */
+    private static void deleteIfPossible(Path path) throws IOException {
+        try {
+            Files.deleteIfExists(path);
+        } catch (FileSystemException e) {
+            // Expected on Windows while the fallback classloader keeps the jar open, see above.
+        }
     }
 
     /** Test plugin interface, acts as the plugin base class of the test discovery. */
