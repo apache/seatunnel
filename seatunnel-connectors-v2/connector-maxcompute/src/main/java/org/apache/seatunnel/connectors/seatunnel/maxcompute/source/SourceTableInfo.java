@@ -28,6 +28,23 @@ public class SourceTableInfo implements Serializable {
     private final CatalogTable catalogTable;
     private final String partitionSpec;
     private final Integer splitRow;
+
+    /**
+     * Whether to ignore missing partitions during split enumeration.
+     *
+     * <p>Behavioral contract:
+     *
+     * <ul>
+     *   <li>When consumed: Consumed by {@code MaxcomputeSourceSplitEnumerator#discoverySplits()}
+     *       during split discovery.
+     *   <li>Partition-only suppression: When {@code true}, if the configured {@code partitionSpec}
+     *       does not exist on an existing table, download session creation is suppressed and record
+     *       count is treated as 0. If the table itself does not exist, an error is thrown
+     *       (suppression never applies to missing tables).
+     *   <li>Inheritance: Defaults to {@code false}. Inherits from global {@code
+     *       ignore_missing_partition} option or can be overridden per table in {@code table_list}.
+     * </ul>
+     */
     private final boolean ignoreMissingPartition;
 
     public SourceTableInfo(CatalogTable catalogTable, String partitionSpec, Integer splitRow) {

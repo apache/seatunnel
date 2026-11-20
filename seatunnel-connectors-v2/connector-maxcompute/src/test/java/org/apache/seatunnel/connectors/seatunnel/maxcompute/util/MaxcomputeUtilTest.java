@@ -451,7 +451,7 @@ public class MaxcomputeUtilTest {
     }
 
     @Test
-    void testHasPartitionReturnsFalseOnNoSuchObjectException() throws Exception {
+    void testHasPartitionThrowsWhenTableNotExists() throws Exception {
         TablePath tablePath = TablePath.of("my_project", "my_schema", "my_table");
         Odps odps = mock(Odps.class);
         com.aliyun.odps.Tables tables = mock(com.aliyun.odps.Tables.class);
@@ -459,10 +459,12 @@ public class MaxcomputeUtilTest {
 
         when(odps.tables()).thenReturn(tables);
         when(tables.get("my_project", "my_schema", "my_table")).thenReturn(table);
-        when(table.hasPartition(
-                        org.mockito.ArgumentMatchers.any(com.aliyun.odps.PartitionSpec.class)))
-                .thenThrow(new NoSuchObjectException("Table or partition not found"));
+        org.mockito.Mockito.doThrow(new NoSuchObjectException("Table not found"))
+                .when(table)
+                .reload();
 
-        Assertions.assertFalse(MaxcomputeUtil.hasPartition(odps, tablePath, "ds='20250101'"));
+        Assertions.assertThrows(
+                MaxcomputeConnectorException.class,
+                () -> MaxcomputeUtil.hasPartition(odps, tablePath, "ds='20250101'"));
     }
 }
