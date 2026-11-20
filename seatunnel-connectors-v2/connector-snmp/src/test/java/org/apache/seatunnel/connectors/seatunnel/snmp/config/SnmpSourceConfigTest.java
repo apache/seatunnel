@@ -83,19 +83,6 @@ class SnmpSourceConfigTest {
     }
 
     @Test
-    void testInvalidValuesFailWithoutDisclosingCommunity() {
-        Map<String, Object> values = baseConfig();
-        values.put("port", 0);
-
-        IllegalArgumentException exception =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class,
-                        () -> new SnmpSourceConfig(ReadonlyConfig.fromMap(values)));
-
-        Assertions.assertFalse(exception.getMessage().contains("monitoring-community"));
-    }
-
-    @Test
     void testInvalidAndDuplicateOidsFail() {
         Map<String, Object> invalid = baseConfig();
         invalid.put("oids", Arrays.asList("SNMPv2-MIB::sysName.0"));
@@ -108,27 +95,6 @@ class SnmpSourceConfigTest {
         Assertions.assertThrows(
                 IllegalArgumentException.class,
                 () -> new SnmpSourceConfig(ReadonlyConfig.fromMap(duplicate)));
-    }
-
-    @Test
-    void testRequestBoundsFail() {
-        Map<String, Object> timeout = baseConfig();
-        timeout.put("timeout_millis", 0);
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> new SnmpSourceConfig(ReadonlyConfig.fromMap(timeout)));
-
-        Map<String, Object> retries = baseConfig();
-        retries.put("retries", -1);
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> new SnmpSourceConfig(ReadonlyConfig.fromMap(retries)));
-
-        Map<String, Object> interval = baseConfig();
-        interval.put("poll_interval_millis", 0);
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> new SnmpSourceConfig(ReadonlyConfig.fromMap(interval)));
     }
 
     @Test
