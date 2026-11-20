@@ -93,20 +93,8 @@ public final class LineageConfig implements Serializable {
             long heartbeatMinIntervalMs,
             String producer,
             boolean jobNamePerOutput) {
-        if (timeoutMs <= 0) {
-            throw new IllegalArgumentException(TIMEOUT_MS + " must be greater than zero");
-        }
-        if (timeoutMs > MAX_TIMEOUT_MS) {
-            throw new IllegalArgumentException(
-                    TIMEOUT_MS + " must not be greater than " + MAX_TIMEOUT_MS);
-        }
-        if (retryTimes < 0) {
-            throw new IllegalArgumentException(RETRY_TIMES + " must not be negative");
-        }
-        if (retryTimes > MAX_RETRY_TIMES) {
-            throw new IllegalArgumentException(
-                    RETRY_TIMES + " must not be greater than " + MAX_RETRY_TIMES);
-        }
+        requireTimeoutMs(timeoutMs);
+        requireRetryTimes(retryTimes);
         if (heartbeatMinIntervalMs < 0) {
             throw new IllegalArgumentException(HEARTBEAT_MIN_INTERVAL_MS + " must not be negative");
         }
@@ -156,11 +144,15 @@ public final class LineageConfig implements Serializable {
      * common environment-variable syntax.
      *
      * <p>When {@code openlineage_enabled} resolves to false, a disabled configuration is returned
-     * without validating the remaining options. A malformed enabled flag in the process environment
-     * or cluster configuration disables reporting and is logged, because the job submitter cannot
-     * correct node configuration. A malformed enabled flag in the job env still fails resolution.
-     * When reporting is enabled, a malformed or out-of-range environment or cluster value still
-     * fails resolution.
+     * without validating the remaining options. Its timeout and retry count are the defaults, not
+     * any administrator cap. A malformed enabled flag in the process environment or cluster
+     * configuration disables reporting and is logged, because the job submitter cannot correct node
+     * configuration. A malformed enabled flag in the job env still fails resolution. When reporting
+     * is enabled, a malformed or out-of-range environment or cluster value still fails resolution.
+     *
+     * <p>Engines that bound a shared lineage pool must read the cap with {@link #trustedTimeoutMs}
+     * and {@link #trustedRetryTimes}. Those methods do not depend on {@code openlineage_enabled},
+     * so a disabled configuration cannot replace a configured cap with the defaults.
      */
     public static LineageConfig resolve(
             Map<String, ?> jobOptions, Map<String, ?> clusterOptions, Map<String, ?> environment) {
@@ -192,6 +184,50 @@ public final class LineageConfig implements Serializable {
                 asString(first(job, env, cluster, PRODUCER), PRODUCER, defaultProducer()),
                 asBoolean(
                         first(job, env, cluster, JOB_NAME_PER_OUTPUT), JOB_NAME_PER_OUTPUT, false));
+    }
+
+    /**
+     * Reads the administrator {@code openlineage_timeout_ms} cap from the process environment and
+     * cluster configuration.
+     *
+     * <p>The process environment wins over the cluster configuration, and a missing value uses
+     * {@link #DEFAULT_TIMEOUT_MS}. Job options are ignored. {@code openlineage_enabled} is ignored,
+     * including a value that disables reporting: {@link #resolve} would otherwise return {@link
+     * #defaults()} and hide the configured cap. A value that is not a number, or is outside 1
+     * through {@link #MAX_TIMEOUT_MS}, fails the call.
+     *
+     * @param clusterOptions cluster configuration, or null when the engine has none
+     * @param environment process environment, or null
+     * @return timeout cap in milliseconds
+     */
+    public static int trustedTimeoutMs(Map<String, ?> clusterOptions, Map<String, ?> environment) {
+        return requireTimeoutMs(
+                asInt(
+                        trustedLookup(clusterOptions, environment, TIMEOUT_MS),
+                        TIMEOUT_MS,
+                        DEFAULT_TIMEOUT_MS));
+    }
+
+    /**
+     * Reads the administrator {@code openlineage_retry_times} cap from the process environment and
+     * cluster configuration.
+     *
+     * <p>The process environment wins over the cluster configuration, and a missing value uses
+     * {@link #DEFAULT_RETRY_TIMES}. Job options are ignored. {@code openlineage_enabled} is
+     * ignored, including a value that disables reporting, for the same reason as {@link
+     * #trustedTimeoutMs}. A value that is not a number, or is outside 0 through {@link
+     * #MAX_RETRY_TIMES}, fails the call.
+     *
+     * @param clusterOptions cluster configuration, or null when the engine has none
+     * @param environment process environment, or null
+     * @return retry cap
+     */
+    public static int trustedRetryTimes(Map<String, ?> clusterOptions, Map<String, ?> environment) {
+        return requireRetryTimes(
+                asInt(
+                        trustedLookup(clusterOptions, environment, RETRY_TIMES),
+                        RETRY_TIMES,
+                        DEFAULT_RETRY_TIMES));
     }
 
     /**
@@ -480,6 +516,37 @@ public final class LineageConfig implements Serializable {
                             + failure.getMessage());
             return false;
         }
+    }
+
+    /**
+     * Looks up one administrator option. Job options are not a source: a job must not raise the cap
+     * that limits it.
+     */
+    private static Lookup trustedLookup(
+            Map<String, ?> clusterOptions, Map<String, ?> environment, String key) {
+        return first(Collections.emptyMap(), nonNull(environment), nonNull(clusterOptions), key);
+    }
+
+    private static int requireTimeoutMs(int timeoutMs) {
+        if (timeoutMs <= 0) {
+            throw new IllegalArgumentException(TIMEOUT_MS + " must be greater than zero");
+        }
+        if (timeoutMs > MAX_TIMEOUT_MS) {
+            throw new IllegalArgumentException(
+                    TIMEOUT_MS + " must not be greater than " + MAX_TIMEOUT_MS);
+        }
+        return timeoutMs;
+    }
+
+    private static int requireRetryTimes(int retryTimes) {
+        if (retryTimes < 0) {
+            throw new IllegalArgumentException(RETRY_TIMES + " must not be negative");
+        }
+        if (retryTimes > MAX_RETRY_TIMES) {
+            throw new IllegalArgumentException(
+                    RETRY_TIMES + " must not be greater than " + MAX_RETRY_TIMES);
+        }
+        return retryTimes;
     }
 
     private static Lookup first(

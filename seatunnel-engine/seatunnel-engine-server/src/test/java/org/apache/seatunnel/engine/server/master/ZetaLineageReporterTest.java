@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -131,18 +132,79 @@ class ZetaLineageReporterTest {
 
     @Test
     void shouldRejectJobTimeoutAndRetryBudgetsAboveClusterLimits() throws Exception {
+        Map<String, Integer> aboveDefault = new HashMap<>();
+        aboveDefault.put(LineageConfig.TIMEOUT_MS, LineageConfig.DEFAULT_TIMEOUT_MS + 1);
+        aboveDefault.put(LineageConfig.RETRY_TIMES, LineageConfig.DEFAULT_RETRY_TIMES + 1);
         for (String key : Arrays.asList(LineageConfig.TIMEOUT_MS, LineageConfig.RETRY_TIMES)) {
-            JobMaster master = mock(JobMaster.class, CALLS_REAL_METHODS);
-            JobConfig config = new JobConfig();
-            config.getEnvOptions().put(key, Integer.MAX_VALUE);
-            JobImmutableInformation information = mock(JobImmutableInformation.class);
-            doReturn(config).when(information).getJobConfig();
-            setField(master, "jobImmutableInformation", information);
+            Map<String, Object> job = new HashMap<>();
+            // Reporting has to be on. A disabled resolve returns defaults and never compares caps.
+            // The value stays inside the absolute range, so the failure is the cap comparison
+            // rather than LineageConfig rejecting the number before that comparison runs.
+            job.put(LineageConfig.ENABLED, true);
+            job.put(key, aboveDefault.get(key));
             IllegalArgumentException failure =
                     Assertions.assertThrows(
-                            IllegalArgumentException.class, master::resolveLineageConfig);
-            Assertions.assertTrue(failure.getMessage().contains(key));
+                            IllegalArgumentException.class,
+                            () -> lineageMaster(job, null).resolveLineageConfig());
+            Assertions.assertTrue(failure.getMessage().contains(key), failure.getMessage());
+            Assertions.assertTrue(
+                    failure.getMessage().contains("exceeds the environment or cluster limit"),
+                    failure.getMessage());
         }
+    }
+
+    /**
+     * Administrator caps are stored beside a cluster block that leaves reporting disabled. Jobs opt
+     * in on their own. The cap must still be that configured value: a tighter cap rejects a job
+     * budget below the default, and a looser cap accepts a job budget above the default.
+     */
+    @Test
+    void shouldKeepAdministratorLimitsWhenTrustedReportingIsDisabled() throws Exception {
+        Map<String, Object> tighter = new HashMap<>();
+        tighter.put("enabled", false);
+        tighter.put("timeout_ms", 1000);
+        tighter.put("retry_times", 0);
+        for (String key : Arrays.asList(LineageConfig.TIMEOUT_MS, LineageConfig.RETRY_TIMES)) {
+            Map<String, Object> job = new HashMap<>();
+            job.put(LineageConfig.ENABLED, true);
+            job.put(key, LineageConfig.TIMEOUT_MS.equals(key) ? 1001 : 1);
+            IllegalArgumentException failure =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () -> lineageMaster(job, tighter).resolveLineageConfig());
+            Assertions.assertTrue(failure.getMessage().contains(key), failure.getMessage());
+            Assertions.assertTrue(
+                    failure.getMessage().contains("exceeds the environment or cluster limit"),
+                    failure.getMessage());
+        }
+
+        Map<String, Object> looser = new HashMap<>();
+        looser.put("enabled", false);
+        looser.put("timeout_ms", LineageConfig.DEFAULT_TIMEOUT_MS + 5000);
+        looser.put("retry_times", LineageConfig.DEFAULT_RETRY_TIMES + 2);
+        Map<String, Object> job = new HashMap<>();
+        job.put(LineageConfig.ENABLED, true);
+        job.put(LineageConfig.TIMEOUT_MS, LineageConfig.DEFAULT_TIMEOUT_MS + 1);
+        job.put(LineageConfig.RETRY_TIMES, LineageConfig.DEFAULT_RETRY_TIMES + 1);
+        LineageConfig accepted =
+                Assertions.assertDoesNotThrow(
+                        () -> lineageMaster(job, looser).resolveLineageConfig());
+        Assertions.assertTrue(accepted.enabled());
+        Assertions.assertEquals(LineageConfig.DEFAULT_TIMEOUT_MS + 1, accepted.timeoutMs());
+        Assertions.assertEquals(LineageConfig.DEFAULT_RETRY_TIMES + 1, accepted.retryTimes());
+
+        // A job that never reports does not use the pool. Its resolution stays the disabled
+        // default and is not failed by comparing that default with a tighter administrator cap.
+        Map<String, Object> disabledJob = new HashMap<>();
+        disabledJob.put(LineageConfig.ENABLED, false);
+        disabledJob.put(LineageConfig.TIMEOUT_MS, LineageConfig.MAX_TIMEOUT_MS);
+        disabledJob.put(LineageConfig.RETRY_TIMES, LineageConfig.MAX_RETRY_TIMES);
+        LineageConfig disabled =
+                Assertions.assertDoesNotThrow(
+                        () -> lineageMaster(disabledJob, tighter).resolveLineageConfig());
+        Assertions.assertFalse(disabled.enabled());
+        Assertions.assertEquals(LineageConfig.DEFAULT_TIMEOUT_MS, disabled.timeoutMs());
+        Assertions.assertEquals(LineageConfig.DEFAULT_RETRY_TIMES, disabled.retryTimes());
     }
 
     @Test
@@ -970,6 +1032,24 @@ class ZetaLineageReporterTest {
                 Collections.singletonList(
                         Measurement.of("marker", value, 1L, Collections.emptyMap())));
         return JobMetrics.of(values);
+    }
+
+    private static JobMaster lineageMaster(
+            Map<String, Object> jobOptions, Map<String, Object> clusterOpenLineage)
+            throws Exception {
+        JobMaster master = mock(JobMaster.class, CALLS_REAL_METHODS);
+        JobConfig config = new JobConfig();
+        config.getEnvOptions().putAll(jobOptions);
+        JobImmutableInformation information = mock(JobImmutableInformation.class);
+        doReturn(config).when(information).getJobConfig();
+        setField(master, "jobImmutableInformation", information);
+        if (clusterOpenLineage != null) {
+            EngineConfig engineConfig = new EngineConfig();
+            engineConfig.setLineageOptions(
+                    Collections.singletonMap("openlineage", clusterOpenLineage));
+            setField(master, "engineConfig", engineConfig);
+        }
+        return master;
     }
 
     private static void setField(Object target, String fieldName, Object value) throws Exception {

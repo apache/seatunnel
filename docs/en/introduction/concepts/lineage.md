@@ -78,6 +78,11 @@ retries can also lose events.
 For Zeta, a job already being delivered drains its pending lifecycle events in the same worker.
 Job overrides of `openlineage_timeout_ms` and `openlineage_retry_times` are rejected outside 1
 through 60000 milliseconds and 0 through 10 retries; the defaults remain 10000 ms and 3 retries.
+For a job that enables reporting, Zeta also rejects an override above the process-environment
+value, then the cluster value, then that default. It reads those caps even when the same
+environment or cluster configuration sets `openlineage_enabled` to false, so a disabled cluster
+default cannot replace a configured cap with 10000 ms and 3 retries. A job that leaves reporting
+disabled does not use the shared lineage pool and is not failed for exceeding the cap.
 Heartbeat metrics use one shared collection deadline bounded by the effective timeout. Missing
 worker metrics are logged and statistics are omitted, while the heartbeat can still be sent.
 Heartbeat throttling counts send attempts, not HTTP acknowledgements: queued or evicted heartbeats

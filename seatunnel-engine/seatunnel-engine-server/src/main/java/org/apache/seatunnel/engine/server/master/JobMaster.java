@@ -1161,6 +1161,15 @@ public class JobMaster {
      * none of the three layers change over a job master's lifetime. Two callers racing the first
      * resolution both get an equivalent configuration, so no locking is needed.
      *
+     * <p>When reporting is enabled, the job timeout and retry count must stay within the
+     * administrator caps. Those caps come from {@link LineageConfig#trustedTimeoutMs} and {@link
+     * LineageConfig#trustedRetryTimes}, which read the process environment and cluster
+     * configuration even when that configuration leaves reporting disabled. {@link
+     * LineageConfig#resolve} replaces a disabled configuration with defaults, so it cannot supply
+     * the cap. A job that leaves reporting disabled does not use the shared lineage pool and is not
+     * checked against the cap; a disabled resolution also leaves a bad environment timeout unable
+     * to fail that job.
+     *
      * @return resolved lineage configuration
      */
     public LineageConfig resolveLineageConfig() {
@@ -1172,20 +1181,23 @@ public class JobMaster {
                 engineConfig == null || engineConfig.getLineageOptions() == null
                         ? Collections.emptyMap()
                         : engineConfig.getLineageOptions();
+        Map<String, String> environment = System.getenv();
         resolved =
                 LineageConfig.resolve(
                         jobImmutableInformation.getJobConfig().getEnvOptions(),
                         clusterOptions,
-                        System.getenv());
-        LineageConfig limits =
-                LineageConfig.resolve(Collections.emptyMap(), clusterOptions, System.getenv());
-        if (resolved.timeoutMs() > limits.timeoutMs()) {
-            throw new IllegalArgumentException(
-                    LineageConfig.TIMEOUT_MS + " exceeds the environment or cluster limit");
-        }
-        if (resolved.retryTimes() > limits.retryTimes()) {
-            throw new IllegalArgumentException(
-                    LineageConfig.RETRY_TIMES + " exceeds the environment or cluster limit");
+                        environment);
+        if (resolved.enabled()) {
+            int timeoutLimit = LineageConfig.trustedTimeoutMs(clusterOptions, environment);
+            int retryLimit = LineageConfig.trustedRetryTimes(clusterOptions, environment);
+            if (resolved.timeoutMs() > timeoutLimit) {
+                throw new IllegalArgumentException(
+                        LineageConfig.TIMEOUT_MS + " exceeds the environment or cluster limit");
+            }
+            if (resolved.retryTimes() > retryLimit) {
+                throw new IllegalArgumentException(
+                        LineageConfig.RETRY_TIMES + " exceeds the environment or cluster limit");
+            }
         }
         lineageConfig = resolved;
         return resolved;

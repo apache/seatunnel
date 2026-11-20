@@ -488,6 +488,45 @@ class LineageConfigTest {
     }
 
     @Test
+    void readsTrustedSendLimitsWhenReportingIsDisabled() {
+        Map<String, Object> nested = new HashMap<>();
+        nested.put("enabled", false);
+        nested.put("timeout_ms", 1500);
+        nested.put("retry_times", 1);
+        Map<String, Object> cluster = Collections.singletonMap("openlineage", nested);
+
+        assertEquals(1500, LineageConfig.trustedTimeoutMs(cluster, Collections.emptyMap()));
+        assertEquals(1, LineageConfig.trustedRetryTimes(cluster, Collections.emptyMap()));
+
+        Map<String, String> environment = new HashMap<>();
+        environment.put("OPENLINEAGE_ENABLED", "false");
+        environment.put("OPENLINEAGE_TIMEOUT_MS", "2500");
+        environment.put("OPENLINEAGE_RETRY_TIMES", "2");
+        assertEquals(2500, LineageConfig.trustedTimeoutMs(cluster, environment));
+        assertEquals(2, LineageConfig.trustedRetryTimes(cluster, environment));
+
+        assertEquals(
+                LineageConfig.DEFAULT_TIMEOUT_MS,
+                LineageConfig.trustedTimeoutMs(Collections.emptyMap(), Collections.emptyMap()));
+        assertEquals(
+                LineageConfig.DEFAULT_RETRY_TIMES,
+                LineageConfig.trustedRetryTimes(Collections.emptyMap(), Collections.emptyMap()));
+
+        LineageConfig disabled =
+                LineageConfig.resolve(Collections.emptyMap(), cluster, Collections.emptyMap());
+        assertFalse(disabled.enabled());
+        assertEquals(LineageConfig.DEFAULT_TIMEOUT_MS, disabled.timeoutMs());
+        assertEquals(LineageConfig.DEFAULT_RETRY_TIMES, disabled.retryTimes());
+
+        environment.put("OPENLINEAGE_TIMEOUT_MS", "0");
+        IllegalArgumentException failure =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> LineageConfig.trustedTimeoutMs(cluster, environment));
+        assertTrue(failure.getMessage().contains(LineageConfig.TIMEOUT_MS), failure.getMessage());
+    }
+
+    @Test
     void ignoresAMalformedEnvironmentValueWhenTheJobDisablesLineage() {
         Map<String, Object> job = Collections.singletonMap(LineageConfig.ENABLED, false);
         Map<String, Object> environment = new HashMap<>();
