@@ -63,6 +63,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -120,6 +121,33 @@ class JdbcMultiTableReconnectTest {
         assertEquals(1, activeDialect.getConnectionProvider().reestablishConnectionCalls);
         assertEquals(0, idleDialect.getConnectionProvider().reestablishConnectionCalls);
         assertTrue(activeDialect.generatedUpsertSqlCalls > 0);
+    }
+
+    /**
+     * The second buffered row's bind reports a closed statement. Reconnect must insert both rows
+     * once; a second bind during statement cleanup would insert them again.
+     */
+    @Test
+    void retainedRowsAreInsertedOnceWhenStatementClosesDuringBind() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("closed-statement-bind.db");
+        createTables(jdbcUrl);
+
+        Map<String, Object> insertOnly = new HashMap<>();
+        insertOnly.put("primary_keys", Collections.emptyList());
+        insertOnly.put("batch_size", 10);
+        TrackingSqliteDialect dialect = new TrackingSqliteDialect();
+        TestJdbcSinkWriter writer = createWriter(jdbcUrl, "active_table", dialect, insertOnly);
+        try {
+            writer.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            dialect.getConnectionProvider().failNextBindAfter(2);
+            writer.prepareCommit(1L);
+        } finally {
+            writer.close();
+        }
+
+        assertEquals(Arrays.asList("1:first", "2:second"), queryRows(jdbcUrl, "active_table"));
+        assertEquals(1, dialect.getConnectionProvider().reestablishConnectionCalls);
     }
 
     /**
@@ -910,8 +938,12 @@ class JdbcMultiTableReconnectTest {
         options.put("driver", "org.sqlite.JDBC");
         options.put("database", "main");
         options.put("table", table);
-        options.put("generate_sink_sql", true);
-        options.put("primary_keys", Arrays.asList("id"));
+        if (!options.containsKey("generate_sink_sql")) {
+            options.put("generate_sink_sql", true);
+        }
+        if (!options.containsKey("primary_keys")) {
+            options.put("primary_keys", Arrays.asList("id"));
+        }
         options.put("max_retries", 1);
         ReadonlyConfig config = ReadonlyConfig.fromMap(options);
         JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
@@ -1008,6 +1040,8 @@ class JdbcMultiTableReconnectTest {
         private Connection connection;
         private Connection delegate;
         private boolean failNextBatch;
+        private int bindsBeforeClosedStatement = -1;
+        private int completedBinds;
         private SQLException nextBatchFailure;
         private Exception nextCommitFailure;
         private boolean replaceDeadConnectionOnGet;
@@ -1020,6 +1054,12 @@ class JdbcMultiTableReconnectTest {
 
         private void failNextBatch() {
             failNextBatch = true;
+        }
+
+        /** Fails the next parameter bind after {@code successfulBinds} have completed. */
+        private void failNextBindAfter(int successfulBinds) {
+            bindsBeforeClosedStatement = successfulBinds;
+            completedBinds = 0;
         }
 
         /** Fails the next batch with {@code failure} and keeps the connection open. */
@@ -1135,6 +1175,17 @@ class JdbcMultiTableReconnectTest {
                                     failNextBatch = false;
                                     owner.close();
                                     throw new SQLException("connection dropped", "08S01");
+                                }
+                                if (bindsBeforeClosedStatement >= 0
+                                        && method.getName().startsWith("set")
+                                        && args != null
+                                        && args.length >= 2
+                                        && args[0] instanceof Integer) {
+                                    if (completedBinds >= bindsBeforeClosedStatement) {
+                                        bindsBeforeClosedStatement = -1;
+                                        throw new SQLException("This statement has been closed.");
+                                    }
+                                    completedBinds++;
                                 }
                                 if ("executeBatch".equals(method.getName())
                                         && nextBatchFailure != null) {
