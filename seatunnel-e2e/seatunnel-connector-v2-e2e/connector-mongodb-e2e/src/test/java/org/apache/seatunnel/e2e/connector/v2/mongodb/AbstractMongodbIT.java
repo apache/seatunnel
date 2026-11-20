@@ -131,8 +131,9 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
     }
 
     /**
-     * Documents whose _id is an ObjectId, a string or a long, and whose c_key is an int, a string,
-     * NaN, missing or null. c_id numbers them from 0.
+     * Documents whose _id is an ObjectId, a string or a long, whose c_key is an int, a string, NaN,
+     * missing or null, and whose c_nested.k is an int, a string or missing, also when c_nested is
+     * missing. c_id numbers them from 0.
      */
     public static List<Document> generateSplitKeyTypesDataSet(int count) {
         List<Document> dataSet = new ArrayList<>();
@@ -154,6 +155,13 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                 document.append("c_key", null);
             } else if (i % 10 == 8) {
                 document.append("c_key", Double.NaN);
+            }
+            if (i % 4 == 0) {
+                document.append("c_nested", new Document("k", i));
+            } else if (i % 4 == 1) {
+                document.append("c_nested", new Document("k", String.format("n%04d", i)));
+            } else if (i % 4 == 2) {
+                document.append("c_nested", new Document("other", i));
             }
             document.append("c_pad", randomString());
             dataSet.add(document);

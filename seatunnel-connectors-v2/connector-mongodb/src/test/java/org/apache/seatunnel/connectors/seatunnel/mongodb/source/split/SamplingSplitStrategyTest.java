@@ -269,13 +269,16 @@ public class SamplingSplitStrategyTest {
         assertEquals(Arrays.asList("{}"), queries(splits));
     }
 
-    /** An array cannot bound a range, so it reads as no value. */
+    /** A split key with a dot names a field of an embedded document. */
     @Test
-    public void testValueOfIgnoresArrays() {
-        BsonDocument document = BsonDocument.parse("{\"list\": [1, 2], \"c\": 3}");
+    public void testValueOfFollowsAPathAndIgnoresArrays() {
+        BsonDocument document =
+                BsonDocument.parse("{\"a\": {\"b\": 7, \"list\": [1, 2]}, \"c\": 3}");
 
+        assertEquals(new BsonInt32(7), SamplingSplitStrategy.valueOf(document, "a.b"));
         assertEquals(new BsonInt32(3), SamplingSplitStrategy.valueOf(document, "c"));
-        assertEquals(BsonNull.VALUE, SamplingSplitStrategy.valueOf(document, "missing"));
-        assertEquals(BsonNull.VALUE, SamplingSplitStrategy.valueOf(document, "list"));
+        assertEquals(BsonNull.VALUE, SamplingSplitStrategy.valueOf(document, "a.missing"));
+        assertEquals(BsonNull.VALUE, SamplingSplitStrategy.valueOf(document, "c.d"));
+        assertEquals(BsonNull.VALUE, SamplingSplitStrategy.valueOf(document, "a.list"));
     }
 }

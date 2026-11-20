@@ -193,11 +193,23 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         return !value.isDecimal128() || !value.asDecimal128().getValue().isNaN();
     }
 
-    /** Returns the value of {@code key}, or {@link BsonNull} when the document has none. */
+    /**
+     * Returns the value at {@code path}, which may name a field of an embedded document with dots,
+     * or {@link BsonNull} when the document has no such value.
+     */
     @VisibleForTesting
-    static BsonValue valueOf(BsonDocument document, String key) {
-        BsonValue value = document.get(key);
-        return value == null || value instanceof BsonArray ? BsonNull.VALUE : value;
+    static BsonValue valueOf(BsonDocument document, String path) {
+        BsonValue value = document;
+        for (String field : path.split("\\.")) {
+            if (!(value instanceof BsonDocument)) {
+                return BsonNull.VALUE;
+            }
+            value = ((BsonDocument) value).get(field);
+            if (value == null) {
+                return BsonNull.VALUE;
+            }
+        }
+        return value instanceof BsonArray ? BsonNull.VALUE : value;
     }
 
     @VisibleForTesting

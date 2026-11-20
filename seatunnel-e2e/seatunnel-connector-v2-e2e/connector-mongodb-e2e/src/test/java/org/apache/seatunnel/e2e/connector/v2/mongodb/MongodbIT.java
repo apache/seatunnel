@@ -464,7 +464,8 @@ public class MongodbIT extends AbstractMongodbIT {
      * read every document once. A range of the split key matches only values of the type of its
      * bound, so splits between bounds of two types read nothing, and a sampled document without the
      * key made a split without bounds that read the whole collection again. A match query on the
-     * split key must hold in every split.
+     * split key must hold in every split, and a dotted split key names a field of an embedded
+     * document.
      */
     @TestTemplate
     public void testMongodbSourceSplitKeyOfSeveralTypes(TestContainer container)
@@ -477,6 +478,8 @@ public class MongodbIT extends AbstractMongodbIT {
                 container, "/splitIT/mongodb_split_key_types_source_to_mongodb.conf", all);
         assertSplitKeyTypesJobReads(
                 container, "/splitIT/mongodb_split_id_types_source_to_mongodb.conf", all);
+        assertSplitKeyTypesJobReads(
+                container, "/splitIT/mongodb_split_nested_key_source_to_mongodb.conf", all);
         List<Integer> matched =
                 TEST_SPLIT_KEY_TYPES_DATASET.stream()
                         .filter(d -> d.get("c_key") instanceof Integer)
