@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.rest.models.QueryPlan;
 import org.apache.seatunnel.connectors.doris.rest.models.Tablet;
 import org.apache.seatunnel.connectors.doris.source.DorisSourceTable;
+import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 import org.apache.seatunnel.connectors.doris.util.ErrorMessages;
 
 import org.apache.commons.io.IOUtils;
@@ -63,6 +64,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class RestService implements Serializable {
@@ -264,23 +266,8 @@ public class RestService implements Serializable {
                 dorisSourceTable.getTablePath().getDatabaseName()
                         + "."
                         + dorisSourceTable.getTablePath().getTableName();
-        SeaTunnelRowType rowType = dorisSourceTable.getCatalogTable().getSeaTunnelRowType();
         String[] tableIdentifiers = parseIdentifier(tableIdentifier, logger);
-        String readFields = "*";
-        if (rowType.getFieldNames().length != 0) {
-            readFields = String.join(",", rowType.getFieldNames());
-        }
-        String sql =
-                "select "
-                        + readFields
-                        + " from `"
-                        + tableIdentifiers[0]
-                        + "`.`"
-                        + tableIdentifiers[1]
-                        + "`";
-        if (!StringUtils.isEmpty(dorisSourceTable.getFilterQuery())) {
-            sql += " where " + dorisSourceTable.getFilterQuery();
-        }
+        String sql = buildQuerySql(dorisSourceTable, tableIdentifiers[0], tableIdentifiers[1]);
         logger.debug("Query SQL Sending to Doris FE is: '{}'.", sql);
 
         String entity = "{\"sql\": \"" + sql + "\"}";
@@ -324,6 +311,23 @@ public class RestService implements Serializable {
                 tableIdentifiers[0],
                 tableIdentifiers[1],
                 logger);
+    }
+
+    @VisibleForTesting
+    static String buildQuerySql(DorisSourceTable dorisSourceTable, String database, String table) {
+        SeaTunnelRowType rowType = dorisSourceTable.getCatalogTable().getSeaTunnelRowType();
+        String readFields = "*";
+        if (rowType.getFieldNames().length != 0) {
+            readFields =
+                    Arrays.stream(rowType.getFieldNames())
+                            .map(DorisCatalogUtil::quoteIdentifier)
+                            .collect(Collectors.joining(","));
+        }
+        String sql = "select " + readFields + " from `" + database + "`.`" + table + "`";
+        if (!StringUtils.isEmpty(dorisSourceTable.getFilterQuery())) {
+            sql += " where " + dorisSourceTable.getFilterQuery();
+        }
+        return sql;
     }
 
     @VisibleForTesting

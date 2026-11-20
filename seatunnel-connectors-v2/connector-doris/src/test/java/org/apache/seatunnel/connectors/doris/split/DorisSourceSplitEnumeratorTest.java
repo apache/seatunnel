@@ -87,13 +87,14 @@ public class DorisSourceSplitEnumeratorTest {
         DorisSourceSplitEnumerator dorisSourceSplitEnumerator =
                 new DorisSourceSplitEnumerator(context, dorisSourceConfig, dorisSourceTableMap);
 
-        MockedStatic<RestService> restServiceMockedStatic = Mockito.mockStatic(RestService.class);
+        try (MockedStatic<RestService> restServiceMockedStatic =
+                Mockito.mockStatic(RestService.class)) {
+            restServiceMockedStatic
+                    .when(() -> RestService.findPartitions(any(), any(), any()))
+                    .thenReturn(buildPartitionDefinitions());
 
-        restServiceMockedStatic
-                .when(() -> RestService.findPartitions(any(), any(), any()))
-                .thenReturn(buildPartitionDefinitions());
-
-        dorisSourceSplitEnumerator.run();
+            dorisSourceSplitEnumerator.run();
+        }
 
         ArgumentCaptor<Integer> subtaskId = ArgumentCaptor.forClass(Integer.class);
         ArgumentCaptor<List> split = ArgumentCaptor.forClass(List.class);
