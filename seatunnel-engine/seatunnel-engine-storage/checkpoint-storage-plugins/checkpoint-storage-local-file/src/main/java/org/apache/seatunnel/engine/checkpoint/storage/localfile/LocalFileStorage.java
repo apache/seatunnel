@@ -461,4 +461,19 @@ public class LocalFileStorage extends AbstractChunkSupportStorage {
         }
         return names;
     }
+
+    @Override
+    protected List<String> listFileNames(String relativePath) throws IOException {
+        Path dir = resolve(relativePath);
+        List<String> names = new ArrayList<>();
+        if (!Files.isDirectory(dir)) {
+            return names;
+        }
+        try (DirectoryStream<Path> children = Files.newDirectoryStream(dir, Files::isRegularFile)) {
+            for (Path child : children) {
+                names.add(child.getFileName().toString());
+            }
+        }
+        return names;
+    }
 }

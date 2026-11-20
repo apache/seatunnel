@@ -17,10 +17,12 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.api;
 
+import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.checkpoint.storage.state.ChunkDescriptor;
 import org.apache.seatunnel.engine.checkpoint.storage.state.FileChunkStateHandle;
 import org.apache.seatunnel.engine.checkpoint.storage.state.MetadataEnvelope;
+import org.apache.seatunnel.engine.checkpoint.storage.state.V1CheckpointFile;
 
 import java.util.List;
 
@@ -93,4 +95,25 @@ public interface ChunkSupportStorage extends CheckpointStorage {
      */
     List<Long> listCompletedCheckpointIds(String jobId, String pipelineId)
             throws CheckpointStorageException;
+
+    /**
+     * Lists the v1 checkpoint files of a pipeline from their names only, newest first by the write
+     * timestamp in the name (the order {@link #getLatestCheckpointByJobIdAndPipelineId} uses).
+     * Files are not read, so an unreadable file is still listed.
+     *
+     * @return the v1 checkpoint files, or an empty list if there are none
+     * @throws CheckpointStorageException if the job directory cannot be listed
+     */
+    List<V1CheckpointFile> listV1Checkpoints(String jobId, String pipelineId)
+            throws CheckpointStorageException;
+
+    /**
+     * Reads one v1 checkpoint file. Unlike the {@link CheckpointStorage} getters, which log and
+     * skip unreadable files, every read or deserialization failure is thrown, so restore can tell
+     * an unreadable checkpoint apart from a missing one.
+     *
+     * @throws CheckpointStorageException if the file cannot be read or does not contain the
+     *     expected checkpoint
+     */
+    PipelineState readV1Checkpoint(V1CheckpointFile file) throws CheckpointStorageException;
 }

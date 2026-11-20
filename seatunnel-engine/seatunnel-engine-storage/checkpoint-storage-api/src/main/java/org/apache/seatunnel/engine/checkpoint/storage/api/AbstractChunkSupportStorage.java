@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.api;
 
+import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.checkpoint.storage.state.CheckpointFileLayout;
 import org.apache.seatunnel.engine.checkpoint.storage.state.ChunkCodec;
@@ -24,11 +25,13 @@ import org.apache.seatunnel.engine.checkpoint.storage.state.ChunkDescriptor;
 import org.apache.seatunnel.engine.checkpoint.storage.state.FileChunkStateHandle;
 import org.apache.seatunnel.engine.checkpoint.storage.state.InlineStateHandle;
 import org.apache.seatunnel.engine.checkpoint.storage.state.MetadataEnvelope;
+import org.apache.seatunnel.engine.checkpoint.storage.state.V1CheckpointFile;
 
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -70,6 +73,9 @@ public abstract class AbstractChunkSupportStorage extends AbstractCheckpointStor
 
     /** Returns whether a regular file exists at the path. */
     protected abstract boolean fileExists(String relativePath) throws IOException;
+
+    /** Lists the names of the regular files directly in a directory, or an empty list if absent. */
+    protected abstract List<String> listFileNames(String relativePath) throws IOException;
 
     /** Lists the names of the direct child directories, or an empty list if the path is absent. */
     protected abstract List<String> listChildDirectories(String relativePath) throws IOException;
@@ -177,6 +183,87 @@ public abstract class AbstractChunkSupportStorage extends AbstractCheckpointStor
         } catch (IOException | RuntimeException e) {
             throw new CheckpointStorageException(
                     String.format("Failed to list v2 checkpoints under %s", pipelineDir), e);
+        }
+    }
+
+    @Override
+    public List<V1CheckpointFile> listV1Checkpoints(String jobId, String pipelineId)
+            throws CheckpointStorageException {
+        List<String> names;
+        try {
+            names = listFileNames(jobId);
+        } catch (IOException | RuntimeException e) {
+            throw new CheckpointStorageException(
+                    String.format("Failed to list the v1 checkpoints of job %s", jobId), e);
+        }
+        List<V1CheckpointFile> files = new ArrayList<>();
+        for (String name : names) {
+            V1CheckpointFile file = parseV1FileName(jobId, name);
+            if (file != null && file.getPipelineId().equals(pipelineId)) {
+                files.add(file);
+            }
+        }
+        files.sort(
+                Comparator.comparingLong(V1CheckpointFile::getWriteTimestamp)
+                        .thenComparingLong(V1CheckpointFile::getCheckpointId)
+                        .reversed());
+        return files;
+    }
+
+    @Override
+    public PipelineState readV1Checkpoint(V1CheckpointFile file) throws CheckpointStorageException {
+        PipelineState state;
+        try {
+            state = deserializeCheckPointData(readFile(file.getLocation()));
+        } catch (IOException | RuntimeException e) {
+            throw new CheckpointStorageException(
+                    String.format(
+                            "Failed to read v1 checkpoint %s (job %s, pipeline %s, checkpoint %d)",
+                            file.getLocation(),
+                            file.getJobId(),
+                            file.getPipelineId(),
+                            file.getCheckpointId()),
+                    e);
+        }
+        // a truncated or foreign file can deserialize without an error into an incomplete state
+        if (state == null
+                || state.getStates() == null
+                || state.getCheckpointId() != file.getCheckpointId()
+                || !String.valueOf(state.getPipelineId()).equals(file.getPipelineId())) {
+            throw new CheckpointStorageException(
+                    String.format(
+                            "v1 checkpoint %s does not contain checkpoint %d of job %s, pipeline %s",
+                            file.getLocation(),
+                            file.getCheckpointId(),
+                            file.getJobId(),
+                            file.getPipelineId()));
+        }
+        return state;
+    }
+
+    /**
+     * Parses {@code <writeTimestamp>-<random>-<pipelineId>-<checkpointId>.ser}; returns {@code
+     * null} for any other file name.
+     */
+    private static V1CheckpointFile parseV1FileName(String jobId, String fileName) {
+        String suffix = "." + FILE_FORMAT;
+        if (!fileName.endsWith(suffix)) {
+            return null;
+        }
+        String[] segments =
+                fileName.substring(0, fileName.length() - suffix.length()).split(FILE_NAME_SPLIT);
+        if (segments.length != 4) {
+            return null;
+        }
+        try {
+            return new V1CheckpointFile(
+                    jobId + DEFAULT_CHECKPOINT_FILE_PATH_SPLIT + fileName,
+                    jobId,
+                    segments[FILE_NAME_PIPELINE_ID_INDEX],
+                    Long.parseLong(segments[FILE_NAME_CHECKPOINT_ID_INDEX]),
+                    Long.parseLong(segments[FILE_SORT_ID_INDEX]));
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 }

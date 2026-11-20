@@ -455,4 +455,19 @@ public class HdfsStorage extends AbstractChunkSupportStorage {
         }
         return names;
     }
+
+    @Override
+    protected List<String> listFileNames(String relativePath) throws IOException {
+        Path dir = resolve(relativePath);
+        List<String> names = new ArrayList<>();
+        if (!fs.exists(dir)) {
+            return names;
+        }
+        for (FileStatus status : fs.listStatus(dir)) {
+            if (status.isFile()) {
+                names.add(status.getPath().getName());
+            }
+        }
+        return names;
+    }
 }

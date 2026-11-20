@@ -18,16 +18,21 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
+import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractChunkSupportStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.api.ChunkSupportStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.hdfs.HdfsStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.localfile.LocalFileStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.state.CheckpointFileLayout;
 import org.apache.seatunnel.engine.checkpoint.storage.state.MetadataEnvelope;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mockito;
 
 import java.nio.charset.StandardCharsets;
@@ -39,6 +44,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** Restore-time selection between v1 blobs and v2 {@code _metadata} checkpoints (STIP-45). */
 public class DualFormatCheckpointReaderTest {
@@ -48,25 +54,40 @@ public class DualFormatCheckpointReaderTest {
 
     @TempDir Path namespace;
 
-    private LocalFileStorage storage;
+    private AbstractChunkSupportStorage storage;
 
-    @BeforeEach
-    public void setUp() {
-        Map<String, String> config = new HashMap<>();
-        config.put("namespace", namespace.toString());
-        storage = new LocalFileStorage(config);
+    /** The two storage plugins implementing {@link ChunkSupportStorage}. */
+    enum Backend {
+        LOCAL_FILE,
+        HADOOP_LOCAL_FS
     }
 
-    @Test
-    public void testNoCheckpointReturnsNull() throws Exception {
+    private void use(Backend backend) throws Exception {
+        Map<String, String> config = new HashMap<>();
+        config.put("namespace", namespace.toString());
+        if (backend == Backend.LOCAL_FILE) {
+            storage = new LocalFileStorage(config);
+        } else {
+            config.put("fs.defaultFS", "file:///");
+            config.put("disable.cache", "true");
+            storage = new HdfsStorage(config);
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Backend.class)
+    public void testNoCheckpointReturnsNull(Backend backend) throws Exception {
+        use(backend);
         Assertions.assertNull(
                 DualFormatCheckpointReader.getLatestCheckpoint(storage, JOB_ID, PIPELINE_ID));
         Assertions.assertTrue(
                 DualFormatCheckpointReader.getCheckpoints(storage, JOB_ID, PIPELINE_ID).isEmpty());
     }
 
-    @Test
-    public void testV1OnlyIsRestoredAsBefore() throws Exception {
+    @ParameterizedTest
+    @EnumSource(Backend.class)
+    public void testV1OnlyIsRestoredAsBefore(Backend backend) throws Exception {
+        use(backend);
         storeV1(3, "v1-3");
 
         PipelineState latest =
@@ -76,8 +97,10 @@ public class DualFormatCheckpointReaderTest {
         Assertions.assertEquals("v1-3", text(latest));
     }
 
-    @Test
-    public void testNewerV2WinsAndCarriesTheSamePayloadShape() throws Exception {
+    @ParameterizedTest
+    @EnumSource(Backend.class)
+    public void testNewerV2WinsAndCarriesTheSamePayloadShape(Backend backend) throws Exception {
+        use(backend);
         storeV1(3, "v1-3");
         storeV2(4, "v2-4");
 
@@ -90,8 +113,10 @@ public class DualFormatCheckpointReaderTest {
         Assertions.assertEquals("v2-4", text(latest));
     }
 
-    @Test
-    public void testNewerV1WinsOverOlderV2() throws Exception {
+    @ParameterizedTest
+    @EnumSource(Backend.class)
+    public void testNewerV1WinsOverOlderV2(Backend backend) throws Exception {
+        use(backend);
         storeV2(4, "v2-4");
         storeV1(5, "v1-5");
 
@@ -100,8 +125,11 @@ public class DualFormatCheckpointReaderTest {
                 text(DualFormatCheckpointReader.getLatestCheckpoint(storage, JOB_ID, PIPELINE_ID)));
     }
 
-    @Test
-    public void testCorruptedLatestMetadataFallsBackToOlderCheckpoint() throws Exception {
+    @ParameterizedTest
+    @EnumSource(Backend.class)
+    public void testCorruptedLatestMetadataFallsBackToOlderCheckpoint(Backend backend)
+            throws Exception {
+        use(backend);
         storeV1(2, "v1-2");
         storeV2(6, "v2-6");
         storeV2(7, "v2-7");
@@ -116,8 +144,10 @@ public class DualFormatCheckpointReaderTest {
         Assertions.assertEquals("v1-2", text(latest));
     }
 
-    @Test
-    public void testIncompleteV2CheckpointIsIgnored() throws Exception {
+    @ParameterizedTest
+    @EnumSource(Backend.class)
+    public void testIncompleteV2CheckpointIsIgnored(Backend backend) throws Exception {
+        use(backend);
         storeV1(2, "v1-2");
         // a chk dir without _metadata: the master crashed before committing it
         Files.createDirectories(
@@ -128,8 +158,10 @@ public class DualFormatCheckpointReaderTest {
                 text(DualFormatCheckpointReader.getLatestCheckpoint(storage, JOB_ID, PIPELINE_ID)));
     }
 
-    @Test
-    public void testOnlyIncompleteV2CheckpointsMeansNoCheckpoint() throws Exception {
+    @ParameterizedTest
+    @EnumSource(Backend.class)
+    public void testOnlyIncompleteV2CheckpointsMeansNoCheckpoint(Backend backend) throws Exception {
+        use(backend);
         // never committed: nothing to restore, which is not a failure
         Files.createDirectories(
                 namespace.resolve(CheckpointFileLayout.checkpointDir(JOB_ID, PIPELINE_ID, 9)));
@@ -138,8 +170,10 @@ public class DualFormatCheckpointReaderTest {
                 DualFormatCheckpointReader.getLatestCheckpoint(storage, JOB_ID, PIPELINE_ID));
     }
 
-    @Test
-    public void testAllCompletedCheckpointsUnreadableFailsClosed() throws Exception {
+    @ParameterizedTest
+    @EnumSource(Backend.class)
+    public void testAllCompletedCheckpointsUnreadableFailsClosed(Backend backend) throws Exception {
+        use(backend);
         storeV2(6, "v2-6");
         storeV2(7, "v2-7");
         corruptMetadata(6);
@@ -162,47 +196,110 @@ public class DualFormatCheckpointReaderTest {
                 () -> DualFormatCheckpointReader.getCheckpoints(storage, JOB_ID, PIPELINE_ID));
     }
 
-    @Test
-    public void testUnreadableV1DoesNotHideReadableV2() throws Exception {
-        storeV2(4, "v2-4");
-        LocalFileStorage brokenV1 = Mockito.spy(storage);
-        Mockito.doThrow(new CheckpointStorageException("corrupt v1 blob"))
-                .when(brokenV1)
-                .getLatestCheckpointByJobIdAndPipelineId(JOB_ID, PIPELINE_ID);
-        Mockito.doThrow(new IllegalStateException("corrupt v1 blob"))
-                .when(brokenV1)
-                .getCheckpointsByJobIdAndPipelineId(JOB_ID, PIPELINE_ID);
+    @ParameterizedTest
+    @EnumSource(Backend.class)
+    public void testCorruptLatestV1FallsBackToOlderV1(Backend backend) throws Exception {
+        use(backend);
+        storeV1(2, "v1-2");
+        storeV1(3, "v1-3");
+        corruptV1(3);
 
         Assertions.assertEquals(
-                "v2-4",
-                text(
-                        DualFormatCheckpointReader.getLatestCheckpoint(
-                                brokenV1, JOB_ID, PIPELINE_ID)));
+                "v1-2",
+                text(DualFormatCheckpointReader.getLatestCheckpoint(storage, JOB_ID, PIPELINE_ID)));
         Assertions.assertEquals(
-                "v2-4",
-                text(
-                        DualFormatCheckpointReader.getCheckpoints(brokenV1, JOB_ID, PIPELINE_ID)
-                                .get(0)));
+                Collections.singletonList("v1-2"),
+                texts(DualFormatCheckpointReader.getCheckpoints(storage, JOB_ID, PIPELINE_ID)));
     }
 
-    @Test
-    public void testUnreadableV1AndNoV2FailsClosed() throws Exception {
-        LocalFileStorage brokenV1 = Mockito.spy(storage);
-        Mockito.doThrow(new CheckpointStorageException("corrupt v1 blob"))
-                .when(brokenV1)
-                .getLatestCheckpointByJobIdAndPipelineId(JOB_ID, PIPELINE_ID);
+    @ParameterizedTest
+    @EnumSource(Backend.class)
+    public void testAllV1UnreadableAndNoV2FailsClosed(Backend backend) throws Exception {
+        use(backend);
+        storeV1(3, "v1-3");
+        corruptV1(3);
 
-        CheckpointStorageException failure =
+        CheckpointStorageException latestFailure =
                 Assertions.assertThrows(
                         CheckpointStorageException.class,
                         () ->
                                 DualFormatCheckpointReader.getLatestCheckpoint(
-                                        brokenV1, JOB_ID, PIPELINE_ID));
-        Assertions.assertTrue(failure.getMessage().contains("corrupt v1 blob"));
+                                        storage, JOB_ID, PIPELINE_ID));
+        Assertions.assertTrue(latestFailure.getMessage().contains("v1 checkpoint 3"));
+        Assertions.assertTrue(latestFailure.getMessage().contains("Job " + JOB_ID));
+        CheckpointStorageException listFailure =
+                Assertions.assertThrows(
+                        CheckpointStorageException.class,
+                        () ->
+                                DualFormatCheckpointReader.getCheckpoints(
+                                        storage, JOB_ID, PIPELINE_ID));
+        Assertions.assertTrue(listFailure.getMessage().contains("v1 checkpoint 3"));
     }
 
-    @Test
-    public void testGetCheckpointsMergesBothFormatsAndSkipsCorrupted() throws Exception {
+    /**
+     * A v1 file that cannot be read at all: the v1 getters catch the {@link java.io.IOException},
+     * log it and report it as absent, so the reader must not rely on them.
+     */
+    @ParameterizedTest
+    @EnumSource(Backend.class)
+    public void testV1FileThatCannotBeReadFailsClosed(Backend backend) throws Exception {
+        use(backend);
+        storeV1(3, "v1-3");
+        Path file = v1File(3);
+        Files.setPosixFilePermissions(file, Collections.emptySet());
+        Assumptions.assumeFalse(Files.isReadable(file), "file permissions are not enforced");
+        // the existing v1 getters swallow the read failure: local file storage reports no latest
+        // checkpoint, the Hadoop storage skips the file when listing
+        if (backend == Backend.LOCAL_FILE) {
+            Assertions.assertNull(
+                    storage.getLatestCheckpointByJobIdAndPipelineId(JOB_ID, PIPELINE_ID));
+        } else {
+            Assertions.assertTrue(
+                    storage.getCheckpointsByJobIdAndPipelineId(JOB_ID, PIPELINE_ID).isEmpty());
+        }
+
+        CheckpointStorageException latestFailure =
+                Assertions.assertThrows(
+                        CheckpointStorageException.class,
+                        () ->
+                                DualFormatCheckpointReader.getLatestCheckpoint(
+                                        storage, JOB_ID, PIPELINE_ID));
+        Assertions.assertTrue(latestFailure.getMessage().contains("v1 checkpoint 3"));
+        Assertions.assertThrows(
+                CheckpointStorageException.class,
+                () -> DualFormatCheckpointReader.getCheckpoints(storage, JOB_ID, PIPELINE_ID));
+
+        // a readable older checkpoint is still used
+        storeV1(2, "v1-2");
+        Assertions.assertEquals(
+                "v1-2",
+                text(DualFormatCheckpointReader.getLatestCheckpoint(storage, JOB_ID, PIPELINE_ID)));
+        Assertions.assertEquals(
+                Collections.singletonList("v1-2"),
+                texts(DualFormatCheckpointReader.getCheckpoints(storage, JOB_ID, PIPELINE_ID)));
+    }
+
+    @ParameterizedTest
+    @EnumSource(Backend.class)
+    public void testUnreadableV1DoesNotHideReadableV2(Backend backend) throws Exception {
+        use(backend);
+        storeV2(4, "v2-4");
+        storeV1(5, "v1-5");
+        corruptV1(5);
+
+        Assertions.assertEquals(
+                "v2-4",
+                text(DualFormatCheckpointReader.getLatestCheckpoint(storage, JOB_ID, PIPELINE_ID)));
+        Assertions.assertEquals(
+                Collections.singletonList("v2-4"),
+                texts(DualFormatCheckpointReader.getCheckpoints(storage, JOB_ID, PIPELINE_ID)));
+    }
+
+    @ParameterizedTest
+    @EnumSource(Backend.class)
+    public void testGetCheckpointsMergesBothFormatsAndSkipsCorrupted(Backend backend)
+            throws Exception {
+        use(backend);
         storeV1(1, "v1-1");
         storeV2(2, "v2-2");
         storeV2(3, "v2-3");
@@ -263,6 +360,30 @@ public class DualFormatCheckpointReaderTest {
         byte[] bytes = Files.readAllBytes(metadata);
         bytes[bytes.length - 1] ^= 0x01;
         Files.write(metadata, bytes);
+    }
+
+    /** Overwrites the v1 file of a checkpoint with bytes that are not a checkpoint. */
+    private void corruptV1(long checkpointId) throws Exception {
+        Files.write(v1File(checkpointId), "not a checkpoint".getBytes(StandardCharsets.UTF_8));
+    }
+
+    private Path v1File(long checkpointId) throws Exception {
+        String suffix = "-" + PIPELINE_ID + "-" + checkpointId + ".ser";
+        List<Path> files;
+        try (Stream<Path> stream = Files.list(namespace.resolve(JOB_ID))) {
+            files =
+                    stream.filter(f -> f.getFileName().toString().endsWith(suffix))
+                            .collect(Collectors.toList());
+        }
+        Assertions.assertEquals(1, files.size(), "v1 file of checkpoint " + checkpointId);
+        return files.get(0);
+    }
+
+    private static List<String> texts(List<PipelineState> states) {
+        return states.stream()
+                .map(DualFormatCheckpointReaderTest::text)
+                .sorted()
+                .collect(Collectors.toList());
     }
 
     private static String text(PipelineState state) {

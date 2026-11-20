@@ -38,6 +38,7 @@ import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorSe
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointErrorReportOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestoreOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.Task;
@@ -1505,12 +1506,13 @@ public class CheckpointCoordinatorTest
     /**
      * STIP-45 restore path for external (v2) state, end to end on the master and worker side: real
      * v2 chunks and {@code _metadata} are written, the checkpoint is selected by {@link
-     * DualFormatCheckpointReader} (as {@link CheckpointManager} does), deserialized by a real
-     * {@link CheckpointCoordinator}, remapped from parallelism 2 to 1 by {@code restoreTaskState},
-     * each {@link NotifyTaskRestoreOperation} crosses Hazelcast serialization, and its real {@code
-     * runInternal} resolves the handles before {@link Task#restoreState} is invoked. Only the task
-     * itself and the executor lookup are stubbed. A missing chunk must fail the restore (reported
-     * to the master) instead of handing the task empty state.
+     * DualFormatCheckpointReader} (as {@link CheckpointManager} does) and deserialized by a real
+     * {@link CheckpointCoordinator}. The tasks then report {@code WAITING_RESTORE} through {@link
+     * CheckpointCoordinator#reportedTask}, which remaps the state from parallelism 2 to 1; each
+     * resulting {@link NotifyTaskRestoreOperation} crosses Hazelcast serialization, and its real
+     * {@code runInternal} resolves the handles before {@link Task#restoreState} is invoked. Only
+     * the task itself and the executor lookup are stubbed. A missing chunk must fail the restore
+     * (reported to the master) instead of handing the task empty state.
      */
     @Test
     void testExternalStateIsResolvedThroughTheRealRestoreOperation(@TempDir Path namespace)
@@ -1597,10 +1599,19 @@ public class CheckpointCoordinatorTest
                         .build();
         CheckpointConfig checkpointConfig = new CheckpointConfig();
         checkpointConfig.setStorage(new CheckpointStorageConfig());
+        // capture the restore operations the coordinator sends to the workers
+        Map<TaskLocation, NotifyTaskRestoreOperation> sent = new ConcurrentHashMap<>();
+        CountDownLatch restoresSent = new CountDownLatch(2);
         CheckpointManager mockManager = Mockito.mock(CheckpointManager.class);
-        Mockito.doReturn(Mockito.mock(InvocationFuture.class))
+        Mockito.doAnswer(
+                        invocation -> {
+                            NotifyTaskRestoreOperation operation = invocation.getArgument(0);
+                            sent.put(operation.getTaskLocation(), operation);
+                            restoresSent.countDown();
+                            return Mockito.mock(InvocationFuture.class);
+                        })
                 .when(mockManager)
-                .sendOperationToMemberNode(Mockito.any(TaskOperation.class));
+                .sendOperationToMemberNode(Mockito.any(NotifyTaskRestoreOperation.class));
         ExecutorService executorService = Executors.newCachedThreadPool();
         try {
             @SuppressWarnings("unchecked")
@@ -1618,17 +1629,31 @@ public class CheckpointCoordinatorTest
                             mockIMap,
                             true,
                             null);
-            ReflectionUtils.invoke(coordinator, "restoreTaskState", coordinatorTask);
-            ReflectionUtils.invoke(coordinator, "restoreTaskState", subtask);
+            // enter through the supported lifecycle boundary: the tasks report WAITING_RESTORE
+            // (sent through Hazelcast serialization like the worker-to-master RPC), and the
+            // coordinator dispatches restoreTaskState asynchronously on its executor
+            for (TaskLocation task : Arrays.asList(coordinatorTask, subtask)) {
+                TaskReportStatusOperation report =
+                        nodeEngine
+                                .getSerializationService()
+                                .toObject(
+                                        nodeEngine
+                                                .getSerializationService()
+                                                .toData(
+                                                        new TaskReportStatusOperation(
+                                                                task,
+                                                                SeaTunnelTaskState
+                                                                        .WAITING_RESTORE)));
+                coordinator.reportedTask(report);
+            }
+            Assertions.assertTrue(
+                    restoresSent.await(10, TimeUnit.SECONDS),
+                    "the coordinator did not send a restore operation to every task");
         } finally {
             executorService.shutdownNow();
         }
-        ArgumentCaptor<TaskOperation> captor = ArgumentCaptor.forClass(TaskOperation.class);
-        Mockito.verify(mockManager, Mockito.times(2)).sendOperationToMemberNode(captor.capture());
-        Map<TaskLocation, NotifyTaskRestoreOperation> sent = new HashMap<>();
-        for (TaskOperation operation : captor.getAllValues()) {
-            sent.put(operation.getTaskLocation(), (NotifyTaskRestoreOperation) operation);
-        }
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList(coordinatorTask, subtask)), sent.keySet());
 
         // the coordinator task receives the enumerator state, read from its chunk
         Task enumeratorTask = runRestoreOperation(sent.get(coordinatorTask), storage);
