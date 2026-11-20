@@ -63,8 +63,16 @@ for parallel reads.
 
 `sts_token` Your MaxCompute STS Token for temporary authentication. **Note:** If `sts_token` is provided, `accessId` and `accesskey` are strictly required.
 
-> **Passwordless Authentication (ECS RAM Role, Environment Variables, etc.)**
+> **Passwordless Authentication (ECS RAM Role, OIDC / RRSA, Environment Variables)**
 > To use passwordless authentication seamlessly, simply leave `accessId`, `accesskey`, and `sts_token` all blank. The connector will automatically fall back to the Aliyun DefaultCredentialsProvider chain (Environment Variables, System Properties, CLI Profiles, OIDC, ECS RAM Roles).
+>
+> **VPC STS Endpoint Configuration (RRSA / OIDC in ACK)**:
+> In Alibaba Cloud ACK (Kubernetes) environments using RRSA (RAM Roles for Service Accounts) or OIDC authentication:
+> - Set `ALIBABA_CLOUD_VPC_ENDPOINT_ENABLED=true` and `ALIBABA_CLOUD_STS_REGION=<region-id>` (e.g., `cn-hangzhou`) to route STS assume-role requests to the regional VPC STS endpoint (`sts-vpc.<region>.aliyuncs.com`).
+> - Both variables must be configured together. If `ALIBABA_CLOUD_VPC_ENDPOINT_ENABLED=true` is specified without `ALIBABA_CLOUD_STS_REGION`, the SDK falls back to the public STS endpoint (`sts.aliyuncs.com`).
+>
+> **Runtime Credential Refresh**:
+> For long-running streaming jobs or long batch tasks exceeding token expiration, credentials are automatically refreshed on demand (synchronously when the cached token expires or reaches its stale threshold) through `AklessAccount`. No manual token rotation or job restarts are required.
 
 ### endpoint [string]
 
