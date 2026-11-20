@@ -36,6 +36,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 @Slf4j
 public class TiDBSourceFactory implements TableSourceFactory {
@@ -63,9 +65,9 @@ public class TiDBSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        TiDBSourceOptions.DATABASE_NAME,
-                        TiDBSourceOptions.TABLE_NAME,
-                        TiDBSourceOptions.PD_ADDRESSES)
+                        TiDBSourceOptions.DATABASE_NAME, notBlank(TiDBSourceOptions.DATABASE_NAME))
+                .required(TiDBSourceOptions.TABLE_NAME, notBlank(TiDBSourceOptions.TABLE_NAME))
+                .required(TiDBSourceOptions.PD_ADDRESSES, notBlank(TiDBSourceOptions.PD_ADDRESSES))
                 .optional(
                         TiDBSourceOptions.TIKV_BATCH_GET_CONCURRENCY,
                         TiDBSourceOptions.TIKV_BATCH_SCAN_CONCURRENCY,
