@@ -21,14 +21,24 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.graphql.config.GraphQLSinkParameter;
+import org.apache.seatunnel.connectors.seatunnel.graphql.exception.GraphQLConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.graphql.exception.GraphQLConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.graphql.util.GraphQLUtil;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
+import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSinkWriter;
 
 import com.google.gson.Gson;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -70,7 +80,7 @@ public class GraphQLSinkWriter extends HttpSinkWriter {
                     continue;
                 }
 
-                variablesTemplate.put(fieldName, fieldValue);
+                variablesTemplate.put(fieldName, toVariableValue(fieldValue));
             }
         }
 
@@ -83,17 +93,41 @@ public class GraphQLSinkWriter extends HttpSinkWriter {
         try {
             HttpResponse response =
                     httpClient.doPost(httpParameter.getUrl(), httpParameter.getHeaders(), body);
-            if (HttpResponse.STATUS_OK == response.getCode()) {
-                return;
+            if (HttpResponse.STATUS_OK != response.getCode()) {
+                String message =
+                        String.format(
+                                "http client execute exception, http response status code:[%s], content:[%s]",
+                                response.getCode(), response.getContent());
+                throw new HttpConnectorException(HttpConnectorErrorCode.REQUEST_FAILED, message);
             }
-            log.error(
-                    "http client execute exception, http response status code:[{}], content:[{}]",
-                    response.getCode(),
-                    response.getContent());
+            GraphQLUtil.checkNoErrors(
+                    response.getContent(), GraphQLConnectorErrorCode.GRAPHQL_SINK_OPERATION_ERROR);
+        } catch (HttpConnectorException | GraphQLConnectorException e) {
+            throw e;
         } catch (Exception e) {
             log.error(e.getMessage(), e);
             throw CommonError.jsonOperationError("GraphQLSinkWriter", body, e);
         }
+    }
+
+    /**
+     * Gson cannot serialize java.time values: it writes them as nested objects on Java 11 and fails
+     * on Java 17. GraphQL date and time scalars take ISO 8601 strings.
+     */
+    static Object toVariableValue(Object value) {
+        if (value instanceof LocalDateTime) {
+            return ((LocalDateTime) value).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        }
+        if (value instanceof LocalDate) {
+            return ((LocalDate) value).format(DateTimeFormatter.ISO_LOCAL_DATE);
+        }
+        if (value instanceof LocalTime) {
+            return ((LocalTime) value).format(DateTimeFormatter.ISO_LOCAL_TIME);
+        }
+        if (value instanceof OffsetDateTime) {
+            return ((OffsetDateTime) value).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        }
+        return value;
     }
 
     @Override
