@@ -36,12 +36,14 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointException;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.dag.physical.UnknownPhysicalPlanException;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -55,15 +57,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.Mockito;
 
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
+import com.hazelcast.map.listener.EntryAddedListener;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -428,6 +436,81 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                 "all pre-start savepoint failures should keep the job retryable");
     }
 
+    /** A step of the cleanup that runs when a job ends. */
+    enum CleanupStep {
+        CLEAR_CHECKPOINTS,
+        STORE_JOB_INFO,
+        STORE_FINISHED_JOB_STATE
+    }
+
+    /**
+     * A cleanup step that threw when the job ended used to skip the completion of the job master
+     * future, so {@code JobMaster.run()} and every client waiting for the job blocked forever, and
+     * the steps after it did not run either.
+     */
+    @ParameterizedTest
+    @EnumSource(CleanupStep.class)
+    void testJobCompletesWhenACleanupStepFails(CleanupStep failingStep) throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobHistoryService jobHistoryService =
+                Mockito.spy(server.getCoordinatorService().getJobHistoryService());
+        JobMaster jobMaster =
+                newJobMaster(
+                        jobId,
+                        "batch_fake_to_console.conf",
+                        "test_cleanup_step_fails_" + failingStep,
+                        false,
+                        Collections.emptyMap(),
+                        jobHistoryService);
+        jobMaster.init(System.currentTimeMillis(), false);
+        CheckpointManager checkpointManager = Mockito.spy(jobMaster.getCheckpointManager());
+        ReflectionUtils.setField(jobMaster, "checkpointManager", checkpointManager);
+
+        RuntimeException failure = new RuntimeException("injected failure of " + failingStep);
+        switch (failingStep) {
+            case CLEAR_CHECKPOINTS:
+                Mockito.doThrow(failure)
+                        .when(checkpointManager)
+                        .clearCheckpointIfNeed(Mockito.any());
+                break;
+            case STORE_JOB_INFO:
+                Mockito.doThrow(failure)
+                        .when(jobHistoryService)
+                        .storeJobInfo(Mockito.anyLong(), Mockito.any());
+                break;
+            default:
+                Mockito.doThrow(failure)
+                        .when(jobHistoryService)
+                        .storeFinishedJobState(Mockito.any(JobMaster.class));
+        }
+        // The last step puts a cleanup record for the job; the coordinator may process and remove
+        // it right away, so its addition is observed with a listener.
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        CountDownLatch cleanupRecordAdded = new CountDownLatch(1);
+        UUID listenerId =
+                pendingJobCleanupIMap.addEntryListener(
+                        (EntryAddedListener<Long, JobCleanupRecord>)
+                                event -> cleanupRecordAdded.countDown(),
+                        jobId,
+                        false);
+
+        try {
+            jobMaster.cancelJob();
+
+            JobResult jobResult = jobMaster.getJobMasterCompleteFuture().get(10, TimeUnit.SECONDS);
+            Assertions.assertEquals(JobStatus.CANCELED, jobResult.getStatus());
+            Mockito.verify(checkpointManager).clearCheckpointIfNeed(JobStatus.CANCELED);
+            Mockito.verify(jobHistoryService).storeJobInfo(Mockito.eq(jobId), Mockito.any());
+            Mockito.verify(jobHistoryService).storeFinishedJobState(jobMaster);
+            Assertions.assertTrue(
+                    cleanupRecordAdded.await(10, TimeUnit.SECONDS),
+                    "the removal of the job state maps was not scheduled");
+        } finally {
+            pendingJobCleanupIMap.removeEntryListener(listenerId);
+        }
+    }
+
     private void assertCloseIdleTask(JobMaster jobMaster) {
         SlotService slotService = server.getSlotService();
         long jobId = jobMaster.getJobId();
@@ -527,6 +610,22 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
             String jobName,
             boolean restore,
             Map<String, Object> envOptions) {
+        return newJobMaster(
+                jobId,
+                configFile,
+                jobName,
+                restore,
+                envOptions,
+                server.getCoordinatorService().getJobHistoryService());
+    }
+
+    private JobMaster newJobMaster(
+            long jobId,
+            String configFile,
+            String jobName,
+            boolean restore,
+            Map<String, Object> envOptions,
+            JobHistoryService jobHistoryService) {
         runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
         runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
         runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
@@ -551,7 +650,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                 nodeEngine,
                 jobMasterTestExecutor,
                 server.getCoordinatorService().getResourceManager(),
-                server.getCoordinatorService().getJobHistoryService(),
+                jobHistoryService,
                 runningJobStateIMap,
                 runningJobStateTimestampsIMap,
                 ownedSlotProfilesIMap,
