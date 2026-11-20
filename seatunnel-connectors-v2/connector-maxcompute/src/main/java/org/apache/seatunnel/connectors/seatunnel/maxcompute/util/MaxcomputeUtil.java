@@ -271,7 +271,8 @@ public class MaxcomputeUtil {
                                     .get(tablePath.getDatabaseName(), tablePath.getTableName());
             PartitionSpec spec = new PartitionSpec(partitionSpec);
             // Explicitly check table existence: throws NoSuchObjectException if the TABLE does not
-            // exist!
+            // exist! This is only necessary when ConnectorCommonOptions.SCHEMA is provided,
+            // otherwise catalog.getTable raises an error when the table does not exist.
             odpsTable.reload();
             return odpsTable.hasPartition(spec);
         } catch (Exception e) {

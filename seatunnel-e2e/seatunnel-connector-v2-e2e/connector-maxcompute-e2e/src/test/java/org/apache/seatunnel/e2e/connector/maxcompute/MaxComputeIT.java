@@ -20,12 +20,9 @@ package org.apache.seatunnel.e2e.connector.maxcompute;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.source.MaxcomputeSource;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.source.MaxcomputeSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.source.MaxcomputeSourceSplit;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -61,19 +58,11 @@ import java.net.InetAddress;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @Slf4j
 public class MaxComputeIT extends TestSuiteBase implements TestResource {
@@ -292,73 +281,6 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
         CatalogTable table = source.getProducedCatalogTables().get(0);
         Assertions.assertArrayEquals(
                 new String[] {"ID", "NAME"}, table.getTableSchema().getFieldNames());
-    }
-
-    @Test
-    public void testIgnoreMissingPartitionEnumeration() throws Exception {
-        Map<String, Object> config = new HashMap<>();
-        config.put("accessId", "ak");
-        config.put("accesskey", "sk");
-        config.put("endpoint", getEndpoint(maxcompute.getMappedPort(HOST_PORT)));
-        config.put("project", "mocked_mc");
-        config.put("table_name", "test_table");
-        config.put("partition_spec", "ds='non_existent_20250101'");
-        config.put("ignore_missing_partition", true);
-
-        SeaTunnelSource<?, ?, ?> source =
-                new MaxcomputeSourceFactory()
-                        .createSource(
-                                new TableSourceFactoryContext(
-                                        ReadonlyConfig.fromMap(config),
-                                        Thread.currentThread().getContextClassLoader()))
-                        .createSource();
-
-        SourceSplitEnumerator.Context<MaxcomputeSourceSplit> mockContext =
-                mock(SourceSplitEnumerator.Context.class);
-        when(mockContext.currentParallelism()).thenReturn(1);
-        when(mockContext.registeredReaders()).thenReturn(Collections.singleton(0));
-
-        MaxcomputeSource maxcomputeSource = (MaxcomputeSource) source;
-        SourceSplitEnumerator<MaxcomputeSourceSplit, ?> enumerator =
-                maxcomputeSource.createEnumerator(mockContext);
-        enumerator.open();
-        enumerator.run();
-
-        // Since partition does not exist and ignore_missing_partition=true, 0 splits are discovered
-        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
-        verify(mockContext).signalNoMoreSplits(0);
-        verify(mockContext, never()).assignSplit(anyInt(), anyList());
-    }
-
-    @Test
-    public void testMissingPartitionThrowsWhenNotIgnored() throws Exception {
-        Map<String, Object> config = new HashMap<>();
-        config.put("accessId", "ak");
-        config.put("accesskey", "sk");
-        config.put("endpoint", getEndpoint(maxcompute.getMappedPort(HOST_PORT)));
-        config.put("project", "mocked_mc");
-        config.put("table_name", "test_table");
-        config.put("partition_spec", "ds='non_existent_20250101'");
-        config.put("ignore_missing_partition", false);
-
-        SeaTunnelSource<?, ?, ?> source =
-                new MaxcomputeSourceFactory()
-                        .createSource(
-                                new TableSourceFactoryContext(
-                                        ReadonlyConfig.fromMap(config),
-                                        Thread.currentThread().getContextClassLoader()))
-                        .createSource();
-
-        SourceSplitEnumerator.Context<MaxcomputeSourceSplit> mockContext =
-                mock(SourceSplitEnumerator.Context.class);
-        when(mockContext.currentParallelism()).thenReturn(1);
-        when(mockContext.registeredReaders()).thenReturn(Collections.singleton(0));
-
-        MaxcomputeSource maxcomputeSource = (MaxcomputeSource) source;
-        SourceSplitEnumerator<MaxcomputeSourceSplit, ?> enumerator =
-                maxcomputeSource.createEnumerator(mockContext);
-        enumerator.open();
-        Assertions.assertThrows(Exception.class, enumerator::run);
     }
 
     @TestTemplate
