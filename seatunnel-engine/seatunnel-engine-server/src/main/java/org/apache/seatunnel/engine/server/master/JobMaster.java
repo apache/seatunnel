@@ -496,8 +496,19 @@ public class JobMaster {
                             JobMaster.this.errorMessage = v.getError();
                             JobResult jobResult =
                                     new JobResult(physicalPlan.getJobStatus(), v.getError());
-                            cleanJob();
-                            jobMasterCompleteFuture.complete(jobResult);
+                            // A cleanup failure must not prevent job completion, otherwise
+                            // run() blocks forever on jobMasterCompleteFuture.join().
+                            try {
+                                cleanJob();
+                            } catch (Throwable e) {
+                                LOGGER.warning(
+                                        String.format(
+                                                "Clean job %s failed, job result still completed",
+                                                jobId),
+                                        e);
+                            } finally {
+                                jobMasterCompleteFuture.complete(jobResult);
+                            }
                         }));
     }
 
