@@ -27,18 +27,6 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPatch;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpRequestBase;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
-
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -51,6 +39,10 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -79,6 +71,8 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     private static final Pattern FLINK_JOB_ID_PATTERN =
             Pattern.compile("(?i)(?:JobID|Job ID)[: ]+([0-9a-f]{32})");
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final HttpClient HTTP_CLIENT =
+            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private static final int FLINK_REST_PORT = 8081;
     private static final String SAVEPOINT_DIRECTORY =
             "file://" + CONTAINER_VOLUME_MOUNT_PATH + "/flink-savepoints";
@@ -455,9 +449,11 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         ObjectNode requestBody = OBJECT_MAPPER.createObjectNode();
         requestBody.put("target-directory", SAVEPOINT_DIRECTORY);
         requestBody.put("cancel-job", false);
-        HttpPost request = new HttpPost(flinkRestEndpoint() + "/jobs/" + jobId + "/savepoints");
-        request.setEntity(new StringEntity(requestBody.toString(), ContentType.APPLICATION_JSON));
-        JsonNode triggerResponse = executeFlinkRestRequest(request);
+        JsonNode triggerResponse =
+                executeFlinkRestRequest(
+                        "POST",
+                        flinkRestEndpoint() + "/jobs/" + jobId + "/savepoints",
+                        requestBody.toString());
         String triggerId = triggerResponse.path("request-id").asText();
         if (triggerId.isEmpty()) {
             throw new IllegalStateException(
@@ -468,12 +464,9 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         while (System.currentTimeMillis() < deadline) {
             JsonNode status =
                     executeFlinkRestRequest(
-                            new HttpGet(
-                                    flinkRestEndpoint()
-                                            + "/jobs/"
-                                            + jobId
-                                            + "/savepoints/"
-                                            + triggerId));
+                            "GET",
+                            flinkRestEndpoint() + "/jobs/" + jobId + "/savepoints/" + triggerId,
+                            null);
             String statusId = status.path("status").path("id").asText();
             if ("COMPLETED".equals(statusId)) {
                 JsonNode operation = status.path("operation");
@@ -517,12 +510,12 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     /** Cancels a running Flink job through Flink's REST API. */
     public void cancelFlinkJob(String jobId) throws IOException {
         executeFlinkRestRequest(
-                new HttpPatch(flinkRestEndpoint() + "/jobs/" + jobId + "?mode=cancel"));
+                "PATCH", flinkRestEndpoint() + "/jobs/" + jobId + "?mode=cancel", null);
     }
 
     /** Returns the number of TaskManagers currently registered with the Flink cluster. */
     public int getRegisteredTaskManagerCount() throws IOException {
-        return executeFlinkRestRequest(new HttpGet(flinkRestEndpoint() + "/taskmanagers"))
+        return executeFlinkRestRequest("GET", flinkRestEndpoint() + "/taskmanagers", null)
                 .path("taskmanagers")
                 .size();
     }
@@ -531,23 +524,35 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         return "http://" + jobManager.getHost() + ":" + jobManager.getMappedPort(FLINK_REST_PORT);
     }
 
-    private JsonNode executeFlinkRestRequest(HttpRequestBase request) throws IOException {
-        try (CloseableHttpClient client = HttpClients.createDefault();
-                CloseableHttpResponse response = client.execute(request)) {
-            int statusCode = response.getStatusLine().getStatusCode();
-            HttpEntity entity = response.getEntity();
-            String responseBody = entity == null ? "" : EntityUtils.toString(entity);
-            if (statusCode < 200 || statusCode >= 300) {
-                throw new IllegalStateException(
-                        "Flink REST request failed with status "
-                                + statusCode
-                                + ": "
-                                + responseBody);
-            }
-            return responseBody.isEmpty()
-                    ? OBJECT_MAPPER.createObjectNode()
-                    : OBJECT_MAPPER.readTree(responseBody);
+    private JsonNode executeFlinkRestRequest(String method, String url, String body)
+            throws IOException {
+        HttpRequest.BodyPublisher publisher =
+                body == null
+                        ? HttpRequest.BodyPublishers.noBody()
+                        : HttpRequest.BodyPublishers.ofString(body);
+        HttpRequest request =
+                HttpRequest.newBuilder(URI.create(url))
+                        .timeout(Duration.ofSeconds(10))
+                        .header("Content-Type", "application/json")
+                        .method(method, publisher)
+                        .build();
+        HttpResponse<String> response;
+        try {
+            response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while calling Flink REST API", e);
         }
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException(
+                    "Flink REST request failed with status "
+                            + response.statusCode()
+                            + ": "
+                            + response.body());
+        }
+        return response.body().isEmpty()
+                ? OBJECT_MAPPER.createObjectNode()
+                : OBJECT_MAPPER.readTree(response.body());
     }
 
     /**

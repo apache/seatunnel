@@ -25,7 +25,6 @@ import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.graph.StreamEdge;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.graph.StreamNode;
-import org.apache.flink.streaming.runtime.partitioner.BroadcastPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.KeyGroupStreamPartitioner;
 
 import org.junit.jupiter.api.Test;
@@ -38,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 class SchemaEvolutionStreamUtilsTest {
 
     @Test
-    void testDataIsPartitionedByTableWhileSchemaControlIsBroadcast() {
+    void testDataAndSchemaControlUseTheSameKeyedChannel() {
         StreamExecutionEnvironment environment =
                 StreamExecutionEnvironment.getExecutionEnvironment();
         environment.setParallelism(2);
@@ -60,13 +59,8 @@ class SchemaEvolutionStreamUtilsTest {
 
         assertNotNull(schemaGate);
         assertEquals(3, schemaGate.getParallelism());
-        assertEquals(2, schemaGate.getInEdges().size());
-        assertEquals(
-                1,
-                schemaGate.getInEdges().stream()
-                        .map(StreamEdge::getPartitioner)
-                        .filter(BroadcastPartitioner.class::isInstance)
-                        .count());
+        assertEquals(1, schemaGate.getInEdges().size());
+        assertNotNull(schemaGate.getStateKeySerializer());
         assertEquals(
                 1,
                 schemaGate.getInEdges().stream()

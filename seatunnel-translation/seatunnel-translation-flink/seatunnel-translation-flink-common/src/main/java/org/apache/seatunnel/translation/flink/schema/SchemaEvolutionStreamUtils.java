@@ -20,40 +20,31 @@ package org.apache.seatunnel.translation.flink.schema;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-import org.apache.flink.api.common.functions.FilterFunction;
+import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
+import org.apache.flink.util.Collector;
 
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Builds the Flink data-plane routing used for schema change control records. */
 public final class SchemaEvolutionStreamUtils {
 
     private SchemaEvolutionStreamUtils() {}
 
-    /**
-     * Routes all rows for one table to one sink gate and broadcasts only schema control records.
-     *
-     * <p>The table partition prevents multiple sink writers from applying physical DDL for the same
-     * table. The lightweight schema broadcast lets every gate advance the source sequence and
-     * release rows that carry a global schema dependency. If an unaligned checkpoint or the two
-     * network branches reorder a row and its schema control, the sink gate buffers the row until
-     * the control arrives.
-     */
+    /** Routes table data and schema progress through the same keyed channel. */
     public static SingleOutputStreamOperator<SeaTunnelRow> routeSchemaChanges(
             DataStream<SeaTunnelRow> input,
             int sinkParallelism,
             List<CatalogTable> initialSinkTables) {
-        DataStream<SeaTunnelRow> dataRows =
-                input.filter(new DataRowFilter())
-                        .name("SchemaEvolutionDataRows")
-                        .keyBy(new TableIdKeySelector());
-        DataStream<SeaTunnelRow> schemaRows =
-                input.filter(new SchemaRowFilter()).name("SchemaEvolutionControlRows").broadcast();
-
-        return dataRows.union(schemaRows)
+        return input.flatMap(new SchemaTableRouter(initialSinkTables))
+                .name("SchemaEvolutionTableRouting")
+                .keyBy(new TableIdKeySelector())
                 .transform(
                         "BroadcastSchemaHandler",
                         TypeInformation.of(SeaTunnelRow.class),
@@ -62,21 +53,33 @@ public final class SchemaEvolutionStreamUtils {
                 .setParallelism(sinkParallelism);
     }
 
-    private static final class DataRowFilter implements FilterFunction<SeaTunnelRow> {
+    static final class SchemaTableRouter implements FlatMapFunction<SeaTunnelRow, SeaTunnelRow> {
         private static final long serialVersionUID = 1L;
+        private final Set<String> tableIds = new LinkedHashSet<>();
 
-        @Override
-        public boolean filter(SeaTunnelRow row) {
-            return !SchemaEvolutionControlMessage.isSchemaBroadcast(row);
+        SchemaTableRouter(List<CatalogTable> tables) {
+            for (CatalogTable table : tables) {
+                tableIds.add(table.getTablePath().toString());
+            }
         }
-    }
-
-    private static final class SchemaRowFilter implements FilterFunction<SeaTunnelRow> {
-        private static final long serialVersionUID = 1L;
 
         @Override
-        public boolean filter(SeaTunnelRow row) {
-            return SchemaEvolutionControlMessage.isSchemaBroadcast(row);
+        public void flatMap(SeaTunnelRow row, Collector<SeaTunnelRow> out) {
+            if (!SchemaEvolutionControlMessage.isSchemaBroadcast(row)) {
+                if (!tableIds.contains(row.getTableId())) {
+                    throw new IllegalArgumentException(
+                            "Schema evolution has no initial sink schema for table "
+                                    + row.getTableId());
+                }
+                out.collect(row);
+                return;
+            }
+            for (String tableId : tableIds) {
+                SeaTunnelRow control = new SeaTunnelRow(0);
+                control.setTableId(tableId);
+                control.setOptions(new HashMap<>(row.getOptions()));
+                out.collect(control);
+            }
         }
     }
 

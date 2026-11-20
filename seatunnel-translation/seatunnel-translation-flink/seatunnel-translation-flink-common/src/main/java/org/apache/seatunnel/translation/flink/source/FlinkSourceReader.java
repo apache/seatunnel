@@ -67,6 +67,11 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
 
     private final boolean sourceKeepAliveEnabled;
 
+    private final boolean schemaFlowControlEnabled;
+    private int pendingSchemaCheckpoints;
+    private long schemaSnapshotId = -1L;
+    private long lastSchemaCheckpointId = -1L;
+
     private volatile ReaderLifecycle readerLifecycle = ReaderLifecycle.ACTIVE;
 
     public FlinkSourceReader(
@@ -85,6 +90,9 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
         this.sourceReader = sourceReader;
         this.context = context;
         this.flinkRowCollector = new FlinkRowCollector(envConfig, context.getMetricsContext());
+        this.schemaFlowControlEnabled =
+                envConfig.hasPath("schema-changes.source-flow-control")
+                        && envConfig.getBoolean("schema-changes.source-flow-control");
         this.sourceKeepAliveEnabled =
                 envConfig.hasPath(SOURCE_KEEP_ALIVE_CONFIG)
                         && envConfig.getBoolean(SOURCE_KEEP_ALIVE_CONFIG);
@@ -111,7 +119,19 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
             return InputStatus.NOTHING_AVAILABLE;
         }
 
+        if (pendingSchemaCheckpoints > 0) {
+            suspendUntilReactivated();
+            return InputStatus.NOTHING_AVAILABLE;
+        }
+
         sourceReader.pollNext(flinkRowCollector.withReaderOutput(output));
+        if (schemaFlowControlEnabled && flinkRowCollector.hasSchemaChangeThisPollNext()) {
+            pendingSchemaCheckpoints = 2;
+            schemaSnapshotId = -1L;
+            lastSchemaCheckpointId = -1L;
+            suspendUntilReactivated();
+            return InputStatus.NOTHING_AVAILABLE;
+        }
         if (flinkRowCollector.isEmptyThisPollNext()) {
             waitForNextPoll();
             return InputStatus.NOTHING_AVAILABLE;
@@ -123,6 +143,9 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     public List<SplitWrapper<SplitT>> snapshotState(long checkpointId) {
         try {
             List<SplitT> splitTS = sourceReader.snapshotState(checkpointId);
+            if (pendingSchemaCheckpoints > 0 && schemaSnapshotId < 0) {
+                schemaSnapshotId = checkpointId;
+            }
             return splitTS.stream().map(SplitWrapper::new).collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -137,6 +160,11 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
 
     @Override
     public void addSplits(List<SplitWrapper<SplitT>> splits) {
+        if (schemaFlowControlEnabled && !splits.isEmpty()) {
+            pendingSchemaCheckpoints = 2;
+            schemaSnapshotId = -1L;
+            lastSchemaCheckpointId = -1L;
+        }
         if (!splits.isEmpty() && context instanceof FlinkSourceReaderContext) {
             FlinkSourceReaderContext flinkContext = (FlinkSourceReaderContext) context;
             if (sourceKeepAliveEnabled
@@ -195,6 +223,16 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         sourceReader.notifyCheckpointComplete(checkpointId);
+        if (pendingSchemaCheckpoints > 0
+                && schemaSnapshotId >= 0
+                && checkpointId >= schemaSnapshotId
+                && checkpointId > lastSchemaCheckpointId) {
+            lastSchemaCheckpointId = checkpointId;
+            pendingSchemaCheckpoints--;
+            if (pendingSchemaCheckpoints == 0) {
+                completeAvailabilityFuture();
+            }
+        }
     }
 
     @Override

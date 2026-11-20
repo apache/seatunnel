@@ -168,6 +168,12 @@ public abstract class AbstractSourceExecuteProcessor
         boolean enableSchemaChange =
                 pluginConfig.hasPath("schema-changes.enabled")
                         && pluginConfig.getBoolean("schema-changes.enabled");
+        if (isStreaming && enableSchemaChange && source instanceof SupportSchemaEvolution) {
+            currentEnvConfig =
+                    currentEnvConfig.withValue(
+                            "schema-changes.source-flow-control",
+                            ConfigValueFactory.fromAnyRef(true));
+        }
         boolean shouldEnableKeepAlive =
                 isStreaming
                         && enableSchemaChange
