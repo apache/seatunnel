@@ -35,6 +35,13 @@ public class TaskExecutionState implements Serializable {
 
     private final String throwableMsg;
 
+    /**
+     * The executionId of the deployment that produced this state, or {@code null} for locally
+     * synthesized states and for reports from workers that do not set it. A receiver tracking a
+     * different deployment id drops the event instead of applying it to the wrong attempt.
+     */
+    private final Long executionId;
+
     public TaskExecutionState(
             TaskGroupLocation taskGroupLocation,
             ExecutionState executionState,
@@ -49,6 +56,7 @@ public class TaskExecutionState implements Serializable {
         this.taskGroupLocation = taskGroupLocation;
         this.executionState = executionState;
         this.throwableMsg = null;
+        this.executionId = null;
     }
 
     public TaskExecutionState(
@@ -58,6 +66,18 @@ public class TaskExecutionState implements Serializable {
         this.taskGroupLocation = taskGroupLocation;
         this.executionState = executionState;
         this.throwableMsg = throwableMsg;
+        this.executionId = null;
+    }
+
+    public TaskExecutionState(
+            TaskGroupLocation taskGroupLocation,
+            ExecutionState executionState,
+            String throwableMsg,
+            Long executionId) {
+        this.taskGroupLocation = taskGroupLocation;
+        this.executionState = executionState;
+        this.throwableMsg = throwableMsg;
+        this.executionId = executionId;
     }
 
     public ExecutionState getExecutionState() {
@@ -70,5 +90,9 @@ public class TaskExecutionState implements Serializable {
 
     public TaskGroupLocation getTaskGroupLocation() {
         return taskGroupLocation;
+    }
+
+    public Long getExecutionId() {
+        return executionId;
     }
 }
