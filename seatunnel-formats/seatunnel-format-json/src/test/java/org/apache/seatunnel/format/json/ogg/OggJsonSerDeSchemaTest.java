@@ -21,6 +21,11 @@ package org.apache.seatunnel.format.json.ogg;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -38,6 +43,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -45,6 +51,7 @@ import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class OggJsonSerDeSchemaTest {
@@ -66,6 +73,66 @@ public class OggJsonSerDeSchemaTest {
                         .setTable("^TBL.*")
                         .build();
         runTest(lines, deserializationSchema);
+    }
+
+    @Test
+    public void testMainImagesPreserveExplicitNullAndDefaultMissingFields() throws IOException {
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.of("test.test")),
+                        TableSchema.builder()
+                                .columns(
+                                        Arrays.asList(
+                                                PhysicalColumn.of(
+                                                        "id",
+                                                        INT_TYPE,
+                                                        (Long) null,
+                                                        true,
+                                                        null,
+                                                        null),
+                                                PhysicalColumn.of(
+                                                        "name",
+                                                        STRING_TYPE,
+                                                        (Long) null,
+                                                        true,
+                                                        "default-name",
+                                                        null),
+                                                PhysicalColumn.of(
+                                                        "description",
+                                                        STRING_TYPE,
+                                                        (Long) null,
+                                                        true,
+                                                        "default-description",
+                                                        null)))
+                                .build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "test");
+        OggJsonDeserializationSchema schema = OggJsonDeserializationSchema.builder(table).build();
+        SimpleCollector collector = new SimpleCollector();
+        schema.deserialize(
+                "{\"op_type\":\"I\",\"table\":\"test.test\",\"after\":{\"id\":1,\"name\":null}}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+        schema.deserialize(
+                "{\"op_type\":\"U\",\"table\":\"test.test\",\"before\":{\"id\":1,\"name\":null},\"after\":{\"id\":1,\"name\":null}}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+        schema.deserialize(
+                "{\"op_type\":\"D\",\"table\":\"test.test\",\"before\":{\"id\":1,\"name\":null}}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+        assertEquals(4, collector.list.size());
+        assertEquals(RowKind.INSERT, collector.list.get(0).getRowKind());
+        assertEquals(RowKind.UPDATE_BEFORE, collector.list.get(1).getRowKind());
+        assertEquals(RowKind.UPDATE_AFTER, collector.list.get(2).getRowKind());
+        assertEquals(RowKind.DELETE, collector.list.get(3).getRowKind());
+        for (int i = 0; i < collector.list.size(); i++) {
+            SeaTunnelRow row = collector.list.get(i);
+            assertEquals(1, row.getField(0));
+            assertNull(row.getField(1));
+            assertEquals("default-description", row.getField(2));
+        }
     }
 
     @Test

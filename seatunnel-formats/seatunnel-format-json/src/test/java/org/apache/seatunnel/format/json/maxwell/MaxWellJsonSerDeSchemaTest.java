@@ -21,6 +21,11 @@ package org.apache.seatunnel.format.json.maxwell;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -35,6 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -42,6 +48,7 @@ import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class MaxWellJsonSerDeSchemaTest {
 
@@ -61,6 +68,126 @@ public class MaxWellJsonSerDeSchemaTest {
                         .setTable("^prod.*")
                         .build();
         runTest(lines, deserializationSchema);
+    }
+
+    @Test
+    public void testSparseOldImageDoesNotApplyCatalogDefaults() {
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.of("test.test")),
+                        TableSchema.builder()
+                                .columns(
+                                        Arrays.asList(
+                                                PhysicalColumn.of(
+                                                        "id",
+                                                        INT_TYPE,
+                                                        (Long) null,
+                                                        false,
+                                                        null,
+                                                        null),
+                                                PhysicalColumn.of(
+                                                        "name",
+                                                        STRING_TYPE,
+                                                        (Long) null,
+                                                        false,
+                                                        "default-name",
+                                                        null),
+                                                PhysicalColumn.of(
+                                                        "description",
+                                                        STRING_TYPE,
+                                                        (Long) null,
+                                                        false,
+                                                        "default-description",
+                                                        null)))
+                                .build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "test");
+        MaxWellJsonDeserializationSchema schema =
+                MaxWellJsonDeserializationSchema.builder(table).build();
+        SimpleCollector collector = new SimpleCollector();
+
+        schema.deserialize(
+                "{\"database\":\"\",\"table\":\"test\",\"type\":\"update\",\"old\":{\"id\":1,\"name\":null},\"data\":{\"id\":1,\"name\":\"after\",\"description\":\"before-description\"}}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+
+        assertEquals(2, collector.list.size());
+        SeaTunnelRow before = collector.list.get(0);
+        SeaTunnelRow after = collector.list.get(1);
+        assertEquals(RowKind.UPDATE_BEFORE, before.getRowKind());
+        assertEquals(RowKind.UPDATE_AFTER, after.getRowKind());
+        assertEquals(1, before.getField(0));
+        assertNull(before.getField(1));
+        assertEquals("before-description", before.getField(2));
+        assertEquals(1, after.getField(0));
+        assertEquals("after", after.getField(1));
+        assertEquals("before-description", after.getField(2));
+    }
+
+    @Test
+    public void testMainImagesPreserveExplicitNullAndDefaultMissingFields() throws IOException {
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("test", TablePath.of("test.test")),
+                        TableSchema.builder()
+                                .columns(
+                                        Arrays.asList(
+                                                PhysicalColumn.of(
+                                                        "id",
+                                                        INT_TYPE,
+                                                        (Long) null,
+                                                        true,
+                                                        null,
+                                                        null),
+                                                PhysicalColumn.of(
+                                                        "name",
+                                                        STRING_TYPE,
+                                                        (Long) null,
+                                                        true,
+                                                        "default-name",
+                                                        null),
+                                                PhysicalColumn.of(
+                                                        "description",
+                                                        STRING_TYPE,
+                                                        (Long) null,
+                                                        true,
+                                                        "default-description",
+                                                        null)))
+                                .build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "test");
+        MaxWellJsonDeserializationSchema schema =
+                MaxWellJsonDeserializationSchema.builder(table).build();
+        SimpleCollector collector = new SimpleCollector();
+        schema.deserialize(
+                "{\"database\":\"test\",\"table\":\"test\",\"type\":\"insert\",\"data\":{\"id\":1,\"name\":null}}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+        schema.deserialize(
+                "{\"database\":\"test\",\"table\":\"test\",\"type\":\"update\",\"data\":{\"id\":1,\"name\":null},\"old\":{\"name\":\"before\"}}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+        schema.deserialize(
+                "{\"database\":\"test\",\"table\":\"test\",\"type\":\"delete\",\"data\":{\"id\":1,\"name\":null}}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+        assertEquals(4, collector.list.size());
+        assertEquals(RowKind.INSERT, collector.list.get(0).getRowKind());
+        assertEquals(RowKind.UPDATE_BEFORE, collector.list.get(1).getRowKind());
+        assertEquals(RowKind.UPDATE_AFTER, collector.list.get(2).getRowKind());
+        assertEquals(RowKind.DELETE, collector.list.get(3).getRowKind());
+        for (int i = 0; i < collector.list.size(); i++) {
+            SeaTunnelRow row = collector.list.get(i);
+            assertEquals(1, row.getField(0));
+            if (i == 1) {
+                assertEquals("before", row.getField(1));
+            } else {
+                assertNull(row.getField(1));
+            }
+            assertEquals("default-description", row.getField(2));
+        }
     }
 
     @Test
