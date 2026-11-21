@@ -30,6 +30,9 @@ import org.apache.seatunnel.e2e.common.container.flink.Flink17Container;
 import org.apache.seatunnel.e2e.common.container.flink.Flink18Container;
 import org.apache.seatunnel.e2e.common.container.flink.Flink20Container;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
+import org.apache.seatunnel.e2e.common.container.spark.Spark2Container;
+import org.apache.seatunnel.e2e.common.container.spark.Spark35Container;
+import org.apache.seatunnel.e2e.common.container.spark.Spark3Container;
 import org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestCaseInvocationContextProvider;
@@ -38,13 +41,13 @@ import org.apache.seatunnel.e2e.common.junit.TestContainers;
 import org.apache.seatunnel.e2e.common.junit.TestLoggerExtension;
 import org.apache.seatunnel.e2e.common.junit.TimingExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.PythonTestImage;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -91,9 +94,9 @@ public class TestPythonTransformIT {
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
                 // PythonTransform launches a local worker process inside each runtime container,
-                // so the E2E suite must ensure python3 and path-based scripts are present
-                // everywhere before the job starts.
-                Container.ExecResult execResult = installPythonIfNecessary(container);
+                // so verify the prepared interpreter and copy path-based scripts everywhere
+                // before the job starts. No package mirrors are needed by running containers.
+                Container.ExecResult execResult = container.execInContainer("python3", "--version");
                 Assertions.assertEquals(
                         0,
                         execResult.getExitCode(),
@@ -194,55 +197,24 @@ public class TestPythonTransformIT {
             case FLINK_1_20:
                 return new PythonPolicyFlink20Container();
             case SPARK_2_4:
+                return new PythonSpark2Container();
             case SPARK_3_3:
+                return new PythonSpark3Container();
             case SPARK_3_5:
-                return container;
+                return new PythonSpark35Container();
             default:
                 throw new IllegalStateException(
                         "Unsupported Python transform E2E container: " + containerId);
         }
     }
 
-    /**
-     * Installs python3 if necessary before Python transform jobs are submitted in the shared E2E
-     * harness.
-     *
-     * @param container runtime container
-     * @return shell execution result
-     * @throws IOException when the shell command cannot run
-     * @throws InterruptedException when the shell command is interrupted
-     */
-    private static Container.ExecResult installPythonIfNecessary(GenericContainer<?> container)
-            throws IOException, InterruptedException {
-        return container.execInContainer(
-                "bash",
-                "-c",
-                "set -e;"
-                        + " if command -v python3 >/dev/null 2>&1; then"
-                        + "   python3 --version;"
-                        + " elif command -v apt-get >/dev/null 2>&1; then"
-                        + "   apt-get update &&"
-                        + "   DEBIAN_FRONTEND=noninteractive apt-get install -y python3;"
-                        + " elif command -v dnf >/dev/null 2>&1; then"
-                        + "   dnf install -y python3;"
-                        + " elif command -v microdnf >/dev/null 2>&1; then"
-                        + "   microdnf install -y python3;"
-                        + " elif command -v yum >/dev/null 2>&1; then"
-                        + "   yum install -y python3;"
-                        + " elif command -v apk >/dev/null 2>&1; then"
-                        + "   apk add --no-cache python3;"
-                        + " else"
-                        + "   echo 'Unsupported package manager for installing python3' >&2;"
-                        + "   exit 1;"
-                        + " fi;"
-                        + " python3 --version;"
-                        + " echo 'Python transform policy allowlists "
-                        + PYTHON_EXECUTABLE_ALLOWLIST
-                        + "'");
-    }
-
     /** Injects Python policy before the SeaTunnel server JVM is launched. */
     private static class PythonPolicySeaTunnelContainer extends SeaTunnelContainer {
+        @Override
+        protected String getDockerImage() {
+            return PythonTestImage.withPython(super.getDockerImage());
+        }
+
         @Override
         protected String getJavaToolOptions() {
             return PYTHON_POLICY_JAVA_OPTS;
@@ -251,6 +223,11 @@ public class TestPythonTransformIT {
 
     /** Flink 1.13 container with Python transform JVM policy enabled before startup. */
     private static class PythonPolicyFlink13Container extends Flink13Container {
+        @Override
+        protected String getDockerImage() {
+            return PythonTestImage.withPython(super.getDockerImage());
+        }
+
         @Override
         protected List<String> getFlinkProperties() {
             return withFlinkPolicy(super.getFlinkProperties());
@@ -265,6 +242,11 @@ public class TestPythonTransformIT {
     /** Flink 1.14 container with Python transform JVM policy enabled before startup. */
     private static class PythonPolicyFlink14Container extends Flink14Container {
         @Override
+        protected String getDockerImage() {
+            return PythonTestImage.withPython(super.getDockerImage());
+        }
+
+        @Override
         protected List<String> getFlinkProperties() {
             return withFlinkPolicy(super.getFlinkProperties());
         }
@@ -277,6 +259,11 @@ public class TestPythonTransformIT {
 
     /** Flink 1.15 container with Python transform JVM policy enabled before startup. */
     private static class PythonPolicyFlink15Container extends Flink15Container {
+        @Override
+        protected String getDockerImage() {
+            return PythonTestImage.withPython(super.getDockerImage());
+        }
+
         @Override
         protected List<String> getFlinkProperties() {
             return withFlinkPolicy(super.getFlinkProperties());
@@ -291,6 +278,11 @@ public class TestPythonTransformIT {
     /** Flink 1.16 container with Python transform JVM policy enabled before startup. */
     private static class PythonPolicyFlink16Container extends Flink16Container {
         @Override
+        protected String getDockerImage() {
+            return PythonTestImage.withPython(super.getDockerImage());
+        }
+
+        @Override
         protected List<String> getFlinkProperties() {
             return withFlinkPolicy(super.getFlinkProperties());
         }
@@ -303,6 +295,11 @@ public class TestPythonTransformIT {
 
     /** Flink 1.17 container with Python transform JVM policy enabled before startup. */
     private static class PythonPolicyFlink17Container extends Flink17Container {
+        @Override
+        protected String getDockerImage() {
+            return PythonTestImage.withPython(super.getDockerImage());
+        }
+
         @Override
         protected List<String> getFlinkProperties() {
             return withFlinkPolicy(super.getFlinkProperties());
@@ -317,6 +314,11 @@ public class TestPythonTransformIT {
     /** Flink 1.18 container with Python transform JVM policy enabled before startup. */
     private static class PythonPolicyFlink18Container extends Flink18Container {
         @Override
+        protected String getDockerImage() {
+            return PythonTestImage.withPython(super.getDockerImage());
+        }
+
+        @Override
         protected List<String> getFlinkProperties() {
             return withFlinkPolicy(super.getFlinkProperties());
         }
@@ -330,6 +332,11 @@ public class TestPythonTransformIT {
     /** Flink 1.20 container with Python transform JVM policy enabled before startup. */
     private static class PythonPolicyFlink20Container extends Flink20Container {
         @Override
+        protected String getDockerImage() {
+            return PythonTestImage.withPython(super.getDockerImage());
+        }
+
+        @Override
         protected List<String> getFlinkProperties() {
             // Flink 1.20 reads env.java.opts from YAML and collapses duplicated space-delimited
             // -D entries into a single malformed value. Keep the Python policy only in the
@@ -340,6 +347,30 @@ public class TestPythonTransformIT {
         @Override
         protected String getJavaToolOptions() {
             return PYTHON_POLICY_JAVA_OPTS;
+        }
+    }
+
+    /** Prepares Python while retaining Spark2's job-configured JVM policy. */
+    private static class PythonSpark2Container extends Spark2Container {
+        @Override
+        protected String getDockerImage() {
+            return PythonTestImage.withPython(super.getDockerImage());
+        }
+    }
+
+    /** Prepares Python while retaining Spark3's job-configured JVM policy. */
+    private static class PythonSpark3Container extends Spark3Container {
+        @Override
+        protected String getDockerImage() {
+            return PythonTestImage.withPython(super.getDockerImage());
+        }
+    }
+
+    /** Prepares Python while retaining Spark35's job-configured JVM policy. */
+    private static class PythonSpark35Container extends Spark35Container {
+        @Override
+        protected String getDockerImage() {
+            return PythonTestImage.withPython(super.getDockerImage());
         }
     }
 
