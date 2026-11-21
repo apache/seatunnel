@@ -76,8 +76,9 @@ public class OrcFileSplitStrategy implements FileSplitStrategy, Closeable {
 
     /**
      * Groups stripes in file order into contiguous byte ranges without dividing a stripe. The
-     * configured size is a target: an oversized stripe occupies one split, while an empty stripe list
-     * produces no splits. Each range starts at its first stripe and ends after its last stripe.
+     * configured size is a target: an oversized stripe occupies one split, while an empty stripe
+     * list produces no splits. Each range starts at its first stripe and ends after its last
+     * stripe.
      */
     List<FileSourceSplit> splitByStripes(
             String tableId, String path, List<StripeInformation> stripes) {
