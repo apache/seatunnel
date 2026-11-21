@@ -64,7 +64,18 @@ public class TaskReportStatusOperation extends TracingOperation
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        location = in.readObject(TaskLocation.class);
+        // The typed overload overrides construction instead of validating the wire type.
+        Object decodedLocation = in.readObject();
+        if (!(decodedLocation instanceof TaskLocation)) {
+            throw new IOException(
+                    "Expected "
+                            + TaskLocation.class.getName()
+                            + " for task status report location, but received "
+                            + (decodedLocation == null
+                                    ? "null"
+                                    : decodedLocation.getClass().getName()));
+        }
+        location = (TaskLocation) decodedLocation;
         status = in.readObject();
     }
 
