@@ -1287,6 +1287,15 @@ or `DOUBLE` source is refused while the statement is prepared, so it reaches `BI
 `18446744073709551616` now fails instead of returning `0`. `TRY_CAST` cannot turn that into `NULL`,
 because no cast is involved.
 
+NOTE:
+Casting to `DECIMAL(p,s)` rounds to scale `s` half away from zero, whatever the source type:
+`CAST(1.21 AS DECIMAL(10,1))` gives `1.2`, `CAST(1.25 AS DECIMAL(10,1))` gives `1.3` and
+`CAST(-1.25 AS DECIMAL(10,1))` gives `-1.3`. A `FLOAT` or `DOUBLE` source is converted from its
+exact binary value before rounding. `COALESCE` and `IFNULL` round the same way when the inferred
+type of their result is a `DECIMAL` with fewer decimal places than the value.
+
+After rounding, the value must fit precision `p`. For example, `CAST('-9.95' AS DECIMAL(2,1))` fails because `-10.0` needs three digits; `TRY_CAST` returns `NULL`, while `CAST('-9.94' AS DECIMAL(2,1))` returns `-9.9`. The same precision check applies to implicit DECIMAL conversions in `COALESCE` and `IFNULL`. `CASE` retains its existing inferred-type conversion without this precision check; explicit CAST expressions within its branches still validate their declared target. Use a wider target precision when the rounded value must be retained.
+
 ### TRY_CAST
 
 ```TRY_CAST(value as dataType) -> dataType | NULL```

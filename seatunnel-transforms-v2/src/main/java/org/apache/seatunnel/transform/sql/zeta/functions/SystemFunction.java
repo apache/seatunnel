@@ -96,6 +96,19 @@ public class SystemFunction {
     }
 
     public static Object castAs(Object arg, SeaTunnelDataType<?> type) {
+        return castAs(arg, type, true);
+    }
+
+    /**
+     * Preserves CASE conversion semantics until its inferred DECIMAL precision accounts for all
+     * branch expressions. Explicit CAST expressions inside a branch still validate their target.
+     */
+    public static Object castCaseResult(Object arg, SeaTunnelDataType<?> type) {
+        return castAs(arg, type, false);
+    }
+
+    private static Object castAs(
+            Object arg, SeaTunnelDataType<?> type, boolean checkDecimalPrecision) {
         final ArrayList<Object> args = new ArrayList<>(4);
         args.add(arg);
         args.add(type.getSqlType().toString());
@@ -104,7 +117,7 @@ public class SystemFunction {
             args.add(decimalType.getPrecision());
             args.add(decimalType.getScale());
         }
-        return castAs(args);
+        return castAs(args, checkDecimalPrecision);
     }
 
     /**
@@ -251,6 +264,10 @@ public class SystemFunction {
     }
 
     public static Object castAs(List<Object> args) {
+        return castAs(args, true);
+    }
+
+    private static Object castAs(List<Object> args, boolean checkDecimalPrecision) {
         Object v1 = args.get(0);
         String v2 = (String) args.get(1);
         if (v1 == null) {
@@ -379,34 +396,38 @@ public class SystemFunction {
                         String.format("Unsupported CAST AS type: %s", v2));
             case "DECIMAL":
                 BigDecimal bigDecimal;
-                RoundingMode roundingMode;
                 if (v1 instanceof BigDecimal) {
                     bigDecimal = (BigDecimal) v1;
-                    roundingMode = RoundingMode.CEILING;
                 } else if (v1 instanceof Float) {
                     // Translate the exact binary value, mirroring CAST semantics in
                     // databases (e.g. MySQL). Float.toString() returns the shortest
                     // round-trip representation and drops the hidden binary digits
                     // (126.752251f -> "126.75225"), which would turn CAST(... AS
                     // DECIMAL(20,10)) into 126.7522500000 instead of the exact
-                    // 126.7522506714 (issue #10198). Round half away from zero to
-                    // match MySQL CAST semantics; CEILING would otherwise push the
-                    // hidden binary tail of 0.1f (0.10000000149...) up to 0.11
-                    // at scale 2 and silently corrupt ordinary DECIMAL casts.
+                    // 126.7522506714 (issue #10198).
                     bigDecimal = new BigDecimal((Float) v1);
-                    roundingMode = RoundingMode.HALF_UP;
                 } else if (v1 instanceof Double) {
-                    // Same reasoning as for Float above; the exact binary tail of
-                    // 0.1d (0.10000000000000000555...) plus CEILING at scale 2
-                    // would also become 0.11 instead of 0.10.
+                    // Same reasoning as for Float above.
                     bigDecimal = new BigDecimal((Double) v1);
-                    roundingMode = RoundingMode.HALF_UP;
                 } else {
                     bigDecimal = new BigDecimal(v1.toString());
-                    roundingMode = RoundingMode.CEILING;
                 }
+                Integer precision = (Integer) args.get(2);
                 Integer scale = (Integer) args.get(3);
-                return bigDecimal.setScale(scale, roundingMode);
+                // Round half away from zero for every source type: 1.21 -> 1.2,
+                // 1.25 -> 1.3, -1.25 -> -1.3. FLOAT and DOUBLE are rounded from their exact
+                // binary value, so near a boundary they can differ from the same digits as
+                // STRING or DECIMAL (1.15d is 1.1499999..., which gives 1.1 at scale 1).
+                BigDecimal rounded = bigDecimal.setScale(scale, RoundingMode.HALF_UP);
+                // A carry during rounding can exceed the declared precision.
+                if (checkDecimalPrecision && rounded.precision() > precision) {
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format(
+                                    "Value %s cannot be converted to DECIMAL(%d,%d): rounded value exceeds precision",
+                                    v1, precision, scale));
+                }
+                return rounded;
             case "BOOLEAN":
                 if (v1 instanceof Number) {
                     if (Arrays.asList(1, 0).contains(((Number) v1).intValue())) {
