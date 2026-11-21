@@ -95,6 +95,7 @@ HugeGraph 定时刷新复用连接器现有的同步批量刷新。失败会直�
 | `userdata`         | `Map<String, Object>` | 否       | -       | 与标签关联的用户自定义数据。 |
 | `idStrategy`       | String              | 对于顶点 | -       | 顶点 ID 生成策略，例如 `PRIMARY_KEY`、`CUSTOMIZE_STRING`、`CUSTOMIZE_NUMBER`、`CUSTOMIZE_UUID` 或 `AUTOMATIC`。 |
 | `idFields`         | `List<String>`        | 对于顶点 | -       | 用于生成顶点 ID 的源字段名。当 `idStrategy` 不是 `AUTOMATIC` 时必填。 |
+| `sourceTable`      | String              | 否       | -       | 将该映射绑定到指定的输入表路径，例如 `hugegraph.person`。配置后，该映射只在与表路径匹配的 writer 中生效（多表 sink）。要么所有 mappings 条目都配置 `sourceTable`，要么都不配置——两者混用会导致作业在配置阶段失败。 |
 | `sourceConfig`     | Object              | 对于边   | -       | 定义边的源顶点映射。请参阅下面的 `Source/Target Config`。 |
 | `targetConfig`     | Object              | 对于边   | -       | 定义边的目标顶点映射。请参阅下面的 `Source/Target Config`。 |
 | `frequency`        | String              | 对于边   | -       | 边频率，例如 `SINGLE`、`MULTIPLE`。 |

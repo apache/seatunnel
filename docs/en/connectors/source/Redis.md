@@ -59,10 +59,10 @@ downloaded from Maven Central.
 | user           | string | no                      | -             | Redis authentication user |
 | auth           | string | no                      | -             | Redis authentication password |
 | db_num         | int    | no                      | 0             | Redis database index |
-| mode           | string | no                      | single        | Redis mode: `single` or `cluster` |
+| mode           | enum   | no                      | single        | Redis mode: `single` or `cluster` |
 | nodes          | list   | yes when mode=cluster   | -             | Redis cluster nodes in format `["host1:port1", "host2:port2"]` |
 | keys           | string | yes when tables_configs is absent | -   | Redis key pattern to scan. Supports fuzzy matching; users need to ensure the matched keys have the same type. Mutually exclusive with `tables_configs`. |
-| data_type      | string | yes when tables_configs is absent | -   | Redis data type of the matched keys: `key`, `string`, `hash`, `list`, `set`, `zset`. Required together with `keys` for single key pattern reading. |
+| data_type      | enum   | yes when tables_configs is absent | -   | Redis data type of the matched keys: `key`, `string`, `hash`, `list`, `set`, `zset`. Required together with `keys` for single key pattern reading. |
 | tables_configs | list   | no                      | -             | List of table configurations for multi-table reading |
 | common-options |        | no                      | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
 
@@ -76,14 +76,14 @@ When using `tables_configs` to read multiple key patterns, each table configurat
 | name                | type   | required | default value | description |
 |---------------------|--------|----------|---------------|-------------|
 | keys                | string | yes      | -             | Redis key pattern to scan |
-| data_type           | string | yes      | -             | Redis data type: `key`, `string`, `hash`, `list`, `set`, `zset` |
+| data_type           | enum   | yes      | -             | Redis data type: `key`, `string`, `hash`, `list`, `set`, `zset` |
 | batch_size          | int    | no       | 10            | Batch size for SCAN operations |
-| format              | string | no       | json          | Data format: `json` or `text` |
+| format              | enum   | no       | json          | Data format: `json` or `text` |
 | schema              | config | no       | -             | Schema configuration for this table |
-| hash_key_parse_mode | string | no       | all           | Hash key parse mode: `all` or `kv` |
+| hash_key_parse_mode | enum   | no       | all           | Hash key parse mode: `all` or `kv` |
 | read_key_enabled    | boolean| no       | false         | Include Redis key in output |
 | key_field_name      | string | no       | -             | Field name for Redis key |
-| single_field_name   | string | no       | -             | Field name for single-value types |
+| single_field_name   | string | yes when read_key_enabled = true | - | Field name for single-value types. Required by the option rule whenever `read_key_enabled = true`, regardless of `data_type`. |
 | field_delimiter     | string | no       | ','           | Delimiter for text format |
 
 **Note:** When this configuration corresponds to a single table, configure these table-level options at the outer layer instead of using `tables_configs`. For example, put `keys`, `data_type`, `format`, and `schema` directly under `Redis`.
@@ -176,8 +176,10 @@ When set to `true`, both the key and its associated value are included in the re
 
 By default (`false`), only the value is read and included.
 
-If you are using a single-value Redis data type (such as `string`, `list`, `set`, or `zset`) with `read_key_enabled = true`,
-you must specify `single_field_name` to map the value to a schema column. `key_field_name` is optional and defaults to `key`.
+When `read_key_enabled = true`, the option rule requires `single_field_name` to be set, regardless of the configured
+`data_type`. The value is used to map non-object values (such as plain `string`/`list`/`set`/`zset` values) to a schema
+column; values that already parse as JSON objects (for example `hash` fields in `json` format) are mapped by their own
+fields. `key_field_name` is optional and defaults to `key`.
 
 When you configure a schema, include the actual output field names, including the default `key` field or the name set by `key_field_name`.
 
@@ -361,7 +363,9 @@ Specifies the field name for Redis values when `read_key_enabled = true` and the
 
 This name is used in the schema to map the value field.
 
-**Note:** This option has no effect when reading complex Redis data types such as hashes or objects that can be directly mapped to a schema.
+**Note:** This option is not applied to values that already parse as JSON objects, such as `hash` fields read in `json`
+format — those are mapped by their own fields. However, the configuration validator still requires this option whenever
+`read_key_enabled = true`, even if the target data type would not use it at runtime.
 
 Example :
 ```hocon
@@ -594,8 +598,9 @@ sink {
 ### Read With Custom Key And Value Field Names
 
 Use `key_field_name`, `single_field_name`, and `read_key_enabled = true` to include the Redis key in the output and
-control how its value maps to a schema column. For primitive value types (`string`, `list`, `set`, `zset`) you
-must set `single_field_name` so the connector knows which schema column receives the value.
+control how its value maps to a schema column. `single_field_name` is required whenever `read_key_enabled = true`
+(the option rule enforces it for every `data_type`), and it determines which schema column receives the value for
+non-object values such as `string`, `list`, `set`, and `zset`.
 
 ```hocon
 source {

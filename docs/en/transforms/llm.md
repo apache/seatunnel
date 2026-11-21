@@ -29,7 +29,7 @@ more.
 ### model_provider
 
 The model provider to use. The available options are:
-OPENAI, DOUBAO, DEEPSEEK, KIMIAI, MICROSOFT, ZHIPU, CUSTOM
+OPENAI, DOUBAO, DEEPSEEK, KIMIAI, MICROSOFT, ZHIPU, QIANFAN, CUSTOM
 
 > tips: If you use Microsoft, please make sure api_path cannot be empty
 ### output_data_type

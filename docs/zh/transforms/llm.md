@@ -27,7 +27,7 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 ### model_provider
 
 要使用的模型提供者。可用选项为:
-OPENAI,DOUBAO,DEEPSEEK,KIMIAI,MICROSOFT, ZHIPU, CUSTOM
+OPENAI,DOUBAO,DEEPSEEK,KIMIAI,MICROSOFT,ZHIPU,QIANFAN,CUSTOM
 
 > tips: 如果使用 Microsoft, 请确保 api_path 配置不能为空
 ### output_data_type

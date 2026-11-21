@@ -55,10 +55,10 @@ Redis 值。校验成功**不代表**匹配的 key 存在、已存储的值与 `
 | user           | string | 否                  | -     | Redis 认证用户名 |
 | auth           | string | 否                  | -     | Redis 认证密码 |
 | db_num         | int    | 否                  | 0     | Redis 数据库索引 |
-| mode           | string | 否                  | single | Redis 模式：`single` 或 `cluster` |
+| mode           | enum   | 否                  | single | Redis 模式：`single` 或 `cluster` |
 | nodes          | list   | `mode=cluster` 时必须 | -     | Redis 集群节点，格式为 `["host1:port1", "host2:port2"]` |
 | keys           | string | 未配置 `tables_configs` 时必须 | -     | 要扫描的 Redis key pattern，支持模糊匹配；用户需保证匹配到的 key 类型相同。与 `tables_configs` 互斥。 |
-| data_type      | string | 未配置 `tables_configs` 时必须 | -     | 匹配到的 key 的 Redis 数据类型：`key`、`string`、`hash`、`list`、`set`、`zset`。单 key pattern 读取时需与 `keys` 一起配置。 |
+| data_type      | enum   | 未配置 `tables_configs` 时必须 | -     | 匹配到的 key 的 Redis 数据类型：`key`、`string`、`hash`、`list`、`set`、`zset`。单 key pattern 读取时需与 `keys` 一起配置。 |
 | tables_configs | list   | 否                  | -     | 多表读取时的表配置列表 |
 | common-options |        | 否                  | -     | 源连接器插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md) |
 
@@ -72,14 +72,14 @@ Redis 值。校验成功**不代表**匹配的 key 存在、已存储的值与 `
 | 名称                  | 类型     | 是否必须 | 默认值 | 描述                                         |
 |---------------------|---------|--------|-------|--------------------------------------------|
 | keys                | string  | 是     | -     | 要扫描的 Redis key pattern                     |
-| data_type           | string  | 是     | -     | Redis 数据类型：`key`、`string`、`hash`、`list`、`set`、`zset` |
+| data_type           | enum    | 是     | -     | Redis 数据类型：`key`、`string`、`hash`、`list`、`set`、`zset` |
 | batch_size          | int     | 否     | 10    | SCAN 操作的批量大小                               |
-| format              | string  | 否     | json  | 数据格式：`json` 或 `text`                       |
+| format              | enum    | 否     | json  | 数据格式：`json` 或 `text`                       |
 | schema              | config  | 否     | -     | Schema 配置                               |
-| hash_key_parse_mode | string  | 否     | all   | Hash key 解析模式：`all` 或 `kv`                 |
+| hash_key_parse_mode | enum    | 否     | all   | Hash key 解析模式：`all` 或 `kv`                 |
 | read_key_enabled    | boolean | 否     | false | 是否在输出中包含 Redis key                         |
 | key_field_name      | string  | 否     | -     | Redis key 的字段名称                            |
-| single_field_name   | string  | 否     | -     | 单值类型的字段名称                                  |
+| single_field_name   | string  | `read_key_enabled = true` 时必须 | -     | 单值类型的字段名称。只要开启 `read_key_enabled = true`，选项规则就要求配置该参数，与 `data_type` 无关。 |
 | field_delimiter     | string  | 否     | ','   | 文本格式的分隔符                                   |
 
 **注意：** 当只读取单表时，请把这些表级参数直接配置在 `Redis` 外层，例如 `keys`、`data_type`、`format`、`schema`，不需要使用 `tables_configs`。
@@ -170,7 +170,7 @@ keys 模式
 
 默认值为 `false`，也就是只读取 value。
 
-如果读取的是 `string`、`list`、`set`、`zset` 这类单值类型，并且开启了 `read_key_enabled`，必须配置 `single_field_name`，指定 Redis value 写入哪一列。`key_field_name` 是可选项，默认字段名为 `key`。
+当 `read_key_enabled = true` 时，选项规则要求必须配置 `single_field_name`，与配置的 `data_type` 无关。该字段的值用于把非对象值（例如 `string`、`list`、`set`、`zset` 的普通值）映射到 schema 列；本身就能解析成 JSON 对象的值（例如 `json` 格式下的 `hash` 字段）则按对象自身字段映射。`key_field_name` 是可选项，默认字段名为 `key`。
 
 配置 schema 时，需要包含实际输出的字段名，包括默认的 `key` 字段或 `key_field_name` 指定的字段名。
 
@@ -201,7 +201,9 @@ schema {
 
 读取单值类型并且 `read_key_enabled = true` 时，指定 Redis value 输出到哪一个字段。
 
-该选项主要用于 `string`、`list`、`set`、`zset` 这类不能直接映射成多列对象的数据。
+该选项主要用于 `string`、`list`、`set`、`zset` 这类不能直接映射成多列对象的数据。对于本身就能解析成 JSON 对象的值（例如 `json` 格式下的 `hash` 字段），该选项不会被应用，对象按自身字段映射。
+
+**注意：** 即使目标数据类型在运行时不会使用该选项，只要配置了 `read_key_enabled = true`，配置校验器仍然要求配置该选项。
 
 ### batch_size [int]
 
@@ -563,8 +565,9 @@ sink {
 ### 使用自定义键名和值列名读取
 
 通过 `key_field_name`、`single_field_name` 和 `read_key_enabled = true` 可以把 Redis 键纳入输出，并控制其
-值映射到 schema 中的哪一列。对于基础值类型（`string`、`list`、`set`、`zset`），必须设置 `single_field_name`，
-让连接器知道哪个 schema 列接收该值。
+值映射到 schema 中的哪一列。只要开启 `read_key_enabled = true`，就必须设置 `single_field_name`（选项规则对
+所有 `data_type` 都生效），并且对于 `string`、`list`、`set`、`zset` 这类非对象值，该选项决定了哪个 schema 列
+接收该值。
 
 ```hocon
 source {
