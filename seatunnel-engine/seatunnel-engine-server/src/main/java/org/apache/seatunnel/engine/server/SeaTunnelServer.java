@@ -132,6 +132,7 @@ public class SeaTunnelServer
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
         this.resourceManagerFactory = resourceManagerFactory;
+        LOGGER.info("SeaTunnel server start...");
     }
 
     /** Lazy load for Slot Service */
@@ -149,7 +150,8 @@ public class SeaTunnelServer
                             new DefaultSlotService(
                                     nodeEngine,
                                     taskExecutionService,
-                                    seaTunnelConfig.getEngineConfig().getSlotServiceConfig());
+                                    seaTunnelConfig.getEngineConfig().getSlotServiceConfig(),
+                                    seaTunnelConfig.getEngineConfig().getAutoscalerConfig());
                     service.init();
                     slotService = service;
                 }

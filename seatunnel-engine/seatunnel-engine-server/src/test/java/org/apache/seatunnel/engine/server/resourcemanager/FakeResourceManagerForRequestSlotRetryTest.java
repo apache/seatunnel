@@ -46,7 +46,15 @@ public class FakeResourceManagerForRequestSlotRetryTest extends AbstractResource
 
     public FakeResourceManagerForRequestSlotRetryTest(
             NodeEngine nodeEngine, int newWorkerCount, int noSlotWorkerCount) {
-        super(nodeEngine, new EngineConfig());
+        this(nodeEngine, newWorkerCount, noSlotWorkerCount, ResourceShortageListener.NOOP);
+    }
+
+    public FakeResourceManagerForRequestSlotRetryTest(
+            NodeEngine nodeEngine,
+            int newWorkerCount,
+            int noSlotWorkerCount,
+            ResourceShortageListener shortageListener) {
+        super(nodeEngine, new EngineConfig(), shortageListener);
         this.newWorkerCount = newWorkerCount;
         this.noSlotWorkerCount = noSlotWorkerCount;
         init();
