@@ -334,7 +334,9 @@ public class DorisIT extends AbstractDorisIT {
 
     private void checkAllTypeSinkData() {
         try {
-            assertHasData(sourceDB, DUPLICATE_TABLE);
+            String sourceRelation = String.format("%s.%s", sourceDB, DUPLICATE_TABLE);
+            String sinkRelation = String.format("%s.%s", sinkDB, DUPLICATE_TABLE);
+            awaitSinkRowCountMatchesSource(sourceRelation, sinkRelation);
 
             try (PreparedStatement ps =
                     conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
@@ -351,11 +353,8 @@ public class DorisIT extends AbstractDorisIT {
                 }
             }
 
-            String sourceSql =
-                    String.format("select * from %s.%s order by F_ID ", sourceDB, DUPLICATE_TABLE);
-            String sinkSql =
-                    String.format("select * from %s.%s order by F_ID", sinkDB, DUPLICATE_TABLE);
-            checkSourceAndSinkTableDate(sourceSql, sinkSql, DUPLICATE_TABLE_COLUMN_STRING);
+            checkSourceAndSinkTableDate(
+                    sourceRelation, sinkRelation, DUPLICATE_TABLE_COLUMN_STRING);
             clearDuplicateTable();
         } catch (Exception e) {
             throw new RuntimeException("Doris connection error", e);
@@ -364,8 +363,9 @@ public class DorisIT extends AbstractDorisIT {
 
     protected void checkSinkData() {
         try {
-            assertHasData(sourceDB, UNIQUE_TABLE);
-            assertHasData(sinkDB, UNIQUE_TABLE);
+            String sourceRelation = String.format("%s.%s where F_ID > 50", sourceDB, UNIQUE_TABLE);
+            String sinkRelation = String.format("%s.%s", sinkDB, UNIQUE_TABLE);
+            awaitSinkRowCountMatchesSource(sourceRelation, sinkRelation);
 
             PreparedStatement sourcePre =
                     conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY);
@@ -432,21 +432,17 @@ public class DorisIT extends AbstractDorisIT {
                 }
             }
 
-            String sourceSql =
-                    String.format(
-                            "select * from %s.%s where F_ID > 50 order by F_ID ",
-                            sourceDB, UNIQUE_TABLE);
-            String sinkSql =
-                    String.format("select * from %s.%s order by F_ID", sinkDB, UNIQUE_TABLE);
-            checkSourceAndSinkTableDate(sourceSql, sinkSql, UNIQUE_TABLE_COLUMN_STRING);
+            checkSourceAndSinkTableDate(sourceRelation, sinkRelation, UNIQUE_TABLE_COLUMN_STRING);
             clearUniqueTable();
         } catch (Exception e) {
             throw new RuntimeException("Doris connection error", e);
         }
     }
 
-    private void checkSourceAndSinkTableDate(String sourceSql, String sinkSql, String columnsString)
-            throws Exception {
+    private void checkSourceAndSinkTableDate(
+            String sourceRelation, String sinkRelation, String columnsString) throws Exception {
+        String sourceSql = String.format("select * from %s order by F_ID", sourceRelation);
+        String sinkSql = String.format("select * from %s order by F_ID", sinkRelation);
         List<String> columnList =
                 Arrays.stream(columnsString.split(","))
                         .map(x -> x.trim())
@@ -482,27 +478,34 @@ public class DorisIT extends AbstractDorisIT {
     }
 
     private Integer tableCount(String db, String table) {
-        try (Statement statement = conn.createStatement()) {
-            String sql = String.format("select count(*) from %s.%s", db, table);
-            ResultSet source = statement.executeQuery(sql);
-            if (source.next()) {
-                int rowCount = source.getInt(1);
-                return rowCount;
-            }
+        try {
+            return countRows(String.format("%s.%s", db, table));
         } catch (Exception e) {
             throw new RuntimeException("Failed to check data in Doris server", e);
         }
-        return -1;
     }
 
-    private void assertHasData(String db, String table) {
-        try (Statement statement = conn.createStatement()) {
-            String sql = String.format("select * from %s.%s limit 1", db, table);
-            ResultSet source = statement.executeQuery(sql);
-            Assertions.assertTrue(source.next());
-        } catch (Exception e) {
-            throw new RuntimeException("test doris server image error", e);
+    private int countRows(String relation) throws SQLException {
+        String sql = String.format("select count(*) from %s", relation);
+        try (Statement statement = conn.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+            return resultSet.next() ? resultSet.getInt(1) : -1;
         }
+    }
+
+    /**
+     * Waits for the sink to publish all expected rows before comparing their values. Using the same
+     * source relation for the count and the comparison preserves any filter in the job.
+     */
+    private void awaitSinkRowCountMatchesSource(String sourceRelation, String sinkRelation)
+            throws SQLException {
+        int sourceRows = countRows(sourceRelation);
+        Assertions.assertTrue(sourceRows > 0, "Expected rows in Doris source: " + sourceRelation);
+        await().atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                // Retry JDBC query failures while Doris is publishing.
+                .ignoreExceptionsInstanceOf(SQLException.class)
+                .untilAsserted(() -> Assertions.assertEquals(sourceRows, countRows(sinkRelation)));
     }
 
     private void clearUniqueTable() {
