@@ -58,7 +58,7 @@ def test_direct_summary_update_redacts_credentials_and_preserves_other_fields(tm
         (manager.sessions_dir / f"{manager.current_session_id}.json").read_text()
     )
     assert "directSecret789" not in data["summary"]
-    assert "localhost" in data["summary"]
+    assert data["summary"] == "JDBC password=***REDACTED***"
     assert data["last_config"] == "source { Jdbc { url=localhost } }"
 
 
