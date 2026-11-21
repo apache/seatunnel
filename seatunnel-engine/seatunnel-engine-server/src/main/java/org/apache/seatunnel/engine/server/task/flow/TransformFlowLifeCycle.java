@@ -66,6 +66,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_PROCESS_NANOS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_RECORDS_IN;
@@ -83,6 +84,9 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     private final Collector<Record<?>> collector;
 
     private ErrorHandler<T> errorHandler;
+
+    private volatile Exception startupFailure;
+    private final AtomicBoolean failedStartupClosed = new AtomicBoolean();
 
     private transient Counter processNs;
     private transient Counter recordsIn;
@@ -107,24 +111,28 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         this.dryRunSampleCounts = new int[transform.size()];
     }
 
+    /** Opens the chain, or releases its resources and propagates the startup failure. */
     @Override
     public void open() throws Exception {
-        super.open();
-        // Use the task's metrics context so metrics can be reported by TaskExecutionService.
-        // (TaskExecutionContext#getOrCreateMetricsContext reads from the master IMAP and may return
-        // a fresh context which is not tracked/reported on the worker.)
-        final org.apache.seatunnel.api.common.metrics.MetricsContext metricsContext =
-                runningTask.getMetricsContext();
-        Map<String, Object> jobEnvOptions = runningTask.getJobEnvOptions();
-        this.dryRunSampleEnabled = DryRunSampleConfig.isEnabled(jobEnvOptions);
-        this.dryRunSampleLimit = DryRunSampleConfig.getLimit(jobEnvOptions);
-        this.dryRunSamplePrintData = DryRunSampleConfig.isPrintData(jobEnvOptions);
-        this.processNs = metricsContext.counter(TRANSFORM_PROCESS_NANOS + "#" + action.getId());
-        this.recordsIn = metricsContext.counter(TRANSFORM_RECORDS_IN + "#" + action.getId());
-        this.recordsOut = metricsContext.counter(TRANSFORM_RECORDS_OUT + "#" + action.getId());
-        initErrorHandlingTransforms();
-        for (SeaTunnelTransform<T> t : transform) {
-            try {
+        if (startupFailure != null) {
+            throw startupFailure;
+        }
+        try {
+            super.open();
+            // Use the task's metrics context so metrics can be reported by TaskExecutionService.
+            // (TaskExecutionContext#getOrCreateMetricsContext reads from the master IMAP and may
+            // return a fresh context which is not tracked/reported on the worker.)
+            final org.apache.seatunnel.api.common.metrics.MetricsContext metricsContext =
+                    runningTask.getMetricsContext();
+            Map<String, Object> jobEnvOptions = runningTask.getJobEnvOptions();
+            this.dryRunSampleEnabled = DryRunSampleConfig.isEnabled(jobEnvOptions);
+            this.dryRunSampleLimit = DryRunSampleConfig.getLimit(jobEnvOptions);
+            this.dryRunSamplePrintData = DryRunSampleConfig.isPrintData(jobEnvOptions);
+            this.processNs = metricsContext.counter(TRANSFORM_PROCESS_NANOS + "#" + action.getId());
+            this.recordsIn = metricsContext.counter(TRANSFORM_RECORDS_IN + "#" + action.getId());
+            this.recordsOut = metricsContext.counter(TRANSFORM_RECORDS_OUT + "#" + action.getId());
+            initErrorHandlingTransforms();
+            for (SeaTunnelTransform<T> t : transform) {
                 t.open();
                 if (dryRunSampleEnabled) {
                     log.info(
@@ -132,13 +140,19 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                             t.getPluginName(),
                             describeProducedSchemas(t.getProducedCatalogTables()));
                 }
-            } catch (Exception e) {
-                log.error(
-                        "Open transform: {} failed, cause: {}",
-                        t.getPluginName(),
-                        e.getMessage(),
-                        e);
             }
+        } catch (Exception failure) {
+            startupFailure = failure;
+            // This lifecycle owns its children and error handler. Cooperative task failure does
+            // not close the task, so release failed-startup resources here through the same owner.
+            try {
+                close();
+            } catch (Exception cleanupFailure) {
+                if (cleanupFailure != failure) {
+                    failure.addSuppressed(cleanupFailure);
+                }
+            }
+            throw failure;
         }
     }
 
@@ -152,6 +166,9 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
 
     @Override
     public void received(Record<?> record) {
+        if (startupFailure != null) {
+            throw new IllegalStateException("Transform initialization failed", startupFailure);
+        }
         if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
             if (barrier.prepareClose(this.runningTask.getTaskLocation())) {
@@ -351,6 +368,10 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
 
     @Override
     public void close() throws IOException {
+        // A blocking worker may close the task again after open() has already cleaned this stage.
+        if (startupFailure != null && !failedStartupClosed.compareAndSet(false, true)) {
+            return;
+        }
         for (SeaTunnelTransform<T> t : transform) {
             try {
                 t.close();
