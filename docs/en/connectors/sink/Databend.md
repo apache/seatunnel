@@ -169,6 +169,11 @@ sink {
 
 Set `conflict_key` to the primary-key column used to merge update/delete events. Set
 `enable_delete = true` only when DELETE events should remove rows from Databend.
+An INSERT event for a key that already exists updates that row, the same as an update event.
+When events of one key from one writer reach the same merge, the latest wins. The order comes from
+the writer's clock in the local time zone of the JVM, so in the hour that repeats when daylight
+saving time ends an older event can still win; a time zone without daylight saving time, such as
+UTC, avoids this.
 If `conflict_key` is not configured, the sink writes normal insert-style batches.
 
 The following end-to-end example feeds CDC row kinds (`INSERT`, `UPDATE_BEFORE`,
