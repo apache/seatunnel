@@ -84,7 +84,17 @@ public class AssertExecutor {
         SeaTunnelDataType<?> type = rowType.getFieldType(index);
         Object value = rowData.getField(index);
         String fieldName = rowType.getFieldName(index);
-        Boolean typeChecked = checkType(value, assertFieldRule.getFieldType());
+        /*
+         * field_type is optional in the field rule definition. When it is not configured, fall
+         * back to the field type of the current row so the value is still type checked instead of
+         * dereferencing a null type. When it is configured, the value still has to match the
+         * declared type.
+         */
+        SeaTunnelDataType<?> assertFieldType =
+                Objects.nonNull(assertFieldRule.getFieldType())
+                        ? assertFieldRule.getFieldType()
+                        : type;
+        Boolean typeChecked = checkType(value, assertFieldType);
         if (Boolean.FALSE.equals(typeChecked)) {
             return Boolean.FALSE;
         }

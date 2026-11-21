@@ -49,6 +49,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -152,6 +153,21 @@ public class SeaTunnelFTPFileSystemTest {
     }
 
     @Test
+    public void testAppendToExistingFile() throws IOException {
+        Path testFile = new Path(HOME_DIR + "/test.txt");
+
+        try (FSDataOutputStream out = ftpFileSystem.append(testFile, 1024, null)) {
+            out.write(" appended".getBytes(StandardCharsets.UTF_8));
+        }
+
+        try (FSDataInputStream in = ftpFileSystem.open(testFile, 1024)) {
+            byte[] buffer = new byte["Test content appended".length()];
+            in.readFully(buffer);
+            assertEquals("Test content appended", new String(buffer, StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
     public void testListStatus() throws IOException {
         // Create test directory structure
         Path testDir = new Path(HOME_DIR + "/testListDir");
@@ -242,6 +258,27 @@ public class SeaTunnelFTPFileSystemTest {
         ftpFileSystem.initialize(new URI("ftp://localhost:" + serverPort), conf);
         Path testFile2 = new Path(HOME_DIR + "/active_test.txt");
         assertTrue(ftpFileSystem.mkdirs(testFile2.getParent(), null));
+    }
+
+    @Test
+    public void testActiveModeProbeDoesNotLeaveDirectoryOnServer() throws IOException {
+        // No connection mode is configured, so every connection runs the active_local probe.
+        assertTrue(ftpFileSystem.exists(new Path(HOME_DIR + "/test.txt")));
+        assertEquals(1, ftpFileSystem.listStatus(new Path(HOME_DIR)).length);
+
+        // The probe directory could be created, so the client stayed in active mode.
+        assertNotEquals(
+                FtpConnectionMode.PASSIVE_LOCAL.getMode(),
+                ftpFileSystem.getConf().get(SeaTunnelFTPFileSystem.FS_FTP_CONNECTION_MODE));
+        List<String> probeDirectories = new ArrayList<>();
+        for (Object name : fakeFtpServer.getFileSystem().listNames("/")) {
+            if (name.toString().startsWith(".ftptest")) {
+                probeDirectories.add(name.toString());
+            }
+        }
+        assertTrue(
+                probeDirectories.isEmpty(),
+                "Active mode probe left directories on the server: " + probeDirectories);
     }
 
     @Test

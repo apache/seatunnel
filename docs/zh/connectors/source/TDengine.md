@@ -22,8 +22,8 @@ import ChangeLog from '../changelog/connector-tdengine.md';
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流式](../../introduction/concepts/connector-v2-features.md)
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
@@ -89,6 +89,8 @@ TDengine 子表名称列表。不配置时读取该超级表下的所有子表�
 ### 通用选项
 
 Source 插件通用参数，请参考 [Source Common Options](../common-options/source-common-options.md)。
+
+上述必填字符串选项均不能为空字符串或仅包含空白字符。此项校验不检查服务器连接或时间戳格式。
 
 ## 输出 Schema
 

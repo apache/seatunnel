@@ -25,6 +25,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] parquet
   - [x] orc
   - [x] json
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 

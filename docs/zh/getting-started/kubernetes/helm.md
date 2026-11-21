@@ -28,25 +28,25 @@ minikube start --kubernetes-version=v1.23.3
 
 ## 安装
 
-使用默认配置安装：
+3.1.0 版 Chart 默认使用 3.0.0 镜像。部署 SeaTunnel 3.1.0 时，请指定 `image.tag`。
 ```bash
 # 自行选择对应版本
-export VERSION=2.3.10
+export VERSION=3.1.0
 helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm
-helm install seatunnel .
+helm install seatunnel . --set-string image.tag="${VERSION}"
 ```
 
 如果您需要使用其他命名空间进行安装：
 ```bash
-helm install seatunnel . -n <your-namespace>
+helm install seatunnel . --set-string image.tag="${VERSION}" -n <your-namespace>
 ```
 
 对于托管 Kubernetes 服务，建议将云厂商相关的差异化配置单独维护在一个 values 文件中，并通过 `-f` 传入，例如：
 
 ```bash
-helm install seatunnel . -n <your-namespace> -f values-eks.yaml
+helm install seatunnel . --set-string image.tag="${VERSION}" -n <your-namespace> -f values-eks.yaml
 ```
 
 在托管集群上常见需要复核的 values 包括：
@@ -91,6 +91,13 @@ curl http://127.0.0.1:8080/system-monitoring-information
 ```
 
 后面就可以使用 [REST API V2](../../engines/zeta/rest-api-v2.md) 提交任务了。
+
+> **注意：** Helm chart 默认关闭了 Hazelcast 成员端口（5801）上已废弃且无鉴权的 Zeta REST API v1
+> （`hazelcast.network.rest-api.enabled: false`），与单机版 `config/hazelcast.yaml` 保持一致。请使用
+> 8080 端口上的 REST API v2（即上文所示接口）。出于同样的原因，默认的 Prometheus 注解改为从
+> `8080/metrics` 采集指标。如果确实需要 REST API v1，请在自定义 ConfigMap 中设置
+> `rest-api.enabled: true`，并使用 `NetworkPolicy` 限制 5801 端口。`helm upgrade` 会更新 ConfigMap，
+> 但正在运行的 Pod 需要重启后才会加载新配置。
 
 ## 下一步
 到现在为止，您已经安装好 SeaTunnel 集群了，可以继续查看连接器文档，了解 SeaTunnel 支持哪些 source 和 sink。

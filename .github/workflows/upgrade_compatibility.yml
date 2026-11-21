@@ -23,7 +23,7 @@ on:
       old_version:
         description: "SeaTunnel release used to create the savepoint"
         required: false
-        default: "2.3.13"
+        default: "3.1.0"
       scenario:
         description: "Restore scenario under tools/upgrade_compatibility/scenarios"
         required: false
@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      OLD_SEATUNNEL_VERSION: ${{ github.event.inputs.old_version || '2.3.13' }}
+      OLD_SEATUNNEL_VERSION: ${{ github.event.inputs.old_version || '3.1.0' }}
       SCENARIO: ${{ github.event.inputs.scenario || 'all' }}
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +52,9 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "8"
+          # Use the minimum supported JDK for both the released baseline and current dev
+          # to isolate SeaTunnel version compatibility from runtime-version differences.
+          java-version: "11"
 
       - name: Test upgrade compatibility tooling
         run: bash tools/upgrade_compatibility/run_upgrade_compatibility_test.sh

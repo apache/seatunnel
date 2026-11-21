@@ -115,14 +115,17 @@ public class DefaultSerializer implements Serializer {
             SeaTunnelRowType seaTunnelRowType, String timeKey) {
         // not config timeKey, use processing time
         if (Strings.isNullOrEmpty(timeKey)) {
-            return (row, builder) -> builder.time(System.currentTimeMillis(), precision);
+            return (row, builder) ->
+                    builder.time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
         }
 
         int timeFieldIndex = seaTunnelRowType.indexOf(timeKey);
         return (row, builder) -> {
             Object time = row.getField(timeFieldIndex);
             if (time == null) {
+                // use processing time when the value of the configured time column is null
                 builder.time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+                return;
             }
             SeaTunnelDataType<?> timestampFieldType = seaTunnelRowType.getFieldType(timeFieldIndex);
             switch (timestampFieldType.getSqlType()) {
@@ -130,12 +133,14 @@ public class DefaultSerializer implements Serializer {
                     builder.time(Long.parseLong((String) time), precision);
                     break;
                 case TIMESTAMP:
+                    // The value below is epoch milliseconds, so it must be declared
+                    // as milliseconds no matter what precision the epoch option uses.
                     builder.time(
                             ((LocalDateTime) time)
                                     .atZone(ZoneOffset.UTC)
                                     .toInstant()
                                     .toEpochMilli(),
-                            precision);
+                            TimeUnit.MILLISECONDS);
                     break;
                 case BIGINT:
                     builder.time((Long) time, precision);

@@ -65,11 +65,11 @@ public class AbstractPluginDiscoveryTest {
     public void testGetAllPlugins() {
         Map<PluginIdentifier, String> sourcePlugins =
                 AbstractPluginDiscovery.getAllSupportedPlugins(PluginType.SOURCE);
-        Assertions.assertEquals(30, sourcePlugins.size());
+        Assertions.assertEquals(31, sourcePlugins.size());
 
         Map<PluginIdentifier, String> sinkPlugins =
                 AbstractPluginDiscovery.getAllSupportedPlugins(PluginType.SINK);
-        Assertions.assertEquals(34, sinkPlugins.size());
+        Assertions.assertEquals(35, sinkPlugins.size());
     }
 
     @AfterEach

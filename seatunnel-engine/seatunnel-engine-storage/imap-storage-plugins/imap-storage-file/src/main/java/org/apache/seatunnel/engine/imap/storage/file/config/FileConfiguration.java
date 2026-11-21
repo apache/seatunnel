@@ -23,7 +23,8 @@ package org.apache.seatunnel.engine.imap.storage.file.config;
 public enum FileConfiguration {
     HDFS("hdfs", new HdfsConfiguration()),
     S3("s3", new S3Configuration()),
-    OSS("oss", new OssConfiguration());
+    OSS("oss", new OssConfiguration()),
+    GCS("gcs", new GcsConfiguration());
 
     /** file system type */
     private final String name;

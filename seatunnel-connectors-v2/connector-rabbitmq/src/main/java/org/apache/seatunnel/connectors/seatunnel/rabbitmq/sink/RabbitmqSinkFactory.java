@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -43,8 +44,10 @@ public class RabbitmqSinkFactory implements TableSinkFactory {
                 .required(
                         RabbitmqSinkOptions.HOST,
                         RabbitmqSinkOptions.PORT,
-                        RabbitmqSinkOptions.VIRTUAL_HOST,
-                        RabbitmqSinkOptions.QUEUE_NAME)
+                        RabbitmqSinkOptions.VIRTUAL_HOST)
+                .required(
+                        RabbitmqSinkOptions.QUEUE_NAME,
+                        Conditions.notBlank(RabbitmqSinkOptions.QUEUE_NAME))
                 .bundled(RabbitmqSinkOptions.USERNAME, RabbitmqSinkOptions.PASSWORD)
                 .optional(RabbitmqSinkOptions.FORMAT)
                 .conditional(

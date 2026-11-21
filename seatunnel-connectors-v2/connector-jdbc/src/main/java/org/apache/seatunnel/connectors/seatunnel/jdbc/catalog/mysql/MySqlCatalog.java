@@ -222,7 +222,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         // e.g. tinyint(1) unsigned
         String columnType = resultSet.getString("COLUMN_TYPE");
         // e.g. tinyint
-        String dataType = resultSet.getString("DATA_TYPE").toUpperCase();
+        String dataType = resultSet.getString("DATA_TYPE").toUpperCase(Locale.ROOT);
         String comment = resultSet.getString("COLUMN_COMMENT");
         Object defaultValue = resultSet.getObject("COLUMN_DEFAULT");
         String isNullableStr = resultSet.getString("IS_NULLABLE");
@@ -241,7 +241,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
 
         MysqlType mysqlType = MysqlType.getByName(columnType);
-        boolean unsigned = columnType.toLowerCase(Locale.ROOT).contains("unsigned");
+        boolean unsigned = MySqlTypeConverter.isNumericUnsignedColumnType(dataType, columnType);
 
         BasicTypeDefine<MysqlType> typeDefine =
                 BasicTypeDefine.<MysqlType>builder()

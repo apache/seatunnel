@@ -30,6 +30,7 @@ import java.util.function.Consumer;
 /** A PostgreSQL schema that exposes pgoutput RELATION changes to SeaTunnel. */
 public class RelationAwarePostgresSchema extends PostgresSchema {
 
+    private final String databaseName;
     private Consumer<Table> relationChangeListener;
 
     public RelationAwarePostgresSchema(
@@ -39,6 +40,7 @@ public class RelationAwarePostgresSchema extends PostgresSchema {
             TopicSelector<TableId> topicSelector,
             PostgresValueConverter valueConverter) {
         super(config, typeRegistry, defaultValueConverter, topicSelector, valueConverter);
+        this.databaseName = config.databaseName();
     }
 
     public void setRelationChangeListener(Consumer<Table> relationChangeListener) {
@@ -51,7 +53,7 @@ public class RelationAwarePostgresSchema extends PostgresSchema {
      */
     @Override
     public void applySchemaChangesForTable(int relationId, Table table) {
-        Table previousTable = tableFor(table.id());
+        Table previousTable = trackedTableFor(table.id());
         super.applySchemaChangesForTable(relationId, table);
 
         // Always forward streaming RELATION messages for known tables. After recovery Debezium may
@@ -61,6 +63,22 @@ public class RelationAwarePostgresSchema extends PostgresSchema {
         if (relationChangeListener != null && previousTable != null) {
             relationChangeListener.accept(table);
         }
+    }
+
+    /**
+     * pgoutput RELATION ids carry no catalog, but pgjdbc 42.7.5+ returns the database name as
+     * TABLE_CAT, so tables loaded from JDBC metadata may be tracked as database.schema.table.
+     */
+    private Table trackedTableFor(TableId relationTableId) {
+        Table table = tableFor(relationTableId);
+        if (table != null
+                || relationTableId.catalog() != null
+                || databaseName == null
+                || databaseName.isEmpty()) {
+            return table;
+        }
+        return tableFor(
+                new TableId(databaseName, relationTableId.schema(), relationTableId.table()));
     }
 
     /** Compare two raw pgoutput RELATION schemas, including their primary-key definitions. */

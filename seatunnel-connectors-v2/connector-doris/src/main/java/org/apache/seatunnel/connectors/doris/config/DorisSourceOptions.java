@@ -91,7 +91,7 @@ public class DorisSourceOptions extends DorisBaseOptions {
                     .withDescription("");
 
     public static final Option<Integer> DORIS_DESERIALIZE_QUEUE_SIZE =
-            Options.key("doris.request.retriesdoris.deserialize.queue.size")
+            Options.key("doris.deserialize.queue.size")
                     .intType()
                     .defaultValue(DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT)
                     .withDescription("");

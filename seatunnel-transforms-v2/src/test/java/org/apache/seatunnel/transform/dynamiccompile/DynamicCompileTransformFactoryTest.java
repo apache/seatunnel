@@ -21,14 +21,24 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
+import org.apache.seatunnel.transform.common.TransformLevelRuleAssertions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 class DynamicCompileTransformFactoryTest {
+
+    @Test
+    void testTransformLevelRuleDetectionMatchesTheTableRule() {
+        TransformLevelRuleAssertions.assertMatchesFactoryRule(
+                new DynamicCompileTransformFactory(),
+                DynamicCompileTransformConfig.COMPILE_LANGUAGE);
+    }
 
     private final OptionRule rule = new DynamicCompileTransformFactory().optionRule();
 
@@ -101,5 +111,48 @@ class DynamicCompileTransformFactoryTest {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("compile_language", "JAVA");
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformOnlyConfigPasses() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(tableRule()));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformEntryWithoutTablePathFails() {
+        Map<String, Object> entry = tableRule();
+        entry.remove(TransformCommonOptions.TABLE_PATH.key());
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testTableTransformEntryMustSatisfyTheRule() {
+        Map<String, Object> entry = tableRule();
+        entry.remove("compile_language");
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(entry));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testIncompleteTransformLevelRuleWithTableTransformFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(TransformCommonOptions.MULTI_TABLES.key(), Collections.singletonList(tableRule()));
+        cfg.put("compile_pattern", "SOURCE_CODE");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    /** A complete rule for a single table, used as a {@code table_transform} entry. */
+    private Map<String, Object> tableRule() {
+        Map<String, Object> entry = new HashMap<>();
+        entry.put(TransformCommonOptions.TABLE_PATH.key(), "test.xyz");
+        entry.put("compile_language", "JAVA");
+        entry.put("compile_pattern", "SOURCE_CODE");
+        entry.put("source_code", "public class Example {}");
+        return entry;
     }
 }

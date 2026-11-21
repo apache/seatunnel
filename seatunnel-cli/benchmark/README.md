@@ -109,6 +109,31 @@ Task format:
 }
 ```
 
+### Fast lane (`--preset smoke`)
+
+The full suite is too slow to run on every change. `benchmark/presets.json`
+defines named subsets; `--preset smoke` selects 12 tasks — four per tier, ten
+distinct categories, three Chinese prompts — chosen to cover the common task
+shapes **and** the four shapes most models get wrong (Doris option rules,
+PostgreSQL CDC prerequisites, conditional routing, wide DAG wiring), so a
+regression in prompt or connector-metadata handling shows up here first:
+
+```bash
+python -m benchmark.runner --preset smoke --level l1 \
+    --provider bedrock --model <model-id> --out benchmark/results/smoke
+```
+
+A preset is a fixed, version-controlled selection, which is what makes repeated
+runs comparable. `--preset` and `--tasks` are therefore mutually exclusive, and
+a preset that cannot resolve every one of its task ids under the chosen
+`--tiers` / `--suite` fails instead of silently running a smaller set. Results
+still carry the per-task contract hashes described under
+[Compare saved results across revisions](#compare-saved-results-across-revisions),
+so a preset run cannot be mistaken for a full-suite run.
+
+`--level l1` skips the engine and Docker but **not** model calls, so a smoke run
+still needs provider credentials.
+
 ### Optional public paraphrase suite
 
 The default remains the same 100 baseline tasks. Select `--suite paraphrase`
@@ -171,7 +196,7 @@ equivalence. Keep production prompt tuning separate from corpus changes.
 | Kafka (KRaft) | `apache/kafka:3.7.0` | `localhost:9092` | PLAINTEXT | topics clicks, order_events, dbz.shop.users (seeded), events, wms.inventory, shop.orders.changelog |
 | ClickHouse | `clickhouse/clickhouse-server:23.3.13.6` | `localhost:8123` | default / Test@123 | db `bench`: pre-created sink tables |
 | Elasticsearch | `elasticsearch:8.9.0` | `localhost:9200` | security disabled | — |
-| MinIO (S3) | `quay.io/minio/minio` | `localhost:9000` | minioadmin / minioadmin | bucket `bench` |
+| MinIO (S3) | `ghcr.io/teableio/minio` (digest-pinned) | `localhost:9000` | minioadmin / minioadmin | bucket `bench` |
 | Doris *(profile `olap`)* | `apache/doris:doris-all-in-one-2.1.0` | FE 8030 / query 9030 | root / empty | apply `init/doris/01_bench.sql` |
 | StarRocks *(profile `olap`)* | `starrocks/allin1-ubuntu:3.3.4` | FE 8031 / query 9031 | root / empty | apply `init/doris/01_bench.sql` |
 
@@ -235,6 +260,7 @@ python -m benchmark.runner --models benchmark/models.json                 # full
 python -m benchmark.runner --models benchmark/models.json --level l2      # no docker needed
 python -m benchmark.runner --models benchmark/models.json --level l1      # offline
 python -m benchmark.runner --models benchmark/models.json --tiers 1 --tasks t1_fake_console
+python -m benchmark.runner --models benchmark/models.json --preset smoke --level l1  # 12-task fast lane
 python -m benchmark.runner --models benchmark/models.json --max-repairs 3
 ```
 
