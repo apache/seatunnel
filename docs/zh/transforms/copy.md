@@ -25,7 +25,7 @@ Copy 转换通过复制已有字段的值来增加新字段。输出中仍保留
 | `rule_match_mode` | `String` | 否 | `FIRST_MATCH` | 控制同一表匹配多条规则时的处理方式。 |
 | 通用选项 | - | 否 | - | 参见[转换插件通用选项](common-options/common-options.md)。 |
 
-### fields [Map<String, String>]
+### fields
 
 每一项将**新字段名**映射到**已有源字段名**。例如，`name_copy = name` 会增加一个值来自 `name` 的新字段 `name_copy`。映射不能为空，源字段必须存在于输入表中。一条 Copy 规则必须使用 `fields`，或使用已废弃的 `src_field`、`dest_field` 组合；同一条规则不能混用两种写法。
 
@@ -44,7 +44,7 @@ fields {
 
 已废弃的目标字段选项。设置 `src_field` 时必须提供非空白的 `dest_field`。例如，`src_field = "name"` 和 `dest_field = "name_copy"` 会将 `name` 复制到 `name_copy`。
 
-### table_transform [List<Map<String, Object>>]
+### table_transform
 
 每一项通过 `table_path` 选择一个表，并包含一条完整的 Copy 规则：非空的 `fields` 映射，或已废弃的 `src_field`、`dest_field` 组合。对同一个表，按表规则优先于外层规则。只配置 `table_transform` 时，未列出的表原样通过。参见[多表转换](transform-multi-table.md)。
 

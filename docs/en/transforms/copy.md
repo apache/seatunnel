@@ -25,7 +25,7 @@ The Copy transform adds new fields by copying values from existing fields. The o
 | `rule_match_mode` | `String` | No | `FIRST_MATCH` | How multiple entries for the same table are applied. |
 | `common options` | - | No | - | See [Transform Plugin](common-options/common-options.md). |
 
-### fields [Map<String, String>]
+### fields
 
 Each entry maps a **new field name** to an **existing source field name**. For example, `name_copy = name` adds `name_copy` with the value of `name`. The map must not be empty, and every source field must exist in the input table. A Copy rule must use either `fields` or the deprecated `src_field` and `dest_field` pair; do not use both forms in the same rule.
 
@@ -44,7 +44,7 @@ Deprecated single-field form. Set it together with `dest_field`; use `fields` fo
 
 Deprecated destination field for `src_field`. It is required and must not be blank when `src_field` is set. For example, `src_field = "name"` and `dest_field = "name_copy"` copy `name` to `name_copy`.
 
-### table_transform [List<Map<String, Object>>]
+### table_transform
 
 Each entry selects a table with `table_path` and contains a complete Copy rule: either a non-empty `fields` map or the deprecated `src_field` and `dest_field` pair. An entry takes precedence over the transform-level rule for its table. If only `table_transform` is configured, tables without an entry pass through unchanged. See [Multi-Table Transform](transform-multi-table.md).
 
