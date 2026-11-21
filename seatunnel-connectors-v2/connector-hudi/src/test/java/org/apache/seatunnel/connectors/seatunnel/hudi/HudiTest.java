@@ -68,8 +68,10 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.type.BasicType.BOOLEAN_TYPE;
@@ -132,6 +134,27 @@ public class HudiTest {
         Assertions.assertEquals(
                 "{\"type\":\"record\",\"name\":\"hudi_record\",\"namespace\":\"hoodie.hudi\",\"fields\":[{\"name\":\"bool\",\"type\":[\"null\",\"boolean\"],\"default\":null},{\"name\":\"int\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"longValue\",\"type\":[\"null\",\"long\"],\"default\":null},{\"name\":\"float\",\"type\":[\"null\",\"float\"],\"default\":null},{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"date\",\"type\":[\"null\",{\"type\":\"int\",\"logicalType\":\"date\"}],\"default\":null},{\"name\":\"time\",\"type\":[\"null\",{\"type\":\"int\",\"logicalType\":\"time-millis\"}],\"default\":null},{\"name\":\"timestamp3\",\"type\":[\"null\",{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}],\"default\":null},{\"name\":\"map\",\"type\":[\"null\",{\"type\":\"map\",\"values\":[\"null\",\"long\"]}],\"default\":null},{\"name\":\"decimal\",\"type\":[\"null\",{\"type\":\"fixed\",\"name\":\"fixed\",\"namespace\":\"hoodie.hudi.hudi_record.decimal\",\"size\":5,\"logicalType\":\"decimal\",\"precision\":10,\"scale\":5}],\"default\":null}]}",
                 getSchema());
+    }
+
+    @Test
+    void testGeneratedKeysForAppendOperationsWithoutConfiguredKey() {
+        SeaTunnelRow row = new SeaTunnelRow(seaTunnelRowType.getTotalFields());
+        row.setField(0, true);
+        row.setField(1, 1);
+        Set<String> keys = new HashSet<>();
+        HudiRecordConverter converter = new HudiRecordConverter();
+
+        for (WriteOperationType opType :
+                Arrays.asList(WriteOperationType.INSERT, WriteOperationType.BULK_INSERT)) {
+            HudiTableConfig tableConfig =
+                    HudiTableConfig.builder().tableName(tableName).opType(opType).build();
+            for (int index = 0; index < 2; index++) {
+                String recordKey =
+                        converter.getHoodieKey(row, seaTunnelRowType, tableConfig).getRecordKey();
+                Assertions.assertEquals(36, recordKey.length());
+                Assertions.assertTrue(keys.add(recordKey), "Duplicate generated record key");
+            }
+        }
     }
 
     @Test

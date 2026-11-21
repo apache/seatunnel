@@ -39,6 +39,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.e2e.common.container.AbstractTestContainer.HOST_VOLUME_MOUNT_PATH;
@@ -54,7 +56,9 @@ public class HudiIT extends TestSuiteBase {
     private static final String DATABASE = "st";
     private static final String DEFAULT_DATABASE = "default";
     private static final String TABLE_NAME = "st_test";
+    private static final String BULK_INSERT_TABLE_NAME = "bulk_insert_without_key";
     private static final String TABLE_PATH = HOST_VOLUME_MOUNT_PATH + "/hudi/";
+    private static final String HOODIE_RECORD_KEY_FIELD = "_hoodie_record_key";
 
     @TestTemplate
     @DisabledOnContainer(
@@ -129,6 +133,52 @@ public class HudiIT extends TestSuiteBase {
                                 rowCount++;
                             }
                             Assertions.assertEquals(5, rowCount);
+                        });
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.SPARK_2_4},
+            type = {EngineType.FLINK},
+            disabledReason = "FLINK do not support local file catalog in hudi.")
+    public void testBulkInsertWithoutRecordKey(TestContainer container)
+            throws IOException, InterruptedException, URISyntaxException {
+        Container.ExecResult writeResult =
+                container.executeJob("/hudi/fake_to_hudi_bulk_insert_without_key.conf");
+        Assertions.assertEquals(0, writeResult.getExitCode(), writeResult.getStderr());
+        Configuration configuration = new Configuration();
+        configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
+        Path tablePath =
+                new Path(
+                        TABLE_PATH
+                                + File.separator
+                                + DEFAULT_DATABASE
+                                + File.separator
+                                + BULK_INSERT_TABLE_NAME);
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            try (ParquetReader<Group> reader =
+                                    ParquetReader.builder(new GroupReadSupport(), tablePath)
+                                            .withConf(configuration)
+                                            .build()) {
+                                Group firstRow = reader.read();
+                                Assertions.assertNotNull(firstRow);
+                                int recordKeyField =
+                                        firstRow.getType().getFieldIndex(HOODIE_RECORD_KEY_FIELD);
+                                Set<String> recordKeys = new HashSet<>();
+                                for (Group row = firstRow; row != null; row = reader.read()) {
+                                    String recordKey = row.getValueToString(recordKeyField, 0);
+                                    Assertions.assertEquals(36, recordKey.length());
+                                    Assertions.assertTrue(
+                                            recordKeys.add(recordKey),
+                                            "Duplicate generated record key");
+                                }
+                                Assertions.assertEquals(3, recordKeys.size());
+                            }
                         });
     }
 }
