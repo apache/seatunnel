@@ -18,6 +18,10 @@
 
 package org.apache.seatunnel.format.json.canal;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -43,11 +47,18 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class CanalJsonSerDeSchemaTest {
     private static final String FORMAT = "Canal";
+
+    private static final String TABLE_ID = "inventory.products";
+
+    private static final long EVENT_TIME_MILLIS = 1589373560798L;
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final SeaTunnelRowType SEATUNNEL_ROW_TYPE =
             new SeaTunnelRowType(
@@ -156,6 +167,40 @@ public class CanalJsonSerDeSchemaTest {
         assertEquals(
                 unknownTypeCause.getMessage(),
                 String.format("Unknown operation type '%s'.", unknownType));
+    }
+
+    /**
+     * The serializer reuses a single output row, so each record must be emitted with its own
+     * metadata: {@code database}, {@code table} and {@code ts} are null when the record carries no
+     * table id or event time, instead of repeating the values of the previously serialized record.
+     */
+    @Test
+    public void testMetadataIsNotInheritedFromPreviousRow() throws Exception {
+        SerializationSchema schema = new CanalJsonSerializationSchema(SEATUNNEL_ROW_TYPE);
+
+        // the first record carries metadata, which must be emitted for that record
+        JsonNode metadataRow = toJson(schema, createRow(1, TABLE_ID, EVENT_TIME_MILLIS));
+        assertEquals(1, metadataRow.get("data").get(0).get("id").asInt());
+        assertEquals("INSERT", metadataRow.get("type").asText());
+        assertMetadata(metadataRow, "inventory", "products", EVENT_TIME_MILLIS);
+
+        // a record without any metadata must not inherit the previous record's metadata
+        JsonNode plainRow = toJson(schema, createRow(2, null, null));
+        assertEquals(2, plainRow.get("data").get(0).get("id").asInt());
+        assertEquals("INSERT", plainRow.get("type").asText());
+        assertMetadata(plainRow, null, null, null);
+
+        // a table id only record keeps database/table and clears the previous timestamp
+        JsonNode tableOnlyRow = toJson(schema, createRow(3, TABLE_ID, null));
+        assertMetadata(tableOnlyRow, "inventory", "products", null);
+
+        // an event time only record keeps its timestamp and clears database/table
+        JsonNode eventTimeOnlyRow = toJson(schema, createRow(4, null, EVENT_TIME_MILLIS - 1));
+        assertMetadata(eventTimeOnlyRow, null, null, EVENT_TIME_MILLIS - 1);
+
+        // switching back to a table id only record clears the timestamp again
+        JsonNode tableOnlyAgainRow = toJson(schema, createRow(5, TABLE_ID, null));
+        assertMetadata(tableOnlyAgainRow, "inventory", "products", null);
     }
 
     public void runTest(List<String> lines, CanalJsonDeserializationSchema deserializationSchema)
@@ -288,6 +333,37 @@ public class CanalJsonSerDeSchemaTest {
         assert url != null;
         Path path = new File(url.getFile()).toPath();
         return Files.readAllLines(path);
+    }
+
+    private static SeaTunnelRow createRow(int id, String tableId, Long eventTime) {
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {id, "scooter", "desc", 3.14f});
+        if (tableId != null) {
+            row.setTableId(tableId);
+        }
+        if (eventTime != null) {
+            row.getOptions().put(EVENT_TIME.getName(), eventTime);
+        }
+        return row;
+    }
+
+    private static JsonNode toJson(SerializationSchema schema, SeaTunnelRow row)
+            throws IOException {
+        return OBJECT_MAPPER.readTree(schema.serialize(row));
+    }
+
+    private static void assertMetadata(
+            JsonNode output, String database, String table, Long eventTime) {
+        assertEquals(database, textOf(output.get("database")), output.toString());
+        assertEquals(table, textOf(output.get("table")), output.toString());
+        assertEquals(eventTime, longOf(output.get("ts")), output.toString());
+    }
+
+    private static String textOf(JsonNode node) {
+        return node == null || node.isNull() ? null : node.asText();
+    }
+
+    private static Long longOf(JsonNode node) {
+        return node == null || node.isNull() ? null : node.asLong();
     }
 
     private static class SimpleCollector implements Collector<SeaTunnelRow> {
