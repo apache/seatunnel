@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.master;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
@@ -35,6 +36,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
@@ -61,6 +63,99 @@ public class JobMasterMasterFailoverResourceTest
         slotServiceConfig.setDynamicSlot(false);
         slotServiceConfig.setSlotNum(SLOT_NUM);
         return seaTunnelConfig;
+    }
+
+    @Test
+    void testReleasePipelineResourceRemovesPendingFuturesAndReleasesSlots() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("master-release-pipeline").newId();
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+        Data jobImmutableInformationData = createJobImmutableInformationData(jobId);
+        JobMaster jobMaster = newJobMaster(jobId, jobImmutableInformationData);
+        jobMaster.init(System.currentTimeMillis(), false);
+        SubPlan subPlan = jobMaster.getPhysicalPlan().getPipelineList().get(0);
+        Assertions.assertTrue(jobMaster.preApplyResources(subPlan));
+
+        // Reservations have not been assigned to the pipeline ownership map.
+        Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyFutures =
+                jobMaster.getPhysicalPlan().getPreApplyResourceFutures();
+        List<SlotProfile> blockerSlots = Collections.emptyList();
+
+        try {
+            // Act: release pipeline resources without persisting pre-applied slots.
+            jobMaster.releasePipelineResource(subPlan);
+
+            // Assert: all task group futures for this subPlan are removed.
+            for (PhysicalVertex vertex : subPlan.getCoordinatorVertexList()) {
+                Assertions.assertFalse(
+                        preApplyFutures.containsKey(vertex.getTaskGroupLocation()),
+                        "Coordinator future should be removed from pending map");
+            }
+            for (PhysicalVertex vertex : subPlan.getPhysicalVertexList()) {
+                Assertions.assertFalse(
+                        preApplyFutures.containsKey(vertex.getTaskGroupLocation()),
+                        "Task future should be removed from pending map");
+            }
+
+            // Assert: all SLOT_NUM slots are truly available by occupying them.
+            blockerSlots = occupyRemainingSlots(resourceManager, jobId + 1);
+            Assertions.assertEquals(
+                    SLOT_NUM,
+                    blockerSlots.size(),
+                    "All fixed slots must be released and available");
+        } finally {
+            if (!blockerSlots.isEmpty()) {
+                resourceManager.releaseResources(jobId + 1, blockerSlots).join();
+            }
+            // Baseline cleanup: if pending map still contains profiles, release them explicitly.
+            List<SlotProfile> pendingProfiles = new ArrayList<>();
+            for (PhysicalVertex vertex : subPlan.getCoordinatorVertexList()) {
+                if (preApplyFutures.containsKey(vertex.getTaskGroupLocation())) {
+                    pendingProfiles.add(preApplyFutures.get(vertex.getTaskGroupLocation()).join());
+                    preApplyFutures.remove(vertex.getTaskGroupLocation());
+                }
+            }
+            for (PhysicalVertex vertex : subPlan.getPhysicalVertexList()) {
+                if (preApplyFutures.containsKey(vertex.getTaskGroupLocation())) {
+                    pendingProfiles.add(preApplyFutures.get(vertex.getTaskGroupLocation()).join());
+                    preApplyFutures.remove(vertex.getTaskGroupLocation());
+                }
+            }
+            if (!pendingProfiles.isEmpty()) {
+                resourceManager.releaseResources(jobId, pendingProfiles).join();
+            }
+        }
+    }
+
+    @Test
+    void testReleasePipelineResourcePreservesCompletedFutureTrackingWhenReleaseFails()
+            throws Exception {
+        long jobId = instance.getFlakeIdGenerator("master-release-failure").newId();
+        ResourceManager actual = server.getCoordinatorService().getResourceManager();
+        Data jobImmutableInformationData = createJobImmutableInformationData(jobId);
+        JobMaster master = newJobMaster(jobId, jobImmutableInformationData);
+        master.init(System.currentTimeMillis(), false);
+        SubPlan subPlan = master.getPhysicalPlan().getPipelineList().get(0);
+        Assertions.assertTrue(master.preApplyResources(subPlan));
+
+        Map<TaskGroupLocation, CompletableFuture<SlotProfile>> map =
+                master.getPhysicalPlan().getPreApplyResourceFutures();
+        Map<TaskGroupLocation, CompletableFuture<SlotProfile>> snapshot = new HashMap<>(map);
+
+        ResourceManager failing = Mockito.mock(ResourceManager.class);
+        CompletableFuture<Void> failed = new CompletableFuture<>();
+        failed.completeExceptionally(new IllegalArgumentException("controlled release failure"));
+        Mockito.when(failing.releaseResources(Mockito.eq(jobId), Mockito.anyList()))
+                .thenReturn(failed);
+        ReflectionUtils.setField(master, "resourceManager", failing);
+
+        try {
+            master.releasePipelineResource(subPlan);
+            Assertions.assertEquals(snapshot, map);
+        } finally {
+            ReflectionUtils.setField(master, "resourceManager", actual);
+            master.releasePipelineResource(subPlan);
+            Assertions.assertTrue(map.isEmpty());
+        }
     }
 
     @Test
@@ -237,7 +332,7 @@ public class JobMasterMasterFailoverResourceTest
     private List<SlotProfile> occupyRemainingSlots(ResourceManager resourceManager, long jobId)
             throws Exception {
         List<SlotProfile> blockerSlots = new ArrayList<>();
-        for (int index = 0; index < SLOT_NUM; index++) {
+        for (int index = 0; index <= SLOT_NUM; index++) {
             try {
                 blockerSlots.add(
                         resourceManager.applyResource(jobId, new ResourceProfile(), null).get());

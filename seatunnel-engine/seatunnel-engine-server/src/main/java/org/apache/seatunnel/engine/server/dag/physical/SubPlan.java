@@ -36,6 +36,7 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.map.IMap;
@@ -687,7 +688,7 @@ public class SubPlan {
 
     /** restore the pipeline state after new Master Node active */
     public synchronized void restorePipelineState() {
-        // if PipelineStatus is less than RUNNING, we need cancel it and reschedule.
+        // Restore task states before deciding whether the pipeline needs redeployment.
         getPhysicalVertexList()
                 .forEach(
                         task -> {
@@ -699,6 +700,18 @@ public class SubPlan {
                         task -> {
                             task.restoreExecutionState();
                         });
+
+        // The failover scheduler has already reserved slots. A pipeline that never deployed
+        // can use them directly; canceling it would request the same capacity a second time.
+        if (PipelineStatus.CREATED.equals(getPipelineState())
+                && physicalVertexList.stream()
+                        .allMatch(task -> ExecutionState.CREATED.equals(task.getExecutionState()))
+                && coordinatorVertexList.stream()
+                        .allMatch(
+                                task -> ExecutionState.CREATED.equals(task.getExecutionState()))) {
+            startSubPlanStateProcess();
+            return;
+        }
 
         if (getPipelineState().ordinal() < PipelineStatus.RUNNING.ordinal()) {
             updatePipelineState(PipelineStatus.CANCELING);
@@ -878,8 +891,34 @@ public class SubPlan {
             case FAILED:
             case CANCELED:
                 if (checkNeedRestore(state) && prepareRestorePipeline()) {
+                    // Cancellation can arrive while prepareRestorePipeline waits for the retry.
+                    if (!jobMaster.isNeedRestore()) {
+                        cancelPipeline();
+                        return;
+                    }
                     jobMaster.releasePipelineResource(this);
-                    jobMaster.preApplyResources(this);
+                    boolean preApplyResult = jobMaster.preApplyResources(this);
+                    // Check cancellation again immediately after preApplyResources returns.
+                    if (!jobMaster.isNeedRestore()) {
+                        // If resources were allocated successfully, release them before canceling.
+                        if (preApplyResult) {
+                            jobMaster.releasePipelineResource(this);
+                        }
+                        cancelPipeline();
+                        return;
+                    }
+                    if (!preApplyResult) {
+                        // Failed allocation leaves the previous futures unchanged; never deploy
+                        // them.
+                        makePipelineFailing(
+                                new NoEnoughResourceException(
+                                        "Not enough resources to restore "
+                                                + pipelineFullName
+                                                + "; required task-group slots: "
+                                                + (coordinatorVertexList.size()
+                                                        + physicalVertexList.size())));
+                        return;
+                    }
                     restorePipeline();
                     return;
                 }
