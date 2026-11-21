@@ -37,5 +37,6 @@ public class KlaviyoSourceParameter extends HttpParameter {
                         + pluginConfig.get(KlaviyoSourceOptions.PRIVATE_KEY));
         this.headers.put("revision", pluginConfig.get(KlaviyoSourceOptions.REVISION));
         this.setHeaders(this.headers);
+        validateCredentialScheme();
     }
 }

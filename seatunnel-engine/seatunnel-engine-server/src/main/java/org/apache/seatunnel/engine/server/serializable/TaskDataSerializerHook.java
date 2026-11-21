@@ -111,7 +111,7 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int REPORT_METRICS_OPERATION = 28;
 
-    public static final int SOURCE_ENUMERATOR_EVENT_OPERATOR = 29;
+    public static final int SOURCE_ENUMERATOR_EVENT_TYPE = 29;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -173,6 +173,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new CleanTaskGroupContextOperation();
                 case SOURCE_READER_EVENT_OPERATOR:
                     return new SourceReaderEventOperation();
+                case SOURCE_ENUMERATOR_EVENT_TYPE:
+                    return new SourceEnumeratorEventOperation();
                 case CHECK_TASKGROUP_IS_EXECUTING:
                     return new CheckTaskGroupIsExecutingOperation();
                 case GET_METRICS_OPERATION:
@@ -189,8 +191,6 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new CleanLogOperation();
                 case REPORT_METRICS_OPERATION:
                     return new ReportMetricsOperation();
-                case SOURCE_ENUMERATOR_EVENT_OPERATOR:
-                    return new SourceEnumeratorEventOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

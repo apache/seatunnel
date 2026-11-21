@@ -61,6 +61,7 @@ ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES = (
     "connector-seatunnel-e2e-base",
     "connector-console-seatunnel-e2e",
     "seatunnel-edge-agent-e2e",
+    "seatunnel-resource-managers-e2e",
 )
 
 ALL_CONNECTORS_DEDICATED_SHARD_MODULES = (
@@ -291,7 +292,7 @@ def get_sub_it_modules(modules, total_num, current_num):
     print(build_sub_it_modules(modules, total_num, current_num))
 
 
-def get_sub_update_it_modules(modules, total_num, current_num):
+def build_sub_update_it_modules(modules, total_num, current_num):
     final_modules = list()
     module_names = json.loads(modules)
     module_list = _filter_shared_it_modules(
@@ -301,12 +302,33 @@ def get_sub_update_it_modules(modules, total_num, current_num):
             "connector-console-seatunnel-e2e",
             "seatunnel-engine-k8s-e2e",
             "seatunnel-edge-agent-e2e",
+            "seatunnel-resource-managers-e2e",
         },
     )
     for i, module in enumerate(module_list):
         if len(module) > 0 and i % int(total_num) == int(current_num):
             final_modules.append(":" + module)
-    print(",".join(final_modules))
+    return final_modules
+
+
+def get_sub_update_it_modules(modules, total_num, current_num):
+    print(",".join(build_sub_update_it_modules(modules, total_num, current_num)))
+
+
+def build_sub_update_it_shards(modules, total_num):
+    """Return the 1-based updated-modules shards that have at least one module."""
+    total_num = int(total_num)
+    if total_num <= 0:
+        raise ValueError(f"total shard count must be positive, got {total_num}")
+    return [
+        f"part-{current_num + 1}"
+        for current_num in range(total_num)
+        if build_sub_update_it_modules(modules, total_num, current_num)
+    ]
+
+
+def get_sub_update_it_shards(modules, total_num):
+    print(json.dumps(build_sub_update_it_shards(modules, total_num)))
 
 
 def main(argv):
@@ -340,6 +362,8 @@ def main(argv):
         get_sub_it_modules(argv[2], argv[3], argv[4])
     elif argv[1] == "sub_update_it_module":
         get_sub_update_it_modules(argv[2], argv[3], argv[4])
+    elif argv[1] == "sub_update_it_shards":
+        get_sub_update_it_shards(argv[2], argv[3])
 
 
 if __name__ == "__main__":

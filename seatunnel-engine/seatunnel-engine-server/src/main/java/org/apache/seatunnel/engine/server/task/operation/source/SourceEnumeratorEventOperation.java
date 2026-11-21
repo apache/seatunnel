@@ -29,10 +29,9 @@ import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
 /**
  * For {@link org.apache.seatunnel.api.source.SourceSplitEnumerator} send event to the {@link
- * org.apache.seatunnel.api.source.SourceReader}.
+ * org.apache.seatunnel.api.source.SourceReader}
  */
 public class SourceEnumeratorEventOperation extends SourceEventOperation {
-
     public SourceEnumeratorEventOperation() {}
 
     public SourceEnumeratorEventOperation(
@@ -42,7 +41,7 @@ public class SourceEnumeratorEventOperation extends SourceEventOperation {
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.SOURCE_ENUMERATOR_EVENT_OPERATOR;
+        return TaskDataSerializerHook.SOURCE_ENUMERATOR_EVENT_TYPE;
     }
 
     @Override
@@ -56,8 +55,9 @@ public class SourceEnumeratorEventOperation extends SourceEventOperation {
                             server.getTaskExecutionService()
                                     .getExecutionContext(taskLocation.getTaskGroupLocation())
                                     .getClassLoader(task.getTaskID());
-                    task.handleSourceEvent(
-                            SerializationUtils.deserialize(sourceEvent, classLoader));
+                    SourceEvent sourceEvent =
+                            SerializationUtils.deserialize(this.sourceEvent, classLoader);
+                    task.receivedSourceEvent(sourceEvent);
                     return null;
                 },
                 new RetryUtils.RetryMaterial(

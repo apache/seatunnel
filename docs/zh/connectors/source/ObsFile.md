@@ -91,12 +91,11 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | compress_codec | string | 否 | none | 文件使用的压缩编解码器。 |
 | archive_compress_codec | string | 否 | none | 文件使用的归档压缩编解码器。支持：`none` `zip` `tar` `tar.gz` `gz`。 |
 | encoding | string | 否 | UTF-8 | 文件编码，仅在 `file_format_type` 为 `json`、`text`、`csv` 或 `xml` 时使用。 |
-| null_format | string | 否 | - | 仅在file_format_type为text时使用。null_format用于定义哪些字符串可以表示为null。例如：`\N` |
+| null_format | string | 否 | - | 当 `file_format_type` 为 `text` 或 `csv` 时使用。指定表示 null 的字段值。 对于配置了 `schema.columns[].defaultValue` 的 CSV，如果字段值匹配 `null_format`，或文件表头缺少该列，则使用配置的默认值。空 CSV 字段仍为 null，除非它与 `null_format` 匹配；未配置默认值的列保持原有行为。 CSV 默认值在创建读取器时转换为列类型。无法转换的默认值会导致作业失败，即使没有字段需要使用该默认值。DATE 和 TIMESTAMP 默认值可以使用与文件数据不同的受支持格式。 例如：`\N` |
 | binary_chunk_size | int | 否 | 1024 | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。 |
 | binary_complete_file_mode | boolean | 否 | false | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。 |
 | file_filter_pattern | string | 否 | - | 用于过滤文件的模式。 |
 | common-options            |         | 否  | -                   | Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。 |
-| sheet_name                | string  | 否  | -                   | 读取 Excel 文件时要读取的工作表名称。 |
 | file_filter_modified_start | string | 否  | -                   | 按文件最后修改时间筛选文件的起始时间（包含该时间），格式为 `yyyy-MM-dd HH:mm:ss`。 |
 | file_filter_modified_end  | string  | 否  | -                   | 按文件最后修改时间筛选文件的结束时间（不包含该时间），格式为 `yyyy-MM-dd HH:mm:ss`。 |
 | quote_char                | string  | 否  | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。 |
@@ -104,11 +103,137 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | recursive_file_scan       | boolean | 否  | true                | 是否递归扫描子目录。 如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。 | 
 | sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
 
+### parse_partition_from_path [boolean]
+
+> 控制是否从文件路径解析分区键和值
+>
+> 例如，从路径 `obs://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26` 读取文件时，
+>
+> 文件中的每条记录数据都会被追加以下两个字段：
+
+|     name      | age |
+|---------------|-----|
+| tyrantlucifer | 26  |
+
+> 不要在 schema 选项中定义分区字段
+
+### date_format [string]
+
+> 日期类型格式，用于告诉连接器如何将字符串转换为日期，支持以下格式：
+>
+> `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`
+>
+> 默认值为 `yyyy-MM-dd`
+
+### datetime_format [string]
+
+> 日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间，支持以下格式：
+>
+> `yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`
+>
+> 默认值为 `yyyy-MM-dd HH:mm:ss`
+
+### time_format [string]
+
+> 时间类型格式，用于告诉连接器如何将字符串转换为时间，支持以下格式：
+>
+> `HH:mm:ss` `HH:mm:ss.SSS`
+>
+> 默认值为 `HH:mm:ss`
+
+### skip_header_row_number [long]
+
+> 跳过前几行，但仅适用于 txt 和 csv 文件。
+>
+> 例如，配置如下：
+>
+> `skip_header_row_number = 2`
+>
+> 则 Seatunnel 会跳过源文件的前 2 行
+
 ### file_format_type [string]
 
 文件类型，支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+
+如果您将文件类型指定为 `json`，则需要同时配置 schema 选项，告诉连接器如何将数据解析成想要的行。
+
+例如，上游数据如下：
+
+```json
+{"code": 200, "data": "get success", "success": true}
+```
+
+> 一个文件中也可以保存多条数据，并用一个换行符分隔：
+
+```json lines
+
+{"code":  200, "data":  "get success", "success":  true}
+{"code":  300, "data":  "get failed", "success":  false}
+
+```
+
+> 此时 schema 应配置如下：
+
+```hocon
+
+schema {
+    fields {
+        code = int
+        data = string
+        success = boolean
+    }
+}
+
+```
+
+> 连接器会生成如下数据：
+
+| code |    data     | success |
+|------|-------------|---------|
+| 200  | get success | true    |
+
+> 如果文件类型指定为 `parquet`、`orc`，则不需要配置 schema 选项，连接器可以自动获取上游数据的 schema。
+>
+> 如果文件类型指定为 `text`、`csv`，可以选择是否指定 schema 信息。
+>
+> 例如，上游数据如下：
+
+```text
+
+tyrantlucifer#26#male
+
+```
+
+> 如果不配置数据 schema，连接器会将上游数据按如下处理：
+
+|        content        |
+|-----------------------|
+| tyrantlucifer#26#male |
+
+> 如果配置了数据 schema，除 CSV 文件类型外，还需要同时配置 `field_delimiter` 选项
+>
+> schema 和 field_delimiter 应配置如下：
+
+```hocon
+
+field_delimiter = "#"
+schema {
+    fields {
+        name = string
+        age = int
+        gender = string
+    }
+}
+
+```
+
+> 连接器会生成如下数据：
+
+|     name      | age | gender |
+|---------------|-----|--------|
+| tyrantlucifer | 26  | male   |
 
 如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
 markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
@@ -120,7 +245,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `page_number`：页码（默认：1）
 - `position_index`：文档中的位置索引
 - `parent_id`：父元素的 ID
-- `child_ids`：子元素 ID 的逗号分隔列表
+- `child_ids`：直接子元素的 ID，类型为 `ARRAY<STRING>`；叶子元素为空数组
 
 当 `markdown_rag_metadata_enabled` 或 `pdf_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会针对对应文件类型在 `child_ids` 之后追加以下 RAG 元数据字段：
 - `source_uri`：源文件路径或 URI
@@ -160,6 +285,31 @@ PDF 特有的解析行为如下：
 
 注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
 
+### schema [config]
+
+#### fields
+
+> 上游数据的 schema。更多细节请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+
+### read_columns [list]
+
+> 数据源的读取列列表，用户可以用它来实现字段投影。
+>
+> 支持列投影的文件类型如下所示：
+
+- text
+- json
+- csv
+- orc
+- parquet
+- excel
+
+> 如果用户在读取 `text` `json` `csv` 文件时想使用该特性，则必须配置 schema 选项
+
+### common-options
+
+> Source 插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md)。
+
 ### sort_files_by_modification_time [boolean]
 
 是否按修改时间降序排序文件。默认值为 `false`。
@@ -167,6 +317,111 @@ PDF 特有的解析行为如下：
 启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
 - 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
 - 需要按时间顺序处理文件
+
+## 任务示例
+
+### text 文件
+
+> text 文件格式的简单配置
+
+```hocon
+
+  ObsFile {
+    path = "/seatunnel/text"
+    bucket = "obs://obs-bucket-name"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "obs.xxxxxx.myhuaweicloud.com"
+    file_format_type = "text"
+  }
+
+```
+
+### parquet 文件
+
+> parquet 文件格式的简单配置
+
+```hocon
+
+  ObsFile {
+    path = "/seatunnel/parquet"
+    bucket = "obs://obs-bucket-name"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "obs.xxxxxx.myhuaweicloud.com"
+    file_format_type = "parquet"
+  }
+
+```
+
+### orc 文件
+
+> orc 文件格式的简单配置
+
+```hocon
+
+  ObsFile {
+    path = "/seatunnel/orc"
+    bucket = "obs://obs-bucket-name"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "obs.xxxxxx.myhuaweicloud.com"
+    file_format_type = "orc"
+  }
+
+```
+
+### json 文件
+
+> json 文件格式的简单配置
+
+```hocon
+
+  ObsFile {
+    path = "/seatunnel/json"
+    bucket = "obs://obs-bucket-name"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "obs.xxxxxx.myhuaweicloud.com"
+    file_format_type = "json"
+  }
+
+```
+
+### excel 文件
+
+> excel 文件格式的简单配置
+
+```hocon
+
+  ObsFile {
+    path = "/seatunnel/excel"
+    bucket = "obs://obs-bucket-name"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "obs.xxxxxx.myhuaweicloud.com"
+    file_format_type = "excel"
+  }
+
+```
+
+### csv 文件
+
+> csv 文件格式的简单配置
+
+```hocon
+
+  ObsFile {
+    path = "/seatunnel/csv"
+    bucket = "obs://obs-bucket-name"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "obs.xxxxxx.myhuaweicloud.com"
+    file_format_type = "csv"
+    field_delimiter = ","
+  }
+
+```
 
 ### 使用 OBS STS 临时安全凭证读取
 

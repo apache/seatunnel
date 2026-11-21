@@ -52,6 +52,12 @@ public class TableMergeMultiCatalogTransform extends AbstractMultiCatalogMapTran
         return new TableMergeTransform(TableMergeConfig.of(config), table);
     }
 
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
+    @Override
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(config, TableMergeConfig.TABLE);
+    }
+
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
         return new IdentityMapTransform(catalogTable);

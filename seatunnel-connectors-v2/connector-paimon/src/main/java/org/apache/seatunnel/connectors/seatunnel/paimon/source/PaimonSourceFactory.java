@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.table.CatalogOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -47,7 +48,9 @@ public class PaimonSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(PaimonSourceOptions.WAREHOUSE)
+                .required(
+                        PaimonSourceOptions.WAREHOUSE,
+                        Conditions.notBlank(PaimonSourceOptions.WAREHOUSE))
                 .optional(
                         PaimonSourceOptions.CATALOG_NAME,
                         PaimonSourceOptions.DATABASE,
@@ -56,6 +59,12 @@ public class PaimonSourceFactory implements TableSourceFactory {
                         PaimonSourceOptions.QUERY_SQL,
                         PaimonSourceOptions.HADOOP_CONF,
                         PaimonSourceOptions.HADOOP_CONF_PATH,
+                        PaimonSourceOptions.TOKEN_PROVIDER,
+                        PaimonSourceOptions.TOKEN,
+                        PaimonSourceOptions.DLF_ACCESS_KEY_ID,
+                        PaimonSourceOptions.DLF_ACCESS_KEY_SECRET,
+                        PaimonSourceOptions.DLF_SECURITY_TOKEN,
+                        PaimonSourceOptions.DLF_REGION,
                         PaimonSourceOptions.USER,
                         PaimonSourceOptions.PASSWORD)
                 .exclusive(PaimonSourceOptions.TABLE, CatalogOptions.TABLE_LIST)
@@ -63,6 +72,11 @@ public class PaimonSourceFactory implements TableSourceFactory {
                         PaimonSourceOptions.CATALOG_TYPE,
                         PaimonCatalogEnum.HIVE,
                         PaimonSourceOptions.CATALOG_URI)
+                .conditional(
+                        PaimonSourceOptions.CATALOG_TYPE,
+                        PaimonCatalogEnum.REST,
+                        PaimonSourceOptions.CATALOG_URI,
+                        PaimonSourceOptions.TOKEN_PROVIDER)
                 .build();
     }
 

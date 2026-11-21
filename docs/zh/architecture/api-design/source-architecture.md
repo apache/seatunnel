@@ -209,6 +209,9 @@ on addSplitsBack(splits):
 - `addSplits(splits)`：接收枚举器分配的 splits
 - `snapshotState(checkpointId)`：返回 split checkpoint state（实际接口返回 `List<SplitT>`）
 - `handleNoMoreSplits()`：收到无更多 split 的信号
+- `cancel()`：请求中止阻塞在外部系统中的读取操作（目前仅 Zeta 引擎调用）。该方法由引擎线程在
+  `open`/`pollNext`/`close` 可能并发执行时调用，实现必须幂等、线程安全且不获取读取器持有的锁，
+  并将取消请求视为粘性（阻塞操作开始前到达的取消仍需生效）
 - `CheckpointListener` 回调：由框架触发 checkpoint 完成/中止通知
 
 **关键职责**：

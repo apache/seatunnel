@@ -148,7 +148,7 @@ curl http://<master>:8080/job-info/<jobId>
 |---|---|
 | `jobId` | 作业唯一标识 |
 | `jobName` | 作业名称 |
-| `jobStatus` | `RUNNING`、`FINISHED`、`FAILED`、`CANCELLED` |
+| `jobStatus` | `RUNNING`、`FINISHED`、`FAILED`、`CANCELED` |
 | `envOptions` | 生效的 env 配置 |
 | `createTime` | 作业创建时间戳 |
 | `jobDag` | DAG 拓扑结构 |
@@ -184,12 +184,17 @@ curl http://<master>:8080/job-info/<jobId>
 | `SourceReceivedQPS` | 当前读取吞吐量（行/秒）|
 | `SinkWriteQPS` | 当前写入吞吐量（行/秒）|
 
+计数器由每个管道当前一次执行上报。故障转移后管道被恢复（或失败后重试）时，新一次执行会从零开始计数，
+不再累计失败执行残留的数值，批作业和流作业均如此。恢复过程中恰好在途的 worker 上报，最多可能在毫秒级
+窗口内携带一次旧数值。
+
 ---
 
 ## 4. 查询作业日志
 
 ```bash
-# 获取运行中作业的最后 N 行日志
+# 列出所有节点上文件名匹配该 jobId 的日志文件（返回 node/logName/logLink 列表），
+# 可通过返回的 logLink 获取日志文件内容
 curl "http://<master>:8080/logs/<jobId>"
 ```
 
@@ -224,12 +229,9 @@ curl -X POST "http://<master>:8080/stop-job" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
 
-Savepoint 路径会打印在作业日志中，也可通过查询已完成作业获取：
-
-```bash
-curl http://<master>:8080/job-info/733584788375093248 | \
-  python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('savepointPath', 'N/A'))"
-```
+Savepoint 会写入所配置的 checkpoint 存储（参见所用集群的 checkpoint 存储配置）。`/job-info/:jobId` 的响应中没有 `savepointPath` 字段；
+如需稍后恢复，请使用 `restoreMode=SAVEPOINT`（配合 `restoreSourceJobId`）重新提交，引擎会自动
+选取该作业最新的 Savepoint。完整请求示例见 6.2 节。
 
 ### 5.3 强制取消
 
@@ -317,23 +319,12 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourc
   }'
 ```
 
-### 6.3 从指定 Savepoint 路径恢复
+### 6.3 从显式 Savepoint 路径恢复
 
-```bash
-curl -X POST http://<master>:8080/submit-job \
-  -H "Content-Type: application/json" \
-  -d '{
-    "env": {
-      "job.name": "my-cdc-job-restored",
-      "job.mode": "STREAMING",
-      "checkpoint.interval": 30000,
-      "restore.mode": "savepoint",
-      "savepoint.path": "/seatunnel/checkpoint/savepoint/733584788375093248/1748595600000"
-    },
-    "source": [ ... ],
-    "sink": [ ... ]
-  }'
-```
+REST API 不支持指定具体的 Savepoint 路径进行恢复。不存在 `restore.mode` 或 `savepoint.path` 之类的
+env 选项；恢复行为只由请求参数 `restoreMode` 和 `restoreSourceJobId` 控制，并且
+`restoreMode=SAVEPOINT` 总是选取所引用作业**最新**的 Savepoint（按 pipeline 取 checkpoint id 最高的那
+个）。REST API 没有选择更早 Savepoint 的受支持方式。
 
 ---
 
@@ -388,9 +379,9 @@ curl http://<master>:8080/overview | \
 | `Connection refused` | Master 未启动或防火墙拦截 | 确认 Master 进程在运行；检查防火墙 |
 | `job-info` 中找不到 `jobId` | 作业已完成或未启动 | 按预期终态改用 `/finished-jobs/:state` 查询 |
 | 提交返回 `400 Bad Request` | JSON 格式错误或缺少必填字段 | 验证 JSON；检查 `plugin_name` 拼写 |
-| `Job already exists with same job.id` | 相同 `job.id` 重复提交但未先停止 | 先取消或停止现有作业，再重新提交 |
+| `The job id ... has already been submitted and is not starting with a savepoint` | 使用固定 `job.id` 重复提交，而该 ID 的历史记录仍被保留（取消作业不会清除） | 换一个新的 `job.id` 重新提交作业；或按文档中的 Savepoint/恢复流程有意地进行恢复 |
 | `Unauthorized 401` | 已启用 Basic Auth 但未提供凭据 | 添加 `-u user:pass` |
-| `Savepoint path not found` | Savepoint 已删除或路径有误 | 检查 Checkpoint 存储，提供正确路径 |
+| 恢复失败，Checkpoint 数据缺失或不兼容 | `restoreSourceJobId` 对应的 Checkpoint 数据已被清理或不兼容 | 检查 Checkpoint 存储内容及 `history-job-expire-minutes` 保留时间；REST API 无法指定自定义 Savepoint 路径 |
 
 ---
 

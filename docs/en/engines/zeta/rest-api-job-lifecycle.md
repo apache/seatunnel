@@ -149,7 +149,7 @@ Response fields:
 |---|---|
 | `jobId` | Unique job identifier |
 | `jobName` | Human-readable job name |
-| `jobStatus` | `RUNNING`, `FINISHED`, `FAILED`, `CANCELLED` |
+| `jobStatus` | `RUNNING`, `FINISHED`, `FAILED`, `CANCELED` |
 | `envOptions` | Env configuration applied |
 | `createTime` | Job creation timestamp |
 | `jobDag` | DAG structure |
@@ -185,12 +185,19 @@ Key metric fields:
 | `SourceReceivedQPS` | Current read throughput (rows/sec) |
 | `SinkWriteQPS` | Current write throughput (rows/sec) |
 
+Counters are reported by the current attempt of each pipeline. When a pipeline is restored after a
+failover (or retried after a failure), the new attempt starts counting from zero instead of
+accumulating the values left behind by the failed attempt, for both batch and streaming jobs. A
+worker report that was in flight during the restore can still carry a stale value for at most a
+millisecond-scale window.
+
 ---
 
 ## 4. Querying Job Logs
 
 ```bash
-# Get the last N lines of a running job's log
+# List the log files matching this jobId on all nodes (returns node/logName/logLink entries);
+# fetch the file content via the returned logLink
 curl "http://<master>:8080/logs/<jobId>"
 ```
 
@@ -225,12 +232,10 @@ curl -X POST "http://<master>:8080/stop-job" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
 
-The savepoint path is printed in the job log and returned in the job final state:
-
-```bash
-curl http://<master>:8080/job-info/733584788375093248 | \
-  python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('savepointPath', 'N/A'))"
-```
+The savepoint is written to the configured checkpoint storage (see the checkpoint storage settings of your cluster). The `/job-info/:jobId` response has no
+`savepointPath` field; to resume later, resubmit with `restoreMode=SAVEPOINT` (and
+`restoreSourceJobId`), which picks up the latest savepoint of that job. For the full
+request example, see section 6.2.
 
 ### 5.3 Cancel (force)
 
@@ -325,22 +330,13 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourc
   }'
 ```
 
-### 6.3 Restart from a specific savepoint path
-```bash
-curl -X POST http://<master>:8080/submit-job \
-  -H "Content-Type: application/json" \
-  -d '{
-    "env": {
-      "job.name": "my-cdc-job-restored",
-      "job.mode": "STREAMING",
-      "checkpoint.interval": 30000,
-      "restore.mode": "savepoint",
-      "savepoint.path": "/seatunnel/checkpoint/savepoint/733584788375093248/1748595600000"
-    },
-    "source": [ ... ],
-    "sink": [ ... ]
-  }'
-```
+### 6.3 Restoring from an explicit savepoint path
+
+The REST API does not support pointing at a specific savepoint path. There are no env options such
+as `restore.mode` or `savepoint.path`; restore is driven only by the `restoreMode` and
+`restoreSourceJobId` request parameters, and `restoreMode=SAVEPOINT` always picks up the **latest**
+savepoint of the referenced job (per pipeline, the one with the highest checkpoint id). There is no
+supported way to select an older savepoint through the REST API.
 
 ---
 
@@ -396,9 +392,9 @@ curl http://<master>:8080/overview | \
 | `Connection refused` | Master not started or firewall blocking port | Verify master process is running; check firewall |
 | `jobId not found` in `job-info` | Job has already finished or was never started | Query `/finished-jobs/:state` with the expected final state |
 | Submit returns `400 Bad Request` | Malformed JSON or missing required fields | Validate JSON; check `plugin_name` spelling |
-| `Job already exists with same job.id` | Submitting duplicate `job.id` without stopping first | Cancel or stop the existing job, then resubmit |
+| `The job id ... has already been submitted and is not starting with a savepoint` | Resubmitting a job with a fixed `job.id` while history for that ID is still retained (cancelling does not clear it) | Submit a fresh job with a new `job.id`, or restore intentionally via the documented savepoint/restore flow |
 | `Unauthorized 401` | Basic authentication is enabled but no credentials were provided | Include `-u user:pass` |
-| `Savepoint path not found` | Savepoint was deleted or path is wrong | Check checkpoint storage and provide correct path |
+| Restoration fails with missing or incompatible checkpoint data | Checkpoint data for `restoreSourceJobId` was cleaned up or is incompatible | Verify checkpoint storage contents and `history-job-expire-minutes` retention; the REST API cannot point to a custom savepoint path |
 
 ---
 

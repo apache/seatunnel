@@ -57,6 +57,8 @@ Redis 值。校验成功**不代表**匹配的 key 存在、已存储的值与 `
 | db_num         | int    | 否                  | 0     | Redis 数据库索引 |
 | mode           | string | 否                  | single | Redis 模式：`single` 或 `cluster` |
 | nodes          | list   | `mode=cluster` 时必须 | -     | Redis 集群节点，格式为 `["host1:port1", "host2:port2"]` |
+| keys           | string | 未配置 `tables_configs` 时必须 | -     | 要扫描的 Redis key pattern，支持模糊匹配；用户需保证匹配到的 key 类型相同。与 `tables_configs` 互斥。 |
+| data_type      | string | 未配置 `tables_configs` 时必须 | -     | 匹配到的 key 的 Redis 数据类型：`key`、`string`、`hash`、`list`、`set`、`zset`。单 key pattern 读取时需与 `keys` 一起配置。 |
 | tables_configs | list   | 否                  | -     | 多表读取时的表配置列表 |
 | common-options |        | 否                  | -     | 源连接器插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md) |
 
@@ -555,6 +557,34 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### 使用自定义键名和值列名读取
+
+通过 `key_field_name`、`single_field_name` 和 `read_key_enabled = true` 可以把 Redis 键纳入输出，并控制其
+值映射到 schema 中的哪一列。对于基础值类型（`string`、`list`、`set`、`zset`），必须设置 `single_field_name`，
+让连接器知道哪个 schema 列接收该值。
+
+```hocon
+source {
+  Redis {
+    host = "localhost"
+    port = 6379
+    keys = "string_test*"
+    data_type = string
+    read_key_enabled = true
+    key_field_name = custom_key
+    single_field_name = custom_value
+    format = json
+    schema = {
+      table = "RedisDatabase.RedisTable"
+      columns = [
+        { name = "custom_key",   type = "string" }
+        { name = "custom_value", type = "string" }
+      ]
+    }
+  }
 }
 ```
 
