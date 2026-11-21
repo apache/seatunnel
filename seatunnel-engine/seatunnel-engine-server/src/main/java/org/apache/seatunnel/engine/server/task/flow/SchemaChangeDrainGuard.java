@@ -198,10 +198,10 @@ class SchemaChangeDrainGuard {
                 throw new IllegalStateException(
                         String.format(
                                 "Schema change event [%s] for table [%s] cannot be applied before a"
-                                    + " schema-change-before checkpoint is completed. Sources must"
-                                    + " call Collector.markSchemaChangeBeforeCheckpoint() and wait"
-                                    + " for the checkpoint to finish before emitting"
-                                    + " SchemaChangeEvent.",
+                                        + " schema-change-before checkpoint is completed. Sources must"
+                                        + " call Collector.markSchemaChangeBeforeCheckpoint() and wait"
+                                        + " for the checkpoint to finish before emitting"
+                                        + " SchemaChangeEvent.",
                                 event.getEventType(), event.tablePath()));
             }
             try {
