@@ -35,6 +35,8 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 @AutoService(Factory.class)
 @Slf4j
@@ -62,11 +64,11 @@ public class TiDBSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
+                .required(TiDBSourceOptions.PD_ADDRESSES)
+                .optional(
                         TiDBSourceOptions.DATABASE_NAME,
                         TiDBSourceOptions.TABLE_NAME,
-                        TiDBSourceOptions.PD_ADDRESSES)
-                .optional(
+                        TiDBSourceOptions.TABLE_NAMES,
                         TiDBSourceOptions.TIKV_BATCH_GET_CONCURRENCY,
                         TiDBSourceOptions.TIKV_BATCH_SCAN_CONCURRENCY,
                         TiDBSourceOptions.TIKV_GRPC_SCAN_TIMEOUT,
@@ -96,18 +98,22 @@ public class TiDBSourceFactory implements TableSourceFactory {
                 log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
             }
             ReadonlyConfig config = context.getOptions();
+            List<String> tableFullNames = TiDBSourceOptions.getTableFullNames(config);
             TiDBCatalogFactory catalogFactory = new TiDBCatalogFactory();
             // Build tidb catalog.
             TiDBCatalog catalog =
                     (TiDBCatalog) catalogFactory.createCatalog(factoryIdentifier(), config);
 
-            TablePath tablePath =
-                    TablePath.of(
-                            config.get(TiDBSourceOptions.DATABASE_NAME),
-                            config.get(TiDBSourceOptions.TABLE_NAME));
-            CatalogTable catalogTable = catalog.getTable(tablePath);
+            List<CatalogTable> catalogTables = new ArrayList<>(tableFullNames.size());
+            for (String tableFullName : tableFullNames) {
+                TablePath tablePath =
+                        TablePath.of(
+                                TiDBSourceOptions.parseDatabaseName(tableFullName),
+                                TiDBSourceOptions.parseTableName(tableFullName));
+                catalogTables.add(catalog.getTable(tablePath));
+            }
             return (SeaTunnelSource<T, SplitT, StateT>)
-                    new TiDBSource(context.getOptions(), catalogTable);
+                    new TiDBSource(context.getOptions(), catalogTables);
         };
     }
 }
