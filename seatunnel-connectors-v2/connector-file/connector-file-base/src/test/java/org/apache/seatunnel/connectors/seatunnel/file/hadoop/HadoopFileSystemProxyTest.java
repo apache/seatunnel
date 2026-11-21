@@ -238,6 +238,17 @@ class HadoopFileSystemProxyTest {
     }
 
     @Test
+    void testWrapClasspathMismatchPointsToTheConfiguredHadoopBaseline() {
+        IOException wrapped = rewrite(new NoSuchMethodError("Hadoop client API"));
+
+        Assertions.assertTrue(
+                wrapped.getMessage().contains("seatunnel-shade-hadoop3-uber"), wrapped::getMessage);
+        Assertions.assertTrue(
+                wrapped.getMessage().contains("seatunnel.shade.hadoop.version"),
+                wrapped::getMessage);
+    }
+
+    @Test
     void testWrapClasspathMismatchHandlesLinkageErrorWithoutMessage() {
         NoClassDefFoundError original = new NoClassDefFoundError();
 

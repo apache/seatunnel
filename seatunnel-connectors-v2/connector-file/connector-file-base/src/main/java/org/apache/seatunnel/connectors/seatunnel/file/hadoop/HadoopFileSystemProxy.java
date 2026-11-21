@@ -51,16 +51,6 @@ import java.util.List;
 @Slf4j
 public class HadoopFileSystemProxy implements Serializable, Closeable {
 
-    /**
-     * The Hadoop version this connector is built and tested against, kept in one place so the
-     * diagnostic message below cannot drift away from the {@code seatunnel-hadoop3-*-uber}
-     * dependency actually declared in the reactor pom.
-     */
-    private static final String TARGET_HADOOP_VERSION = "3.1.4";
-
-    private static final String TARGET_HADOOP_UBER_ARTIFACT =
-            "seatunnel-hadoop3-" + TARGET_HADOOP_VERSION + "-uber";
-
     private static final int DEFAULT_BUFFER_SIZE = 4096;
     private static final String APPEND_TARGET_LENGTH_MARKER_SUFFIX = ".append-target-length";
 
@@ -682,13 +672,10 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                             + "dependency here is `provided`, so it comes from your deployment "
                             + "environment, not a bundled version), or another classpath or "
                             + "linkage problem such as a missing native library or an unreadable "
-                            + "class file. This connector is built and tested against Hadoop "
-                            + TARGET_HADOOP_VERSION
-                            + " (see "
-                            + TARGET_HADOOP_UBER_ARTIFACT
-                            + " in the reactor pom); check that the Hadoop client jars on the "
-                            + "classpath are compatible with that version, and see the cause "
-                            + "below for the specific failure.",
+                            + "class file. Compare your runtime Hadoop jars with the build baseline "
+                            + "(the reactor POM's seatunnel.shade.hadoop.version property for "
+                            + "seatunnel-shade-hadoop3-uber), and see the cause below for the "
+                            + "specific failure.",
                     e);
         }
     }
