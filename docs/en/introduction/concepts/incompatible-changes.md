@@ -5,6 +5,25 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Flink schema evolution: checkpoint protocol and table routing
+
+Flink CDC jobs with schema evolution enabled now keep sink schema progress and pending rows in
+table-keyed state. The source protocol and operator topology also differ from the former local
+coordinator and broadcast/union-state implementations. Checkpoints and savepoints from those
+implementations are not supported upgrade inputs; there is no state migration adapter.
+`--allowNonRestoredState` is not a safe migration strategy: retaining source offsets while dropping
+schema progress or pending rows can lose data or interpret rows using the wrong schema.
+
+Keep the previous job artifacts and a recoverable savepoint for rollback. Plan a controlled
+cutover using a new full snapshot into a separate destination, validate schema and data, and then
+switch consumers. If reusing an existing destination, reconcile its data and schema explicitly;
+do not simply discard the old state and resume at the latest source offset.
+
+Incremental source parallelism must be one. Sink parallelism remains available across tables,
+but each source table is assigned to one Flink sink subtask. See
+[Flink routing and recovery](../configuration/schema-evolution.md#flink-routing-and-recovery)
+for connector requirements and the restrictions on shared physical destinations.
+
 ### Http sink: `array_mode = true` sends each row as a JSON object
 
 - **Behavior change: the elements of the request body are JSON objects instead of strings**

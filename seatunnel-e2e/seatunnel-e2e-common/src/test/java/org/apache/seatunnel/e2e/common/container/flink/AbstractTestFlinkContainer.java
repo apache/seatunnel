@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.e2e.common.container.flink;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -35,11 +39,18 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
@@ -50,6 +61,16 @@ import java.util.stream.Stream;
 @NoArgsConstructor
 @Slf4j
 public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
+
+    private static final Pattern FLINK_JOB_ID_PATTERN =
+            Pattern.compile("(?i)(?:JobID|Job ID)[: ]+([0-9a-f]{32})");
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final HttpClient HTTP_CLIENT =
+            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    private static final int FLINK_REST_PORT = 8081;
+    private static final String SAVEPOINT_DIRECTORY =
+            "file://" + CONTAINER_VOLUME_MOUNT_PATH + "/flink-savepoints";
+    private static final long SAVEPOINT_TIMEOUT_MILLIS = 120_000L;
 
     protected static final List<String> DEFAULT_FLINK_PROPERTIES =
             Arrays.asList(
@@ -80,10 +101,11 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     // Pinned to the java11 flavour: SeaTunnel is built to Java 11 bytecode, so a Flink image on a
     // Java 8 runtime cannot load its classes.
     protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.13.6-scala_2.11-java11";
-    private static final int FLINK_REST_PORT = 8081;
 
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
+    private final List<GenericContainer<?>> additionalTaskManagers = new ArrayList<>();
+    private final List<ContainerExtendedFactory> extendedFactories = new ArrayList<>();
 
     @Override
     protected String getDockerImage() {
@@ -116,28 +138,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         applyJavaToolOptions(jobManager);
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
-
-        taskManager =
-                new GenericContainer<>(dockerImage)
-                        .withCommand("taskmanager")
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases("taskmanager")
-                        .withEnv("FLINK_PROPERTIES", properties)
-                        .dependsOn(jobManager)
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger(
-                                                dockerImage + ":taskmanager")))
-                        .waitingFor(
-                                new LogMessageWaitStrategy()
-                                        .withRegEx(
-                                                ".*Successful registration at resource manager.*")
-                                        .withStartupTimeout(Duration.ofMinutes(2)))
-                        .withFileSystemBind(
-                                HOST_VOLUME_MOUNT_PATH,
-                                CONTAINER_VOLUME_MOUNT_PATH,
-                                BindMode.READ_WRITE);
-        applyJavaToolOptions(taskManager);
+        taskManager = createTaskManagerContainer(dockerImage, properties, "taskmanager");
 
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
@@ -158,13 +159,39 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         return null;
     }
 
+    /** Creates a TaskManager container that can join the currently running JobManager. */
+    protected GenericContainer<?> createTaskManagerContainer(
+            String dockerImage, String properties, String logName) {
+        GenericContainer<?> container =
+                new GenericContainer<>(dockerImage)
+                        .withCommand("taskmanager")
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(logName)
+                        .withEnv("FLINK_PROPERTIES", properties)
+                        .dependsOn(jobManager)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(dockerImage + ":" + logName)))
+                        .waitingFor(
+                                new LogMessageWaitStrategy()
+                                        .withRegEx(
+                                                ".*Successful registration at resource manager.*")
+                                        .withStartupTimeout(Duration.ofMinutes(2)))
+                        .withFileSystemBind(
+                                HOST_VOLUME_MOUNT_PATH,
+                                CONTAINER_VOLUME_MOUNT_PATH,
+                                BindMode.READ_WRITE);
+        applyJavaToolOptions(container);
+        return container;
+    }
+
     @Override
     public void tearDown() throws Exception {
-        // Stop both containers even if one of them never started or the volume cleanup fails. A
-        // JobManager left running keeps the "jobmanager" alias on the shared network, and the
-        // TaskManager of the next test case can then register with it instead of its own
-        // JobManager, which leaves that case's job waiting for slots forever.
-        stopContainersAndDeleteVolume(taskManager, jobManager);
+        List<GenericContainer<?>> containers = new ArrayList<>(additionalTaskManagers);
+        containers.add(taskManager);
+        containers.add(jobManager);
+        stopContainersAndDeleteVolume(containers.toArray(new GenericContainer<?>[0]));
+        additionalTaskManagers.clear();
     }
 
     @Override
@@ -191,6 +218,10 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
             throws IOException, InterruptedException {
         extendedFactory.extend(jobManager);
         extendedFactory.extend(taskManager);
+        for (GenericContainer<?> additionalTaskManager : additionalTaskManagers) {
+            extendedFactory.extend(additionalTaskManager);
+        }
+        extendedFactories.add(extendedFactory);
     }
 
     @Override
@@ -208,7 +239,12 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     @Override
     public String getServerLogs() {
-        return jobManager.getLogs() + "\n" + taskManager.getLogs();
+        StringBuilder logs = new StringBuilder(jobManager.getLogs()).append('\n');
+        logs.append(taskManager.getLogs());
+        for (GenericContainer<?> additionalTaskManager : additionalTaskManagers) {
+            logs.append('\n').append(additionalTaskManager.getLogs());
+        }
+        return logs.toString();
     }
 
     public String executeJobManagerInnerCommand(String command)
@@ -235,6 +271,197 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     public int getJobManagerRestPort() {
         return jobManager.getMappedPort(FLINK_REST_PORT);
+    }
+
+    /** Submits a detached Flink job and returns its Flink job ID. */
+    public String submitDetachedJob(String confFile, List<String> variables)
+            throws IOException, InterruptedException {
+        return submitDetachedJob(confFile, variables, null);
+    }
+
+    /** Submits a detached Flink job restored from the supplied savepoint. */
+    public String submitDetachedJob(String confFile, List<String> variables, String savepointPath)
+            throws IOException, InterruptedException {
+        List<String> engineArguments = new ArrayList<>();
+        engineArguments.add("-d");
+        if (savepointPath != null) {
+            // Passing -s reaches Flink's savepoint-specific commons-cli path. Connector jars can
+            // carry an older commons-cli version, so use Flink's equivalent dynamic configuration
+            // to keep savepoint restore compatible across all tested Flink versions.
+            engineArguments.add("-Dexecution.savepoint.path=" + savepointPath);
+        }
+        Container.ExecResult result =
+                executeJob(jobManager, confFile, null, variables, engineArguments);
+        if (result.getExitCode() != 0) {
+            throw new IllegalStateException(
+                    "Failed to submit detached Flink job: " + result.getStderr());
+        }
+        Matcher matcher = FLINK_JOB_ID_PATTERN.matcher(result.getStdout());
+        if (!matcher.find()) {
+            throw new IllegalStateException(
+                    "Cannot find Flink job ID in submission output: " + result.getStdout());
+        }
+        return matcher.group(1);
+    }
+
+    /** Triggers a savepoint through Flink's REST API and returns its external path. */
+    public String triggerSavepoint(String jobId) throws IOException, InterruptedException {
+        prepareSavepointDirectory(jobManager);
+        prepareSavepointDirectory(taskManager);
+        ObjectNode requestBody = OBJECT_MAPPER.createObjectNode();
+        requestBody.put("target-directory", SAVEPOINT_DIRECTORY);
+        requestBody.put("cancel-job", false);
+        JsonNode triggerResponse =
+                executeFlinkRestRequest(
+                        "POST",
+                        flinkRestEndpoint() + "/jobs/" + jobId + "/savepoints",
+                        requestBody.toString());
+        String triggerId = triggerResponse.path("request-id").asText();
+        if (triggerId.isEmpty()) {
+            throw new IllegalStateException(
+                    "Cannot find savepoint request ID in Flink response: " + triggerResponse);
+        }
+
+        long deadline = System.currentTimeMillis() + SAVEPOINT_TIMEOUT_MILLIS;
+        while (System.currentTimeMillis() < deadline) {
+            JsonNode status =
+                    executeFlinkRestRequest(
+                            "GET",
+                            flinkRestEndpoint() + "/jobs/" + jobId + "/savepoints/" + triggerId,
+                            null);
+            String statusId = status.path("status").path("id").asText();
+            if ("COMPLETED".equals(statusId)) {
+                JsonNode operation = status.path("operation");
+                JsonNode failureCause = operation.path("failure-cause");
+                if (!failureCause.isMissingNode() && !failureCause.isNull()) {
+                    throw new IllegalStateException("Failed to trigger savepoint: " + failureCause);
+                }
+                String location = operation.path("location").asText();
+                if (location.isEmpty()) {
+                    throw new IllegalStateException(
+                            "Completed savepoint has no external path: " + status);
+                }
+                return location;
+            }
+            if ("FAILED".equals(statusId)) {
+                throw new IllegalStateException("Failed to trigger savepoint: " + status);
+            }
+            Thread.sleep(200L);
+        }
+        throw new IllegalStateException(
+                "Timed out waiting for savepoint " + triggerId + " of job " + jobId);
+    }
+
+    private void prepareSavepointDirectory(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                container.execInContainer(
+                        "bash",
+                        "-c",
+                        "mkdir -p "
+                                + CONTAINER_VOLUME_MOUNT_PATH
+                                + "/flink-savepoints && chmod 777 "
+                                + CONTAINER_VOLUME_MOUNT_PATH
+                                + "/flink-savepoints");
+        if (result.getExitCode() != 0) {
+            throw new IllegalStateException(
+                    "Failed to prepare savepoint directory: " + result.getStderr());
+        }
+    }
+
+    /** Cancels a running Flink job through Flink's REST API. */
+    public void cancelFlinkJob(String jobId) throws IOException {
+        executeFlinkRestRequest(
+                "PATCH", flinkRestEndpoint() + "/jobs/" + jobId + "?mode=cancel", null);
+    }
+
+    /** Returns the number of TaskManagers currently registered with the Flink cluster. */
+    public int getRegisteredTaskManagerCount() throws IOException {
+        return executeFlinkRestRequest("GET", flinkRestEndpoint() + "/taskmanagers", null)
+                .path("taskmanagers")
+                .size();
+    }
+
+    private String flinkRestEndpoint() {
+        return "http://" + jobManager.getHost() + ":" + jobManager.getMappedPort(FLINK_REST_PORT);
+    }
+
+    private JsonNode executeFlinkRestRequest(String method, String url, String body)
+            throws IOException {
+        HttpRequest.BodyPublisher publisher =
+                body == null
+                        ? HttpRequest.BodyPublishers.noBody()
+                        : HttpRequest.BodyPublishers.ofString(body);
+        HttpRequest request =
+                HttpRequest.newBuilder(URI.create(url))
+                        .timeout(Duration.ofSeconds(10))
+                        .header("Content-Type", "application/json")
+                        .method(method, publisher)
+                        .build();
+        HttpResponse<String> response;
+        try {
+            response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while calling Flink REST API", e);
+        }
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException(
+                    "Flink REST request failed with status "
+                            + response.statusCode()
+                            + ": "
+                            + response.body());
+        }
+        return response.body().isEmpty()
+                ? OBJECT_MAPPER.createObjectNode()
+                : OBJECT_MAPPER.readTree(response.body());
+    }
+
+    /**
+     * Restarts the TaskManager container and reapplies connector extensions. The JobManager stays
+     * alive so Flink must recover the running job from its latest completed checkpoint.
+     */
+    public synchronized void restartTaskManager() throws Exception {
+        taskManager.stop();
+        Startables.deepStart(Stream.of(taskManager)).join();
+        applyExtendedFactories(taskManager);
+    }
+
+    /** Starts another TaskManager while leaving the primary TaskManager running. */
+    public synchronized void startAdditionalTaskManager() throws Exception {
+        int taskManagerNumber = additionalTaskManagers.size() + 2;
+        GenericContainer<?> additionalTaskManager =
+                createTaskManagerContainer(
+                        getDockerImage(),
+                        String.join("\n", getFlinkProperties()),
+                        "taskmanager-" + taskManagerNumber);
+        try {
+            Startables.deepStart(Stream.of(additionalTaskManager)).join();
+            applyExtendedFactories(additionalTaskManager);
+            additionalTaskManagers.add(additionalTaskManager);
+        } catch (Exception e) {
+            additionalTaskManager.stop();
+            throw e;
+        }
+    }
+
+    /** Stops only the primary TaskManager, leaving any additional TaskManagers available. */
+    public synchronized void stopTaskManager() {
+        taskManager.stop();
+    }
+
+    /** Stops and forgets all additional TaskManagers created for a test. */
+    public synchronized void stopAdditionalTaskManagers() {
+        for (GenericContainer<?> additionalTaskManager : additionalTaskManagers) {
+            additionalTaskManager.stop();
+        }
+        additionalTaskManagers.clear();
+    }
+
+    private void applyExtendedFactories(GenericContainer<?> container) throws Exception {
+        for (ContainerExtendedFactory extendedFactory : extendedFactories) {
+            extendedFactory.extend(container);
+        }
     }
 
     @Override
