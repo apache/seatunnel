@@ -34,14 +34,22 @@ import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.map.IMap;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -145,6 +153,65 @@ class PhysicalVertexTest extends AbstractSeaTunnelServerTest<PhysicalVertexTest>
         Assertions.assertFalse(
                 newSourceTask(new PhysicalExecutionFlow(null)).isUnboundedSourceTask());
         Assertions.assertFalse(newSourceTask(null).isUnboundedSourceTask());
+    }
+
+    @Test
+    void shouldRetryTransientInvocationFailureWhenCheckingTaskGroupIsExecuting() throws Exception {
+        PhysicalVertex physicalVertex =
+                spy(newPhysicalVertex(ExecutionState.RUNNING, "probe-blip"));
+        doThrow(new ExecutionException(new RuntimeException("transient blip")))
+                .doReturn(true)
+                .when(physicalVertex)
+                .probeTaskGroupIsExecuting(any(), any());
+
+        Assertions.assertTrue(
+                physicalVertex.checkWorkerIsExecuting(
+                        mock(Address.class), new TaskGroupLocation(1L, 1, 1)));
+        verify(physicalVertex, times(2)).probeTaskGroupIsExecuting(any(), any());
+    }
+
+    @Test
+    void shouldNotRetryDefinitiveNotExecutingAnswer() throws Exception {
+        PhysicalVertex physicalVertex = spy(newPhysicalVertex(ExecutionState.RUNNING, "probe-no"));
+        doReturn(false).when(physicalVertex).probeTaskGroupIsExecuting(any(), any());
+
+        Assertions.assertFalse(
+                physicalVertex.checkWorkerIsExecuting(
+                        mock(Address.class), new TaskGroupLocation(1L, 1, 1)));
+        verify(physicalVertex, times(1)).probeTaskGroupIsExecuting(any(), any());
+    }
+
+    @Test
+    void shouldGiveUpAfterBoundedAttemptsWhenInvocationKeepsFailing() throws Exception {
+        PhysicalVertex physicalVertex =
+                spy(newPhysicalVertex(ExecutionState.RUNNING, "probe-down"));
+        doThrow(new ExecutionException(new RuntimeException("worker unreachable")))
+                .when(physicalVertex)
+                .probeTaskGroupIsExecuting(any(), any());
+
+        Assertions.assertFalse(
+                physicalVertex.checkWorkerIsExecuting(
+                        mock(Address.class), new TaskGroupLocation(1L, 1, 1)));
+        verify(physicalVertex, times(PhysicalVertex.CHECK_TASK_GROUP_EXECUTING_ATTEMPTS))
+                .probeTaskGroupIsExecuting(any(), any());
+    }
+
+    @Test
+    void shouldStopRetryingAndKeepInterruptFlagWhenInterrupted() throws Exception {
+        PhysicalVertex physicalVertex = spy(newPhysicalVertex(ExecutionState.RUNNING, "probe-int"));
+        doThrow(new InterruptedException("interrupted"))
+                .when(physicalVertex)
+                .probeTaskGroupIsExecuting(any(), any());
+
+        try {
+            Assertions.assertFalse(
+                    physicalVertex.checkWorkerIsExecuting(
+                            mock(Address.class), new TaskGroupLocation(1L, 1, 1)));
+            Assertions.assertTrue(Thread.currentThread().isInterrupted());
+        } finally {
+            Thread.interrupted();
+        }
+        verify(physicalVertex, times(1)).probeTaskGroupIsExecuting(any(), any());
     }
 
     private SourceSeaTunnelTask<?, ?> newSourceTask(PhysicalExecutionFlow flow) {
