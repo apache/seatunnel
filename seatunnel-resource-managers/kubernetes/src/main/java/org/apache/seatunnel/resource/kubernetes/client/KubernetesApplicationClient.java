@@ -19,8 +19,10 @@ package org.apache.seatunnel.resource.kubernetes.client;
 
 import org.apache.seatunnel.engine.common.runtime.ApplicationStatus;
 import org.apache.seatunnel.resource.kubernetes.exception.KubernetesClientException;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.HaApplicationState;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesConstants;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesHaClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesResourceIdentity;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
@@ -28,6 +30,7 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesP
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Reads durable Kubernetes Job state without connecting to the application master. */
 @Slf4j
@@ -36,6 +39,8 @@ public final class KubernetesApplicationClient implements AutoCloseable {
     private final KubernetesClient api;
     private final String applicationId;
     private volatile boolean canceled;
+    // The first observed HA Job pins this handle to one incarnation of the application.
+    private final AtomicReference<String> observedHaOwnerUid = new AtomicReference<>();
 
     public KubernetesApplicationClient(KubernetesClient api, String applicationId) {
         this.api = api;
@@ -57,6 +62,11 @@ public final class KubernetesApplicationClient implements AutoCloseable {
         }
         try {
             KubernetesJob job = api.getJob(applicationId);
+            observeHaOwner(job);
+            ApplicationStatus recorded = HaApplicationState.terminal(job);
+            if (recorded != null) {
+                return recorded;
+            }
             if (job.isFailed()) {
                 log.warn(
                         "Kubernetes application {} failed: {}",
@@ -66,6 +76,9 @@ public final class KubernetesApplicationClient implements AutoCloseable {
             }
             if (job.isComplete()) {
                 return ApplicationStatus.SUCCEEDED;
+            }
+            if (HaApplicationState.enabled(job)) {
+                return HaApplicationState.status(job);
             }
             ApplicationStatus state = ApplicationStatus.DEPLOYING;
             if (job.isActive()) {
@@ -97,8 +110,49 @@ public final class KubernetesApplicationClient implements AutoCloseable {
      */
     public void cancel() throws Exception {
         log.info("Canceling Kubernetes application {}", applicationId);
-        api.deleteApplication(applicationId);
+        KubernetesJob owner;
+        try {
+            owner = api.getJob(applicationId);
+        } catch (KubernetesClientException failure) {
+            if (failure.getCode() != 404) {
+                throw failure;
+            }
+            // A fresh or single-master handle retains the established graceful master cleanup.
+            // Only a positively observed HA owner opts into UID-scoped orphan cleanup.
+            String ownerUid = observedHaOwnerUid.get();
+            if (ownerUid == null) {
+                api.deleteApplication(applicationId);
+            } else {
+                KubernetesHaClient.require(api).deleteOrphanPods(applicationId, ownerUid);
+            }
+            canceled = true;
+            return;
+        }
+        String ownerUid = observeHaOwner(owner);
+        if (ownerUid != null) {
+            KubernetesHaClient.require(api).deleteApplication(applicationId, ownerUid);
+        } else {
+            api.deleteApplication(applicationId);
+        }
         canceled = true;
+    }
+
+    /** Binds an HA handle to the first observed owner UID and rejects a replacement. */
+    private String observeHaOwner(KubernetesJob owner) {
+        String observedUid = observedHaOwnerUid.get();
+        if (observedUid == null && !HaApplicationState.enabled(owner)) {
+            return null;
+        }
+        String uid = owner.getUid();
+        if (uid == null || uid.isBlank()) {
+            throw new KubernetesClientException(409, "HA application owner has no UID");
+        }
+        observedHaOwnerUid.compareAndSet(null, uid);
+        if (!uid.equals(observedHaOwnerUid.get())) {
+            throw new KubernetesClientException(
+                    409, "Kubernetes application " + applicationId + " has a different owner UID");
+        }
+        return uid;
     }
 
     /**

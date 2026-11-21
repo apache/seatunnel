@@ -94,6 +94,9 @@ public final class KubernetesApplicationConfig {
     private static final List<String> LOG4J_SUFFIXES =
             Arrays.asList(".properties", ".xml", ".json", ".yaml", ".yml");
 
+    private final boolean haEnabled;
+    private final int masterReplicas;
+    private final int haBackupCount;
     private final ApplicationSpecification specification;
     private final String namespace;
     private final String image;
@@ -132,6 +135,16 @@ public final class KubernetesApplicationConfig {
     private KubernetesApplicationConfig(
             ApplicationSpecification specification, ReadonlyConfig options) {
         this.specification = specification;
+        this.haEnabled = options.get(KubernetesOptions.HA_ENABLED);
+        this.masterReplicas = options.get(KubernetesOptions.MASTER_REPLICAS);
+        Integer backupCount = options.get(KubernetesOptions.HA_BACKUP_COUNT);
+        this.haBackupCount = haEnabled ? (backupCount == null ? 1 : backupCount) : 0;
+        if (haEnabled
+                ? masterReplicas != 2 || haBackupCount != 1
+                : masterReplicas != 1 || backupCount != null) {
+            throw new IllegalArgumentException(
+                    "Kubernetes HA requires exactly 2 masters and 1 synchronous backup; single-master mode requires replicas=1 and no HA backup override");
+        }
         this.namespace = requireNonBlank(options, KubernetesOptions.NAMESPACE);
         this.image = requireNonBlank(options, KubernetesOptions.IMAGE);
         this.imagePullPolicy =
@@ -322,6 +335,13 @@ public final class KubernetesApplicationConfig {
      */
     public void write(Writer writer) throws IOException {
         Properties properties = SeatunnelApplicationConfig.toProperties(specification);
+        properties.setProperty(KubernetesOptions.HA_ENABLED.key(), Boolean.toString(haEnabled));
+        properties.setProperty(
+                KubernetesOptions.MASTER_REPLICAS.key(), Integer.toString(masterReplicas));
+        if (haEnabled) {
+            properties.setProperty(
+                    KubernetesOptions.HA_BACKUP_COUNT.key(), Integer.toString(haBackupCount));
+        }
         properties.setProperty(KubernetesOptions.NAMESPACE.key(), namespace);
         properties.setProperty(KubernetesOptions.IMAGE.key(), image);
         properties.setProperty(KubernetesOptions.IMAGE_PULL_POLICY.key(), getImagePullPolicy());
