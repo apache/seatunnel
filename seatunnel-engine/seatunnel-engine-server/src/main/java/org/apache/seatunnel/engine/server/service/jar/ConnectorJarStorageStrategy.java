@@ -26,7 +26,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
-public interface ConnectorJarStorageStrategy extends Serializable {
+public interface ConnectorJarStorageStrategy extends Serializable, AutoCloseable {
 
     /**
      * Return the path for the connector jar.
@@ -112,4 +112,8 @@ public interface ConnectorJarStorageStrategy extends Serializable {
      */
     void cleanUpWhenJobFinished(
             long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList);
+
+    /** Releases resources owned by this storage strategy. */
+    @Override
+    default void close() {}
 }

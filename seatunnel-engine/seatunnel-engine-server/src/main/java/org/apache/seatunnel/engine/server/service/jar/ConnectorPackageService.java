@@ -40,7 +40,7 @@ import java.util.Collection;
 import java.util.List;
 
 @Slf4j
-public class ConnectorPackageService {
+public class ConnectorPackageService implements AutoCloseable {
 
     private static final ILogger LOGGER = Logger.getLogger(ConnectorPackageService.class);
 
@@ -122,6 +122,12 @@ public class ConnectorPackageService {
     public void cleanUpWhenJobFinished(
             long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList) {
         connectorJarStorageStrategy.cleanUpWhenJobFinished(jobId, connectorJarIdentifierList);
+    }
+
+    /** Releases resources owned by the configured connector jar storage strategy. */
+    @Override
+    public void close() {
+        connectorJarStorageStrategy.close();
     }
 
     public int getTrackedConnectorJarCount() {
