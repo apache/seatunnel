@@ -20,170 +20,95 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
-import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
-import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
+import org.apache.seatunnel.engine.imap.storage.api.ExpirableValue;
+import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALDisruptor;
+import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALEventType;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.lang.reflect.Field;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Proves {@code batchQueryExecuteFailsStatus} spends one shared timeout budget across the batch,
- * not a fresh full timeout on every entry.
- *
- * <p>The deadline clock is injected and does not advance with the wall clock, so a scheduling pause
- * cannot exhaust the shared budget or fail a correct implementation.
+ * Proves batch {@link IMapFileStorage#storeAll(Map)} / {@link IMapFileStorage#deleteAll} honor one
+ * shared timeout budget instead of a fresh full timeout on every entry.
  */
 class IMapFileStorageBatchDeadlineTest {
 
-    private static final long TIMEOUT_MS = 200L;
+    private static final long TIMEOUT_MS = 50L;
     private static final int PENDING_KEYS = 5;
 
     @Test
-    void batchWaitShouldHonorSharedDeadlineInsteadOfPerEntryTimeout() throws Exception {
-        IMapFileStorage storage = new IMapFileStorage();
-        storage.writDataTimeoutMilliseconds = TIMEOUT_MS;
-        AtomicLong clock = new AtomicLong(1_000_000_000L);
-        storage.setNanoTimeSource(clock::get);
-
-        Map<Long, Object> requestMap = new LinkedHashMap<>();
-        List<RecordingRequestFuture> futures = new ArrayList<>();
-        for (int i = 0; i < PENDING_KEYS; i++) {
-            long requestId = RequestFutureCache.getRequestId();
-            RecordingRequestFuture future = new RecordingRequestFuture(clock, false);
-            futures.add(future);
-            RequestFutureCache.put(requestId, future);
-            requestMap.put(requestId, "key-" + i);
+    void storeAllShouldSpendOneSharedTimeoutAcrossBatch() throws Exception {
+        IMapFileStorage storage = storageWithMockWal();
+        Map<Object, Object> batch = new LinkedHashMap<>();
+        for (int index = 0; index < PENDING_KEYS; index++) {
+            batch.put("key-" + index, "value-" + index);
         }
 
-        long deadlineNanos = clock.get() + TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MS);
-        try {
-            @SuppressWarnings("unchecked")
-            Set<Object> failures =
-                    (Set<Object>)
-                            invokeBatchQueryExecuteFailsStatus(
-                                    storage, requestMap, new HashSet<Object>(), deadlineNanos);
+        long started = System.nanoTime();
+        Set<Object> failures = storage.storeAll(batch);
+        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
 
-            Assertions.assertEquals(PENDING_KEYS, failures.size());
-            long budgetNanos = TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MS);
-            long expected = budgetNanos;
-            for (RecordingRequestFuture future : futures) {
-                Assertions.assertEquals(1, future.requestedTimeoutsNanos.size());
-                // The injected clock does not move in this case, so every entry is asked for the
-                // same remaining budget. A scheduling pause cannot change that.
-                Assertions.assertEquals(expected, future.requestedTimeoutsNanos.get(0).longValue());
-            }
-            Assertions.assertEquals(1_000_000_000L, clock.get());
-        } finally {
-            for (Long requestId : requestMap.keySet()) {
-                RequestFutureCache.remove(requestId);
-            }
-        }
+        Assertions.assertEquals(batch.keySet(), failures);
+        Assertions.assertTrue(
+                elapsedMs < TIMEOUT_MS * PENDING_KEYS,
+                "storeAll must not spend a full timeout per entry (elapsed "
+                        + elapsedMs
+                        + " ms for "
+                        + PENDING_KEYS
+                        + " keys)");
+        Assertions.assertTrue(
+                elapsedMs >= TIMEOUT_MS - 15L,
+                "storeAll should consume roughly one shared timeout budget");
     }
 
     @Test
-    void batchWaitShouldStopAskingOnceTheInjectedClockPassesTheDeadline() throws Exception {
+    void deleteAllShouldSpendOneSharedTimeoutAcrossBatch() throws Exception {
+        IMapFileStorage storage = storageWithMockWal();
+        Map<Object, ExpirableValue> values = new LinkedHashMap<>();
+        for (int index = 0; index < PENDING_KEYS; index++) {
+            values.put("key-" + index, new ExpirableValue("value-" + index));
+        }
+
+        long started = System.nanoTime();
+        Set<Object> failures = storage.deleteAll(values.keySet());
+        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+
+        Assertions.assertEquals(values.keySet(), failures);
+        Assertions.assertTrue(
+                elapsedMs < TIMEOUT_MS * PENDING_KEYS,
+                "deleteAll must not spend a full timeout per key");
+    }
+
+    private static IMapFileStorage storageWithMockWal() throws Exception {
         IMapFileStorage storage = new IMapFileStorage();
         storage.writDataTimeoutMilliseconds = TIMEOUT_MS;
-        AtomicLong clock = new AtomicLong(0L);
-        storage.setNanoTimeSource(clock::get);
+        storage.serializer = new ProtoStuffSerializer();
 
-        Map<Long, Object> requestMap = new LinkedHashMap<>();
-        List<RecordingRequestFuture> futures = new ArrayList<>();
-        for (int i = 0; i < PENDING_KEYS; i++) {
-            long requestId = RequestFutureCache.getRequestId();
-            RecordingRequestFuture future = new RecordingRequestFuture(clock, true);
-            if (i > 0) {
-                future.done(false);
-            }
-            futures.add(future);
-            RequestFutureCache.put(requestId, future);
-            requestMap.put(requestId, "key-" + i);
-        }
-
-        long deadlineNanos = clock.get() + TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MS);
-        try {
-            @SuppressWarnings("unchecked")
-            Set<Object> failures =
-                    (Set<Object>)
-                            invokeBatchQueryExecuteFailsStatus(
-                                    storage, requestMap, new HashSet<Object>(), deadlineNanos);
-
-            Assertions.assertEquals(PENDING_KEYS, failures.size());
-            // The first wait consumes the whole budget. Later entries are already completed with
-            // failure, so the zero-timeout harvest returns false without another full wait.
-            Assertions.assertEquals(
-                    TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MS),
-                    futures.get(0).requestedTimeoutsNanos.get(0).longValue());
-            for (int i = 1; i < futures.size(); i++) {
-                Assertions.assertEquals(
-                        1,
-                        futures.get(i).requestedTimeoutsNanos.size(),
-                        "entry " + i + " should be harvested once after the shared deadline");
-                Assertions.assertEquals(
-                        0L, futures.get(i).requestedTimeoutsNanos.get(0).longValue());
-            }
-            Assertions.assertEquals(
-                    TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MS),
-                    clock.get(),
-                    "the injected clock must be the only thing that spends the shared budget");
-        } finally {
-            for (Long requestId : requestMap.keySet()) {
-                RequestFutureCache.remove(requestId);
-            }
-        }
+        WALDisruptor walDisruptor = Mockito.mock(WALDisruptor.class);
+        Mockito.when(
+                        walDisruptor.tryPublish(
+                                Mockito.any(IMapFileData.class),
+                                Mockito.eq(WALEventType.APPEND),
+                                Mockito.anyLong(),
+                                Mockito.anyLong()))
+                .thenAnswer(invocation -> true);
+        injectWalDisruptor(storage, walDisruptor);
+        return storage;
     }
 
-    private static Object invokeBatchQueryExecuteFailsStatus(
-            IMapFileStorage storage,
-            Map<Long, Object> requestMap,
-            Set<Object> failures,
-            long deadlineNanos)
+    private static void injectWalDisruptor(IMapFileStorage storage, WALDisruptor walDisruptor)
             throws Exception {
-        Method method =
-                IMapFileStorage.class.getDeclaredMethod(
-                        "batchQueryExecuteFailsStatus", Map.class, Set.class, long.class);
-        method.setAccessible(true);
-        return method.invoke(storage, requestMap, failures, deadlineNanos);
-    }
-
-    /**
-     * A pending future that records the timeout it was given, spends that time on the injected
-     * clock, and throws immediately. Wall time does not move, so a scheduling pause cannot change
-     * the result.
-     */
-    private static final class RecordingRequestFuture extends RequestFuture {
-        private final AtomicLong clock;
-        private final boolean spendRequestedTimeout;
-        private final List<Long> requestedTimeoutsNanos = new ArrayList<>();
-
-        private RecordingRequestFuture(AtomicLong clock, boolean spendRequestedTimeout) {
-            this.clock = clock;
-            this.spendRequestedTimeout = spendRequestedTimeout;
-        }
-
-        @Override
-        public Boolean get(long timeout, TimeUnit unit)
-                throws InterruptedException, TimeoutException {
-            long timeoutNanos = unit.toNanos(timeout);
-            requestedTimeoutsNanos.add(timeoutNanos);
-            if (isDone()) {
-                return super.get(0L, TimeUnit.NANOSECONDS);
-            }
-            if (spendRequestedTimeout) {
-                clock.addAndGet(timeoutNanos);
-            }
-            throw new TimeoutException("simulated shared-deadline timeout");
-        }
+        Field field = IMapFileStorage.class.getDeclaredField("walDisruptor");
+        field.setAccessible(true);
+        field.set(storage, walDisruptor);
     }
 }

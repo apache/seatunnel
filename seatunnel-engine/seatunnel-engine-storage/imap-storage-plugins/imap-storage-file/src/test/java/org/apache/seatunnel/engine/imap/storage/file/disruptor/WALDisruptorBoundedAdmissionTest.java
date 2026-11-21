@@ -22,6 +22,7 @@ package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
+import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
 import org.apache.hadoop.conf.Configuration;
@@ -34,6 +35,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
@@ -43,6 +49,8 @@ import static org.junit.jupiter.api.condition.OS.MAC;
 class WALDisruptorBoundedAdmissionTest {
 
     private static final String FILEPATH = "/tmp/WALDisruptorBoundedAdmissionTest/";
+
+    private static final int SATURATED_RING_SIZE = 4;
 
     private static final Configuration CONF;
 
@@ -54,9 +62,13 @@ class WALDisruptorBoundedAdmissionTest {
 
     private FileSystem fs;
     private WALDisruptor disruptor;
+    private BlockingWalWorkHandler blockingHandler;
 
     @AfterEach
     void tearDown() throws IOException {
+        if (blockingHandler != null) {
+            blockingHandler.release();
+        }
         if (disruptor != null) {
             disruptor.close();
         }
@@ -92,6 +104,104 @@ class WALDisruptorBoundedAdmissionTest {
         Assertions.assertFalse(
                 disruptor.tryPublish(data, WALEventType.APPEND, 2L, Long.MAX_VALUE),
                 "closed ring must not accept steady-state appends");
+    }
+
+    @Test
+    void boundedTryPublishShouldRejectWhenRingIsSaturatedBeforeDeadline() throws IOException {
+        fs = FileSystem.get(CONF);
+        WALWorkHandler delegate =
+                new WALWorkHandler(
+                        fs, FileConfiguration.HDFS, FILEPATH, new ProtoStuffSerializer());
+        blockingHandler = new BlockingWalWorkHandler(delegate);
+        disruptor =
+                new WALDisruptor(
+                        fs,
+                        FileConfiguration.HDFS,
+                        FILEPATH,
+                        new ProtoStuffSerializer(),
+                        SATURATED_RING_SIZE,
+                        blockingHandler);
+
+        long watchdogNanos = TimeUnit.MILLISECONDS.toNanos(250);
+        List<Long> admittedIds = new ArrayList<>();
+        for (int index = 0; index < SATURATED_RING_SIZE; index++) {
+            long requestId = RequestFutureCache.getRequestId();
+            admittedIds.add(requestId);
+            Assertions.assertTrue(
+                    disruptor.tryPublish(
+                            sampleData("k-" + index),
+                            WALEventType.APPEND,
+                            requestId,
+                            TimeUnit.SECONDS.toNanos(5)),
+                    "ring should admit events until it is full");
+        }
+
+        long rejectedId = RequestFutureCache.getRequestId();
+        long started = System.nanoTime();
+        Assertions.assertFalse(
+                disruptor.tryPublish(
+                        sampleData("overflow"), WALEventType.APPEND, rejectedId, watchdogNanos),
+                "a saturated ring must reject admission before the watchdog elapses");
+        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+        Assertions.assertTrue(
+                elapsedMs <= 1000L,
+                "admission should fail inside the configured watchdog, took " + elapsedMs + " ms");
+        Assertions.assertNull(
+                RequestFutureCache.get(rejectedId),
+                "rejected admission must not leave a dangling future");
+    }
+
+    @Test
+    void boundedTryPublishShouldRejectWhenWaitingThreadIsInterrupted() throws Exception {
+        fs = FileSystem.get(CONF);
+        WALWorkHandler delegate =
+                new WALWorkHandler(
+                        fs, FileConfiguration.HDFS, FILEPATH, new ProtoStuffSerializer());
+        blockingHandler = new BlockingWalWorkHandler(delegate);
+        disruptor =
+                new WALDisruptor(
+                        fs,
+                        FileConfiguration.HDFS,
+                        FILEPATH,
+                        new ProtoStuffSerializer(),
+                        SATURATED_RING_SIZE,
+                        blockingHandler);
+
+        for (int index = 0; index < SATURATED_RING_SIZE; index++) {
+            long requestId = RequestFutureCache.getRequestId();
+            Assertions.assertTrue(
+                    disruptor.tryPublish(
+                            sampleData("fill-" + index),
+                            WALEventType.APPEND,
+                            requestId,
+                            TimeUnit.SECONDS.toNanos(5)));
+        }
+
+        long overflowId = RequestFutureCache.getRequestId();
+        AtomicBoolean admitted = new AtomicBoolean(true);
+        CountDownLatch publishStarted = new CountDownLatch(1);
+        Thread publisher =
+                new Thread(
+                        () -> {
+                            publishStarted.countDown();
+                            admitted.set(
+                                    disruptor.tryPublish(
+                                            sampleData("interrupted"),
+                                            WALEventType.APPEND,
+                                            overflowId,
+                                            TimeUnit.SECONDS.toNanos(30)));
+                        },
+                        "wal-saturated-publisher");
+        publisher.start();
+        Assertions.assertTrue(publishStarted.await(5, TimeUnit.SECONDS));
+        Thread.sleep(50);
+        publisher.interrupt();
+        publisher.join(TimeUnit.SECONDS.toMillis(10));
+
+        Assertions.assertFalse(admitted.get(), "interrupted admission must fail");
+        Assertions.assertTrue(
+                publisher.isInterrupted(), "the waiting thread's interrupt status must remain set");
+        Assertions.assertNull(RequestFutureCache.get(overflowId));
     }
 
     private static IMapFileData sampleData(String key) {

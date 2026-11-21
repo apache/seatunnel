@@ -30,6 +30,7 @@ import org.apache.hadoop.fs.FileSystem;
 import com.lmax.disruptor.BlockingWaitStrategy;
 import com.lmax.disruptor.EventTranslatorThreeArg;
 import com.lmax.disruptor.TimeoutException;
+import com.lmax.disruptor.WorkHandler;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import com.lmax.disruptor.util.DaemonThreadFactory;
@@ -74,18 +75,37 @@ public class WALDisruptor implements Closeable {
             String parentPath,
             Serializer serializer) {
         // todo should support multi thread producer
+        this(
+                fs,
+                fileConfiguration,
+                parentPath,
+                serializer,
+                DEFAULT_RING_BUFFER_SIZE,
+                new WALWorkHandler(fs, fileConfiguration, parentPath, serializer));
+    }
+
+    /**
+     * Alternate constructor for tests that need a small ring buffer or a custom consumer.
+     * Production uses the four-arg constructor above.
+     */
+    public WALDisruptor(
+            FileSystem fs,
+            FileConfiguration fileConfiguration,
+            String parentPath,
+            Serializer serializer,
+            int ringBufferSize,
+            WorkHandler<FileWALEvent> eventHandler) {
         ThreadFactory threadFactory = DaemonThreadFactory.INSTANCE;
         this.disruptor =
                 new Disruptor<>(
                         FileWALEvent.FACTORY,
-                        DEFAULT_RING_BUFFER_SIZE,
+                        ringBufferSize,
                         threadFactory,
                         ProducerType.SINGLE,
                         new BlockingWaitStrategy());
-
-        this.workHandler = new WALWorkHandler(fs, fileConfiguration, parentPath, serializer);
-        disruptor.handleEventsWithWorkerPool(workHandler);
-
+        this.workHandler =
+                eventHandler instanceof WALWorkHandler ? (WALWorkHandler) eventHandler : null;
+        disruptor.handleEventsWithWorkerPool(eventHandler);
         disruptor.start();
     }
 
@@ -95,7 +115,7 @@ public class WALDisruptor implements Closeable {
      * @return true until process restart once fail-close has tripped
      */
     public boolean isAppendBlockedAfterWriteFailure() {
-        return workHandler.isAppendBlockedAfterWriteFailure();
+        return workHandler != null && workHandler.isAppendBlockedAfterWriteFailure();
     }
 
     /**
@@ -121,6 +141,9 @@ public class WALDisruptor implements Closeable {
         }
         long deadline = System.nanoTime() + waitNanos;
         while (System.nanoTime() < deadline) {
+            if (Thread.currentThread().isInterrupted()) {
+                return false;
+            }
             if (disruptor.getRingBuffer().tryPublishEvent(TRANSLATOR, message, status, requestId)) {
                 return true;
             }
@@ -129,6 +152,9 @@ public class WALDisruptor implements Closeable {
                 break;
             }
             LockSupport.parkNanos(Math.min(remaining, 100_000L));
+            if (Thread.currentThread().isInterrupted()) {
+                return false;
+            }
         }
         return false;
     }

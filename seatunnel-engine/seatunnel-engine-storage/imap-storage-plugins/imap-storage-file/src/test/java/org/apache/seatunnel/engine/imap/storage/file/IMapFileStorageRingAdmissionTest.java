@@ -21,10 +21,16 @@ package org.apache.seatunnel.engine.imap.storage.file;
 
 import org.apache.seatunnel.engine.imap.storage.api.ExpirableValue;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.disruptor.BlockingWalWorkHandler;
 import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALDisruptor;
 import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALEventType;
+import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALWorkHandler;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -63,6 +69,62 @@ class IMapFileStorageRingAdmissionTest {
     }
 
     @Test
+    void storeShouldFailWithinWatchdogWhenInjectedRingIsSaturated() throws Exception {
+        Configuration conf = new Configuration();
+        conf.set("fs.defaultFS", "file:///");
+        conf.set("fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem");
+        String parent = "/tmp/IMapFileStorageRingAdmissionTest-" + System.nanoTime() + "/";
+        FileSystem fs = FileSystem.get(conf);
+
+        WALWorkHandler delegate =
+                new WALWorkHandler(
+                        fs,
+                        org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration.HDFS,
+                        parent,
+                        new ProtoStuffSerializer());
+        BlockingWalWorkHandler blockingHandler = new BlockingWalWorkHandler(delegate);
+        WALDisruptor walDisruptor =
+                new WALDisruptor(
+                        fs,
+                        org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration.HDFS,
+                        parent,
+                        new ProtoStuffSerializer(),
+                        4,
+                        blockingHandler);
+        try {
+            IMapFileStorage storage = new IMapFileStorage();
+            storage.writDataTimeoutMilliseconds = 300L;
+            storage.serializer = new ProtoStuffSerializer();
+            injectWalDisruptor(storage, walDisruptor);
+
+            for (int index = 0; index < 4; index++) {
+                long requestId = RequestFutureCache.getRequestId();
+                Assertions.assertTrue(
+                        walDisruptor.tryPublish(
+                                sampleData("seed-" + index),
+                                WALEventType.APPEND,
+                                requestId,
+                                java.util.concurrent.TimeUnit.SECONDS.toNanos(5)),
+                        "should saturate the ring without waiting for completion");
+            }
+
+            long requestIdBefore = RequestFutureCache.getRequestId();
+            long started = System.nanoTime();
+            Assertions.assertFalse(storage.store("overflow", "v"));
+            long elapsedMs =
+                    java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+            Assertions.assertTrue(elapsedMs <= 600L, "store should fail inside the write timeout");
+            Assertions.assertNull(
+                    RequestFutureCache.get(requestIdBefore + 1),
+                    "rejected admission must remove its pending future");
+        } finally {
+            blockingHandler.release();
+            walDisruptor.close();
+            fs.delete(new Path(parent), true);
+        }
+    }
+
+    @Test
     void storeAllShouldReportRejectedKeysWithoutWaiting() throws Exception {
         IMapFileStorage storage = new IMapFileStorage();
         storage.writDataTimeoutMilliseconds = 60_000L;
@@ -89,5 +151,16 @@ class IMapFileStorageRingAdmissionTest {
         Field field = IMapFileStorage.class.getDeclaredField("walDisruptor");
         field.setAccessible(true);
         field.set(storage, walDisruptor);
+    }
+
+    private static IMapFileData sampleData(String key) {
+        return IMapFileData.builder()
+                .deleted(false)
+                .key(key.getBytes())
+                .keyClassName(String.class.getName())
+                .value("v".getBytes())
+                .valueClassName(String.class.getName())
+                .timestamp(System.currentTimeMillis())
+                .build();
     }
 }

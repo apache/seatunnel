@@ -18,16 +18,31 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.wal.writer;
 
+import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.common.WALReader;
+import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
+
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DFSOutputStream;
 import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Map;
 
+import static org.junit.jupiter.api.condition.OS.LINUX;
+import static org.junit.jupiter.api.condition.OS.MAC;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -76,6 +91,38 @@ class HdfsWriterFlushCallCountTest {
         verify(out, never()).hsync();
         verify(out, never()).hflush();
         verify(dfs, never()).hflush();
+    }
+
+    @EnabledOnOs({LINUX, MAC})
+    @Test
+    void flushShouldExposeRecordsOnLocalFileSystem(@TempDir java.nio.file.Path tempDir)
+            throws Exception {
+        Configuration conf = new Configuration();
+        conf.set("fs.defaultFS", "file:///");
+        conf.set("fs.hdfs.impl", "org.apache.hadoop.fs.LocalFileSystem");
+        FileSystem fs = FileSystem.getLocal(conf);
+        fs.setWriteChecksum(false);
+        ProtoStuffSerializer serializer = new ProtoStuffSerializer();
+        Path parentPath = new Path(tempDir.resolve("wal").toUri());
+        WALReader reader = new WALReader(fs, FileConfiguration.HDFS, serializer);
+
+        try (HdfsWriter writer = new HdfsWriter()) {
+            writer.initialize(fs, parentPath, serializer);
+            writer.write(
+                    IMapFileData.builder()
+                            .key(serializer.serialize("flush-key"))
+                            .keyClassName(String.class.getName())
+                            .value(serializer.serialize("flush-value"))
+                            .valueClassName(String.class.getName())
+                            .timestamp(System.nanoTime())
+                            .deleted(false)
+                            .build());
+            writer.flush();
+
+            Map<Object, Object> loaded = reader.loadAllData(parentPath, new HashSet<>());
+            Assertions.assertEquals(1, loaded.size());
+            Assertions.assertEquals("flush-value", loaded.get("flush-key"));
+        }
     }
 
     @Test
