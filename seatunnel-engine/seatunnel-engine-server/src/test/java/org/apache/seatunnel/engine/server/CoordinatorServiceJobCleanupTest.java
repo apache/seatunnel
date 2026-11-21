@@ -658,4 +658,66 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                                 .states(new ProtoStuffSerializer().serialize(completedCheckpoint))
                                 .build());
     }
+
+    @Test
+    void testCleanupWaitsForJobStateLockAndCompletesAfterLockReleased() throws Exception {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        long initializationTimestamp = 100L;
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobId, 1, 1L);
+        String checkpointStateKey = "checkpoint_state_" + jobId + "_1";
+
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        runningJobInfoIMap.put(jobId, new JobInfo(initializationTimestamp, null));
+        runningJobStateIMap.put(jobId, JobStatus.FINISHED);
+        runningJobStateIMap.put(pipelineLocation, "pipeline");
+        runningJobStateIMap.put(taskGroupLocation, "task");
+        runningJobStateIMap.put(checkpointStateKey, "checkpoint");
+        runningJobStateTimestampsIMap.put(jobId, new Long[JobStatus.values().length]);
+        runningJobStateTimestampsIMap.put(pipelineLocation, new Long[1]);
+        runningJobStateTimestampsIMap.put(taskGroupLocation, new Long[1]);
+
+        pendingJobCleanupIMap.put(
+                jobId,
+                new JobCleanupRecord(
+                        initializationTimestamp,
+                        JobStatus.FINISHED,
+                        stateKeys(jobId, pipelineLocation, taskGroupLocation, checkpointStateKey),
+                        stateKeys(jobId, pipelineLocation, taskGroupLocation),
+                        System.currentTimeMillis()));
+
+        // hold the job state lock the way a late checkpoint coordinator callback does; the
+        // cleanup must not remove any state or consume the record in the meantime
+        runningJobStateIMap.lock(jobId);
+        Thread cleanupThread = new Thread(coordinatorService::runPendingJobCleanupOnce);
+        cleanupThread.start();
+        Thread.sleep(1000);
+        Assertions.assertNotNull(runningJobStateIMap.get(jobId));
+        Assertions.assertNotNull(runningJobStateIMap.get(pipelineLocation));
+        Assertions.assertNotNull(runningJobStateIMap.get(taskGroupLocation));
+        Assertions.assertNotNull(runningJobStateIMap.get(checkpointStateKey));
+        Assertions.assertTrue(pendingJobCleanupIMap.containsKey(jobId));
+
+        // once the lock is released the cleanup completes and consumes the record
+        runningJobStateIMap.unlock(jobId);
+        cleanupThread.join(60000);
+        Assertions.assertFalse(cleanupThread.isAlive());
+        Assertions.assertNull(runningJobStateIMap.get(jobId));
+        Assertions.assertNull(runningJobStateIMap.get(pipelineLocation));
+        Assertions.assertNull(runningJobStateIMap.get(taskGroupLocation));
+        Assertions.assertNull(runningJobStateIMap.get(checkpointStateKey));
+        Assertions.assertNull(runningJobStateTimestampsIMap.get(jobId));
+        Assertions.assertNull(runningJobStateTimestampsIMap.get(pipelineLocation));
+        Assertions.assertNull(runningJobStateTimestampsIMap.get(taskGroupLocation));
+        Assertions.assertFalse(pendingJobCleanupIMap.containsKey(jobId));
+    }
 }
