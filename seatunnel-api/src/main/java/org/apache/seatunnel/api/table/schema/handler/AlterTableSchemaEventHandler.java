@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.table.schema.handler;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
@@ -228,9 +229,23 @@ public class AlterTableSchemaEventHandler implements TableSchemaChangeEventHandl
         } else {
             originColumns.set(columnIndex, column);
         }
+        String oldName = schema.getColumns().get(columnIndex).getName();
+        String newName = column.getName();
+        PrimaryKey primaryKey = schema.getPrimaryKey();
+        if (!oldName.equals(newName) && PrimaryKey.isPrimaryKeyField(primaryKey, oldName)) {
+            // The resulting schema is also stored in CDC checkpoints and restored without
+            // replaying this rename event.
+            primaryKey =
+                    PrimaryKey.of(
+                            primaryKey.getPrimaryKey(),
+                            primaryKey.getColumnNames().stream()
+                                    .map(name -> oldName.equals(name) ? newName : name)
+                                    .collect(Collectors.toList()),
+                            primaryKey.getEnableAutoId());
+        }
         return TableSchema.builder()
                 .columns(originColumns)
-                .primaryKey(schema.getPrimaryKey())
+                .primaryKey(primaryKey)
                 .constraintKey(schema.getConstraintKeys())
                 .build();
     }

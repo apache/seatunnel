@@ -430,6 +430,8 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 
 Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-common-options.md) 了解详情
 
+当 `multi_table_sink_replica > 1` 时，数据按第一个主键字段路由，同一主键的变更进入同一个写入器。`BINARY` 和 `VARBINARY` 主键按字节内容计算哈希。模式变更屏障排空之前的数据后，JDBC 会根据变更后的模式刷新主键位置。对于非 XA JDBC Sink，从上游继承的主键随模式重命名和恢复，即使旧列名被用作普通字段，生成的 SQL 和路由也使用当前主键。显式配置的 `primary_keys` 仍表示配置的目标列。删除路由字段后，写入器会输出警告并停止按该字段路由。不同主键之间不保证写入顺序。
+
 ### schema_save_mode [Enum]
 
 在启动同步任务之前，针对目标侧已有的表结构选择不同的处理方案<br/>

@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.RowKind;
@@ -36,10 +37,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -132,6 +137,49 @@ public class JdbcOutputFormatBuilderTest {
 
         Assertions.assertEquals("databasewith.dot", database.getValue());
         Assertions.assertEquals("dbo.tableName", table.getValue());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true,uid", "false,id"})
+    void generateSqlForRestoredInferredOrExplicitKey(boolean inferred, String key)
+            throws IOException, SQLException, ClassNotFoundException {
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 22L, false, null, "id"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "uid", BasicType.INT_TYPE, 22L, false, null, "uid"))
+                        .primaryKey(PrimaryKey.of("pk", Collections.singletonList("uid")))
+                        .build();
+        JdbcSinkConfig config =
+                JdbcSinkConfig.builder()
+                        .database("db")
+                        .table("orders")
+                        .primaryKeys(Collections.singletonList("id"))
+                        .primaryKeyFromSchema(inferred)
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder().autoCommit(true).build())
+                        .build();
+        MysqlDialect dialect = Mockito.spy(new MysqlDialect());
+        SimpleJdbcConnectionProvider provider = Mockito.mock(SimpleJdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(connection.prepareStatement(Mockito.anyString()))
+                .thenAnswer(invocation -> Mockito.mock(PreparedStatement.class));
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+
+        JdbcOutputFormat outputFormat =
+                new JdbcOutputFormatBuilder(dialect, provider, config, schema, schema).build();
+        try {
+            outputFormat.open();
+            ArgumentCaptor<String[]> keyColumns = ArgumentCaptor.forClass(String[].class);
+            Mockito.verify(dialect)
+                    .getDeleteStatement(
+                            Mockito.eq("db"), Mockito.eq("orders"), keyColumns.capture());
+            Assertions.assertArrayEquals(new String[] {key}, keyColumns.getValue());
+        } finally {
+            outputFormat.close();
+        }
     }
 
     @Test

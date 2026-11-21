@@ -18,14 +18,18 @@
 package org.apache.seatunnel.api.table.schema.handler;
 
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
 
 class AlterTableSchemaEventHandlerTest {
 
@@ -60,6 +64,25 @@ class AlterTableSchemaEventHandlerTest {
                                                 TABLE, column("c"), "missing")));
 
         Assertions.assertTrue(failure.getMessage().contains("missing"), failure.getMessage());
+    }
+
+    @Test
+    void renamedCompositeKeyRetainsOrderAndAutoIdMetadata() {
+        TableSchema original =
+                TableSchema.builder()
+                        .columns(schema("id", "tenant", "payload").getColumns())
+                        .primaryKey(PrimaryKey.of("pk", Arrays.asList("tenant", "id"), true))
+                        .build();
+
+        TableSchema renamed =
+                new AlterTableSchemaEventHandler()
+                        .reset(original)
+                        .apply(AlterTableChangeColumnEvent.change(TABLE, "id", column("uid")));
+
+        Assertions.assertEquals(
+                PrimaryKey.of("pk", Arrays.asList("tenant", "uid"), true), renamed.getPrimaryKey());
+        Assertions.assertEquals(
+                Arrays.asList("tenant", "id"), original.getPrimaryKey().getColumnNames());
     }
 
     private static PhysicalColumn column(String name) {

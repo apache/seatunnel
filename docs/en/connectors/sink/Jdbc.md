@@ -434,6 +434,8 @@ Only used by the Oracle catalog when the sink creates or inspects tables (`schem
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
 
+When `multi_table_sink_replica > 1`, rows are routed by the first primary-key field so changes for one key reach the same writer. `BINARY` and `VARBINARY` keys are hashed by their byte contents. After a schema-change barrier drains earlier rows, JDBC refreshes the key position from the resulting schema. For the non-XA JDBC sink, a primary key inherited from upstream follows the schema through rename and restore. Generated statements and routing both use that key even when the old name becomes an ordinary field. Explicit `primary_keys` remain the configured target columns. If a routing column is removed, the writer logs a warning and stops routing by that column. This does not provide ordering between different keys.
+
 ### schema_save_mode [Enum]
 
 Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
