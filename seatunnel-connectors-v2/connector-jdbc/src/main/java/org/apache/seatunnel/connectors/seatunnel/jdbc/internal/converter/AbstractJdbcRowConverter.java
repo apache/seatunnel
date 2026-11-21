@@ -114,9 +114,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     fields[fieldIndex] = readTime(rs, resultSetIndex);
                     break;
                 case TIMESTAMP:
-                    // Use getLocalDateTime() which avoids JVM-default-timezone influence.
-                    // See JdbcFieldTypeUtils.getLocalDateTime() for full strategy details.
-                    fields[fieldIndex] = JdbcFieldTypeUtils.getLocalDateTime(rs, resultSetIndex);
+                    fields[fieldIndex] = readTimestamp(rs, resultSetIndex);
                     break;
                 case TIMESTAMP_TZ:
                     OffsetDateTime offsetDateTime =
@@ -146,6 +144,22 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
     protected LocalTime readTime(ResultSet rs, int resultSetIndex) throws SQLException {
         Time sqlTime = JdbcFieldTypeUtils.getTime(rs, resultSetIndex);
         return Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
+    }
+
+    /**
+     * Reads a timestamp without a time zone as a local date and time.
+     *
+     * <p>The default delegates to {@link JdbcFieldTypeUtils#getLocalDateTime(ResultSet, int)} and
+     * retains its existing getter strategy and driver limitations. Dialects may override this hook
+     * when their driver needs a different strategy to preserve the stored wall-clock value.
+     *
+     * @param rs result set positioned on the current row
+     * @param resultSetIndex one-based JDBC column index
+     * @return the local date and time, or {@code null} for SQL {@code NULL}
+     * @throws SQLException if the driver cannot read or convert the value
+     */
+    protected LocalDateTime readTimestamp(ResultSet rs, int resultSetIndex) throws SQLException {
+        return JdbcFieldTypeUtils.getLocalDateTime(rs, resultSetIndex);
     }
 
     public Object[] convertToArray(
