@@ -15,6 +15,13 @@ You need to check this document before you upgrade to related version.
   - **Opt-out**: Set `handle_json_as_string = true` on the Doris source or on the Jdbc source (Snowflake `VARIANT`) to keep exposing these columns as `STRING`, exactly as before this change. The StarRocks source always uses the user-declared `schema`, so declaring the column as `string` keeps the previous behavior there; the StarRocks mapping change only affects the StarRocks catalog (`StarRocksCatalog`) and automatic table creation.
   - **Migration Guide**: If a downstream component does not support `JSON`, add a Calcite Transform projection such as `SELECT CAST(payload AS VARCHAR) AS payload, ... FROM source_table` before that component. This restores the previous String-backed schema and value behavior. Do not cast when the destination is a supported native JSON/VARIANT column, because the cast intentionally removes the JSON type semantics.
 
+### Http sink: `array_mode = true` sends each row as a JSON object
+
+- **Behavior change: the elements of the request body are JSON objects instead of strings**
+  - **Description**: With `array_mode = true`, the Http sink added each serialized row to the request array as a string, so the body was `["{\"id\":1}","{\"id\":2}"]` instead of the documented JSON array of rows. It now sends `[{"id":1},{"id":2}]`. Every version since 2.3.11 sent the array of strings. `array_mode = false` is not affected.
+  - **Impact**: An endpoint that rejected the old body with an error now accepts it. A receiver written for the old body, which decodes each element as a JSON string, now receives objects and has to be changed.
+  - **Migration Guide**: No configuration change is needed. If a receiver decodes each array element from a string, change it to use the element directly.
+
 ### Lance sink: BIGINT columns are created as int64
 
 - **Behavior change: a `BIGINT` column in a dataset the Lance sink creates is Arrow `int64`**
@@ -28,6 +35,13 @@ You need to check this document before you upgrade to related version.
   - **Description**: The Databend source takes every column type from `DatabendCatalog`. The catalog compared the type name the driver reports, such as `decimal(10, 2)`, with the bare name `DECIMAL`, so every decimal column fell back to `STRING` and its values were read as text. It now maps the column to `DECIMAL` with the column's own precision and scale. On a worker whose default locale is Turkish or Azerbaijani, `TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `TIMESTAMP` and `BINARY` columns also fell back to `STRING`; they now get their mapped types there too.
   - **Impact**: A job that reads a Databend `DECIMAL` column now emits decimal values. A sink table that SeaTunnel creates through `schema_save_mode` gets a decimal column instead of a string column, and a transform or sink that expected a string now receives a decimal.
   - **Migration Guide**: No configuration change is needed. If a downstream step needs text, convert the column explicitly, for example `CAST(price AS STRING)` in the SQL transform. A sink table that an earlier run already created with a string column keeps that type.
+
+### JDBC source: a nullable key column is no longer chosen as the split key
+
+- **Behavior change: the automatic split key selection skips nullable columns**
+  - **Description**: Without `partition_column`, the JDBC source takes the split key from the primary key and then the unique indexes. Range and hash split conditions never match NULL (CockroachDB hash splits excepted), and a unique index can hold NULL values, so when a nullable key column was chosen and the table was split by it, the rows with NULL in it were read by no split and the job finished without an error. The automatic selection now skips nullable primary key and unique key columns, as the CDC sources do, and logs a WARN naming each skipped column.
+  - **Impact**: A table that was split on a nullable primary key or unique key column is now split on the next NOT NULL key column, or read as one split if it has none, so all its rows are read, with less parallelism if it falls back to one split. Tables split on a NOT NULL primary key or unique key column, `query` sources without `partition_column`, and jobs that set `partition_column` are not affected. A job restored from a checkpoint keeps the splits it had already planned; the change applies to the tables it splits after the restore.
+  - **Migration Guide**: No configuration change is needed. To read such a table in parallel again, declare the key column `NOT NULL`, or set `partition_column` to a column without NULL values. If a downstream table was loaded by an affected job, reload it to get the rows that were skipped.
 
 ### JDBC Sink: fail safely after losing uncommitted work
 
@@ -44,6 +58,13 @@ You need to check this document before you upgrade to related version.
 - **Migration**: no configuration or checkpoint-format migration is required. Affected jobs may
   restart instead of retrying a batch locally or continuing after a row error. Auto-commit connections,
   jobs without checkpointing, and XA writers retain their existing behavior.
+
+### GraphQL connector: a response with GraphQL errors fails the job
+
+- **Behavior change: the GraphQL sink and the HTTP query mode of the GraphQL source fail when the server reports errors**
+  - **Description**: GraphQL servers usually answer a rejected query or mutation with HTTP 200 and an `errors` array. The sink only checked the status code, and for a status other than 200 it only logged the response, so a rejected mutation was dropped and the job finished. The source read such a response as if it were data, so a rejected query produced no rows. Both now fail with the server's errors in the message, and the sink also fails on a status other than 200. Date and time fields are now sent as ISO 8601 strings; before, they were sent as nested JSON objects on Java 11 and the write failed on Java 17. When `variables` is not set, an empty object is now sent instead of the string `"{}"`, which servers reject; before, a sink without `variables` failed on every row.
+  - **Impact**: A job whose requests the server rejects now fails instead of finishing with missing rows. This includes a source response with both `data` and a non-empty `errors` array, which was read as rows with `null` in the fields that failed: it now fails the job, and there is no option to keep the old behavior. In the streaming HTTP query mode, one poll answered with errors now fails the task, where before that poll produced no rows and polling went on. Subscription mode is unchanged.
+  - **Migration Guide**: No configuration change is needed. If a job starts failing, the error message shows what the server rejected. Fix the query, the mutation, the variable types or the permissions on the server; for example, Hasura expects `float8` for a PostgreSQL `double precision` column, not `Float`.
 
 ### Lance sink: TIMESTAMP values keep their microseconds
 
@@ -131,6 +152,12 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
   - **Description**: `NVARCHAR(n)` and `NVARCHAR2(n)` hold n characters, but the catalog took the length from `ALL_TAB_COLUMNS.DATA_LENGTH`, which counts bytes: 2n on a GB18030 database and 4n on a UTF-8 database, whatever `LENGTH_IN_CHAR` is set to. `NVARCHAR(10)` was therefore reported as `NVARCHAR(20)` or `NVARCHAR(40)`. The length now comes from `SYS.SYSCOLUMNS.LENGTH$`, the declared length.
   - **Impact**: The source type of these columns changes, for example from `NVARCHAR(20)` to `NVARCHAR(10)`, and the column length used for sink auto-create is halved (GB18030) or quartered (UTF-8), for example a MySQL sink gets `VARCHAR(40)` instead of `VARCHAR(80)` for `NVARCHAR(10)`. Each new column still holds every value of the source column, because the length is counted in characters. Tables that already exist downstream are not altered. `CHAR`, `VARCHAR`, `VARCHAR2` and `NCHAR` columns are not affected.
   - **Migration Guide**: No change is needed. Jobs that rely on the wider auto-created columns, for example to write longer values from another source into the same table, should create the sink table themselves.
+
+### Iceberg sink: ordered publication and checkpoint replay
+
+- **Description**: For upsert or CDC on format versions 2 and 3, a writer rotation from a schema change or `flush_row_size` can produce several ordered snapshots. Later equality deletes then apply to earlier writer generations. Ordinary and restore commits both check publication by file payload on the configured branch. For legacy snapshots without fingerprints, the sink checks file identities in matching snapshot manifests instead of treating a checkpoint number or group index as proof.
+- **Impact**: Readers may observe a prefix of a split checkpoint. Append-only checkpoints still use one snapshot. Fresh commits can read legacy manifests when checkpoint numbers are reused. A partial file match or manifest-read error fails the commit with table, branch and checkpoint context.
+- **Migration Guide**: Keep the required snapshots, manifests and pending data/delete files until the checkpoint is no longer recoverable. On a partial-match error, inspect the named branch and checkpoint against the pending files before retrying. Recover from a checkpoint with complete publication evidence or reconcile the target before restarting. Avoid removing a matching snapshot or manually replaying part of the payload to bypass the check. Zeta and Flink 1.20 can pass recovered committables to these checks, while Flink 1.13 and 1.15 discard them. See the Iceberg sink's replay guidance.
 
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 

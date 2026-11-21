@@ -170,7 +170,7 @@ reference to [Schema-Feature](../../introduction/concepts/schema-feature.md)
 
 ### format [String]
 
-Data format. The default format is json. Supported formats are json, canal_json, avro and text. The `schema` option is required when using avro format. Text format is supported only in single-table mode. See [formats](../formats) for more details. When the producer writes ROW fields as nullable Avro unions, set `avro_row_nullable = true` so a `null` ROW value can be decoded; see [Avro format](../formats/avro.md#avro_row_nullable).
+Data format. The default format is json. Supported formats are json, canal_json, avro and text. The `schema` option is required when using avro format. Text format is supported only in single-table mode. See [formats](../formats/overview.md) for more details. When the producer writes ROW fields as nullable Avro unions, set `avro_row_nullable = true` so a `null` ROW value can be decoded; see [Avro format](../formats/avro.md#avro_row_nullable).
 
 ### field_delimiter [String]
 
