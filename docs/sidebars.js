@@ -33,9 +33,9 @@ const sidebars = {
                     "items": [
                         "introduction/concepts/connector-v2-features",
                         "introduction/concepts/schema-feature",
-                        "introduction/concepts/incompatible-changes",
                         "introduction/concepts/metadata-spi",
-                        "introduction/concepts/gravitino-type-mapping"
+                        "introduction/concepts/gravitino-type-mapping",
+                        "introduction/concepts/incompatible-changes"
                     ]
                 }
             ]
@@ -233,6 +233,7 @@ const sidebars = {
                 "transforms/data-validator",
                 "transforms/define-sink-type",
                 "transforms/dynamic-compile",
+                "transforms/encrypt",
                 "transforms/embedding",
                 "transforms/field-mapper",
                 "transforms/field-rename",
@@ -305,6 +306,8 @@ const sidebars = {
                                 },
                                 "engines/zeta/web-ui",
                                 "engines/zeta/runtime-execution-graph",
+                                "engines/zeta/stain-trace",
+                                "engines/zeta/stain-trace-quickstart",
                                 "engines/zeta/security",
                                 "engines/zeta/python-sdk"
                             ]
@@ -316,13 +319,11 @@ const sidebars = {
                         "engines/zeta/stain-trace-quickstart",
                         "engines/zeta/telemetry",
                         "engines/zeta/busyness-and-backpressure",
-                        "engines/zeta/live-metrics-chart",
                         "engines/zeta/realtime-observability",
+                        "engines/zeta/live-metrics-chart",
                         "engines/zeta/slot-allocation-strategy",
                         "engines/zeta/benchmark",
-                        "engines/zeta/tuning-guide",
-                        "engines/zeta/stain-trace",
-                        "engines/zeta/stain-trace-quickstart"
+                        "engines/zeta/tuning-guide"
                     ]
                 },
                 {

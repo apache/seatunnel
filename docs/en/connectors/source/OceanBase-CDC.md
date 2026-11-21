@@ -77,6 +77,8 @@ list.
   `table-pattern`, and `table-names-config`.
 - Startup modes, checkpoint / restore semantics, and schema evolution behavior are the same as
   `MySQL-CDC`.
+- `startup.mode = "snapshot-only"` is inherited from `MySQL-CDC` with the same option restrictions.
+  See [Snapshot-Only Bootstrap](./MySQL-CDC.md#snapshot-only-bootstrap-one-time-backfill).
 
 ## Task Example
 

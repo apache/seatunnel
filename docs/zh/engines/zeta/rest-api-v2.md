@@ -246,7 +246,7 @@ seatunnel:
 
 ```json
 {
-    "projectVersion":"3.1.0-SNAPSHOT",
+    "projectVersion":"3.1.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -654,6 +654,10 @@ seatunnel:
         "pipelineStatus": "RUNNING",
         "restoreCount": 7,
         "maxRestoreCount": 100,
+        "restoreCauses": [
+          "restore 6: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused",
+          "restore 7: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused"
+        ],
         "stateTimestamps": {
           "INITIALIZING": 1755000000000,
           "CREATED": 1755000000200,
@@ -672,6 +676,8 @@ seatunnel:
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
 `finishTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCELED
 `diagnostics` 字段在Job运行中且能从Master节点读取到诊断信息时返回。它属于辅助信息，读取失败时该字段会被省略，不会导致请求失败。该字段只在本接口返回，`/running-jobs` 不返回：为列表中的每个Job收集诊断信息会额外增加一次到Master的请求。
+
+`diagnostics` 读取的是 Master 内存中的 Job 状态，因此与 `restoreCount` 一样，它描述的是当前这个 Master 对该 Job 的视图，而不是完整历史。Master 切换后，恢复计数与 `restoreCauses` 会从被恢复的 Job 重新开始，上一个 Master 记录的原因不会延续。
 
 #### 指标字段说明
 
@@ -704,6 +710,7 @@ seatunnel:
 | pipelines[].pipelineStatus | Pipeline 当前状态 |
 | pipelines[].restoreCount | 自 Job 提交以来该 Pipeline 被恢复（重启）的次数。若 `jobStatus` 一直是 `RUNNING` 而该值不断增长，说明处于崩溃重启循环中 |
 | pipelines[].maxRestoreCount | 该 Pipeline 的恢复次数上限，来自 `job.retry.times` env 配置 |
+| pipelines[].restoreCauses | 该 Pipeline 此前每一次运行结束的原因，按时间从旧到新，每次恢复一条。引擎只保留当前这次尝试的错误，因此若没有该字段，仅凭 `restoreCount` 只能发现崩溃重启循环、无法知道原因。每条都会截断，且只保留最近 16 次恢复。未记录到错误的那次恢复也会列出，因为「因未知原因重启」与「因 Sink 拒绝连接而重启」是两种不同的状态 |
 | pipelines[].stateTimestamps | Pipeline 进入各状态的时间戳（毫秒）。发生恢复后，新一轮的时间戳会覆盖上一轮 |
 | totalPipelineRestoreCount | Job 下所有 Pipeline 的 `restoreCount` 之和 |
 
@@ -953,6 +960,8 @@ seatunnel:
 #### 请求体
 
 你可以选择用json、hocon或者sql的方式来传递请求体。
+JSON 请求中，每个键都会按 SeaTunnel 配置路径表达式解析：`a->b` 会生成嵌套配置，而 `job.mode` 中的点号不是路径分隔符。无法解析为路径表达式的键（例如正则字段名 `^t_nova_.*$`，或包含 `$`、`:`、`${...}` 等保留字符的键）会作为字面键保留，而不会导致请求失败；能够解析的键仍遵循原有语义：引号会被去除，未加引号的首尾空白会被裁剪。批量提交也遵循同一规则。
+HOCON 请求体会先由 HOCON 解析器解析，因此包含保留字符的键必须在请求体中加引号：应写 `"$systemId" = "string"`，而不是 `$systemId = "string"`。HOCON 中的引号不会覆盖解密时的路径语义。路径解析器拒绝的键会保持为字面键；`a->b` 等合法表达式仍按路径解析。
 Json请求示例：
 ```json
 {

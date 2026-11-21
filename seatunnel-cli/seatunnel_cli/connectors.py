@@ -736,6 +736,7 @@ KEYWORD_ALIASES: dict[str, list[str]] = {
     "rabbitmq": ["RabbitMQ"],
     "rocketmq": ["RocketMQ"],
     "activemq": ["ActiveMQ"],
+    "jms": ["Jms"],
     "mqtt": ["Mqtt"],
     "sqs": ["AmazonSqs"],
 
