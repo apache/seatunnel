@@ -34,6 +34,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Collections;
 
@@ -337,6 +339,39 @@ public class DatabendSinkWriterTest {
         verify(preparedStatement).setString(2, "08:00:00");
         verify(preparedStatement).setString(3, "10:15:30.123");
         verify(preparedStatement, never()).setObject(anyInt(), any(LocalTime.class));
+        verify(preparedStatement).addBatch();
+    }
+
+    @Test
+    public void testProcessRowWritesTimestampAsText() throws Exception {
+        // databend-jdbc's setObject throws "Unsupported object type" for a LocalDateTime, and its
+        // setTimestamp keeps only milliseconds, so a TIMESTAMP value reaches the driver as text.
+        DatabendSinkWriter sinkWriter = mock(DatabendSinkWriter.class);
+        PreparedStatement preparedStatement = mock(PreparedStatement.class);
+        setPrivateField(sinkWriter, "preparedStatement", preparedStatement);
+        LocalDate date = LocalDate.of(2024, 3, 10);
+        SeaTunnelRow row =
+                new SeaTunnelRow(
+                        new Object[] {
+                            1,
+                            LocalDateTime.of(2024, 3, 10, 10, 0),
+                            LocalDateTime.of(2024, 3, 11, 10, 15, 30, 123_456_000),
+                            LocalDateTime.of(2024, 3, 12, 10, 15, 30, 123_456_789),
+                            date
+                        });
+
+        Method processRow =
+                DatabendSinkWriter.class.getDeclaredMethod("processRow", SeaTunnelRow.class);
+        processRow.setAccessible(true);
+        processRow.invoke(sinkWriter, row);
+
+        verify(preparedStatement).setObject(1, 1);
+        verify(preparedStatement).setString(2, "2024-03-10 10:00:00.000000");
+        verify(preparedStatement).setString(3, "2024-03-11 10:15:30.123456");
+        verify(preparedStatement).setString(4, "2024-03-12 10:15:30.123456");
+        verify(preparedStatement, never()).setObject(anyInt(), any(LocalDateTime.class));
+        // The driver accepts a LocalDate, so a DATE value is still passed as is.
+        verify(preparedStatement).setObject(5, date);
         verify(preparedStatement).addBatch();
     }
 
