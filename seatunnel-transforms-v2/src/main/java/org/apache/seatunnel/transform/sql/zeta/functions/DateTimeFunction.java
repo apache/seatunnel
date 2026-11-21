@@ -637,7 +637,10 @@ public class DateTimeFunction {
             return null;
         }
         String format = (String) args.get(1);
-        DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
+        // getFormatter uses Locale.ENGLISH, as FROM_UNIXTIME does. That keeps month, weekday, era,
+        // quarter and am/pm text independent of the worker's default locale, matching DAYNAME
+        // and MONTHNAME above, which pin English through DateFormatSymbols in getMonthsAndWeeks.
+        DateTimeFormatter df = getFormatter(format);
         return df.format(datetime);
     }
 
