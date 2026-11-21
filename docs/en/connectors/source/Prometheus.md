@@ -22,7 +22,7 @@ SeaTunnel automatically uses the Prometheus query endpoint for `Instant` queries
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info

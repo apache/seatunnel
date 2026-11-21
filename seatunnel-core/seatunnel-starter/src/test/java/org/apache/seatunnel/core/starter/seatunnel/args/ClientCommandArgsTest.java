@@ -21,6 +21,7 @@ import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
+import org.apache.seatunnel.core.starter.seatunnel.SeaTunnelClient;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.multitable.MultiTableSinkTest;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
@@ -164,6 +165,28 @@ public class ClientCommandArgsTest {
                                         "seatunnel-client",
                                         true,
                                         ClientCommandArgs::validateCommandOptions));
+
+        Assertions.assertEquals(USAGE_EXIT_CODE, statusCode);
+    }
+
+    @Test
+    public void testHelpExitsZeroBeforeValidation() throws Exception {
+        int statusCode = catchSystemExit(() -> SeaTunnelClient.main(new String[] {"--help"}));
+
+        Assertions.assertEquals(0, statusCode);
+    }
+
+    @Test
+    public void testDefaultHelpRetainsUsageExitCodeBeforeValidation() throws Exception {
+        int statusCode =
+                catchSystemExit(
+                        () ->
+                                CommandLineUtils.parse(
+                                        new String[] {"--help"},
+                                        new ClientCommandArgs(),
+                                        "legacy-starter",
+                                        true,
+                                        ignored -> Assertions.fail("Help must skip validation")));
 
         Assertions.assertEquals(USAGE_EXIT_CODE, statusCode);
     }

@@ -182,6 +182,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
         CatalogTable finalCatalogTable = catalogTable;
         DataSaveMode dataSaveMode = config.get(JdbcSinkOptions.DATA_SAVE_MODE);
         SchemaSaveMode schemaSaveMode = config.get(JdbcSinkOptions.SCHEMA_SAVE_MODE);
+        dialect.validateSaveModes(dataSaveMode, schemaSaveMode);
         return () ->
                 new JdbcSink(
                         options,
@@ -212,9 +213,24 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                                 new ExactlyOnceMaxRetriesValidator()))
                 .optional(
                         JdbcSinkOptions.CREATE_INDEX,
+                        JdbcSinkOptions.TABLE,
+                        JdbcSinkOptions.SCHEMA,
                         JdbcSinkOptions.USERNAME,
                         JdbcSinkOptions.PASSWORD,
+                        JdbcSinkOptions.PROPERTIES,
                         JdbcSinkOptions.CONNECTION_CHECK_TIMEOUT_SEC,
+                        JdbcSinkOptions.CONNECT_TIMEOUT_MS,
+                        JdbcSinkOptions.SOCKET_TIMEOUT_MS,
+                        JdbcSinkOptions.DECIMAL_TYPE_NARROWING,
+                        JdbcSinkOptions.INT_TYPE_NARROWING,
+                        JdbcSinkOptions.HANDLE_BLOB_AS_STRING,
+                        JdbcSinkOptions.USE_KERBEROS,
+                        JdbcSinkOptions.KERBEROS_PRINCIPAL,
+                        JdbcSinkOptions.KERBEROS_KEYTAB_PATH,
+                        JdbcSinkOptions.KRB5_PATH,
+                        JdbcSinkOptions.ACCESS_KEY_ID,
+                        JdbcSinkOptions.SECRET_ACCESS_KEY,
+                        JdbcSinkOptions.REGION,
                         JdbcSinkOptions.BATCH_SIZE,
                         JdbcSinkOptions.BATCH_INTERVAL_MS,
                         JdbcSinkOptions.GENERATE_SINK_SQL,

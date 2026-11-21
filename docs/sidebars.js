@@ -32,7 +32,10 @@ const sidebars = {
                     "label": "Concepts",
                     "items": [
                         "introduction/concepts/connector-v2-features",
-                        "introduction/concepts/schema-feature"
+                        "introduction/concepts/schema-feature",
+                        "introduction/concepts/metadata-spi",
+                        "introduction/concepts/gravitino-type-mapping",
+                        "introduction/concepts/incompatible-changes"
                     ]
                 }
             ]
@@ -75,6 +78,30 @@ const sidebars = {
                         "getting-started/kubernetes/configuration",
                         "getting-started/kubernetes/operations",
                         "getting-started/kubernetes/helm"
+                    ]
+                },
+                {
+                    "type": "category",
+                    "label": "Application Mode (Experimental)",
+                    "items": [
+                        "getting-started/application/overview",
+                        "getting-started/application/cli",
+                        {
+                            "type": "category",
+                            "label": "Kubernetes",
+                            "link": {
+                                "type": "doc",
+                                "id": "getting-started/application/kubernetes/overview"
+                            },
+                            "items": [
+                                "getting-started/application/kubernetes/architecture",
+                                "getting-started/application/kubernetes/quick-start",
+                                "getting-started/application/kubernetes/commands",
+                                "getting-started/application/kubernetes/configuration",
+                                "getting-started/application/kubernetes/checkpoint-recovery",
+                                "getting-started/application/kubernetes/faq"
+                            ]
+                        }
                     ]
                 }
             ]
@@ -169,10 +196,12 @@ const sidebars = {
                         "getting-started/recipes/mysql-cdc-to-kafka",
                         "getting-started/recipes/mysql-cdc-to-elasticsearch",
                         "getting-started/recipes/jdbc-to-s3",
+                        "getting-started/recipes/jdbc-to-jdbc",
                         "getting-started/recipes/mysql-to-hdfs",
                         "getting-started/recipes/kafka-to-iceberg",
                         "getting-started/recipes/postgresql-cdc-to-iceberg",
                         "getting-started/recipes/http-to-jdbc",
+                        "getting-started/recipes/jdbc-to-jdbc",
                         "getting-started/recipes/file-to-starrocks",
                         "getting-started/recipes/multi-table-cdc"
                     ]
@@ -204,6 +233,7 @@ const sidebars = {
                 "transforms/data-validator",
                 "transforms/define-sink-type",
                 "transforms/dynamic-compile",
+                "transforms/encrypt",
                 "transforms/embedding",
                 "transforms/field-mapper",
                 "transforms/field-rename",
@@ -276,6 +306,8 @@ const sidebars = {
                                 },
                                 "engines/zeta/web-ui",
                                 "engines/zeta/runtime-execution-graph",
+                                "engines/zeta/stain-trace",
+                                "engines/zeta/stain-trace-quickstart",
                                 "engines/zeta/security",
                                 "engines/zeta/python-sdk"
                             ]
@@ -283,8 +315,11 @@ const sidebars = {
                         "engines/zeta/user-command",
                         "engines/zeta/logging",
                         "engines/zeta/log-analysis-with-ai",
+                        "engines/zeta/stain-trace",
+                        "engines/zeta/stain-trace-quickstart",
                         "engines/zeta/telemetry",
                         "engines/zeta/busyness-and-backpressure",
+                        "engines/zeta/realtime-observability",
                         "engines/zeta/live-metrics-chart",
                         "engines/zeta/slot-allocation-strategy",
                         "engines/zeta/benchmark",

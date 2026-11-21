@@ -22,7 +22,9 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.api.table.factory.SupportSinkDryRunValidation;
 import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.kafka.sink.KafkaSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceFactory;
@@ -75,6 +77,14 @@ class KafkaFactoryTest {
                 FactoryUtil.discoverFactory(
                                 getClass().getClassLoader(), TableSourceFactory.class, "Kafka")
                         instanceof SupportSourceDryRunValidation);
+    }
+
+    @Test
+    void testSinkSupportsConnectDryRun() {
+        Assertions.assertTrue(
+                FactoryUtil.discoverFactory(
+                                getClass().getClassLoader(), TableSinkFactory.class, "Kafka")
+                        instanceof SupportSinkDryRunValidation);
     }
 
     @Test

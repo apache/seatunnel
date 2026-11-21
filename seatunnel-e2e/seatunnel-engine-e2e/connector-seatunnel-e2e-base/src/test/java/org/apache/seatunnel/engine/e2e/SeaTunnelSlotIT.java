@@ -73,13 +73,11 @@ public class SeaTunnelSlotIT {
             Awaitility.await()
                     .atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () -> {
-                                Thread.sleep(2000);
-                                Assertions.assertTrue(
-                                        objectCompletableFuture.isDone()
-                                                && JobStatus.FAILED.equals(
-                                                        objectCompletableFuture.get()));
-                            });
+                            () ->
+                                    Assertions.assertTrue(
+                                            objectCompletableFuture.isDone()
+                                                    && JobStatus.FAILED.equals(
+                                                            objectCompletableFuture.get())));
 
         } finally {
             if (engineClient != null) {
@@ -126,13 +124,11 @@ public class SeaTunnelSlotIT {
             Awaitility.await()
                     .atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () -> {
-                                Thread.sleep(2000);
-                                Assertions.assertTrue(
-                                        objectCompletableFuture.isDone()
-                                                && JobStatus.FINISHED.equals(
-                                                        objectCompletableFuture.get()));
-                            });
+                            () ->
+                                    Assertions.assertTrue(
+                                            objectCompletableFuture.isDone()
+                                                    && JobStatus.FINISHED.equals(
+                                                            objectCompletableFuture.get())));
 
         } finally {
             if (engineClient != null) {
@@ -205,13 +201,11 @@ public class SeaTunnelSlotIT {
             Awaitility.await()
                     .atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () -> {
-                                Thread.sleep(2000);
-                                Assertions.assertTrue(
-                                        oversizedJobComplete.isDone()
-                                                && JobStatus.FAILED.equals(
-                                                        oversizedJobComplete.get()));
-                            });
+                            () ->
+                                    Assertions.assertTrue(
+                                            oversizedJobComplete.isDone()
+                                                    && JobStatus.FAILED.equals(
+                                                            oversizedJobComplete.get())));
 
             // The oversized job's own resource shortfall must be fully resolved on the master
             // before this proves anything: submit a second, minimal job that needs far fewer

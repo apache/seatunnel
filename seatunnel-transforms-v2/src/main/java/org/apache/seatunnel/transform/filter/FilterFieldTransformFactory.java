@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TableTransformRuleValidator;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -38,19 +39,35 @@ public class FilterFieldTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
+        // The rule of a single table: exactly one of 'include_fields'/'exclude_fields' has to be
+        // configured with a non-empty list.
+        OptionRule tableRule =
+                OptionRule.builder()
+                        .exclusive(
+                                FilterFieldTransformConfig.INCLUDE_FIELDS,
+                                FilterFieldTransformConfig.EXCLUDE_FIELDS)
+                        .optional(
+                                FilterFieldTransformConfig.INCLUDE_FIELDS,
+                                Conditions.notEmpty(FilterFieldTransformConfig.INCLUDE_FIELDS))
+                        .optional(
+                                FilterFieldTransformConfig.EXCLUDE_FIELDS,
+                                Conditions.notEmpty(FilterFieldTransformConfig.EXCLUDE_FIELDS))
+                        .build();
         return OptionRule.builder()
-                .exclusive(
+                .optional(
                         FilterFieldTransformConfig.INCLUDE_FIELDS,
                         FilterFieldTransformConfig.EXCLUDE_FIELDS)
                 .optional(
-                        FilterFieldTransformConfig.INCLUDE_FIELDS,
-                        Conditions.notEmpty(FilterFieldTransformConfig.INCLUDE_FIELDS))
-                .optional(
-                        FilterFieldTransformConfig.EXCLUDE_FIELDS,
-                        Conditions.notEmpty(FilterFieldTransformConfig.EXCLUDE_FIELDS))
-                .optional(TransformCommonOptions.MULTI_TABLES)
+                        TransformCommonOptions.MULTI_TABLES,
+                        Conditions.extension(
+                                TransformCommonOptions.MULTI_TABLES,
+                                new TableTransformRuleValidator(tableRule)))
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .optional(TransformCommonOptions.RULE_MATCH_MODE)
+                .conditionalRule(
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.MULTI_TABLES.defaultValue(),
+                        tableRule)
                 .build();
     }
 

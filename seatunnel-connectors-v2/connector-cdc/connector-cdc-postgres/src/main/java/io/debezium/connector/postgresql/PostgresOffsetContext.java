@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import io.debezium.connector.SnapshotRecord;
 import io.debezium.connector.postgresql.connection.Lsn;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
+import io.debezium.connector.postgresql.connection.ReplicationMessage.Operation;
 import io.debezium.connector.postgresql.spi.OffsetState;
 import io.debezium.pipeline.source.snapshot.incremental.IncrementalSnapshotContext;
 import io.debezium.pipeline.source.snapshot.incremental.SignalBasedIncrementalSnapshotContext;
@@ -54,12 +55,14 @@ public class PostgresOffsetContext implements OffsetContext {
 
     public static final String LAST_COMPLETELY_PROCESSED_LSN_KEY = "lsn_proc";
     public static final String LAST_COMMIT_LSN_KEY = "lsn_commit";
+    public static final String LAST_PROCESSED_MESSAGE_TYPE_KEY = "messageType";
 
     private final Schema sourceInfoSchema;
     private final SourceInfo sourceInfo;
     private boolean lastSnapshotRecord;
     private Lsn lastCompletelyProcessedLsn;
     private Lsn lastCommitLsn;
+    private Operation lastProcessedMessageType;
     private Lsn streamingStoppingLsn = null;
     private final TransactionContext transactionContext;
     private final IncrementalSnapshotContext<TableId> incrementalSnapshotContext;
@@ -120,6 +123,9 @@ public class PostgresOffsetContext implements OffsetContext {
         if (lastCommitLsn != null) {
             result.put(LAST_COMMIT_LSN_KEY, lastCommitLsn.asLong());
         }
+        if (lastProcessedMessageType != null) {
+            result.put(LAST_PROCESSED_MESSAGE_TYPE_KEY, lastProcessedMessageType.name());
+        }
         return sourceInfo.isSnapshot()
                 ? result
                 : incrementalSnapshotContext.store(transactionContext.store(result));
@@ -163,7 +169,20 @@ public class PostgresOffsetContext implements OffsetContext {
             Long txId,
             Long xmin,
             TableId tableId) {
+        updateWalPosition(lsn, lastCompletelyProcessedLsn, commitTime, txId, xmin, tableId, null);
+    }
+
+    /** Tracks the operation as well as its LSN so recovery can distinguish a commit boundary. */
+    public void updateWalPosition(
+            Lsn lsn,
+            Lsn lastCompletelyProcessedLsn,
+            Instant commitTime,
+            Long txId,
+            Long xmin,
+            TableId tableId,
+            Operation messageType) {
         this.lastCompletelyProcessedLsn = lastCompletelyProcessedLsn;
+        this.lastProcessedMessageType = messageType;
         sourceInfo.update(lsn, commitTime, txId, xmin, tableId);
     }
 
@@ -176,6 +195,9 @@ public class PostgresOffsetContext implements OffsetContext {
     public void updateCommitPosition(Lsn lsn, Lsn lastCompletelyProcessedLsn) {
         this.lastCompletelyProcessedLsn = lastCompletelyProcessedLsn;
         this.lastCommitLsn = lsn;
+        // Without transaction metadata, COMMIT bypasses updateWalPosition. Its operation must
+        // still match lsn_proc in the heartbeat offset that a checkpoint can persist.
+        this.lastProcessedMessageType = Operation.COMMIT;
         sourceInfo.updateLastCommit(lsn);
     }
 
@@ -197,6 +219,10 @@ public class PostgresOffsetContext implements OffsetContext {
 
     Lsn lastCommitLsn() {
         return lastCommitLsn;
+    }
+
+    Operation lastProcessedMessageType() {
+        return lastProcessedMessageType;
     }
 
     /**
@@ -264,17 +290,23 @@ public class PostgresOffsetContext implements OffsetContext {
                             ((Map<String, Object>) offset)
                                     .getOrDefault(
                                             SourceInfo.LAST_SNAPSHOT_RECORD_KEY, Boolean.FALSE);
-            return new PostgresOffsetContext(
-                    connectorConfig,
-                    lsn,
-                    lastCompletelyProcessedLsn,
-                    lastCommitLsn,
-                    txId,
-                    useconds,
-                    snapshot,
-                    lastSnapshotRecord,
-                    TransactionContext.load(offset),
-                    SignalBasedIncrementalSnapshotContext.load(offset, false));
+            PostgresOffsetContext context =
+                    new PostgresOffsetContext(
+                            connectorConfig,
+                            lsn,
+                            lastCompletelyProcessedLsn,
+                            lastCommitLsn,
+                            txId,
+                            useconds,
+                            snapshot,
+                            lastSnapshotRecord,
+                            TransactionContext.load(offset),
+                            SignalBasedIncrementalSnapshotContext.load(offset, false));
+            Object messageType = offset.get(LAST_PROCESSED_MESSAGE_TYPE_KEY);
+            if (messageType != null) {
+                context.lastProcessedMessageType = Operation.valueOf(messageType.toString());
+            }
+            return context;
         }
     }
 

@@ -104,163 +104,194 @@ public class CommittedMetricsIT {
 
         log.info("Job is running, job id: {}", streamJobProxy.getJobId());
 
-        Thread.sleep(5000);
+        // The metrics below are sampled around checkpoint boundaries (the job uses a
+        // 10s checkpoint interval). Polling for each phase's precondition instead of
+        // fixed sleeps keeps the phases stable when job startup or checkpoints run
+        // slower or faster than expected under CI load.
 
-        Response responseBeforeCheckpoint =
-                given().get(
-                                HOST
-                                        + node1.getCluster().getLocalMember().getAddress().getPort()
-                                        + RestConstant.CONTEXT_PATH
-                                        + RestConstant.REST_URL_JOB_INFO
-                                        + "/"
-                                        + streamJobProxy.getJobId());
+        // Phase 1: writes must have started while the first checkpoint has not
+        // committed anything yet.
+        long[] committedBeforeCPHolder = new long[1];
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () -> {
+                            Response responseBeforeCheckpoint = getJobMetricsResponse();
+                            log.info(
+                                    "Metrics before checkpoint: {}",
+                                    responseBeforeCheckpoint.prettyPrint());
 
-        log.info("Metrics before checkpoint: {}", responseBeforeCheckpoint.prettyPrint());
+                            String writeCountBeforeCP =
+                                    responseBeforeCheckpoint.path("metrics.SinkWriteCount");
+                            String committedCountBeforeCP =
+                                    responseBeforeCheckpoint.path("metrics.SinkCommittedCount");
 
-        String writeCountBeforeCP = responseBeforeCheckpoint.path("metrics.SinkWriteCount");
-        String committedCountBeforeCP = responseBeforeCheckpoint.path("metrics.SinkCommittedCount");
+                            long writeBeforeCP = Long.parseLong(writeCountBeforeCP);
+                            long committedBeforeCP = 0;
+                            if (committedCountBeforeCP != null) {
+                                committedBeforeCP = Long.parseLong(committedCountBeforeCP);
+                            }
 
-        long writeBeforeCP = Long.parseLong(writeCountBeforeCP);
-        long committedBeforeCP = 0;
-        if (committedCountBeforeCP != null) {
-            committedBeforeCP = Long.parseLong(committedCountBeforeCP);
-        }
+                            Assertions.assertTrue(writeBeforeCP > 0);
+                            Assertions.assertEquals(0, committedBeforeCP);
+                            committedBeforeCPHolder[0] = committedBeforeCP;
 
-        Assertions.assertTrue(writeBeforeCP > 0);
-        Assertions.assertEquals(0, committedBeforeCP);
+                            log.info(
+                                    "Before checkpoint - WriteCount: {}, CommittedCount: {}",
+                                    writeBeforeCP,
+                                    committedBeforeCP);
+                        });
 
-        log.info(
-                "Before checkpoint - WriteCount: {}, CommittedCount: {}",
-                writeBeforeCP,
-                committedBeforeCP);
+        // Phase 2: the first checkpoint must have committed data.
+        long[] committedCountAfterFirstCPHolder = new long[1];
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () -> {
+                            Response responseAfterFirstCheckpoint = getJobMetricsResponse();
+                            log.info(
+                                    "Metrics after first checkpoint: {}",
+                                    responseAfterFirstCheckpoint.prettyPrint());
 
-        Thread.sleep(8000);
+                            String sinkCommittedCount =
+                                    responseAfterFirstCheckpoint.path("metrics.SinkCommittedCount");
+                            String sinkWriteCount =
+                                    responseAfterFirstCheckpoint.path("metrics.SinkWriteCount");
+                            Assertions.assertNotNull(sinkCommittedCount);
+                            Assertions.assertNotNull(sinkWriteCount);
 
-        Response responseAfterFirstCheckpoint =
-                given().get(
-                                HOST
-                                        + node1.getCluster().getLocalMember().getAddress().getPort()
-                                        + RestConstant.CONTEXT_PATH
-                                        + RestConstant.REST_URL_JOB_INFO
-                                        + "/"
-                                        + streamJobProxy.getJobId());
+                            long committedCountAfterFirstCP = Long.parseLong(sinkCommittedCount);
+                            long writeCountAfterFirstCP = Long.parseLong(sinkWriteCount);
 
-        log.info("Metrics after first checkpoint: {}", responseAfterFirstCheckpoint.prettyPrint());
+                            Assertions.assertTrue(committedCountAfterFirstCP > 0);
+                            Assertions.assertTrue(
+                                    committedCountAfterFirstCP > committedBeforeCPHolder[0]);
+                            Assertions.assertTrue(
+                                    committedCountAfterFirstCP <= writeCountAfterFirstCP);
+                            committedCountAfterFirstCPHolder[0] = committedCountAfterFirstCP;
 
-        String sinkCommittedCount = responseAfterFirstCheckpoint.path("metrics.SinkCommittedCount");
-        String sinkWriteCount = responseAfterFirstCheckpoint.path("metrics.SinkWriteCount");
-        Assertions.assertNotNull(sinkCommittedCount);
-        Assertions.assertNotNull(sinkWriteCount);
+                            log.info(
+                                    "After first checkpoint - WriteCount: {}, CommittedCount: {},"
+                                            + " Uncommitted: {}",
+                                    writeCountAfterFirstCP,
+                                    committedCountAfterFirstCP,
+                                    writeCountAfterFirstCP - committedCountAfterFirstCP);
+                        });
 
-        long committedCountAfterFirstCP = Long.parseLong(sinkCommittedCount);
-        long writeCountAfterFirstCP = Long.parseLong(sinkWriteCount);
+        // Phase 3: the second checkpoint must have advanced the committed metrics.
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () -> {
+                            Response responseFinal = getJobMetricsResponse();
+                            log.info(
+                                    "Metrics after second checkpoint: {}",
+                                    responseFinal.prettyPrint());
 
-        Assertions.assertTrue(committedCountAfterFirstCP > 0);
-        Assertions.assertTrue(committedCountAfterFirstCP > committedBeforeCP);
-        Assertions.assertTrue(committedCountAfterFirstCP <= writeCountAfterFirstCP);
+                            responseFinal
+                                    .then()
+                                    .statusCode(200)
+                                    .body("jobName", notNullValue())
+                                    .body("jobStatus", notNullValue());
 
-        log.info(
-                "After first checkpoint - WriteCount: {}, CommittedCount: {}, Uncommitted: {}",
-                writeCountAfterFirstCP,
-                committedCountAfterFirstCP,
-                writeCountAfterFirstCP - committedCountAfterFirstCP);
+                            String finalWriteCount = responseFinal.path("metrics.SinkWriteCount");
+                            String finalCommittedCount =
+                                    responseFinal.path("metrics.SinkCommittedCount");
+                            String finalCommittedBytes =
+                                    responseFinal.path("metrics.SinkCommittedBytes");
+                            String finalWriteBytes = responseFinal.path("metrics.SinkWriteBytes");
 
-        Thread.sleep(12000);
+                            long finalWrite = Long.parseLong(finalWriteCount);
+                            long finalCommitted = Long.parseLong(finalCommittedCount);
+                            long finalCommittedBytesVal = Long.parseLong(finalCommittedBytes);
+                            long finalWriteBytesVal = Long.parseLong(finalWriteBytes);
 
-        Response responseFinal =
-                given().get(
-                                HOST
-                                        + node1.getCluster().getLocalMember().getAddress().getPort()
-                                        + RestConstant.CONTEXT_PATH
-                                        + RestConstant.REST_URL_JOB_INFO
-                                        + "/"
-                                        + streamJobProxy.getJobId());
+                            Assertions.assertTrue(
+                                    finalCommitted > committedCountAfterFirstCPHolder[0]);
+                            Assertions.assertTrue(finalCommitted <= finalWrite);
+                            Assertions.assertTrue(finalCommittedBytesVal > 0);
+                            Assertions.assertTrue(finalCommittedBytesVal <= finalWriteBytesVal);
 
-        log.info("Metrics after second checkpoint: {}", responseFinal.prettyPrint());
+                            responseFinal
+                                    .then()
+                                    .body("metrics.SinkCommittedQPS", notNullValue())
+                                    .body("metrics.SinkCommittedBytesPerSeconds", notNullValue());
 
-        responseFinal
-                .then()
-                .statusCode(200)
-                .body("jobName", notNullValue())
-                .body("jobStatus", notNullValue());
+                            Double committedQPS =
+                                    Double.parseDouble(
+                                            responseFinal.path("metrics.SinkCommittedQPS"));
+                            Double committedBytesPerSec =
+                                    Double.parseDouble(
+                                            responseFinal.path(
+                                                    "metrics.SinkCommittedBytesPerSeconds"));
+                            Assertions.assertTrue(committedQPS > 0);
+                            Assertions.assertTrue(committedBytesPerSec > 0);
 
-        String finalWriteCount = responseFinal.path("metrics.SinkWriteCount");
-        String finalCommittedCount = responseFinal.path("metrics.SinkCommittedCount");
-        String finalCommittedBytes = responseFinal.path("metrics.SinkCommittedBytes");
-        String finalWriteBytes = responseFinal.path("metrics.SinkWriteBytes");
+                            String table1CommittedCount =
+                                    responseFinal.path(
+                                            "metrics.TableSinkCommittedCount.'Sink[0].fake.table1'");
+                            String table2CommittedCount =
+                                    responseFinal.path(
+                                            "metrics.TableSinkCommittedCount.'Sink[1].fake.public.table2'");
+                            Assertions.assertNotNull(table1CommittedCount);
+                            Assertions.assertNotNull(table2CommittedCount);
 
-        long finalWrite = Long.parseLong(finalWriteCount);
-        long finalCommitted = Long.parseLong(finalCommittedCount);
-        long finalCommittedBytesVal = Long.parseLong(finalCommittedBytes);
-        long finalWriteBytesVal = Long.parseLong(finalWriteBytes);
+                            long table1Committed = Long.parseLong(table1CommittedCount);
+                            long table2Committed = Long.parseLong(table2CommittedCount);
+                            Assertions.assertTrue(table1Committed > 0);
+                            Assertions.assertTrue(table2Committed > 0);
 
-        Assertions.assertTrue(finalCommitted > committedCountAfterFirstCP);
-        Assertions.assertTrue(finalCommitted <= finalWrite);
-        Assertions.assertTrue(finalCommittedBytesVal > 0);
-        Assertions.assertTrue(finalCommittedBytesVal <= finalWriteBytesVal);
+                            Assertions.assertEquals(
+                                    finalCommitted, table1Committed + table2Committed);
 
-        responseFinal
-                .then()
-                .body("metrics.SinkCommittedQPS", notNullValue())
-                .body("metrics.SinkCommittedBytesPerSeconds", notNullValue());
+                            String table1CommittedBytes =
+                                    responseFinal.path(
+                                            "metrics.TableSinkCommittedBytes.'Sink[0].fake.table1'");
+                            String table2CommittedBytes =
+                                    responseFinal.path(
+                                            "metrics.TableSinkCommittedBytes.'Sink[1].fake.public.table2'");
+                            Assertions.assertNotNull(table1CommittedBytes);
+                            Assertions.assertNotNull(table2CommittedBytes);
 
-        Double committedQPS = Double.parseDouble(responseFinal.path("metrics.SinkCommittedQPS"));
-        Double committedBytesPerSec =
-                Double.parseDouble(responseFinal.path("metrics.SinkCommittedBytesPerSeconds"));
-        Assertions.assertTrue(committedQPS > 0);
-        Assertions.assertTrue(committedBytesPerSec > 0);
+                            Assertions.assertTrue(Long.parseLong(table1CommittedBytes) > 0);
+                            Assertions.assertTrue(Long.parseLong(table2CommittedBytes) > 0);
 
-        String table1CommittedCount =
-                responseFinal.path("metrics.TableSinkCommittedCount.'Sink[0].fake.table1'");
-        String table2CommittedCount =
-                responseFinal.path("metrics.TableSinkCommittedCount.'Sink[1].fake.public.table2'");
-        Assertions.assertNotNull(table1CommittedCount);
-        Assertions.assertNotNull(table2CommittedCount);
+                            Double table1CommittedQPS =
+                                    Double.parseDouble(
+                                            responseFinal.path(
+                                                    "metrics.TableSinkCommittedQPS.'Sink[0].fake.table1'"));
+                            Double table2CommittedQPS =
+                                    Double.parseDouble(
+                                            responseFinal.path(
+                                                    "metrics.TableSinkCommittedQPS.'Sink[1].fake.public.table2'"));
+                            Assertions.assertTrue(table1CommittedQPS > 0);
+                            Assertions.assertTrue(table2CommittedQPS > 0);
 
-        long table1Committed = Long.parseLong(table1CommittedCount);
-        long table2Committed = Long.parseLong(table2CommittedCount);
-        Assertions.assertTrue(table1Committed > 0);
-        Assertions.assertTrue(table2Committed > 0);
+                            Double table1CommittedBytesPerSec =
+                                    Double.parseDouble(
+                                            responseFinal.path(
+                                                    "metrics.TableSinkCommittedBytesPerSeconds.'Sink[0].fake.table1'"));
+                            Double table2CommittedBytesPerSec =
+                                    Double.parseDouble(
+                                            responseFinal.path(
+                                                    "metrics.TableSinkCommittedBytesPerSeconds.'Sink[1].fake.public.table2'"));
+                            Assertions.assertTrue(table1CommittedBytesPerSec > 0);
+                            Assertions.assertTrue(table2CommittedBytesPerSec > 0);
 
-        Assertions.assertEquals(finalCommitted, table1Committed + table2Committed);
-
-        String table1CommittedBytes =
-                responseFinal.path("metrics.TableSinkCommittedBytes.'Sink[0].fake.table1'");
-        String table2CommittedBytes =
-                responseFinal.path("metrics.TableSinkCommittedBytes.'Sink[1].fake.public.table2'");
-        Assertions.assertNotNull(table1CommittedBytes);
-        Assertions.assertNotNull(table2CommittedBytes);
-
-        Assertions.assertTrue(Long.parseLong(table1CommittedBytes) > 0);
-        Assertions.assertTrue(Long.parseLong(table2CommittedBytes) > 0);
-
-        Double table1CommittedQPS =
-                Double.parseDouble(
-                        responseFinal.path("metrics.TableSinkCommittedQPS.'Sink[0].fake.table1'"));
-        Double table2CommittedQPS =
-                Double.parseDouble(
-                        responseFinal.path(
-                                "metrics.TableSinkCommittedQPS.'Sink[1].fake.public.table2'"));
-        Assertions.assertTrue(table1CommittedQPS > 0);
-        Assertions.assertTrue(table2CommittedQPS > 0);
-
-        Double table1CommittedBytesPerSec =
-                Double.parseDouble(
-                        responseFinal.path(
-                                "metrics.TableSinkCommittedBytesPerSeconds.'Sink[0].fake.table1'"));
-        Double table2CommittedBytesPerSec =
-                Double.parseDouble(
-                        responseFinal.path(
-                                "metrics.TableSinkCommittedBytesPerSeconds.'Sink[1].fake.public.table2'"));
-        Assertions.assertTrue(table1CommittedBytesPerSec > 0);
-        Assertions.assertTrue(table2CommittedBytesPerSec > 0);
-
-        log.info("All committed metrics assertions passed");
-        log.info(
-                "Final summary - WriteCount: {}, CommittedCount: {}, Uncommitted: {}",
-                finalWrite,
-                finalCommitted,
-                finalWrite - finalCommitted);
+                            log.info("All committed metrics assertions passed");
+                            log.info(
+                                    "Final summary - WriteCount: {}, CommittedCount: {}, Uncommitted:"
+                                            + " {}",
+                                    finalWrite,
+                                    finalCommitted,
+                                    finalWrite - finalCommitted);
+                        });
 
         streamJobProxy.cancelJob();
 
@@ -283,5 +314,15 @@ public class CommittedMetricsIT {
         if (node1 != null) {
             node1.shutdown();
         }
+    }
+
+    private Response getJobMetricsResponse() {
+        return given().get(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.CONTEXT_PATH
+                                + RestConstant.REST_URL_JOB_INFO
+                                + "/"
+                                + streamJobProxy.getJobId());
     }
 }

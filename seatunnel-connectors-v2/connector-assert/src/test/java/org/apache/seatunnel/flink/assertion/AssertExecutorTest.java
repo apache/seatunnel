@@ -18,6 +18,7 @@
 package org.apache.seatunnel.flink.assertion;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
@@ -32,6 +33,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.excecutor.AssertExecutor;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
+import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertRuleParser;
 import org.apache.seatunnel.format.json.JsonToRowConverters;
 
 import org.junit.jupiter.api.Test;
@@ -53,6 +55,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class AssertExecutorTest {
     SeaTunnelRow row = new SeaTunnelRow(new Object[] {"jared", 17});
@@ -72,6 +75,99 @@ public class AssertExecutorTest {
 
         AssertFieldRule failRule = assertExecutor.fail(row, rowType, rules).orElse(null);
         assertNotNull(failRule);
+    }
+
+    /**
+     * field_type is optional in the field rule definition. A rule that does not configure it must
+     * check the value against the field type of the incoming row instead of dereferencing the
+     * missing type.
+     */
+    @Test
+    public void testNotNullRuleWithoutConfiguredFieldType() {
+        AssertFieldRule rule = newFieldRule("name", AssertFieldRule.AssertRuleType.NOT_NULL);
+        List<AssertFieldRule> rules = Collections.singletonList(rule);
+
+        AssertFieldRule failRule = assertExecutor.fail(row, rowType, rules).orElse(null);
+        assertNull(failRule);
+    }
+
+    /** Omitting field_type must not weaken the configured value rules. */
+    @Test
+    public void testValueRuleStillFailsWithoutConfiguredFieldType() {
+        AssertFieldRule rule = newFieldRule("name", AssertFieldRule.AssertRuleType.MIN_LENGTH);
+        rule.getFieldRules().get(0).setRuleValue(10.0);
+        List<AssertFieldRule> rules = Collections.singletonList(rule);
+
+        AssertFieldRule failRule = assertExecutor.fail(row, rowType, rules).orElse(null);
+        assertNotNull(failRule);
+        assertEquals("name", failRule.getFieldName());
+    }
+
+    /** A null value is judged only by the value rules, with or without a configured field_type. */
+    @Test
+    public void testNullValueWithoutConfiguredFieldType() {
+        SeaTunnelRow nullNameRow = new SeaTunnelRow(new Object[] {null, 17});
+        AssertFieldRule notNullRule = newFieldRule("name", AssertFieldRule.AssertRuleType.NOT_NULL);
+        AssertFieldRule nullRule = newFieldRule("name", AssertFieldRule.AssertRuleType.NULL);
+        List<AssertFieldRule> notNullRules = Collections.singletonList(notNullRule);
+        List<AssertFieldRule> nullRules = Collections.singletonList(nullRule);
+
+        AssertFieldRule failRule =
+                assertExecutor.fail(nullNameRow, rowType, notNullRules).orElse(null);
+        assertNotNull(failRule);
+        assertNull(assertExecutor.fail(nullNameRow, rowType, nullRules).orElse(null));
+    }
+
+    /** An explicitly configured field_type is still the type the value has to match. */
+    @Test
+    public void testConfiguredNullFieldTypeRejectsNonNullValue() {
+        AssertFieldRule rule = newFieldRule("name", AssertFieldRule.AssertRuleType.NOT_NULL);
+        rule.setFieldType(BasicType.VOID_TYPE);
+        List<AssertFieldRule> rules = Collections.singletonList(rule);
+
+        AssertFieldRule failRule = assertExecutor.fail(row, rowType, rules).orElse(null);
+        assertNotNull(failRule);
+    }
+
+    /** An unknown field name still fails fast instead of being skipped. */
+    @Test
+    public void testUnknownFieldNameStillThrows() {
+        AssertFieldRule rule = newFieldRule("unknown", AssertFieldRule.AssertRuleType.NOT_NULL);
+        List<AssertFieldRule> rules = Collections.singletonList(rule);
+
+        assertThrows(
+                IllegalArgumentException.class, () -> assertExecutor.fail(row, rowType, rules));
+    }
+
+    /**
+     * Public configuration path: field_rules parsed from the plugin config without field_type must
+     * still validate the incoming row.
+     */
+    @Test
+    public void testFieldRulesWithoutFieldTypeFromConfig() {
+        String rulesConfig =
+                "rules = [{field_name = name, field_value = [{rule_type = NOT_NULL},"
+                        + " {rule_type = MIN_LENGTH, rule_value = 3}]},"
+                        + " {field_name = age, field_value = [{rule_type = NOT_NULL},"
+                        + " {rule_type = MIN, rule_value = 13}]}]";
+        List<? extends Config> ruleConfigList =
+                ConfigFactory.parseString(rulesConfig).getConfigList("rules");
+
+        List<AssertFieldRule> rules = new AssertRuleParser().parseRules(ruleConfigList);
+        assertNull(rules.get(0).getFieldType());
+        assertNull(rules.get(1).getFieldType());
+        AssertFieldRule failRule = assertExecutor.fail(row, rowType, rules).orElse(null);
+        assertNull(failRule);
+    }
+
+    private AssertFieldRule newFieldRule(
+            String fieldName, AssertFieldRule.AssertRuleType ruleType) {
+        AssertFieldRule rule = new AssertFieldRule();
+        rule.setFieldName(fieldName);
+        AssertFieldRule.AssertRule valueRule = new AssertFieldRule.AssertRule();
+        valueRule.setRuleType(ruleType);
+        rule.setFieldRules(Collections.singletonList(valueRule));
+        return rule;
     }
 
     @Test

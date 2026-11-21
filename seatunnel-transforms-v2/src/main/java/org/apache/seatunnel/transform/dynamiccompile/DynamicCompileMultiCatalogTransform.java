@@ -44,6 +44,12 @@ public class DynamicCompileMultiCatalogTransform extends AbstractMultiCatalogMap
         return new DynamicCompileTransform(config, inputCatalogTable);
     }
 
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
+    @Override
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(config, DynamicCompileTransformConfig.COMPILE_LANGUAGE);
+    }
+
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
         return new IdentityMapTransform(catalogTable);

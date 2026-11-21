@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -42,6 +44,7 @@ import org.apache.poi.ss.usermodel.CellValue;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.FormulaEvaluator;
+import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.NumberToTextConverter;
@@ -56,6 +59,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -74,6 +78,8 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
     private int[] indexes;
 
     private int cellCount;
+
+    private boolean useHeaderLine;
 
     @SneakyThrows
     @Override
@@ -183,7 +189,13 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         ExcelReaderBuilder read =
                 EasyExcel.read(
                         inputStream,
-                        new ExcelReaderListener(tableId, output, excelCellUtils, seaTunnelRowType));
+                        new ExcelReaderListener(
+                                tableId,
+                                output,
+                                excelCellUtils,
+                                seaTunnelRowType,
+                                indexes,
+                                useHeaderLine));
         if (pluginConfig.hasPath(FileBaseSourceOptions.SHEET_NAME.key())) {
             read.sheet(pluginConfig.getString(FileBaseSourceOptions.SHEET_NAME.key()))
                     .headRowNumber((int) skipHeaderNumber)
@@ -261,21 +273,46 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     "Skip the number of rows exceeds the maximum or minimum limit of Sheet");
         }
+        int[] cellIndexes = indexes == null ? IntStream.range(0, cellCount).toArray() : indexes;
+        // Maps output field indexes to Excel column indexes.
+        // Header mapping is opt-in; skipping rows alone keeps positional reads.
+        Map<Integer, Integer> headerColumns = new HashMap<>();
+        if (useHeaderLine) {
+            Row headerRow = sheet.getRow(startRow - 1);
+            if (headerRow != null) {
+                for (Cell headerCell : headerRow) {
+                    String header = formatter.formatCellValue(headerCell, formulaEvaluator);
+                    int fieldIndex = seaTunnelRowType.indexOf(header, false);
+                    if (fieldIndex >= 0) {
+                        headerColumns.put(fieldIndex, headerCell.getColumnIndex());
+                    }
+                }
+            }
+            for (int i = 0; i < fieldTypes.length; i++) {
+                if (!headerColumns.containsKey(i)) {
+                    log.warn(
+                            "Excel file {} header does not contain schema field '{}'; values will be null",
+                            currentFileName,
+                            seaTunnelRowType.getFieldName(i));
+                }
+            }
+        }
         IntStream.range(startRow, lastRowNum + 1)
                 .mapToObj(sheet::getRow)
                 .filter(Objects::nonNull)
                 .forEach(
                         rowData -> {
-                            int[] cellIndexes =
-                                    indexes == null
-                                            ? IntStream.range(0, cellCount).toArray()
-                                            : indexes;
-                            int z = 0;
                             SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
-                            for (int j : cellIndexes) {
-                                Cell cell = rowData.getCell(j);
+                            for (int i = 0; i < fieldTypes.length; i++) {
+                                Integer columnIndex;
+                                columnIndex =
+                                        useHeaderLine
+                                                ? headerColumns.get(i)
+                                                : Integer.valueOf(cellIndexes[i]);
+                                Cell cell =
+                                        columnIndex == null ? null : rowData.getCell(columnIndex);
                                 seaTunnelRow.setField(
-                                        z++,
+                                        i,
                                         cell == null
                                                 ? null
                                                 : excelCellUtils.convert(
@@ -284,7 +321,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                                                 cell,
                                                                 formulaEvaluator,
                                                                 formatter),
-                                                        fieldTypes[z - 1],
+                                                        fieldTypes[i],
                                                         null));
                             }
                             if (isMergePartition) {
@@ -381,6 +418,19 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         throw new FileConnectorException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 "User must defined schema for json file type");
+    }
+
+    /**
+     * Loads the Excel header option. When enabled, the first row is used for column-name mapping
+     * and takes precedence over {@code skip_header_row_number}.
+     */
+    @Override
+    public void setPluginConfig(Config pluginConfig) {
+        super.setPluginConfig(pluginConfig);
+        useHeaderLine = readonlyConfig.get(FileBaseSourceOptions.EXCEL_USE_HEADER_LINE);
+        if (useHeaderLine) {
+            skipHeaderNumber = 1L;
+        }
     }
 
     private Object getCellValue(

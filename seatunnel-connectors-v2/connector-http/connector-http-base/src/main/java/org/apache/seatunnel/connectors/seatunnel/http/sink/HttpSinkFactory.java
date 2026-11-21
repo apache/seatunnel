@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -42,7 +43,7 @@ public class HttpSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HttpSinkOptions.URL)
+                .required(HttpSinkOptions.URL, Conditions.notBlank(HttpSinkOptions.URL))
                 .optional(HttpSinkOptions.HEADERS)
                 .optional(HttpSinkOptions.PARAMS)
                 .optional(HttpSinkOptions.RETRY)

@@ -68,7 +68,7 @@ for parallel reads.
 
 ### endpoint [string]
 
-`endpoint` Your Maxcompute endpoint start with http.
+Your MaxCompute endpoint, starting with `http`. This option is required and must not be an empty string or contain only whitespace. Blank values are rejected during configuration validation, before connecting to MaxCompute.
 
 ### project [string]
 
