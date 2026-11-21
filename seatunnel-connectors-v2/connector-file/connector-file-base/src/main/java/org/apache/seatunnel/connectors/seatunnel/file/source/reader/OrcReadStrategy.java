@@ -88,6 +88,14 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         read(new FileSourceSplit(tableId, path), output);
     }
 
+    /**
+     * Reads a complete-stripe range while retaining the projected schema. A negative split length
+     * preserves whole-file reading for legacy callers. Each call closes its ORC reader and record
+     * reader on success or failure; the shared filesystem remains owned by the read strategy.
+     *
+     * @throws FileConnectorException if the file format is invalid
+     * @throws IOException if opening, reading or closing the ORC file fails
+     */
     @Override
     public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {

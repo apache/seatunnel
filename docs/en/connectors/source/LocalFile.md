@@ -105,7 +105,7 @@ For bounded Zeta jobs, restore resumes pending file splits after readers registe
 | file_filter_modified_start | string  | no       | -                                    |
 | file_filter_modified_end   | string  | no       | -                                    | 
 | enable_file_split          | boolean | no       | false                                | 
-| file_split_size            | long    | no       | 134217728                            |
+| file_split_size            | long    | no       | 134217728                            | For `orc`, complete stripes are grouped toward this target; a larger stripe is not divided.
 | quote_char                 | string  | no       | "                                    |
 | escape_char                | string  | no       | -                                    |
 | metalake_type              | string  | no       | gravitino                            |

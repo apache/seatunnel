@@ -105,7 +105,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | file_filter_modified_start | string  | 否    | -                   | 
 | file_filter_modified_end   | string  | 否    | -                   |
 | enable_file_split          | boolean | 否    | false               | 
-| file_split_size            | long    | 否    | 134217728           | 
+| file_split_size            | long    | 否    | 134217728           | `orc` 按完整 stripe 组合到此目标大小，超出目标大小的单个 stripe 不再拆分。 |
 | quote_char                 | string  | 否    | "                   |
 | escape_char                | string  | 否    | -                   |
 | metalake_type              | string  | 否    | gravitino          |

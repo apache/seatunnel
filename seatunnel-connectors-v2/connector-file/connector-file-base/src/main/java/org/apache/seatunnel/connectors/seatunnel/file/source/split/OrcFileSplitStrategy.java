@@ -47,6 +47,11 @@ public class OrcFileSplitStrategy implements FileSplitStrategy, Closeable {
         this.fileSystem = new HadoopFileSystemProxy(hadoopConf);
     }
 
+    /**
+     * Reads stripe metadata with the configured filesystem and Hadoop authentication, closing the
+     * metadata reader before returning. The filesystem remains owned by this strategy until close.
+     * Failures retain the file path, table identifier and original cause.
+     */
     @Override
     public List<FileSourceSplit> split(String tableId, String filePath) {
         try {
@@ -69,6 +74,11 @@ public class OrcFileSplitStrategy implements FileSplitStrategy, Closeable {
         }
     }
 
+    /**
+     * Groups stripes in file order into contiguous byte ranges without dividing a stripe. The
+     * configured size is a target: an oversized stripe occupies one split, while an empty stripe list
+     * produces no splits. Each range starts at its first stripe and ends after its last stripe.
+     */
     List<FileSourceSplit> splitByStripes(
             String tableId, String path, List<StripeInformation> stripes) {
         List<FileSourceSplit> splits = new ArrayList<>();
@@ -92,6 +102,7 @@ public class OrcFileSplitStrategy implements FileSplitStrategy, Closeable {
         return splits;
     }
 
+    /** Closes the filesystem owned by this strategy after split enumeration is finished. */
     @Override
     public void close() throws IOException {
         fileSystem.close();
