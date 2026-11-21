@@ -186,6 +186,23 @@ The `custom_request_body` option supports placeholders:
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details
 
+## Failure diagnostics
+
+Error messages and exception causes from `LLMTransform` initialization/inference and
+`Model.inference` are sanitized: they do not include input rows, prompts, raw provider
+responses, credentials, or unsafe nested exception text.
+Diagnostics retain safe metadata such as `provider`, a validated model identifier,
+`errorType`, and `httpStatus` when available. For example, an HTTP 503 failure includes
+`provider=OPENAI, model=test-model, errorType=TEMPORARY_REMOTE_ERROR` and `httpStatus=503`.
+Invalid or overly long model identifiers are not echoed verbatim.
+
+Successful output, configuration options, and LLM invocation attempt behavior are
+unchanged. Error classification does not add retries. Update monitoring that relied
+on raw response text or nested exception messages to use the safe metadata instead.
+This scope excludes `close()`, configuration validation before constructor invocation,
+request/response testing helpers, and configuration/HTTP wire logging; it is not a
+general logging confidentiality guarantee.
+
 ## tips
 The API interface usually has a rate limit, which can be configured with Seatunnel's speed limit to ensure smooth operation of the task.
 For details about Seatunnel speed limit Settings, please refer to [speed-limit](../introduction/configuration/speed-limit.md) for details.

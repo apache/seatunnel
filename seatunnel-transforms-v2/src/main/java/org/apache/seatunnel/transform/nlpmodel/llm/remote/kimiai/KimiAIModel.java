@@ -25,6 +25,9 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationErrorType;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationException;
+import org.apache.seatunnel.transform.nlpmodel.llm.LLMDiagnostics;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.AbstractModel;
 
 import org.apache.http.client.config.RequestConfig;
@@ -72,16 +75,27 @@ public class KimiAIModel extends AbstractModel {
         post.setEntity(new StringEntity(OBJECT_MAPPER.writeValueAsString(objectNode), "UTF-8"));
         post.setConfig(
                 RequestConfig.custom().setConnectTimeout(20000).setSocketTimeout(20000).build());
-        CloseableHttpResponse response = client.execute(post);
-        String responseStr = EntityUtils.toString(response.getEntity());
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to chat with model, response: " + responseStr);
+        try (CloseableHttpResponse response = client.execute(post)) {
+            int status = response.getStatusLine().getStatusCode();
+            if (status != 200) {
+                throw ModelInvocationException.fromHttpStatus("LLM", "[omitted]", status, null);
+            }
+            try {
+                String responseStr = EntityUtils.toString(response.getEntity());
+                JsonNode result = OBJECT_MAPPER.readTree(responseStr);
+                String resultData =
+                        result.get("choices").get(0).get("message").get("content").asText();
+                return OBJECT_MAPPER.readValue(
+                        convertData(resultData), new TypeReference<List<String>>() {});
+            } catch (Exception failure) {
+                throw LLMDiagnostics.sanitize(
+                        failure,
+                        "LLM",
+                        null,
+                        ModelInvocationErrorType.RESPONSE_PARSE_ERROR,
+                        status);
+            }
         }
-
-        JsonNode result = OBJECT_MAPPER.readTree(responseStr);
-        String resultData = result.get("choices").get(0).get("message").get("content").asText();
-        return OBJECT_MAPPER.readValue(
-                convertData(resultData), new TypeReference<List<String>>() {});
     }
 
     @VisibleForTesting
