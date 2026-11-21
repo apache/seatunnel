@@ -20,13 +20,23 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.common.error.RowErrorPhase;
 import org.apache.seatunnel.api.common.metrics.ThreadSafeCounter;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.signal.FlushSignal;
+import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableCommitInfo;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableState;
+import org.apache.seatunnel.api.sink.multitablesink.SinkIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
@@ -40,6 +50,7 @@ import org.apache.seatunnel.engine.server.task.error.ErrorHandlingSinkWriter;
 import org.apache.seatunnel.engine.server.task.error.ErrorSinkRowWriter;
 import org.apache.seatunnel.engine.server.task.error.RowErrorContext;
 import org.apache.seatunnel.engine.server.task.error.StageErrorConfig;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
 import org.apache.seatunnel.engine.server.trace.StainTracePayload;
 import org.apache.seatunnel.engine.server.trace.StainTraceStage;
@@ -52,6 +63,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -66,6 +78,65 @@ class SinkFlowLifeCycleErrorOutcomeTest {
 
     private static final TaskLocation TASK_LOCATION =
             new TaskLocation(new TaskGroupLocation(1L, 1, 1L), 2L, 0);
+
+    @Test
+    void shouldAbortPreparedTableBeforePublishingOrAcknowledgingFailedBarrier() throws Exception {
+        TablePath table = TablePath.of("db", "schema", "t");
+        SinkIdentifier id = SinkIdentifier.of(table.getFullName(), 0);
+        SinkWriter<SeaTunnelRow, String, String> child =
+                Mockito.mock(
+                        SinkWriter.class,
+                        Mockito.withSettings().extraInterfaces(SupportMultiTableSinkWriter.class));
+        Mockito.when(child.prepareCommit(42L)).thenReturn(Optional.of("prepared-42"));
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> children = new HashMap<>();
+        children.put(id, child);
+        MultiTableSinkWriter wrapper =
+                new MultiTableSinkWriter(
+                        children,
+                        1,
+                        Collections.singletonMap(id, new DefaultSinkWriterContext(0, 1)));
+        SeaTunnelSink<SeaTunnelRow, MultiTableState, MultiTableCommitInfo, String> sink =
+                Mockito.mock(SeaTunnelSink.class);
+        SinkAction<SeaTunnelRow, MultiTableState, MultiTableCommitInfo, String> action =
+                new SinkAction<>(7L, "sink", sink, Collections.emptySet(), Collections.emptySet());
+        SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
+        TaskExecutionContext execution = Mockito.mock(TaskExecutionContext.class);
+        Mockito.when(task.getExecutionContext()).thenReturn(execution);
+        SinkFlowLifeCycle<SeaTunnelRow, MultiTableCommitInfo, String, MultiTableState> flow =
+                new SinkFlowLifeCycle<>(
+                        action,
+                        TASK_LOCATION,
+                        0,
+                        task,
+                        TASK_LOCATION,
+                        true,
+                        new CompletableFuture<>(),
+                        new SeaTunnelMetricsContext());
+        setField(flow, "writer", wrapper);
+        setField(flow, "writerStateSerializer", Optional.empty());
+        Serializer<MultiTableCommitInfo> serializer = Mockito.mock(Serializer.class);
+        IOException failure = new IOException("injected commit-info serialization failure");
+        Mockito.when(serializer.serialize(Mockito.any())).thenThrow(failure);
+        setField(flow, "commitInfoSerializer", Optional.of(serializer));
+        Barrier barrier = Mockito.mock(Barrier.class);
+        Mockito.when(barrier.snapshot()).thenReturn(true);
+        Mockito.when(barrier.getId()).thenReturn(42L);
+        try {
+            flow.received(new Record<>(new CloseTableEvent(table, 0, 1)));
+            RuntimeException thrown =
+                    Assertions.assertThrows(
+                            RuntimeException.class, () -> flow.received(new Record<>(barrier)));
+            Assertions.assertSame(failure, thrown.getCause());
+            Mockito.verify(child).prepareCommit(42L);
+            Mockito.verify(child).snapshotState(42L);
+            Mockito.verify(child).abortPrepare();
+            Mockito.verify(child, Mockito.never()).close();
+            Mockito.verify(execution, Mockito.never()).sendToMember(Mockito.any(), Mockito.any());
+            Mockito.verify(task, Mockito.never()).ack(barrier);
+        } finally {
+            wrapper.close();
+        }
+    }
 
     @Test
     void routedErrorDoesNotReportMainSinkSuccess() throws Exception {

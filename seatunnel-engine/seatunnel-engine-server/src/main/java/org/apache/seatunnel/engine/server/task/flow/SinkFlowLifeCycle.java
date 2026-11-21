@@ -30,12 +30,14 @@ import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
+import org.apache.seatunnel.api.sink.SupportCloseTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -315,6 +317,19 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 }
                 SchemaChangeEvent event = (SchemaChangeEvent) record.getData();
                 processSchemaChangeEvent(event);
+            } else if (record.getData() instanceof CloseTableEvent) {
+                if (prepareClose) {
+                    return;
+                }
+                if (writer instanceof SupportCloseTableSinkWriter) {
+                    ((SupportCloseTableSinkWriter) writer)
+                            .handleCloseTableEvent((CloseTableEvent) record.getData());
+                } else {
+                    log.debug(
+                            "Ignore close table event {} because writer {} does not support it",
+                            record.getData(),
+                            writer.getClass().getName());
+                }
             } else if (record.getData() instanceof Signal) {
                 if (prepareClose) {
                     return;

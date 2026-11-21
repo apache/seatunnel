@@ -123,7 +123,17 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
                 .sendToMember(
                         new SourceEnumeratorEventOperation(
                                 targetLocation, task.getTaskLocation(), event),
-                        targetAddress);
+                        targetAddress)
+                .whenComplete(
+                        (ignored, failure) -> {
+                            if (failure != null) {
+                                log.warn(
+                                        "Failed to send source event {} to reader {}",
+                                        event,
+                                        subtaskId,
+                                        failure);
+                            }
+                        });
     }
 
     @Override

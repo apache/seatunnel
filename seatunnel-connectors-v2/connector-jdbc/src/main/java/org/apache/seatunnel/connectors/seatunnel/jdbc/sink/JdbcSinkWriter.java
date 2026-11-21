@@ -440,6 +440,12 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     @Override
     public void abortPrepare() {}
 
+    // prepareCommit flushes and commits locally; this non-XA writer has no provisional XID.
+    @Override
+    public boolean supportsCloseAfterSnapshot() {
+        return true;
+    }
+
     @Override
     public void close() throws IOException {
         if (rowErrorCollector.isPresent()) {
