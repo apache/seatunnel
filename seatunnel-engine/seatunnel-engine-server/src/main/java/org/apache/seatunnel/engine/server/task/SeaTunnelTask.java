@@ -391,6 +391,9 @@ public abstract class SeaTunnelTask extends AbstractTask {
                                 this,
                                 (DynamicLookupConfig) f.getConfig(),
                                 completableFuture);
+                // The lookup is a polling root, so its task collector must forward aligned
+                // barriers and enriched rows to this node's downstream lifecycles.
+                outputs = flowLifeCycles;
             } else if (f.getAction() instanceof TransformChainAction) {
                 lifeCycle =
                         new TransformFlowLifeCycle<SeaTunnelRow>(
