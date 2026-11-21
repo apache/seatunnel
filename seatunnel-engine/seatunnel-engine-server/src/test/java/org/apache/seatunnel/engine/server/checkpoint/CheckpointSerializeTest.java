@@ -41,13 +41,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -56,7 +56,20 @@ import java.util.Map;
 @Slf4j
 public class CheckpointSerializeTest {
 
-    private static final String V1_FIXTURE = "/checkpoint/v1-completed-checkpoint.ser";
+    /**
+     * A v1 checkpoint file ({@code PipelineState} serialized with ProtoStuff) written by the code
+     * base before STIP-45 from {@link #buildV1FixtureCheckpoint()}, Base64 encoded. The bytes are
+     * kept in the source rather than as a binary resource, because repository checks read every
+     * file as UTF-8 text.
+     */
+    private static final String V1_FIXTURE_BASE64 =
+            "CgMxMDAQARgHIsgCCGQQARgHIIDQlf+8MSgAMOjXlf+8MTsLCwofQWN0aW9uU3RhdGVLZXkg"
+                    + "LSBmaXh0dXJlLXNvdXJjZQwTCwofQWN0aW9uU3RhdGVLZXkgLSBmaXh0dXJlLXNvdXJjZQwT"
+                    + "CwsKH0FjdGlvblN0YXRlS2V5IC0gZml4dHVyZS1zb3VyY2UMEAAbCghzcGxpdC0wYQoIc3Bs"
+                    + "aXQtMGIcDAsLCh9BY3Rpb25TdGF0ZUtleSAtIGZpeHR1cmUtc291cmNlDBABGwoHc3BsaXQt"
+                    + "MRABHAwLCwofQWN0aW9uU3RhdGVLZXkgLSBmaXh0dXJlLXNvdXJjZQwQAhscDBQbCwofQWN0"
+                    + "aW9uU3RhdGVLZXkgLSBmaXh0dXJlLXNvdXJjZQwQ////////////ARsKEGVudW1lcmF0b3It"
+                    + "c3RhdGUcHCADFAw8Q0RIAA==";
 
     /**
      * The fixture is a v1 checkpoint file written by the code base before STIP-45. It must stay
@@ -65,7 +78,7 @@ public class CheckpointSerializeTest {
      */
     @Test
     public void testV1CheckpointIsRestorableAndByteIdentical() throws IOException {
-        byte[] fixture = readResource(V1_FIXTURE);
+        byte[] fixture = Base64.getDecoder().decode(V1_FIXTURE_BASE64);
         ProtoStuffSerializer serializer = new ProtoStuffSerializer();
 
         PipelineState pipelineState = serializer.deserialize(fixture, PipelineState.class);
@@ -216,23 +229,9 @@ public class CheckpointSerializeTest {
                         }));
     }
 
-    private static byte[] readResource(String name) throws IOException {
-        try (InputStream in = CheckpointSerializeTest.class.getResourceAsStream(name)) {
-            Assertions.assertNotNull(in, "missing test resource " + name);
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buffer = new byte[4096];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                out.write(buffer, 0, read);
-            }
-            return out.toByteArray();
-        }
-    }
-
     /**
-     * Builds the deterministic checkpoint that the {@code v1-completed-checkpoint.ser} fixture was
-     * generated from (with the pre-STIP-45 code base, where subtask state was only {@code
-     * List<byte[]>}).
+     * Builds the deterministic checkpoint that the {@link #V1_FIXTURE_BASE64} fixture was generated
+     * from (with the pre-STIP-45 code base, where subtask state was only {@code List<byte[]>}).
      */
     static CompletedCheckpoint buildV1FixtureCheckpoint() {
         ActionStateKey key = new ActionStateKey("ActionStateKey - fixture-source");
