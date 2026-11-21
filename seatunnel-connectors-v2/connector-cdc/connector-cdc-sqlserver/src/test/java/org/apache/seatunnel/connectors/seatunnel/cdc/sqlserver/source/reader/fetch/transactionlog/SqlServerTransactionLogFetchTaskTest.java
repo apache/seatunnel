@@ -63,6 +63,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -255,11 +256,10 @@ class SqlServerTransactionLogFetchTaskTest {
                         any(SqlServerChangeTable[].class),
                         eq(LOW),
                         eq(HIGH),
+                        eq(true),
                         any(JdbcConnection.BlockingMultiResultSetConsumer.class));
 
-        fixture.task.executeIteration(fixture.context, PARTITION, fixture.offset);
-
-        verify(fixture.errorHandler).setProducerThrowable(failure);
+        assertIterationFailsWith(fixture, failure);
         verifyNoInteractions(fixture.dispatcher);
         verify(fixture.context, never()).finished();
     }
@@ -269,14 +269,40 @@ class SqlServerTransactionLogFetchTaskTest {
         Fixture fixture = new Fixture(true);
         fixture.prepareIteration();
         fixture.returnEmptyChanges(mock(ResultSet.class));
-        SQLException failure = new SQLException("test rollback failure");
-        doThrow(failure).when(fixture.connection).rollback();
+        // Unbounded streaming can normally ignore this error and reload the captures. A bounded
+        // read must fail rather than run another query after dispatching a partial interval.
+        SQLException failure =
+                new SQLException(
+                        "Invalid object name 'test_db.cdc.fn_cdc_get_all_changes_capture_1'.");
+        when(fixture.connection.rollback()).thenThrow(failure).thenReturn(fixture.connection);
 
-        fixture.task.executeIteration(fixture.context, PARTITION, fixture.offset);
-
-        verify(fixture.errorHandler).setProducerThrowable(failure);
+        assertIterationFailsWith(fixture, failure);
         verifyNoInteractions(fixture.dispatcher);
         verify(fixture.context, never()).finished();
+
+        // Exercise another iteration on the same reader to prove a failed rollback didn't move
+        // its cursor to HIGH or make the next attempt skip the inclusive LOW.
+        fixture.task.executeIteration(fixture.context, PARTITION, fixture.offset);
+        verify(fixture.connection, times(2))
+                .getChangesForTables(
+                        eq("test_db"),
+                        any(SqlServerChangeTable[].class),
+                        eq(LOW),
+                        eq(HIGH),
+                        eq(true),
+                        any(JdbcConnection.BlockingMultiResultSetConsumer.class));
+        verify(fixture.context).finished();
+    }
+
+    private static void assertIterationFailsWith(Fixture fixture, SQLException failure) {
+        DebeziumException error =
+                Assertions.assertThrows(
+                        DebeziumException.class,
+                        () ->
+                                fixture.task.executeIteration(
+                                        fixture.context, PARTITION, fixture.offset));
+        Assertions.assertSame(failure, error.getCause());
+        verifyNoInteractions(fixture.errorHandler);
     }
 
     private static Lsn lsn(int value) {
@@ -355,7 +381,7 @@ class SqlServerTransactionLogFetchTaskTest {
             doAnswer(
                             invocation -> {
                                 JdbcConnection.BlockingMultiResultSetConsumer consumer =
-                                        invocation.getArgument(4);
+                                        invocation.getArgument(5);
                                 consumer.accept(new ResultSet[] {emptyResult});
                                 verifyNoInteractions(dispatcher);
                                 return null;
@@ -366,6 +392,7 @@ class SqlServerTransactionLogFetchTaskTest {
                             any(SqlServerChangeTable[].class),
                             eq(LOW),
                             eq(HIGH),
+                            eq(true),
                             any(JdbcConnection.BlockingMultiResultSetConsumer.class));
         }
     }

@@ -229,7 +229,8 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
             }
         }
 
-        private boolean isBoundedRead() {
+        @Override
+        protected boolean isBoundedRead() {
             return !NO_STOPPING_OFFSET.equals(lsnSplit.getStopOffset());
         }
 

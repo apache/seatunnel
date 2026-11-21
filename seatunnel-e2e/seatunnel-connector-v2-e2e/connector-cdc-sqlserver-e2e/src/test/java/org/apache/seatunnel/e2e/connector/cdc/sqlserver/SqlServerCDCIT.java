@@ -612,6 +612,21 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "This regression uses Zeta logs and explicit job cancellation.")
     public void testSnapshotBackfillWithNoSelectedTableChanges(TestContainer container)
             throws Exception {
+        assertSnapshotBackfill(container, false);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "This regression uses Zeta logs and explicit job cancellation.")
+    public void testSnapshotBackfillFailsWhenCdcLowerBoundIsCleanedUp(TestContainer container)
+            throws Exception {
+        assertSnapshotBackfill(container, true);
+    }
+
+    private void assertSnapshotBackfill(TestContainer container, boolean expireLowerBound)
+            throws Exception {
         String database = "empty_backfill_test";
         String selectedTable = database + ".dbo.A";
         String sinkTable = database + ".dbo.A_sink";
@@ -702,8 +717,36 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                                                             + ".cdc.dbo_Other_CT WHERE __$operation=4 AND Value=1")
                                                             .get(0)
                                                             .get(0)));
+                    if (expireLowerBound) {
+                        // Use the CDC cleanup procedure to advance A's valid lower bound past LOW
+                        // while the snapshot SELECT is still blocked.
+                        executeSql(
+                                "USE "
+                                        + database
+                                        + "; DECLARE @newMin binary(10) = (SELECT MAX(__$start_lsn)"
+                                        + " FROM cdc.dbo_Other_CT WHERE __$operation=4 AND Value=1);"
+                                        + " EXEC sys.sp_cdc_cleanup_change_table"
+                                        + " @capture_instance=N'dbo_A', @low_water_mark=@newMin;"
+                                        + " IF sys.fn_cdc_get_min_lsn(N'dbo_A') <> @newMin"
+                                        + " THROW 50000, 'CDC cleanup did not advance the lower bound', 1;");
+                    }
                     lock.rollback();
                     lockHeld = false;
+
+                    if (expireLowerBound) {
+                        Container.ExecResult result = runningJob.get(180, TimeUnit.SECONDS);
+                        String output = result.getStdout() + result.getStderr();
+                        Assertions.assertNotEquals(0, result.getExitCode(), output);
+                        Assertions.assertTrue(
+                                (output + container.getServerLogs())
+                                        .contains("Cannot complete bounded backfill"),
+                                output);
+                        Assertions.assertEquals(
+                                0,
+                                querySql("SELECT COUNT(*) FROM " + sinkTable).get(0).get(0),
+                                "An expired interval must not release buffered snapshot rows");
+                        return;
+                    }
 
                     await().atMost(120, TimeUnit.SECONDS)
                             .untilAsserted(
@@ -734,7 +777,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
             }
         } finally {
             try {
-                if (job != null) {
+                if (job != null && !job.isDone()) {
                     try {
                         Container.ExecResult cancelled = container.cancelJob(jobId);
                         Assertions.assertEquals(0, cancelled.getExitCode(), cancelled.getStderr());

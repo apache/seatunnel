@@ -36,6 +36,9 @@ database-wide position, so changes in other tables can advance it while the sele
 idle. Once the complete, valid interval has been read, backfill completes even when that table has
 no changes in the interval; it does not require a new write to the selected table. Changes beyond
 HIGH remain for subsequent incremental streaming.
+If CDC cleanup or a capture instance replacement has made the required range unavailable, the
+snapshot split fails with an error. Its read position advances after the query, transaction cleanup,
+and completion notification have succeeded.
 
 :::tip
 
