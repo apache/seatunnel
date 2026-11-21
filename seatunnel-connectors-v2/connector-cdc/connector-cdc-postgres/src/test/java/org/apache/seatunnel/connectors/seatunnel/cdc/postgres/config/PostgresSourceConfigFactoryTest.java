@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
+import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSourceFactory;
@@ -36,7 +37,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 
 /** Tests the PG-base-backed PostgreSQL source config factory behavior that must stay compatible. */
@@ -221,6 +224,208 @@ public class PostgresSourceConfigFactoryTest {
         Assertions.assertEquals(
                 "true",
                 factory.create(0).getDbzConfiguration().getString("include.schema.changes"));
+    }
+
+    @Test
+    public void shouldNotInheritSslModeFromJdbcUrl() {
+        PostgresSourceConfigFactory factory = baseFactory();
+        factory.originUrl("jdbc:postgresql://127.0.0.1:5432/test?sslmode=verify-full");
+
+        Assertions.assertNull(
+                factory.create(0).getDbzConfiguration().getString("database.sslmode"));
+    }
+
+    @Test
+    public void shouldLeaveDatabaseSslModeUnsetWhenOptionIsUnset() {
+        PostgresSourceConfigFactory factory = baseFactory();
+
+        Assertions.assertNull(
+                factory.create(0).getDbzConfiguration().getString("database.sslmode"));
+    }
+
+    @Test
+    public void shouldKeepDebeziumSslModeWhenOptionIsUnset() {
+        PostgresSourceConfigFactory factory = baseFactory();
+        factory.originUrl("jdbc:postgresql://127.0.0.1:5432/test?sslmode=disable");
+        Properties dbzProperties = new Properties();
+        dbzProperties.setProperty("database.sslmode", "require");
+        factory.debeziumProperties(dbzProperties);
+
+        Assertions.assertEquals(
+                "require", factory.create(0).getDbzConfiguration().getString("database.sslmode"));
+    }
+
+    @Test
+    public void shouldLetExplicitSslModeOverrideDebeziumSslMode() {
+        PostgresSourceConfigFactory factory =
+                factoryFromReadonlyConfig(
+                        option(PostgresIncrementalSourceOptions.SSL_MODE.key(), "Require"));
+        Properties dbzProperties = new Properties();
+        dbzProperties.setProperty("database.sslmode", "disable");
+        factory.debeziumProperties(dbzProperties);
+
+        Assertions.assertEquals(
+                "require", factory.create(0).getDbzConfiguration().getString("database.sslmode"));
+    }
+
+    @Test
+    public void shouldRejectInvalidSslMode() {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                factoryFromReadonlyConfig(
+                                        option(
+                                                PostgresIncrementalSourceOptions.SSL_MODE.key(),
+                                                "foo")));
+
+        Assertions.assertTrue(exception.getMessage().contains("sslmode"));
+        Assertions.assertTrue(exception.getMessage().contains("foo"));
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("Valid values: disable, require, verify-ca, verify-full."));
+    }
+
+    @Test
+    public void shouldRejectAllowSslMode() {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                factoryFromReadonlyConfig(
+                                        option(
+                                                PostgresIncrementalSourceOptions.SSL_MODE.key(),
+                                                "allow")));
+
+        Assertions.assertTrue(exception.getMessage().contains("sslmode"));
+        Assertions.assertTrue(exception.getMessage().contains("allow"));
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("Valid values: disable, require, verify-ca, verify-full."));
+    }
+
+    @Test
+    public void shouldRejectPreferSslMode() {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                factoryFromReadonlyConfig(
+                                        option(
+                                                PostgresIncrementalSourceOptions.SSL_MODE.key(),
+                                                "prefer")));
+
+        Assertions.assertTrue(exception.getMessage().contains("sslmode"));
+        Assertions.assertTrue(exception.getMessage().contains("prefer"));
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("Valid values: disable, require, verify-ca, verify-full."));
+    }
+
+    @Test
+    public void shouldRejectInvalidPublicationAutocreateMode() {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                factoryFromReadonlyConfig(
+                                        option(
+                                                PostgresIncrementalSourceOptions
+                                                        .PUBLICATION_AUTOCREATE_MODE
+                                                        .key(),
+                                                "foo")));
+
+        Assertions.assertTrue(exception.getMessage().contains("publication.autocreate.mode"));
+        Assertions.assertTrue(exception.getMessage().contains("foo"));
+    }
+
+    @Test
+    public void shouldWritePublicationOptionsWhenSet() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(PostgresIncrementalSourceOptions.PUBLICATION_NAME.key(), "seatunnel_pub");
+        options.put(PostgresIncrementalSourceOptions.PUBLICATION_AUTOCREATE_MODE.key(), "disabled");
+        PostgresSourceConfigFactory factory = factoryFromReadonlyConfig(options);
+
+        Assertions.assertEquals(
+                "seatunnel_pub",
+                factory.create(0).getDbzConfiguration().getString("publication.name"));
+        Assertions.assertEquals(
+                "disabled",
+                factory.create(0).getDbzConfiguration().getString("publication.autocreate.mode"));
+    }
+
+    @Test
+    public void shouldOmitPublicationKeysWhenUnset() {
+        PostgresSourceConfigFactory factory = baseFactory();
+
+        Assertions.assertNull(
+                factory.create(0).getDbzConfiguration().getString("publication.name"));
+        Assertions.assertNull(
+                factory.create(0).getDbzConfiguration().getString("publication.autocreate.mode"));
+    }
+
+    @Test
+    public void shouldNotSetHeartbeatIntervalMsByDefault() {
+        PostgresSourceConfigFactory factory = baseFactory();
+
+        Assertions.assertNull(
+                factory.create(0).getDbzConfiguration().getString("heartbeat.interval.ms"));
+    }
+
+    @Test
+    public void shouldPassThroughDebeziumHeartbeatIntervalMs() {
+        PostgresSourceConfigFactory factory = baseFactory();
+        Properties dbzProperties = new Properties();
+        dbzProperties.setProperty("heartbeat.interval.ms", "10000");
+        factory.debeziumProperties(dbzProperties);
+
+        Assertions.assertEquals(
+                "10000",
+                factory.create(0).getDbzConfiguration().getString("heartbeat.interval.ms"));
+    }
+
+    @Test
+    public void shouldKeepPublicationOptionsAuthoritativeOverUserDebeziumProperties() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(PostgresIncrementalSourceOptions.PUBLICATION_NAME.key(), "seatunnel_pub");
+        options.put(PostgresIncrementalSourceOptions.PUBLICATION_AUTOCREATE_MODE.key(), "filtered");
+        PostgresSourceConfigFactory factory = factoryFromReadonlyConfig(options);
+        Properties dbzProperties = new Properties();
+        dbzProperties.setProperty("publication.name", "dbz_pub");
+        dbzProperties.setProperty("publication.autocreate.mode", "all_tables");
+        factory.debeziumProperties(dbzProperties);
+
+        Assertions.assertEquals(
+                "seatunnel_pub",
+                factory.create(0).getDbzConfiguration().getString("publication.name"));
+        Assertions.assertEquals(
+                "filtered",
+                factory.create(0).getDbzConfiguration().getString("publication.autocreate.mode"));
+    }
+
+    private PostgresSourceConfigFactory factoryFromReadonlyConfig(Map<String, Object> extra) {
+        Map<String, Object> options = new HashMap<>();
+        options.put(JdbcSourceOptions.USERNAME.key(), "user");
+        options.put(JdbcSourceOptions.PASSWORD.key(), "pwd");
+        options.putAll(extra);
+        PostgresSourceConfigFactory factory = new PostgresSourceConfigFactory();
+        factory.fromReadonlyConfig(ReadonlyConfig.fromMap(options));
+        factory.hostname("127.0.0.1");
+        factory.port(5432);
+        factory.originUrl("jdbc:postgresql://127.0.0.1:5432/test");
+        factory.databaseList("inventory");
+        factory.startupOptions(new StartupConfig(StartupMode.INITIAL, null, null, null));
+        factory.stopOptions(new StopConfig(StopMode.NEVER, null, null, null));
+        return factory;
+    }
+
+    private static Map<String, Object> option(String key, String value) {
+        Map<String, Object> options = new HashMap<>();
+        options.put(key, value);
+        return options;
     }
 
     private PostgresSourceConfigFactory baseFactory() {
