@@ -41,7 +41,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 import java.util.function.LongPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -174,7 +173,8 @@ public abstract class AbstractSavepointRescaleIT extends SeaTunnelEngineContaine
             long maxOffsetBeforeRestore = getMaxOffset(offsetsBeforeRestore);
             Assertions.assertFalse(
                     offsetsBeforeRestore.isEmpty(), "Expected committed offsets before restore");
-            Assertions.assertEquals(0, sourceJobFuture.get().getExitCode());
+            Container.ExecResult sourceResult = sourceJobFuture.get(2, TimeUnit.MINUTES);
+            Assertions.assertEquals(0, sourceResult.getExitCode(), sourceResult.getStderr());
 
             CompletableFuture<Container.ExecResult> restoreFuture =
                     CompletableFuture.supplyAsync(
@@ -201,12 +201,12 @@ public abstract class AbstractSavepointRescaleIT extends SeaTunnelEngineContaine
                             + restoredParallelism()
                             + ")");
             assertRestoreContinuesAfterBoundary(offsetsBeforeRestore, maxOffsetBeforeRestore);
-            assertNoOffsetDuplicates();
 
             stopJob(String.valueOf(jobId));
             awaitJobStatus(jobId, "CANCELED");
-            Container.ExecResult restoreResult = restoreFuture.get();
+            Container.ExecResult restoreResult = restoreFuture.get(2, TimeUnit.MINUTES);
             Assertions.assertEquals(0, restoreResult.getExitCode(), restoreResult.getStderr());
+            assertCommittedSequenceHasNoGapsOrDuplicates(maxOffsetBeforeRestore);
         } finally {
             FileUtils.deleteFile(sinkOutputDir());
         }
@@ -286,7 +286,7 @@ public abstract class AbstractSavepointRescaleIT extends SeaTunnelEngineContaine
      * post-restore offset count equals the pre-restore count plus exactly the newly-observed
      * offsets past that boundary. This only confirms the restored run continues without a gap in
      * count; it does not by itself rule out replayed (duplicate) offsets - {@link
-     * #assertNoOffsetDuplicates()} is the complementary check that directly enforces exactly-once.
+     * #assertCommittedSequenceHasNoGapsOrDuplicates(long)} is the complementary check that directly enforces exactly-once.
      */
     private void assertRestoreContinuesAfterBoundary(
             List<Long> offsetsBeforeRestore, long maxOffsetBeforeRestore) {
@@ -316,23 +316,22 @@ public abstract class AbstractSavepointRescaleIT extends SeaTunnelEngineContaine
     }
 
     /**
-     * Asserts that every offset written to the sink output directory (across the pre- and
-     * post-restore runs combined) was observed exactly once. A non-empty duplicate set indicates
-     * the restored run replayed data the original run had already committed, i.e. an exactly-once
-     * violation of the rescale-restore path.
+     * The single-split test source starts at offset zero and advances by one in all four fixture
+     * configurations. Check the stable output after stopping the restored job: no duplicate or gap
+     * is valid, and at least one record must be committed beyond the saved boundary.
      */
-    private void assertNoOffsetDuplicates() {
-        Map<Long, Long> counts =
-                readObservedOffsets().stream()
-                        .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
-        List<Long> duplicates =
-                counts.entrySet().stream()
-                        .filter(entry -> entry.getValue() > 1)
-                        .map(Map.Entry::getKey)
-                        .collect(Collectors.toList());
+    private void assertCommittedSequenceHasNoGapsOrDuplicates(long maxOffsetBeforeRestore) {
+        List<Long> sortedOffsets = new ArrayList<>(readObservedOffsets());
+        Collections.sort(sortedOffsets);
         Assertions.assertTrue(
-                duplicates.isEmpty(),
-                "Found duplicate offsets (exactly-once violated): " + duplicates);
+                getMaxOffset(sortedOffsets) > maxOffsetBeforeRestore,
+                "Expected committed offsets beyond savepoint boundary " + maxOffsetBeforeRestore);
+        for (int expectedOffset = 0; expectedOffset < sortedOffsets.size(); expectedOffset++) {
+            Assertions.assertEquals(
+                    (long) expectedOffset,
+                    sortedOffsets.get(expectedOffset).longValue(),
+                    "Missing or duplicate offset at position " + expectedOffset);
+        }
     }
 
     private long getMaxOffset(List<Long> offsets) {
