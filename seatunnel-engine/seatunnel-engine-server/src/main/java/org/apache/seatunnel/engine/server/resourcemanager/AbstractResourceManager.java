@@ -184,7 +184,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
                         + event.getMember().getAddress());
         Address workerAddress = event.getMember().getAddress();
         registerWorker.remove(workerAddress);
-        fixedSlotReservations.releaseWorker(workerAddress);
+        releaseFixedSlotReservationsForWorker(workerAddress);
     }
 
     @Override
@@ -413,27 +413,44 @@ public abstract class AbstractResourceManager implements ResourceManager {
      * Reserves one matching fixed slot on {@code worker}. Caller must hold {@link
      * #fixedSlotReservationLock()}.
      *
-     * @return the reserved slot, or {@code null} when no matching slot is free to reserve
+     * @return the reservation (slot + ownership token), or {@code null} when no matching slot is
+     *     free to reserve
      */
-    SlotProfile reserveFixedSlot(WorkerProfile worker, ResourceProfile required) {
+    FixedSlotReservations.FixedSlotReservation reserveFixedSlot(
+            WorkerProfile worker, ResourceProfile required) {
         return fixedSlotReservations.tryReserve(worker, required, System.nanoTime());
     }
 
-    /** Drops the in-flight lease for one slot. Idempotent. */
-    void releaseFixedSlotReservation(SlotProfile reservedSlot) {
-        if (reservedSlot == null) {
-            return;
-        }
-        fixedSlotReservations.release(reservedSlot.getWorker(), reservedSlot.getSlotID());
+    /**
+     * Drops the in-flight lease only when {@code reservation} still owns it. Idempotent for a late
+     * or duplicate callback: a replacement lease at the same key is left untouched.
+     */
+    void releaseFixedSlotReservation(FixedSlotReservations.FixedSlotReservation reservation) {
+        fixedSlotReservations.release(reservation);
     }
 
     boolean isFixedSlotReserved(Address worker, int slotId) {
         return fixedSlotReservations.isReserved(worker, slotId, System.nanoTime());
     }
 
-    /** Test hook. A deadline in the past is treated as not reserved on the next read. */
-    void reserveFixedSlotUntil(Address worker, int slotId, long untilNanos) {
-        fixedSlotReservations.reserveUntil(worker, slotId, untilNanos);
+    /**
+     * Test hook. Installs a lease with an explicit deadline and returns its ownership token. A
+     * deadline in the past is treated as not reserved on the next read.
+     */
+    FixedSlotReservations.FixedSlotReservation reserveFixedSlotUntil(
+            Address worker, int slotId, long untilNanos) {
+        return fixedSlotReservations.reserveUntil(worker, slotId, untilNanos);
+    }
+
+    /** Test hook. Rewrites a lease deadline without changing its ownership token. */
+    void overrideFixedSlotReservationDeadline(
+            FixedSlotReservations.FixedSlotReservation reservation, long untilNanos) {
+        fixedSlotReservations.overrideDeadline(reservation, untilNanos);
+    }
+
+    /** Same membership-removal path as {@link #memberRemoved}. */
+    void releaseFixedSlotReservationsForWorker(Address worker) {
+        fixedSlotReservations.releaseWorker(worker);
     }
 
     int fixedSlotReservationCount() {

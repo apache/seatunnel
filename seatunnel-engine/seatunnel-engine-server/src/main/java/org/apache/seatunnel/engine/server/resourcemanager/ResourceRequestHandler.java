@@ -202,7 +202,7 @@ public class ResourceRequestHandler {
                 // request slot to member
                 CompletableFuture<SlotAndWorkerProfile> internalCompletableFuture =
                         singleResourceRequestToMember(
-                                index, r, selection.workerProfile.get(), selection.reservedSlot);
+                                index, r, selection.workerProfile.get(), selection.reservation);
                 allRequestFuture.add(internalCompletableFuture);
             } else {
                 // Leave the original index unassigned so retry or dynamic-worker provisioning can
@@ -227,12 +227,12 @@ public class ResourceRequestHandler {
             if (!workerProfile.isPresent() || workerProfile.get().isDynamicSlot()) {
                 return new WorkerSelection(workerProfile, null);
             }
-            SlotProfile reservedSlot =
+            FixedSlotReservations.FixedSlotReservation reservation =
                     resourceManager.reserveFixedSlot(workerProfile.get(), resourceProfile);
-            if (reservedSlot == null) {
+            if (reservation == null) {
                 return new WorkerSelection(Optional.empty(), null);
             }
-            return new WorkerSelection(workerProfile, reservedSlot);
+            return new WorkerSelection(workerProfile, reservation);
         }
     }
 
@@ -268,13 +268,16 @@ public class ResourceRequestHandler {
     }
 
     private CompletableFuture<SlotAndWorkerProfile> singleResourceRequestToMember(
-            int i, ResourceProfile r, WorkerProfile workerProfile, SlotProfile reservedSlot) {
+            int i,
+            ResourceProfile r,
+            WorkerProfile workerProfile,
+            FixedSlotReservations.FixedSlotReservation reservation) {
         long invocationStartNanos = System.nanoTime();
         AtomicBoolean reservationReleased = new AtomicBoolean(false);
         Runnable releaseReservation =
                 () -> {
                     if (reservationReleased.compareAndSet(false, true)) {
-                        resourceManager.releaseFixedSlotReservation(reservedSlot);
+                        resourceManager.releaseFixedSlotReservation(reservation);
                     }
                 };
         final CompletableFuture<SlotAndWorkerProfile> future;
@@ -524,11 +527,13 @@ public class ResourceRequestHandler {
 
     private static final class WorkerSelection {
         private final Optional<WorkerProfile> workerProfile;
-        private final SlotProfile reservedSlot;
+        private final FixedSlotReservations.FixedSlotReservation reservation;
 
-        private WorkerSelection(Optional<WorkerProfile> workerProfile, SlotProfile reservedSlot) {
+        private WorkerSelection(
+                Optional<WorkerProfile> workerProfile,
+                FixedSlotReservations.FixedSlotReservation reservation) {
             this.workerProfile = workerProfile;
-            this.reservedSlot = reservedSlot;
+            this.reservation = reservation;
         }
     }
 }
