@@ -89,3 +89,15 @@ Add a new directory under `scenarios/` with these files:
 CDC scenarios should keep their database setup local to the scenario or a
 dedicated helper script, and should avoid broadening the generic runner unless
 the same hook is useful for more than one scenario.
+
+## Compatibility Contract
+
+The upgrade compatibility workflow asserts the following guarantee:
+
+> A savepoint created by SeaTunnel version N-1 (latest stable release) can be
+> restored by the current `dev` branch build, and the job will resume processing
+> and produce correct output as verified by the Assert sink.
+
+For the full design document, scenario-selection strategy, trigger policy, and
+failure-classification rules, see the
+[Upgrade Compatibility STIP](../../docs/en/design/upgrade-compatibility-stip.md).
