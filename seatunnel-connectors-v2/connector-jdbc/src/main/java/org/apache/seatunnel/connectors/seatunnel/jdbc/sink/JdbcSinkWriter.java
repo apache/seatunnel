@@ -49,7 +49,6 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
-import java.sql.Savepoint;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -65,12 +64,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     private final int batchSize;
     private final Object batchLock = new Object();
     private List<SeaTunnelRow> pendingRows;
-    // Marks the last auto-flushed batch inside the open JDBC transaction so a later row-level
-    // failure can roll back only the failed batch without moving the durable commit boundary.
-    private Savepoint lastSuccessfulBatchSavepoint;
-    // Flush sequence of the shared transaction when lastSuccessfulBatchSavepoint was set, so a
-    // rollback to it can tell whether another writer on the same connection flushed afterwards.
-    private long lastSuccessfulBatchSavepointSequence;
     // Set once rows were reported as written at a savepoint boundary but are not committed yet. A
     // full rollback then discards rows that were already reported, so it must not count as
     // reported work.
@@ -509,7 +502,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
 
     private boolean markSuccessfulAutoFlushBoundaryIfNeeded() throws IOException {
         if (commitOnFlush || resolveSinkAutoCommit()) {
-            lastSuccessfulBatchSavepoint = null;
             return true;
         }
         if (!supportsSavepoints()) {
@@ -517,7 +509,10 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             return false;
         }
         try {
-            moveSavepointBoundary(connectionProvider.getConnection());
+            // The boundary marks the last good batch inside the open JDBC transaction, so a later
+            // row-level failure can roll back only the failed batch. It is shared by every writer
+            // on the connection.
+            outputFormat.moveSavepointBoundary(connectionProvider.getConnection());
             reportedUncommittedRows = true;
             return true;
         } catch (SQLException e) {
@@ -526,21 +521,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                     "set savepoint failed," + e.getMessage(),
                     e);
         }
-    }
-
-    /**
-     * Replaces the savepoint boundary with a new savepoint at the current end of the transaction.
-     *
-     * <p>The previous savepoint is released first. In databases such as SQLite and PostgreSQL,
-     * releasing a savepoint also destroys every savepoint taken after it, so releasing it after
-     * taking the new one would destroy the new one too, and a later rollback to it would fail.
-     */
-    private void moveSavepointBoundary(Connection connection) throws SQLException {
-        Savepoint previousSavepoint = lastSuccessfulBatchSavepoint;
-        lastSuccessfulBatchSavepoint = null;
-        releaseSavepointSilently(connection, previousSavepoint);
-        lastSuccessfulBatchSavepoint = connection.setSavepoint();
-        lastSuccessfulBatchSavepointSequence = outputFormat.currentFlushSequence();
     }
 
     private boolean supportsSavepoints() {
@@ -569,19 +549,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                         + "auto-flushed rows pending until checkpoint commit and fall back to full "
                         + "transaction rollback on row-level write failure. table={}",
                 sinkTablePath);
-    }
-
-    // Releasing an old savepoint is a best-effort cleanup. Some drivers invalidate savepoints after
-    // rollback/commit and should not fail the writer just because cleanup is no longer possible.
-    private void releaseSavepointSilently(Connection connection, Savepoint savepoint) {
-        if (savepoint == null) {
-            return;
-        }
-        try {
-            connection.releaseSavepoint(savepoint);
-        } catch (SQLException e) {
-            log.debug("Failed to release JDBC savepoint after moving row-error batch boundary.", e);
-        }
     }
 
     private void reportWriteSuccess(List<SeaTunnelRow> rows) throws IOException {
@@ -744,7 +711,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         if (commitOnFlush) {
             return;
         }
-        moveSavepointBoundary(connectionProvider.getConnection());
+        outputFormat.moveSavepointBoundary(connectionProvider.getConnection());
     }
 
     /** Clears and rolls back one failed replayed row; fails the writer if that is not possible. */
@@ -768,7 +735,8 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     }
 
     /**
-     * Rolls back the failed batch: to the last savepoint boundary when there is one, otherwise the
+     * Rolls back the failed batch: to the savepoint boundary of the shared transaction when there
+     * is one (batches up to it stay in the open transaction, still uncommitted), otherwise the
      * whole transaction.
      *
      * @return false when the connection is in auto-commit mode and nothing was rolled back
@@ -778,11 +746,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         if (connection.getAutoCommit()) {
             return false;
         }
-        if (lastSuccessfulBatchSavepoint != null) {
-            // Batches up to the savepoint stay in the open transaction, still uncommitted.
-            connection.rollback(lastSuccessfulBatchSavepoint);
-            outputFormat.markRolledBackToSavepoint(lastSuccessfulBatchSavepointSequence);
-        } else {
+        if (!outputFormat.rollbackToSavepointBoundary(connection)) {
             connection.rollback();
             // The failed batch is reported to the row-error collector or written again. Rows this
             // writer already reported as written, and batches other writers flushed on the same
@@ -790,7 +754,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             outputFormat.markRolledBack(connection, !reportedUncommittedRows);
             reportedUncommittedRows = false;
         }
-        lastSuccessfulBatchSavepoint = null;
         return true;
     }
 
@@ -806,7 +769,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                 outputFormat.markCommitFailed(commitError);
                 throw commitError;
             }
-            lastSuccessfulBatchSavepoint = null;
             reportedUncommittedRows = false;
             outputFormat.markCommitted(connection);
         }
@@ -855,8 +817,16 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                     if (!isRowLevelDataError(e)) {
                         throwAsIoException(e);
                     }
-                    reportWriteSuccess(
-                            handleRowLevelBatchFailure(RowErrorPhase.FLUSH, null, batchRows, e));
+                    List<SeaTunnelRow> replayedRows =
+                            handleRowLevelBatchFailure(RowErrorPhase.FLUSH, null, batchRows, e);
+                    try {
+                        // A timer flush commits what it flushed, also after a handled row error.
+                        commitIfNeeded();
+                    } catch (Exception commitError) {
+                        rollbackIfNeeded("timer flush after row error");
+                        throwAsIoException(commitError);
+                    }
+                    reportWriteSuccess(replayedRows);
                 }
             }
             return;

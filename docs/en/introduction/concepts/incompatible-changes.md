@@ -60,7 +60,9 @@ You need to check this document before you upgrade to related version.
   every row of the failed batch was handed to the error handler and none of them was written. With
   checkpointing, a rollback to the latest savepoint now succeeds after two or more flushed batches;
   previously it could fail with "no such savepoint" (for example in SQLite and PostgreSQL), and the
-  row error failed the job.
+  row error failed the job. In a multi-table sink, the tables that share a connection now also share
+  this savepoint, so a row error is still handled after another table moved the savepoint or
+  committed the transaction, and the rollback no longer discards a batch that another table flushed.
 - **Migration**: no configuration change is required. Error tables and logs now hold only the failing
   rows, so a process that backfilled the valid rows of a failed batch from the error table no longer
   needs to. Auto-commit connections, drivers without savepoint support while checkpointing is enabled,

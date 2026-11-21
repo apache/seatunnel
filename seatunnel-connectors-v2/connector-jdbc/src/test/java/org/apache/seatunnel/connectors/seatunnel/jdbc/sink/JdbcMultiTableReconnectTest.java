@@ -536,6 +536,172 @@ class JdbcMultiTableReconnectTest {
     }
 
     /**
+     * Both tables keep a row-error savepoint on the shared connection. In SQLite, as in PostgreSQL,
+     * releasing a savepoint also destroys the savepoints taken after it, so table A moving its
+     * boundary must not leave table B with a destroyed savepoint: table B's next row-level error
+     * must still keep its good rows and report only the failing row.
+     */
+    @Test
+    void sharedQueueBoundaryMovedByOneTableStillIsolatesTheOtherTablesRowError() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("shared-queue-two-boundaries.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        List<RowErrorEvent> rowErrors = new ArrayList<>();
+        TestSinkWriterContext context = new TestSinkWriterContext(rowErrors::add);
+        TestJdbcSinkWriter tableA =
+                createWriter(jdbcUrl, "active_table", dialect, manualCommit(), context);
+        TestJdbcSinkWriter tableB =
+                createWriter(jdbcUrl, "idle_table", dialect, manualCommit(), context);
+        try {
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 10, "ten"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 11, "eleven"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 4, "fourth"));
+
+            dialect.slot().failRowWith(13, new SQLException("constraint violated", "23000"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 12, "twelve"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 13, "thirteen"));
+            assertEquals(1, rowErrors.size());
+            assertEquals(13, rowErrors.get(0).getRow().getField(0));
+            assertFalse(dialect.transactionStateManager.isPoisoned());
+
+            tableA.prepareCommit(1L);
+            tableB.prepareCommit(1L);
+        } finally {
+            closeQuietly(tableB);
+            closeQuietly(tableA);
+        }
+
+        assertEquals(
+                Arrays.asList("1:first", "2:second", "3:third", "4:fourth"),
+                queryRows(jdbcUrl, "active_table"));
+        assertEquals(
+                Arrays.asList("10:ten", "11:eleven", "12:twelve"),
+                queryRows(jdbcUrl, "idle_table"));
+    }
+
+    /**
+     * A commit by one table ends the shared transaction and every savepoint in it. Table B's
+     * savepoint from before table A's timer-flush commit must not be used for its next row-level
+     * error.
+     */
+    @Test
+    void sharedQueueCommitByOneTableStillIsolatesTheOtherTablesRowError() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("shared-queue-commit-boundary.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        List<RowErrorEvent> rowErrors = new ArrayList<>();
+        TestSinkWriterContext context = new TestSinkWriterContext(rowErrors::add);
+        TestJdbcSinkWriter tableA =
+                createWriter(jdbcUrl, "active_table", dialect, manualCommit(), context);
+        TestJdbcSinkWriter tableB =
+                createWriter(jdbcUrl, "idle_table", dialect, manualCommit(), context);
+        try {
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 10, "ten"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 11, "eleven"));
+            // Table A's timer flush commits the shared transaction, table B's rows included.
+            tableA.timerFlush();
+            assertEquals(Arrays.asList("10:ten", "11:eleven"), queryRows(jdbcUrl, "idle_table"));
+
+            dialect.slot().failRowWith(13, new SQLException("constraint violated", "23000"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 12, "twelve"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 13, "thirteen"));
+            assertEquals(1, rowErrors.size());
+            assertEquals(13, rowErrors.get(0).getRow().getField(0));
+            assertFalse(dialect.transactionStateManager.isPoisoned());
+
+            tableA.prepareCommit(1L);
+            tableB.prepareCommit(1L);
+        } finally {
+            closeQuietly(tableB);
+            closeQuietly(tableA);
+        }
+
+        assertEquals(Arrays.asList("1:first", "2:second"), queryRows(jdbcUrl, "active_table"));
+        assertEquals(
+                Arrays.asList("10:ten", "11:eleven", "12:twelve"),
+                queryRows(jdbcUrl, "idle_table"));
+    }
+
+    /**
+     * A timer flush commits what it flushed. When its batch fails with a row-level error, the rows
+     * written again one by one must be committed before the timer flush returns, as without the
+     * error, so they do not stay invisible while the input is idle.
+     */
+    @Test
+    void timerFlushCommitsTheRowsWrittenAgainAfterARowError() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("timer-flush-row-error.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        List<RowErrorEvent> rowErrors = new ArrayList<>();
+        TestJdbcSinkWriter writer =
+                createWriter(
+                        jdbcUrl,
+                        "active_table",
+                        dialect,
+                        timerFlushBatch(),
+                        new TestSinkWriterContext(rowErrors::add));
+        try {
+            writer.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            dialect.slot().failRowWith(2, new SQLException("constraint violated", "23000"));
+
+            writer.timerFlush();
+            assertEquals(1, rowErrors.size());
+            assertEquals(2, rowErrors.get(0).getRow().getField(0));
+            assertEquals(RowErrorPhase.FLUSH, rowErrors.get(0).getPhase());
+            assertEquals(Arrays.asList("1:first"), queryRows(jdbcUrl, "active_table"));
+            assertFalse(dialect.transactionStateManager.hasPendingOrLostWork());
+        } finally {
+            closeQuietly(writer);
+        }
+        assertEquals(Arrays.asList("1:first"), queryRows(jdbcUrl, "active_table"));
+    }
+
+    /** A commit failure after a handled row error fails the timer flush that wrote the rows. */
+    @Test
+    void timerFlushFailsWhenTheCommitAfterARowErrorFails() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("timer-flush-commit-failure.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        List<RowErrorEvent> rowErrors = new ArrayList<>();
+        TestJdbcSinkWriter writer =
+                createWriter(
+                        jdbcUrl,
+                        "active_table",
+                        dialect,
+                        timerFlushBatch(),
+                        new TestSinkWriterContext(rowErrors::add));
+        try {
+            writer.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            dialect.slot().failRowWith(2, new SQLException("constraint violated", "23000"));
+            SQLException commitFailure = new SQLException("commit failed", "08006");
+            dialect.slot().rollBackOnNextCommit(commitFailure);
+
+            IOException failure = assertThrows(IOException.class, writer::timerFlush);
+            assertTrue(hasCause(failure, commitFailure), "Keep the original commit exception");
+            assertEquals(1, rowErrors.size());
+            assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+            assertThrows(Exception.class, () -> writer.prepareCommit(1L));
+        } finally {
+            closeQuietly(writer);
+        }
+        assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+    }
+
+    // A batch that only a timer flush or checkpoint flushes.
+    private static Map<String, Object> timerFlushBatch() {
+        Map<String, Object> options = manualCommit();
+        options.put("batch_size", 3);
+        return options;
+    }
+
+    /**
      * Both tables flush a batch into the shared transaction. Table A's next batch then fails with
      * an error that is neither row-level nor a lost connection, so its checkpoint fails and rolls
      * the shared transaction back, discarding table B's batch.

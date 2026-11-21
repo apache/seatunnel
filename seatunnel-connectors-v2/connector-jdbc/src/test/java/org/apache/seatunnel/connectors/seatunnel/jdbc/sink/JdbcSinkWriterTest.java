@@ -166,7 +166,7 @@ class JdbcSinkWriterTest {
 
         verify(fixture.connection, times(1)).rollback(fixture.savepoint);
         verify(fixture.connection, never()).rollback();
-        Assertions.assertNull(getLastSuccessfulBatchSavepoint(writer));
+        Assertions.assertFalse(hasSavepointBoundary(writer));
     }
 
     @Test
@@ -182,7 +182,7 @@ class JdbcSinkWriterTest {
         invokeCommitIfNeeded(writer);
 
         verify(fixture.connection, times(1)).commit();
-        Assertions.assertNull(getLastSuccessfulBatchSavepoint(writer));
+        Assertions.assertFalse(hasSavepointBoundary(writer));
     }
 
     @Test
@@ -1259,10 +1259,12 @@ class JdbcSinkWriterTest {
         return (List<SeaTunnelRow>) field.get(writer);
     }
 
-    private static Savepoint getLastSuccessfulBatchSavepoint(JdbcSinkWriter writer)
-            throws Exception {
-        Field field = JdbcSinkWriter.class.getDeclaredField("lastSuccessfulBatchSavepoint");
-        field.setAccessible(true);
-        return (Savepoint) field.get(writer);
+    private static boolean hasSavepointBoundary(JdbcSinkWriter writer) throws Exception {
+        Field outputFormatField = AbstractJdbcSinkWriter.class.getDeclaredField("outputFormat");
+        outputFormatField.setAccessible(true);
+        Object outputFormat = outputFormatField.get(writer);
+        Field stateField = JdbcOutputFormat.class.getDeclaredField("transactionStateManager");
+        stateField.setAccessible(true);
+        return ((JdbcTransactionStateManager) stateField.get(outputFormat)).hasBoundary();
     }
 }

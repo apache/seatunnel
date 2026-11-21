@@ -302,7 +302,8 @@ A batch with a single record is not written again, because that record is the fa
 
 - In a multi-table JDBC sink with checkpointing and a manual-commit connection (`auto_commit = false`, or Oracle):
   - The tables written through the same queue share one connection and one transaction.
-  - Rolling back a failed batch (to the last savepoint, or the whole transaction) can therefore also discard a batch that another table flushed.
+  - They also share the savepoint of row-level error handling. It is taken after the last good batch of any of these tables, so rolling a failed batch back to it discards only that batch.
+  - Rolling back the whole transaction (when the driver does not support savepoints, or after a second failed batch with no good batch in between) can therefore also discard a batch that another table flushed.
   - When that happens the sink cannot drop only the bad batch: no table on that connection commits again and the job recovers from the last checkpoint.
   - A row-level error can therefore fail the job even with `batch_size = 1`.
   - Reducing `batch_size` limits the size of the failed batch, but does not isolate tables sharing a transaction or prevent cross-table rollback.

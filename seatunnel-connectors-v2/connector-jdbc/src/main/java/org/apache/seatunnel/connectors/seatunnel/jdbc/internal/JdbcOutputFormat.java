@@ -437,29 +437,35 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     /**
-     * Sequence number of the latest flush on this writer's transaction. The writer stores it with a
-     * savepoint, so a later rollback to that savepoint can tell whether another writer flushed
-     * after it.
+     * Replaces the savepoint boundary of row-level error handling with a new savepoint at the
+     * current end of the transaction of {@code connection}. The boundary is shared by every writer
+     * on the connection, so no writer keeps a savepoint that another writer's release, rollback or
+     * commit destroyed.
      *
      * <p>Part of the manual-commit protocol driven by {@code JdbcSinkWriter}. Other writers, for
      * example the XA writer, must not call it.
+     *
+     * @param connection the connection whose transaction gets the new boundary
+     * @throws SQLException if the savepoint cannot be set
      */
-    public long currentFlushSequence() {
-        return transactionStateManager.currentFlushSequence();
+    public void moveSavepointBoundary(Connection connection) throws SQLException {
+        transactionStateManager.moveBoundary(connection);
     }
 
     /**
-     * Called by the writer after it rolled back to a savepoint taken at {@code savepointSequence}.
-     * Work flushed before the savepoint stays pending.
+     * Rolls {@code connection} back to the savepoint boundary, if it has one. Work flushed before
+     * the boundary stays pending; if another writer flushed after it, no writer on the connection
+     * may commit in this checkpoint interval any more.
      *
      * <p>Part of the manual-commit protocol driven by {@code JdbcSinkWriter}. Other writers, for
      * example the XA writer, must not call it.
      *
-     * @param savepointSequence the value of {@link #currentFlushSequence()} when the savepoint was
-     *     set
+     * @param connection the connection to roll back
+     * @return false when there is no boundary and nothing was rolled back
+     * @throws SQLException if the rollback fails
      */
-    public void markRolledBackToSavepoint(long savepointSequence) {
-        transactionStateManager.markRolledBackToSavepoint(connectionProvider, savepointSequence);
+    public boolean rollbackToSavepointBoundary(Connection connection) throws SQLException {
+        return transactionStateManager.rollbackToBoundary(connectionProvider, connection);
     }
 
     /**
