@@ -97,3 +97,14 @@ Detailed explanation of configuration parameters:
 - connector-jar-storage-path: The local storage path of the user-defined connector jar package on the Zeta engine.
 - connector-jar-cleanup-task-interval: Zeta engine connector jar package scheduled cleanup task interval, the default is 3600 seconds.
 - connector-jar-expiry-time: The expiration time of the connector jar package. The default is 600 seconds.
+
+### Client and worker installation paths
+
+Local jar URLs beneath the client's `SEATUNNEL_HOME` are sent using a logical installation
+root and resolved beneath each worker's own `SEATUNNEL_HOME`. Keep the same relative jar layout
+and compatible jar versions on the client and every worker. Jar names containing spaces or
+Unicode are preserved. URLs outside the installation root and non-file URLs are unchanged.
+
+Use client and server versions that both support this logical-root representation. Existing
+absolute jar URLs, including URLs in older saved state, remain absolute and still require the
+original path to be available; this feature does not relocate historical external jar paths.

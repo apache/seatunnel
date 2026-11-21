@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.e2e;
 
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.utils.PathResolver;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
@@ -93,6 +95,9 @@ public class TaskDeploymentClassLoaderLeakIT {
      * reused here because it is a genuine deserialization failure - not a synthetically thrown
      * exception - and is the only production-realistic way to force a specific task in a group to
      * fail deserialization on demand.
+     *
+     * <p>Alternating attempts use logical installation-root URLs with encoded jar names, ensuring
+     * failed worker-side deployment releases the resolved loader key without mutating descriptors.
      *
      * <p>Each attempt uses its own fresh jobId, per-task jars and {@link TaskGroupLocation}, so a
      * live classloader still present after an attempt can only be explained by that attempt's own
@@ -176,16 +181,35 @@ public class TaskDeploymentClassLoaderLeakIT {
             int attempt,
             int baselineClassLoaderCount)
             throws IOException {
-        File firstTaskJar = File.createTempFile("deploy-failure-" + attempt + "-first", ".jar");
-        File secondTaskJar = File.createTempFile("deploy-failure-" + attempt + "-second", ".jar");
-        File poisonTaskJar = File.createTempFile("deploy-failure-" + attempt + "-poison", ".jar");
+        boolean logicalPath = attempt % 2 != 0;
+        String jarPrefix = logicalPath ? "deploy failure-插件-" : "deploy-failure-";
+        File firstTaskJar = File.createTempFile(jarPrefix + attempt + "-first", ".jar");
+        File secondTaskJar = File.createTempFile(jarPrefix + attempt + "-second", ".jar");
+        File poisonTaskJar = File.createTempFile(jarPrefix + attempt + "-poison", ".jar");
         firstTaskJar.deleteOnExit();
         secondTaskJar.deleteOnExit();
         poisonTaskJar.deleteOnExit();
+        String previousHome = Common.getSeaTunnelHome();
         try {
+            Common.setSeaTunnelHome(firstTaskJar.getParent());
             Set<URL> firstTaskJars = Collections.singleton(firstTaskJar.toURI().toURL());
             Set<URL> secondTaskJars = Collections.singleton(secondTaskJar.toURI().toURL());
             Set<URL> poisonTaskJars = Collections.singleton(poisonTaskJar.toURI().toURL());
+            Set<URL> firstDescriptor =
+                    logicalPath
+                            ? Collections.singleton(
+                                    PathResolver.replacePathWithEnv(firstTaskJar.toURI().toURL()))
+                            : firstTaskJars;
+            Set<URL> secondDescriptor =
+                    logicalPath
+                            ? Collections.singleton(
+                                    PathResolver.replacePathWithEnv(secondTaskJar.toURI().toURL()))
+                            : secondTaskJars;
+            Set<URL> poisonDescriptor =
+                    logicalPath
+                            ? Collections.singleton(
+                                    PathResolver.replacePathWithEnv(poisonTaskJar.toURI().toURL()))
+                            : poisonTaskJars;
             // Distinct per attempt so a released reference from this attempt can never be
             // mistaken for state a previous attempt already cleaned up.
             long attemptJobId = System.currentTimeMillis() * 1000 + attempt;
@@ -209,12 +233,16 @@ public class TaskDeploymentClassLoaderLeakIT {
                                     // deserializing the third task, after the first two tasks'
                                     // classloaders have already been acquired above.
                                     nodeEngine.getSerializationService().toData("not a task")),
-                            Arrays.asList(firstTaskJars, secondTaskJars, poisonTaskJars),
+                            Arrays.asList(firstDescriptor, secondDescriptor, poisonDescriptor),
                             Arrays.asList(emptySet(), emptySet(), emptySet()));
 
             TaskDeployState taskDeployState =
                     taskExecutionService.deployTask(taskGroupImmutableInformation);
 
+            Assertions.assertEquals(
+                    Arrays.asList(firstDescriptor, secondDescriptor, poisonDescriptor),
+                    taskGroupImmutableInformation.getJars(),
+                    "Worker deployment must preserve immutable logical jar descriptors");
             Assertions.assertFalse(
                     taskDeployState.isSuccess(),
                     "Deployment attempt "
@@ -237,6 +265,7 @@ public class TaskDeploymentClassLoaderLeakIT {
                             + attempt
                             + "; growth here means a previous attempt's classloader leaked");
         } finally {
+            Common.setSeaTunnelHome(previousHome);
             firstTaskJar.delete();
             secondTaskJar.delete();
             poisonTaskJar.delete();

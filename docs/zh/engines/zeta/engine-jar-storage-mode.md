@@ -98,3 +98,13 @@ seatunnel:
 - connector-jar-storage-path: 在 Zeta 引擎上用户自定义连接器 Jar 包的本地存储路径。
 - connector-jar-cleanup-task-interval: Zeta 引擎连接器 Jar 包定时清理任务的间隔时间，默认为 3600 秒。
 - connector-jar-expiry-time: 连接器 Jar 包的过期时间，默认为 600 秒。
+
+### 客户端与 Worker 的安装路径
+
+客户端 `SEATUNNEL_HOME` 下的本地 jar URL 会使用逻辑安装根目录传输，并在每个 Worker
+上根据该节点自己的 `SEATUNNEL_HOME` 解析。客户端和所有 Worker 必须保持一致的 jar
+相对目录结构及兼容版本；包含空格或 Unicode 的 jar 文件名会保留。安装根目录以外的
+URL 和非 file URL 不会改写。
+
+客户端与服务端必须都支持此逻辑根目录表示。现有绝对 jar URL（包括旧保存状态中的 URL）
+仍按绝对路径处理，需要保留原路径的可访问性；本功能不会迁移历史外部 jar 路径。
