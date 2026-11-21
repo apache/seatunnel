@@ -269,50 +269,41 @@ JDBC is currently the main Connector using row-level error handling capability.
 - `SQLState` starting with `22` — data exception (such as data too long, type mismatch);
 - `SQLState` starting with `23` — integrity constraint exception (such as primary key/unique key conflict);
 
-It will treat it as a **row-level error** when Sink row-error handling is enabled. In that mode, SQLState `22`/`23` failures leave the JDBC retry loop immediately and are handed to the error handler with the current batch. When Sink row-error handling is not enabled, JDBC keeps the normal `max_retries` behavior and the write failure remains visible to the job. Other SQL failures are treated as **system-level errors** and directly fail the job.
+It will treat it as a **row-level error** when Sink row-error handling is enabled. In that mode, SQLState `22`/`23` failures leave the JDBC retry loop immediately, and the failed batch is handled as described in the next section. When Sink row-error handling is not enabled, JDBC keeps the normal `max_retries` behavior and the write failure remains visible to the job. Other SQL failures are treated as **system-level errors** and directly fail the job.
 
 For other Sinks, if `SupportRowLevelErrorClassifier` interface is not implemented, the engine will more conservatively treat exceptions as system-level errors: even if `sink_error_handler` is configured, such exceptions will not be bypassed as row-level errors, but will directly fail the job.
 
 ### What Happens to Batch Processing When Row-Level Error Occurs?
 
-JDBC Sink typically puts multiple records in a JDBC batch and sends them to the database at once.
+JDBC Sink typically puts multiple records in a JDBC batch and sends them to the database at once. When the batch fails with a row-level error, the error does not tell which record caused it, so the Connector first clears the batch and rolls it back. What happens next depends on how the sink connection commits:
 
-When a **row-level error** occurs while writing a record:
+- **Manual commit** (`auto_commit = false`, or Oracle, which always uses manual commit), when the JDBC driver supports savepoints or checkpointing is disabled:
+  - After the rollback, no record of the failed batch is in the database.
+  - The Connector writes the records again one by one, in their original order. A record that fails on its own is rolled back alone (to a savepoint taken before it, or in its own transaction when checkpointing is disabled) and handed to the error handler with its own error.
+  - The other records of the batch are written and committed as usual.
+  - Example: for a batch with `id = 1`, a second `id = 1` (duplicate key) and `id = 2`, only the duplicate is handed to the error handler, and both other records are written.
+- **Auto-commit** (`auto_commit = true`, the default):
+  - Depending on the database and driver, records of the failed batch can already be committed. Writing them again could write a record twice, so the Connector does not do it.
+  - Every record of the failed batch is handed to the error handler with the batch error, including valid records and records that can already be in the target table.
+- **Manual commit without savepoint support while checkpointing is enabled**, or when the rollback also discarded a batch of another table (see the multi-table note below):
+  - The records cannot be told apart either. Every record that this writer has not committed yet is handed to the error handler, and none of them is written.
 
-- The Connector will catch this exception;
-- If it determines this is a "row-level data error", it will call a helper method to **clear the current JDBC batch in memory**.
-
-This means:
-
-- All records in the current batch that "have not yet been actually sent to the database but have been added to the batch" will be cleared together;
-- This bad record will be handed to the error handler (write log / write error table);
-- Other "good records" in the same batch will **not be automatically retried**.
-
-From the user's perspective, it can be understood as:
-
-> **Once a row-level error appears in this batch, the entire batch is treated as an "error batch".**
-
-Therefore, in the combination of "**batch enabled and error handling enabled**":
-
-- There may be a very small number of originally valid records that were not written to the target database due to being in the same batch as error data;
-- Strict at-least-once semantics for "all valid records" no longer have formal guarantees under this configuration combination.
-
-The above behavior is a current implementation detail at the Connector level, and implementations for different Sinks will be gradually optimized in the future to reduce the probability of mistakenly affecting valid records and improve traceability.
+A batch with a single record is not written again, because that record is the failing one. Writing the records again costs one statement and one flush per record, and only for a batch that failed.
 
 ### JDBC Usage Recommendations
 
-- If you care more about job stability and can accept a small number of valid records being dropped in error batches:
-  - You can enable error handling and retain batch writing;
-  - Error tables and logs can be used for post-hoc analysis and data backfilling of error data.
+- To keep the valid records of a failed batch, use a manual-commit connection (`auto_commit = false`) with a JDBC driver that supports savepoints. The error handler then receives only the failing records.
 
-- If you have strict requirements for "no valid record shall be lost":
-  - Consider disabling JDBC row-level error handling, or
-  - When enabling error handling, reduce `batch_size` (even set to `1`) so that each batch contains at most one record;
-  - It is strongly recommended to thoroughly validate with your actual database and JDBC driver in a test environment before enabling this capability in production.
+- With auto-commit, a failed batch is reported as a whole:
+  - Error tables and logs can be used for post-hoc analysis and data backfilling;
+  - Reduce `batch_size` (even set to `1`) so that each batch contains fewer records.
+
+- It is strongly recommended to thoroughly validate with your actual database and JDBC driver in a test environment before enabling this capability in production.
 
 - In a multi-table JDBC sink with checkpointing and a manual-commit connection (`auto_commit = false`, or Oracle):
   - The tables written through the same queue share one connection and one transaction.
-  - Rolling back a failed batch (to the last savepoint, or the whole transaction) can therefore also discard a batch that another table flushed.
+  - They also share the savepoint of row-level error handling. It is taken after the last good batch of any of these tables, so rolling a failed batch back to it discards only that batch.
+  - Rolling back the whole transaction (when the driver does not support savepoints, or after a second failed batch with no good batch in between) can therefore also discard a batch that another table flushed.
   - When that happens the sink cannot drop only the bad batch: no table on that connection commits again and the job recovers from the last checkpoint.
   - A row-level error can therefore fail the job even with `batch_size = 1`.
   - Reducing `batch_size` limits the size of the failed batch, but does not isolate tables sharing a transaction or prevent cross-table rollback.

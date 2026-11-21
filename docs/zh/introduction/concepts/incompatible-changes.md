@@ -44,6 +44,20 @@
 - **升级说明**：无需迁移配置或 checkpoint 格式。受影响的作业可能由批次原地重试或忽略行级错误继续运行，
   转为失败恢复。自动提交连接、未开启 checkpoint 的作业和 XA Writer 保持原有行为。
 
+### JDBC Sink：行级错误只上报 batch 中出错的行
+
+- **影响范围**：配置了 `sink_error_handler`（或全局 `error_handler`）、使用手动提交连接（`auto_commit = false`，
+  或始终使用手动提交的 Oracle）的非 XA JDBC Sink，且 JDBC 驱动支持 savepoint 或未开启 checkpoint。
+- **行为变化**：当一个 batch 因行级错误（`22` 或 `23` 类 SQLState）失败时，Sink 会回滚该 batch，并逐条重新写入
+  其中的记录。只有单独写入时仍然失败的记录会交给错误处理器，batch 中的其它记录会写入目标表。此前失败 batch 中的
+  所有记录都会交给错误处理器，且都不会被写入。开启 checkpoint 时，在已 flush 两个或更多 batch 之后，回滚到最新
+  savepoint 现在能够成功；此前可能因 "no such savepoint" 失败（例如 SQLite 和 PostgreSQL），行级错误会导致作业失败。
+  在多表 Sink 中，共用一个连接的多张表现在也共用这个 savepoint，因此在另一张表移动 savepoint 或提交事务之后，
+  行级错误仍能被正常处理，并且回滚不会再丢弃另一张表已 flush 的 batch。
+- **升级说明**：无需修改配置。错误表和日志现在只包含出错的记录，因此此前从错误表中补写失败 batch 合法记录的流程
+  不再需要。自动提交连接、开启 checkpoint 但驱动不支持 savepoint 的情况、只有一条记录的 batch，以及未配置错误处理器的
+  作业保持原有行为。
+
 ### GraphQL 连接器：响应中带有 GraphQL errors 时作业会失败
 
 - **行为变更：服务端报告错误时，GraphQL Sink 和 GraphQL Source 的 HTTP 查询模式会失败**

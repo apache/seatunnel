@@ -63,6 +63,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -465,17 +466,20 @@ class JdbcMultiTableReconnectTest {
             tableA.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
             tableA.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
 
-            // Rows 3 and 4 fail with a row-level error and are rolled back to the savepoint.
-            dialect.slot().failNextBatchWith(new SQLException("constraint violated", "23000"));
+            // Row 4 violates a constraint, so the batch of rows 3 and 4 fails and is rolled back to
+            // the savepoint. Its rows are written again one by one: row 3 is kept and only row 4
+            // is reported.
+            dialect.slot().failRowWith(4, new SQLException("constraint violated", "23000"));
             tableA.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
             tableA.write(insertRow(ACTIVE_TABLE_ID, 4, "fourth"));
-            assertEquals(2, rowErrors.size());
+            assertEquals(1, rowErrors.size());
+            assertEquals(4, rowErrors.get(0).getRow().getField(0));
 
-            // Rows 1 and 2 are still pending in the shared transaction.
+            // Rows 1 to 3 are still pending in the shared transaction.
             assertTrue(dialect.transactionStateManager.hasPendingOrLostWork());
             assertFalse(dialect.transactionStateManager.isPoisoned());
 
-            // Table B commits the shared connection, which covers table A's rows 1 and 2.
+            // Table B commits the shared connection, which covers table A's rows 1 to 3.
             tableB.prepareCommit(1L);
             assertFalse(dialect.transactionStateManager.hasPendingOrLostWork());
             tableA.prepareCommit(1L);
@@ -484,7 +488,9 @@ class JdbcMultiTableReconnectTest {
             closeQuietly(tableA);
         }
 
-        assertEquals(Arrays.asList("1:first", "2:second"), queryRows(jdbcUrl, "active_table"));
+        assertEquals(
+                Arrays.asList("1:first", "2:second", "3:third"),
+                queryRows(jdbcUrl, "active_table"));
         assertTrue(queryRows(jdbcUrl, "idle_table").isEmpty());
     }
 
@@ -527,6 +533,172 @@ class JdbcMultiTableReconnectTest {
 
         assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
         assertTrue(queryRows(jdbcUrl, "idle_table").isEmpty());
+    }
+
+    /**
+     * Both tables keep a row-error savepoint on the shared connection. In SQLite, as in PostgreSQL,
+     * releasing a savepoint also destroys the savepoints taken after it, so table A moving its
+     * boundary must not leave table B with a destroyed savepoint: table B's next row-level error
+     * must still keep its good rows and report only the failing row.
+     */
+    @Test
+    void sharedQueueBoundaryMovedByOneTableStillIsolatesTheOtherTablesRowError() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("shared-queue-two-boundaries.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        List<RowErrorEvent> rowErrors = new ArrayList<>();
+        TestSinkWriterContext context = new TestSinkWriterContext(rowErrors::add);
+        TestJdbcSinkWriter tableA =
+                createWriter(jdbcUrl, "active_table", dialect, manualCommit(), context);
+        TestJdbcSinkWriter tableB =
+                createWriter(jdbcUrl, "idle_table", dialect, manualCommit(), context);
+        try {
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 10, "ten"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 11, "eleven"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 4, "fourth"));
+
+            dialect.slot().failRowWith(13, new SQLException("constraint violated", "23000"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 12, "twelve"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 13, "thirteen"));
+            assertEquals(1, rowErrors.size());
+            assertEquals(13, rowErrors.get(0).getRow().getField(0));
+            assertFalse(dialect.transactionStateManager.isPoisoned());
+
+            tableA.prepareCommit(1L);
+            tableB.prepareCommit(1L);
+        } finally {
+            closeQuietly(tableB);
+            closeQuietly(tableA);
+        }
+
+        assertEquals(
+                Arrays.asList("1:first", "2:second", "3:third", "4:fourth"),
+                queryRows(jdbcUrl, "active_table"));
+        assertEquals(
+                Arrays.asList("10:ten", "11:eleven", "12:twelve"),
+                queryRows(jdbcUrl, "idle_table"));
+    }
+
+    /**
+     * A commit by one table ends the shared transaction and every savepoint in it. Table B's
+     * savepoint from before table A's timer-flush commit must not be used for its next row-level
+     * error.
+     */
+    @Test
+    void sharedQueueCommitByOneTableStillIsolatesTheOtherTablesRowError() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("shared-queue-commit-boundary.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        List<RowErrorEvent> rowErrors = new ArrayList<>();
+        TestSinkWriterContext context = new TestSinkWriterContext(rowErrors::add);
+        TestJdbcSinkWriter tableA =
+                createWriter(jdbcUrl, "active_table", dialect, manualCommit(), context);
+        TestJdbcSinkWriter tableB =
+                createWriter(jdbcUrl, "idle_table", dialect, manualCommit(), context);
+        try {
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            tableA.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 10, "ten"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 11, "eleven"));
+            // Table A's timer flush commits the shared transaction, table B's rows included.
+            tableA.timerFlush();
+            assertEquals(Arrays.asList("10:ten", "11:eleven"), queryRows(jdbcUrl, "idle_table"));
+
+            dialect.slot().failRowWith(13, new SQLException("constraint violated", "23000"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 12, "twelve"));
+            tableB.write(insertRow(IDLE_TABLE_ID, 13, "thirteen"));
+            assertEquals(1, rowErrors.size());
+            assertEquals(13, rowErrors.get(0).getRow().getField(0));
+            assertFalse(dialect.transactionStateManager.isPoisoned());
+
+            tableA.prepareCommit(1L);
+            tableB.prepareCommit(1L);
+        } finally {
+            closeQuietly(tableB);
+            closeQuietly(tableA);
+        }
+
+        assertEquals(Arrays.asList("1:first", "2:second"), queryRows(jdbcUrl, "active_table"));
+        assertEquals(
+                Arrays.asList("10:ten", "11:eleven", "12:twelve"),
+                queryRows(jdbcUrl, "idle_table"));
+    }
+
+    /**
+     * A timer flush commits what it flushed. When its batch fails with a row-level error, the rows
+     * written again one by one must be committed before the timer flush returns, as without the
+     * error, so they do not stay invisible while the input is idle.
+     */
+    @Test
+    void timerFlushCommitsTheRowsWrittenAgainAfterARowError() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("timer-flush-row-error.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        List<RowErrorEvent> rowErrors = new ArrayList<>();
+        TestJdbcSinkWriter writer =
+                createWriter(
+                        jdbcUrl,
+                        "active_table",
+                        dialect,
+                        timerFlushBatch(),
+                        new TestSinkWriterContext(rowErrors::add));
+        try {
+            writer.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            dialect.slot().failRowWith(2, new SQLException("constraint violated", "23000"));
+
+            writer.timerFlush();
+            assertEquals(1, rowErrors.size());
+            assertEquals(2, rowErrors.get(0).getRow().getField(0));
+            assertEquals(RowErrorPhase.FLUSH, rowErrors.get(0).getPhase());
+            assertEquals(Arrays.asList("1:first"), queryRows(jdbcUrl, "active_table"));
+            assertFalse(dialect.transactionStateManager.hasPendingOrLostWork());
+        } finally {
+            closeQuietly(writer);
+        }
+        assertEquals(Arrays.asList("1:first"), queryRows(jdbcUrl, "active_table"));
+    }
+
+    /** A commit failure after a handled row error fails the timer flush that wrote the rows. */
+    @Test
+    void timerFlushFailsWhenTheCommitAfterARowErrorFails() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("timer-flush-commit-failure.db");
+        createTables(jdbcUrl);
+        SharedQueueDialect dialect = new SharedQueueDialect();
+        List<RowErrorEvent> rowErrors = new ArrayList<>();
+        TestJdbcSinkWriter writer =
+                createWriter(
+                        jdbcUrl,
+                        "active_table",
+                        dialect,
+                        timerFlushBatch(),
+                        new TestSinkWriterContext(rowErrors::add));
+        try {
+            writer.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            dialect.slot().failRowWith(2, new SQLException("constraint violated", "23000"));
+            SQLException commitFailure = new SQLException("commit failed", "08006");
+            dialect.slot().rollBackOnNextCommit(commitFailure);
+
+            IOException failure = assertThrows(IOException.class, writer::timerFlush);
+            assertTrue(hasCause(failure, commitFailure), "Keep the original commit exception");
+            assertEquals(1, rowErrors.size());
+            assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+            assertThrows(Exception.class, () -> writer.prepareCommit(1L));
+        } finally {
+            closeQuietly(writer);
+        }
+        assertTrue(queryRows(jdbcUrl, "active_table").isEmpty());
+    }
+
+    // A batch that only a timer flush or checkpoint flushes.
+    private static Map<String, Object> timerFlushBatch() {
+        Map<String, Object> options = manualCommit();
+        options.put("batch_size", 3);
+        return options;
     }
 
     /**
@@ -708,8 +880,10 @@ class JdbcMultiTableReconnectTest {
                             .collect(Collectors.toList()));
 
             // Only a data error: transaction-loss SQLStates must not poison this interval early.
-            dialect.getConnectionProvider()
-                    .failNextBatchWith(new SQLException("first constraint failure", "23000"));
+            // Both rows violate a constraint, so writing them again one by one keeps neither.
+            SQLException firstFailure = new SQLException("first constraint failure", "23000");
+            dialect.getConnectionProvider().failRowWith(3, firstFailure);
+            dialect.getConnectionProvider().failRowWith(4, firstFailure);
             writer.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
             writer.write(insertRow(ACTIVE_TABLE_ID, 4, "fourth"));
             assertEquals(
@@ -796,6 +970,50 @@ class JdbcMultiTableReconnectTest {
             dialect.slot().dropConnection();
             closeQuietly(writer);
         }
+    }
+
+    /**
+     * Two batches are flushed, each followed by a new savepoint boundary, before a batch with one
+     * bad row fails. Releasing the first boundary must not destroy the second one, so the rollback
+     * to it succeeds in real SQLite: the good row of the failed batch is written again and only the
+     * bad row is reported.
+     */
+    @Test
+    void rowErrorAfterTwoFlushedBatchesRollsBackToTheLatestBoundary() throws Exception {
+        String url = "jdbc:sqlite:" + tempDir.resolve("two-boundaries.db");
+        createTables(url);
+        TrackingSqliteDialect dialect = new TrackingSqliteDialect();
+        List<RowErrorEvent> errors = new ArrayList<>();
+        TestJdbcSinkWriter writer =
+                createWriter(
+                        url,
+                        "active_table",
+                        dialect,
+                        manualCommit(),
+                        new TestSinkWriterContext(errors::add));
+        try {
+            writer.write(insertRow(ACTIVE_TABLE_ID, 1, "first"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 2, "second"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 3, "third"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 4, "fourth"));
+
+            dialect.getConnectionProvider()
+                    .failRowWith(6, new SQLException("constraint violated", "23000"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 5, "fifth"));
+            writer.write(insertRow(ACTIVE_TABLE_ID, 6, "bad"));
+            assertEquals(
+                    Collections.singletonList(6),
+                    errors.stream()
+                            .map(event -> event.getRow().getField(0))
+                            .collect(Collectors.toList()));
+
+            writer.prepareCommit(1L);
+        } finally {
+            closeQuietly(writer);
+        }
+        assertEquals(
+                Arrays.asList("1:first", "2:second", "3:third", "4:fourth", "5:fifth"),
+                queryRows(url, "active_table"));
     }
 
     @Test
@@ -1009,6 +1227,8 @@ class JdbcMultiTableReconnectTest {
         private Connection delegate;
         private boolean failNextBatch;
         private SQLException nextBatchFailure;
+        // Keyed by the first statement parameter (the id) of the failing rows.
+        private final Map<String, SQLException> rowFailures = new HashMap<>();
         private Exception nextCommitFailure;
         private boolean replaceDeadConnectionOnGet;
         private int reestablishConnectionCalls;
@@ -1025,6 +1245,16 @@ class JdbcMultiTableReconnectTest {
         /** Fails the next batch with {@code failure} and keeps the connection open. */
         private void failNextBatchWith(SQLException failure) {
             nextBatchFailure = failure;
+        }
+
+        /**
+         * Fails every batch that contains the row with {@code id}, like a real constraint
+         * violation, and keeps the connection open. The batch is executed first, so its rows are in
+         * the open transaction when the failure is thrown, as with a driver that applies the
+         * statements of a batch one by one.
+         */
+        private void failRowWith(int id, SQLException failure) {
+            rowFailures.put(String.valueOf(id), failure);
         }
 
         /**
@@ -1126,11 +1356,38 @@ class JdbcMultiTableReconnectTest {
 
         private PreparedStatement wrapStatement(
                 Connection owner, PreparedStatement preparedStatement) {
+            // The id bound for the next addBatch, and the ids of the rows in the batch.
+            String[] boundId = new String[1];
+            List<String> batchIds = new ArrayList<>();
             return (PreparedStatement)
                     Proxy.newProxyInstance(
                             PreparedStatement.class.getClassLoader(),
                             new Class<?>[] {PreparedStatement.class},
                             (proxy, method, args) -> {
+                                String name = method.getName();
+                                if (name.startsWith("set")
+                                        && args != null
+                                        && args.length >= 2
+                                        && Integer.valueOf(1).equals(args[0])) {
+                                    boundId[0] = String.valueOf(args[1]);
+                                } else if ("addBatch".equals(name) && args == null) {
+                                    batchIds.add(boundId[0]);
+                                } else if ("clearBatch".equals(name)) {
+                                    batchIds.clear();
+                                }
+                                if ("executeBatch".equals(name) && !rowFailures.isEmpty()) {
+                                    SQLException rowFailure = null;
+                                    for (String id : batchIds) {
+                                        if (rowFailure == null) {
+                                            rowFailure = rowFailures.get(id);
+                                        }
+                                    }
+                                    batchIds.clear();
+                                    if (rowFailure != null) {
+                                        preparedStatement.executeBatch();
+                                        throw rowFailure;
+                                    }
+                                }
                                 if ("executeBatch".equals(method.getName()) && failNextBatch) {
                                     failNextBatch = false;
                                     owner.close();

@@ -49,7 +49,6 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
-import java.sql.Savepoint;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -65,12 +64,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     private final int batchSize;
     private final Object batchLock = new Object();
     private List<SeaTunnelRow> pendingRows;
-    // Marks the last auto-flushed batch inside the open JDBC transaction so a later row-level
-    // failure can roll back only the failed batch without moving the durable commit boundary.
-    private Savepoint lastSuccessfulBatchSavepoint;
-    // Flush sequence of the shared transaction when lastSuccessfulBatchSavepoint was set, so a
-    // rollback to it can tell whether another writer on the same connection flushed afterwards.
-    private long lastSuccessfulBatchSavepointSequence;
     // Set once rows were reported as written at a savepoint boundary but are not committed yet. A
     // full rollback then discards rows that were already reported, so it must not count as
     // reported work.
@@ -322,9 +315,11 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                     if (!isRowLevelDataError(e)) {
                         throwAsIoException(e);
                     }
-                    // DROP_BATCH: report and discard batch, then continue.
+                    // Report the failed rows of the batch, then continue. Rows written again by
+                    // the replay sit behind a savepoint boundary, like an auto-flushed batch.
                     List<SeaTunnelRow> batchRows = swapPendingRowsLocked();
-                    handleRowLevelBatchFailure(RowErrorPhase.WRITE, null, batchRows, e);
+                    reportWriteSuccess(
+                            handleRowLevelBatchFailure(RowErrorPhase.WRITE, null, batchRows, e));
                 }
             }
             return;
@@ -401,8 +396,9 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                     if (!isRowLevelDataError(e)) {
                         throwAsIoException(e);
                     }
-                    handleRowLevelBatchFailure(
-                            RowErrorPhase.PREPARE_COMMIT, checkpointId, batchRows, e);
+                    List<SeaTunnelRow> replayedRows =
+                            handleRowLevelBatchFailure(
+                                    RowErrorPhase.PREPARE_COMMIT, checkpointId, batchRows, e);
                     try {
                         // A handled row error must still finish or reject the current checkpoint.
                         commitIfNeeded();
@@ -410,6 +406,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                         rollbackIfNeeded("prepare commit after row error");
                         throwAsIoException(commitError);
                     }
+                    reportWriteSuccess(replayedRows);
                 }
             }
             return Optional.empty();
@@ -458,7 +455,8 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                         rollbackIfNeeded("close");
                         throwAsIoException(e);
                     }
-                    handleRowLevelBatchFailure(RowErrorPhase.CLOSE, null, batchRows, e);
+                    List<SeaTunnelRow> replayedRows =
+                            handleRowLevelBatchFailure(RowErrorPhase.CLOSE, null, batchRows, e);
                     try {
                         // A handled close error must commit preserved rows or reject lost work.
                         commitIfNeeded();
@@ -466,6 +464,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                         rollbackIfNeeded("close after row error");
                         throwAsIoException(commitError);
                     }
+                    reportWriteSuccess(replayedRows);
                 } finally {
                     outputFormat.close();
                 }
@@ -503,7 +502,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
 
     private boolean markSuccessfulAutoFlushBoundaryIfNeeded() throws IOException {
         if (commitOnFlush || resolveSinkAutoCommit()) {
-            lastSuccessfulBatchSavepoint = null;
             return true;
         }
         if (!supportsSavepoints()) {
@@ -511,12 +509,11 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             return false;
         }
         try {
-            Connection connection = connectionProvider.getConnection();
-            Savepoint previousSavepoint = lastSuccessfulBatchSavepoint;
-            lastSuccessfulBatchSavepoint = connection.setSavepoint();
-            lastSuccessfulBatchSavepointSequence = outputFormat.currentFlushSequence();
+            // The boundary marks the last good batch inside the open JDBC transaction, so a later
+            // row-level failure can roll back only the failed batch. It is shared by every writer
+            // on the connection.
+            outputFormat.moveSavepointBoundary(connectionProvider.getConnection());
             reportedUncommittedRows = true;
-            releaseSavepointSilently(connection, previousSavepoint);
             return true;
         } catch (SQLException e) {
             throw new JdbcConnectorException(
@@ -554,19 +551,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                 sinkTablePath);
     }
 
-    // Releasing an old savepoint is a best-effort cleanup. Some drivers invalidate savepoints after
-    // rollback/commit and should not fail the writer just because cleanup is no longer possible.
-    private void releaseSavepointSilently(Connection connection, Savepoint savepoint) {
-        if (savepoint == null) {
-            return;
-        }
-        try {
-            connection.releaseSavepoint(savepoint);
-        } catch (SQLException e) {
-            log.debug("Failed to release JDBC savepoint after moving row-error batch boundary.", e);
-        }
-    }
-
     private void reportWriteSuccess(List<SeaTunnelRow> rows) throws IOException {
         if (!rowErrorCollector.isPresent() || rows == null || rows.isEmpty()) {
             return;
@@ -589,9 +573,41 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         return batchRows;
     }
 
-    private void handleRowLevelBatchFailure(
+    /**
+     * Handles a batch that failed with a row-level data error (SQLState class 22 or 23).
+     *
+     * <p>The batch is cleared from the statement and rolled back. When {@link #canReplayRows}
+     * allows it, its rows are then written again one by one, so that only the rows that fail on
+     * their own are reported to the row-error collector. Otherwise every row of the batch is
+     * reported with the batch error, as no row of the batch can be told apart from the others.
+     *
+     * @param phase the writer phase whose flush failed
+     * @param checkpointId the checkpoint of the failed phase, or null outside prepareCommit
+     * @param batchRows the rows of the failed batch, in write order
+     * @param error the error of the failed batch
+     * @return the rows written again by the replay; the caller reports them as written once its
+     *     phase is complete. Empty when the batch was not replayed.
+     */
+    private List<SeaTunnelRow> handleRowLevelBatchFailure(
             RowErrorPhase phase, Long checkpointId, List<SeaTunnelRow> batchRows, Throwable error)
             throws IOException {
+        Throwable clearError = null;
+        Throwable rollbackError = null;
+        boolean rolledBack = false;
+        try {
+            outputFormat.clearBatchSilently();
+        } catch (Throwable clearEx) {
+            clearError = clearEx;
+        }
+        try {
+            rolledBack = rollbackIfNeeded();
+        } catch (Throwable rollbackEx) {
+            rollbackError = rollbackEx;
+        }
+        if (clearError == null && rollbackError == null && rolledBack && canReplayRows(batchRows)) {
+            outputFormat.resetAfterRowError();
+            return replayRowByRow(phase, checkpointId, batchRows);
+        }
         IOException failure = null;
         try {
             for (SeaTunnelRow row : batchRows) {
@@ -599,42 +615,146 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             }
         } catch (Exception collectorEx) {
             failure = toIOException(collectorEx);
-        } finally {
-            try {
-                outputFormat.clearBatchSilently();
-            } catch (Throwable clearEx) {
-                failure = appendFailure(failure, clearEx);
-            }
-            try {
-                rollbackIfNeeded();
-            } catch (Throwable rollbackEx) {
-                failure = appendFailure(failure, rollbackEx);
-            }
+        }
+        if (clearError != null) {
+            failure = appendFailure(failure, clearError);
+        }
+        if (rollbackError != null) {
+            failure = appendFailure(failure, rollbackError);
         }
         if (failure != null) {
             throw failure;
         }
         outputFormat.resetAfterRowError();
+        return Collections.emptyList();
     }
 
-    private void rollbackIfNeeded() throws SQLException {
-        Connection connection = connectionProvider.getConnection();
-        if (connection.getAutoCommit()) {
+    /**
+     * Whether the rows of a failed batch can be written again one by one. The caller has already
+     * rolled the batch back on a manual-commit connection, so none of its rows is in the database.
+     * With auto-commit, part of a failed batch can already be committed, so its rows are never
+     * written again. In addition:
+     *
+     * <ul>
+     *   <li>the batch has more than one row; a single row is the failing row itself;
+     *   <li>no flushed work was lost on the shared transaction. A commit is then refused anyway,
+     *       and the job recovers from the last checkpoint;
+     *   <li>one failing row can be undone without the rows before it: each flush commits when
+     *       checkpointing is disabled, otherwise the driver must support savepoints.
+     * </ul>
+     */
+    private boolean canReplayRows(List<SeaTunnelRow> batchRows) {
+        return batchRows.size() > 1
+                && !outputFormat.isPendingWorkLost()
+                && (commitOnFlush || supportsSavepoints());
+    }
+
+    /**
+     * Writes the rows of a rolled-back batch again, one row per flush, in their original order. A
+     * row that fails with a row-level data error is rolled back alone (to the savepoint taken
+     * before it, or by its own transaction when each flush commits) and reported with its own
+     * error. Any other failure rolls the transaction back and fails the writer.
+     *
+     * <p>At the end, the written rows get a savepoint boundary like an auto-flushed batch, so a
+     * later row-level error cannot roll them back without failing the checkpoint interval.
+     *
+     * @return the rows written again
+     */
+    private List<SeaTunnelRow> replayRowByRow(
+            RowErrorPhase phase, Long checkpointId, List<SeaTunnelRow> batchRows)
+            throws IOException {
+        log.warn(
+                "A JDBC batch of {} rows failed with a row-level data error. Writing its rows"
+                        + " again one by one to find the failing rows. table={}",
+                batchRows.size(),
+                sinkTablePath);
+        List<SeaTunnelRow> writtenRows = new ArrayList<>(batchRows.size());
+        for (SeaTunnelRow row : batchRows) {
+            try {
+                setReplaySavepointIfNeeded();
+                outputFormat.writeRecord(row);
+                outputFormat.flush();
+                writtenRows.add(row);
+            } catch (Throwable rowError) {
+                if (!isRowLevelDataError(rowError)) {
+                    rollbackIfNeeded("row-by-row replay");
+                    throwAsIoException(rowError);
+                }
+                discardReplayedRow(rowError);
+                try {
+                    rowErrorCollector
+                            .get()
+                            .collect(new RowErrorEvent(phase, checkpointId, row, rowError));
+                } catch (Exception collectorEx) {
+                    rollbackIfNeeded("row-by-row replay");
+                    throwAsIoException(collectorEx);
+                }
+                outputFormat.resetAfterRowError();
+            }
+        }
+        if (!writtenRows.isEmpty()) {
+            try {
+                markSuccessfulAutoFlushBoundaryIfNeeded();
+            } catch (RuntimeException boundaryError) {
+                rollbackIfNeeded("row-by-row replay");
+                throwAsIoException(boundaryError);
+            }
+        }
+        return writtenRows;
+    }
+
+    /**
+     * Takes the savepoint that a failing replayed row is rolled back to. Not needed when each flush
+     * commits, because the failing row is then the only uncommitted work.
+     */
+    private void setReplaySavepointIfNeeded() throws SQLException {
+        if (commitOnFlush) {
             return;
         }
-        if (lastSuccessfulBatchSavepoint != null) {
-            // Batches up to the savepoint stay in the open transaction, still uncommitted.
-            connection.rollback(lastSuccessfulBatchSavepoint);
-            outputFormat.markRolledBackToSavepoint(lastSuccessfulBatchSavepointSequence);
-        } else {
+        outputFormat.moveSavepointBoundary(connectionProvider.getConnection());
+    }
+
+    /** Clears and rolls back one failed replayed row; fails the writer if that is not possible. */
+    private void discardReplayedRow(Throwable rowError) throws IOException {
+        IOException failure = null;
+        try {
+            outputFormat.clearBatchSilently();
+        } catch (Throwable clearEx) {
+            failure = appendFailure(failure, clearEx);
+        }
+        try {
+            rollbackIfNeeded();
+        } catch (Throwable rollbackEx) {
+            failure = appendFailure(failure, rollbackEx);
+        }
+        if (failure != null) {
+            failure.addSuppressed(rowError);
+            rollbackIfNeeded("row-by-row replay");
+            throw failure;
+        }
+    }
+
+    /**
+     * Rolls back the failed batch: to the savepoint boundary of the shared transaction when there
+     * is one (batches up to it stay in the open transaction, still uncommitted), otherwise the
+     * whole transaction.
+     *
+     * @return false when the connection is in auto-commit mode and nothing was rolled back
+     */
+    private boolean rollbackIfNeeded() throws SQLException {
+        Connection connection = connectionProvider.getConnection();
+        if (connection.getAutoCommit()) {
+            return false;
+        }
+        if (!outputFormat.rollbackToSavepointBoundary(connection)) {
             connection.rollback();
-            // The failed batch is reported to the row-error collector. Rows this writer already
-            // reported as written, and batches other writers flushed on the same connection, are
-            // lost with it; the state records that.
+            // The failed batch is reported to the row-error collector or written again. Rows this
+            // writer already reported as written, and batches other writers flushed on the same
+            // connection, are lost with it; the state records that.
             outputFormat.markRolledBack(connection, !reportedUncommittedRows);
             reportedUncommittedRows = false;
         }
-        lastSuccessfulBatchSavepoint = null;
+        return true;
     }
 
     private void commitIfNeeded() throws SQLException {
@@ -649,7 +769,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                 outputFormat.markCommitFailed(commitError);
                 throw commitError;
             }
-            lastSuccessfulBatchSavepoint = null;
             reportedUncommittedRows = false;
             outputFormat.markCommitted(connection);
         }
@@ -698,7 +817,16 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                     if (!isRowLevelDataError(e)) {
                         throwAsIoException(e);
                     }
-                    handleRowLevelBatchFailure(RowErrorPhase.FLUSH, null, batchRows, e);
+                    List<SeaTunnelRow> replayedRows =
+                            handleRowLevelBatchFailure(RowErrorPhase.FLUSH, null, batchRows, e);
+                    try {
+                        // A timer flush commits what it flushed, also after a handled row error.
+                        commitIfNeeded();
+                    } catch (Exception commitError) {
+                        rollbackIfNeeded("timer flush after row error");
+                        throwAsIoException(commitError);
+                    }
+                    reportWriteSuccess(replayedRows);
                 }
             }
             return;

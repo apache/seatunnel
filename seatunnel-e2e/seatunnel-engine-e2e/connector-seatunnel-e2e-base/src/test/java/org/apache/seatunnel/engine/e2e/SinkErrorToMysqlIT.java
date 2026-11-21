@@ -45,6 +45,9 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -293,22 +296,15 @@ public class SinkErrorToMysqlIT extends TestSuiteBase implements TestResource {
                         mysqlContainer.getUsername(),
                         mysqlContainer.getPassword())) {
             try (Statement statement = connection.createStatement()) {
-                ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM orders_from_sink");
-                Assertions.assertTrue(rs.next(), "Should have count result for normal rows");
-                int normalCount = rs.getInt(1);
+                // The failed batch is rolled back and written again row by row: only the two
+                // names that are too long are routed, the valid rows of the batch are written.
                 Assertions.assertEquals(
-                        0,
-                        normalCount,
-                        "Batch data error should drop the whole batch, no rows in main sink table");
-
-                ResultSet ers =
-                        statement.executeQuery("SELECT COUNT(*) FROM orders_sink_error_basic");
-                Assertions.assertTrue(ers.next(), "Should have count result for error rows");
-                int errorCount = ers.getInt(1);
-                Assertions.assertEquals(
-                        4,
-                        errorCount,
-                        "RowErrorCollector should report all rows in the failing batch");
+                        Arrays.asList("1,ok1,18", "2,ok2,20"),
+                        queryRows(
+                                statement,
+                                "SELECT id, name, age FROM orders_from_sink ORDER BY id"),
+                        "The valid rows of the failed batch should be written");
+                assertRoutedRows(statement, "too_long_name_1", "too_long_name_2");
             }
         }
     }
@@ -331,23 +327,81 @@ public class SinkErrorToMysqlIT extends TestSuiteBase implements TestResource {
                         mysqlContainer.getUsername(),
                         mysqlContainer.getPassword())) {
             try (Statement statement = connection.createStatement()) {
-                ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM orders_from_sink");
-                Assertions.assertTrue(rs.next(), "Should have count result for normal rows");
-                int normalCount = rs.getInt(1);
+                // Valid, duplicate key, valid, valid in one batch: only the duplicate is routed.
                 Assertions.assertEquals(
-                        0,
-                        normalCount,
-                        "Batch constraint error should drop the whole batch, no rows in main sink table");
-
-                ResultSet ers =
-                        statement.executeQuery("SELECT COUNT(*) FROM orders_sink_error_basic");
-                Assertions.assertTrue(ers.next(), "Should have count result for error rows");
-                int errorCount = ers.getInt(1);
-                Assertions.assertEquals(
-                        4,
-                        errorCount,
-                        "RowErrorCollector should report all rows in the failing batch");
+                        Arrays.asList("1,ok1,18", "2,ok2,20", "3,ok3,21"),
+                        queryRows(
+                                statement,
+                                "SELECT id, name, age FROM orders_from_sink ORDER BY id"),
+                        "The valid rows of the failed batch should be written");
+                assertRoutedRows(statement, "dup1");
             }
+        }
+    }
+
+    /**
+     * Same constraint error with checkpointing enabled, so the sink keeps flushed batches in one
+     * open transaction behind savepoints and commits at the checkpoint. Two batches are flushed
+     * before the batch with the duplicate key fails: its rollback must stop at the latest savepoint
+     * and keep the four earlier rows, then the batch is written again row by row.
+     */
+    @TestTemplate
+    public void testSinkBatchConstraintErrorWithCheckpointRollsBackToSavepoint(
+            TestContainer container) throws Exception {
+        Container.ExecResult result =
+                container.executeJob(
+                        "/error-handling/sink_fakesource_to_mysql_with_error_handler_checkpoint_constraint.conf");
+
+        Assertions.assertEquals(
+                0,
+                result.getExitCode(),
+                "SeaTunnel job should exit with code 0, stderr: " + result.getStderr());
+
+        try (Connection connection =
+                DriverManager.getConnection(
+                        mysqlContainer.getJdbcUrl(),
+                        mysqlContainer.getUsername(),
+                        mysqlContainer.getPassword())) {
+            try (Statement statement = connection.createStatement()) {
+                Assertions.assertEquals(
+                        Arrays.asList("1,a,1", "2,b,2", "3,c,3", "4,d,4", "5,e,5"),
+                        queryRows(
+                                statement,
+                                "SELECT id, name, age FROM orders_from_sink ORDER BY id"),
+                        "Earlier batches and the valid row of the failed batch should be committed");
+                assertRoutedRows(statement, "dup5");
+            }
+        }
+    }
+
+    private static List<String> queryRows(Statement statement, String sql) throws SQLException {
+        List<String> rows = new ArrayList<>();
+        try (ResultSet rs = statement.executeQuery(sql)) {
+            int columns = rs.getMetaData().getColumnCount();
+            while (rs.next()) {
+                List<String> values = new ArrayList<>();
+                for (int i = 1; i <= columns; i++) {
+                    values.add(rs.getString(i));
+                }
+                rows.add(String.join(",", values));
+            }
+        }
+        return rows;
+    }
+
+    /** Asserts that exactly one routed error row exists for each name, and no other. */
+    private static void assertRoutedRows(Statement statement, String... names) throws SQLException {
+        List<String> originalData =
+                queryRows(statement, "SELECT original_data FROM orders_sink_error_basic");
+        Assertions.assertEquals(
+                names.length,
+                originalData.size(),
+                "Only the failing rows should be routed, routed: " + originalData);
+        for (String name : names) {
+            Assertions.assertEquals(
+                    1,
+                    originalData.stream().filter(data -> data.contains(", " + name + ",")).count(),
+                    "Row " + name + " should be routed once, routed: " + originalData);
         }
     }
 
