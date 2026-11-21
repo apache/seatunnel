@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
@@ -28,6 +31,7 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -66,6 +70,31 @@ class SchemaChangeDrainGuardTest {
 
         Assertions.assertTrue(
                 exception.getMessage().contains("schema-change-before checkpoint is completed"));
+    }
+
+    @Test
+    void shouldAllowRuntimeSchemaRestoreWithoutOpeningDrainWindow() {
+        SchemaChangeDrainGuard guard =
+                new SchemaChangeDrainGuard(TEST_DRAIN_READY_WAIT_TIMEOUT_MILLIS);
+        CatalogTable restoredTable =
+                CatalogTable.of(
+                        TableIdentifier.of("", "test_db", "test_table"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id", BasicType.LONG_TYPE, 20L, false, null, ""))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "");
+        guard.checkpointCompleted(1L, CheckpointType.CHECKPOINT_TYPE);
+
+        Assertions.assertDoesNotThrow(
+                () -> guard.checkSchemaChangeCanApply(new RestoreTableSchemaEvent(restoredTable)));
+        Assertions.assertFalse(guard.isSchemaChangeDrainReady());
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> guard.checkSchemaChangeCanApply(schemaChangeEvent()));
     }
 
     /**

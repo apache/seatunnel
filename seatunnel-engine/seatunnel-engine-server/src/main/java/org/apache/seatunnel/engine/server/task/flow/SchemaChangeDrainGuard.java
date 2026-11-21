@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
@@ -25,9 +26,9 @@ import org.apache.seatunnel.engine.server.task.record.Barrier;
 /**
  * Guards sink-side DDL application with the schema-change checkpoint protocol.
  *
- * <p>A schema-change-before checkpoint must be completed before a sink writer can apply a {@link
- * SchemaChangeEvent}. This keeps old-schema rows behind a global checkpoint boundary instead of
- * relying on each sink connector to rediscover the same drain requirement.
+ * <p>A schema-change-before checkpoint must complete before a sink writer applies physical DDL.
+ * This keeps old-schema rows behind a global checkpoint boundary. A {@link RestoreTableSchemaEvent}
+ * only rebuilds runtime schema from a checkpoint and is not physical DDL.
  */
 class SchemaChangeDrainGuard {
 
@@ -127,15 +128,11 @@ class SchemaChangeDrainGuard {
      * <p>The checkpoint type is required after failover because a sink can be restored from a
      * completed schema-change-before checkpoint without observing that barrier in the new runtime.
      *
-     * <p>On recovery this is the only call that can reopen a freshly constructed guard (a new
-     * {@code SinkFlowLifeCycle}, and therefore a new {@code SchemaChangeDrainGuard} with {@code
-     * schemaChangeDrainReady=false}, is created whenever the sink task restarts). It is driven by
-     * {@code CheckpointCoordinator.allTaskReady()} replaying {@code latestCompletedCheckpoint}
-     * through {@code notifyCompleted()} once every subtask in the pipeline reports {@code
-     * READY_START}. Since the pipeline's {@code CheckpointCoordinator} is always recreated together
-     * with a restarting task (task failure recovery is pipeline-scoped, not per-task, in this
-     * engine -- see {@code SubPlan.cancelPipeline()}/{@code reset()}), {@code isAllTaskReady}'s
-     * once-per-coordinator guard can never suppress this replay for a task that actually needs it.
+     * <p>Drain readiness is deliberately not snapshotted. On recovery, the new sink guard learns it
+     * from the typed replay of the latest completed checkpoint. An existing coordinator may survive
+     * a pipeline restart: {@code restoreCoordinator()} either replays the checkpoint when all tasks
+     * are ready, or resets the task-readiness flag so {@code allTaskReady()} replays it later. An
+     * ordinary checkpoint replay does not grant permission to apply physical DDL.
      *
      * @param checkpointId completed checkpoint id reported by the checkpoint coordinator
      * @param checkpointType completed checkpoint type reported by the checkpoint coordinator
@@ -189,16 +186,22 @@ class SchemaChangeDrainGuard {
      * @param event schema change event that is about to be applied by a sink writer
      */
     synchronized void checkSchemaChangeCanApply(SchemaChangeEvent event) {
+        if (event instanceof RestoreTableSchemaEvent) {
+            // The checkpoint schema refresh is emitted before the first replayed record, with no
+            // BEFORE watermark. It must neither apply physical DDL nor open the drain window.
+            return;
+        }
         long deadline = System.currentTimeMillis() + drainReadyWaitTimeoutMillis;
         while (!schemaChangeDrainReady) {
             long remainingMillis = deadline - System.currentTimeMillis();
             if (remainingMillis <= 0) {
                 throw new IllegalStateException(
                         String.format(
-                                "Schema change event [%s] for table [%s] cannot be applied before a "
-                                        + "schema-change-before checkpoint is completed. Sources must "
-                                        + "call Collector.markSchemaChangeBeforeCheckpoint() and wait "
-                                        + "for the checkpoint to finish before emitting SchemaChangeEvent.",
+                                "Schema change event [%s] for table [%s] cannot be applied before a"
+                                    + " schema-change-before checkpoint is completed. Sources must"
+                                    + " call Collector.markSchemaChangeBeforeCheckpoint() and wait"
+                                    + " for the checkpoint to finish before emitting"
+                                    + " SchemaChangeEvent.",
                                 event.getEventType(), event.tablePath()));
             }
             try {
