@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.api.sink;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
+import java.io.IOException;
 import java.util.Optional;
 
 /** The Sink Connector Writer which support multi table should implement this interface */
@@ -28,5 +32,33 @@ public interface SupportMultiTableSinkWriter<T> extends SupportResourceShare<T> 
      */
     default Optional<Integer> primaryKey() {
         return Optional.empty();
+    }
+
+    /**
+     * Returns whether the writer can create a new per-table writer during runtime.
+     *
+     * <p>This is required when a multi-table source starts emitting a table that was not part of
+     * the startup sink writer map. A runtime CreateTableEvent is never silently dropped: the job
+     * fails if the sink has not opted in. Creation must be retry-safe and must not clear existing
+     * target data on replay.
+     */
+    default boolean supportsNewlyCreatedTable() {
+        return false;
+    }
+
+    /**
+     * Creates a sink writer for a newly discovered upstream table.
+     *
+     * <p>The provided {@link CatalogTable} is the upstream logical table. Implementations may map
+     * it to a different physical target table using their own configuration rules. Writer
+     * construction must not execute destructive save-mode actions. Physical table setup belongs to
+     * the ordered CreateTableEvent handler and must be idempotent across retries.
+     */
+    default SinkWriter<SeaTunnelRow, ?, ?> createSinkWriter(
+            CatalogTable catalogTable, SinkWriter.Context context) throws IOException {
+        throw new UnsupportedOperationException(
+                String.format(
+                        "Sink writer %s does not support runtime newly created tables",
+                        getClass().getName()));
     }
 }

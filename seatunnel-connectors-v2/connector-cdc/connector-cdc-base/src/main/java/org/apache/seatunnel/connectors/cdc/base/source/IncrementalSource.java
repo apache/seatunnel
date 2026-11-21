@@ -522,7 +522,10 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         SnapshotPhaseState checkpointSnapshotState = checkpointState.getSnapshotPhaseState();
         Set<TableId> checkpointCapturedTables =
                 getCheckpointCapturedTables(checkpointSnapshotState);
-        Set<TableId> newTables = Sets.difference(capturedTables, checkpointCapturedTables);
+        Set<TableId> newTables =
+                isScanNewlyAddedTableEnabledOnRestore()
+                        ? Sets.difference(capturedTables, checkpointCapturedTables)
+                        : Collections.emptySet();
         Set<TableId> deletedTables = Sets.difference(checkpointCapturedTables, capturedTables);
 
         checkpointSnapshotState.getRemainingTables().addAll(newTables);
@@ -569,5 +572,15 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                     checkpointState.getIncrementalPhaseState());
         }
         return checkpointState;
+    }
+
+    /**
+     * Returns whether newly discovered tables should be appended to the restored snapshot phase.
+     *
+     * <p>The base default keeps the existing SeaTunnel restore behavior. Connectors can override it
+     * when they expose a connector-specific compatibility switch.
+     */
+    protected boolean isScanNewlyAddedTableEnabledOnRestore() {
+        return true;
     }
 }

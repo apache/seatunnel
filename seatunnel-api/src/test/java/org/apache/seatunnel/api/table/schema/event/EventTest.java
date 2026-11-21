@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -69,6 +70,18 @@ public class EventTest {
         AlterTableDropColumnEvent dropColumnEvent =
                 new AlterTableDropColumnEvent(TableIdentifier.of("", TablePath.DEFAULT), "test");
         Assertions.assertEquals(EventType.SCHEMA_CHANGE_DROP_COLUMN, getEventType(dropColumnEvent));
+
+        CreateTableEvent createTableEvent =
+                new CreateTableEvent(TableIdentifier.of("", TablePath.DEFAULT), null);
+        Assertions.assertEquals(
+                EventType.SCHEMA_CHANGE_CREATE_TABLE, createTableEvent.getEventType());
+        Assertions.assertEquals(0, EventType.SCHEMA_CHANGE_ADD_COLUMN.ordinal());
+        Assertions.assertEquals(
+                EventType.values().length - 1, EventType.SCHEMA_CHANGE_CREATE_TABLE.ordinal());
+        // Public enum ordinals must not shift when runtime table creation is added.
+        Assertions.assertEquals(0, SchemaChangeType.ADD_COLUMN.ordinal());
+        Assertions.assertEquals(5, SchemaChangeType.ALTER_COLUMN_COMMENT.ordinal());
+        Assertions.assertEquals(6, SchemaChangeType.CREATE_TABLE.ordinal());
     }
 
     @Test
