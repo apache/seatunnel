@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.state;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -29,4 +31,10 @@ import java.io.Serializable;
 public class JdbcSinkState implements Serializable {
     private static final long serialVersionUID = 4602940529569595559L;
     private final Xid xid;
+    // Null for legacy checkpoints written before JDBC sink state carried restored schemas.
+    private final TableSchema tableSchema;
+
+    public JdbcSinkState(Xid xid) {
+        this(xid, null);
+    }
 }

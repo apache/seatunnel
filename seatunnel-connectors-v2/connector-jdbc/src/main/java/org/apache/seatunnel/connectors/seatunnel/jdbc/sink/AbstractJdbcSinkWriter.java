@@ -68,6 +68,11 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
 
     protected TableSchemaChangeEventDispatcher tableSchemaChanger =
             new TableSchemaChangeEventDispatcher();
+    /**
+     * Tracks a successfully applied or restored schema so an ordinary writer can persist optional
+     * schema state. This is independent of checkpoint enablement and the flush commit boundary.
+     */
+    protected boolean schemaEvolutionApplied;
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
@@ -78,6 +83,7 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
         }
         this.tableSchema = tableSchemaChanger.reset(tableSchema).apply(event);
         reOpenOutputFormat(event);
+        this.schemaEvolutionApplied = true;
     }
 
     /**

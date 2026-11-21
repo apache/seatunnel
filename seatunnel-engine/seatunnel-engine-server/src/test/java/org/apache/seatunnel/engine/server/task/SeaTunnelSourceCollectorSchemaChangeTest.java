@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -28,6 +30,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
@@ -35,7 +38,9 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.io.IOException;
@@ -46,6 +51,45 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class SeaTunnelSourceCollectorSchemaChangeTest {
+
+    @Test
+    void shouldUseRestoredSchemaBeforeCollectingPostRecoveryRow() throws IOException {
+        SeaTunnelRowType initialRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        SeaTunnelRowType restoredRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name", "email"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.STRING_TYPE
+                        });
+        CatalogTable restoredTable =
+                CatalogTableUtil.getCatalogTable("test_db.test_table", restoredRowType);
+
+        OneInputFlowLifeCycle<Record<?>> output = Mockito.mock(OneInputFlowLifeCycle.class);
+        SeaTunnelSourceCollector<SeaTunnelRow> collector =
+                new SeaTunnelSourceCollector<>(
+                        new Object(),
+                        Collections.singletonList(output),
+                        metricsContext(),
+                        FlowControlStrategy.builder().build(),
+                        initialRowType,
+                        Collections.singletonList(TablePath.of("test_db", "test_table")),
+                        sourceTask(),
+                        new EngineConfig());
+
+        collector.restoreSchema(Collections.singletonList(restoredTable));
+        collector.collect(new SeaTunnelRow(new Object[] {1, "Alice", "alice@example.com"}));
+
+        ArgumentCaptor<Record> emitted = ArgumentCaptor.forClass(Record.class);
+        verify(output).received(emitted.capture());
+        SeaTunnelRow row = (SeaTunnelRow) emitted.getValue().getData();
+        Assertions.assertArrayEquals(
+                new Object[] {1, "Alice", "alice@example.com"}, row.getFields());
+        // INT (4 bytes) + Alice (5 characters) + alice@example.com (17 characters).
+        Assertions.assertEquals(26, row.getBytesSize());
+    }
 
     @Test
     void shouldIgnoreSchemaChangeForUnknownTableInMultipleRowType() throws IOException {
