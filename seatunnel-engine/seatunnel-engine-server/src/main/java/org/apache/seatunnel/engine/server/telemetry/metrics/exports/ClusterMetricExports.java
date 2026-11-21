@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 
 import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.Node;
@@ -61,7 +62,7 @@ public class ClusterMetricExports extends AbstractCollector {
 
     private void clusterInfo(final List<MetricFamilySamples> mfs) {
         // Snapshot once to avoid TOCTOU race during master election.
-        Address masterAddr = getClusterService().getMasterAddress();
+        Address masterAddr = NodeEngineUtil.getActiveMasterAddress(getNode().getNodeEngine());
         if (masterAddr == null) {
             return;
         }

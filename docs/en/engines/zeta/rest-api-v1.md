@@ -588,6 +588,9 @@ When we can't get the job info, the response contains only the requested `jobId`
 [
   {
     "isMaster": "true",
+    "nodeRole": "MASTER_AND_WORKER",
+    "coordinator": "true",
+    "worker": "true",
     "host": "localhost",
     "port": "5801",
     "processors":"8",
@@ -641,6 +644,16 @@ When we can't get the job info, the response contains only the requested `jobId`
 
 Each member is asked in parallel and awaited against one shared deadline (`seatunnel.engine.health-metrics-timeout-seconds`, default `3` seconds). A member that does not answer in time is reported as `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}`; members whose request dispatch or response fails are reported with the corresponding `error` marker. Healthy members additionally include `isMaster` and the connection details (`host`, `port`) shown in the example above.
 
+- `isMaster`: whether this node is the current active SeaTunnel coordinator. In separated master
+  and worker deployments, this can differ from Hazelcast mastership.
+- `nodeRole`: statically configured node capability. Valid values are `MASTER`, `WORKER`, and
+  `MASTER_AND_WORKER`.
+- `coordinator`: whether this node is configured with coordinator capability.
+- `worker`: whether this node is configured with worker capability.
+
+`nodeRole`, `coordinator`, and `worker` disclose the cluster topology. The REST API V1 is
+unauthenticated by default. Restrict network access or enable basic authentication (see
+[Security](security.md)) when this information is sensitive.
 
 </details>
 

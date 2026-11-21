@@ -55,43 +55,96 @@ public class ConnectorPackageService {
     private ConnectorJarStorageStrategy connectorJarStorageStrategy;
 
     public ConnectorPackageService(SeaTunnelServer seaTunnelServer) {
+        this(seaTunnelServer, null);
+    }
+
+    /**
+     * Creates the connector package service with an optional storage strategy override.
+     *
+     * <p>The override keeps replication retry semantics independently testable without changing the
+     * production strategy selection.
+     *
+     * @param seaTunnelServer local SeaTunnel server
+     * @param connectorJarStorageStrategy storage strategy override, or {@code null} for the
+     *     configured strategy
+     */
+    ConnectorPackageService(
+            SeaTunnelServer seaTunnelServer,
+            ConnectorJarStorageStrategy connectorJarStorageStrategy) {
         this.seaTunnelServer = seaTunnelServer;
         this.seaTunnelConfig = seaTunnelServer.getSeaTunnelConfig();
         this.connectorJarStorageConfig =
                 seaTunnelConfig.getEngineConfig().getConnectorJarStorageConfig();
         this.nodeEngine = seaTunnelServer.getNodeEngine();
         this.connectorJarStorageStrategy =
-                StorageStrategyFactory.of(
-                        connectorJarStorageConfig.getStorageMode(),
-                        connectorJarStorageConfig,
-                        seaTunnelServer);
+                connectorJarStorageStrategy == null
+                        ? StorageStrategyFactory.of(
+                                connectorJarStorageConfig.getStorageMode(),
+                                connectorJarStorageConfig,
+                                seaTunnelServer)
+                        : connectorJarStorageStrategy;
     }
 
-    public ConnectorJarIdentifier storageConnectorJarFile(long jobId, Data connectorJarData) {
+    public synchronized ConnectorJarIdentifier storageConnectorJarFile(
+            long jobId, Data connectorJarData) {
         ConnectorJar connectorJar = nodeEngine.getSerializationService().toObject(connectorJarData);
         /*
-         * If the server holds the same Jar package file, there is no need for additional storage.
-         * When the Connector Jar storage strategy is SharedConnectorJarStorageStrategy, the
-         * reference count in the connectorJarRefCounters needs to be increased. When the Connector
-         * Jar storage strategy is IsolatedConnectorJarStorageStrategy, we don't need to do any
-         * processing, just return the identifier of connector jar.
+         * A local file can remain after a previous fan-out was only partially acknowledged.
+         * Repeating the idempotent remote writes repairs missing copies before committing the next
+         * shared reference. Isolated storage has no reference count to update.
          */
         boolean connectorJarExisted =
                 connectorJarStorageStrategy.checkConnectorJarExisted(jobId, connectorJar);
+        ConnectorJarStorageMode storageMode = connectorJarStorageConfig.getStorageMode();
+        ConnectorJarIdentifier connectorJarIdentifier;
         if (connectorJarExisted) {
-            ConnectorJarIdentifier connectorJarIdentifier =
+            connectorJarIdentifier =
                     connectorJarStorageStrategy.getConnectorJarIdentifier(jobId, connectorJar);
-            ConnectorJarStorageMode storageMode = connectorJarStorageConfig.getStorageMode();
             if (storageMode.equals(ConnectorJarStorageMode.SHARED)) {
                 SharedConnectorJarStorageStrategy sharedConnectorJarStorageStrategy =
                         (SharedConnectorJarStorageStrategy) connectorJarStorageStrategy;
-                sharedConnectorJarStorageStrategy.increaseRefCountForConnectorJar(
+                boolean referenceReserved =
+                        sharedConnectorJarStorageStrategy.increaseRefCountForConnectorJar(
+                                connectorJarIdentifier);
+                if (!referenceReserved) {
+                    // Cleanup removed the record after the existence check. Rebuild local storage
+                    // and its first reference before remote replication.
+                    connectorJarIdentifier =
+                            connectorJarStorageStrategy.storageConnectorJarFile(
+                                    jobId, connectorJar);
+                }
+            }
+        } else {
+            connectorJarIdentifier =
+                    connectorJarStorageStrategy.storageConnectorJarFile(jobId, connectorJar);
+        }
+        try {
+            replicateConnectorJarToMembers(connectorJarIdentifier, connectorJar);
+        } catch (RuntimeException e) {
+            // Roll back the local shared reference until every server member acknowledges its
+            // copy. A retry can then fan out again and commit exactly one reference.
+            if (storageMode.equals(ConnectorJarStorageMode.SHARED)) {
+                SharedConnectorJarStorageStrategy sharedConnectorJarStorageStrategy =
+                        (SharedConnectorJarStorageStrategy) connectorJarStorageStrategy;
+                sharedConnectorJarStorageStrategy.rollbackConnectorJarRefCount(
                         connectorJarIdentifier);
             }
-            return connectorJarStorageStrategy.getConnectorJarIdentifier(jobId, connectorJar);
+            throw e;
         }
-        ConnectorJarIdentifier connectorJarIdentifier =
-                connectorJarStorageStrategy.storageConnectorJarFile(jobId, connectorJar);
+        return connectorJarIdentifier;
+    }
+
+    /**
+     * Replicates a connector jar to every other server member.
+     *
+     * <p>Remote writes are idempotent, so retrying this fan-out repairs a partially completed
+     * replication without replacing existing copies.
+     *
+     * @param connectorJarIdentifier connector jar storage identifier
+     * @param connectorJar connector jar payload
+     */
+    private void replicateConnectorJarToMembers(
+            ConnectorJarIdentifier connectorJarIdentifier, ConnectorJar connectorJar) {
         nodeEngine
                 .getClusterService()
                 .getMembers()
@@ -103,10 +156,16 @@ public class ConnectorPackageService {
                                         connectorJarIdentifier, connectorJar, address);
                             }
                         });
-        return connectorJarIdentifier;
     }
 
-    private void sendConnectorJarToMemberNode(
+    /**
+     * Sends one connector jar replica and waits for the remote write acknowledgement.
+     *
+     * @param connectorJarIdentifier connector jar storage identifier
+     * @param connectorJar connector jar payload
+     * @param address destination server member
+     */
+    void sendConnectorJarToMemberNode(
             ConnectorJarIdentifier connectorJarIdentifier,
             ConnectorJar connectorJar,
             Address address) {
@@ -119,7 +178,7 @@ public class ConnectorPackageService {
         invocationFuture.join();
     }
 
-    public void cleanUpWhenJobFinished(
+    public synchronized void cleanUpWhenJobFinished(
             long jobId, List<ConnectorJarIdentifier> connectorJarIdentifierList) {
         connectorJarStorageStrategy.cleanUpWhenJobFinished(jobId, connectorJarIdentifierList);
     }

@@ -41,12 +41,18 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.matchesRegex;
 
@@ -78,8 +84,59 @@ public class MasterWorkerClusterSeaTunnelWithTelemetryIT extends SeaTunnelContai
     @BeforeEach
     public void startUp() throws Exception {
 
-        server = createServer("server", "master");
-        secondServer = createServer("secondServer", "worker");
+        // Start the worker and the master concurrently, not sequentially. A lite (worker-only)
+        // node can never self-promote to Hazelcast master by itself (LiteNodeDropOutTcpIpJoiner
+        // rejects it at two separate gates), so the worker's join attempt only succeeds once the
+        // master becomes reachable and it retries into it. createServer() does real, sequential
+        // per-container setup (image pull, file/jar copy, in-container exec) before the join
+        // protocol even starts; starting the master only after the worker's entire setup has
+        // already finished pushes the master's availability further out, and can push it past
+        // the worker's own join-retry budget, timing out before ever exercising this PR's actual
+        // separated-cluster routing scenario. Starting both concurrently keeps the worker's
+        // retry loop genuinely racing the master's startup instead of an artificial one.
+        ExecutorService bootstrapExecutor = Executors.newFixedThreadPool(2);
+        Future<GenericContainer<?>> secondServerFuture =
+                bootstrapExecutor.submit(() -> createServer("secondServer", "worker"));
+        Future<GenericContainer<?>> serverFuture =
+                bootstrapExecutor.submit(() -> createServer("server", "master"));
+        GenericContainer<?> workerServer = null;
+        GenericContainer<?> masterServer = null;
+        Exception bootstrapFailure = null;
+        AtomicBoolean bootstrapInterrupted = new AtomicBoolean();
+        try {
+            try {
+                workerServer = waitForBootstrapContainer(secondServerFuture, bootstrapInterrupted);
+            } catch (Exception e) {
+                bootstrapFailure = e;
+            }
+
+            try {
+                masterServer = waitForBootstrapContainer(serverFuture, bootstrapInterrupted);
+            } catch (Exception e) {
+                if (bootstrapFailure == null) {
+                    bootstrapFailure = e;
+                } else {
+                    bootstrapFailure.addSuppressed(e);
+                }
+            }
+
+            if (bootstrapFailure == null && bootstrapInterrupted.get()) {
+                bootstrapFailure = new InterruptedException();
+            }
+
+            if (bootstrapFailure != null) {
+                closeBootstrapContainer(workerServer, bootstrapFailure);
+                closeBootstrapContainer(masterServer, bootstrapFailure);
+                if (bootstrapInterrupted.get()) {
+                    Thread.currentThread().interrupt();
+                }
+                throw unwrapExecutionException(bootstrapFailure);
+            }
+            secondServer = workerServer;
+            server = masterServer;
+        } finally {
+            bootstrapExecutor.shutdown();
+        }
 
         // check cluster
         Awaitility.await()
@@ -127,6 +184,40 @@ public class MasterWorkerClusterSeaTunnelWithTelemetryIT extends SeaTunnelContai
                                     .statusCode(200)
                                     .body("jobStatus", equalTo("RUNNING"));
                         });
+    }
+
+    private GenericContainer<?> waitForBootstrapContainer(
+            Future<GenericContainer<?>> containerFuture, AtomicBoolean interrupted)
+            throws Exception {
+        while (true) {
+            try {
+                return containerFuture.get();
+            } catch (InterruptedException e) {
+                interrupted.set(true);
+            }
+        }
+    }
+
+    private void closeBootstrapContainer(
+            GenericContainer<?> container, Exception bootstrapFailure) {
+        if (container == null) {
+            return;
+        }
+        try {
+            container.close();
+        } catch (Exception closeException) {
+            bootstrapFailure.addSuppressed(closeException);
+        }
+    }
+
+    private Exception unwrapExecutionException(Exception exception) {
+        if (exception instanceof ExecutionException) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof Exception) {
+                return (Exception) cause;
+            }
+        }
+        return exception;
     }
 
     public void testGetMetrics(GenericContainer<?> server, String testClusterName, boolean isMaster)
@@ -572,6 +663,9 @@ public class MasterWorkerClusterSeaTunnelWithTelemetryIT extends SeaTunnelContai
                                 "(?s)^.*hazelcast_partition_isLocalMemberSafe\\{cluster=\""
                                         + testClusterName
                                         + "\",address=.*$"));
+        if (!isMaster) {
+            validatableResponse.body(not(containsString("job_thread_pool_activeCount")));
+        }
     }
 
     @Override
