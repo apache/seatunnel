@@ -47,7 +47,7 @@ sh bin/install-plugin.sh
 | 自定义读取列、JOIN 或数据库表达式 | `query`，可以同时配置 `table_path` | SeaTunnel 执行用户提供的 SQL。需要明确表身份和元数据时可同时配置 `table_path`。部分 JOIN 无法安全推断查询主键，详见 [Query 与主键注意事项](#query-与主键注意事项)。 |
 | 读取多张表或按表名模式匹配 | `table_list` | 每一项可以配置 `table_path`、可选 `query` 和分片参数。使用 `table_list` 时，不能再配置顶层 `table_path` 或 `query`。 |
 
-当只配置 `query`，且 JDBC 报告所有结果列均来自同一张物理表（例如 `SELECT * FROM db.table`）时，SeaTunnel 可以根据查询结果元数据解析该表，并把它的元数据合并进查询推导出的 schema，具体行为由 `query_table_metadata_merge` 选项控制：`NONE`（默认）跳过底表解析，保持查询推导的 schema 不变，与引入该选项之前的行为一致；`COMMENT` 合并字段注释和表注释，使带自动建表能力的 Sink 能保留它们；`ALL` 额外合并表选项、主键、约束键和分区键——效果等同于同时配置 `table_path` 与 `query`——但可能改变 Sink 建表 DDL，使配置了 `generate_sink_sql` 的 Sink 从普通 insert 切换为 upsert，或使切分规划根据合并出的主键推断切分列。该选项仅在未配置 `table_path` 时生效；同时配置 `table_path` 与 `query` 时始终执行完整合并，该选项被忽略。查询中被改名的列保留查询推导的定义。注意：计算列或表达式列（例如 `UPPER(name)`）通常不携带来源元数据，这会导致整个查询无法确认单表——此时会完全跳过合并，而不仅是跳过该列。单表验证或底表加载失败时回退为查询推导的 schema，并输出 warn 日志。已有的查询主键推断还存在独立限制，详见 [Query 与主键注意事项](#query-与主键注意事项)。
+当只配置 `query`，且 JDBC 报告所有结果列均来自同一张物理表（例如 `SELECT * FROM db.table`）时，SeaTunnel 可以根据查询结果元数据解析该表，并把它的元数据合并进查询推导出的 schema，具体行为由 `query_table_metadata_merge` 选项控制：`NONE`（默认）跳过底表解析，保持查询推导的 schema 不变，与引入该选项之前的行为一致；`COMMENT` 合并字段注释和表注释，使带自动建表能力的 Sink 能保留它们；`ALL` 额外合并表选项、主键、约束键和分区键——效果等同于同时配置 `table_path` 与 `query`——但可能改变 Sink 建表 DDL，使配置了 `generate_sink_sql` 的 Sink 从普通 insert 切换为 upsert，或使切分规划根据合并出的主键推断切分列。该选项仅在未配置 `table_path` 时生效；同时配置 `table_path` 与 `query` 时忽略该选项。如果能够加载显式指定表的元数据，则执行完整合并；否则保留查询推导的 schema，并使用显式表路径作为表标识。查询中被改名的列保留查询推导的定义。注意：计算列或表达式列（例如 `UPPER(name)`）通常不携带来源元数据，这会导致整个查询无法确认单表——此时会完全跳过合并，而不仅是跳过该列。单表验证或底表加载失败时回退为查询推导的 schema，并输出 warn 日志。已有的查询主键推断还存在独立限制，详见 [Query 与主键注意事项](#query-与主键注意事项)。
 
 来源验证依赖驱动报告每个结果列的来源表。各数据库家族的支持情况：
 

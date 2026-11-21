@@ -789,9 +789,8 @@ public class JdbcCatalogUtilsTest {
 
     @Test
     public void testTablePathWithQueryIgnoresMetadataMergeMode() throws Exception {
-        // `table_path` + `query` always performs the full merge through the pre-existing
-        // table_path behavior; `query_table_metadata_merge` is not consulted, even when set to
-        // NONE.
+        // With metadata available for the explicit table, merge it even when the query-only
+        // mode is set to NONE.
         JdbcSourceTableConfig tableConfig =
                 JdbcSourceTableConfig.builder()
                         .tablePath("database-x.table-x")
@@ -824,6 +823,34 @@ public class JdbcCatalogUtilsTest {
                 mergeTable.getTableSchema().getConstraintKeys());
         Assertions.assertEquals(DEFAULT_TABLE.getPartitionKeys(), mergeTable.getPartitionKeys());
         // The query-only resolution path is not used.
+        verify(catalog, never()).resolveQueryTable(anyString());
+    }
+
+    @Test
+    public void testTablePathWithQueryRetainsQuerySchemaWhenExplicitTableLookupFails()
+            throws Exception {
+        String query = "select f1 from table-x";
+        JdbcSourceTableConfig tableConfig =
+                JdbcSourceTableConfig.builder()
+                        .tablePath("database-x.table-x")
+                        .query(query)
+                        .queryTableMetadataMerge(QueryTableMetadataMergeMode.ALL)
+                        .build();
+        TablePath explicitPath = TablePath.of("database-x", null, "table-x");
+        CatalogTable queryTable =
+                buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-x", null, "query"));
+        AbstractJdbcCatalog catalog = mock(AbstractJdbcCatalog.class);
+        JdbcDialect jdbcDialect = mock(JdbcDialect.class);
+        when(jdbcDialect.parse(tableConfig.getTablePath())).thenReturn(explicitPath);
+        when(catalog.getTable(explicitPath)).thenThrow(new IllegalStateException("No metadata"));
+        when(catalog.getTable(query)).thenReturn(queryTable);
+
+        CatalogTable result = JdbcCatalogUtils.getCatalogTable(tableConfig, catalog, jdbcDialect);
+
+        Assertions.assertEquals(
+                TableIdentifier.of("jdbc_catalog", "database-x", null, "table-x"),
+                result.getTableId());
+        Assertions.assertEquals(queryTable.getTableSchema(), result.getTableSchema());
         verify(catalog, never()).resolveQueryTable(anyString());
     }
 
