@@ -30,12 +30,17 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
+import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -44,6 +49,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.cluster.Address;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.EntryView;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -439,6 +445,10 @@ public class ClusterFaultToleranceIT {
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
         seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
+        SlotServiceConfig slots = seaTunnelConfig.getEngineConfig().getSlotServiceConfig();
+        slots.setDynamicSlot(false);
+        slots.setSlotNum(10);
+        slots.setAllocateStrategy(AllocateStrategy.SLOT_RATIO);
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
@@ -452,6 +462,21 @@ public class ClusterFaultToleranceIT {
                             () ->
                                     Assertions.assertEquals(
                                             2, finalNode.getCluster().getMembers().size()));
+
+            SeaTunnelServer master =
+                    node1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            ResourceManager resourceManager = master.getCoordinatorService().getResourceManager();
+            Address survivingWorker = node1.node.address;
+            Address workerToRemove = node2.node.address;
+            // Membership does not guarantee eligibility for task-group placement.
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .until(
+                            () ->
+                                    resourceManager.getRegisterWorker().containsKey(survivingWorker)
+                                            && resourceManager
+                                                    .getRegisterWorker()
+                                                    .containsKey(workerToRemove));
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
@@ -491,13 +516,14 @@ public class ClusterFaultToleranceIT {
             CompletableFuture<JobStatus> waitForCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
-            SeaTunnelServer master =
-                    node1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            JobMaster job = master.getCoordinatorService().getJobMaster(clientJobProxy.getJobId());
             CheckpointCoordinator coordinator =
-                    master.getCoordinatorService()
-                            .getJobMaster(clientJobProxy.getJobId())
-                            .getCheckpointManager()
-                            .getCheckpointCoordinator(1);
+                    job.getCheckpointManager().getCheckpointCoordinator(1);
+            Assertions.assertTrue(
+                    job.getPhysicalPlan().getPipelineList().get(0).getPhysicalVertexList().stream()
+                            .map(PhysicalVertex::getCurrentExecutionAddress)
+                            .anyMatch(workerToRemove::equals),
+                    "The worker being shut down must host a task in the pipeline under test");
             // Change only this job's coordinator config. Delaying its first post-restore barrier
             // creates a deterministic stall without blocking tasks or relaxing data assertions.
             CheckpointConfig checkpointConfig =
