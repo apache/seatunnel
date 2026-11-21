@@ -17,7 +17,7 @@ SQL transform plugin powered by [Apache Calcite](https://calcite.apache.org/). U
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| sql | string | yes | - | SQL statement to execute |
+| sql | string | conditional | - | SQL statement to execute |
 | table_transform | list | no | [] | Per-table SQL overrides for multi-table CDC scenarios |
 | table_match_regex | string | no | .* | Regex to match table paths. Unmatched tables pass through unchanged |
 | row_error_handle_way | enum | no | FAIL | How to handle row-level errors: `FAIL`, `SKIP`, or `ROUTE_TO_TABLE` |
@@ -27,6 +27,8 @@ SQL transform plugin powered by [Apache Calcite](https://calcite.apache.org/). U
 ```hocon
 sql = "SELECT id, UPPER(name) AS name, age + 1 AS next_age FROM source_table WHERE age > 18"
 ```
+
+The global `sql` is required when `table_transform` is not configured. When `table_transform` entries are present, each entry must carry its own `sql`, and the global `sql` becomes optional: tables not listed in `table_transform` fall back to the global `sql` when it is set, or pass through unchanged.
 
 ### table_transform [list]
 

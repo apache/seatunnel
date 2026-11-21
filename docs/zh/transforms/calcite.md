@@ -17,7 +17,7 @@
 
 | 名称 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| sql | string | 是 | - | 要执行的 SQL 语句 |
+| sql | string | 条件必填 | - | 要执行的 SQL 语句 |
 | table_transform | list | 否 | [] | 多表 CDC 场景下的逐表 SQL 覆盖 |
 | table_match_regex | string | 否 | .* | 表路径匹配正则。不匹配的表直接透传 |
 | row_error_handle_way | enum | 否 | FAIL | 行级错误处理方式：`FAIL`、`SKIP`、`ROUTE_TO_TABLE` |
@@ -27,6 +27,8 @@
 ```hocon
 sql = "SELECT id, UPPER(name) AS name, age + 1 AS next_age FROM source_table WHERE age > 18"
 ```
+
+未配置 `table_transform` 时必须配置全局 `sql`。配置了 `table_transform` 后，每个条目必须自带 `sql`，此时全局 `sql` 变为可选：未列出的表在配置了全局 `sql` 时回退到该语句，否则直接透传。
 
 ### table_transform [list]
 

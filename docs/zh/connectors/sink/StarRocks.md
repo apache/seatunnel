@@ -606,7 +606,7 @@ StarRocks 列名默认不区分大小写。请确认上游字段名与目标 Sta
 - `nodeUrls`：StarRocks FE 节点的 HTTP 地址，用于 Stream Load 数据写入。
 - `base-url`：指向 StarRocks FE 节点的 JDBC URL，用于建表、查询 schema 等 DDL 操作。
 
-开启自动建表时两者均需配置。
+两者均为必填项。
 
 ## 变更日志
 
