@@ -124,7 +124,11 @@ public class TestSparkStarterJarContentIT {
     }
 
     private static String starterClasspath() throws IOException {
-        return Paths.get("target/logging-e2e", "*") + File.pathSeparator + findStarterJar();
+        return Paths.get("target/logging-e2e")
+                + File.separator
+                + "*"
+                + File.pathSeparator
+                + findStarterJar();
     }
 
     private static String readOutput(Process process) throws IOException {
