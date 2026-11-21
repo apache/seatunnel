@@ -888,6 +888,7 @@ public class JobMaster {
                                 stateKeys.add(checkpointCoordinator.getCheckpointStateImapKey());
                                 stateKeys.add(checkpointCoordinator.getReadyToCloseImapKey());
                             }
+                            stateKeys.add(pipeline.getRestoreInfoImapKey());
                         });
         return new JobCleanupRecord(
                 initializationTimestamp,
