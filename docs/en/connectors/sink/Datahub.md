@@ -42,7 +42,7 @@ SeaTunnel schema fields, because the sink writes values by field name.
 | topic          | string | yes      | -             | DataHub topic name. Supports placeholders such as `${table_name}` in multi-table jobs. |
 | timeout        | int    | no       | 3000          | Maximum client connection timeout in milliseconds. |
 | retryTimes     | int    | no       | 3             | Maximum retry count when writing a record fails. |
-| multi_table_sink_replica | int | no    | 1             | The replica number of multi table sink writer. Must be at least 1. |
+| multi_table_sink_replica | int | no    | 1             | The replica number of multi table sink writer. Must be at least 1. Keep it at 1: the Datahub writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options | config | no       | -             | Sink plugin common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### endpoint [string]
@@ -84,8 +84,8 @@ The maximum retry count when writing a record fails.
 
 Sink plugin common parameters, please refer to
 [Sink Common Options](../common-options/sink-common-options.md) for details.
-For multi-table writes, `multi_table_sink_replica` can be used with the common
-sink options.
+For multi-table writes, keep the common option `multi_table_sink_replica` at 1:
+the Datahub writer does not declare a replica mode yet, so a value above 1 is rejected.
 
 ## Task Example
 

@@ -112,7 +112,7 @@ Write data to OceanBase through JDBC. The sink supports batch and streaming jobs
 | enable_upsert                             | Boolean | No       | true    | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                         |
 | is_primary_key_updated                    | Boolean | No       | true    | Whether primary key fields are included when generated update statements are built.                                                                                                                                                             |
 | support_upsert_by_insert_only             | Boolean | No       | false   | Whether to support upsert behavior through insert-only statements for compatible dialects.                                                                                                                                                      |
-| multi_table_sink_replica                  | Int     | No       | 1       | Number of sink writer replicas used when writing multiple tables.                                                                                                                                                                              |
+| multi_table_sink_replica                  | Int     | No       | 1       | Number of sink writer replicas used when writing multiple tables. A value above 1 needs a primary key for each table, from its schema or `primary_keys`, and cannot be used with `is_exactly_once = true`. See [Jdbc](Jdbc.md#common-options). |
 
 ### Tips
 

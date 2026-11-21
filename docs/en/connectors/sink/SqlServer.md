@@ -97,7 +97,7 @@ semantics (using XA transaction guarantee).
 | data_save_mode                            | Enum    | No       | APPEND_DATA | Before the synchronization task starts, controls how existing target table data is handled.                                                                                                                                                    |
 | custom_sql                                | String  | No       | -       | When `data_save_mode` is `CUSTOM_PROCESSING`, fill this option with SQL that can be executed before synchronization starts.                                                                                                                   |
 | enable_upsert                             | Boolean | No       | true    | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                       |
-| multi_table_sink_replica                  | Int     | No       | 1       | The number of sink writer replicas used when writing multiple tables.                                                                                                                           |
+| multi_table_sink_replica                  | Int     | No       | 1       | The number of sink writer replicas used when writing multiple tables. A value above 1 needs a primary key for each table, from its schema or `primary_keys`, and cannot be used with `is_exactly_once = true`. See [Jdbc](Jdbc.md#common-options). |
 
 ## tips
 

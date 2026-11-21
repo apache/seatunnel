@@ -95,7 +95,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | data_save_mode               | Enum     | 否       | APPEND_DATA | 同步任务启动前，控制目标表已有数据的处理方式。                                                                                                                   |
 | custom_sql                   | String   | 否       | -       | 当 `data_save_mode` 为 `CUSTOM_PROCESSING` 时，填写同步任务启动前需要执行的 SQL。                                                                                                                    |
 | enable_upsert                | Boolean  | 否       | true    | 通过主键存在启用 upsert。如果任务中没有键重复数据，将此参数设置为 `false` 可以加快数据导入速度。                                                                                                     |
-| multi_table_sink_replica     | Int      | 否       | 1       | 多表写入时使用的 Sink Writer 副本数量。                                                                                                     |
+| multi_table_sink_replica     | Int      | 否       | 1       | 多表写入时使用的 Sink Writer 副本数量。取值大于 1 时，每张表都需要主键（来自表结构或 `primary_keys`），并且不能与 `is_exactly_once = true` 同时使用。详见 [Jdbc](Jdbc.md#common-options)。 |
 
 ## 提示
 

@@ -58,6 +58,29 @@ public class FakeSourceToAssertIT extends TestSuiteBase {
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
+    /**
+     * The Assert writer declares no replica mode, so a job with {@code multi_table_sink_replica =
+     * 2} must fail when its writers are created, with the reason, instead of spreading rows over
+     * two writers at random.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason =
+                    "spark-submit can hang in local mode after a failed job, see"
+                            + " apache/seatunnel#13155")
+    public void testSinkWithoutReplicaModeIsRejectedWithReplicas(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/assertion/fakesource_to_assert_with_replicas.conf");
+
+        Assertions.assertNotEquals(0, execResult.getExitCode());
+        String output = execResult.getStdout() + execResult.getStderr();
+        Assertions.assertTrue(
+                output.contains("its writer declares neither KEYED nor RANDOM"), output);
+    }
+
     @TestTemplate
     @DisabledOnContainer(
             value = {},

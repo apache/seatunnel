@@ -45,7 +45,7 @@ The target table schema should match the upstream SeaTunnel row schema by field 
 | database | string | no | upstream database name | Target Fluss database. Supports placeholders such as `${database_name}` and `${schema_name}`. |
 | table | string | no | upstream table name | Target Fluss table. Supports placeholders such as `${table_name}` and `${schema_name}`. |
 | client.config | map | no | - | Extra Fluss client options passed to the Fluss connection. |
-| multi_table_sink_replica | int | no | 1 | Number of writer replicas for multi-table sink mode. |
+| multi_table_sink_replica | int | no | 1 | Number of writer replicas for multi-table sink mode. Keep it at 1: the Fluss writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options | - | no | - | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### bootstrap.servers
@@ -274,7 +274,7 @@ sink {
     bootstrap.servers = "fluss-coordinator:9123"
     database = "sink_db_${database_name}"
     table = "sink_${table_name}"
-    multi_table_sink_replica = 2
+    multi_table_sink_replica = 1
   }
 }
 ```

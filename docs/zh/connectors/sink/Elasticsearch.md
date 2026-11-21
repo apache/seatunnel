@@ -81,7 +81,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 ### multi_table_sink_replica [int]
 
-多表写入时，每张表对应的 Sink Writer 副本数。通常保持默认值即可；只有单表写入压力较大、需要更多写入并行度时再调大。
+多表写入时，每张表对应的 Sink Writer 副本数。请保持为 1：Elasticsearch writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。
 
 ## 认证
 

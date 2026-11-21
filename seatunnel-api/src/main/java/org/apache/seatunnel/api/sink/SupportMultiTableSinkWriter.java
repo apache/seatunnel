@@ -24,9 +24,24 @@ public interface SupportMultiTableSinkWriter<T> extends SupportResourceShare<T> 
 
     /**
      * The primary key index of the table in SeaTunnelRow, use it to make sure the same key value
-     * will be written to the same sink writer
+     * will be written to the same sink writer. It is used for routing only when {@link
+     * #replicaMode()} returns {@link MultiTableSinkReplicaMode#KEYED}.
      */
     default Optional<Integer> primaryKey() {
         return Optional.empty();
+    }
+
+    /**
+     * Declares whether this writer can run with {@code multi_table_sink_replica} above 1, and how
+     * rows are routed between its replicas. A key from {@link #primaryKey()} alone does not enable
+     * several replicas; the writer must also return {@link MultiTableSinkReplicaMode#KEYED} here.
+     *
+     * <p>All replicas of one table must return the same mode and, for {@code KEYED}, the same key
+     * index. The value is read once when the multi-table writer is created or restored.
+     *
+     * @return the replica mode, {@link MultiTableSinkReplicaMode#UNSUPPORTED} by default
+     */
+    default MultiTableSinkReplicaMode replicaMode() {
+        return MultiTableSinkReplicaMode.UNSUPPORTED;
     }
 }

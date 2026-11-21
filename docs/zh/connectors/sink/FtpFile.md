@@ -85,7 +85,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 | schema_save_mode                      | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方法                                                                  |
 | data_save_mode                        | string  | 否    | APPEND_DATA                                | 现有数据处理方法                                                                  |
-| multi_table_sink_replica              | int     | 否    | 1                                          | 多表写入时，每张表对应的 Sink Writer 副本数。                                      |
+| multi_table_sink_replica              | int     | 否    | 1                                          | 多表写入时，每张表对应的 Sink Writer 副本数。请保持为 1：FtpFile writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 
 ### host [string]
 
@@ -338,7 +338,7 @@ FtpFile {
 
 ### multi_table_sink_replica [int]
 
-多表写入时，每张表对应的 Sink Writer 副本数。默认值为 `1`；只有单表写入压力较大、需要更多写入并行度时再调大。
+多表写入时，每张表对应的 Sink Writer 副本数。默认值为 `1`。请保持为 1：FtpFile writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。
 
 ## 示例
 

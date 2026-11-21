@@ -40,7 +40,7 @@ DeepLake Sink 将 SeaTunnel 数据追加写入 Deep Lake 托管服务中的表�
 | connect_timeout_ms | int | 否 | `10000` | HTTP 连接超时时间，单位为毫秒。 |
 | socket_timeout_ms | int | 否 | `60000` | HTTP Socket 超时时间，单位为毫秒。 |
 | schema_save_mode | enum | 否 | `CREATE_SCHEMA_WHEN_NOT_EXIST` | Schema 处理方式。支持 `CREATE_SCHEMA_WHEN_NOT_EXIST`、`ERROR_WHEN_SCHEMA_NOT_EXIST` 和 `IGNORE`。 |
-| multi_table_sink_replica | int | 否 | `1` | 多表写入的并行副本数。 |
+| multi_table_sink_replica | int | 否 | `1` | 多表写入的并行副本数。请保持为 1：DeepLake writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 
 ### schema_save_mode
 

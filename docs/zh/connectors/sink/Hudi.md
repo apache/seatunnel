@@ -38,7 +38,7 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 | table_list                 | array  | 否        | -                            | 多表作业中每张表的配置。 |
 | schema_save_mode           | enum   | 否        | CREATE_SCHEMA_WHEN_NOT_EXIST | 作业启动前如何处理目标 schema。 |
 | data_save_mode             | enum   | 否        | APPEND_DATA                  | 作业启动前如何处理已存在的表数据。 |
-| multi_table_sink_replica   | int    | 否        | 1                            | 多表写入模式下每张表写入器的副本数。 |
+| multi_table_sink_replica   | int    | 否        | 1                            | 多表写入模式下每张表写入器的副本数。请保持为 1：Hudi writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options             | config | 否        | -                            | [Sink 插件通用参数](../common-options/sink-common-options.md)。 |
 
 表清单配置:

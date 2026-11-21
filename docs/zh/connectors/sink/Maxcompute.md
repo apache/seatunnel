@@ -48,7 +48,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | tunnel_read_timeout_ms    | long    | 否   | 300000                       | Tunnel 客户端（批量数据上传/下载）的 HTTP 读超时，单位毫秒。默认 300000（300 秒）。                |
 | tunnel_retry_times        | int     | 否   | 4                            | Tunnel 客户端最大重试次数。默认 4。                                                                |
 | insert_strategy           | string  | 否   | upload                       | 插入会话类型：`upload` 使用 upload 会话，`upsert` 使用 upsert 会话并要求目标表存在主键。            |
-| multi_table_sink_replica  | int     | 否   | 1                            | 多表写入时每张表对应的 Sink Writer 副本数。                                                         |
+| multi_table_sink_replica  | int     | 否   | 1                            | 多表写入时每张表对应的 Sink Writer 副本数。请保持为 1：Maxcompute writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options            |         | 否   | -                            | Sink 插件通用参数，例如 `plugin_input`。                                                            |
 
 ### accessId [string]
@@ -249,9 +249,9 @@ Tunnel Quota 允许您使用专用的计算资源进行 MaxCompute Tunnel 数据
 
 ### multi_table_sink_replica [int]
 
-多表写入模式下的 writer 副本数，默认值为 `1`。
+多表写入模式下的 writer 副本数，默认值为 `1`。请保持为 1：Maxcompute writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。
 
-当上游数据包含多张表，并且 `table_name` 使用 `${table_name}` 这类占位符时可以配置该参数。例如 `table_name = "${table_name}_sink"` 会把上游表 `test_table` 写入目标表 `test_table_sink`。
+多表写入并不依赖该参数：当上游数据包含多张表时，`table_name` 可以使用 `${table_name}` 这类占位符。例如 `table_name = "${table_name}_sink"` 会把上游表 `test_table` 写入目标表 `test_table_sink`。
 
 ### 通用选项
 

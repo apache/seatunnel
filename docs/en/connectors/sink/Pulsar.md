@@ -43,7 +43,7 @@ The Pulsar sink writes SeaTunnel rows to Apache Pulsar topics. It can write to o
 | pulsar.config            | Map    | No       | -                   | Extra key/value properties attached to the Pulsar producer as producer metadata. They are not producer client settings. |
 | message.routing.mode     | Enum   | No       | RoundRobinPartition | Routing mode for partitioned topics. Valid values: `SinglePartition`, `RoundRobinPartition`.                     |
 | partition_key_fields     | Array  | No       | -                   | Fields used to build the Pulsar message key.                                                                     |
-| multi_table_sink_replica | Int    | No       | 1                   | Writer replica count for multi-table writes.                                                                     |
+| multi_table_sink_replica | Int    | No       | 1                   | Writer replica count for multi-table writes. Keep it at 1: the Pulsar writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options           | Config | No       | -                   | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md).              |
 
 ## Parameter Interpretation
@@ -120,7 +120,7 @@ For example, if the upstream row has `name` and `age`, setting `partition_key_fi
 
 ### multi_table_sink_replica [Int]
 
-Replica count for multi-table sink writers. It applies to all target topics in the multi-table sink.
+Replica count for multi-table sink writers. It applies to all target topics in the multi-table sink. Keep it at 1: the Pulsar writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
 ### common options
 
@@ -207,7 +207,7 @@ sink {
   Pulsar {
     client.service-url = "pulsar://localhost:6650"
     admin.service-url = "http://localhost:8080"
-    multi_table_sink_replica = 2
+    multi_table_sink_replica = 1
     format = json
   }
 }

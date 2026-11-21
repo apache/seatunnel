@@ -19,10 +19,29 @@ sidebar_position: 4
 |--------------|--------|------|-----|
 | plugin_input | list   | 否    | -   |
 | metadata_datasource_id | string | 否    | -   |
+| multi_table_sink_replica | int | 否 | 1 |
 
 ### metadata_datasource_id [string]
 
 用于从元数据中心获取连接配置的数据源 ID。当指定此参数时，连接器将从外部元数据服务获取连接详细信息（如 URL、用户名、密码），而不是使用直接配置。详见 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
+
+### multi_table_sink_replica [int]
+
+多表 Sink 在一个子任务中为每张表运行的 writer 数量，默认值为 1。取值大于 1 时，一张表的记录会被分配到
+它的多个 writer 上，因此 writer 必须通过 `SupportMultiTableSinkWriter.replicaMode()` 声明如何安全地分配：
+
+- `KEYED`：按 `primaryKey()` 给出的键路由，同一键的所有变更按顺序到达同一个 writer。声明该模式但没有键的
+  writer 会被拒绝。Jdbc 声明该模式（`is_exactly_once` 除外），因此 Jdbc 表需要在表结构或 `primary_keys`
+  中有主键。`BYTES` 类型的键（例如 `BINARY` 或 `VARBINARY`）按数组对象的标识而不是内容哈希，同一个二进制键的
+  变更可能到达不同的 writer：此类表请将该选项保持为 1。
+- `RANDOM`：记录可以分配到任意 writer，只适用于写入结果与写入顺序无关的 writer。
+- `UNSUPPORTED`（默认）：创建或恢复 writer 时作业失败，错误信息会给出表、连接器和 writer 类。此类
+  Sink 请将该选项设置为 1。
+
+每个 writer 有自己的 checkpoint 状态，不会迁移到其他 writer。如果恢复 checkpoint 会让部分状态没有对应的
+writer，恢复会失败。修改该值（无论增大还是减小，增大时编号大于 0 的子任务也会对应到其他 writer）或改变 Sink
+并行度之后都会出现这种情况。该检查对任何取值都会执行，包括默认值 1；保持 checkpoint 时的取值和并行度即可通过。
+请在不恢复此类 checkpoint 的作业中修改该值。
 
 ### plugin_input [list]
 

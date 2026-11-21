@@ -342,7 +342,7 @@ sink {
 
 ### 4. 从 HugeGraph Source 整体克隆
 
-当上游是 HugeGraph Source 时，每行已经带有预留列（顶点为 `~id`，边端点为 `~source_id` / `~target_id`），直接复用这些 id 即可完整还原图。下面的示例把 `multi_table_sink_replica` 调大，让 sink 在 source 读取多 label 时能并行写出。
+当上游是 HugeGraph Source 时，每行已经带有预留列（顶点为 `~id`，边端点为 `~source_id` / `~target_id`），直接复用这些 id 即可完整还原图。下面的示例将 `multi_table_sink_replica` 保持为 1：HugeGraph writer 尚未声明副本模式，取值大于 1 会被拒绝。
 
 ```hocon
 env {
@@ -363,7 +363,7 @@ sink {
     host = "dst-host"
     port = 8080
     graph_name = "hugegraph"
-    multi_table_sink_replica = 2
+    multi_table_sink_replica = 1
     batch_size = 500
     mappings = [
       {

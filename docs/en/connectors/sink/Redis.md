@@ -71,7 +71,7 @@ downloaded from Maven Central.
 | value_field        | string  | No                          | -       | Upstream field used as the Redis value for `KEY`/`STRING`, `LIST`, `SET`, and `ZSET`. |
 | hash_key_field     | string  | No                          | -       | Upstream field used as the Redis hash field when `data_type = HASH`. |
 | hash_value_field   | string  | No                          | -       | Upstream field used as the Redis hash value when `data_type = HASH`. |
-| multi_table_sink_replica | int | No                          | 1       | Writer replica count for multi-table writes. |
+| multi_table_sink_replica | int | No                          | 1       | Writer replica count for multi-table writes. Keep it at 1: the Redis writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options     | config  | No                          | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### Authentication
@@ -120,7 +120,7 @@ row as the hash value.
 
 ### multi_table_sink_replica
 
-Replica count for multi-table sink writers. It applies when upstream rows carry table identifiers and the job writes multiple Redis tables in one pipeline.
+Replica count for multi-table sink writers. It applies when upstream rows carry table identifiers and the job writes multiple Redis tables in one pipeline. Keep it at 1: the Redis writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
 For multi-table jobs, `key` may include `${table_name}` so rows from different upstream tables are written to separate
 Redis keys, for example `key = "redis-result-${table_name}"`.

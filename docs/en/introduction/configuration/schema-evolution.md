@@ -53,8 +53,10 @@ Recommended practices:
 
 - Route tables from different upstream databases to different physical sink tables when you want to
   keep schemas isolated.
-- Keep `multi_table_sink_replica` enabled if you need parallel sink writers; schema changes are
-  coordinated per rendered physical sink table.
+- With a Jdbc sink and a primary key for every table, `multi_table_sink_replica` above 1 gives
+  parallel sink writers; schema changes are coordinated per rendered physical sink table. Other
+  sinks reject a value above 1, see
+  [Sink Common Options](../../connectors/common-options/sink-common-options.md).
 - If you intentionally route multiple upstream tables to the same physical sink table, make sure
   those tables stay schema-compatible and that their keys do not conflict.
 

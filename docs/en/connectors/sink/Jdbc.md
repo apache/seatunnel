@@ -434,6 +434,15 @@ Only used by the Oracle catalog when the sink creates or inspects tables (`schem
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
 
+With `multi_table_sink_replica` above 1, Jdbc routes the rows of each table by the first column
+of its primary key, so that all changes of one key reach the same writer in order. Each table
+then needs a primary key in its schema or in `primary_keys`, and `is_exactly_once = true` cannot
+be used: in both cases the job fails when the writer is created or restored. Keep the option at 1
+for such a table. Keep it at 1 also when that key column holds binary values (SeaTunnel type
+`BYTES`, for example `BINARY`, `VARBINARY` or `BYTEA`): the writer is then chosen by the identity
+of each row's value instead of its content, so the changes of one key can still reach different
+writers.
+
 ### schema_save_mode [Enum]
 
 Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  

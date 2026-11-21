@@ -38,7 +38,7 @@ or more primary key fields.
 | api_key                  | string | Yes      | -                            | Typesense API key.                                                                                   |
 | max_retry_count          | int    | No       | 3                            | Maximum retry count for one bulk request.                                                            |
 | max_batch_size           | int    | No       | 10                           | Maximum number of documents sent in one bulk request.                                                |
-| multi_table_sink_replica | int    | No       | 1                            | Number of sink replicas used by the common multi-table sink routing mechanism.                       |
+| multi_table_sink_replica | int    | No       | 1                            | Number of sink replicas used by the common multi-table sink routing mechanism. Keep it at 1: the Typesense writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options           |        | No       | -                            | Common sink options.                                                                                 |
 
 ### hosts [array]
@@ -78,8 +78,7 @@ The maximum number of documents sent in one batch. Typesense caps each request; 
 
 ### multi_table_sink_replica [int]
 
-Common multi-table sink option. Configure it when a multi-table job needs more sink replicas for
-the Typesense writer.
+Common multi-table sink option. Keep it at 1: the Typesense writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
 ### common options
 
