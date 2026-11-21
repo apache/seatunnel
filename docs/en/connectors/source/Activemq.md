@@ -52,6 +52,16 @@ The source requires streaming mode and periodic checkpoints. Spark is not suppor
 | format | enum | no | JSON |
 | field_delimiter | string | no | , |
 | max_in_flight_messages | int | no | 1000 |
+| message_selector | string | no | - |
+| receive_timeout | int | no | 200 |
+| client_id | string | no | - |
+| close_timeout | int | no | 5000 |
+| connect_response_timeout | int | no | 10000 |
+| always_session_async | boolean | no | - |
+| check_for_duplicate | boolean | no | - |
+| dispatch_async | boolean | no | - |
+| warn_about_unstarted_connection_timeout | int | no | - |
+| consumer_expiry_check_enabled | boolean | no | - |
 | schema | config | yes | - |
 
 ### uri [string]
@@ -62,7 +72,7 @@ The connector fails the task on a broken connection so the engine restores the r
 
 ### queue_name [string]
 
-One literal queue name. Wildcards, composite queues, destination prefixes and `?consumer.*` destination options are rejected. Topics, durable topic subscriptions and selectors are outside this first slice. Provision the queue and the broker account's permissions before starting the job; broker auto-creation policy is not controlled by the connector.
+One literal queue name. Wildcards, composite queues, destination prefixes and `?consumer.*` destination options are rejected. Topics and durable topic subscriptions are outside this first slice. Provision the queue and the broker account's permissions before starting the job; broker auto-creation policy is not controlled by the connector.
 
 ### username / password [string]
 
@@ -75,6 +85,46 @@ Optional credentials, which must be configured together. When omitted, the clien
 ### max_in_flight_messages [int]
 
 Positive maximum count of emitted, unacknowledged messages per reader. The source pauses receiving when this limit is reached and resumes after checkpoint completion. The ActiveMQ client queue prefetch is set to the same count; client-side prefetched messages may consume additional memory. This is not a byte limit. Size the limit and producer message sizes for available worker memory. Frequent successful checkpoints are needed for sustained throughput.
+
+### message_selector [string]
+
+Optional JMS selector expression for broker-side filtering. Only messages matching the selector are delivered to the consumer. The selector syntax follows the JMS 1.1 specification, e.g. `JMSType = 'car'` or `priority > 5`. When omitted, all messages on the queue are delivered.
+
+### receive_timeout [int]
+
+Timeout in milliseconds for `consumer.receive()` on the first poll of each batch. Smaller values improve checkpoint responsiveness but increase CPU usage when the queue is idle. This timeout holds the reader's monitor — the same lock that guards `snapshotState` and the checkpoint complete/abort callbacks — so values close to the checkpoint interval may delay checkpoint barrier handling and completion. Maximum allowed value is 30000. Defaults to 200.
+
+### client_id [string]
+
+Sets the JMS clientID for the connection. Some broker authentication and audit policies require a non-empty clientID; it is also required for durable subscriptions (not applicable to queue sources). The source appends the reader's subtask index to the configured value (e.g., `my-client` becomes `my-client-0` for the first reader, `my-client-1` for the second) so parallel readers do not collide. When omitted, each reader uses a broker-generated connection ID. Because the JMS clientID is fixed for a connection's lifetime, a restart may fail with `javax.jms.InvalidClientIDException` if the broker has not yet released the previous connection's ID. If that happens, either omit `client_id` (let the broker generate one) or wait for the broker's connection-timeout before restarting.
+
+### close_timeout [int]
+
+Timeout in milliseconds before a close is considered complete. Normally `Connection.close()` waits for broker confirmation. This prevents the client from hanging when no broker is available. Defaults to 5000.
+
+### connect_response_timeout [int]
+
+Timeout in milliseconds for the connection establishment response from the broker. Defaults to 10000.
+
+### always_session_async [boolean]
+
+When true, a separate thread dispatches messages for each session. A separate thread is always used when there is more than one session, or the session is not in `AUTO_ACKNOWLEDGE` or `DUPS_OK_ACKNOWLEDGE` mode. Defaults to the ActiveMQ client default (true) when not set.
+
+### check_for_duplicate [boolean]
+
+When true, the consumer checks for duplicate messages and handles them to prevent double processing. Defaults to the ActiveMQ client default (true) when not set.
+
+### dispatch_async [boolean]
+
+Whether the broker dispatches messages asynchronously to the consumer. Defaults to the ActiveMQ client default (true) when not set.
+
+### warn_about_unstarted_connection_timeout [int]
+
+Timeout in milliseconds from connection creation to when a warning is generated if the connection is not started via `Connection.start()` and a message is received. Set to a negative value to disable the warning. Defaults to the ActiveMQ client default (500) when not set.
+
+### consumer_expiry_check_enabled [boolean]
+
+Controls whether message expiration checking is performed by each `MessageConsumer` before dispatching. Defaults to the ActiveMQ client default (true) when not set.
 
 ### schema [config]
 
