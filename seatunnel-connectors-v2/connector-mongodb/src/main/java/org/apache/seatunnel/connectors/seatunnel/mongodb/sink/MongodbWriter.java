@@ -90,6 +90,7 @@ public class MongodbWriter
                         .connectionString(options.getConnectString())
                         .database(options.getDatabase())
                         .collection(options.getCollection())
+                        .tlsCaFile(options.getTlsCaFile())
                         .build();
         this.bulkActions = options.getFlushSize();
         this.batchIntervalMs = options.getBatchIntervalMs();

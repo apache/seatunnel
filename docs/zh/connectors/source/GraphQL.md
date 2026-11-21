@@ -67,6 +67,8 @@ GraphQL 源连接器用于从 GraphQL 服务读取数据。它支持：
 - 配置 `schema.fields` 读取结构化数据时，通常需要设置 `format = "json"`，并让 `content_field` 指向要转换为 SeaTunnel 行的数组或对象。
 - 使用 HTTP 流式轮询读取时，可以通过 `poll_interval_millis` 控制重复发送同一条查询的间隔。
 - 使用 WebSocket 订阅读取时，`max_retries` 和 `retry_delay_ms` 只控制订阅连接失败后的重连行为。
+- HTTP 查询模式下，只要响应中的 `errors` 数组不为空，读取就会失败，即使状态码是 200 且带有部分 `data`。订阅消息不做这项检查。
+- 未配置 `variables` 时，请求会发送一个空的 `variables` 对象。
 
 ## 任务示例
 
