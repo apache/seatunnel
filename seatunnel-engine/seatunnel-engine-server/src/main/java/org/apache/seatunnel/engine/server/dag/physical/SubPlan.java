@@ -546,6 +546,9 @@ public class SubPlan {
 
     /** Before restore a pipeline, the pipeline must do reset */
     private synchronized void reset() throws Exception {
+        // Keep the pipeline terminal until every vertex has obtained a durable reset.
+        coordinatorVertexList.forEach(PhysicalVertex::reset);
+        physicalVertexList.forEach(PhysicalVertex::reset);
         resetPipelineState();
         finishedTaskNum.set(0);
         canceledTaskNum.set(0);
@@ -553,10 +556,6 @@ public class SubPlan {
         // The restored run starts from a clean slate: a cancel request from the previous
         // run must not leak into it (#12353).
         cancelRequested = false;
-
-        coordinatorVertexList.forEach(PhysicalVertex::reset);
-
-        physicalVertexList.forEach(PhysicalVertex::reset);
     }
 
     /**
@@ -642,7 +641,16 @@ public class SubPlan {
                                 "Restore time %s, pipeline %s",
                                 pipelineRestoreNum + "", pipelineFullName));
                 jobMaster.clearPipelineMetricsForRestore(getPipelineLocation());
-                reset();
+                try {
+                    reset();
+                } catch (Exception resetFailure) {
+                    log.warn(
+                            "Could not prepare pipeline {} for restore; refusing redeployment",
+                            pipelineFullName,
+                            resetFailure);
+                    errorByPhysicalVertex.set(ExceptionUtils.getMessage(resetFailure));
+                    return false;
+                }
                 jobMaster.getCheckpointManager().reportedPipelineRunning(pipelineId, false);
                 jobMaster.getPhysicalPlan().addPipelineEndCallback(this);
                 log.info(

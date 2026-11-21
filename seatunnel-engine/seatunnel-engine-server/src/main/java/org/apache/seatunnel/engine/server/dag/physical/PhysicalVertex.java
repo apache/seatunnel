@@ -582,10 +582,12 @@ public class PhysicalVertex {
                                         ExceptionUtil::isOperationNeedRetryException,
                                         Constant.OPERATION_RETRY_SLEEP));
                 if (result.isPersistenceBlocked()) {
-                    log.info(
-                            "Skip resetting {} because its generation no longer owns distributed state",
-                            taskFullName);
-                    return;
+                    throw new IllegalStateException(
+                            "The task state is unavailable or fenced for " + taskFullName);
+                }
+                if (result.getCurrentState() != ExecutionState.CREATED) {
+                    throw new IllegalStateException(
+                            "The task did not reset to CREATED: " + taskFullName);
                 }
                 errorByPhysicalVertex = new AtomicReference<>();
                 this.currExecutionState = result.getCurrentState();
@@ -595,11 +597,8 @@ public class PhysicalVertex {
                         result.getPreviousState(),
                         result.getCurrentState());
             } catch (Exception e) {
-                log.warn(ExceptionUtils.getMessage(e));
-                log.warn(
-                        String.format(
-                                "Reset %s state to %s in IMap failed, keep the current state.",
-                                getTaskFullName(), ExecutionState.CREATED));
+                throw new IllegalStateException(
+                        "Could not reset task state to CREATED for " + taskFullName, e);
             }
         }
     }
