@@ -39,9 +39,9 @@ import com.hazelcast.map.IMap;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -83,8 +83,9 @@ public class PhysicalPlan {
 
     private EngineConfig engineConfig;
 
-    private Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
-            new HashMap<>();
+    // Pipelines of one job restore on different threads and all write to this map.
+    private volatile Map<TaskGroupLocation, CompletableFuture<SlotProfile>>
+            preApplyResourceFutures = new ConcurrentHashMap<>();
 
     /** Whether we make the job end when pipeline turn to end state. */
     private boolean makeJobEndWhenPipelineEnded = true;
@@ -449,12 +450,18 @@ public class PhysicalPlan {
         jobEndFuture.complete(jobResult);
     }
 
+    /**
+     * Returns the pre-applied resource futures of this job. The map is a {@link ConcurrentHashMap}
+     * shared by all pipelines: several pipelines may restore at the same time and merge their
+     * entries into it, so callers must not assume exclusive access and must not put {@code null}
+     * values.
+     */
     public Map<TaskGroupLocation, CompletableFuture<SlotProfile>> getPreApplyResourceFutures() {
         return preApplyResourceFutures;
     }
 
     public void setPreApplyResourceFutures(
             Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
-        this.preApplyResourceFutures = preApplyResourceFutures;
+        this.preApplyResourceFutures = new ConcurrentHashMap<>(preApplyResourceFutures);
     }
 }
