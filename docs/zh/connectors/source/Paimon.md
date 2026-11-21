@@ -146,7 +146,7 @@ SELECT * FROM table /*+ OPTIONS('incremental-between' = 'test-tag1,test-tag2') *
 * timestamp 
 * time
 
-### paimon.hadoop.conf [string]
+### paimon.hadoop.conf [map]
 
 hadoop conf 属性
 

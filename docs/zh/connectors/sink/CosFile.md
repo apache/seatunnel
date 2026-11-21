@@ -226,7 +226,7 @@ Tips: excel 类型不支持任何压缩格式
 
 编写工作簿的工作表
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为CSV时，CSV的字符串引用模式.
 

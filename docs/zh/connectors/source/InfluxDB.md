@@ -167,6 +167,10 @@ split 2: select * from test where ($split_column >= 6 and $split_column < 11) an
 没有任何效果——请把过滤条件直接写进 `sql` 中，例如 `select * from test where age > 0`。切分解析器
 对 `where` 关键字区分大小写。
 
+`tables_configs` 多表模式：在表条目中配置 `where` 会在构建阶段直接抛出
+`OptionValidationException`（`InfluxDBSourceFactory` 会拒绝该配置）；该模式下的切分解析器对
+`where` 关键字不区分大小写。
+
 该参数保留在参数列表中，只是因为校验规则（`InfluxDBSourceFactory.optionRule()`）为了向后兼容仍然
 引用了它；运行时的切分查询生成器不会读取该参数。
 
