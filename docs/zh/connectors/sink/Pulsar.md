@@ -37,9 +37,10 @@ Pulsar Sink 用于将 SeaTunnel 数据写入 Apache Pulsar topic。它既可以�
 | auth.params              | String | 否       | -                   | 认证插件参数。需要和 `auth.plugin-class` 一起配置。                   |
 | format                   | String | 否       | json                | 数据格式。默认格式为 json。可选 text 和 avro 格式。                                    |
 | field_delimiter          | String | 否       | ,                   | 当 `format = "text"` 时使用的字段分隔符。                             |
+| avro_row_nullable        | Boolean | 否      | false               | 当 `format = "avro"` 时生效。当 ROW 字段（含嵌套在另一个 ROW、ARRAY 或 MAP 中的 ROW）可能为 `null` 时设为 `true`，此时 ROW 以可空 Avro union 而非裸 record 写入；读取端必须开启同一选项。详见 [Avro 格式](../formats/avro.md#avro_row_nullable)。 |
 | semantics                | Enum   | 否       | AT_LEAST_ONCE       | 写入一致性语义。可选值：`NON`、`AT_LEAST_ONCE`、`EXACTLY_ONCE`。       |
 | transaction_timeout      | Int    | 否       | 600                 | Pulsar 事务超时时间，单位为秒。用于 `EXACTLY_ONCE`。                  |
-| pulsar.config            | Map    | 否       | -                   | 传给 Pulsar 生产者客户端的额外参数。                                  |
+| pulsar.config            | Map    | 否       | -                   | 作为 producer 元数据附加到 Pulsar producer 上的额外 key/value 属性，不是 producer 客户端配置。 |
 | message.routing.mode     | Enum   | 否       | RoundRobinPartition | 分区 topic 的消息路由模式。可选值：`SinglePartition`、`RoundRobinPartition`。 |
 | partition_key_fields     | Array  | 否       | -                   | 用于生成 Pulsar 消息 key 的字段。                                     |
 | multi_table_sink_replica | Int    | 否       | 1                   | 多表写入时的写入器副本数。                                           |
@@ -99,7 +100,9 @@ Pulsar 事务超时时间，单位为秒。默认值为 `600`。
 
 ### pulsar.config [Map]
 
-Pulsar 生产者客户端的额外参数。这些参数会传给 Pulsar producer。
+通过 `ProducerBuilder.properties(...)` 附加到 Pulsar producer 上的额外 key/value 属性。Pulsar 会把它们作为应用自定义的 producer 元数据保存，例如用于在 topic 统计信息中识别 producer。
+
+这些条目不会作为 producer 客户端配置生效，因此无法通过该参数调整 `sendTimeoutMs`、`batchingMaxMessages` 或压缩等 producer 参数。
 
 ### message.routing.mode [Enum]
 
@@ -154,9 +157,6 @@ sink {
     client.service-url = "pulsar://localhost:6650"
     admin.service-url = "http://localhost:8080"
     format = json
-    pulsar.config = {
-      sendTimeoutMs = 30000
-    }
   }
 }
 ```
@@ -245,7 +245,7 @@ sink {
 
 ### 自定义 Pulsar Producer 属性
 
-通过 `pulsar.config` 传入额外的 producer 属性，这些配置会透传给 Pulsar producer 客户端，可以用来调整超时、批大小、压缩等参数。
+使用 `pulsar.config` 可以为 producer 附加 key/value 元数据。这些条目会传给 `ProducerBuilder.properties(...)`，不会改变超时、批量发送、压缩等 producer 客户端配置。
 
 ```hocon
 sink {
@@ -255,12 +255,26 @@ sink {
     admin.service-url = "http://localhost:8080"
     format = json
     pulsar.config = {
-      sendTimeoutMs = 30000
-      batchingMaxMessages = 1000
+      application = "seatunnel"
+      owner = "data-platform"
     }
   }
 }
 ```
+
+## FAQ
+
+### Pulsar Sink 如何实现精确一次（Exactly-Once）与至少一次（At-Least-Once）写入？
+
+通过 `semantics` 参数进行配置：`EXACTLY_ONCE` 利用 Pulsar 事务协调器将数据写入与计算引擎 Checkpoint 屏障紧密绑定并协同提交；`AT_LEAST_ONCE` 则依赖 Producer 确认应答，具备更高的吞吐写入表现。
+
+### Pulsar Sink 是否支持动态多表/多 Topic 路由？
+
+支持。在整库或多表同步场景下，若未指定全局固定的单个 `topic`，SeaTunnel 将根据每条数据记录携带的表标识自动动态路由至对应的 Pulsar Topic。
+
+### 支持向 Pulsar 写入哪些数据序列化格式？
+
+Pulsar Sink 支持通过 `format` 参数指定 `json`、`text` 以及 `avro` 格式，方便与下游消费者或 Schema Registry 系统无缝对接。
 
 ## 变更日志
 

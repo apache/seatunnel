@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.transform.calcite;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TableTransformRuleValidator;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -36,12 +38,23 @@ public class CalciteTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
+        // The rule of a single table: the SQL query plus the optional error handling policies.
+        OptionRule tableRule = OptionRule.builder().required(CalciteTransformConfig.SQL).build();
         return OptionRule.builder()
-                .required(CalciteTransformConfig.SQL)
-                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(
+                        CalciteTransformConfig.SQL,
+                        TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION,
+                        TransformCommonOptions.COLUMN_ERROR_HANDLE_WAY_OPTION)
+                .optional(
+                        TransformCommonOptions.MULTI_TABLES,
+                        Conditions.extension(
+                                TransformCommonOptions.MULTI_TABLES,
+                                new TableTransformRuleValidator(tableRule)))
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
-                .optional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
-                .optional(TransformCommonOptions.COLUMN_ERROR_HANDLE_WAY_OPTION)
+                .conditionalRule(
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.MULTI_TABLES.defaultValue(),
+                        tableRule)
                 .build();
     }
 

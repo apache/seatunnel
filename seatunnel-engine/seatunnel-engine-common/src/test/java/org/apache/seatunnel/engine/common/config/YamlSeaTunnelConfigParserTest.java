@@ -18,6 +18,9 @@
 package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -58,6 +61,9 @@ public class YamlSeaTunnelConfigParserTest {
                 7000, config.getEngineConfig().getCheckpointConfig().getCheckpointTimeout());
 
         Assertions.assertEquals(
+                64, config.getEngineConfig().getCheckpointConfig().getMonitorHistorySize());
+
+        Assertions.assertEquals(
                 "hdfs", config.getEngineConfig().getCheckpointConfig().getStorage().getStorage());
 
         Assertions.assertEquals(
@@ -81,10 +87,32 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertEquals(8080, config.getEngineConfig().getHttpConfig().getPort());
         Assertions.assertEquals(200, config.getEngineConfig().getHttpConfig().getPortRange());
         Assertions.assertEquals(8443, config.getEngineConfig().getHttpConfig().getHttpsPort());
+        // An http option without a matching branch in parseHttpConfig is silently dropped with an
+        // "Unrecognized element" warning, so parsing it is worth asserting explicitly.
+        Assertions.assertEquals(
+                32, config.getEngineConfig().getHttpConfig().getLogResponseMaxSizeMb());
+        Assertions.assertEquals(
+                32L * 1024 * 1024,
+                config.getEngineConfig().getHttpConfig().getLogResponseMaxSizeBytes());
         Assertions.assertEquals(
                 30, config.getEngineConfig().getCoordinatorServiceConfig().getCoreThreadNum());
         Assertions.assertEquals(
                 1000, config.getEngineConfig().getCoordinatorServiceConfig().getMaxThreadNum());
+    }
+
+    @Test
+    public void testLogResponseLimitByteConversion() {
+        HttpConfig httpConfig = new HttpConfig();
+        Assertions.assertEquals(64L * 1024 * 1024, httpConfig.getLogResponseMaxSizeBytes());
+
+        for (int unlimited : new int[] {0, -1, Integer.MIN_VALUE}) {
+            httpConfig.setLogResponseMaxSizeMb(unlimited);
+            Assertions.assertEquals(-1L, httpConfig.getLogResponseMaxSizeBytes());
+        }
+
+        httpConfig.setLogResponseMaxSizeMb(Integer.MAX_VALUE);
+        Assertions.assertEquals(
+                Integer.MAX_VALUE * 1024L * 1024L, httpConfig.getLogResponseMaxSizeBytes());
     }
 
     @Test
@@ -131,6 +159,38 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertEquals(
                 Runtime.getRuntime().availableProcessors() * 2,
                 config.getEngineConfig().getSlotServiceConfig().getSlotNum());
+        // This yaml has no checkpoint block at all, so it pins the default that
+        // keeps behaviour identical to the previously hard-coded value.
+        Assertions.assertEquals(
+                ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MONITOR_HISTORY_SIZE
+                        .defaultValue()
+                        .intValue(),
+                config.getEngineConfig().getCheckpointConfig().getMonitorHistorySize());
+        Assertions.assertEquals(
+                32, config.getEngineConfig().getCheckpointConfig().getMonitorHistorySize());
+    }
+
+    @Test
+    public void testCheckpointMonitorHistorySizeIsBounded() {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        int max = ServerConfigOptions.MasterServerConfigOptions.MAX_CHECKPOINT_MONITOR_HISTORY_SIZE;
+
+        // The bounds exist because the history lives in the cluster-wide
+        // checkpoint overview IMap, whose whole value is re-serialised on every
+        // checkpoint event -- an oversized window would multiply master CPU and
+        // replication traffic silently.
+        Assertions.assertThrows(
+                IllegalArgumentException.class, () -> checkpointConfig.setMonitorHistorySize(0));
+        Assertions.assertThrows(
+                IllegalArgumentException.class, () -> checkpointConfig.setMonitorHistorySize(-1));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> checkpointConfig.setMonitorHistorySize(max + 1));
+
+        checkpointConfig.setMonitorHistorySize(1);
+        Assertions.assertEquals(1, checkpointConfig.getMonitorHistorySize());
+        checkpointConfig.setMonitorHistorySize(max);
+        Assertions.assertEquals(max, checkpointConfig.getMonitorHistorySize());
     }
 
     @Test

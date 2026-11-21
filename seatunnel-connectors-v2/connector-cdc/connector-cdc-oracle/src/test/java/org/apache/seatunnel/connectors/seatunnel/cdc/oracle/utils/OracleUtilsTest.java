@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.debezium.config.Configuration;
+import io.debezium.connector.oracle.OracleConnectorConfig;
 import io.debezium.relational.TableId;
 
 import java.util.Collections;
@@ -72,6 +74,33 @@ public class OracleUtilsTest {
                         true);
         Assertions.assertEquals(
                 "SELECT * FROM \"schema1\".\"table1\" WHERE \"id\" >= ?", splitScanSQL);
+    }
+
+    @Test
+    public void testSnapshotSplitScanQueryUsesSelectOverride() {
+        TableId tableId = TableId.parse("cdb1.schema1.table1");
+        SeaTunnelRowType splitKeyType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE});
+        String overriddenSelect = "SELECT id, name FROM schema1.table1 WHERE active = 1";
+        OracleConnectorConfig connectorConfig =
+                new OracleConnectorConfig(
+                        Configuration.create()
+                                .with(OracleConnectorConfig.SERVER_NAME, "test_server")
+                                .with(OracleConnectorConfig.HOSTNAME, "localhost")
+                                .with(OracleConnectorConfig.USER, "test")
+                                .with(OracleConnectorConfig.PASSWORD, "test")
+                                .with("snapshot.select.statement.overrides", "schema1.table1")
+                                .with(
+                                        "snapshot.select.statement.overrides.schema1.table1",
+                                        overriddenSelect)
+                                .build());
+
+        Assertions.assertEquals(
+                "SELECT * FROM (SELECT id, name FROM schema1.table1 WHERE active = 1) "
+                        + "WHERE \"id\" >= ? AND NOT (\"id\" = ?) AND \"id\" <= ?",
+                OracleUtils.buildSnapshotSplitScanQuery(
+                        connectorConfig, tableId, splitKeyType, false, false));
     }
 
     @Test

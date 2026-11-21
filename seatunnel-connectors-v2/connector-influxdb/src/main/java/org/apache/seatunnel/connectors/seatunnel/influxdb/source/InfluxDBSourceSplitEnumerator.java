@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 public class InfluxDBSourceSplitEnumerator
         implements SourceSplitEnumerator<InfluxDBSourceSplit, InfluxDBSourceState> {
     final SourceConfig config;
+    private final List<InfluxDBSourceTable> tables;
     private final Context<InfluxDBSourceSplit> context;
     private final Map<Integer, List<InfluxDBSourceSplit>> pendingSplit;
     private final Object stateLock = new Object();
@@ -59,8 +60,17 @@ public class InfluxDBSourceSplitEnumerator
             SourceSplitEnumerator.Context<InfluxDBSourceSplit> context,
             InfluxDBSourceState sourceState,
             SourceConfig config) {
+        this(context, sourceState, config, Collections.emptyList());
+    }
+
+    InfluxDBSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<InfluxDBSourceSplit> context,
+            InfluxDBSourceState sourceState,
+            SourceConfig config,
+            List<InfluxDBSourceTable> tables) {
         this.context = context;
         this.config = config;
+        this.tables = tables;
         this.pendingSplit = new HashMap<>();
         this.shouldEnumerate = sourceState == null;
         if (sourceState != null) {
@@ -126,20 +136,46 @@ public class InfluxDBSourceSplitEnumerator
     }
 
     private Set<InfluxDBSourceSplit> getInfluxDBSplit() {
+        if (tables.isEmpty()) {
+            return getInfluxDBSplit(config, null);
+        }
+        Set<InfluxDBSourceSplit> splits = new HashSet<>();
+        for (InfluxDBSourceTable table : tables) {
+            splits.addAll(getInfluxDBSplit(table.getSourceConfig(), table.getTableId()));
+        }
+        return splits;
+    }
+
+    private Set<InfluxDBSourceSplit> getInfluxDBSplit(SourceConfig config, String tableId) {
         String sql = config.getSql();
         Set<InfluxDBSourceSplit> influxDBSourceSplits = new HashSet<>();
         // no need numPartitions, use one partition
         if (config.getPartitionNum() == 0) {
             influxDBSourceSplits.add(
-                    new InfluxDBSourceSplit(String.valueOf(SourceConfig.DEFAULT_PARTITIONS), sql));
+                    new InfluxDBSourceSplit(
+                            tableId == null
+                                    ? String.valueOf(SourceConfig.DEFAULT_PARTITIONS)
+                                    : tableId + ":0",
+                            sql,
+                            tableId));
             return influxDBSourceSplits;
         }
         // calculate numRange base on (lowerBound upperBound partitionNum)
         List<Pair<Long, Long>> rangePairs =
-                genSplitNumRange(
-                        config.getLowerBound(), config.getUpperBound(), config.getPartitionNum());
+                tableId == null
+                        ? genSplitNumRange(
+                                config.getLowerBound(),
+                                config.getUpperBound(),
+                                config.getPartitionNum())
+                        : genTableSplitRanges(
+                                config.getLowerBound(),
+                                config.getUpperBound(),
+                                config.getPartitionNum());
 
-        String[] sqls = sql.split(InfluxDBSourceOptions.SQL_WHERE.key());
+        String[] sqls =
+                tableId == null
+                        ? sql.split(InfluxDBSourceOptions.SQL_WHERE.key())
+                        : sql.split("(?i)\\s+where\\s+", 2);
         if (sqls.length > 2) {
             throw new InfluxdbConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
@@ -164,7 +200,12 @@ public class InfluxDBSourceSplitEnumerator
                 query = query + " and ( " + sqls[1] + " ) ";
             }
             influxDBSourceSplits.add(
-                    new InfluxDBSourceSplit(String.valueOf(i + System.nanoTime()), query));
+                    new InfluxDBSourceSplit(
+                            tableId == null
+                                    ? String.valueOf(i + System.nanoTime())
+                                    : tableId + ":" + i,
+                            query,
+                            tableId));
         }
         return influxDBSourceSplits;
     }
@@ -189,6 +230,22 @@ public class InfluxDBSourceSplitEnumerator
             }
         }
         return rangeList;
+    }
+
+    /**
+     * Splits an inclusive integer range without overlap, including uneven and single-value ranges.
+     */
+    static List<Pair<Long, Long>> genTableSplitRanges(long lower, long upper, int partitions) {
+        long count = upper - lower + 1;
+        int splitCount = (int) Math.min(count, partitions);
+        List<Pair<Long, Long>> ranges = new ArrayList<>(splitCount);
+        long start = lower;
+        for (int i = 0; i < splitCount; i++) {
+            long end = start + count / splitCount + (i < count % splitCount ? 1 : 0);
+            ranges.add(Pair.of(start, end));
+            start = end;
+        }
+        return ranges;
     }
 
     private void addPendingSplit(Collection<InfluxDBSourceSplit> splits) {

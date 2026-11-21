@@ -2,6 +2,21 @@
 
 This guide helps AI assistants (LLMs / Agents) make **safe, consistent, and verifiable** changes to the Apache SeaTunnel codebase. It mirrors practices from mature Apache projects and adapts them to SeaTunnel’s **build, testing, architecture, and documentation conventions**.
 
+## Contribution Workflow
+
+1. Before starting work, acknowledge that you are contributing to **Seatunnel** by replying conveying a positive meaning, such as `Yes` or `Do` and etc..
+   Include that acknowledgement in the PR description using English and use this repository's actual project name.
+2. Search the repository's open and closed PRs for the same issue or objective before implementing a change, and repeat the search before opening a PR.
+   If a same-purpose PR exists, decline duplicate implementation/submission and report the matching PR to the developer.
+3. Before writing code, ask the developer these three questions and wait for their answers:
+   - Which issue does this change address, and what are the expected behavior and
+     acceptance criteria?
+   - Which modules may change, and which APIs, configuration settings and data
+     formats must remain compatible?
+   - Which build checks, tests and real-environment validations are required
+     before submission?
+4. Keep PR titles, descriptions and commit messages in English. The PR description must be detailed that acknowledges the contribution to Seatunnel, summarizes the change and references the issue.
+
 ## ⚠️ CRITICAL: Validate Before Proposing Changes
 
 **Agents MUST run verification commands locally before suggesting or finalizing changes.**
@@ -98,6 +113,12 @@ public List<SourceSplit> enumerateSplits(SplitEnumerationContext context) {
     // Implementation
 }
 ```
+
+### Test Classes
+
+* Do NOT create new test classes casually — extend the existing test class when the scenario belongs to it.
+* If the connector, transform, or engine area you change already has an IT (E2E) test, you MUST also add or update
+  that IT test in the same change.
 
 ### Apache License Header (MANDATORY)
 

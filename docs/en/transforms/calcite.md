@@ -54,8 +54,8 @@ A regex pattern to filter which tables should be transformed. Only tables whose 
 How to handle errors during SQL execution for a row:
 
 - `FAIL` (default) -- fail the job immediately
-- `SKIP` -- skip the problematic row and continue
-- `ROUTE_TO_TABLE` -- route the error row to a separate error table
+- `SKIP` -- accepted, but currently behaves like `FAIL` for the Calcite transform: SQL execution errors are thrown as plain `TransformException`, so the row is not skipped
+- `ROUTE_TO_TABLE` -- accepted for compatibility, but the Calcite transform does not implement error-table routing yet; it currently behaves like `FAIL`
 
 ### common options [string]
 
@@ -388,6 +388,14 @@ transform {
 
 ### Vector Operations
 
+`VECTOR_NORM`, `INNER_PRODUCT`, `COSINE_DISTANCE`, `L1_DISTANCE`, `L2_DISTANCE` and
+`VECTOR_NORMALIZE` use double-precision intermediate products and differences for
+float vector elements, avoiding float overflow or underflow for finite inputs.
+Normalized output elements remain float, so output rounding and underflow remain
+possible. Null inputs and actual zero vectors retain their handling. No non-finite
+input validation or sanitization is added; corrected finite intermediates can also
+affect results when mixed with non-finite elements.
+
 Use built-in vector UDFs to compute distances, reduce dimensions, or normalize vectors in a data pipeline (e.g., between Milvus/Qdrant source and sink).
 
 ```hocon
@@ -441,8 +449,8 @@ transform {
 When a row causes a SQL execution error:
 
 - `FAIL` -- the job fails immediately (default, recommended for data quality)
-- `SKIP` -- the problematic row is silently dropped
-- `ROUTE_TO_TABLE` -- the row is sent to a separate error table for later inspection
+- `SKIP` -- accepted, but currently behaves like `FAIL` for the Calcite transform: SQL execution errors are thrown as plain `TransformException`, so the row is not silently dropped
+- `ROUTE_TO_TABLE` -- not implemented by the Calcite transform; behaves like `FAIL`
 
 ## Custom UDF
 

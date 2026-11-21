@@ -27,12 +27,14 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFi
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.LocalFileIdentity;
 import org.apache.seatunnel.connectors.seatunnel.file.source.MarkdownKnowledgeSyncMetadata;
 import org.apache.seatunnel.connectors.seatunnel.file.source.event.FileSplitFinishedEvent;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -81,10 +83,13 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) {
         FileSourceSplit split;
+        long processedBytes = -1L;
+        String contentFingerprint = null;
         synchronized (output.getCheckpointLock()) {
             split = sourceSplits.poll();
             if (split != null) {
                 ReadStrategy readStrategy = readStrategyMap.get(split.getTableId());
+                boolean readStarted = false;
                 if (readStrategy == null) {
                     throw new FileConnectorException(
                             FILE_READ_STRATEGY_NOT_SUPPORT,
@@ -93,34 +98,54 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
                                     + "]");
                 }
                 try {
-                    readStrategy.read(split, output);
-                } catch (Exception e) {
-                    boolean markdownKnowledgeSyncMetadataEnabled =
-                            markdownKnowledgeSyncMetadataTableIds.contains(split.getTableId());
-                    String sourceContext = split.splitId();
-                    Throwable cause = e;
-                    if (markdownKnowledgeSyncMetadataEnabled) {
-                        sourceContext =
-                                MarkdownKnowledgeSyncMetadata.safeSourceContext(
-                                        split.getFilePath());
-                        cause = MarkdownKnowledgeSyncMetadata.copyStackTraceOnly(e);
+                    if (!isCurrentTailSplit(split)) {
+                        log.warn(
+                                "Skip stale local tail split because the file identity or content changed: {}",
+                                split.getFilePath());
+                        processedBytes = 0L;
+                    } else {
+                        readStarted = true;
+                        readStrategy.read(split, output);
+                        if (!isCurrentTailSplit(split)) {
+                            throw new IOException(
+                                    "Local file identity or content changed while reading the tail split");
+                        }
+                        processedBytes = readStrategy.getLastReadBytes();
+                        contentFingerprint = readStrategy.getLastReadFingerprint();
                     }
-                    String errorMsg =
-                            String.format("Read data from this file [%s] failed", sourceContext);
-                    throw new FileConnectorException(FILE_READ_FAILED, errorMsg, cause);
+                } catch (Exception e) {
+                    if (!readStarted
+                            && split.getFileIdentity() != null
+                            && e instanceof java.nio.file.NoSuchFileException) {
+                        log.warn(
+                                "Skip local tail split because the file disappeared: {}",
+                                split.getFilePath());
+                        processedBytes = 0L;
+                    } else {
+                        boolean markdownKnowledgeSyncMetadataEnabled =
+                                markdownKnowledgeSyncMetadataTableIds.contains(split.getTableId());
+                        String sourceContext = split.splitId();
+                        Throwable cause = e;
+                        if (markdownKnowledgeSyncMetadataEnabled) {
+                            sourceContext =
+                                    MarkdownKnowledgeSyncMetadata.safeSourceContext(
+                                            split.getFilePath());
+                            cause = MarkdownKnowledgeSyncMetadata.copyStackTraceOnly(e);
+                        }
+                        String errorMsg =
+                                String.format(
+                                        "Read data from this file [%s] failed", sourceContext);
+                        throw new FileConnectorException(FILE_READ_FAILED, errorMsg, cause);
+                    }
                 }
             }
         }
 
         if (split != null) {
             if (Boundedness.UNBOUNDED.equals(context.getBoundedness())) {
-                ReadStrategy readStrategy = readStrategyMap.get(split.getTableId());
                 SourceEvent event =
                         new FileSplitFinishedEvent(
-                                split.splitId(),
-                                readStrategy == null
-                                        ? null
-                                        : readStrategy.getLastReadFingerprint());
+                                split.splitId(), contentFingerprint, processedBytes);
                 context.sendSourceEventToEnumerator(event);
             }
             return;
@@ -147,6 +172,30 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
     @Override
     public List<FileSourceSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(sourceSplits);
+    }
+
+    /**
+     * Rejects an assigned range whose sampled content changed without changing its file key. A
+     * change after reading starts must fail the task: emitted rows cannot be retracted, so a
+     * zero-byte completion would incorrectly allow an in-place retry after partial emission.
+     */
+    private static boolean isCurrentTailSplit(FileSourceSplit split) throws IOException {
+        if (split.getFileIdentity() == null) {
+            return true;
+        }
+        if (!split.getFileIdentity().equals(LocalFileIdentity.read(split.getFilePath()))) {
+            return false;
+        }
+        try {
+            return split.getEndContentAnchor() == null
+                    || split.getEndContentAnchor()
+                            .equals(
+                                    LocalFileIdentity.contentAnchor(
+                                            split.getFilePath(),
+                                            split.getStart() + split.getLength()));
+        } catch (EOFException e) {
+            return false;
+        }
     }
 
     @Override

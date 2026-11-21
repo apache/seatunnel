@@ -42,15 +42,16 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |----------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
 | BOOL                                         | BOOLEAN                                                                                                                                           |
 | INT2                                         | SHORT                                                                                                                                             |
-| SMALLSERIAL <br/>SERIAL <br/>INT4            | INT                                                                                                                                               |
+| SMALLSERIAL                                  | SMALLINT                                                                                                                                          |
+| SERIAL <br/>INT4                             | INT                                                                                                                                               |
 | INT8 <br/>BIGSERIAL                          | BIGINT                                                                                                                                            |
 | FLOAT4                                       | FLOAT                                                                                                                                             |
 | FLOAT8                                       | DOUBLE                                                                                                                                            |
 | NUMERIC                                      | DECIMAL((获取指定列的指定列大小),<br/>(获取指定列小数点右边的位数。))) |
 | BPCHAR <br/>CHARACTER <br/>VARCHAR <br/>TEXT | STRING                                                                                                                                            |
-| TIMESTAMP                                    | LOCALDATETIME                                                                                                                                     |
-| TIME                                         | LOCALTIME                                                                                                                                         |
-| DATE                                         | LOCALDATE                                                                                                                                         |
+| TIMESTAMP                                    | TIMESTAMP                                                                                                                                         |
+| TIME                                         | TIME                                                                                                                                              |
+| DATE                                         | DATE                                                                                                                                              |
 | 其他数据类型                              | 暂不支持                                                                                                                                 |
 
 ## Sink 选项
@@ -62,8 +63,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                                      | String  | 否   | -       | 连接实例用户名。旧配置名 `user` 仍可作为兼容写法使用。                                                                                                                                                                                                                |
 | password                                  | String  | 否   | -       | 连接实例密码                                                                                                                                                                                                                 |
 | query                                     | String  | 否   | -       | 使用此 sql 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 具有更高的优先级                                                                                                                                       |
-| database                                  | String  | 否   | -       | 使用此 `database` 和 `table-name` 自动生成 sql 并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，具有更高的优先级。                                                     |
-| table                                     | String  | 否   | -       | 使用数据库和此 table-name 自动生成 sql 并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，具有更高的优先级。                                                         |
+| database                                  | String  | 否   | -       | 使用此 `database` 和 `table-name` 自动生成 sql 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                     |
+| table                                     | String  | 否   | -       | 使用数据库和此 table-name 自动生成 sql 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                         |
 | primary_keys                              | Array   | 否   | -       | 此选项用于在自动生成 sql 时支持 `insert`、`delete` 和 `update` 等操作。                                                                                                                          |
 | connection_check_timeout_sec              | Int     | 否   | 30      | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                          |
 | max_retries                               | Int     | 否   | 0       | 提交失败的重试次数 (executeBatch)                                                                                                                                                                                        |

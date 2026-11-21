@@ -43,11 +43,11 @@ Maven central repository.
 
 | Name                                | Type                                      | Required | Default                  | Description                                                                                                                                      |
 |-------------------------------------|-------------------------------------------|----------|--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| endpoint                            | String                                    | Yes      | -                        | Alibaba Cloud SLS endpoint, for example `cn-hangzhou.log.aliyuncs.com` or an intranet endpoint.                                                  |
-| project                             | String                                    | Yes      | -                        | [Alibaba Cloud SLS project](https://help.aliyun.com/zh/sls/user-guide/manage-a-project).                                                         |
-| logstore                            | String                                    | Yes      | -                        | [Alibaba Cloud SLS logstore](https://help.aliyun.com/zh/sls/user-guide/manage-a-logstore).                                                       |
-| access_key_id                       | String                                    | Yes      | -                        | Alibaba Cloud AccessKey ID.                                                                                                                      |
-| access_key_secret                   | String                                    | Yes      | -                        | Alibaba Cloud AccessKey secret.                                                                                                                  |
+| endpoint                            | String                                    | Yes      | -                        | Alibaba Cloud SLS endpoint, for example `cn-hangzhou.log.aliyuncs.com` or an intranet endpoint. Must not be empty or whitespace-only.            |
+| project                             | String                                    | Yes      | -                        | [Alibaba Cloud SLS project](https://help.aliyun.com/zh/sls/user-guide/manage-a-project). Must not be empty or whitespace-only.                   |
+| logstore                            | String                                    | Yes      | -                        | [Alibaba Cloud SLS logstore](https://help.aliyun.com/zh/sls/user-guide/manage-a-logstore). Must not be empty or whitespace-only.                 |
+| access_key_id                       | String                                    | Yes      | -                        | Alibaba Cloud AccessKey ID. Must not be empty or whitespace-only.                                                                                |
+| access_key_secret                   | String                                    | Yes      | -                        | Alibaba Cloud AccessKey secret. Must not be empty or whitespace-only.                                                                            |
 | start_mode                          | `earliest`, `group_cursor`, `latest`      | No       | `group_cursor`           | Initial cursor mode. `earliest` starts from the beginning, `latest` starts from the end, and `group_cursor` uses the consumer group's checkpoint. |
 | consumer_group                      | String                                    | No       | `SeaTunnel-Consumer-Group` | SLS consumer group name. Use different values when separate jobs must keep independent cursors.                                                   |
 | auto_cursor_reset                   | `begin`, `end`                            | No       | `end`                    | Cursor position used when `start_mode = group_cursor` but the consumer group has no checkpoint yet.                                               |
@@ -119,6 +119,42 @@ source {
     logstore = "logstore1"
     access_key_id = "xxxxxxxxxxxxxxxxxxxxxxxx"
     access_key_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+### Discover New Shards Periodically
+
+By default the connector enumerates shards once when the job starts. Set
+`partition-discovery.interval-millis` to a positive value to keep discovering new shards created
+while the job is running. The example below refreshes the shard list every five minutes:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  Sls {
+    endpoint = "cn-hangzhou-intranet.log.aliyuncs.com"
+    project = "project1"
+    logstore = "logstore1"
+    access_key_id = "xxxxxxxxxxxxxxxxxxxxxxxx"
+    access_key_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    consumer_group = "seatunnel-sls-demo"
+    partition-discovery.interval-millis = 300000
+    schema = {
+      fields = {
+        id = "int"
+        name = "string"
+      }
+    }
   }
 }
 

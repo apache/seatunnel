@@ -175,4 +175,4 @@ Transport reconnect is separate from WAL retry.* (scheduler / outbound row repla
 
 ## output.id and migration
 
-output.id labels the outbound side for logs and migration only (not on the wire). See [Identity file](configuration.md#identity-file-edge-agentid). When moving hosts, copy edge-agent.id with the WAL database and config/agent.yaml.
+output.id labels the outbound side for logs and migration only (not on the wire). See [Identity file](configuration.md#identity-file). When moving hosts, copy edge-agent.id with the WAL database and config/agent.yaml.

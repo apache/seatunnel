@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -30,6 +31,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
@@ -71,6 +73,34 @@ public class SQLNumericFunctionsTest {
     }
 
     @Test
+    public void testSmallIntegerNumericFunctions() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"tiny_v", "small_v"},
+                        new SeaTunnelDataType[] {BasicType.BYTE_TYPE, BasicType.SHORT_TYPE});
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select ABS(tiny_v) as abs_tiny,"
+                                + " SIGN(small_v) as sign_small,"
+                                + " ROUND(tiny_v, -1) as round_tiny,"
+                                + " CEIL(tiny_v, -1) as ceil_tiny,"
+                                + " FLOOR(tiny_v, -1) as floor_tiny,"
+                                + " TRUNC(tiny_v, -1) as trunc_tiny"
+                                + " from dual",
+                        rowType,
+                        (byte) -44,
+                        (short) -12);
+
+        Assertions.assertEquals((byte) 44, outRow.getField(0));
+        Assertions.assertEquals(-1, outRow.getField(1));
+        Assertions.assertEquals((byte) -40, outRow.getField(2));
+        Assertions.assertEquals((byte) -40, outRow.getField(3));
+        Assertions.assertEquals((byte) -50, outRow.getField(4));
+        Assertions.assertEquals((byte) -40, outRow.getField(5));
+    }
+
+    @Test
     public void testModAndRound() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
@@ -82,6 +112,27 @@ public class SQLNumericFunctionsTest {
 
         Assertions.assertEquals(1, outRow.getField(0));
         Assertions.assertEquals(1.23d, (Double) outRow.getField(1), 1e-9);
+    }
+
+    @Test
+    public void testModWithTinyIntAndSmallIntDivisors() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"a", "tiny", "small"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.BYTE_TYPE, BasicType.SHORT_TYPE
+                        });
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select MOD(a, tiny) as tiny_remainder, MOD(a, small) as small_remainder from dual",
+                        rowType,
+                        100,
+                        (byte) 7,
+                        (short) 30);
+
+        Assertions.assertEquals((byte) 2, outRow.getField(0));
+        Assertions.assertEquals((short) 10, outRow.getField(1));
     }
 
     @Test
@@ -216,6 +267,54 @@ public class SQLNumericFunctionsTest {
 
         Assertions.assertNull(outRow.getField(0));
         Assertions.assertNull(outRow.getField(1));
+    }
+
+    @Test
+    public void testArrayExtremaPreserveExactValuesAndSchema() {
+        DecimalType decimalType = new DecimalType(38, 20);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"longs", "decimals"},
+                        new SeaTunnelDataType[] {
+                            ArrayType.LONG_ARRAY_TYPE, ArrayType.of(decimalType)
+                        });
+        CatalogTable table = CatalogTableUtil.getCatalogTable("test", rowType);
+        SQLTransform transform =
+                new SQLTransform(
+                        ReadonlyConfig.fromMap(
+                                Collections.singletonMap(
+                                        "query",
+                                        "select ARRAY_MAX(longs) as max_l, ARRAY_MIN(longs) as min_l, "
+                                                + "ARRAY_MAX(decimals) as max_d, ARRAY_MIN(decimals) as min_d from dual")),
+                        table);
+        Assertions.assertArrayEquals(
+                new SeaTunnelDataType[] {
+                    BasicType.LONG_TYPE, BasicType.LONG_TYPE, decimalType, decimalType
+                },
+                transform.getProducedCatalogTable().getSeaTunnelRowType().getFieldTypes());
+        Long low = 9007199254740992L;
+        Long high = 9007199254740993L;
+        BigDecimal lowDecimal = new BigDecimal("1.00000000000000000001");
+        BigDecimal highDecimal = new BigDecimal("1.00000000000000000002");
+        for (SeaTunnelRow row :
+                new SeaTunnelRow[] {
+                    new SeaTunnelRow(
+                            new Object[] {
+                                new Long[] {null, low, high},
+                                new BigDecimal[] {highDecimal, lowDecimal, null}
+                            }),
+                    new SeaTunnelRow(
+                            new Object[] {
+                                new Long[] {high, low, null},
+                                new BigDecimal[] {null, lowDecimal, highDecimal}
+                            })
+                }) {
+            SeaTunnelRow result = transform.transformRow(row).get(0);
+            Assertions.assertSame(high, result.getField(0));
+            Assertions.assertSame(low, result.getField(1));
+            Assertions.assertSame(highDecimal, result.getField(2));
+            Assertions.assertSame(lowDecimal, result.getField(3));
+        }
     }
 
     @Test

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.amazondocumentdb.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.utils.HashUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -195,6 +196,6 @@ public class AmazonDocumentDBSourceSplitEnumerator
     }
 
     private static int getSplitOwner(Integer splitId, int readerCount) {
-        return (splitId.hashCode() & Integer.MAX_VALUE) % readerCount;
+        return HashUtils.bucketIndex(splitId, readerCount);
     }
 }

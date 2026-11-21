@@ -96,6 +96,37 @@ public class ReadStrategySplitFallbackTest {
     }
 
     @Test
+    void testTextReadStrategyShouldHonorExplicitRangeWhenFileSplitIsDisabled() throws Exception {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FileBaseSourceOptions.FILE_PATH.key(), "test-input");
+        Config pluginConfig = ConfigFactory.parseMap(configMap);
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"message"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("test", rowType);
+
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        ListCollector collector = new ListCollector(rows);
+        FileSourceSplit split = new FileSourceSplit("test", "test-input/e2e.txt", 4L, 4L);
+
+        try (TextReadStrategy strategy = new TextReadStrategy()) {
+            strategy.setPluginConfig(pluginConfig);
+            strategy.setCatalogTable(catalogTable);
+            strategy.readProcess(
+                    split,
+                    collector,
+                    new ByteArrayInputStream("old\nnew\n".getBytes(StandardCharsets.UTF_8)),
+                    Collections.emptyMap(),
+                    "e2e.txt");
+            Assertions.assertEquals(4L, strategy.getLastReadBytes());
+        }
+
+        Assertions.assertEquals(1, rows.size());
+        Assertions.assertEquals("new", rows.get(0).getField(0));
+    }
+
+    @Test
     void testCsvReadStrategyShouldUseHeaderWhenEnableSplitButNoRangeInSplit() throws Exception {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(FileBaseSourceOptions.FILE_PATH.key(), "/tmp/test");

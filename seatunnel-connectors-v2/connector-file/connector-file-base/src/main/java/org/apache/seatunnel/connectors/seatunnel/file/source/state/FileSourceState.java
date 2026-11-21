@@ -35,15 +35,26 @@ public class FileSourceState implements Serializable {
     private long discoveryStartTimeMillis;
     private Map<Long, List<FileSourceOperationState>> pendingOpsByCheckpoint;
     private Map<String, Long> retentionLastRunMillisByPath;
+    private Map<String, Long> processedFileOffsets;
+    private Map<String, FileTailState> fileTailStates;
+    private boolean textTailingInitialScanComplete;
+    private Map<String, Long> initialTailFileOffsets;
+    private Set<String> initializedTailTables;
 
     public FileSourceState(Set<FileSourceSplit> assignedSplit) {
-        this(assignedSplit, 0L, Collections.emptyMap(), Collections.emptyMap());
+        this(
+                assignedSplit,
+                0L,
+                Collections.emptyMap(),
+                Collections.emptyMap(),
+                Collections.emptyMap());
     }
 
     public FileSourceState(Set<FileSourceSplit> assignedSplit, long discoveryStartTimeMillis) {
         this(
                 assignedSplit,
                 discoveryStartTimeMillis,
+                Collections.emptyMap(),
                 Collections.emptyMap(),
                 Collections.emptyMap());
     }
@@ -53,10 +64,71 @@ public class FileSourceState implements Serializable {
             long discoveryStartTimeMillis,
             Map<Long, List<FileSourceOperationState>> pendingOpsByCheckpoint,
             Map<String, Long> retentionLastRunMillisByPath) {
+        this(
+                assignedSplit,
+                discoveryStartTimeMillis,
+                pendingOpsByCheckpoint,
+                retentionLastRunMillisByPath,
+                Collections.emptyMap(),
+                Collections.emptyMap(),
+                false);
+    }
+
+    public FileSourceState(
+            Set<FileSourceSplit> assignedSplit,
+            long discoveryStartTimeMillis,
+            Map<Long, List<FileSourceOperationState>> pendingOpsByCheckpoint,
+            Map<String, Long> retentionLastRunMillisByPath,
+            Map<String, Long> processedFileOffsets) {
+        this(
+                assignedSplit,
+                discoveryStartTimeMillis,
+                pendingOpsByCheckpoint,
+                retentionLastRunMillisByPath,
+                processedFileOffsets,
+                Collections.emptyMap(),
+                processedFileOffsets != null && !processedFileOffsets.isEmpty());
+    }
+
+    public FileSourceState(
+            Set<FileSourceSplit> assignedSplit,
+            long discoveryStartTimeMillis,
+            Map<Long, List<FileSourceOperationState>> pendingOpsByCheckpoint,
+            Map<String, Long> retentionLastRunMillisByPath,
+            Map<String, Long> processedFileOffsets,
+            Map<String, FileTailState> fileTailStates,
+            boolean textTailingInitialScanComplete) {
+        this(
+                assignedSplit,
+                discoveryStartTimeMillis,
+                pendingOpsByCheckpoint,
+                retentionLastRunMillisByPath,
+                processedFileOffsets,
+                fileTailStates,
+                textTailingInitialScanComplete,
+                Collections.emptyMap(),
+                Collections.emptySet());
+    }
+
+    public FileSourceState(
+            Set<FileSourceSplit> assignedSplit,
+            long discoveryStartTimeMillis,
+            Map<Long, List<FileSourceOperationState>> pendingOpsByCheckpoint,
+            Map<String, Long> retentionLastRunMillisByPath,
+            Map<String, Long> processedFileOffsets,
+            Map<String, FileTailState> fileTailStates,
+            boolean textTailingInitialScanComplete,
+            Map<String, Long> initialTailFileOffsets,
+            Set<String> initializedTailTables) {
         this.assignedSplit = assignedSplit;
         this.discoveryStartTimeMillis = discoveryStartTimeMillis;
         this.pendingOpsByCheckpoint = pendingOpsByCheckpoint;
         this.retentionLastRunMillisByPath = retentionLastRunMillisByPath;
+        this.processedFileOffsets = processedFileOffsets;
+        this.fileTailStates = fileTailStates;
+        this.textTailingInitialScanComplete = textTailingInitialScanComplete;
+        this.initialTailFileOffsets = initialTailFileOffsets;
+        this.initializedTailTables = initializedTailTables;
     }
 
     public Set<FileSourceSplit> getAssignedSplit() {
@@ -75,6 +147,26 @@ public class FileSourceState implements Serializable {
         return retentionLastRunMillisByPath;
     }
 
+    public Map<String, Long> getProcessedFileOffsets() {
+        return processedFileOffsets;
+    }
+
+    public Map<String, FileTailState> getFileTailStates() {
+        return fileTailStates;
+    }
+
+    public boolean isTextTailingInitialScanComplete() {
+        return textTailingInitialScanComplete;
+    }
+
+    public Map<String, Long> getInitialTailFileOffsets() {
+        return initialTailFileOffsets;
+    }
+
+    public Set<String> getInitializedTailTables() {
+        return initializedTailTables;
+    }
+
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
         if (assignedSplit == null) {
@@ -85,6 +177,21 @@ public class FileSourceState implements Serializable {
         }
         if (retentionLastRunMillisByPath == null) {
             retentionLastRunMillisByPath = new HashMap<>();
+        }
+        if (processedFileOffsets == null) {
+            processedFileOffsets = new HashMap<>();
+        }
+        if (fileTailStates == null) {
+            fileTailStates = new HashMap<>();
+        }
+        if (initialTailFileOffsets == null) {
+            initialTailFileOffsets = new HashMap<>();
+        }
+        if (initializedTailTables == null) {
+            initializedTailTables = new HashSet<>();
+        }
+        if (!processedFileOffsets.isEmpty()) {
+            textTailingInitialScanComplete = true;
         }
     }
 }

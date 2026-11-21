@@ -119,107 +119,17 @@ public class SinkIdentifier implements Serializable {
 
 ## 3. MultiTableSource Architecture
 
-### 3.1 Structure
+How a multi-table source is implemented depends on the connector (for example, CDC
+connectors usually emit changes at the database/table level).
 
-```java
-public class MultiTableSource<T, SplitT, StateT>
-    implements SeaTunnelSource<T, SplitT, StateT> {
+To let downstream route rows by table, the core requirements are:
+- Every emitted `SeaTunnelRow` must carry a `tableId` (usually the serialized string of `TablePath`)
+- In change-stream scenarios it must also carry `rowKind` (INSERT/UPDATE/DELETE, etc.) so downstream can apply the correct semantics
 
-    // Underlying sources (one per table)
-    private final Map<TablePath, SeaTunnelSource<T, SplitT, StateT>> sources;
-
-    // Produced catalog tables
-    private final List<CatalogTable> catalogTables;
-}
-```
-
-### 3.2 Creation
-
-```java
-// From configuration
-MultiTableSource<SeaTunnelRow, ?, ?> multiSource =
-    MultiTableSource.builder()
-        .addSource(orderTablePath, orderSource)
-        .addSource(userTablePath, userSource)
-        .addSource(productTablePath, productSource)
-        .build();
-```
-
-### 3.3 Enumerator: Unified Split Assignment
-
-```java
-public class MultiTableSourceSplitEnumerator {
-    private final Map<TablePath, SourceSplitEnumerator> enumerators;
-
-    @Override
-    public void handleSplitRequest(int subtaskId) {
-        // Round-robin across table enumerators
-        for (Map.Entry<TablePath, SourceSplitEnumerator> entry : enumerators.entrySet()) {
-            TablePath tablePath = entry.getKey();
-            SourceSplitEnumerator enumerator = entry.getValue();
-
-            // Request split from table enumerator
-            enumerator.handleSplitRequest(subtaskId);
-        }
-    }
-
-    @Override
-    public void addReader(int subtaskId) {
-        // Register reader with all table enumerators
-        for (SourceSplitEnumerator enumerator : enumerators.values()) {
-            enumerator.addReader(subtaskId);
-        }
-    }
-}
-```
-
-### 3.4 Reader: Multi-Table Data Reading
-
-```java
-public class MultiTableSourceReader {
-    private final Map<TablePath, SourceReader> readers;
-    private final Queue<TablePath> readOrder; // Round-robin queue
-
-    @Override
-    public void pollNext(Collector<SeaTunnelRow> output) {
-        if (readOrder.isEmpty()) {
-            return;
-        }
-
-        // Round-robin read from tables
-        TablePath currentTable = readOrder.poll();
-        SourceReader reader = readers.get(currentTable);
-
-        // Read from current table
-        reader.pollNext(new Collector<SeaTunnelRow>() {
-            @Override
-            public void collect(SeaTunnelRow row) {
-                // Tag row with table path
-                row.setTableId(currentTable.serialize());
-                output.collect(row);
-            }
-        });
-
-        // Re-add to queue for next round
-        readOrder.offer(currentTable);
-    }
-
-    @Override
-    public void addSplits(List<SplitT> splits) {
-        // Route splits to correct table readers
-        for (SplitT split : splits) {
-            TablePath tablePath = extractTablePath(split);
-            SourceReader reader = readers.get(tablePath);
-            reader.addSplits(Collections.singletonList(split));
-
-            // Add table to read order if not present
-            if (!readOrder.contains(tablePath)) {
-                readOrder.offer(tablePath);
-            }
-        }
-    }
-}
-```
+Whether a connector internally maintains a TablePath-to-reader/enumerator mapping,
+how it fairly schedules multiple tables, and whether it shares underlying
+connections are implementation choices of the connector itself; the framework does
+not mandate a fixed source-side structure.
 
 ## 4. MultiTableSink Architecture
 
@@ -306,10 +216,9 @@ public class MultiTableSinkWriter
             Object object = element.getField(primaryKey.get());
             int index = 0;
             if (object != null) {
-                // Known issue: Math.abs(Integer.MIN_VALUE) returns Integer.MIN_VALUE
-                // unchanged (still negative), so a key hashing to it yields a negative
-                // queue index. See section 5.3.
-                index = Math.abs(object.hashCode()) % blockingQueues.size();
+                // Clear the sign bit rather than using Math.abs: Math.abs(Integer.MIN_VALUE)
+                // returns Integer.MIN_VALUE unchanged, which would yield a negative index.
+                index = (object.hashCode() & Integer.MAX_VALUE) % blockingQueues.size();
             }
             offerRowElement(index, element);
         }
@@ -403,17 +312,17 @@ Both strategies select a queue index in `[0, blockingQueues.size())`. See
 which is what preserves ordering for that key:
 
 ```java
-int index = Math.abs(object.hashCode()) % blockingQueues.size();
+int index = (object.hashCode() & Integer.MAX_VALUE) % blockingQueues.size();
 ```
 
-:::caution Known issue
+:::note
 
-`Math.abs(Integer.MIN_VALUE)` returns `Integer.MIN_VALUE`, which is still negative, so a
-key whose hash is exactly `Integer.MIN_VALUE` produces a negative index whenever the queue
-count is not a power of two, and the subsequent `blockingQueues.get(index)` throws
-`IndexOutOfBoundsException`. This page documents the behaviour currently on `dev`; the
-defect is tracked in [#11720](https://github.com/apache/seatunnel/issues/11720), and this
-section should be updated when a fix lands.
+The sign bit is cleared with `& Integer.MAX_VALUE` rather than with `Math.abs`, because
+`Math.abs(Integer.MIN_VALUE)` returns `Integer.MIN_VALUE` unchanged — still negative. A key
+whose hash is exactly `Integer.MIN_VALUE` would otherwise produce a negative index whenever
+the queue count is not a power of two, and the subsequent `blockingQueues.get(index)` would
+throw `IndexOutOfBoundsException`. Masking is branch-free and correct for every input.
+Tracked as [#11720](https://github.com/apache/seatunnel/issues/11720).
 
 :::
 
@@ -425,7 +334,7 @@ int index = random.nextInt(blockingQueues.size());
 
 `random.nextInt(bound)` is used rather than a time-derived expression such as
 `System.nanoTime() % n`. `System.nanoTime()` is documented as possibly negative, so that
-expression can produce a negative index for exactly the same reason `Math.abs` can above.
+expression can produce a negative index for the same reason the hash is masked above.
 
 ## 6. Schema Management in Multi-Table
 

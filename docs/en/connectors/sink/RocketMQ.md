@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 - 4.9.0 or newer
 
-## Support These Engines
+## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
@@ -203,6 +203,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### How can message routing and partition keys be configured in RocketMQ sink?
+
+Configure `partition.key.fields` with one or more table field names. For non-transactional sends (`exactly.once = false`), the connector calculates a hash of the specified fields to ensure that messages sharing identical key values are always routed to the same RocketMQ message queue.
+
+### How does RocketMQ sink provide exactly-once delivery guarantees?
+
+When `exactly.once = true`, the sink uses RocketMQ transactional messages (`sendMessageInTransaction`). The current transaction listener commits the local transaction immediately, so messages become visible to consumers right after they are sent; the sink does not coordinate message visibility with SeaTunnel checkpoints. For stricter delivery guarantees, enable idempotent or transactional consumption on the consumer side and make writes deduplicatable by message key.
+
+### What message serialization formats are supported?
+
+The sink supports `json` and `text` formats. Fields can be formatted into JSON payloads or delimited text rows according to your target consumer requirements.
 
 ## Changelog
 

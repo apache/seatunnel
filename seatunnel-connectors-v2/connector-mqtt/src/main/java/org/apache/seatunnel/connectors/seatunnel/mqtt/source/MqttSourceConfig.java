@@ -19,9 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.mqtt.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
+import java.io.Serializable;
 import java.util.UUID;
 
-public class MqttSourceConfig {
+/**
+ * Held by {@link MqttSource}, which the engine serializes as part of the logical DAG, so this must
+ * be {@link Serializable} too. Without it job submission fails with a
+ * HazelcastSerializationException on LogicalVertex before the source ever starts.
+ */
+public class MqttSourceConfig implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private static final String CLIENT_ID_PREFIX = "seatunnel_mqtt_source_";
 

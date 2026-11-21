@@ -54,6 +54,7 @@ public class TypesenseSinkFactory implements TableSinkFactory {
                         TypesenseSinkOptions.SCHEMA_SAVE_MODE, TypesenseSinkOptions.DATA_SAVE_MODE)
                 .optional(TypesenseSinkOptions.PRIMARY_KEYS)
                 .optional(TypesenseSinkOptions.KEY_DELIMITER)
+                .optional(TypesenseSinkOptions.KEY_ENCODING)
                 .optional(TypesenseSinkOptions.MAX_BATCH_SIZE)
                 .optional(TypesenseSinkOptions.MAX_RETRY_COUNT)
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)

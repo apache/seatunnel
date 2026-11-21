@@ -37,6 +37,7 @@ import ChangeLog from '../changelog/connector-hbase.md';
 | schema_save_mode         | enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST   | 写入前如何处理目标表结构。 |
 | data_save_mode           | enum    | 否       | APPEND_DATA                    | 写入前如何处理目标端已有数据。 |
 | hbase_extra_config       | config  | 否       | -                              | 额外的 HBase 或 Hadoop 客户端配置。 |
+| ttl                      | long    | 否       | -1                             | 写入 HBase 单元格的过期时间（毫秒）；`-1` 表示永不过期。 |
 | multi_table_sink_replica | int     | 否       | 1                              | 多表写入时每张表对应的 Sink Writer 副本数。 |
 | common-options           |         | 否       | -                              | Sink 插件通用参数，例如 `plugin_input`。 |
 

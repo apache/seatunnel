@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.sls.sink;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.sls.config.SlsBaseOptions;
@@ -29,16 +30,19 @@ import org.apache.seatunnel.connectors.seatunnel.sls.state.SlsSinkState;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Optional;
 
 public class SlsSink
         implements SeaTunnelSink<
                 SeaTunnelRow, SlsSinkState, SlsCommitInfo, SlsAggregatedCommitInfo> {
     private final ReadonlyConfig pluginConfig;
     private final SeaTunnelRowType seaTunnelRowType;
+    private final CatalogTable catalogTable;
 
-    public SlsSink(ReadonlyConfig pluginConfig, SeaTunnelRowType rowType) {
+    public SlsSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.pluginConfig = pluginConfig;
-        this.seaTunnelRowType = rowType;
+        this.catalogTable = catalogTable;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
     @Override
@@ -50,5 +54,10 @@ public class SlsSink
     public SinkWriter<SeaTunnelRow, SlsCommitInfo, SlsSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
         return new SlsSinkWriter(context, seaTunnelRowType, pluginConfig, Collections.emptyList());
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
     }
 }

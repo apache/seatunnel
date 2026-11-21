@@ -51,6 +51,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -405,6 +406,14 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         synchronized (output.getCheckpointLock()) {
             internalPollNext(output);
         }
+        // Wait out the poll interval only after the checkpoint lock is
+        // released. Sleeping while holding it kept the checkpoint barrier
+        // out for the whole interval, so a streaming job's checkpoint expired.
+        boolean finished =
+                Boundedness.BOUNDED.equals(context.getBoundedness()) && noMoreElementFlag;
+        if (!finished && httpParameter.getPollIntervalMillis() > 0) {
+            Thread.sleep(httpParameter.getPollIntervalMillis());
+        }
     }
 
     @Override
@@ -441,10 +450,6 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 // signal to the source that we have reached the end of the data.
                 log.info("Closed the bounded http source");
                 context.signalNoMoreElement();
-            } else {
-                if (httpParameter.getPollIntervalMillis() > 0) {
-                    Thread.sleep(httpParameter.getPollIntervalMillis());
-                }
             }
         }
     }
@@ -494,7 +499,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 }
             }
         }
-        deserializationCollector.collect(contentData.getBytes(), output);
+        deserializationCollector.collect(contentData.getBytes(StandardCharsets.UTF_8), output);
     }
 
     private List<List<String>> decodeJSON(String data) {

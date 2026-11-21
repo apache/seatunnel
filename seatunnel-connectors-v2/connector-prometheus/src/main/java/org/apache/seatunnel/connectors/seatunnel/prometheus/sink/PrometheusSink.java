@@ -59,6 +59,18 @@ public class PrometheusSink extends AbstractSimpleSink<SeaTunnelRow, Void>
             httpParameter.getHeaders().put("Content-Encoding", "snappy");
             httpParameter.getHeaders().put("X-Prometheus-Remote-Write-Version", "0.1.0");
         }
+
+        // Wire the retry options into the HTTP parameter so a transient remote-write failure is
+        // retried instead of failing the caller (a checkpoint flush, batch_size, timer flush, or
+        // close()) on the first blip. The base HttpClientProvider retries transport IOExceptions;
+        // the writer additionally retries retryable HTTP statuses (5xx/429). Retries default to on
+        // (3) when `retry` is not set, since the checkpoint-flush path added in #11827 makes an
+        // un-retried transient failure able to fail a checkpoint.
+        httpParameter.setRetry(pluginConfig.getOptional(PrometheusSinkOptions.RETRY).orElse(3));
+        httpParameter.setRetryBackoffMultiplierMillis(
+                pluginConfig.get(PrometheusSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS));
+        httpParameter.setRetryBackoffMaxMillis(
+                pluginConfig.get(PrometheusSinkOptions.RETRY_BACKOFF_MAX_MS));
     }
 
     @Override

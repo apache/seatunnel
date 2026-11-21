@@ -19,6 +19,5 @@ package org.apache.seatunnel.engine.common.runtime;
 
 public enum DeployType {
     STANDALONE,
-    YARN,
     KUBERNETES
 }

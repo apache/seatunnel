@@ -34,4 +34,4 @@ hazelcast:
 
 `<members>192.168.1.0-7,192.168.1.21</members>`
 
-如果您没有为成员提供端口，Hazelcast 会自动尝试端口 `5701`, `5702` 等。
+如果您没有为成员提供端口，Hazelcast 会尝试 `network.port` 中配置的端口（SeaTunnel 默认 `hazelcast.yaml` 为 `5801`，worker 模板为 `5802`）。是否继续尝试后续端口由 `network.port.auto-increment` 控制，SeaTunnel 发行包中该项为 `false`。

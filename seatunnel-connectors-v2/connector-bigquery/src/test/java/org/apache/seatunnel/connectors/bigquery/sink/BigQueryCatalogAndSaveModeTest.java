@@ -27,7 +27,9 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.bigquery.catalog.BigQueryCatalog;
 
@@ -226,6 +228,107 @@ public class BigQueryCatalogAndSaveModeTest {
 
         // Executing the schema save mode should throw a CatalogException for type incompatibility
         assertThrows(CatalogException.class, () -> handler.handleSchemaSaveMode());
+    }
+
+    /**
+     * BigQuery has no native MAP type, so this connector always represents a source MAP column as a
+     * BigQuery STRUCT (see {@code RowToJsonConverters#createMapConverter}). The coherence check
+     * must accept that representation instead of flagging every previously-created MAP-backed table
+     * as a type mismatch.
+     */
+    @Test
+    public void testSaveModeHandler_CoherenceCheckAcceptsMapColumnStoredAsStruct() {
+        TablePath tablePath = TablePath.of("test-dataset", "map-table");
+        TableId tableId = TableId.of("test-dataset", "map-table");
+
+        TableSchema.Builder builder = TableSchema.builder();
+        builder.column(
+                PhysicalColumn.of(
+                        "c_map",
+                        new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
+                        0,
+                        true,
+                        null,
+                        null));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test-catalog", tablePath),
+                        builder.build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "BigQuery Catalog Test Table");
+
+        Table mockTable = mock(Table.class);
+        TableDefinition mockDef = mock(TableDefinition.class);
+        when(mockTable.getDefinition()).thenReturn(mockDef);
+        com.google.cloud.bigquery.Schema remoteSchema =
+                com.google.cloud.bigquery.Schema.of(
+                        Field.newBuilder(
+                                        "c_map",
+                                        StandardSQLTypeName.STRUCT,
+                                        Field.of("key", StandardSQLTypeName.STRING),
+                                        Field.of("value", StandardSQLTypeName.STRING))
+                                .build());
+        when(mockDef.getSchema()).thenReturn(remoteSchema);
+
+        when(mockBigQuery.getDataset("test-dataset")).thenReturn(mock(Dataset.class));
+        when(mockBigQuery.getTable(tableId)).thenReturn(mockTable);
+
+        BigQuerySaveModeHandler handler =
+                new BigQuerySaveModeHandler(
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        DataSaveMode.APPEND_DATA,
+                        catalog,
+                        tablePath,
+                        catalogTable,
+                        null);
+
+        assertDoesNotThrow(handler::handleSchemaSaveMode);
+    }
+
+    /**
+     * BigQuery represents an array as a REPEATED field of the element's standard type rather than a
+     * distinct type name. Reading such a field back must round-trip to an ARRAY column so it
+     * matches a source ARRAY column instead of matching only the bare element type.
+     */
+    @Test
+    public void testSaveModeHandler_CoherenceCheckAcceptsArrayColumnStoredAsRepeatedField() {
+        TablePath tablePath = TablePath.of("test-dataset", "array-table");
+        TableId tableId = TableId.of("test-dataset", "array-table");
+
+        TableSchema.Builder builder = TableSchema.builder();
+        builder.column(PhysicalColumn.of("c_array", ArrayType.INT_ARRAY_TYPE, 0, true, null, null));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test-catalog", tablePath),
+                        builder.build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "BigQuery Catalog Test Table");
+
+        Table mockTable = mock(Table.class);
+        TableDefinition mockDef = mock(TableDefinition.class);
+        when(mockTable.getDefinition()).thenReturn(mockDef);
+        com.google.cloud.bigquery.Schema remoteSchema =
+                com.google.cloud.bigquery.Schema.of(
+                        Field.newBuilder("c_array", StandardSQLTypeName.INT64)
+                                .setMode(Field.Mode.REPEATED)
+                                .build());
+        when(mockDef.getSchema()).thenReturn(remoteSchema);
+
+        when(mockBigQuery.getDataset("test-dataset")).thenReturn(mock(Dataset.class));
+        when(mockBigQuery.getTable(tableId)).thenReturn(mockTable);
+
+        BigQuerySaveModeHandler handler =
+                new BigQuerySaveModeHandler(
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        DataSaveMode.APPEND_DATA,
+                        catalog,
+                        tablePath,
+                        catalogTable,
+                        null);
+
+        assertDoesNotThrow(handler::handleSchemaSaveMode);
     }
 
     // ────────────────────────────────────────────────────────────────────────

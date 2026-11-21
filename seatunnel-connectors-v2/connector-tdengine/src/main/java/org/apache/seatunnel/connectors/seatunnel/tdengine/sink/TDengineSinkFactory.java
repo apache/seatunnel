@@ -28,6 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSinkOpt
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 public class TDengineSinkFactory implements TableSinkFactory {
     @Override
@@ -38,12 +40,11 @@ public class TDengineSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        TDengineSinkOptions.URL,
-                        TDengineSinkOptions.USERNAME,
-                        TDengineSinkOptions.PASSWORD,
-                        TDengineSinkOptions.DATABASE,
-                        TDengineSinkOptions.STABLE)
+                .required(TDengineSinkOptions.URL, notBlank(TDengineSinkOptions.URL))
+                .required(TDengineSinkOptions.USERNAME, notBlank(TDengineSinkOptions.USERNAME))
+                .required(TDengineSinkOptions.PASSWORD, notBlank(TDengineSinkOptions.PASSWORD))
+                .required(TDengineSinkOptions.DATABASE, notBlank(TDengineSinkOptions.DATABASE))
+                .required(TDengineSinkOptions.STABLE, notBlank(TDengineSinkOptions.STABLE))
                 .optional(
                         TDengineSinkOptions.TIMEZONE,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)

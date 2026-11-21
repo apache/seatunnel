@@ -36,7 +36,7 @@ import ChangeLog from '../changelog/connector-druid.md';
 |----------------|--------|------|--------|------|
 | coordinatorUrl | string | 是   | -      | Druid 协调器或路由节点的主机和端口。 |
 | datasource     | string | 是   | -      | Druid datasource 名称，支持 `${table_name}` 这类占位符。 |
-| batchSize      | int    | 否   | 10000  | 缓存多少行后提交一次索引任务。 |
+| batchSize      | int    | 否   | 10000  | 缓存多少行后提交一次索引任务，取值必须大于 `0`。 |
 | common-options |        | 否   | -      | Sink 通用参数。 |
 
 ### coordinatorUrl [string]
@@ -53,7 +53,7 @@ SeaTunnel 会向 `http://{coordinatorUrl}/druid/indexer/v1/task` 提交索引任
 
 ### batchSize [int]
 
-SeaTunnel 缓存多少行之后向 Druid 提交一次索引任务。默认值为 `10000`。
+SeaTunnel 缓存多少行之后向 Druid 提交一次索引任务。默认值为 `10000`，配置值必须大于 `0`。
 
 写入器关闭时，SeaTunnel 也会把剩余缓存数据提交到 Druid。
 
@@ -78,6 +78,8 @@ Druid 写入需要主时间列。连接器会自动追加一个名为 `timestamp
 仅支持 [数据类型映射](#数据类型映射) 中列出的 SeaTunnel 类型，其他类型会在写入规划阶段报错。
 
 由于连接器会把数据以内联 CSV 的形式提交给 Druid，字符串字段中不建议直接包含英文逗号或换行符；如有这类内容，建议在进入 Druid Sink 前先做清洗或替换。
+
+值为 null 的字段会写成空的 CSV 值，因此仍占据原来的列。Druid 按 `druid.generic.useDefaultValueForNull` 存储该值：默认值为 `true` 时，字符串列存为 `''`，数值列存为 `0`；为 `false` 时存为 SQL null。
 
 ## 示例
 

@@ -95,9 +95,18 @@ public class KafkaRecordEmitter
             }
         } catch (Exception e) {
             if (this.messageFormatErrorHandleWay == MessageFormatErrorHandleWay.SKIP) {
+                // The value is null for a tombstone, so it must not be stringified
+                // unguarded: that would raise a NullPointerException from inside this
+                // handler and defeat the skip the user asked for. Identify the record by
+                // its coordinates so the skipped offset can be found in the log.
                 logger.warn(
-                        "Deserialize message failed, skip this message, message: {}",
-                        new String(consumerRecord.value()));
+                        "Deserialize message failed, skip this message, topic: {}, partition: {}, offset: {}, message: {}",
+                        consumerRecord.topic(),
+                        consumerRecord.partition(),
+                        consumerRecord.offset(),
+                        consumerRecord.value() == null
+                                ? "<null>"
+                                : new String(consumerRecord.value()));
             } else {
                 throw e;
             }

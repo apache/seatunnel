@@ -50,17 +50,20 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 |                                   Oracle 数据类型                                   | SeaTunnel 数据类型 |
 |--------------------------------------------------------------------------------------|---------------------|
-| INTEGER                                                                              | INT                 |
+| INTEGER                                                                              | DECIMAL(38,0)       |
 | FLOAT                                                                                | DECIMAL(38, 18)     |
 | NUMBER(precision <= 9, scale == 0)                                                   | INT                 |
 | NUMBER(9 < precision <= 18, scale == 0)                                              | BIGINT              |
-| NUMBER(18 < precision, scale == 0)                                                   | DECIMAL(38, 0)      |
-| NUMBER(scale != 0)                                                                   | DECIMAL(38, 18)     |
+| NUMBER(18 < precision < 38, scale == 0)                                              | DECIMAL(precision, 0) |
+| NUMBER(precision >= 38, scale == 0)                                                  | DECIMAL(38, 0)      |
+| NUMBER(scale > 0)                                                                    | DECIMAL(precision, min(scale, 18)) |
+| NUMBER(scale < 0)                                                                    | 规范化为 `DECIMAL(precision - scale, 0)`；启用 decimal narrowing 时为 `LONG`/`INT`/`BOOLEAN`。未指定 precision/scale 时默认按 38/18 处理。 |
 | BINARY_DOUBLE                                                                        | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                | FLOAT               |
 | CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/> | STRING              |
-| DATE                                                                                 | DATE                |
-| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                         | TIMESTAMP           |
+| DATE                                                                                 | TIMESTAMP           |
+| TIMESTAMP<br/>TIMESTAMP(s)                                                           | TIMESTAMP(s)        |
+| TIMESTAMP WITH TIME ZONE<br/>TIMESTAMP WITH LOCAL TIME ZONE                          | TIMESTAMP_TZ        |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                  | BYTES               |
 
 ## 参数
@@ -72,8 +75,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                     | String  | 否       | -                            | 连接实例用户名。                                                                                                                                                                                                                  |
 | password                     | String  | 否       | -                            | 连接实例密码。                                                                                                                                                                                                                   |
 | query                        | String  | 否       | -                            | 使用此sql将上游输入数据写入数据库。例如： `INSERT ...`,`query` 具有更高的优先级                                                                                                                                           |
-| database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库。<br/>此选项与`query` 互斥，具有更高的优先级                                                       |
-| table                        | String  | 否       | -                            | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库。<br/>此选项与`query` 互斥，具有更高的优先级                                                           |
+| database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                       |
+| table                        | String  | 否       | -                            | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                           |
 | primary_keys                 | Array   | 否       | -                            | 此选项用于支持以下操作，例如 `insert`, `delete`, 和 `update` 当自动生成sql.                                                                                                                                    |
 | connection_check_timeout_sec | Int     | 否       | 30                           | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                            |
 | max_retries                  | Int     | 否       | 0                            | 提交失败的重试次数（executeBatch）                                                                                                                                                                                          |
@@ -81,21 +84,22 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | batch_interval_ms            | Long    | 否       | 0                            | 写入触发的定时刷新间隔，单位毫秒。`0` 表示关闭定时刷新；大于 0 时，写入器会在每条记录写入时检查间隔，达到间隔后同步刷新。                                                                           |
 | is_exactly_once              | Boolean | 否       | false                        | 是否启用精确一次语义，这将使用Xa事务。如果启用，则需要<br/>设置`xa_data_source_class_name`。                                                                                                              |
 | generate_sink_sql            | Boolean | 否       | false                        | 根据要写入的数据库表生成sql语句                                                                                                                                                                        |
-| xa_data_source_class_name    | String  | 否       | -                            | 数据库Driver的xa数据源类名，例如Oracle，是`Oracle.jdbc.xa.client。OracleXADataSource和<br/>请参阅附录了解其他数据源                                                               |
+| xa_data_source_class_name    | String  | 否       | -                            | 数据库Driver的xa数据源类名，例如 Oracle 是 `oracle.jdbc.xa.client.OracleXADataSource`，<br/>请参阅附录了解其他数据源                                                               |
 | max_commit_attempts          | Int     | 否       | 3                            | 事务提交失败的重试次数                                                                                                                                                                                          |
 | transaction_timeout_sec      | Int     | 否       | -1                           | 事务打开后的超时，默认值为-1（永不超时）。请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                            |
-| auto_commit                  | Boolean | 否       | true                         | 默认情况下启用自动事务提交                                                                                                                                                                                              |
+| auto_commit                  | Boolean | 否       | true                         | 默认情况下启用自动事务提交。Oracle Sink 即使配置为 `true`，实际写入时也会在内部使用手动提交，以保证失败批次的原子性并保留原始数据错误。                                                                                                                                                                                              |
 | properties                   | Map     | 否       | -                            | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。 |
 | common-options               |         | 否       | -                            | Sink插件常用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)                                                                                                                                     |
 | schema_save_mode             | Enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | 在启动同步任务之前，对目标侧的现有表面结构选择不同的处理方案。                                                                                                      |
 | data_save_mode               | Enum    | 否       | APPEND_DATA                  | 在启动同步任务之前，对目标端的现有数据选择不同的处理方案。                                                                                                                 |
 | custom_sql                   | String  | 否       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，您应该填写CUSTOM_SQL参数。此参数通常填充可以执行的SQL。SQL将在同步任务之前执行。                                       |
-| enable_upsert                | Boolean | 否       | true                         | 通过primary_keys存在启用upstart，如果任务只有“插入”，将此参数设置为“false”可以加快数据导入                                                                                                          |
+| enable_upsert                | Boolean | 否       | true                         | 通过 `primary_keys` 启用 upsert，如果任务没有重复键数据，将此参数设置为 `false` 可以加快数据导入                                                                                                          |
 | multi_table_sink_replica     | Int     | 否       | 1                            | 多表写入时使用的 Sink Writer 副本数量。                                                                                                          |
 
 ### 提示
 
->如果未设置partition_column，它将以单并发运行，如果设置了partition_column，它将根据任务的并发数并行执行。
+> Sink 的写入并发度由作业或管道的并行度决定。`partition_column` 是 JDBC Source
+> 用于拆分读取的选项，不控制 Sink 的写入分配。
 
 ## 任务示例
 

@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.google.firestore.config.Firesto
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import static org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreSinkOptions.COLLECTION;
 import static org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreSinkOptions.CREDENTIALS;
 import static org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreSinkOptions.PROJECT_ID;
@@ -40,7 +41,11 @@ public class FirestoreSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(PROJECT_ID, COLLECTION).optional(CREDENTIALS).build();
+        return OptionRule.builder()
+                .required(PROJECT_ID, notBlank(PROJECT_ID))
+                .required(COLLECTION, notBlank(COLLECTION))
+                .optional(CREDENTIALS, notBlank(CREDENTIALS))
+                .build();
     }
 
     @Override

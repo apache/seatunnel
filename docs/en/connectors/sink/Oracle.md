@@ -51,17 +51,20 @@ semantics (using XA transaction guarantee).
 
 |                                   Oracle Data Type                                   | SeaTunnel Data Type |
 |--------------------------------------------------------------------------------------|---------------------|
-| INTEGER                                                                              | INT                 |
+| INTEGER                                                                              | DECIMAL(38,0)       |
 | FLOAT                                                                                | DECIMAL(38, 18)     |
 | NUMBER(precision <= 9, scale == 0)                                                   | INT                 |
 | NUMBER(9 < precision <= 18, scale == 0)                                              | BIGINT              |
-| NUMBER(18 < precision, scale == 0)                                                   | DECIMAL(38, 0)      |
-| NUMBER(scale != 0)                                                                   | DECIMAL(38, 18)     |
+| NUMBER(18 < precision < 38, scale == 0)                                              | DECIMAL(precision, 0) |
+| NUMBER(precision >= 38, scale == 0)                                                  | DECIMAL(38, 0)      |
+| NUMBER(scale > 0)                                                                    | DECIMAL(precision, min(scale, 18)) |
+| NUMBER(scale < 0)                                                                    | Normalized to `DECIMAL(precision - scale, 0)`, or `LONG`/`INT`/`BOOLEAN` when decimal narrowing applies. Missing precision/scale default to 38/18. |
 | BINARY_DOUBLE                                                                        | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                | FLOAT               |
 | CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/> | STRING              |
-| DATE                                                                                 | DATE                |
-| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                         | TIMESTAMP           |
+| DATE                                                                                 | TIMESTAMP           |
+| TIMESTAMP<br/>TIMESTAMP(s)                                                           | TIMESTAMP(s)        |
+| TIMESTAMP WITH TIME ZONE<br/>TIMESTAMP WITH LOCAL TIME ZONE                          | TIMESTAMP_TZ        |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                  | BYTES               |
 
 ## Options
@@ -73,8 +76,8 @@ semantics (using XA transaction guarantee).
 | username                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                  |
 | password                                  | String  | No       | -                            | Connection instance password                                                                                                                                                                                                                   |
 | query                                     | String  | No       | -                            | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
-| database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                       |
-| table                                     | String  | No       | -                            | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                           |
+| database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                       |
+| table                                     | String  | No       | -                            | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                           |
 | primary_keys                              | Array   | No       | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit failed (executeBatch)                                                                                                                                                                                          |
@@ -85,7 +88,7 @@ semantics (using XA transaction guarantee).
 | xa_data_source_class_name                 | String  | No       | -                            | The xa data source class name of the database Driver, for example, Oracle is `oracle.jdbc.xa.client.OracleXADataSource`, and<br/>please refer to appendix for other data sources                                                               |
 | max_commit_attempts                       | Int     | No       | 3                            | The number of retries for transaction commit failures                                                                                                                                                                                          |
 | transaction_timeout_sec                   | Int     | No       | -1                           | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                            |
-| auto_commit                               | Boolean | No       | true                         | Automatic transaction commit is enabled by default                                                                                                                                                                                             |
+| auto_commit                               | Boolean | No       | true                         | Automatic transaction commit is enabled by default. Oracle sink uses manual commit internally even when this is `true`, so failed batches stay atomic and preserve the original data error.                                                     |
 | properties                                | Map     | No       | -                            | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL. |
 | common-options                            |         | No       | -                            | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                    |
 | schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.                                                                                                      |
@@ -96,7 +99,8 @@ semantics (using XA transaction guarantee).
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> Sink concurrency follows the job or pipeline parallelism. `partition_column` is a JDBC
+> source option for splitting reads; it does not control how the sink distributes writes.
 
 ## Task Example
 

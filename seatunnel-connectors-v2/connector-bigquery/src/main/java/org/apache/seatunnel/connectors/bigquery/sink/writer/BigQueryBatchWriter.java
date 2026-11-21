@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.bigquery.sink.writer;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorErrorCode;
+import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorException;
 import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
 
 import org.json.JSONArray;
@@ -25,6 +27,7 @@ import org.json.JSONArray;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
+import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamResponse;
 import com.google.cloud.bigquery.storage.v1.JsonStreamWriter;
 import com.google.cloud.bigquery.storage.v1.TableName;
 import com.google.cloud.bigquery.storage.v1.TableSchema;
@@ -41,20 +44,14 @@ import static org.apache.seatunnel.connectors.bigquery.sink.writer.TableSchemaUt
 @Slf4j
 public class BigQueryBatchWriter implements BigQueryWriter {
     private final JsonStreamWriter streamWriter;
-    private final BigQueryWriteClient client;
 
     @Getter private final String streamName;
     @Getter private final String tablePath;
     @Getter private long nextOffset;
 
     public BigQueryBatchWriter(
-            JsonStreamWriter streamWriter,
-            BigQueryWriteClient client,
-            String streamName,
-            String tablePath,
-            long nextOffset) {
+            JsonStreamWriter streamWriter, String streamName, String tablePath, long nextOffset) {
         this.streamWriter = streamWriter;
-        this.client = client;
         this.streamName = streamName;
         this.tablePath = tablePath;
         this.nextOffset = nextOffset;
@@ -73,6 +70,57 @@ public class BigQueryBatchWriter implements BigQueryWriter {
             BigQueryWriteClient client, ReadonlyConfig config, String streamName, long nextOffset) {
         return BigQueryBatchWriter.of(
                 client, config, getActualTableSchema(config, false), streamName, nextOffset);
+    }
+
+    /**
+     * Retires a buffered stream recorded in restored checkpoint state, so that the replay can be
+     * written to a new stream. Rows before {@code restoredNextOffset} belong to the restored
+     * checkpoint and are flushed again in case its commit was missed. Rows appended after that
+     * checkpoint stay unflushed, and therefore invisible, because the source replays them. The
+     * stream is then finalized so that nothing else is appended to it.
+     *
+     * <p>Called once while a writer is restored. Repeating it is safe: a stream that an earlier
+     * restore already finalized was flushed by that restore first.
+     *
+     * @param client write client
+     * @param streamName buffered stream recorded in the restored checkpoint
+     * @param restoredNextOffset next offset recorded in the restored checkpoint
+     */
+    public static void retireRestoredStream(
+            BigQueryWriteClient client, String streamName, long restoredNextOffset) {
+        if (restoredNextOffset > 0) {
+            flushRestoredStream(client, streamName, restoredNextOffset - 1);
+        }
+
+        try {
+            FinalizeWriteStreamResponse response = client.finalizeWriteStream(streamName);
+            log.info(
+                    "Finalized restored Buffered write stream {} with {} rows",
+                    streamName,
+                    response.getRowCount());
+        } catch (RuntimeException e) {
+            if (!BigQueryWriteStreamUtil.isStreamFinalized(e)) {
+                throw new BigQueryConnectorException(
+                        BigQueryConnectorErrorCode.STREAM_FINALIZE_FAILED,
+                        String.format("Failed to finalize restored stream %s", streamName),
+                        e);
+            }
+            log.info("Restored Buffered write stream {} was already finalized", streamName);
+        }
+    }
+
+    private static void flushRestoredStream(
+            BigQueryWriteClient client, String streamName, long flushOffset) {
+        try {
+            BigQueryWriteStreamUtil.flushRows(client, streamName, flushOffset);
+        } catch (RuntimeException e) {
+            throw new BigQueryConnectorException(
+                    BigQueryConnectorErrorCode.COMMIT_FAILED,
+                    String.format(
+                            "Failed to flush restored stream %s to checkpoint offset %d",
+                            streamName, flushOffset),
+                    e);
+        }
     }
 
     private static BigQueryBatchWriter of(
@@ -101,8 +149,7 @@ public class BigQueryBatchWriter implements BigQueryWriter {
         }
 
         return new BigQueryBatchWriter(
-                createStreamWriter(assignedStreamName, tableSchema, client),
-                client,
+                createStreamWriter(assignedStreamName, tableSchema, client, config),
                 assignedStreamName,
                 parentTable,
                 nextOffset);
@@ -121,7 +168,18 @@ public class BigQueryBatchWriter implements BigQueryWriter {
     }
 
     @Override
+    public boolean isClosed() {
+        return streamWriter.isClosed();
+    }
+
+    @Override
     public void close() {
         streamWriter.close();
+    }
+
+    @Override
+    public BigQueryWriter refreshSchema(BigQueryWriteClient client, ReadonlyConfig config) {
+        close();
+        return restore(client, config, streamName, nextOffset);
     }
 }

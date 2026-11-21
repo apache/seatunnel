@@ -39,6 +39,7 @@ Read full and incremental data from Alibaba Cloud Tablestore. The source uses Ta
 ## Usage notes
 
 - `job.mode = "BATCH"` reads bounded data. `job.mode = "STREAMING"` keeps consuming incremental records after the existing data is read.
+- `end_point`, `instance_name`, `access_key_id`, `access_key_secret`, and `table` must be non-blank, and `primary_keys` must contain at least one entry. Missing, empty, or whitespace-only values are rejected during configuration validation before any connection is made.
 - When `table` contains multiple table names, `primary_keys` must contain the same number of entries. For example, `table = "orders,users"` can use `primary_keys = ["id", "id"]` when both tables use `id` as the primary key field.
 - Multi-table reads use one `schema` block for the source, so the listed tables should have compatible output fields.
 - The source emits `INSERT`, `UPDATE_AFTER`, and `DELETE` row kinds according to Tablestore stream records.

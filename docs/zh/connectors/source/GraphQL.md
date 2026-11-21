@@ -67,6 +67,8 @@ GraphQL 源连接器用于从 GraphQL 服务读取数据。它支持：
 - 配置 `schema.fields` 读取结构化数据时，通常需要设置 `format = "json"`，并让 `content_field` 指向要转换为 SeaTunnel 行的数组或对象。
 - 使用 HTTP 流式轮询读取时，可以通过 `poll_interval_millis` 控制重复发送同一条查询的间隔。
 - 使用 WebSocket 订阅读取时，`max_retries` 和 `retry_delay_ms` 只控制订阅连接失败后的重连行为。
+- HTTP 查询模式下，只要响应中的 `errors` 数组不为空，读取就会失败，即使状态码是 200 且带有部分 `data`。订阅消息不做这项检查。
+- 未配置 `variables` 时，请求会发送一个空的 `variables` 对象。
 
 ## 任务示例
 
@@ -156,6 +158,96 @@ source {
 sink {
   Console {
     plugin_input = "graphql_subscription"
+  }
+}
+```
+
+### 带鉴权头的 GraphQL 查询
+
+GraphQL 服务需要鉴权时，可以把 bearer token 等放在 `headers` 里。底层 HTTP 客户端
+支持的任何请求头都可以通过这个参数传递。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  GraphQL {
+    plugin_output = "graphql_auth"
+    url = "https://graphql.example.com/v1/graphql"
+    format = "json"
+    content_field = "$.data.source"
+    headers = {
+      Authorization = "Bearer ${secret}"
+      X-Tenant = "acme"
+    }
+    query = """
+      query MyQuery {
+        source {
+          id
+          val_bool
+        }
+      }
+    """
+    schema = {
+      fields {
+        id = "int"
+        val_bool = "boolean"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "graphql_auth"
+  }
+}
+```
+
+### 流式轮询查询
+
+对于只提供 HTTP 接口、但会持续发布新数据的服务，可以用流模式周期性地重复执行
+同一条查询。SeaTunnel 按 `poll_interval_millis` 发送请求，并把新行转发给下游算子。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  GraphQL {
+    plugin_output = "graphql_streaming"
+    url = "http://graphql:8080/v1/graphql"
+    format = "json"
+    content_field = "$.data.source"
+    poll_interval_millis = 10000
+    query = """
+      query MyQuery {
+        source {
+          id
+          val_bool
+          val_double
+        }
+      }
+    """
+    schema = {
+      fields {
+        id = "int"
+        val_bool = "boolean"
+        val_double = "double"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "graphql_streaming"
   }
 }
 ```

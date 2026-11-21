@@ -18,7 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -32,12 +36,15 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DynamicChunkSplitterTest {
@@ -386,5 +393,244 @@ public class DynamicChunkSplitterTest {
                         ObjectUtils.compare(a.get(i).getChunkEnd(), a.get(i).getChunkStart()) > 0);
             }
         }
+    }
+
+    /** Without a where condition the table must pass through unchanged. */
+    @Test
+    public void testApplyWhereConditionReturnsSameTableWhenNoWhereCondition() {
+        JdbcSourceConfig config = buildWhereConditionConfig(null);
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of("db", "schema", "table"))
+                        .query("SELECT id, name FROM table")
+                        .build();
+
+        assertSame(table, splitter.applyWhereCondition(table));
+    }
+
+    /** The user query must be wrapped with the where condition for split metadata queries. */
+    @Test
+    public void testApplyWhereConditionWrapsUserQuery() {
+        JdbcSourceConfig config = buildWhereConditionConfig("where id > 100");
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of("db", "schema", "table"))
+                        .query("SELECT id, name FROM table")
+                        .build();
+
+        JdbcSourceTable wrapped = splitter.applyWhereCondition(table);
+
+        assertEquals(
+                "SELECT * FROM (SELECT id, name FROM table) tmp WHERE id > 100",
+                wrapped.getQuery());
+        assertSame(table.getTablePath(), wrapped.getTablePath());
+        assertEquals(table.getPartitionColumn(), wrapped.getPartitionColumn());
+        assertSame(table.getCatalogTable(), wrapped.getCatalogTable());
+    }
+
+    /** A where-referenced column missing from a narrow custom query must be auto-added. */
+    @Test
+    public void testApplyWhereConditionAutoAddsMissingFieldForNarrowQuery() {
+        JdbcSourceConfig config = buildWhereConditionConfig("where status > 1");
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of("db", "schema", "table"))
+                        .query("SELECT id, name FROM table")
+                        .build();
+
+        JdbcSourceTable wrapped = splitter.applyWhereCondition(table);
+
+        // Without the auto-add, the wrapped subquery would not expose "status" and the
+        // split-metadata queries would fail with a "column not found" SQL error.
+        assertEquals(
+                "SELECT * FROM (SELECT id, name , status FROM table) tmp WHERE status > 1",
+                wrapped.getQuery());
+    }
+
+    /** When no query is configured the table identifier must be used as the wrapped base. */
+    @Test
+    public void testApplyWhereConditionFallsBackToTableIdentifierWithoutQuery() {
+        JdbcSourceConfig config = buildWhereConditionConfig("where id > 100");
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder().tablePath(TablePath.of("db", "schema", "table")).build();
+
+        JdbcSourceTable wrapped = splitter.applyWhereCondition(table);
+
+        // The base query is "SELECT * FROM <tableIdentifier>"; for the default Postgres
+        // dialect the tableIdentifier is the fully quoted path. We only assert that the
+        // wrapper is applied and the original table path is preserved.
+        assertEquals(
+                "SELECT * FROM (SELECT * FROM \"db\".\"schema\".\"table\") tmp WHERE id > 100",
+                wrapped.getQuery());
+        assertSame(table.getTablePath(), wrapped.getTablePath());
+    }
+
+    @Test
+    public void testOceanBaseOracleSkipsSamplingSharding() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", "jdbc:oceanbase://localhost:2881/test");
+        options.put("driver", "com.oceanbase.jdbc.Driver");
+        options.put(JdbcSourceOptions.COMPATIBLE_MODE.key(), "oracle");
+        DynamicChunkSplitter splitter =
+                new DynamicChunkSplitter(JdbcSourceConfig.of(ReadonlyConfig.fromMap(options)));
+
+        Assertions.assertFalse(splitter.shouldUseSamplingSharding(true));
+    }
+
+    @Test
+    public void testSamplingShardingFollowsUserOption() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", "jdbc:postgresql://localhost:5432/test");
+        options.put("driver", "org.postgresql.Driver");
+        DynamicChunkSplitter splitter =
+                new DynamicChunkSplitter(JdbcSourceConfig.of(ReadonlyConfig.fromMap(options)));
+
+        Assertions.assertTrue(splitter.shouldUseSamplingSharding(true));
+        Assertions.assertFalse(splitter.shouldUseSamplingSharding(false));
+    }
+
+    private static JdbcSourceConfig buildWhereConditionConfig(String whereCondition) {
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", "jdbc:postgresql://localhost:5432/test");
+        options.put("driver", "org.postgresql.Driver");
+        if (whereCondition != null) {
+            options.put(JdbcSourceOptions.WHERE_CONDITION.key(), whereCondition);
+        }
+        return JdbcSourceConfig.of(ReadonlyConfig.fromMap(options));
+    }
+
+    /**
+     * Range and hash split queries never match NULL, so a nullable key column chosen automatically
+     * would leave the rows holding NULL in it unread. Such a column is skipped, and a table left
+     * without a split key is read as one split.
+     */
+    @Test
+    public void testAutomaticSplitKeySkipsNullableKeyColumns() throws Exception {
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(postgresConfig());
+
+        JdbcSourceTable nullableUniqueKeyOnly =
+                table(null, null, Collections.singletonList(uniqueKey("uk_code", "code")));
+        assertFalse(splitter.findSplitKey(nullableUniqueKeyOnly).isPresent());
+        Collection<JdbcSourceSplit> splits = splitter.generateSplits(nullableUniqueKeyOnly);
+        assertEquals(1, splits.size());
+        assertNull(splits.iterator().next().getSplitKeyName());
+
+        JdbcSourceTable nullableAndNotNullUniqueKeys =
+                table(
+                        null,
+                        null,
+                        Arrays.asList(uniqueKey("uk_code", "code"), uniqueKey("uk_no", "no")));
+        assertEquals(
+                "no", splitter.findSplitKey(nullableAndNotNullUniqueKeys).get().getFieldName(0));
+
+        JdbcSourceTable nullablePrimaryKeyColumn =
+                table(
+                        null,
+                        PrimaryKey.of("pk_code", Collections.singletonList("code")),
+                        Collections.singletonList(uniqueKey("uk_no", "no")));
+        assertEquals("no", splitter.findSplitKey(nullablePrimaryKeyColumn).get().getFieldName(0));
+    }
+
+    @Test
+    public void testAutomaticSplitKeyKeepsNotNullKeyColumns() {
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(postgresConfig());
+
+        JdbcSourceTable primaryKey =
+                table(
+                        null,
+                        PrimaryKey.of("pk_id", Collections.singletonList("id")),
+                        Collections.singletonList(uniqueKey("uk_no", "no")));
+        assertEquals("id", splitter.findSplitKey(primaryKey).get().getFieldName(0));
+
+        JdbcSourceTable notNullUniqueKey =
+                table(null, null, Collections.singletonList(uniqueKey("uk_no", "no")));
+        assertEquals("no", splitter.findSplitKey(notNullUniqueKey).get().getFieldName(0));
+    }
+
+    /** An explicit {@code partition_column} is used as configured, also when it is nullable. */
+    @Test
+    public void testExplicitPartitionColumnMayBeNullable() {
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(postgresConfig());
+
+        JdbcSourceTable table = table("code", null, Collections.emptyList());
+        assertEquals("code", splitter.findSplitKey(table).get().getFieldName(0));
+    }
+
+    /**
+     * A {@code query} without {@code partition_column} gets no automatic split key, even when the
+     * table has a NOT NULL primary key, and is read as one split; so the nullability check of the
+     * automatic choice is only needed for table reads.
+     */
+    @Test
+    public void testQueryWithoutPartitionColumnIsReadAsOneSplit() throws Exception {
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(postgresConfig());
+
+        JdbcSourceTable query =
+                table(
+                                null,
+                                PrimaryKey.of("pk_id", Collections.singletonList("id")),
+                                Collections.singletonList(uniqueKey("uk_no", "no")))
+                        .withQuery("SELECT id, code, no FROM tbl");
+        assertFalse(splitter.findSplitKey(query).isPresent());
+        Collection<JdbcSourceSplit> splits = splitter.generateSplits(query);
+        assertEquals(1, splits.size());
+        assertNull(splits.iterator().next().getSplitKeyName());
+
+        JdbcSourceTable queryWithPartitionColumn =
+                table("code", null, Collections.emptyList())
+                        .withQuery("SELECT id, code, no FROM tbl");
+        assertEquals("code", splitter.findSplitKey(queryWithPartitionColumn).get().getFieldName(0));
+    }
+
+    private static JdbcSourceConfig postgresConfig() {
+        return JdbcSourceConfig.builder()
+                .jdbcConnectionConfig(
+                        JdbcConnectionConfig.builder()
+                                .url("jdbc:postgresql://localhost:5432/test")
+                                .driverName("org.postgresql.Driver")
+                                .build())
+                .build();
+    }
+
+    private static ConstraintKey uniqueKey(String name, String column) {
+        return ConstraintKey.of(
+                ConstraintKey.ConstraintType.UNIQUE_KEY,
+                name,
+                Collections.singletonList(
+                        ConstraintKey.ConstraintKeyColumn.of(
+                                column, ConstraintKey.ColumnSortType.ASC)));
+    }
+
+    /**
+     * A table whose INT columns {@code id} and {@code no} are NOT NULL and {@code code} is
+     * nullable.
+     */
+    private static JdbcSourceTable table(
+            String partitionColumn, PrimaryKey primaryKey, List<ConstraintKey> uniqueKeys) {
+        TableSchema.Builder schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 0L, false, null, null))
+                        .column(PhysicalColumn.of("code", BasicType.INT_TYPE, 0L, true, null, null))
+                        .column(PhysicalColumn.of("no", BasicType.INT_TYPE, 0L, false, null, null))
+                        .constraintKey(uniqueKeys);
+        if (primaryKey != null) {
+            schema.primaryKey(primaryKey);
+        }
+        TablePath tablePath = TablePath.of("db", "tbl");
+        return JdbcSourceTable.builder()
+                .tablePath(tablePath)
+                .partitionColumn(partitionColumn)
+                .catalogTable(
+                        CatalogTable.of(
+                                TableIdentifier.of("catalog", tablePath),
+                                schema.build(),
+                                Collections.emptyMap(),
+                                Collections.emptyList(),
+                                ""))
+                .build();
     }
 }

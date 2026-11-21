@@ -31,8 +31,24 @@ import org.junit.jupiter.api.Test;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.Types;
+
 @Slf4j
 public class RedshiftTypeConverterTest {
+    @Test
+    public void testConvertUnsupportedVarcharSqlType() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("aaa")
+                        .dataType("aaa")
+                        .sqlType(Types.VARCHAR)
+                        .build();
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class,
+                () -> RedshiftTypeConverter.INSTANCE.convert(typeDefine));
+    }
+
     @Test
     public void testConvertUnsupported() {
         BasicTypeDefine<Object> typeDefine =

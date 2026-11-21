@@ -17,7 +17,7 @@ TiDB CDC 连接器通过 `tikv-client-java` 客户端与 TiKV 的 Placement Driv
 
 | 数据源              | 支持的版本                                                                                                                                                | 驱动                        | Url                              | Maven                                                                |
 |------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------|----------------------------------|----------------------------------------------------------------------|
-| MySQL            | <li> [MySQL](https://dev.mysql.com/doc): 5.5, 5.6, 5.7, 8.0.x </li><li> [RDS MySQL](https://www.aliyun.com/product/rds/mysql): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver  | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
+| MySQL            | <li> [MySQL](https://dev.mysql.com/doc): 5.5, 5.6, 5.7, 8.0.x </li><li> [RDS MySQL](https://help.aliyun.com/zh/rds/apsaradb-rds-for-mysql/): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver  | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
 | tikv-client-java | 3.2.0                                                                                                                                                | -                         | -                                | https://mvnrepository.com/artifact/org.tikv/tikv-client-java/3.2.0   |
 
 ## 依赖
@@ -39,7 +39,7 @@ TiDB CDC 连接器通过 `tikv-client-java` 客户端与 TiKV 的 Placement Driv
 - [ ] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
 

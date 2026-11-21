@@ -37,6 +37,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MinIOContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import com.amazonaws.services.s3.AmazonS3;
 import io.minio.BucketExistsArgs;
@@ -45,6 +46,7 @@ import io.minio.MinioClient;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.given;
@@ -53,7 +55,12 @@ import static org.awaitility.Awaitility.given;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class HudiSeatunnelS3MultiTableIT extends SeaTunnelContainer {
 
-    private static final String MINIO_DOCKER_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";
+    // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated pulls
+    // ("pull access denied ... repository does not exist or may require 'docker login'"). The
+    // old quay.io/minio/minio repository is also unavailable. Use a digest-pinned public mirror
+    // of MinIO RELEASE.2025-04-22T22-12-26Z.
+    private static final String MINIO_DOCKER_IMAGE =
+            "ghcr.io/teableio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e";
     private static final String HOST = "minio";
     private static final int MINIO_PORT = 9000;
     private static final String MINIO_USER_NAME = "minio";
@@ -73,7 +80,12 @@ public class HudiSeatunnelS3MultiTableIT extends SeaTunnelContainer {
     @BeforeAll
     public void startUp() throws Exception {
         container =
-                new MinIOContainer(MINIO_DOCKER_IMAGE)
+                // MinIOContainer validates its image name is a recognized substitute for
+                // "minio/minio"; the community mirror needs an explicit compatibility declaration
+                // or Testcontainers rejects it with IllegalStateException at startup.
+                new MinIOContainer(
+                                DockerImageName.parse(MINIO_DOCKER_IMAGE)
+                                        .asCompatibleSubstituteFor("minio/minio"))
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
                         .withUserName(MINIO_USER_NAME)
@@ -124,7 +136,10 @@ public class HudiSeatunnelS3MultiTableIT extends SeaTunnelContainer {
     @Test
     public void testS3MultiWrite() throws IOException, InterruptedException {
         copyFileToContainer("/hudi/core-site.xml", "/tmp/seatunnel/config/core-site.xml");
-        Container.ExecResult textWriteResult = executeJob("/hudi/s3_fake_to_hudi.conf");
+        Container.ExecResult textWriteResult =
+                executeJob(
+                        "/hudi/s3_fake_to_hudi.conf",
+                        Collections.singletonList("bucket=" + BUCKET));
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);

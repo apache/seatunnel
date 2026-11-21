@@ -29,11 +29,218 @@ import org.apache.seatunnel.transform.sql.SQLEngineFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.math.BigDecimal;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
+import java.util.stream.Stream;
 
 public class VectorFunctionTest {
+
+    @ParameterizedTest
+    @ValueSource(
+            floats = {Float.MAX_VALUE, 1e20f, 1e-30f, Float.MIN_NORMAL, Float.MIN_VALUE, 3f, 0.1f})
+    public void testFiniteVectorArithmetic(float value) {
+        Float[] left = {value, -value};
+        Float[] right = {-value, value};
+        BigDecimal exact = new BigDecimal((double) value);
+        double squaredNorm = exact.multiply(exact).multiply(BigDecimal.valueOf(2)).doubleValue();
+        double norm = Math.hypot(value, value);
+        double distance = exact.multiply(BigDecimal.valueOf(4)).doubleValue();
+        Assertions.assertAll(
+                () ->
+                        Assertions.assertEquals(
+                                norm,
+                                (double) VectorFunction.vectorNorm(Collections.singletonList(left)),
+                                norm * 1e-14),
+                () ->
+                        Assertions.assertEquals(
+                                -squaredNorm,
+                                (double) VectorFunction.innerProduct(Arrays.asList(left, right)),
+                                squaredNorm * 1e-14),
+                () ->
+                        Assertions.assertEquals(
+                                2.0,
+                                (double) VectorFunction.cosineDistance(Arrays.asList(left, right)),
+                                1e-14),
+                () ->
+                        Assertions.assertEquals(
+                                distance,
+                                (double) VectorFunction.l1Distance(Arrays.asList(left, right)),
+                                distance * 1e-14),
+                () ->
+                        Assertions.assertEquals(
+                                2 * norm,
+                                (double) VectorFunction.l2Distance(Arrays.asList(left, right)),
+                                norm * 1e-14),
+                () -> {
+                    Float[] normalized =
+                            VectorUtils.toFloatArray(
+                                    (ByteBuffer) VectorFunction.vectorNormalize(left));
+                    Assertions.assertEquals(1 / Math.sqrt(2), normalized[0], 1e-7);
+                    Assertions.assertEquals(-1 / Math.sqrt(2), normalized[1], 1e-7);
+                });
+    }
+
+    @Test
+    public void testLargeProductsCancelWithoutOverflow() {
+        Float[] left = {Float.MAX_VALUE, Float.MAX_VALUE};
+        Float[] right = {Float.MAX_VALUE, -Float.MAX_VALUE};
+        Assertions.assertEquals(0.0, VectorFunction.innerProduct(Arrays.asList(left, right)));
+        Assertions.assertEquals(1.0, VectorFunction.cosineDistance(Arrays.asList(left, right)));
+    }
+
+    @Test
+    public void testVectorArithmeticSpecialValues() {
+        Float[] zero = {0f, -0f};
+        Float[] empty = {};
+        Assertions.assertEquals(0.0, VectorFunction.vectorNorm(Collections.singletonList(zero)));
+        Assertions.assertEquals(1.0, VectorFunction.cosineDistance(Arrays.asList(zero, zero)));
+        Assertions.assertEquals(1.0, VectorFunction.cosineDistance(Arrays.asList(empty, empty)));
+        Assertions.assertSame(zero, VectorFunction.vectorNormalize(zero));
+        Assertions.assertSame(empty, VectorFunction.vectorNormalize(empty));
+        Assertions.assertTrue(
+                Double.isNaN(
+                        (double)
+                                VectorFunction.cosineDistance(
+                                        Arrays.asList(
+                                                new Float[] {Float.MIN_VALUE},
+                                                new Float[] {Float.POSITIVE_INFINITY}))));
+        Assertions.assertNull(VectorFunction.vectorNorm(Collections.singletonList(null)));
+        Assertions.assertNull(VectorFunction.cosineDistance(Arrays.asList(zero, null)));
+        Assertions.assertNull(VectorFunction.innerProduct(Arrays.asList(null, zero)));
+        Assertions.assertNull(VectorFunction.l1Distance(Arrays.asList(zero, null)));
+        Assertions.assertNull(VectorFunction.l2Distance(Arrays.asList(null, zero)));
+        for (float value :
+                new float[] {Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY}) {
+            Float[] vector = {value};
+            Assertions.assertTrue(
+                    Double.isNaN(
+                            (double) VectorFunction.cosineDistance(Arrays.asList(vector, vector))));
+            Assertions.assertTrue(
+                    Double.isNaN(
+                            (double) VectorFunction.l1Distance(Arrays.asList(vector, vector))));
+            Assertions.assertTrue(
+                    Double.isNaN(
+                            (double) VectorFunction.l2Distance(Arrays.asList(vector, vector))));
+            double norm = (double) VectorFunction.vectorNorm(Collections.singletonList(vector));
+            Assertions.assertTrue(
+                    Float.isNaN(value) ? Double.isNaN(norm) : norm == Double.POSITIVE_INFINITY);
+            Float[] normalized =
+                    VectorUtils.toFloatArray((ByteBuffer) VectorFunction.vectorNormalize(vector));
+            Assertions.assertTrue(Float.isNaN(normalized[0]));
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("vectorBuffers")
+    public void testVectorReadsPreserveBuffer(ByteBuffer buffer) {
+        ByteOrder order = buffer.order();
+        int position = buffer.position();
+        int limit = buffer.limit();
+        buffer.mark();
+        for (int i = 0; i < 2; i++) {
+            Assertions.assertEquals(
+                    2, VectorFunction.vectorDims(Collections.singletonList(buffer)));
+            Assertions.assertEquals(
+                    5.0, VectorFunction.vectorNorm(Collections.singletonList(buffer)));
+            Assertions.assertEquals(
+                    0.0, VectorFunction.cosineDistance(Arrays.asList(buffer, buffer)));
+            Assertions.assertEquals(0.0, VectorFunction.l1Distance(Arrays.asList(buffer, buffer)));
+            Assertions.assertEquals(0.0, VectorFunction.l2Distance(Arrays.asList(buffer, buffer)));
+            Assertions.assertEquals(
+                    25.0, VectorFunction.innerProduct(Arrays.asList(buffer, buffer)));
+            Assertions.assertArrayEquals(
+                    new Float[] {3.0f},
+                    VectorUtils.toFloatArray(
+                            (ByteBuffer) VectorFunction.vectorTruncate(buffer, 1)));
+            Assertions.assertArrayEquals(
+                    new Float[] {0.6f, 0.8f},
+                    VectorUtils.toFloatArray((ByteBuffer) VectorFunction.vectorNormalize(buffer)));
+            Assertions.assertEquals(
+                    1,
+                    VectorUtils.toFloatArray(
+                                    (ByteBuffer) VectorFunction.vectorRandomProjection(buffer, 1))
+                            .length);
+            Assertions.assertEquals(
+                    1,
+                    VectorUtils.toFloatArray(
+                                    (ByteBuffer) VectorFunction.vectorSparseProjection(buffer, 1))
+                            .length);
+            Assertions.assertSame(buffer, VectorFunction.vectorTruncate(buffer, 2));
+            Assertions.assertSame(buffer, VectorFunction.vectorRandomProjection(buffer, 2));
+            Assertions.assertSame(buffer, VectorFunction.vectorSparseProjection(buffer, 2));
+            Assertions.assertEquals(position, buffer.position());
+            Assertions.assertEquals(limit, buffer.limit());
+            Assertions.assertEquals(order, buffer.order());
+            Assertions.assertEquals(position, buffer.reset().position());
+            Assertions.assertArrayEquals(
+                    new Float[] {3.0f, 4.0f},
+                    VectorUtils.toFloatArray(buffer.duplicate().order(order)));
+        }
+    }
+
+    private static Stream<ByteBuffer> vectorBuffers() {
+        return Stream.of(ByteOrder.BIG_ENDIAN, ByteOrder.LITTLE_ENDIAN)
+                .flatMap(
+                        order -> {
+                            ByteBuffer heap = ByteBuffer.allocate(8).order(order);
+                            heap.putFloat(0, 3.0f).putFloat(4, 4.0f);
+                            ByteBuffer direct = ByteBuffer.allocateDirect(8).order(order);
+                            direct.putFloat(0, 3.0f).putFloat(4, 4.0f);
+                            ByteBuffer parent = ByteBuffer.allocate(16).order(order);
+                            parent.putFloat(4, 3.0f).putFloat(8, 4.0f);
+                            parent.position(4);
+                            parent.limit(12);
+                            ByteBuffer offset = ByteBuffer.allocate(9).order(order);
+                            offset.putFloat(1, 3.0f).putFloat(5, 4.0f);
+                            offset.position(1);
+                            return Stream.of(
+                                    heap,
+                                    direct,
+                                    heap.asReadOnlyBuffer().order(order),
+                                    parent.slice().order(order),
+                                    offset);
+                        });
+    }
+
+    @Test
+    public void testFailedVectorReadPreservesBuffer() {
+        ByteBuffer buffer = VectorUtils.toByteBuffer(new Float[] {1.0f, 3.0f, 4.0f});
+        buffer.position(4);
+        buffer.mark();
+        Assertions.assertThrows(
+                BufferUnderflowException.class,
+                () -> VectorFunction.vectorNorm(Collections.singletonList(buffer)));
+        Assertions.assertEquals(4, buffer.position());
+        Assertions.assertEquals(12, buffer.limit());
+        Assertions.assertEquals(4, buffer.reset().position());
+        buffer.position(0);
+        buffer.limit(8);
+        buffer.mark();
+        Assertions.assertThrows(
+                BufferUnderflowException.class,
+                () -> VectorFunction.vectorNorm(Collections.singletonList(buffer)));
+        Assertions.assertEquals(0, buffer.position());
+        Assertions.assertEquals(8, buffer.limit());
+        Assertions.assertEquals(0, buffer.reset().position());
+    }
+
+    @Test
+    public void testZeroVectorNormalizationPreservesBuffer() {
+        ByteBuffer buffer = VectorUtils.toByteBuffer(new Float[] {0.0f, 0.0f});
+        Assertions.assertSame(buffer, VectorFunction.vectorNormalize(buffer));
+        Assertions.assertEquals(2, VectorFunction.vectorDims(Collections.singletonList(buffer)));
+        Assertions.assertEquals(0, buffer.position());
+    }
 
     @Test
     public void testCosineDistanceFunction() {
@@ -266,5 +473,22 @@ public class VectorFunctionTest {
         Assertions.assertSame(zeroBuffer, zeroResult);
 
         Assertions.assertNull(VectorFunction.vectorNormalize(null));
+    }
+
+    @Test
+    public void testVectorReduceMethodIsLocaleIndependent() {
+        Locale original = Locale.getDefault();
+        try {
+            // In tr-TR "random_projection".toUpperCase() is "RANDOM_PROJECT\u0130ON".
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+
+            Float[] source = new Float[] {1.0f, 2.0f, 3.0f, 4.0f};
+            Object reduced =
+                    VectorFunction.vectorReduce(
+                            VectorUtils.toByteBuffer(source), 2, "random_projection");
+            Assertions.assertEquals(2, VectorUtils.toFloatArray((ByteBuffer) reduced).length);
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }

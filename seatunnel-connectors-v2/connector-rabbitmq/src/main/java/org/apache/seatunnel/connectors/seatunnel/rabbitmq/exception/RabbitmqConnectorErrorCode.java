@@ -29,7 +29,8 @@ public enum RabbitmqConnectorErrorCode implements SeaTunnelErrorCode {
     MESSAGE_ACK_REJECTED("RABBITMQ-06", "messages could not be acknowledged with basicReject"),
     PARSE_URI_FAILED("RABBITMQ-07", "parse uri failed"),
     INIT_SSL_CONTEXT_FAILED("RABBITMQ-08", "initialize ssl context failed"),
-    SETUP_SSL_FACTORY_FAILED("RABBITMQ-09", "setup ssl factory failed");
+    SETUP_SSL_FACTORY_FAILED("RABBITMQ-09", "setup ssl factory failed"),
+    ILLEGAL_CONFIG("RABBITMQ-10", "illegal connector configuration");
 
     private final String code;
     private final String description;

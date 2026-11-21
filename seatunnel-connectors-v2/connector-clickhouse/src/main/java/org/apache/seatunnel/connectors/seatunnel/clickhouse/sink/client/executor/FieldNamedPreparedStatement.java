@@ -45,6 +45,7 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -618,6 +619,15 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     public static FieldNamedPreparedStatement prepareStatement(
             Connection connection, String sql, String[] fieldNames) throws SQLException {
+        return prepareStatement(connection, sql, fieldNames, field -> "?");
+    }
+
+    static FieldNamedPreparedStatement prepareStatement(
+            Connection connection,
+            String sql,
+            String[] fieldNames,
+            Function<String, String> parameterExpression)
+            throws SQLException {
         checkNotNull(connection, "connection must not be null.");
         checkNotNull(sql, "sql must not be null.");
         checkNotNull(fieldNames, "fieldNames must not be null.");
@@ -632,7 +642,7 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
             }
         } else {
             HashMap<String, List<Integer>> parameterMap = new HashMap<>();
-            parsedSQL = parseNamedStatement(sql, parameterMap);
+            parsedSQL = parseNamedStatement(sql, parameterMap, parameterExpression, fieldNames);
             // currently, the statements must contain all the field parameters
             checkArgument(parameterMap.size() >= fieldNames.length);
             for (int i = 0; i < fieldNames.length; i++) {
@@ -648,6 +658,28 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
     }
 
     public static String parseNamedStatement(String sql, Map<String, List<Integer>> paramMap) {
+        return parseNamedStatement(sql, paramMap, field -> "?", null);
+    }
+
+    /**
+     * Parses named parameters (":name") in the given statement.
+     *
+     * <p>ClickHouse SQL templates use sink field names as named parameters. This overload uses that
+     * field list as the allow-list for names containing characters outside the legacy ClickHouse
+     * identifier scan, such as '#', spaces, or '-'. It intentionally keeps the old scan for normal
+     * identifiers (including dotted ClickHouse identifiers), still rejects empty names, and does
+     * not attempt to parse quoted SQL text or placeholders containing '?'.
+     */
+    public static String parseNamedStatement(
+            String sql, Map<String, List<Integer>> paramMap, String[] knownParameterNames) {
+        return parseNamedStatement(sql, paramMap, field -> "?", knownParameterNames);
+    }
+
+    private static String parseNamedStatement(
+            String sql,
+            Map<String, List<Integer>> paramMap,
+            Function<String, String> parameterExpression,
+            String[] knownParameterNames) {
         StringBuilder parsedSql = new StringBuilder();
         int fieldIndex = 1; // SQL statement parameter index starts from 1
         int length = sql.length();
@@ -655,10 +687,15 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
             char c = sql.charAt(i);
             if (':' == c) {
                 int j = i + 1;
-                while (j < length
-                        && (Character.isJavaIdentifierPart(sql.charAt(j))
-                                || ".".equals(String.valueOf(sql.charAt(j))))) {
-                    j++;
+                String knownParameter = matchKnownParameter(sql, i + 1, knownParameterNames);
+                if (knownParameter != null) {
+                    j = i + 1 + knownParameter.length();
+                } else {
+                    while (j < length
+                            && (Character.isJavaIdentifierPart(sql.charAt(j))
+                                    || ".".equals(String.valueOf(sql.charAt(j))))) {
+                        j++;
+                    }
                 }
                 String parameterName = sql.substring(i + 1, j);
                 checkArgument(
@@ -667,11 +704,59 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
                 paramMap.computeIfAbsent(parameterName, n -> new ArrayList<>()).add(fieldIndex);
                 fieldIndex++;
                 i = j - 1;
-                parsedSql.append('?');
+                parsedSql.append(parameterExpression.apply(parameterName));
             } else {
                 parsedSql.append(c);
             }
         }
         return parsedSql.toString();
+    }
+
+    /**
+     * Returns the longest known parameter name that starts exactly at {@code offset} and is not
+     * immediately followed by more legacy identifier characters, or {@code null} when there is no
+     * such match (the caller then falls back to the identifier scan). This must stay stricter than
+     * a general SQL tokenizer; it only recognizes names from the current statement's field list.
+     */
+    private static String matchKnownParameter(
+            String sql, int offset, String[] knownParameterNames) {
+        if (knownParameterNames == null || knownParameterNames.length == 0) {
+            return null;
+        }
+        if (offset >= sql.length() || !Character.isJavaIdentifierPart(sql.charAt(offset))) {
+            return null;
+        }
+        String best = null;
+        for (String name : knownParameterNames) {
+            if (name == null
+                    || name.isEmpty()
+                    || name.indexOf(':') >= 0
+                    || isLegacyIdentifier(name)
+                    || !sql.startsWith(name, offset)) {
+                continue;
+            }
+            int end = offset + name.length();
+            if (end < sql.length()
+                    && (Character.isJavaIdentifierPart(sql.charAt(end))
+                            || ".".equals(String.valueOf(sql.charAt(end))))) {
+                // ClickHouse legacy parsing treats dots as part of a token, so keep prefix matches
+                // from stealing the front of a longer parameter such as ":db.name_extra".
+                continue;
+            }
+            if (best == null || name.length() > best.length()) {
+                best = name;
+            }
+        }
+        return best;
+    }
+
+    private static boolean isLegacyIdentifier(String name) {
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            if (!Character.isJavaIdentifierPart(c) && c != '.') {
+                return false;
+            }
+        }
+        return true;
     }
 }

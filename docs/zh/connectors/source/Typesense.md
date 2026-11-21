@@ -22,8 +22,11 @@ Source 是有界读取：每次作业只会读取一次匹配 `query` 的全部�
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [Schema](../../introduction/concepts/connector-v2-features.md)
-- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
+
+split enumerator 只会为配置的 collection 创建一个 split。作业可以把 `parallelism` 设置为大于 `1`，
+但只有一个 reader 会分到这个 split，其余 reader 处于空闲状态。
 
 ## 选项
 
@@ -48,7 +51,7 @@ Typesense 的访问地址，格式为 `host:port`，例如：`["typesense-01:810
 
 ### schema [config]
 
-typesense 需要读取的列。有关更多信息，请参阅：[guide](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported)。
+typesense 需要读取的列。有关更多信息，请参阅：[guide](../../introduction/concepts/schema-feature.md#如何声明支持的类型)。
 
 ### api_key [string]
 

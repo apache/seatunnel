@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.converter.InfluxDBRowConverter;
@@ -38,8 +39,11 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.net.ConnectException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 
 @Slf4j
@@ -52,6 +56,7 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
     private final SeaTunnelRowType seaTunnelRowType;
 
     List<Integer> columnsIndexList;
+    private final Map<String, InfluxDBSourceTable> tables;
     private final Queue<InfluxDBSourceSplit> pendingSplits;
 
     private volatile boolean noMoreSplitsAssignment;
@@ -66,6 +71,19 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
         this.context = readerContext;
         this.seaTunnelRowType = seaTunnelRowType;
         this.columnsIndexList = columnsIndexList;
+        this.tables = Collections.emptyMap();
+    }
+
+    InfluxdbSourceReader(
+            InfluxDBConfig config, Context readerContext, List<InfluxDBSourceTable> tables) {
+        this.config = config;
+        this.context = readerContext;
+        this.pendingSplits = new LinkedList<>();
+        this.seaTunnelRowType = null;
+        this.tables = new LinkedHashMap<>();
+        for (InfluxDBSourceTable table : tables) {
+            this.tables.put(table.getTableId(), table);
+        }
     }
 
     public void connect() throws ConnectException {
@@ -134,20 +152,70 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
     public void notifyCheckpointComplete(long checkpointId) {}
 
     private void read(InfluxDBSourceSplit split, Collector<SeaTunnelRow> output) {
-        QueryResult queryResult = influxdb.query(new Query(split.getQuery(), config.getDatabase()));
+        InfluxDBSourceTable table = null;
+        if (!tables.isEmpty()) {
+            table = tables.get(split.getTableId());
+            if (table == null) {
+                throw new InfluxdbConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "Unknown table identity in InfluxDB split: " + split.getTableId());
+            }
+        } else if (split.getTableId() != null) {
+            throw new InfluxdbConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    "Cannot restore a multi-table split with a single-table configuration");
+        }
+        SeaTunnelRowType rowType =
+                table == null ? seaTunnelRowType : table.getCatalogTable().getSeaTunnelRowType();
+        String database =
+                table == null ? config.getDatabase() : table.getSourceConfig().getDatabase();
+        QueryResult queryResult = influxdb.query(new Query(split.getQuery(), database));
+        if (table != null && queryResult.hasError()) {
+            throw new InfluxdbConnectorException(
+                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                    "InfluxDB query failed for table "
+                            + table.getTableId()
+                            + ": "
+                            + queryResult.getError());
+        }
         List<QueryResult.Result> results = queryResult.getResults();
         if (CollectionUtils.isEmpty(results)) {
             log.debug("split[{}] reader influxDB query result is empty.", split.splitId());
             return;
         }
         for (QueryResult.Result result : results) {
+            if (table != null && result.hasError()) {
+                throw new InfluxdbConnectorException(
+                        CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                        "InfluxDB query failed for table "
+                                + table.getTableId()
+                                + ": "
+                                + result.getError());
+            }
             List<QueryResult.Series> serieList = result.getSeries();
             if (CollectionUtils.isNotEmpty(serieList)) {
                 for (QueryResult.Series series : serieList) {
+                    List<Integer> indexes = columnsIndexList;
+                    if (table != null) {
+                        indexes = new ArrayList<>(rowType.getTotalFields());
+                        for (String field : rowType.getFieldNames()) {
+                            int index = series.getColumns().indexOf(field);
+                            if (index < 0) {
+                                throw new InfluxdbConnectorException(
+                                        InfluxdbConnectorErrorCode.GET_COLUMN_INDEX_FAILED,
+                                        "Missing query column '"
+                                                + field
+                                                + "' for table "
+                                                + table.getTableId());
+                            }
+                            indexes.add(index);
+                        }
+                    }
                     for (List<Object> values : series.getValues()) {
-                        SeaTunnelRow row =
-                                InfluxDBRowConverter.convert(
-                                        values, seaTunnelRowType, columnsIndexList);
+                        SeaTunnelRow row = InfluxDBRowConverter.convert(values, rowType, indexes);
+                        if (table != null) {
+                            row.setTableId(split.getTableId());
+                        }
                         output.collect(row);
                     }
                 }

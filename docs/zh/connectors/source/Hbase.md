@@ -21,7 +21,7 @@ import ChangeLog from '../changelog/connector-hbase.md';
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [模式投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
 
@@ -58,7 +58,7 @@ HBase 的 zookeeper 集群主机，例如：“hadoop001:2181,hadoop002:2181,had
 
 HBase 使用字节数组进行存储。因此，您需要为表中的每一列配置数据类型。
 行键列使用 `rowkey`，HBase 单元格使用 `列簇:列名` 形式，例如 `info:name`。
-更多信息请参阅：[模式声明指南](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported)。
+更多信息请参阅：[模式声明指南](../../introduction/concepts/schema-feature.md#如何声明支持的类型)。
 
 ### hbase_extra_config [config]
 
@@ -70,7 +70,7 @@ caching 参数用于设置在扫描过程中一次从服务器端获取的行数
 
 ### batch
 
-batch 参数用于设置在扫描过程中每次返回的最大列数。这对于处理有很多列的行特别有用，可以避免一次性返回过多数据，从而节省内存并提高性能。
+batch 参数用于设置在扫描过程中每次返回的最大单元格数。这对于处理有很多列的行特别有用，可以避免一次性返回过多数据，从而节省内存并提高性能。
 
 ### cache_blocks
 

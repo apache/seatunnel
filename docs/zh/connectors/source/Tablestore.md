@@ -39,6 +39,7 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 ## 使用说明
 
 - `job.mode = "BATCH"` 会读取有界数据；`job.mode = "STREAMING"` 会在读取已有数据后继续消费增量记录。
+- `end_point`、`instance_name`、`access_key_id`、`access_key_secret` 和 `table` 不能为空白，`primary_keys` 至少需要包含一个元素。缺失、为空或仅包含空白字符的值会在配置校验阶段被拒绝，不会建立任何连接。
 - 当 `table` 配置多张表时，`primary_keys` 的数量必须和表数量一致。例如 `table = "orders,users"` 且两张表都使用 `id` 作为主键字段时，可以配置 `primary_keys = ["id", "id"]`。
 - 多表读取共用一个 `schema` 配置，因此这些表的输出字段需要保持兼容。
 - 源连接器会根据 Tablestore 的变更记录输出 `INSERT`、`UPDATE_AFTER` 和 `DELETE` 类型的数据。

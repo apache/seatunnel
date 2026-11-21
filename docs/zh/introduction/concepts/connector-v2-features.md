@@ -68,13 +68,13 @@ Sink connector有一些公共的核心特性，每个sink connector在不同程�
 对于sink connector，如果任何数据只写入目标一次，则sink connector支持精确一次。 通常有两种方法可以实现这一目标：
 
 * 目标数据库支持key去重。例如 `MySQL`, `Kudu`。
-* 目标支持 **XA 事务**(事务可以跨会话使用，即使创建事务的程序已经结束，新启动的程序也只需要知道最后一个事务的ID就可以重新提交或回滚事务）。 然后我们可以使用 **两阶段提交** 来确保 * 精确一次**。 例如：`File`, `MySQL`.
+* 目标支持 **XA 事务**(事务可以跨会话使用，即使创建事务的程序已经结束，新启动的程序也只需要知道最后一个事务的ID就可以重新提交或回滚事务）。 然后我们可以使用 **两阶段提交** 来确保 **精确一次**。 例如：`File`, `MySQL`.
 
 ### cdc(更改数据捕获，change data capture)
 
 如果sink connector支持基于主键写入行类型（INSERT/UPDATE_BEFORE/UPDATE_AFTER/DELETE），我们认为它支持cdc（更改数据捕获，change data capture）。
 
-### 支持多表读取
+### 支持多表写入
 
 支持在一个 SeaTunnel 作业中写入多个表，用户可以通过[配置占位符](../configuration/sink-options-placeholders.md)动态指定表的标识符。
 

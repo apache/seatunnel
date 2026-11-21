@@ -35,6 +35,10 @@ public class DorisCommitInfoSerializer implements Serializer<DorisCommitInfo> {
             out.writeUTF(dorisCommittable.getHostPort());
             out.writeUTF(dorisCommittable.getDb());
             out.writeLong(dorisCommittable.getTxbID());
+            out.writeBoolean(dorisCommittable.getLabel() != null);
+            if (dorisCommittable.getLabel() != null) {
+                out.writeUTF(dorisCommittable.getLabel());
+            }
 
             out.flush();
             return baos.toByteArray();
@@ -48,7 +52,10 @@ public class DorisCommitInfoSerializer implements Serializer<DorisCommitInfo> {
             final String hostPort = in.readUTF();
             final String db = in.readUTF();
             final long txnId = in.readLong();
-            return new DorisCommitInfo(hostPort, db, txnId);
+            if (in.available() == 0) {
+                return new DorisCommitInfo(hostPort, db, txnId);
+            }
+            return new DorisCommitInfo(hostPort, db, txnId, in.readBoolean() ? in.readUTF() : null);
         }
     }
 }

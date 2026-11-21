@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 - 4.9.0 或更新版本
 
-## 支持的引擎
+## 引擎支持
 
 > Spark<br/>
 > Flink<br/>
@@ -43,7 +43,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 | batch.size | int | 否 | 100 | 每次最多拉取的消息数。 |
 | consumer.group | String | 否 | SeaTunnel-Consumer-Group | RocketMQ 消费者组 ID。 |
 | commit.on.checkpoint | Boolean | 否 | true | 是否在 SeaTunnel checkpoint 完成后提交消费位点。 |
-| schema | config | 否 | - | 消息结构。详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。不配置时，连接器按文本读取消息体。 |
+| schema | config | 是 | - | 消息结构。详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。`json` 和 `text` 格式都必须配置，否则数据源启动时会失败。 |
 | format | String | 否 | json | 消息格式。支持 `json` 和 `text`。 |
 | field.delimiter | String | 否 | `,` | `format = text` 时使用的字段分隔符。 |
 | start.mode | String | 否 | CONSUME_FROM_GROUP_OFFSETS | 启动消费位置。支持：`CONSUME_FROM_LAST_OFFSET`、`CONSUME_FROM_FIRST_OFFSET`、`CONSUME_FROM_GROUP_OFFSETS`、`CONSUME_FROM_TIMESTAMP`、`CONSUME_FROM_SPECIFIC_OFFSETS`。 |
@@ -84,7 +84,7 @@ start.mode.timestamp = 1667179890315
 
 当 `format = json` 时，请配置 `schema`，SeaTunnel 会按 schema 将 JSON 消息体解析成有类型的字段。配置 `ignore_parse_errors = true` 后，遇到无法解析的 JSON 消息会跳过，而不是让任务失败。
 
-当 `format = text` 时，SeaTunnel 会按 `field.delimiter` 拆分消息体，并按照 schema 字段顺序映射数据。如果不配置 `schema`，消息体会作为单个文本值读取。
+当 `format = text` 时，SeaTunnel 会按 `field.delimiter` 拆分消息体，并按照 schema 字段顺序映射数据。`json` 和 `text` 格式都必须配置 `schema`，否则数据源在构建 CatalogTable 时会启动失败。
 
 ### 标签
 
@@ -97,7 +97,7 @@ start.mode.timestamp = 1667179890315
 
 当不同 topic 的字段结构不一样时，使用 `tables_configs`。每一项都必须包含 `topics`，并且可以单独配置 `schema`、`format`、`tags` 和启动消费位置。如果没有配置 `schema.table`，输出表名默认使用 topic 名称。
 
-`topics`、`tables_configs` 和已废弃的 `table_list` 互斥，只能配置其中一个。在 `tables_configs` 中，单个条目未配置的参数会沿用顶层默认值，因此每个条目只需要覆盖该 topic 特有的 schema、tag 或启动位置。
+`topics`、`tables_configs` 和已废弃的 `table_list` 互斥，只能配置其中一个。每个 `tables_configs` 条目都是独立解析的：`schema`、`format`、`tags` 和 `ignore_parse_errors` 必须在该条目上单独配置，未配置时使用的是选项自身的默认值（`json` / `false`），而不是任务顶层的配置值。只有 `start.mode`（及其 `start.mode.timestamp`/`start.mode.offsets`）在条目未配置时会沿用顶层的值。
 
 如果某个 `tables_configs` 条目使用 `start.mode = CONSUME_FROM_TIMESTAMP`，必须同时配置 `start.mode.timestamp`。如果使用 `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`，必须同时配置非空的 `start.mode.offsets`。
 
@@ -276,6 +276,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### RocketMQ 源连接器如何支持多 Topic 不同 Schema 的读取？
+
+可以通过配置 `tables_configs` 数组来实现。每个配置项可独立定义该 Topic 的 `topics`、`schema`、`format` 以及 `tags`，SeaTunnel 将并发消费并独立解析为对应的表数据流。
+
+### RocketMQ 源连接器支持哪些起始消费位点模式？
+
+通过 `start.mode` 参数支持 5 种启动方式：`CONSUME_FROM_GROUP_OFFSETS`（默认值）、`CONSUME_FROM_FIRST_OFFSET`、`CONSUME_FROM_LAST_OFFSET`、`CONSUME_FROM_TIMESTAMP` 和 `CONSUME_FROM_SPECIFIC_OFFSETS`，详见上方 `start.mode` 选项说明。
+
+### 作业发生故障恢复时如何保证消费位点一致性？
+
+SeaTunnel 会周期性对消费者队列位点进行 Checkpoint 状态持久化。当任务发生异常或节点故障重启时，源连接器将严格从上一次成功提交的 Checkpoint 位点重新恢复消费。
 
 ## 变更日志
 

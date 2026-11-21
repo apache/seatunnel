@@ -18,9 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.iceberg.utils;
 
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.data.GenericRecord;
+import org.apache.iceberg.expressions.Evaluator;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.DateTimeUtil;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -30,11 +33,110 @@ import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.delete.Delete;
 
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ExpressionUtilsTest {
+
+    @Test
+    void testTimestampComparisonBoundariesBeforeEpoch() throws Exception {
+        Schema schema =
+                new Schema(
+                        Types.NestedField.optional(
+                                1, "event_time", Types.TimestampType.withZone()));
+        String[] operators = {"=", "!=", ">", ">=", "<", "<="};
+        boolean[][] expected = {
+            {false, true, false},
+            {true, false, true},
+            {false, false, true},
+            {false, true, true},
+            {true, false, false},
+            {true, true, false}
+        };
+        for (int i = 0; i < operators.length; i++) {
+            Expression expression =
+                    timestampExpression(
+                            "event_time " + operators[i] + " '1970-01-01 05:29:59.999999+05:30'",
+                            true);
+            Evaluator evaluator = new Evaluator(schema.asStruct(), expression);
+            for (int j = 0; j < 3; j++) {
+                GenericRecord row = GenericRecord.create(schema);
+                row.setField("event_time", (long) j - 2);
+                assertEquals(
+                        expected[i][j],
+                        evaluator.eval(row),
+                        operators[i] + " at " + ((long) j - 2));
+            }
+        }
+    }
+
+    @Test
+    void testTimestampWithZoneLiterals() throws Exception {
+        long expected =
+                DateTimeUtil.microsFromTimestamptz(
+                        OffsetDateTime.parse("2026-09-12T04:30:00.123456Z"));
+        for (String literal :
+                new String[] {
+                    "2026-09-12 04:30:00.123456Z",
+                    "2026-09-12 10:00:00.123456+05:30",
+                    "2026-09-12 10:00:00.123456999+05:30",
+                    "2026-09-11 23:30:00.123456-05:00",
+                    "2026-09-12 04:30:00.123456"
+                }) {
+            assertEquals(
+                    Expressions.equal("event_time", expected).toString(),
+                    timestampExpression("event_time = '" + literal + "'", true).toString());
+        }
+    }
+
+    @Test
+    void testTimestampPredicatesRetainSchema() throws Exception {
+        long expected =
+                DateTimeUtil.microsFromTimestamptz(
+                        OffsetDateTime.parse("2026-09-12T04:30:00.123456Z"));
+        String literal = "'2026-09-12 10:00:00.123456+05:30'";
+        assertEquals(
+                Expressions.in("event_time", expected).toString(),
+                timestampExpression("event_time IN (" + literal + ")", true).toString());
+        assertEquals(
+                Expressions.notIn("event_time", expected).toString(),
+                timestampExpression("event_time NOT IN (" + literal + ")", true).toString());
+    }
+
+    @Test
+    void testTimestampWithoutZoneRejectsOffsets() {
+        Assertions.assertThrows(
+                DateTimeParseException.class,
+                () -> timestampExpression("event_time = '2026-09-12 10:00:00+05:30'", false));
+    }
+
+    @Test
+    void testInvalidTimestampWithZoneRejected() {
+        for (String literal :
+                new String[] {
+                    "invalid", "2026-09-12 10:00:00+25:00", "2026-09-12 10:00:00+05:30 trailing"
+                }) {
+            Assertions.assertThrows(
+                    DateTimeParseException.class,
+                    () -> timestampExpression("event_time = '" + literal + "'", true));
+        }
+    }
+
+    private Expression timestampExpression(String predicate, boolean withZone) throws Exception {
+        Delete delete = (Delete) CCJSqlParserUtil.parse("DELETE FROM events WHERE " + predicate);
+        Schema schema =
+                new Schema(
+                        Types.NestedField.optional(
+                                1,
+                                "event_time",
+                                withZone
+                                        ? Types.TimestampType.withZone()
+                                        : Types.TimestampType.withoutZone()));
+        return ExpressionUtils.convert(delete.getWhere(), schema);
+    }
 
     @Test
     public void testSqlToExpression() throws JSQLParserException {

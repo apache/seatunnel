@@ -24,10 +24,16 @@ public class InfluxDBSourceSplit implements SourceSplit {
     private final String splitId;
 
     private final String query;
+    private final String tableId;
 
     public InfluxDBSourceSplit(String splitId, String query) {
+        this(splitId, query, null);
+    }
+
+    public InfluxDBSourceSplit(String splitId, String query, String tableId) {
         this.query = query;
         this.splitId = splitId;
+        this.tableId = tableId;
     }
 
     @Override
@@ -37,5 +43,9 @@ public class InfluxDBSourceSplit implements SourceSplit {
 
     public String getQuery() {
         return query;
+    }
+
+    public String getTableId() {
+        return tableId;
     }
 }

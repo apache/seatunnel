@@ -49,8 +49,10 @@ semantics (using XA transaction guarantee).
 
 |                                                          Mysql Data Type                                                          |                                                                 SeaTunnel Data Type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
-| TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
+| BIT(1)                                                                                                                            | BOOLEAN                                                                                                                                             |
+| TINYINT                                                                                                                           | TINYINT                                                                                                                                             |
+| TINYINT UNSIGNED<br/>SMALLINT                                                                                                     | SMALLINT                                                                                                                                            |
+| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR                                               | INT                                                                                                                                                 |
 | INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                                                      | BIGINT                                                                                                                                              |
 | BIGINT UNSIGNED                                                                                                                   | DECIMAL(20,0)                                                                                                                                       |
 | DECIMAL(x,y)(Get the designated column's specified column size.<38)                                                               | DECIMAL(x,y)                                                                                                                                        |
@@ -61,9 +63,10 @@ semantics (using XA transaction guarantee).
 | CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON                                                       | STRING                                                                                                                                              |
 | DATE                                                                                                                              | DATE                                                                                                                                                |
 | TIME                                                                                                                              | TIME                                                                                                                                                |
-| DATETIME<br/>TIMESTAMP                                                                                                            | TIMESTAMP                                                                                                                                           |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
-| GEOMETRY<br/>UNKNOWN                                                                                                              | Not supported yet                                                                                                                                   |
+| DATETIME                                                                                                                          | TIMESTAMP                                                                                                                                           |
+| TIMESTAMP                                                                                                                         | TIMESTAMP_TZ                                                                                                                                        |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)<br/>GEOMETRY                                    | BYTES                                                                                                                                               |
+| UNKNOWN                                                                                                                           | Not supported yet                                                                                                                                   |
 
 ## Sink Options
 
@@ -74,8 +77,8 @@ semantics (using XA transaction guarantee).
 | username                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                  |
 | password                                  | String  | No       | -                            | Connection instance password                                                                                                                                                                                                                   |
 | query                                     | String  | No       | -                            | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
-| database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                       |
-| table                                     | String  | No       | -                            | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                           |
+| database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                       |
+| table                                     | String  | No       | -                            | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                           |
 | primary_keys                              | Array   | No       | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit failed (executeBatch)                                                                                                                                                                                          |
@@ -98,7 +101,8 @@ semantics (using XA transaction guarantee).
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> Sink concurrency follows the job or pipeline parallelism. `partition_column` is a JDBC
+> source option for splitting reads; it does not control how the sink distributes writes.
 
 ## Task Example
 
@@ -235,7 +239,7 @@ transform {
 }
 
 sink {
-  Mysql {
+  jdbc {
     url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
     driver = "com.mysql.cj.jdbc.Driver"
     username = "root"
@@ -279,7 +283,7 @@ transform {
 }
 
 sink {
-  Mysql {
+  jdbc {
     url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
     driver = "com.mysql.cj.jdbc.Driver"
     username = "root"

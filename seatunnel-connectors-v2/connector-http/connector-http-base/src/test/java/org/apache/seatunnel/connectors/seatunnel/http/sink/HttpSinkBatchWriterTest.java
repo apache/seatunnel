@@ -17,13 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.sink;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,11 +41,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -149,6 +157,55 @@ public class HttpSinkBatchWriterTest {
     }
 
     @Test
+    public void testArrayModeSendsEachRowAsJsonObject() throws Exception {
+        httpParameter.setArrayMode(true);
+        httpParameter.setBatchSize(BATCH_SIZE);
+        sinkWriter = new TestableHttpSinkWriter(rowType, httpParameter);
+
+        for (int i = 1; i <= BATCH_SIZE; i++) {
+            sinkWriter.write(createTestRow(i, "user" + i, 19 + i));
+        }
+
+        verify(httpClientProvider, times(1))
+                .doPost(eq(TEST_URL), any(), requestBodyCaptor.capture());
+        String requestBody = requestBodyCaptor.getValue();
+        JsonNode body = new ObjectMapper().readTree(requestBody);
+        assertTrue(body.isArray(), requestBody);
+        assertEquals(BATCH_SIZE, body.size(), requestBody);
+        for (int i = 1; i <= BATCH_SIZE; i++) {
+            JsonNode row = body.get(i - 1);
+            assertTrue(row.isObject(), requestBody);
+            assertEquals(i, row.get("id").asInt());
+            assertEquals("user" + i, row.get("name").asText());
+            assertEquals(19 + i, row.get("age").asInt());
+        }
+    }
+
+    @Test
+    public void testArrayModeKeepsExactDecimalText() throws Exception {
+        SeaTunnelRowType decimalRowType =
+                new SeaTunnelRowType(
+                        new String[] {"amount"},
+                        new SeaTunnelDataType<?>[] {new DecimalType(38, 9)});
+        httpParameter.setArrayMode(true);
+        httpParameter.setBatchSize(BATCH_SIZE);
+        sinkWriter = new TestableHttpSinkWriter(decimalRowType, httpParameter);
+
+        for (String amount :
+                new String[] {"12345678901234567890.123456789", "12345678.12", "100.00"}) {
+            sinkWriter.write(new SeaTunnelRow(new Object[] {new BigDecimal(amount)}));
+        }
+
+        verify(httpClientProvider, times(1))
+                .doPost(eq(TEST_URL), any(), requestBodyCaptor.capture());
+        assertEquals(
+                "[{\"amount\":12345678901234567890.123456789},"
+                        + "{\"amount\":12345678.12},"
+                        + "{\"amount\":100.00}]",
+                requestBodyCaptor.getValue());
+    }
+
+    @Test
     public void testArrayModeWithBatch() throws Exception {
         // Use array mode to turn on batch processing
         httpParameter.setArrayMode(true);
@@ -181,6 +238,43 @@ public class HttpSinkBatchWriterTest {
         requestBody = requestBodyCaptor.getValue();
         assertTrue(requestBody.startsWith("["));
         assertTrue(requestBody.endsWith("]"));
+    }
+
+    @Test
+    public void testArrayModeFailureIsPropagatedDuringCheckpoint() throws Exception {
+        httpParameter.setArrayMode(true);
+        httpParameter.setBatchSize(BATCH_SIZE);
+        sinkWriter = new TestableHttpSinkWriter(rowType, httpParameter);
+        HttpResponse failedResponse = new HttpResponse(500, "server error");
+        when(httpClientProvider.doPost(anyString(), any(), anyString())).thenReturn(failedResponse);
+
+        sinkWriter.write(createTestRow(1, "user1", 20));
+
+        HttpConnectorException exception =
+                assertThrows(HttpConnectorException.class, () -> sinkWriter.prepareCommit());
+
+        assertTrue(exception.getMessage().contains("http response status code:[500]"));
+        HttpResponse successfulResponse = new HttpResponse(HttpResponse.STATUS_OK);
+        when(httpClientProvider.doPost(anyString(), any(), anyString()))
+                .thenReturn(successfulResponse);
+
+        sinkWriter.prepareCommit();
+
+        verify(httpClientProvider, times(2)).doPost(eq(TEST_URL), any(), anyString());
+    }
+
+    @Test
+    public void testObjectModeRequestExceptionIsPropagated() throws Exception {
+        sinkWriter = new TestableHttpSinkWriter(rowType, httpParameter);
+        when(httpClientProvider.doPost(anyString(), any(), anyString()))
+                .thenThrow(new IOException("connection refused"));
+
+        HttpConnectorException exception =
+                assertThrows(
+                        HttpConnectorException.class,
+                        () -> sinkWriter.write(createTestRow(1, "user1", 20)));
+
+        assertEquals("connection refused", exception.getCause().getMessage());
     }
 
     private SeaTunnelRow createTestRow(int id, String name, int age) {

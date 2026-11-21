@@ -57,6 +57,9 @@ public class SendConnectorJarToMemberNodeOperation extends Operation
     @Override
     public void run() throws Exception {
         SeaTunnelServer seaTunnelServer = getService();
+        if (seaTunnelServer.getTaskExecutionService() == null) {
+            return;
+        }
         ServerConnectorPackageClient serverConnectorPackageClient =
                 seaTunnelServer.getTaskExecutionService().getServerConnectorPackageClient();
         serverConnectorPackageClient.storageConnectorJarFile(
