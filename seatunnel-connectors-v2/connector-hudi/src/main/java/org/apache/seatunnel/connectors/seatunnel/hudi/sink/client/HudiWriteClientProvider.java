@@ -19,25 +19,22 @@ package org.apache.seatunnel.connectors.seatunnel.hudi.sink.client;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiAuthenticationContext;
 
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.Serializable;
+import java.util.function.Supplier;
 
 import static org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil.createHoodieJavaWriteClient;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil.getConfiguration;
 
-@Slf4j
 public class HudiWriteClientProvider implements WriteClientProvider, Serializable {
 
-    private static final Logger LOG = LoggerFactory.getLogger(HudiWriteClientProvider.class);
-
     private transient HoodieJavaWriteClient<HoodieAvroPayload> client;
+
+    private transient HudiAuthenticationContext authentication;
 
     private final HudiSinkConfig hudiSinkConfig;
 
@@ -53,21 +50,47 @@ public class HudiWriteClientProvider implements WriteClientProvider, Serializabl
     }
 
     @Override
-    public HoodieJavaWriteClient<HoodieAvroPayload> getOrCreateClient() {
+    public synchronized HoodieJavaWriteClient<HoodieAvroPayload> getOrCreateClient() {
         if (client == null) {
-            client = createHoodieJavaWriteClient(hudiSinkConfig, seaTunnelRowType, tableName);
+            client =
+                    execute(
+                            () ->
+                                    createHoodieJavaWriteClient(
+                                            hudiSinkConfig,
+                                            seaTunnelRowType,
+                                            tableName,
+                                            authentication.getConfiguration()));
         }
         return client;
     }
 
     @Override
+    public <T> T execute(Supplier<T> action) {
+        return getAuthentication().execute(action::get);
+    }
+
+    private synchronized HudiAuthenticationContext getAuthentication() {
+        if (authentication == null) {
+            authentication =
+                    new HudiAuthenticationContext(
+                            getConfiguration(hudiSinkConfig.getConfFilesPath()),
+                            hudiSinkConfig.getKerberosPrincipal(),
+                            hudiSinkConfig.getKerberosKeytabPath(),
+                            hudiSinkConfig.getKrb5Path());
+        }
+        return authentication;
+    }
+
+    @Override
     public void close() {
-        try {
-            if (client != null) {
-                client.close();
-            }
-        } catch (Exception e) {
-            LOG.error("hudi client close failed.", e);
+        if (authentication != null) {
+            authentication.close(
+                    () -> {
+                        if (client != null) {
+                            client.close();
+                        }
+                        return null;
+                    });
         }
     }
 }

@@ -23,6 +23,8 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.sink.HudiClientManager;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 
+import java.util.function.Supplier;
+
 public class HudiWriteClientProviderProxy implements WriteClientProvider {
 
     private final HudiClientManager clientManager;
@@ -51,8 +53,11 @@ public class HudiWriteClientProviderProxy implements WriteClientProvider {
 
     @Override
     public void close() {
-        if (clientManager.containsClient(tableName, index)) {
-            clientManager.remove(tableName, index).close();
-        }
+        clientManager.closeClient(tableName, index);
+    }
+
+    @Override
+    public <T> T execute(Supplier<T> action) {
+        return clientManager.getProvider(index, tableName, seaTunnelRowType).execute(action);
     }
 }

@@ -165,6 +165,14 @@ public class HudiRecordWriter implements Serializable {
     }
 
     private void executeWrite() {
+        clientProvider.execute(
+                () -> {
+                    executeWriteUnderIdentity();
+                    return null;
+                });
+    }
+
+    private void executeWriteUnderIdentity() {
         HoodieJavaWriteClient<HoodieAvroPayload> writeClient = clientProvider.getOrCreateClient();
         String writeInstantTime = writeClient.startCommit();
         // write records
@@ -187,8 +195,13 @@ public class HudiRecordWriter implements Serializable {
     }
 
     private void executeDelete() {
-        HoodieJavaWriteClient<HoodieAvroPayload> writeClient = clientProvider.getOrCreateClient();
-        writeClient.delete(deleteRecordKeys, writeClient.startCommit());
+        clientProvider.execute(
+                () -> {
+                    HoodieJavaWriteClient<HoodieAvroPayload> writeClient =
+                            clientProvider.getOrCreateClient();
+                    writeClient.delete(deleteRecordKeys, writeClient.startCommit());
+                    return null;
+                });
         deleteRecordKeys.clear();
     }
 
