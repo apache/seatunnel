@@ -154,7 +154,11 @@ public class ZhipuModel extends AbstractModel {
             String responseStr = EntityUtils.toString(response.getEntity());
             if (response.getStatusLine().getStatusCode() != 200) {
                 throw ModelInvocationException.fromHttpStatus(
-                        "ZHIPU", model, response.getStatusLine().getStatusCode(), responseStr);
+                        "ZHIPU",
+                        model,
+                        response.getStatusLine().getStatusCode(),
+                        responseStr,
+                        response.getFirstHeader("Retry-After"));
             }
             try {
                 JsonNode data = OBJECT_MAPPER.readTree(responseStr).get("data");

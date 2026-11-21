@@ -28,7 +28,7 @@ Embedding 转换插件利用 embedding 模型将文本和多模态数据转换�
 | custom_request_body            | map    | 否    |        | 请求体的自定义配置。支持占位符如 `${model}`、`${input}`。仅从 `custom_config` 块内读取，写在顶层无效。 |
 | model_retry_max_attempts       | int    | 否    | 1      | 单个远程模型请求的最大尝试次数。默认值 `1` 表示保持原有不自动重试行为。                         |
 | model_retry_backoff_ms         | long   | 否    | 1000   | 远程模型请求重试前的初始退避时间，单位毫秒。                                          |
-| model_retry_max_backoff_ms     | long   | 否    | 10000  | 远程模型请求重试前的最大退避时间，单位毫秒。                                          |
+| model_retry_max_backoff_ms     | long   | 否    | 10000  | 本地退避和可接受的提供商重试延迟上限，单位毫秒。有效的 `Retry-After` 超过正数上限时不再重试，当前调用失败；`0` 表示不限制。 |
 | model_request_timeout_ms       | int    | 否    | 20000  | 远程模型调用的请求超时时间，单位毫秒。                                             |
 
 ## 精度支持
@@ -67,6 +67,22 @@ Embedding provider 通过通用模型调用运行时执行远程调用。Provide
 
 默认重试行为与已有任务兼容：`model_retry_max_attempts = 1` 表示每个请求只尝试一次。配置为大于 1 后，限流、超时、
 临时远端服务错误等可重试失败可以按退避策略重试。认证失败、配置错误、响应解析失败和返回 vector 数量不匹配不会重试。
+
+对于 `OPENAI`、`DOUBAO`、`QIANFAN`、`ZHIPU` 和 `CUSTOM` HTTP Embedding 适配器，Embedding 调用响应中的
+可重试失败会遵守提供商响应头中的 `Retry-After`。支持非负整数秒和 HTTP-date 格式
+（例如 `Wed, 21 Oct 2015 07:28:00 GMT`）。已过期的 HTTP-date 不增加提供商等待时间。
+响应头缺失或格式不合法时，回退到配置的本地退避策略。
+
+下一次尝试前，SeaTunnel 等待本地退避时间与有效的提供商延迟中的较大值。如果提供商延迟超过正数的
+`model_retry_max_backoff_ms`，即使还有剩余尝试次数，当前调用也会失败，不会将提供商的冷却时间截短后提前重试。
+例如，默认 `model_retry_max_backoff_ms = 10000` 时，`Retry-After: 30` 会终止当前调用。
+若要允许该延迟，请将上限提高到至少 `30000`，或设置 `model_retry_max_backoff_ms = 0`，不限制提供商延迟。
+设置为 `0` 时，本地退避时间仍为 `model_retry_backoff_ms`，不会随尝试次数增加。
+尝试次数上限仍然生效；无论响应头如何，`model_retry_max_attempts = 1` 仍然表示不重试。
+
+此响应头处理仅适用于上述 HTTP 适配器，不适用于 `AMAZON` Bedrock 等由 SDK 管理的调用。
+它不会使不可重试的错误变为可重试，也不会改变 AWS SDK 的重试策略。
+Qianfan OAuth 令牌获取仍在通用调用运行时之外执行；本次修改不会为构造阶段的令牌请求增加重试。
 
 每个 request batch 都必须为每个输入返回且仅返回一个 vector。如果 provider 返回的 vector 数量少于或多于输入数量，
 该请求会失败，Transform 不会输出可能错位的向量。

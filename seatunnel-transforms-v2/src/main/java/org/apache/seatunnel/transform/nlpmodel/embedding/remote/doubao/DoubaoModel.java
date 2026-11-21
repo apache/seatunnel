@@ -254,7 +254,11 @@ public class DoubaoModel extends MultimodalModel {
 
             if (response.getStatusLine().getStatusCode() != 200) {
                 throw ModelInvocationException.fromHttpStatus(
-                        "DOUBAO", model, response.getStatusLine().getStatusCode(), responseStr);
+                        "DOUBAO",
+                        model,
+                        response.getStatusLine().getStatusCode(),
+                        responseStr,
+                        response.getFirstHeader("Retry-After"));
             }
 
             try {
@@ -313,7 +317,11 @@ public class DoubaoModel extends MultimodalModel {
 
             if (response.getStatusLine().getStatusCode() != 200) {
                 throw ModelInvocationException.fromHttpStatus(
-                        "DOUBAO", model, response.getStatusLine().getStatusCode(), responseBody);
+                        "DOUBAO",
+                        model,
+                        response.getStatusLine().getStatusCode(),
+                        responseBody,
+                        response.getFirstHeader("Retry-After"));
             }
 
             try {

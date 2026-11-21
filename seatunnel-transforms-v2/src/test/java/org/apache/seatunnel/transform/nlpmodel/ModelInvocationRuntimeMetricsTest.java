@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform.nlpmodel;
 
+import org.apache.http.message.BasicHeader;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -32,6 +34,34 @@ public class ModelInvocationRuntimeMetricsTest {
 
     private static final String PROVIDER = "OPENAI";
     private static final String MODEL = "text-embedding-3-small";
+
+    @Test
+    void providerDelayOverCapRecordsExhaustionWithoutRetry() {
+        RecordingMetrics metrics = new RecordingMetrics();
+        MetricVectorAdapter adapter =
+                new MetricVectorAdapter(
+                        ModelInvocationException.fromHttpStatus(
+                                PROVIDER,
+                                MODEL,
+                                429,
+                                "ignored",
+                                new BasicHeader("Retry-After", "2")));
+        ModelInvocationRuntime runtime =
+                new ModelInvocationRuntime(
+                        new ModelInvocationOptions(2, 0, 1000, 20000),
+                        metrics,
+                        ModelInvocationCache.NOOP);
+        Assertions.assertThrows(
+                ModelInvocationException.class,
+                () -> runtime.invoke(new Object[] {"chunk"}, adapter));
+        Assertions.assertEquals(1, metrics.countEvents("request:OPENAI:text-embedding-3-small"));
+        Assertions.assertEquals(
+                1, metrics.countEvents("failure:OPENAI:text-embedding-3-small:RATE_LIMIT"));
+        Assertions.assertEquals(
+                0, metrics.countEvents("retry:OPENAI:text-embedding-3-small:RATE_LIMIT"));
+        Assertions.assertEquals(
+                1, metrics.countEvents("retryExhausted:OPENAI:text-embedding-3-small:RATE_LIMIT"));
+    }
 
     @Test
     void successfulInvocationRecordsRequestGeneratedOutputsAndLatency() throws IOException {

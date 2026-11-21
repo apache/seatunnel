@@ -195,7 +195,11 @@ public class CustomModel extends AbstractModel {
 
             if (response.getStatusLine().getStatusCode() != 200) {
                 throw ModelInvocationException.fromHttpStatus(
-                        "CUSTOM", model, response.getStatusLine().getStatusCode(), responseStr);
+                        "CUSTOM",
+                        model,
+                        response.getStatusLine().getStatusCode(),
+                        responseStr,
+                        response.getFirstHeader("Retry-After"));
             }
 
             try {

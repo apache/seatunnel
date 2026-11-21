@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform.nlpmodel;
 
+import org.apache.http.message.BasicHeader;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +36,51 @@ public class ModelInvocationRuntimeCacheTest {
     private static final int DIMENSION = 1536;
     private static final String MODALITY = "text";
     private static final String FORMAT = "text";
+
+    @Test
+    void partialCacheHitRetriesOnlyMissesAndCachesOnlySuccessfulOutputs() throws IOException {
+        RecordingModelInvocationCache cache = new RecordingModelInvocationCache();
+        cache.put(cacheKey("alpha"), vector(1.0f, 2.0f));
+        CountingVectorAdapter adapter =
+                new CountingVectorAdapter(new Object[] {"beta"}, vectors(vector(3.0f, 4.0f)));
+        adapter.firstFailure =
+                ModelInvocationException.fromHttpStatus(
+                        PROVIDER, MODEL, 429, "ignored", new BasicHeader("Retry-After", "0"));
+        ModelInvocationRuntime runtime =
+                new ModelInvocationRuntime(
+                        new ModelInvocationOptions(2, 0, 1000, 20000),
+                        ModelInvocationMetrics.NOOP,
+                        cache);
+        List<List<Float>> result = runtime.invoke(new Object[] {"alpha", "beta"}, adapter);
+        Assertions.assertEquals(vectors(vector(1.0f, 2.0f), vector(3.0f, 4.0f)), result);
+        Assertions.assertEquals(2, adapter.getInvocationCount());
+        Assertions.assertEquals(2, cache.size());
+        Assertions.assertEquals(result, runtime.invoke(new Object[] {"alpha", "beta"}, adapter));
+        Assertions.assertEquals(2, adapter.getInvocationCount());
+    }
+
+    @Test
+    void overCapFailureDoesNotCacheMissingOutputsOrDiscardCachedOutputs() {
+        RecordingModelInvocationCache cache = new RecordingModelInvocationCache();
+        cache.put(cacheKey("alpha"), vector(1.0f, 2.0f));
+        CountingVectorAdapter adapter =
+                new CountingVectorAdapter(new Object[] {"beta"}, vectors(vector(3.0f, 4.0f)));
+        adapter.firstFailure =
+                ModelInvocationException.fromHttpStatus(
+                        PROVIDER, MODEL, 429, "ignored", new BasicHeader("Retry-After", "2"));
+        ModelInvocationRuntime runtime =
+                new ModelInvocationRuntime(
+                        new ModelInvocationOptions(2, 0, 1000, 20000),
+                        ModelInvocationMetrics.NOOP,
+                        cache);
+        Assertions.assertThrows(
+                ModelInvocationException.class,
+                () -> runtime.invoke(new Object[] {"alpha", "beta"}, adapter));
+        Assertions.assertEquals(1, adapter.getInvocationCount());
+        Assertions.assertEquals(1, cache.size());
+        Assertions.assertEquals(Optional.of(vector(1.0f, 2.0f)), cache.get(cacheKey("alpha")));
+        Assertions.assertFalse(cache.get(cacheKey("beta")).isPresent());
+    }
 
     @Test
     void fullCacheHitSkipsRemoteInvocation() throws IOException {
@@ -155,6 +202,7 @@ public class ModelInvocationRuntimeCacheTest {
         private final Object[] expectedInputs;
         private final List<List<Float>> response;
         private int invocationCount;
+        private ModelInvocationException firstFailure;
         private Object[] lastInvocationInputs = new Object[0];
 
         private CountingVectorAdapter() {
@@ -189,6 +237,9 @@ public class ModelInvocationRuntimeCacheTest {
             } else {
                 throw new AssertionError(
                         "Remote invocation should not be called on a full cache hit");
+            }
+            if (invocationCount == 1 && firstFailure != null) {
+                throw firstFailure;
             }
             return response;
         }

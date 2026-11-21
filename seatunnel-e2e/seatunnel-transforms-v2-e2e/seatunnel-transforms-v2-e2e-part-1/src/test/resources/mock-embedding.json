@@ -2,6 +2,74 @@
 
 [
   {
+    "priority": 10,
+    "httpRequest": {
+      "method": "POST",
+      "path": "/retry-after/capped/OPENAI",
+      "body": {
+        "type": "JSON",
+        "json": "{\"input\":\"retry-after-e2e\"}",
+        "matchType": "ONLY_MATCHING_FIELDS"
+      }
+    },
+    "httpResponse": {
+      "statusCode": 429,
+      "headers": {"Retry-After": ["2"], "Content-Type": ["application/json"]},
+      "body": {"error": "rate limited"}
+    }
+  },
+  {
+    "priority": 10,
+    "httpRequest": {
+      "method": "POST",
+      "path": "/retry-after/capped/(DOUBAO|QIANFAN/embedding-3|ZHIPU|CUSTOM)",
+      "body": {
+        "type": "JSON",
+        "json": "{\"input\":[\"retry-after-e2e\"]}",
+        "matchType": "ONLY_MATCHING_FIELDS"
+      }
+    },
+    "httpResponse": {
+      "statusCode": 429,
+      "headers": {"Retry-After": ["2"], "Content-Type": ["application/json"]},
+      "body": {"error": "rate limited"}
+    }
+  },
+  {
+    "priority": 10,
+    "times": {"remainingTimes": 1, "unlimited": false},
+    "httpRequest": {
+      "method": "POST",
+      "path": "/retry-after/cooldown/ZHIPU",
+      "body": {
+        "type": "JSON",
+        "json": "{\"input\":[\"retry-after-e2e\"]}",
+        "matchType": "ONLY_MATCHING_FIELDS"
+      }
+    },
+    "httpResponse": {
+      "statusCode": 429,
+      "headers": {"Retry-After": ["2"], "Content-Type": ["application/json"]},
+      "body": {"error": "rate limited"}
+    }
+  },
+  {
+    "httpRequest": {"method": "GET", "path": "/retry-after/oauth"},
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {"Content-Type": ["application/json"]},
+      "body": {"access_token": "test-token"}
+    }
+  },
+  {
+    "httpRequest": {"method": "POST", "path": "/retry-after/.*"},
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {"Content-Type": ["application/json"]},
+      "body": {"data": [{"index": 0, "embedding": [0.25, 0.5]}]}
+    }
+  },
+  {
     "httpRequest": {
       "method": "POST",
       "path": "/v1/cohere/embedding/model/cohere.embed-english-v3/invoke"
