@@ -384,6 +384,7 @@ public class LocalFileIT extends TestSuiteBase {
                         container);
 
                 container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
+                copyOrcStripeFixture(container);
             };
 
     @TestTemplate
@@ -464,6 +465,11 @@ public class LocalFileIT extends TestSuiteBase {
     /** Exercises multiple real ORC stripes through the shared factory and parallel source. */
     @TestTemplate
     public void testLocalFileOrcStripeSplits(TestContainer container) throws Exception {
+        new TestHelper(container).execute("/orc/local_file_orc_stripes_to_assert.conf");
+    }
+
+    /** Prepare the fixture for each engine container, including distributed workers. */
+    private void copyOrcStripeFixture(GenericContainer<?> container) throws IOException {
         Path directory = Files.createTempDirectory("seatunnel-orc-stripes-");
         Path file = directory.resolve("stripes.orc");
         org.apache.hadoop.fs.Path hadoopPath = new org.apache.hadoop.fs.Path(file.toUri());
@@ -488,8 +494,7 @@ public class LocalFileIT extends TestSuiteBase {
                 Assertions.assertEquals(6, reader.getStripes().size());
             }
             ContainerUtil.copyFileIntoContainers(
-                    file, "/seatunnel/read/orc-stripes/stripes.orc", baseContainer);
-            new TestHelper(container).execute("/orc/local_file_orc_stripes_to_assert.conf");
+                    file, "/seatunnel/read/orc-stripes/stripes.orc", container);
         } finally {
             Files.deleteIfExists(file);
             Files.deleteIfExists(directory.resolve(".stripes.orc.crc"));
