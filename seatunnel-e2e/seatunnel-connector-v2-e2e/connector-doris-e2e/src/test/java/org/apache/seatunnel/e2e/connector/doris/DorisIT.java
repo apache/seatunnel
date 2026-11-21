@@ -241,6 +241,21 @@ public class DorisIT extends AbstractDorisIT {
     }
 
     @TestTemplate
+    public void testDorisCaseInsensitive(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeJdbcTable();
+        batchInsertUniqueTableData();
+
+        // The conf names the source table in mixed case while the fixture is created
+        // lowercase; case_sensitive = false must resolve the identifiers so the whole
+        // source entry (config -> table map -> query plan) reads the lowercase table.
+        Container.ExecResult execResult =
+                container.executeJob("/doris_source_and_sink_case_insensitive.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        checkSinkData();
+    }
+
+    @TestTemplate
     public void testDorisDirectToBe(TestContainer container)
             throws IOException, InterruptedException {
         initializeJdbcTable();

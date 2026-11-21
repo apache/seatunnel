@@ -81,6 +81,7 @@ Base configuration:
 | doris.deserialize.arrow.async    | boolean | no      | false      | Whether to deserialize Arrow data asynchronously.                                                    |
 | doris.deserialize.queue.size     | int    | no       | 64         | Queue size used by asynchronous Arrow deserialization.                                               |
 | table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
+| case_sensitive                   | boolean | no      | true       | Whether to preserve the original case of the database and table names. When set to false, the database and table names will be converted to lowercase. Only takes effect when a single table is configured via `database` and `table`. |
 
 Table list configuration:
 
