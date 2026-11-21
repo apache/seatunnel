@@ -15,6 +15,9 @@ FieldRename 转换插件用于批量重命名字段名。
 |         suffix          | string | 否   |        | 追加到字段名后的后缀                                                                                    |
 | replacements_with_regex | array  | 否   |        | 替换规则数组，元素为包含 `replace_from`、`replace_to` 以及可选 `is_regex`（默认 `true`）的映射；当 `is_regex=false` 时，`replace_from` 按字段名精确匹配（全匹配） |
 |        specific         | array  | 否   |        | 指定字段重命名规则，元素为包含 `field_name` 和 `target_name` 的映射；命中后会直接重命名并跳过其他规则 |
+|    table_match_regex    | string | 否   | `.*`  | 与上游表路径进行匹配的正则表达式，转换级别规则只应用于匹配的表 |
+|     table_transform     | array  | 否   | -      | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。 |
+|     rule_match_mode     | string | 否   | `FIRST_MATCH` | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
 
 ## 示例
 

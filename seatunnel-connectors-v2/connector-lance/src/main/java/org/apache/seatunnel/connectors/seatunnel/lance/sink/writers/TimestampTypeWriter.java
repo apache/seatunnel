@@ -48,7 +48,9 @@ public class TimestampTypeWriter extends BaseTypeWriter {
                 ((TimeStampMicroVector) vector).setSafe(rowIndex, epochMicro);
             }
         } else if (unit == TimeUnit.MILLISECOND) {
-            long epochMilli = epochMicro / 1000;
+            // floorDiv rather than /, so an instant before 1970 rounds down to the millisecond it
+            // falls in instead of up towards the epoch.
+            long epochMilli = Math.floorDiv(epochMicro, 1000L);
             if (timezone != null && !timezone.isEmpty()) {
                 ((TimeStampMilliTZVector) vector).setSafe(rowIndex, epochMilli);
             } else {
@@ -68,7 +70,7 @@ public class TimestampTypeWriter extends BaseTypeWriter {
         if (unit == TimeUnit.MICROSECOND) {
             writer.writeTimeStampMicro(epochMicro);
         } else if (unit == TimeUnit.MILLISECOND) {
-            writer.writeTimeStampMilli(epochMicro / 1000);
+            writer.writeTimeStampMilli(Math.floorDiv(epochMicro, 1000L));
         }
     }
 

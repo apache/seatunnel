@@ -62,7 +62,6 @@ SQL 语句。连接器在批处理模式下执行查询，并把每一行结果�
 | CHAR | STRING |
 | TIMESTAMP | TIMESTAMP |
 | DATE | DATE |
-| TIME | TIME |
 | BINARY | BYTES |
 
 ## 源选项

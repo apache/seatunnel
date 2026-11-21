@@ -21,7 +21,7 @@ import ChangeLog from '../changelog/connector-hbase.md';
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [模式投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
 
@@ -70,7 +70,7 @@ caching 参数用于设置在扫描过程中一次从服务器端获取的行数
 
 ### batch
 
-batch 参数用于设置在扫描过程中每次返回的最大列数。这对于处理有很多列的行特别有用，可以避免一次性返回过多数据，从而节省内存并提高性能。
+batch 参数用于设置在扫描过程中每次返回的最大单元格数。这对于处理有很多列的行特别有用，可以避免一次性返回过多数据，从而节省内存并提高性能。
 
 ### cache_blocks
 

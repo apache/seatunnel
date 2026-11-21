@@ -90,6 +90,8 @@ Please refer [security](security.md)
 
 ## API reference
 
+The [OpenAPI 3.1 contract for the read-only REST v2 subset](openapi-v2.yaml) currently covers `GET /overview` and `GET /resource/workers` only. Other endpoints below remain documented here but are not yet included in the machine-readable contract. The spec is maintained alongside the servlet route registrations and response tests. Configure the generated client's base URL for your listener, port, and optional context path. Basic authentication depends on your server configuration; use HTTPS when sending credentials beyond localhost.
+
 ### Get Connector Option Rules
 
 <details>
@@ -249,7 +251,7 @@ Please refer [security](security.md)
 
 ```json
 {
-    "projectVersion":"3.0.1-SNAPSHOT",
+    "projectVersion":"3.1.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -263,7 +265,7 @@ Please refer [security](security.md)
 ```
 
 **Notes:**
-- If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`. when you set it to fix slot number, it will return the correct total and unassigned slot number
+- If you use `dynamic-slot`, the `unassignedSlot` is always `0` because dynamic slots are created on demand and never pre-registered; `totalSlot` reflects the number of slots currently assigned to jobs. When you set `dynamic-slot: false` with a fixed slot number, it will return the correct total and unassigned slot number
 - If the url has tag filter, the `workers`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
 
 </details>
@@ -537,7 +539,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 
 - **queueSummary** – overview of the entire pending queue.
   - `size`: number of jobs currently pending.
-  - `scheduleStrategy`: strategy in use (e.g. `WAIT`, `FAIL_FAST`) that dictates what happens when resources are insufficient.
+  - `scheduleStrategy`: strategy in use (e.g. `WAIT`, `REJECT`) that dictates what happens when resources are insufficient.
   - `oldestEnqueueTimestamp` / `newestEnqueueTimestamp`: timestamps (ms) of the oldest/latest job in the queue.
   - `lackingTaskGroups`: total TaskGroup count still waiting for slots. **Note**: This value reflects only the jobs included in the current response (i.e., the subset limited by the `limit` parameter or filtered by `jobId`), not the entire pending queue. To view the complete statistics for all pending jobs, call this API without the `limit` parameter.
 - **clusterSnapshot** – cluster resource snapshot (can be filtered by tags).
@@ -660,6 +662,10 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
         "pipelineStatus": "RUNNING",
         "restoreCount": 7,
         "maxRestoreCount": 100,
+        "restoreCauses": [
+          "restore 6: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused",
+          "restore 7: org.apache.seatunnel.common.exception.SeaTunnelRuntimeException: ErrorCode:[JDBC-05] ... Connection refused"
+        ],
         "stateTimestamps": {
           "INITIALIZING": 1755000000000,
           "CREATED": 1755000000200,
@@ -681,6 +687,11 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 node. It is auxiliary information: if it can not be obtained, the field is omitted instead of
 failing the request. Only this endpoint returns it; `/running-jobs` does not, because collecting it
 for every running job would cost one more round trip to the master per job.
+
+`diagnostics` is read from the master's in-memory job state, so like `restoreCount` it describes
+this master's view of the job rather than its whole history. After a master switch the restore
+counters and `restoreCauses` start again from the recovered job, and causes recorded by the
+previous master are not carried over.
 
 #### Metrics field description
 
@@ -713,6 +724,7 @@ for every running job would cost one more round trip to the master per job.
 | pipelines[].pipelineStatus | Current pipeline state |
 | pipelines[].restoreCount | How many times this pipeline has been restored since the job was submitted. A value that keeps growing while `jobStatus` stays `RUNNING` is a crash loop |
 | pipelines[].maxRestoreCount | Restore limit of this pipeline, from the `job.retry.times` env option |
+| pipelines[].restoreCauses | Why earlier runs of this pipeline ended, oldest first, one entry per restore. The engine keeps only the current attempt's error, so without this a crash loop can be detected from `restoreCount` but not explained. Each entry is truncated, and the list is capped at the last 16 restores. A restore with no recorded error is still listed, because "restarted for an unknown reason" is a different state from "restarted because the sink refused the connection" |
 | pipelines[].stateTimestamps | Epoch millis when the pipeline entered each state. After a restore, the timestamps of the new attempt overwrite the previous ones |
 | totalPipelineRestoreCount | Sum of `restoreCount` over all pipelines of the job |
 
@@ -959,6 +971,8 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 #### Body
 
 You can choose json, hocon or sql to pass request body.
+For JSON submissions, every key is parsed as a SeaTunnel config path expression: `a->b` creates nested config, while a dot such as in `job.mode` is not a path separator. Keys whose path expression cannot be parsed (for example regex field names such as `^t_nova_.*$`, or keys containing reserved characters such as `$`, `:` or `${...}`) are kept as literal keys instead of failing the request. Parsable keys keep the existing semantics: quotes are removed and surrounding unquoted whitespace is trimmed. The same rule applies to batch submissions.
+For HOCON submissions the body is parsed by the HOCON parser first, so a key containing a reserved character must be quoted in the body: write `"$systemId" = "string"` instead of `$systemId = "string"`. Quoting a key in HOCON does not override the path semantics used during decryption. Keys rejected by the path parser are kept literal; valid expressions such as `a->b` are parsed as paths.
 The json format example:
 ``` json
 {
