@@ -67,6 +67,75 @@ class SinkFlowLifeCycleErrorOutcomeTest {
     private static final TaskLocation TASK_LOCATION =
             new TaskLocation(new TaskGroupLocation(1L, 1, 1L), 2L, 0);
 
+    /** A task cancelled before its restore arrives closes the sink flow before any writer. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void closeBeforeRestoreNeedsNoWriter() throws Exception {
+        CompletableFuture<Void> completion = new CompletableFuture<>();
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                createUnrestoredFlow(
+                        Mockito.mock(SeaTunnelSink.class), Collections.emptyMap(), completion);
+        flow.init();
+
+        Assertions.assertDoesNotThrow(flow::close);
+        Assertions.assertTrue(completion.isDone());
+    }
+
+    /**
+     * The restore creates the error handler before the writer. When the writer cannot be created,
+     * no writer owns the handler, so closing the flow must close it.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void closeAfterFailedWriterCreationClosesTheErrorHandler() throws Exception {
+        SeaTunnelSink<SeaTunnelRow, String, String, String> sink =
+                Mockito.mock(SeaTunnelSink.class);
+        Mockito.when(sink.createWriter(Mockito.any()))
+                .thenThrow(new IOException("sink is unreachable"));
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                createUnrestoredFlow(
+                        sink,
+                        Collections.singletonMap(
+                                "sink_error_handler", Collections.singletonMap("mode", "LOG")),
+                        new CompletableFuture<>());
+        flow.init();
+        IOException failure =
+                Assertions.assertThrows(
+                        IOException.class, () -> flow.restoreState(Collections.emptyList()));
+        Assertions.assertEquals("sink is unreachable", failure.getMessage());
+
+        Field handlerField = SinkFlowLifeCycle.class.getDeclaredField("stageErrorHandler");
+        handlerField.setAccessible(true);
+        ErrorHandler<SeaTunnelRow> handler = (ErrorHandler<SeaTunnelRow>) handlerField.get(flow);
+        Assertions.assertNotNull(handler);
+        ErrorHandler<SeaTunnelRow> spiedHandler = Mockito.spy(handler);
+        handlerField.set(flow, spiedHandler);
+
+        Assertions.assertDoesNotThrow(flow::close);
+        Mockito.verify(spiedHandler).close();
+    }
+
+    private static SinkFlowLifeCycle<SeaTunnelRow, String, String, String> createUnrestoredFlow(
+            SeaTunnelSink<SeaTunnelRow, String, String, String> sink,
+            Map<String, Object> envOptions,
+            CompletableFuture<Void> completion) {
+        Mockito.when(sink.getPluginName()).thenReturn("FakeSink");
+        Mockito.when(sink.getWriteCatalogTable()).thenReturn(Optional.empty());
+        SinkAction<SeaTunnelRow, String, String, String> action =
+                new SinkAction<>(7L, "sink", sink, Collections.emptySet(), Collections.emptySet());
+        SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
+        Mockito.when(task.getEnvOptions()).thenReturn(envOptions);
+        return new SinkFlowLifeCycle<>(
+                action,
+                TASK_LOCATION,
+                0,
+                task,
+                null,
+                false,
+                completion,
+                new SeaTunnelMetricsContext());
+    }
+
     @Test
     void routedErrorDoesNotReportMainSinkSuccess() throws Exception {
         SeaTunnelMetricsContext metrics = new SeaTunnelMetricsContext();

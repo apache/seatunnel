@@ -271,11 +271,22 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
      * <p>After the writer closes successfully, any delayed row outcomes are emitted before the
      * {@link WriterCloseEvent} is sent to the writer's event listener.
      *
+     * <p>The writer is created only by {@link #restoreState(List)}. A task cancelled before its
+     * restore arrives, or whose writer could not be created, closes this flow without a writer.
+     * Nothing was written then, so no outcome is emitted and no close event is sent; only the error
+     * handler that the restore may already have created is closed, since no writer owns it.
+     *
      * @throws IOException if the lifecycle or writer cannot be closed
      */
     @Override
     public void close() throws IOException {
         super.close();
+        if (writer == null) {
+            if (stageErrorHandler != null) {
+                stageErrorHandler.close();
+            }
+            return;
+        }
         writer.close();
         drainCollectedTerminalWriteOutcomes();
         flushDeferredTerminalWriteOutcomes();
