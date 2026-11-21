@@ -153,6 +153,9 @@ public class OceanBaseCDCCompatibilityIT extends TestSuiteBase implements TestRe
     @TestTemplate
     public void testOceanBaseCdcWrapperRuntimeE2e(TestContainer container) {
         recreateTestTables();
+        List<List<Object>> expectedSnapshot = queryTable(SOURCE_TABLE);
+        Assertions.assertEquals(
+                2, expectedSnapshot.size(), "The snapshot fixture must be populated");
 
         CompletableFuture<Void> jobFuture =
                 CompletableFuture.runAsync(
@@ -173,7 +176,7 @@ public class OceanBaseCDCCompatibilityIT extends TestSuiteBase implements TestRe
                         () -> {
                             assertStreamingJobStillRunning(jobFuture);
                             Assertions.assertIterableEquals(
-                                    queryTable(SOURCE_TABLE), queryTable(SINK_TABLE));
+                                    expectedSnapshot, queryTable(SINK_TABLE));
                         });
 
         applyIncrementalChanges();

@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.Chunk
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
+import org.apache.seatunnel.connectors.cdc.base.utils.SerializableTableIdMap;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.enumerator.MySqlChunkSplitter;
@@ -42,7 +43,10 @@ import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,11 +59,27 @@ public class MySqlDialect implements JdbcDataSourceDialect {
     private static final long serialVersionUID = 1L;
     private final MySqlSourceConfig sourceConfig;
     private transient MySqlSchema mySqlSchema;
-    private final Map<TableId, CatalogTable> tableMap;
+    private Map<TableId, CatalogTable> tableMap;
 
     public MySqlDialect(MySqlSourceConfigFactory configFactory, List<CatalogTable> catalogTables) {
         this.sourceConfig = configFactory.create(0);
-        this.tableMap = CatalogTableUtils.convertTables(catalogTables);
+        // Flink serializes the source's populated dialect before creating its enumerator.
+        this.tableMap = copyTableIndex(CatalogTableUtils.convertTables(catalogTables));
+    }
+
+    private static Map<TableId, CatalogTable> copyTableIndex(Map<TableId, CatalogTable> source) {
+        Map<TableId, CatalogTable> index = new SerializableTableIdMap<>();
+        index.putAll(source);
+        return index;
+    }
+
+    private void readObject(ObjectInputStream input) throws IOException, ClassNotFoundException {
+        input.defaultReadObject();
+        if (!(tableMap instanceof SerializableTableIdMap)) {
+            // A legacy MySQL deployment could serialize its index using SeaTunnel's TableId copy.
+            // Normalize on restore so the next worker need not load that same copy.
+            tableMap = copyTableIndex(tableMap);
+        }
     }
 
     @Override
@@ -105,7 +125,10 @@ public class MySqlDialect implements JdbcDataSourceDialect {
     public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
         if (mySqlSchema == null) {
             mySqlSchema =
-                    new MySqlSchema(sourceConfig, isDataCollectionIdCaseSensitive(jdbc), tableMap);
+                    new MySqlSchema(
+                            sourceConfig,
+                            isDataCollectionIdCaseSensitive(jdbc),
+                            Collections.unmodifiableMap(tableMap));
         }
         return mySqlSchema.getTableSchema(jdbc, tableId);
     }
