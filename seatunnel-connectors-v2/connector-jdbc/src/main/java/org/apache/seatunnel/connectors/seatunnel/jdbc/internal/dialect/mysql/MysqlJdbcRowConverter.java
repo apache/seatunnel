@@ -46,4 +46,11 @@ public class MysqlJdbcRowConverter extends AbstractJdbcRowConverter {
         statement.setTimestamp(
                 index, java.sql.Timestamp.valueOf(LocalDateTime.of(LocalDate.now(), time)));
     }
+
+    /** Binds DATETIME fields without interpreting them in the JVM default time zone. */
+    @Override
+    protected void writeTimestamp(PreparedStatement statement, int index, LocalDateTime value)
+            throws SQLException {
+        statement.setObject(index, value);
+    }
 }

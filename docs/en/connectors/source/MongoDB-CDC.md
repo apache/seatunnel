@@ -112,6 +112,11 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 
 ## Source Options
 
+> **Note:** MongoDB-CDC shares the CDC base option rule, so a few JDBC-oriented snapshot options
+> (`snapshot.split.size`, `snapshot.fetch.size`, `enable_concurrent_read`) are accepted by
+> validation but are not used by MongoDB-CDC. Snapshot chunking is controlled by
+> `incremental.snapshot.chunk.size.mb` instead.
+
 | Name                               | Type    | Required | Default | Description                                                                                                                                                                                                                                                               |
 |------------------------------------|---------|----------|---------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | hosts                              | String  | Yes      | -       | The comma-separated list of hostname and port pairs of the MongoDB servers, or a standard MongoDB connection URI using `mongodb://` or `mongodb+srv://`. For example: `localhost:27017,localhost:27018` or `mongodb+srv://cluster.example.net`.                         |
@@ -132,9 +137,9 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 | startup.timestamp                  | Long    | No       | -       | Start from the specified epoch timestamp in milliseconds. Only used when `startup.mode` is `timestamp`.                                                                                                                                                                   |
 | stop.mode                          | Enum    | No       | NEVER   | Optional stop mode for MongoDB CDC consumer. Valid values are `never` and `timestamp`. See the [Stop Mode](#stop-mode) section below.                                                                                                                                      |
 | stop.timestamp                     | Long    | No       | -       | Stop at the change-stream position derived from this epoch timestamp in milliseconds. Only used when `stop.mode` is `timestamp`.                                                                                                                                           |
-| exactly_once                       | Boolean | No       | false   | Enable exactly-once semantics. Enabling this may increase memory usage during large table snapshot recovery.                                                                                                                                                              |
+| exactly_once                       | Boolean | No       | false   | Enable exactly-once semantics. When false, snapshot backfill is skipped and changes made during the snapshot are read in the incremental phase; duplicate records may be emitted. When true, snapshot backfill merges overlapping changes and may increase memory usage. |
 | format                             | Enum    | No       | DEFAULT | The output data format of MongoDB CDC. Valid values are `DEFAULT` and `COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                         |
-| debezium                           | Config  | No       | -       | Pass-through Debezium properties used by the embedded engine.                                                                                                                                                                                                             |
+| debezium                           | Config  | No       | {key.converter.schemas.enable=false, value.converter.schemas.enable=false} | Pass-through Debezium properties used by the embedded engine.                                                                                                                                                                                                       |
 | common-options                     |         | No       | -       | Source plugin common parameters. For details, see [Source Common Options](../common-options/source-common-options.md).                                                                                                                                                    |
 
 ### Startup Mode

@@ -29,7 +29,24 @@
 
     <properties>
         <hadoop3.version>3.1.4</hadoop3.version>
+        <netty.version>4.1.118.Final</netty.version>
     </properties>
+
+    <!-- Use the same Netty version in reactor and standalone builds. -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-buffer</artifactId>
+                <version>${netty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-common</artifactId>
+                <version>${netty.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -137,6 +154,15 @@
                             <exclude>org.apache.seatunnel:seatunnel-shade-hadoop3-uber</exclude>
                         </excludes>
                     </artifactSet>
+                    <filters combine.children="append">
+                        <filter>
+                            <artifact>com.hazelcast:hazelcast</artifact>
+                            <excludes>
+                                <exclude>THIRD-PARTY.txt</exclude>
+                                <exclude>META-INF/THIRD-PARTY.txt</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
                     <transformers>
                         <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                     </transformers>

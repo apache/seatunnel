@@ -47,15 +47,20 @@
                 <exclude>**/*.tar.gz</exclude>
 
                 <!-- maven plugin ignore -->
-                <exclude>release.properties</exclude>
+                <exclude>**/.flattened-pom.xml</exclude>
+                <exclude>**/dependency-reduced-pom.xml</exclude>
+                <exclude>**/release.properties</exclude>
                 <exclude>**/pom.xml.releaseBackup</exclude>
-                <exclude>*.gpg</exclude>
+                <exclude>**/pom.xml.tag</exclude>
+                <exclude>**/pom.xml.next</exclude>
+                <exclude>**/*.gpg</exclude>
 
                 <!-- frontend build ignore: node is installed and npm dependencies are
                      resolved inside seatunnel-engine/seatunnel-engine-ui by the
                      frontend-maven-plugin, they are not part of the source release -->
                 <exclude>**/node_modules/**</exclude>
                 <exclude>**/node/**</exclude>
+                <exclude>seatunnel-engine/seatunnel-engine-server/src/main/resources/ui/**</exclude>
                 <!--github ignore-->
                 <exclude>**/.github/**</exclude>
                 <exclude>**/.dlc.json</exclude>
@@ -85,6 +90,19 @@
                 <!-- system ignore -->
                 <exclude>**/.DS_Store</exclude>
                 <exclude>**/Thumbs.db</exclude>
+            </excludes>
+        </fileSet>
+        <!-- ZIP fixtures are required to run tests from the source release. -->
+        <fileSet>
+            <directory>../</directory>
+            <useDefaultExcludes>true</useDefaultExcludes>
+            <includes>
+                <include>**/src/test/resources/**/*.zip</include>
+            </includes>
+            <excludes>
+                <exclude>**/target/**</exclude>
+                <exclude>**/node_modules/**</exclude>
+                <exclude>**/node/**</exclude>
             </excludes>
         </fileSet>
     </fileSets>

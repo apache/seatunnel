@@ -43,15 +43,16 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |----------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
 | BOOL                                         | BOOLEAN                                                                                                                                           |
 | INT2                                         | SHORT                                                                                                                                             |
-| SMALLSERIAL <br/>SERIAL <br/>INT4            | INT                                                                                                                                               |
+| SMALLSERIAL                                  | SMALLINT                                                                                                                                          |
+| SERIAL <br/>INT4                             | INT                                                                                                                                               |
 | INT8 <br/>BIGSERIAL                          | BIGINT                                                                                                                                            |
 | FLOAT4                                       | FLOAT                                                                                                                                             |
 | FLOAT8                                       | DOUBLE                                                                                                                                            |
 | NUMERIC                                      | DECIMAL((Get the designated column's specified column size),<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
 | BPCHAR <br/>CHARACTER <br/>VARCHAR <br/>TEXT | STRING                                                                                                                                            |
-| TIMESTAMP                                    | LOCALDATETIME                                                                                                                                     |
-| TIME                                         | LOCALTIME                                                                                                                                         |
-| DATE                                         | LOCALDATE                                                                                                                                         |
+| TIMESTAMP                                    | TIMESTAMP                                                                                                                                         |
+| TIME                                         | TIME                                                                                                                                              |
+| DATE                                         | DATE                                                                                                                                              |
 | Other data type                              | Not supported yet                                                                                                                                 |
 
 ## Sink Options

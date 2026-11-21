@@ -258,26 +258,27 @@ sink {
 
 ### Item Tracking
 
+Item records must set `entity_name = items`. `entity_name` defaults to `users`, and with that
+default `record_type = items` is rejected with `UNSUPPORTED_RECORD_TYPE` when the writer starts.
+Item records only use `item_id_column`, `item_type_column`, `property_fields` and the optional
+`time_column`; user-only options such as `schema`, `event_name`, `distinct_id_column` and
+`identity_fields` are not needed.
+
 ```hocon
 sink {
   SensorsData {
     server_url = "http://10.1.136.63:8106/sa?project=default"
     time_free = true
 
+    entity_name = items
     record_type = items
-    schema = items
-    event_name = "$ItemViewed"
+    item_id_column = product_id
+    item_type_column = product_type
     time_column = view_time
-    distinct_id_column = user_id
-    identity_fields = [
-      { source = user_id, target = "$identity_login_id" }
-    ]
     property_fields = [
       { target = "view_duration", source = duration, type = INT }
       { target = "referrer", source = referrer_url, type = STRING }
     ]
-    item_id_column = product_id
-    item_type_column = product_type
   }
 }
 ```
@@ -346,6 +347,9 @@ sink {
 
 ### Console Output (for Testing)
 
+`entity_name` is left at its default `users`, so `identity_fields` is required here as in the
+other user-record examples; without it the job fails option validation.
+
 ```hocon
 sink {
   SensorsData {
@@ -356,6 +360,9 @@ sink {
     event_name = "$TestEvent"
     time_column = timestamp
     distinct_id_column = test_id
+    identity_fields = [
+      { source = test_id, target = "$identity_distinct_id" }
+    ]
     property_fields = [
       { target = "test", source = test_field, type = STRING }
     ]

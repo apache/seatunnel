@@ -47,6 +47,8 @@ import java.util.List;
 
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -106,6 +108,39 @@ public class PostgresJdbcRowConverterTest {
         Assertions.assertEquals(hour, offsetDateTime.getHour());
         Assertions.assertEquals(minute, offsetDateTime.getMinute());
         Assertions.assertEquals(offset, offsetDateTime.getOffset());
+    }
+
+    @Test
+    public void testStringReadDoesNotLookUpColumnByName() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        TableSchema schema = spy(createTableSchema("value", BasicType.STRING_TYPE, "VARCHAR"));
+        when(rs.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnTypeName(2)).thenReturn("varchar");
+        when(rs.getInt(1)).thenReturn(1);
+        when(rs.getObject(2)).thenReturn("value");
+        when(rs.getString(2)).thenReturn("value");
+
+        SeaTunnelRow row = converter.toInternal(rs, schema);
+
+        Assertions.assertEquals("value", row.getField(1));
+        verify(schema, never()).getColumn("value");
+    }
+
+    @Test
+    public void testNumericReadDoesNotQueryResultSetMetadata() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        TableSchema schema = createTableSchema("value", BasicType.LONG_TYPE, "INT8");
+        when(rs.getObject(1)).thenReturn(1);
+        when(rs.getObject(2)).thenReturn(42L);
+        when(rs.getInt(1)).thenReturn(1);
+        when(rs.getLong(2)).thenReturn(42L);
+
+        SeaTunnelRow row = converter.toInternal(rs, schema);
+
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertEquals(42L, row.getField(1));
+        verify(rs, never()).getMetaData();
     }
 
     @Test
@@ -317,6 +352,80 @@ public class PostgresJdbcRowConverterTest {
         Assertions.assertThrows(
                 SQLException.class,
                 () -> new PostgresJdbcRowConverter().toInternal(rs, tableSchema));
+    }
+
+    @Test
+    public void testToInternalWithBinaryNumericInfinityAsNull() throws SQLException {
+        // In the binary protocol pgjdbc cannot decode the sign word of Infinity and -Infinity
+        TableSchema tableSchema = createTableSchema("decimal_col", new DecimalType(10, 2), null);
+        for (int sign : new int[] {0xD000, 0xF000}) {
+            ResultSet rs = mockBinaryNumeric(binaryNumericHeader(0, sign));
+
+            SeaTunnelRow row = new PostgresJdbcRowConverter(true).toInternal(rs, tableSchema);
+
+            Assertions.assertEquals(1, row.getField(0));
+            Assertions.assertNull(row.getField(1), "sign " + Integer.toHexString(sign));
+        }
+    }
+
+    @Test
+    public void testToInternalKeepsBinaryNumericInfinityErrorWithoutOption() throws SQLException {
+        TableSchema tableSchema = createTableSchema("decimal_col", new DecimalType(10, 2), null);
+        ResultSet rs = mockBinaryNumeric(binaryNumericHeader(0, 0xD000));
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new PostgresJdbcRowConverter().toInternal(rs, tableSchema));
+    }
+
+    @Test
+    public void testToInternalRethrowsBinaryNumericErrorForOrdinaryValue() throws SQLException {
+        // One digit word: not an infinity even though the driver failed to decode the value
+        TableSchema tableSchema = createTableSchema("decimal_col", new DecimalType(10, 2), null);
+        ResultSet rs = mockBinaryNumeric(new byte[] {0, 1, 0, 0, (byte) 0xD0, 0, 0, 0, 0, 1});
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new PostgresJdbcRowConverter(true).toInternal(rs, tableSchema));
+    }
+
+    @Test
+    public void testIsBinaryNumericInfinity() throws SQLException {
+        Assertions.assertTrue(
+                PostgresJdbcRowConverter.isBinaryNumericInfinity(
+                        mockBinaryNumeric(binaryNumericHeader(0, 0xD000)), 2));
+        Assertions.assertTrue(
+                PostgresJdbcRowConverter.isBinaryNumericInfinity(
+                        mockBinaryNumeric(binaryNumericHeader(0, 0xF000)), 2));
+        // A digit word, the NaN sign (decoded as a Double by the driver) or a positive sign
+        Assertions.assertFalse(
+                PostgresJdbcRowConverter.isBinaryNumericInfinity(
+                        mockBinaryNumeric(binaryNumericHeader(1, 0xD000)), 2));
+        Assertions.assertFalse(
+                PostgresJdbcRowConverter.isBinaryNumericInfinity(
+                        mockBinaryNumeric(binaryNumericHeader(0, 0xC000)), 2));
+        Assertions.assertFalse(
+                PostgresJdbcRowConverter.isBinaryNumericInfinity(
+                        mockBinaryNumeric(binaryNumericHeader(0, 0x0000)), 2));
+    }
+
+    /** A NUMERIC column at index 2 whose binary value the driver cannot decode. */
+    private ResultSet mockBinaryNumeric(byte[] rawValue) throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        setupMockResultSet(rs, "INT4", "NUMERIC", 1, null);
+        IllegalArgumentException invalidSign =
+                new IllegalArgumentException("invalid sign in \"numeric\" value");
+        when(rs.getBigDecimal(2)).thenThrow(invalidSign);
+        when(rs.getString(2)).thenThrow(invalidSign);
+        when(rs.getBytes(2)).thenReturn(rawValue);
+        return rs;
+    }
+
+    /** Builds the 8-byte header of a binary PostgreSQL numeric value without digit words. */
+    private static byte[] binaryNumericHeader(int digitCount, int sign) {
+        return new byte[] {
+            (byte) (digitCount >> 8), (byte) digitCount, 0, 0, (byte) (sign >> 8), (byte) sign, 0, 0
+        };
     }
 
     @Test

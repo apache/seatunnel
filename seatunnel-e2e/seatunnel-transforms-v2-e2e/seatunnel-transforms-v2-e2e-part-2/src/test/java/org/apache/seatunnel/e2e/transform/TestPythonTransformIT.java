@@ -174,7 +174,7 @@ public class TestPythonTransformIT {
      * @param container discovered default container
      * @return container equivalent with Python transform JVM policy
      */
-    private static TestContainer withPythonTransformPolicy(TestContainer container) {
+    static TestContainer withPythonTransformPolicy(TestContainer container) {
         TestContainerId containerId = container.identifier();
         switch (containerId) {
             case SEATUNNEL:
@@ -195,6 +195,7 @@ public class TestPythonTransformIT {
                 return new PythonPolicyFlink20Container();
             case SPARK_2_4:
             case SPARK_3_3:
+            case SPARK_3_5:
                 return container;
             default:
                 throw new IllegalStateException(
