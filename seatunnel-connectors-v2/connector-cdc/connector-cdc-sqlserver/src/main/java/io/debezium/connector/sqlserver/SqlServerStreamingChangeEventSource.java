@@ -20,6 +20,7 @@ package io.debezium.connector.sqlserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.debezium.DebeziumException;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig.SnapshotMode;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.EventDispatcher;
@@ -170,7 +171,7 @@ public class SqlServerStreamingChangeEventSource
         }
 
         final String databaseName = partition.getDatabaseName();
-
+        final boolean boundedRead = isBoundedRead();
         try {
             final SqlServerStreamingExecutionContext streamingExecutionContext =
                     streamingExecutionContexts.getOrDefault(
@@ -212,11 +213,12 @@ public class SqlServerStreamingChangeEventSource
             if (context.isRunning()) {
                 commitTransaction();
                 final Lsn toLsn =
-                        getToLsn(
-                                dataConnection,
-                                databaseName,
-                                lastProcessedPosition,
-                                maxTransactionsPerIteration);
+                        limitQueryUpperBound(
+                                getToLsn(
+                                        dataConnection,
+                                        databaseName,
+                                        lastProcessedPosition,
+                                        maxTransactionsPerIteration));
 
                 // Shouldn't happen if the agent is running, but it is better to guard against such
                 // situation
@@ -240,7 +242,9 @@ public class SqlServerStreamingChangeEventSource
                                 ? dataConnection.incrementLsn(
                                         databaseName, lastProcessedPosition.getCommitLsn())
                                 : lastProcessedPosition.getCommitLsn();
-                streamingExecutionContext.setShouldIncreaseFromLsn(true);
+                if (!boundedRead) {
+                    streamingExecutionContext.setShouldIncreaseFromLsn(true);
+                }
                 final Queue<SqlServerConnection.SqlServerDdlEntry> ddlEntries =
                         getDdlEntriesToQuery(databaseName, fromLsn, toLsn);
 
@@ -261,18 +265,32 @@ public class SqlServerStreamingChangeEventSource
                 if (tablesSlot.get() == null) {
                     tablesSlot.set(getChangeTablesToQuery(partition, offsetContext, toLsn));
                 }
+                final SqlServerChangeTable[] queryTables =
+                        boundedRead
+                                ? Arrays.stream(tablesSlot.get())
+                                        .filter(
+                                                table -> {
+                                                    final Lsn stopLsn = table.getStopLsn();
+                                                    return stopLsn == null
+                                                            || !stopLsn.isAvailable()
+                                                            || stopLsn.compareTo(fromLsn) > 0;
+                                                })
+                                        .toArray(SqlServerChangeTable[]::new)
+                                : tablesSlot.get();
+                validateQueryTables(queryTables, fromLsn, toLsn);
                 try {
                     dataConnection.getChangesForTables(
                             databaseName,
-                            tablesSlot.get(),
+                            queryTables,
                             fromLsn,
                             toLsn,
+                            boundedRead,
                             resultSets -> {
                                 long eventSerialNoInInitialTx = 1;
                                 final int tableCount = resultSets.length;
                                 final SqlServerChangeTablePointer[] changeTables =
                                         new SqlServerChangeTablePointer[tableCount];
-                                final SqlServerChangeTable[] tables = tablesSlot.get();
+                                final SqlServerChangeTable[] tables = queryTables;
 
                                 for (int i = 0; i < tableCount; i++) {
                                     changeTables[i] =
@@ -402,7 +420,7 @@ public class SqlServerStreamingChangeEventSource
                                     dispatchPendingDdlHistory(
                                             partition,
                                             offsetContext,
-                                            tablesSlot.get(),
+                                            queryTables,
                                             ddlEntries,
                                             tableWithSmallestLsn
                                                     .getChangePosition()
@@ -467,24 +485,41 @@ public class SqlServerStreamingChangeEventSource
                                     tableWithSmallestLsn.next();
                                 }
                                 dispatchPendingDdlHistory(
-                                        partition,
-                                        offsetContext,
-                                        tablesSlot.get(),
-                                        ddlEntries,
-                                        null);
+                                        partition, offsetContext, queryTables, ddlEntries, null);
                             });
-                    streamingExecutionContext.setLastProcessedPosition(
-                            TxLogPosition.valueOf(toLsn));
+                    if (!boundedRead) {
+                        streamingExecutionContext.setLastProcessedPosition(
+                                TxLogPosition.valueOf(toLsn));
+                    }
                     // Terminate the transaction otherwise CDC could not be disabled for tables
                     dataConnection.rollback();
                     // Determine whether to continue streaming in sqlserver cdc snapshot phase
-                    afterHandleLsn(partition, offsetContext.getOffset());
+                    afterQueryCompleted(partition, offsetContext.getOffset(), toLsn);
+                    if (boundedRead) {
+                        streamingExecutionContext.setLastProcessedPosition(
+                                TxLogPosition.valueOf(toLsn));
+                        streamingExecutionContext.setShouldIncreaseFromLsn(true);
+                    }
                 } catch (SQLException e) {
+                    if (boundedRead) {
+                        // Rows or schema events may already have been dispatched. Fail this split
+                        // instead of retrying the interval against partially advanced state.
+                        throw e;
+                    }
                     tablesSlot.set(
                             processErrorFromChangeTableQuery(databaseName, e, tablesSlot.get()));
                 }
             }
         } catch (Exception e) {
+            if (boundedRead) {
+                if (e instanceof InterruptedException) {
+                    throw (InterruptedException) e;
+                }
+                // Propagate through the snapshot fetcher, which reports the split failure to
+                // the reader. The streaming error handler alone would leave this loop running.
+                throw new DebeziumException(
+                        "Cannot complete bounded backfill for database " + databaseName, e);
+            }
             errorHandler.setProducerThrowable(e);
         }
 
@@ -817,6 +852,29 @@ public class SqlServerStreamingChangeEventSource
 
         return connection.getNthTransactionLsnFromLast(
                 databaseName, fromLsn, maxTransactionsPerIteration);
+    }
+
+    /** Allow bounded reads to limit every query in this iteration to their high watermark. */
+    protected boolean isBoundedRead() {
+        return false;
+    }
+
+    protected Lsn limitQueryUpperBound(Lsn toLsn) {
+        return toLsn;
+    }
+
+    /**
+     * Allow bounded reads to reject a missing capture before treating an empty query as complete.
+     */
+    protected void validateQueryTables(SqlServerChangeTable[] tables, Lsn fromLsn, Lsn toLsn) {
+        // Regular streaming keeps the existing capture-instance handling.
+    }
+
+    /** Called only after all result sets and DDL have been consumed and rollback has succeeded. */
+    protected void afterQueryCompleted(
+            SqlServerPartition partition, Map<String, ?> offset, Lsn completedLsn)
+            throws InterruptedException {
+        afterHandleLsn(partition, offset);
     }
 
     /** expose control to the user to stop the connector. */

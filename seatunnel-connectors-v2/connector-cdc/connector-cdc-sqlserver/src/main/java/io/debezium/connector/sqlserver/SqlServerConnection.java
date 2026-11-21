@@ -88,6 +88,7 @@ public class SqlServerConnection extends JdbcConnection {
             "SELECT MAX(start_lsn) FROM (SELECT TOP (? + 1) start_lsn FROM [#db].cdc.lsn_time_mapping WHERE start_lsn >= ? AND tran_id <> 0x00 ORDER BY start_lsn) as next_lsns";
 
     private static final String GET_MIN_LSN = "SELECT [#db].sys.fn_cdc_get_min_lsn('#')";
+    private static final Lsn ZERO_LSN = Lsn.valueOf(new byte[10]);
     private static final String LOCK_TABLE = "SELECT * FROM [#] WITH (TABLOCKX)";
     private static final String INCREMENT_LSN = "SELECT [#db].sys.fn_cdc_increment_lsn(?)";
     private static final String GET_ALL_CHANGES_FOR_TABLE =
@@ -491,8 +492,40 @@ public class SqlServerConnection extends JdbcConnection {
             Lsn intervalToLsn,
             BlockingMultiResultSetConsumer consumer)
             throws SQLException, InterruptedException {
+        getChangesForTables(
+                databaseName, changeTables, intervalFromLsn, intervalToLsn, false, consumer);
+    }
+
+    public void getChangesForTables(
+            String databaseName,
+            SqlServerChangeTable[] changeTables,
+            Lsn intervalFromLsn,
+            Lsn intervalToLsn,
+            boolean boundedRead,
+            BlockingMultiResultSetConsumer consumer)
+            throws SQLException, InterruptedException {
+        if (boundedRead) {
+            final Lsn maxLsn = getMaxLsn(databaseName);
+            if (!isValidBound(intervalFromLsn)
+                    || !isValidBound(intervalToLsn)
+                    || intervalFromLsn.compareTo(intervalToLsn) > 0
+                    || !isValidBound(maxLsn)
+                    || intervalToLsn.compareTo(maxLsn) > 0) {
+                throw new SQLException(
+                        "Cannot complete bounded backfill: invalid CDC query range for "
+                                + databaseName
+                                + " from "
+                                + intervalFromLsn
+                                + " through "
+                                + intervalToLsn
+                                + " (current CDC maximum "
+                                + maxLsn
+                                + ")");
+            }
+        }
         final String[] queries = new String[changeTables.length];
         final StatementPreparer[] preparers = new StatementPreparer[changeTables.length];
+        final Lsn[] boundedLowerBounds = boundedRead ? new Lsn[changeTables.length] : null;
 
         int idx = 0;
         for (SqlServerChangeTable changeTable : changeTables) {
@@ -503,6 +536,10 @@ public class SqlServerConnection extends JdbcConnection {
             // If the table was added in the middle of queried buffer we need
             // to adjust from to the first LSN available
             final Lsn fromLsn = getFromLsn(databaseName, changeTable, intervalFromLsn);
+            if (boundedRead) {
+                validateRetainedLowerBound(databaseName, changeTable, fromLsn, intervalToLsn);
+                boundedLowerBounds[idx] = fromLsn;
+            }
             LOGGER.trace(
                     "Getting changes for table {} in range[{}, {}]",
                     changeTable,
@@ -520,6 +557,41 @@ public class SqlServerConnection extends JdbcConnection {
             idx++;
         }
         prepareQuery(queries, preparers, consumer);
+        if (boundedRead) {
+            // Cleanup may move an instance's minimum while the result sets are being read.
+            for (int i = 0; i < changeTables.length; i++) {
+                validateRetainedLowerBound(
+                        databaseName, changeTables[i], boundedLowerBounds[i], intervalToLsn);
+            }
+        }
+    }
+
+    private void validateRetainedLowerBound(
+            String databaseName, SqlServerChangeTable table, Lsn fromLsn, Lsn toLsn)
+            throws SQLException {
+        final Lsn minLsn = getMinLsn(databaseName, table.getCaptureInstance());
+        if (!isValidBound(minLsn)
+                || !isValidBound(fromLsn)
+                || fromLsn.compareTo(minLsn) < 0
+                || fromLsn.compareTo(toLsn) > 0) {
+            throw new SQLException(
+                    "Cannot complete bounded backfill: retained CDC range does not cover "
+                            + table.getSourceTableId()
+                            + " (capture instance "
+                            + table.getCaptureInstance()
+                            + ") from "
+                            + fromLsn
+                            + " through "
+                            + toLsn
+                            + " (current CDC minimum "
+                            + minLsn
+                            + ")");
+        }
+    }
+
+    private static boolean isValidBound(Lsn lsn) {
+        // SQL Server returns an all-zero minimum for an absent or unauthorized capture instance.
+        return lsn != null && lsn.isAvailable() && !ZERO_LSN.equals(lsn);
     }
 
     /** Overridden to make sure the prepared statement is closed after the query is executed. */

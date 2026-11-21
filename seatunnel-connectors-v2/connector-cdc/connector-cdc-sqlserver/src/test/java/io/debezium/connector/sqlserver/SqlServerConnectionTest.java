@@ -41,10 +41,82 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 public class SqlServerConnectionTest {
+
+    @Test
+    void testBoundedReadRejectsExpiredOrUnavailableCaptureEvenWithCachedStart() throws Exception {
+        String database = "test_db";
+        TableId table = new TableId(database, "dbo", "events");
+        Lsn cachedStart = Lsn.valueOf("00000001:00000001:0001");
+        Lsn from = Lsn.valueOf("00000001:00000002:0001");
+        Lsn to = Lsn.valueOf("00000001:00000003:0001");
+        SqlServerChangeTable capture =
+                new SqlServerChangeTable(
+                        table, "dbo_events", 1, cachedStart, Collections.emptyList());
+        Connection jdbc = mock(Connection.class);
+        SqlServerConnection connection = spy(new TestSqlServerConnection(jdbc));
+        doReturn(to).when(connection).getMaxLsn(database);
+        doReturn(to, Lsn.valueOf(new byte[10])).when(connection).getMinLsn(database, "dbo_events");
+
+        for (int i = 0; i < 2; i++) {
+            SQLException error =
+                    Assertions.assertThrows(
+                            SQLException.class,
+                            () ->
+                                    connection.getChangesForTables(
+                                            database,
+                                            new SqlServerChangeTable[] {capture},
+                                            from,
+                                            to,
+                                            true,
+                                            results ->
+                                                    Assertions.fail("Invalid interval was read")));
+            Assertions.assertTrue(error.getMessage().contains("retained CDC range"));
+            Assertions.assertTrue(error.getMessage().contains("dbo_events"));
+        }
+        verifyNoInteractions(jdbc);
+    }
+
+    @Test
+    void testBoundedReadRechecksTheBoundActuallyPassedToSqlServer() throws Exception {
+        String database = "test_db";
+        TableId table = new TableId(database, "dbo", "events");
+        Lsn from = Lsn.valueOf("00000001:00000001:0001");
+        Lsn captureStart = Lsn.valueOf("00000001:00000002:0001");
+        Lsn to = Lsn.valueOf("00000001:00000003:0001");
+        SqlServerChangeTable capture =
+                new SqlServerChangeTable(
+                        table, "dbo_events_v2", 1, captureStart, Collections.emptyList());
+        Connection jdbc = mock(Connection.class);
+        PreparedStatement query = mock(PreparedStatement.class);
+        ResultSet empty = mock(ResultSet.class);
+        when(jdbc.prepareStatement(anyString())).thenReturn(query);
+        when(query.executeQuery()).thenReturn(empty);
+        SqlServerConnection connection = spy(new TestSqlServerConnection(jdbc));
+        doReturn(to).when(connection).getMaxLsn(database);
+        doReturn(captureStart, to).when(connection).getMinLsn(database, "dbo_events_v2");
+
+        SQLException error =
+                Assertions.assertThrows(
+                        SQLException.class,
+                        () ->
+                                connection.getChangesForTables(
+                                        database,
+                                        new SqlServerChangeTable[] {capture},
+                                        from,
+                                        to,
+                                        true,
+                                        results -> Assertions.assertFalse(results[0].next())));
+        verify(query).setBytes(1, captureStart.getBinary());
+        Assertions.assertTrue(error.getMessage().contains("retained CDC range"));
+    }
 
     @Test
     void testGetTableSchemaFromTableFiltersOutWildcardTables() throws Exception {
@@ -119,7 +191,7 @@ public class SqlServerConnectionTest {
         Assertions.assertTrue(table.columns().isEmpty());
     }
 
-    private static final class TestSqlServerConnection extends SqlServerConnection {
+    private static class TestSqlServerConnection extends SqlServerConnection {
         private final Connection jdbcConnection;
 
         private TestSqlServerConnection(Connection jdbcConnection) {
