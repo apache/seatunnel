@@ -55,6 +55,7 @@ StarRocks数据接收器内部实现采用了缓存，通过stream load将数据
 | label_state_timeout_ms      | long    | 否    | 180000                       | 当 Stream Load 返回非终态结果（`Publish Timeout`、`Label Already Exists`、复用 label 的失败）时，接收器轮询 `get_load_state` 以确认事务状态的总时长，超时后刷新失败并由作业从 checkpoint 重放。默认 3 分钟，应小于作业的 checkpoint 超时时间。 |
 | schema_save_mode            | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 同步任务启动前，针对目标端已存在的表结构选择不同处理方式                                                                                       |
 | data_save_mode              | Enum    | 否    | APPEND_DATA                  | 同步任务启动前，针对目标端已存在的数据选择不同处理方式                                                                                         |
+| multi_table_sink_replica    | int     | 否    | 1                            | 多表作业中每张表的 sink writer 副本数                                                                                          |
 | table_options               | Map     | 否    | -                            | SaveMode 自动建表时合并进 CREATE TABLE PROPERTIES 的 Sink 专属表属性，详见表下方说明                                                      |
 | custom_sql                  | String  | 否    | -                            | 当 `data_save_mode` 设置为 `CUSTOM_PROCESSING` 时必须配置。该 SQL 会在同步任务启动前执行                                                |
 | multi_table_sink_replica    | int     | 否    | 1                            | 多表写入作业中每张表使用的写入器副本数，最小为 1                                                                                           |

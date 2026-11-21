@@ -48,6 +48,8 @@ SeaTunnel Worker 运行节点上可见的 Python 脚本路径。`source_code` �
 - `FAIL`：终止任务，并抛出 Python 错误。
 - `SKIP`：跳过当前行，继续处理后续数据。
 
+其他取值（如 `ROUTE_TO_TABLE`）虽然能通过配置校验，但 Python transform 在运行期会直接报不支持错误；此处仅支持 `FAIL` 和 `SKIP`。
+
 ### columns [array]
 
 声明 Python Transform 追加的输出字段。

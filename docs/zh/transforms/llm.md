@@ -19,6 +19,7 @@ LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输�
 | model                  | string | yes      |             |
 | api_key                    | string | 条件必填（OPENAI、DOUBAO、MICROSOFT、QIANFAN 时必填；QIANFAN 还需 `secret_key` 与 `oauth_path`） |             |
 | api_path               | string | no       |             |
+| process_batch_size     | int    | no       | 100         |
 | custom_config          | map    | no       |             |
 | custom_response_parse  | string | no       |             |
 | custom_request_headers | map    | no       |             |
