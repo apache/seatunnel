@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The {@code SplitAssigner} is responsible for deciding what split should be processed. It
@@ -114,5 +115,22 @@ public interface SplitAssigner {
 
         /** key: SnapshotSplit id */
         private final Map<String, SnapshotSplitWatermark> splitCompletedOffsets;
+
+        public Context(
+                C sourceConfig,
+                Set<TableId> capturedTables,
+                Map<String, SnapshotSplit> assignedSnapshotSplit,
+                Map<String, SnapshotSplitWatermark> splitCompletedOffsets) {
+            this.sourceConfig = sourceConfig;
+            this.capturedTables = capturedTables;
+            this.assignedSnapshotSplit =
+                    assignedSnapshotSplit == null
+                            ? new ConcurrentHashMap<>()
+                            : new ConcurrentHashMap<>(assignedSnapshotSplit);
+            this.splitCompletedOffsets =
+                    splitCompletedOffsets == null
+                            ? new ConcurrentHashMap<>()
+                            : new ConcurrentHashMap<>(splitCompletedOffsets);
+        }
     }
 }
