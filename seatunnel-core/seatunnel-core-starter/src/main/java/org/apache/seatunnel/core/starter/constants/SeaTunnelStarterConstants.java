@@ -18,5 +18,7 @@
 package org.apache.seatunnel.core.starter.constants;
 
 public class SeaTunnelStarterConstants {
+    public static final int HELP_EXIT_CODE = 0;
+
     public static final int USAGE_EXIT_CODE = 234;
 }
