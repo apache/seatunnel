@@ -186,6 +186,15 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                                     + "When set to false, the source reads the table as a single split "
                                     + "without any split analysis, which is useful for tables without indexes.");
 
+    public static final Option<Boolean> HANDLE_JSON_AS_STRING =
+            Options.key("handle_json_as_string")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "If true, native JSON columns that would be exposed as the JSON logical type "
+                                    + "(Snowflake VARIANT at now) are exposed as STRING, which is the "
+                                    + "schema produced before the JSON logical type was introduced.");
+
     public static final Option<Boolean> NUMERIC_SPECIAL_VALUE_AS_NULL =
             Options.key("numeric_special_value_as_null")
                     .booleanType()

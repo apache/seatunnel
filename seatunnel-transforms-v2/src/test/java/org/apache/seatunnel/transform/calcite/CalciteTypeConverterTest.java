@@ -91,6 +91,19 @@ class CalciteTypeConverterTest {
         assertRoundTrip(BasicType.STRING_TYPE, SqlTypeName.VARCHAR);
     }
 
+    /**
+     * Verifies that Calcite accepts the String-backed JSON logical type as VARCHAR.
+     *
+     * <p>Projected input fields retain JSON through the output row type derivation layer.
+     */
+    @Test
+    void testJsonType() {
+        RelDataType calciteType =
+                CalciteTypeConverter.toCalciteType(typeFactory, BasicType.JSON_TYPE);
+
+        Assertions.assertEquals(SqlTypeName.VARCHAR, calciteType.getSqlTypeName());
+    }
+
     @Test
     void testDecimalType() {
         DecimalType decimal = new DecimalType(18, 6);

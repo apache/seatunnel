@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.common.util.LegacyJsonTypeUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
@@ -37,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import lombok.SneakyThrows;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -62,11 +64,26 @@ public class JdbcSource
                     e);
         }
         this.jdbcSourceConfig = jdbcSourceConfig;
-        this.jdbcSourceTables =
+        Map<TablePath, JdbcSourceTable> tables =
                 JdbcCatalogUtils.getTables(
                         jdbcSourceConfig.getJdbcConnectionConfig(),
                         jdbcSourceConfig.getTableConfigList(),
                         jdbcSourceConfig.getMultiTableFailurePolicy());
+        if (jdbcSourceConfig.isHandleJsonAsString()) {
+            // Opt-out for the JSON logical type: expose inferred JSON columns (Snowflake VARIANT)
+            // as STRING again. The reader then uses the plain string path for those columns,
+            // which is exactly the behavior before the JSON logical type existed.
+            Map<TablePath, JdbcSourceTable> legacyTables = new LinkedHashMap<>();
+            tables.forEach(
+                    (tablePath, table) ->
+                            legacyTables.put(
+                                    tablePath,
+                                    table.withCatalogTable(
+                                            LegacyJsonTypeUtil.mapJsonColumnsToString(
+                                                    table.getCatalogTable()))));
+            tables = legacyTables;
+        }
+        this.jdbcSourceTables = tables;
     }
 
     @Override

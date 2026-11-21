@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -27,9 +28,25 @@ import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 
+import static com.mysql.cj.MysqlType.JSON;
 import static com.mysql.cj.MysqlType.UNKNOWN;
 
 public class DataTypeConvertorTest {
+
+    /**
+     * Verifies the catalog-level bidirectional JSON mapping.
+     *
+     * <p>Both discovery and table creation must preserve native StarRocks JSON columns.
+     */
+    @Test
+    void testJsonMapping() {
+        StarRocksDataTypeConvertor starrocks = new StarRocksDataTypeConvertor();
+
+        Assertions.assertEquals(
+                BasicType.JSON_TYPE, starrocks.toSeaTunnelType("payload", JSON, new HashMap<>()));
+        Assertions.assertEquals(
+                JSON, starrocks.toConnectorType("payload", BasicType.JSON_TYPE, new HashMap<>()));
+    }
 
     @Test
     void testConvertorErrorMsgWithUnsupportedType() {

@@ -180,7 +180,7 @@ You can use the following placeholders
 | STRING          | STRING                                  |
 | ARRAY           | ARRAY                                   |
 | MAP             | MAP                                     |
-| JSON            | STRING                                  |
+| JSON<br/>JSONB  | JSON                                    |
 | VARIANT         | STRING                                  |
 | IPV4<br/>IPV6   | STRING                                  |
 | HLL             | Not supported yet                       |
@@ -191,6 +191,9 @@ You can use the following placeholders
 #### Supported import data formats
 
 The supported formats include CSV and JSON
+
+SeaTunnel `JSON` fields contain JSON document text. JSON Stream Load validates the documents and encodes them as document strings for Doris to parse into native JSON columns, preserving boolean scalars and JSON null separately from SQL NULL. CSV writes the document text directly using the text format. The JSON value must be valid for the target Doris JSON/JSONB column.
+
 
 When writing to Doris `VARIANT` columns from SeaTunnel `STRING` fields, the field value should be a
 valid JSON document.
