@@ -335,6 +335,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
         PhysicalPlan physicalPlan = mock(PhysicalPlan.class);
         JobMaster jobMaster = mock(JobMaster.class);
         when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
+        when(jobMaster.isStatePersistenceAllowed()).thenReturn(true);
         when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
         doAnswer(
                         invocation -> {
@@ -356,7 +357,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
                             Collections.singletonList(vertex),
                             Collections.emptyList());
             subPlan.setJobMaster(jobMaster);
-            subPlan.setCurrPipelineStatus(PipelineStatus.FAILED);
+            subPlan.updatePipelineState(PipelineStatus.FAILED);
 
             String failure = "java.sql.SQLException: Access denied for user 'etl'@'10.0.1.7'";
             setErrorByPhysicalVertex(subPlan, failure);
@@ -383,6 +384,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
         CheckpointManager checkpointManager = mock(CheckpointManager.class);
         PhysicalPlan physicalPlan = mock(PhysicalPlan.class);
         when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
+        when(jobMaster.isStatePersistenceAllowed()).thenReturn(true);
         when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
         PhysicalVertex vertex = mockPhysicalVertex(ExecutionState.FAILED);
         doThrow(new IllegalStateException("vertex reset was fenced")).when(vertex).reset();
@@ -395,7 +397,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
                             Collections.singletonList(vertex),
                             Collections.emptyList());
             subPlan.setJobMaster(jobMaster);
-            subPlan.setCurrPipelineStatus(PipelineStatus.FAILED);
+            subPlan.updatePipelineState(PipelineStatus.FAILED);
 
             Assertions.assertFalse(invokePrepareRestorePipeline(subPlan));
             Assertions.assertEquals(PipelineStatus.FAILED, subPlan.getPipelineState());

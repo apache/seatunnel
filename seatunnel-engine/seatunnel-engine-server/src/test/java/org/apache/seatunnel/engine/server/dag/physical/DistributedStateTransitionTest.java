@@ -20,14 +20,15 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 
 import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.slf4j.Log4jLogger;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
@@ -35,6 +36,7 @@ import com.hazelcast.core.IndeterminateOperationStateException;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.exception.RetryableHazelcastException;
 
+import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -52,6 +54,7 @@ import static org.mockito.Mockito.when;
  * Verifies that distributed state updates preserve concurrent winners and publish transition side
  * effects only for successful compare-and-set operations.
  */
+@Isolated("Temporarily redirects the class logger to an isolated capture backend")
 class DistributedStateTransitionTest {
 
     private static final Object STATE_KEY = "state-key";
@@ -79,11 +82,19 @@ class DistributedStateTransitionTest {
     }
 
     @Test
-    void testExistingTerminalStateViolationRemainsAnError() {
+    void testExistingTerminalStateViolationRemainsAnError() throws ReflectiveOperationException {
         IMap<Object, Object> stateMap = mock(IMap.class);
         IMap<Object, Long[]> timestampMap = mock(IMap.class);
         when(stateMap.get(STATE_KEY)).thenReturn(ExecutionState.CANCELED);
-        Logger logger = (Logger) LogManager.getLogger(DistributedStateTransition.class);
+        // Earlier cluster tests can close a Log4j context whose logger is still cached by
+        // the production SLF4J bridge. Give that bridge an isolated capture backend so the
+        // test checks the real log call without restarting the retired shared context.
+        Field productionLogger = DistributedStateTransition.class.getDeclaredField("log");
+        productionLogger.setAccessible(true);
+        Object slf4jLogger = productionLogger.get(null);
+        Field delegateLogger = Log4jLogger.class.getDeclaredField("logger");
+        delegateLogger.setAccessible(true);
+        Object originalDelegate = delegateLogger.get(slf4jLogger);
         Appender appender = mock(Appender.class);
         when(appender.getName()).thenReturn("terminal-state-consistency-regression");
         when(appender.isStarted()).thenReturn(true);
@@ -96,31 +107,28 @@ class DistributedStateTransitionTest {
                         })
                 .when(appender)
                 .append(any(LogEvent.class));
-        LoggerContext loggerContext = logger.getContext();
-        boolean contextWasStopped = loggerContext.isStopped();
-        try {
-            // Cluster tests close the shared context during teardown to release log files.
-            // Restart it for this capture, then restore its previous lifecycle state below.
-            if (contextWasStopped) {
-                loggerContext.start();
-            }
+        try (LoggerContext captureContext = new LoggerContext("terminal-state-test")) {
+            Logger logger = captureContext.getLogger(DistributedStateTransition.class.getName());
             logger.addAppender(appender);
-            DistributedStateTransition.Result<ExecutionState> result =
-                    transition(stateMap, timestampMap, true);
+            logger.setAdditive(false);
+            logger.setLevel(Level.ERROR);
+            delegateLogger.set(slf4jLogger, logger);
+            try {
+                DistributedStateTransition.Result<ExecutionState> result =
+                        transition(stateMap, timestampMap, true);
 
-            Assertions.assertFalse(result.isTransitioned());
-            Assertions.assertEquals(ExecutionState.CANCELED, result.getCurrentState());
-            Assertions.assertNotNull(recorded.get());
-            Assertions.assertEquals(Level.ERROR, recorded.get().getLevel());
-            Assertions.assertEquals(
-                    "State entry state-key is trying to leave terminal state CANCELED for FAILED",
-                    recorded.get().getMessage().getFormattedMessage());
-            verify(stateMap, never()).replace(any(), any(), any());
-            verify(timestampMap, never()).set(any(), any());
-        } finally {
-            logger.removeAppender(appender);
-            if (contextWasStopped) {
-                loggerContext.stop();
+                Assertions.assertFalse(result.isTransitioned());
+                Assertions.assertEquals(ExecutionState.CANCELED, result.getCurrentState());
+                Assertions.assertNotNull(recorded.get());
+                Assertions.assertEquals(Level.ERROR, recorded.get().getLevel());
+                Assertions.assertEquals(
+                        "State entry state-key is trying to leave terminal state CANCELED for FAILED",
+                        recorded.get().getMessage().getFormattedMessage());
+                verify(stateMap, never()).replace(any(), any(), any());
+                verify(timestampMap, never()).set(any(), any());
+            } finally {
+                delegateLogger.set(slf4jLogger, originalDelegate);
+                logger.removeAppender(appender);
             }
         }
     }
