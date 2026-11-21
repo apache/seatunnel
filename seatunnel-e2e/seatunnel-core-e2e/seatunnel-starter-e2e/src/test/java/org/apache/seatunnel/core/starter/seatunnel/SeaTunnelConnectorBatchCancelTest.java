@@ -124,15 +124,22 @@ public class SeaTunnelConnectorBatchCancelTest extends TestSuiteBase implements 
                         .toArray(String[]::new);
         Assertions.assertEquals(0, container.executeBaseCommand(batchCancelCommand).getExitCode());
 
-        // Verify whether the cancellation is successful
-        for (String jobId : runningJobId) {
-            Assertions.assertEquals("CANCELED", jobStatus(container, jobId));
-        }
+        // Cancellation of running jobs must reach its terminal state after pipeline cleanup.
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            for (String jobId : runningJobId) {
+                                Assertions.assertEquals("CANCELED", jobStatus(container, jobId));
+                            }
+                        });
     }
 
     private String jobStatus(TestContainer container, String jobId)
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeBaseCommand(new String[] {"-j", jobId});
+        Assertions.assertEquals(
+                0, execResult.getExitCode(), "Job status query failed: " + execResult.getStderr());
         ObjectNode jsonNodes = JsonUtils.parseObject(execResult.getStdout());
         return jsonNodes.get("jobStatus").asText();
     }

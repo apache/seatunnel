@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -46,6 +47,7 @@ import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -82,6 +84,15 @@ import static org.mockito.Mockito.when;
 
 @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
 class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
+
+    private ExecutorService cancelExecutor;
+
+    @AfterEach
+    void closeCancelExecutor() {
+        if (cancelExecutor != null) {
+            cancelExecutor.shutdownNow();
+        }
+    }
 
     /**
      * A terminal callback can arrive after reset while the vertex is stopped. Resuming pipeline
@@ -188,6 +199,110 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
         planWithStateMaps.physicalPlan.updateJobState(JobStatus.CANCELING);
 
         Assertions.assertEquals(JobStatus.FAILED, planWithStateMaps.runningJobState.get(jobId));
+    }
+
+    /** A job that starts after the terminal guard must cancel its pipelines before completing. */
+    @Test
+    void testCancelJobObservesStartedJobBeforeChoosingCancellationPath() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+        prepareForCancel(planWithStateMaps);
+        PassiveCompletableFuture<?> jobEndFuture = planWithStateMaps.physicalPlan.initStateFuture();
+        SubPlan runningPipeline = Mockito.mock(SubPlan.class);
+        planWithStateMaps.physicalPlan.getPipelineList().clear();
+        planWithStateMaps.physicalPlan.getPipelineList().add(runningPipeline);
+        ReflectionUtils.setField(planWithStateMaps.physicalPlan, "isRunning", true);
+        planWithStateMaps.runningJobState.put(jobId, JobStatus.RUNNING);
+
+        @SuppressWarnings("unchecked")
+        IMap<Object, Object> divergingStateMap = Mockito.mock(IMap.class);
+        Mockito.when(divergingStateMap.get(jobId))
+                .thenReturn(JobStatus.PENDING)
+                .thenAnswer(invocation -> planWithStateMaps.runningJobState.get(jobId));
+        Mockito.doAnswer(
+                        invocation -> {
+                            planWithStateMaps.runningJobState.set(
+                                    invocation.getArgument(0), invocation.getArgument(1));
+                            return null;
+                        })
+                .when(divergingStateMap)
+                .set(Mockito.eq(jobId), Mockito.any());
+        ReflectionUtils.setField(
+                planWithStateMaps.physicalPlan, "runningJobStateIMap", divergingStateMap);
+
+        planWithStateMaps.physicalPlan.cancelJob();
+
+        Assertions.assertEquals(JobStatus.CANCELING, planWithStateMaps.runningJobState.get(jobId));
+        Mockito.verify(divergingStateMap, Mockito.never()).set(jobId, JobStatus.CANCELED);
+        InOrder cancellation = Mockito.inOrder(runningPipeline);
+        cancellation.verify(runningPipeline).markCancelRequested();
+        cancellation.verify(runningPipeline).cancelPipeline();
+        Assertions.assertFalse(jobEndFuture.isDone(), "Pipeline cancellation has not completed");
+    }
+
+    // These two pin the NOT_STARTED_STATUSES classification in PhysicalPlan: cancel on a
+    // not-started job goes straight to CANCELED, cancel on a running job goes through
+    // CANCELING. The pending-to-running ordering is covered separately above.
+    @Test
+    void testCancelOnNotStartedJobGoesStraightToCanceled() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+        prepareForCancel(planWithStateMaps);
+
+        planWithStateMaps.runningJobState.put(jobId, JobStatus.PENDING);
+
+        planWithStateMaps.physicalPlan.cancelJob();
+
+        Assertions.assertEquals(JobStatus.CANCELED, planWithStateMaps.runningJobState.get(jobId));
+    }
+
+    @Test
+    void testCancelOnRunningJobGoesThroughCanceling() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+        prepareForCancel(planWithStateMaps);
+
+        planWithStateMaps.runningJobState.put(jobId, JobStatus.RUNNING);
+
+        planWithStateMaps.physicalPlan.cancelJob();
+
+        Assertions.assertEquals(JobStatus.CANCELING, planWithStateMaps.runningJobState.get(jobId));
+    }
+
+    /**
+     * Pins what {@code cancelJob()} does when the job status entry has already been cleared.
+     *
+     * <p>{@code getJobStatus()} is a plain map read, so a cleared entry yields {@code null} and the
+     * {@code isEndState()} guard dereferences it. That pre-existing NPE is unchanged by replacing
+     * the ordinal comparison, but it is the one input the {@code NOT_STARTED_STATUSES} branch
+     * cannot answer, so it is asserted rather than left implicit.
+     *
+     * <p>Note: this test pins pre-existing behaviour rather than a desired design contract; it
+     * serves as a regression tripwire so any future change to cleared-state handling is deliberate.
+     */
+    @Test
+    void testCancelJobOnClearedJobStatusFailsAtTheEndStateGuard() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+        prepareForCancel(planWithStateMaps);
+
+        planWithStateMaps.runningJobState.remove(jobId);
+
+        Assertions.assertThrows(
+                NullPointerException.class, () -> planWithStateMaps.physicalPlan.cancelJob());
+    }
+
+    /**
+     * cancelJob() completes the job-end future and reports a state event, both of which need a job
+     * master and an initialized future; PlanUtils alone does not wire those up.
+     */
+    private void prepareForCancel(PlanWithStateMaps planWithStateMaps) {
+        JobMaster jobMaster = Mockito.mock(JobMaster.class);
+        Mockito.when(jobMaster.getEngineConfig()).thenReturn(new EngineConfig());
+        cancelExecutor = Executors.newCachedThreadPool();
+        Mockito.when(jobMaster.getExecutorService()).thenReturn(cancelExecutor);
+        planWithStateMaps.physicalPlan.setJobMaster(jobMaster);
+        planWithStateMaps.physicalPlan.initStateFuture();
     }
 
     @Test
