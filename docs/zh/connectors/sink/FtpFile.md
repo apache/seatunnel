@@ -225,7 +225,7 @@ FTP 控制连接的字符编码。默认值为 `UTF-8`。
 
 - csv：`lzo`  `none` 
 
-- orc：`lzo`  `snappy`  `lz4`  `zlib`  `none`  
+- orc：`lzo`  `snappy`  `lz4`  `zlib`  `zstd` `none`
 
 - parquet：`lzo`  `snappy`  `lz4`  `gzip`  `brotli`  `zstd`  `none` ` 
 
