@@ -781,6 +781,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                 .getEngineConfig()
                 .setTaskExecutionThreadShareMode(ThreadShareMode.PART);
 
+        CountDownLatch firstBlockingEnteredCall = new CountDownLatch(1);
+        CountDownLatch firstBlockingInterruptedExit = new CountDownLatch(1);
         AtomicInteger acceptedBlockingSubmits = new AtomicInteger();
         ExecutorService rejectingExecutor =
                 new ThreadPoolExecutor(
@@ -788,6 +790,15 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                     @Override
                     public Future<?> submit(Runnable task) {
                         if (acceptedBlockingSubmits.getAndIncrement() >= 1) {
+                            try {
+                                Assertions.assertTrue(
+                                        firstBlockingEnteredCall.await(10, TimeUnit.SECONDS),
+                                        "first blocking worker must enter call() before the second"
+                                                + " submit is rejected");
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                throw new RejectedExecutionException(e);
+                            }
                             throw new RejectedExecutionException(
                                     "reject after partial blocking submit");
                         }
@@ -809,6 +820,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         long testJobId = System.currentTimeMillis();
         TaskGroupLocation location = new TaskGroupLocation(testJobId, 1, 1);
         PartialSubmitProbeTask.reset();
+        PartialSubmitProbeTask.armCallGate(
+                2L, firstBlockingEnteredCall, firstBlockingInterruptedExit);
         PartialSubmitProbeTask shareTask = new PartialSubmitProbeTask(1L, true);
         PartialSubmitProbeTask firstBlockingTask = new PartialSubmitProbeTask(2L, false);
         PartialSubmitProbeTask secondBlockingTask = new PartialSubmitProbeTask(3L, false);
@@ -854,6 +867,9 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                     Assertions.assertTrue(
                                             PartialSubmitProbeTask.observedInterruption(),
                                             "orphaned tasks from the failed attempt must observe interruption"));
+            Assertions.assertTrue(
+                    firstBlockingInterruptedExit.await(10, TimeUnit.SECONDS),
+                    "started blocking probe must finish after rollback interruption");
             Assertions.assertTrue(
                     classLoaderService.queryClassLoaderById(testJobId, testJars).isPresent());
             Assertions.assertEquals(
@@ -1846,6 +1862,11 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         private static final AtomicInteger CALL_COUNT = new AtomicInteger();
         private static final AtomicBoolean STOP = new AtomicBoolean();
         private static final AtomicBoolean INTERRUPTED = new AtomicBoolean();
+        private static final AtomicReference<CountDownLatch> FIRST_BLOCKING_CALL_ENTERED =
+                new AtomicReference<>();
+        private static final AtomicReference<CountDownLatch> FIRST_BLOCKING_INTERRUPT_EXIT =
+                new AtomicReference<>();
+        private static long firstBlockingTaskIdForGate = -1L;
 
         private final long taskId;
         private final boolean threadsShare;
@@ -1855,10 +1876,20 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             this.threadsShare = threadsShare;
         }
 
+        private static void armCallGate(
+                long blockingTaskId, CountDownLatch enteredCall, CountDownLatch interruptedExit) {
+            firstBlockingTaskIdForGate = blockingTaskId;
+            FIRST_BLOCKING_CALL_ENTERED.set(enteredCall);
+            FIRST_BLOCKING_INTERRUPT_EXIT.set(interruptedExit);
+        }
+
         private static void reset() {
             CALL_COUNT.set(0);
             STOP.set(false);
             INTERRUPTED.set(false);
+            firstBlockingTaskIdForGate = -1L;
+            FIRST_BLOCKING_CALL_ENTERED.set(null);
+            FIRST_BLOCKING_INTERRUPT_EXIT.set(null);
         }
 
         private static int callCount() {
@@ -1872,6 +1903,12 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         @Override
         public ProgressState call() {
             CALL_COUNT.incrementAndGet();
+            if (!threadsShare && taskId == firstBlockingTaskIdForGate) {
+                CountDownLatch enteredCall = FIRST_BLOCKING_CALL_ENTERED.get();
+                if (enteredCall != null) {
+                    enteredCall.countDown();
+                }
+            }
             if (STOP.get()) {
                 return ProgressState.DONE;
             }
@@ -1880,6 +1917,12 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             } catch (InterruptedException e) {
                 INTERRUPTED.set(true);
                 Thread.currentThread().interrupt();
+                if (!threadsShare && taskId == firstBlockingTaskIdForGate) {
+                    CountDownLatch interruptedExit = FIRST_BLOCKING_INTERRUPT_EXIT.get();
+                    if (interruptedExit != null) {
+                        interruptedExit.countDown();
+                    }
+                }
                 return ProgressState.DONE;
             }
             return ProgressState.MADE_PROGRESS;
