@@ -304,6 +304,8 @@ sink {
 }
 ```
 
+> **注意（schema 演进 + 批量写入）：** 在应用 DDL 之前，StarRocks sink 会先把按旧 schema 缓冲的数据（`batch_max_rows` / `batch_max_bytes`）加载到 StarRocks，因此 schema 变更不会丢弃未写完的批次。如果这次加载失败，DDL 不会执行并抛出错误：引擎会从上一次 checkpoint 重放数据，多表重试则会用同一个 label 重新发送该批次。
+
 ### Mysql-CDC -> Doris
 ```
 env {
