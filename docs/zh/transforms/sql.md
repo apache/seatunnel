@@ -65,6 +65,50 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 因此，在精确类型与浮点类型混用时，等号不一定满足传递性；需要精度保证时，请统一使用精确类型的操作数。
 以上规则适用于 `ZETA` 和 `INTERNAL` 两种 SQL 引擎设置。
 
+## 模式匹配
+
+`WHERE` 子句和 `CASE WHEN` 条件中支持 `LIKE`、`NOT LIKE`、`RLIKE`、`REGEXP` 和 `ILIKE`。
+
+### LIKE 与 NOT LIKE
+
+在 LIKE 模式中，`%` 匹配任意长度的字符序列，`_` 匹配恰好一个字符，其余字符均按字面匹配。
+通配符在模式的任意位置都生效，不限于开头或结尾：
+
+| 谓词 | 值 | 结果 |
+|---|---|---|
+| `name LIKE 'Al%'` | `Alice` | `true` |
+| `name LIKE 'A%ce'` | `Alice` | `true` |
+| `name LIKE '_li%'` | `Alice` | `true` |
+| `name LIKE 'A_i_e'` | `Alice` | `true` |
+| `name LIKE '%%%%'` | `Alice` | `true` |
+| `name LIKE '1.5'` | `125` | `false` |
+
+除 `%` 和 `_` 以外的字符一律按字面比较，因此正则表达式中的特殊字符在这里没有特殊含义：
+`'125' LIKE '1.5'` 为 `false`，因为 `.` 必须匹配字面的点号；`name LIKE 'a(b%'` 是合法模式，不会报错。
+
+`%` 和 `_` 也可以匹配换行符，因此 `"a\nb" LIKE 'a%b'` 为 `true`。
+
+如果任一操作数为 `NULL`，`LIKE` 和 `NOT LIKE` 谓词均求值为 false，因为与 `NULL` 比较的结果是未知。
+在 `where` 子句中该行会被丢弃；在 `case when` 条件中则会走 `else` 分支。
+
+### RLIKE 与 REGEXP
+
+`RLIKE` 和 `REGEXP` 是同义词。其右侧是正则表达式，语义与 `Pattern.matches` 相同：
+模式必须匹配整个值，如需子串搜索请使用 `.*`。
+
+```sql
+select id, name from dual where name RLIKE 'A.*e'      -- 匹配 Alice
+select id, name from dual where name REGEXP '^A.*e$'   -- 等价，显式加锚点
+```
+
+模式按原样使用，`%` 和 `_` 在这里是普通字符，不是通配符。
+
+### 限制
+
+- 不支持 `LIKE ... ESCAPE`。目前无法在 LIKE 模式中匹配字面的 `%` 或 `_`，
+  并且 `ESCAPE` 子句会被忽略而不是被拒绝。
+- `ILIKE` 可以被解析，但目前行为与 `LIKE` 相同，即区分大小写。
+
 ## 示例
 
 源端数据读取的表格如下：
