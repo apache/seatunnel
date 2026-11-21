@@ -48,6 +48,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CalciteTransform extends AbstractCatalogSupportFlatMapTransform {
 
+    private transient boolean closed;
+
     public static final String PLUGIN_NAME = "Calcite";
 
     private final String sql;
@@ -72,8 +74,19 @@ public class CalciteTransform extends AbstractCatalogSupportFlatMapTransform {
 
     @Override
     public void open() {
-        engine = new CalciteSQLEngine(sql, inputTableName, inputCatalogTable.getSeaTunnelRowType());
-        engine.init();
+        synchronized (this) {
+            if (closed) {
+                throw new IllegalStateException("Transform is closed");
+            }
+            // Schema discovery may already have initialized this instance.
+            if (engine != null) {
+                return;
+            }
+            engine =
+                    new CalciteSQLEngine(
+                            sql, inputTableName, inputCatalogTable.getSeaTunnelRowType());
+            engine.init();
+        }
     }
 
     private void tryOpen() {
@@ -195,13 +208,22 @@ public class CalciteTransform extends AbstractCatalogSupportFlatMapTransform {
 
     private void closeEngine() {
         if (engine != null) {
-            engine.close();
-            engine = null;
+            try {
+                engine.close();
+            } finally {
+                engine = null;
+            }
         }
     }
 
     @Override
     public void close() {
-        closeEngine();
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            closeEngine();
+        }
     }
 }
