@@ -55,8 +55,6 @@ public class BufferReducedBatchStatementExecutor
     // INSERT, and a DELETE followed by an INSERT as an UPDATE.
     @NonNull private final Map<Object, Boolean> existedBeforeBatch = new HashMap<>();
 
-    private boolean flushFailed;
-
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
         upsertExecutor.prepareStatements(connection);
@@ -95,57 +93,48 @@ public class BufferReducedBatchStatementExecutor
 
     @Override
     public void executeBatch() throws SQLException {
-        try {
-            Boolean preChangeFlag = null;
-            for (Map.Entry<Object, Triple<Boolean, SeaTunnelRow, SeaTunnelRow>> entry :
-                    buffer.entrySet()) {
-                Triple<Boolean, SeaTunnelRow, SeaTunnelRow> bufferedRow = entry.getValue();
-                Boolean currentChangeFlag = bufferedRow.getLeft();
-                if (currentChangeFlag) {
-                    if (preChangeFlag != null && !preChangeFlag) {
-                        deleteExecutor.executeBatch();
-                    }
-                    SeaTunnelRow value = bufferedRow.getRight().copy();
-                    value.setRowKind(
-                            existedBeforeBatch.getOrDefault(entry.getKey(), true)
-                                    ? RowKind.UPDATE_AFTER
-                                    : RowKind.INSERT);
-                    upsertExecutor.addToBatch(value);
-                } else {
-                    if (preChangeFlag != null && preChangeFlag) {
-                        upsertExecutor.executeBatch();
-                    }
-                    deleteExecutor.addToBatch(bufferedRow.getMiddle());
-                }
-                preChangeFlag = currentChangeFlag;
-            }
-
-            if (preChangeFlag != null) {
-                if (preChangeFlag) {
-                    upsertExecutor.executeBatch();
-                } else {
+        Boolean preChangeFlag = null;
+        for (Map.Entry<Object, Triple<Boolean, SeaTunnelRow, SeaTunnelRow>> entry :
+                buffer.entrySet()) {
+            Triple<Boolean, SeaTunnelRow, SeaTunnelRow> bufferedRow = entry.getValue();
+            Boolean currentChangeFlag = bufferedRow.getLeft();
+            if (currentChangeFlag) {
+                if (preChangeFlag != null && !preChangeFlag) {
                     deleteExecutor.executeBatch();
                 }
+                SeaTunnelRow value = bufferedRow.getRight().copy();
+                value.setRowKind(
+                        existedBeforeBatch.getOrDefault(entry.getKey(), true)
+                                ? RowKind.UPDATE_AFTER
+                                : RowKind.INSERT);
+                upsertExecutor.addToBatch(value);
+            } else {
+                if (preChangeFlag != null && preChangeFlag) {
+                    upsertExecutor.executeBatch();
+                }
+                deleteExecutor.addToBatch(bufferedRow.getMiddle());
             }
-            buffer.clear();
-            existedBeforeBatch.clear();
-            flushFailed = false;
-        } catch (SQLException e) {
-            flushFailed = true;
-            throw e;
+            preChangeFlag = currentChangeFlag;
         }
+
+        if (preChangeFlag != null) {
+            if (preChangeFlag) {
+                upsertExecutor.executeBatch();
+            } else {
+                deleteExecutor.executeBatch();
+            }
+        }
+        buffer.clear();
+        existedBeforeBatch.clear();
     }
 
+    /**
+     * Closes resources without executing a pending batch, preventing replay after flush failure.
+     */
     @Override
     public void closeStatements() throws SQLException {
-        try {
-            if (!buffer.isEmpty() && !flushFailed) {
-                executeBatch();
-            }
-        } finally {
-            upsertExecutor.closeStatements();
-            deleteExecutor.closeStatements();
-        }
+        upsertExecutor.closeStatements();
+        deleteExecutor.closeStatements();
     }
 
     @Override
