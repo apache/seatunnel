@@ -552,16 +552,31 @@ public class PhysicalVertex {
                                 Constant.OPERATION_RETRY_SLEEP));
             } catch (Exception e) {
                 log.warn(ExceptionUtils.getMessage(e));
-                // If master/worker node done, The job will restore and fix the state from
-                // TaskExecutionService
+                // Keep the in-memory state aligned with the IMap: this vertex keeps its terminal
+                // state and will not be redeployed. Resetting the in-memory state anyway would
+                // deploy a vertex whose transitions the terminal-state guard then rejects,
+                // hanging the pipeline at DEPLOYING forever (#13314); SubPlan detects such a
+                // vertex during deployment and fails the pipeline so the restore path can retry.
                 log.warn(
                         String.format(
-                                "Set %s state %s to Imap failed, skip.",
-                                getTaskFullName(), ExecutionState.CREATED));
+                                "Set %s state %s to Imap failed, keep the terminal state %s.",
+                                getTaskFullName(), ExecutionState.CREATED, executionState));
+                return;
             }
             this.currExecutionState = ExecutionState.CREATED;
             log.info(String.format("%s turn to state %s.", taskFullName, ExecutionState.CREATED));
         }
+    }
+
+    /**
+     * Whether a terminal result of the current attempt has already been received by this vertex.
+     *
+     * <p>A vertex in a terminal state whose result has not arrived yet cannot end the pipeline on
+     * its own, which is how an undeployable vertex is recognized during pipeline deployment (see
+     * {@code SubPlan#stateProcess}).
+     */
+    boolean hasTerminalResult() {
+        return taskFuture.isDone();
     }
 
     public void reset() {
