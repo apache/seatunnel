@@ -41,6 +41,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkFactory;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -72,6 +73,98 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 public class MultipleTableJobConfigParserTest {
+
+    @Test
+    public void testRejectsMultiTableSourceForSingleInputSink() {
+        assertSingleInputSinkRejection(
+                "FakeSource { plugin_output=left, tables_configs=["
+                        + inputTable("source.one")
+                        + ","
+                        + inputTable("source.two")
+                        + "] }",
+                "left",
+                false);
+    }
+
+    @Test
+    public void testRejectsUnionForSingleInputSink() {
+        assertSingleInputSinkRejection(unionSources(), "[left,right]", false);
+    }
+
+    @Test
+    public void testSampleDryRunRejectsUnionForSingleInputSink() {
+        assertSingleInputSinkRejection(unionSources(), "[left,right]", true);
+    }
+
+    @Test
+    public void testAcceptsSingleInputForSingleInputSink() {
+        Assertions.assertEquals(
+                1,
+                singleInputSinkPlanner(
+                                "FakeSource { plugin_output=left, tables_configs=["
+                                        + inputTable("source.one")
+                                        + "] }",
+                                "left",
+                                false)
+                        .parse(null)
+                        .getLeft()
+                        .size());
+    }
+
+    private void assertSingleInputSinkRejection(String sources, String inputs, boolean sample) {
+        IllegalArgumentException failure =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> singleInputSinkPlanner(sources, inputs, sample).parse(null));
+        Assertions.assertTrue(failure.getMessage().contains("requires a single input table"));
+    }
+
+    private String unionSources() {
+        return "FakeSource { plugin_output=left, tables_configs=["
+                + inputTable("source.one")
+                + "] }\n"
+                + "FakeSource { plugin_output=right, tables_configs=["
+                + inputTable("source.two")
+                + "] }";
+    }
+
+    private String inputTable(String name) {
+        return "{ schema { table=\"" + name + "\", fields { id=bigint } } }";
+    }
+
+    private MultipleTableJobConfigParser singleInputSinkPlanner(
+            String sources, String inputs, boolean sample) {
+        Common.setDeployMode(DeployMode.CLIENT);
+        Config config =
+                ConfigFactory.parseString(
+                        "env { parallelism=1, job.mode=BATCH }\n"
+                                + "source {\n"
+                                + sources
+                                + "\n}\n"
+                                + "sink { SingleInputTestSink { plugin_input="
+                                + inputs
+                                + " } }");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        if (sample) {
+            DryRunSampleConfig.configure(jobConfig, 10, false);
+        }
+        return new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig);
+    }
+
+    public static class SingleInputTestSinkFactory extends ConsoleSinkFactory {
+        @Override
+        public String factoryIdentifier() {
+            return "SingleInputTestSink";
+        }
+
+        @Override
+        public void validateInputTableCount(ReadonlyConfig options, int inputTableCount) {
+            if (inputTableCount > 1) {
+                throw new IllegalArgumentException("Test sink requires a single input table");
+            }
+        }
+    }
 
     @Test
     public void testSampleDryRunReplacesConfiguredSink() {

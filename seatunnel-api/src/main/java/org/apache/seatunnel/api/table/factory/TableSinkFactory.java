@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.connector.TableSink;
 
 import java.util.Collections;
@@ -44,6 +45,14 @@ public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT
         throw new UnsupportedOperationException(
                 "The Factory has not been implemented and the deprecated Plugin will be used.");
     }
+
+    /**
+     * Validates the number of input tables for this sink.
+     *
+     * @param options sink configuration options
+     * @param inputTableCount total number of input tables across all upstream vertices
+     */
+    default void validateInputTableCount(ReadonlyConfig options, int inputTableCount) {}
 
     @Deprecated
     default List<String> excludeTablePlaceholderReplaceKeys() {

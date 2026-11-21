@@ -134,13 +134,22 @@ public class SinkExecuteProcessor
             dataset.sparkSession().read().option(EnvCommonOptions.PARALLELISM.key(), parallelism);
             Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
             List<MultiTableFailedTable> currentSkippedTables = new ArrayList<>();
+            ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sinkConfig);
+            plugins.get(i)
+                    .filter(TableSinkFactory.class::isInstance)
+                    .map(TableSinkFactory.class::cast)
+                    .ifPresent(
+                            sinkFactory ->
+                                    sinkFactory.validateInputTableCount(
+                                            readonlyConfig,
+                                            datasetTableInfo.getCatalogTables().size()));
             for (CatalogTable catalogTable : datasetTableInfo.getCatalogTables()) {
                 SeaTunnelSink<Object, Object, Object, Object> sink;
                 try {
                     sink =
                             FactoryUtil.createAndPrepareSink(
                                     catalogTable,
-                                    ReadonlyConfig.fromConfig(sinkConfig),
+                                    readonlyConfig,
                                     classLoader,
                                     sinkConfig.getString(PLUGIN_NAME.key()),
                                     fallbackCreateSink,

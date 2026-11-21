@@ -49,7 +49,9 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.ChangeStreamTableSourceCheckpoint;
+import org.apache.seatunnel.api.table.factory.FactoryException;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.Constants;
@@ -230,10 +232,7 @@ public class MultipleTableJobConfigParser {
         List<URL> sourceConnectorJars = getConnectorJarList(sourceConfigs, PluginType.SOURCE);
         List<URL> transformConnectorJars =
                 getConnectorJarList(transformConfigs, PluginType.TRANSFORM);
-        List<URL> sinkConnectorJars =
-                DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())
-                        ? Collections.emptyList()
-                        : getConnectorJarList(sinkConfigs, PluginType.SINK);
+        List<URL> sinkConnectorJars = getConnectorJarList(sinkConfigs, PluginType.SINK);
         ClassLoader parentClassLoader = Thread.currentThread().getContextClassLoader();
 
         // source and transform use the same classloader
@@ -653,6 +652,23 @@ public class MultipleTableJobConfigParser {
         Set<URL> jarUrls = new HashSet<>();
         if (!DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
             jarUrls.addAll(getSinkPluginJarPaths(sinkConfig));
+        }
+
+        // Validate full input cardinality before creating per-table or union sinks.
+        int inputTableCount = inputVertices.stream().mapToInt(List::size).sum();
+        if (inputTableCount > 1) {
+            Optional<TableSinkFactory> sinkFactoryOptional;
+            try {
+                sinkFactoryOptional =
+                        FactoryUtil.discoverOptionalFactory(
+                                classLoader, TableSinkFactory.class, factoryId);
+            } catch (FactoryException e) {
+                // Defer discovery errors to the existing per-table handling.
+                sinkFactoryOptional = Optional.empty();
+            }
+            if (sinkFactoryOptional.isPresent()) {
+                sinkFactoryOptional.get().validateInputTableCount(readonlyConfig, inputTableCount);
+            }
         }
         List<SinkAction<?, ?, ?, ?>> sinkActions = new ArrayList<>();
         int failedTableStartIndex = failedTables.size();
