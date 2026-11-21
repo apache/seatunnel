@@ -179,6 +179,7 @@ class WALDisruptorBoundedAdmissionTest {
 
         long overflowId = RequestFutureCache.getRequestId();
         AtomicBoolean admitted = new AtomicBoolean(true);
+        AtomicBoolean interruptPreservedOnExit = new AtomicBoolean(false);
         CountDownLatch publishStarted = new CountDownLatch(1);
         Thread publisher =
                 new Thread(
@@ -190,6 +191,7 @@ class WALDisruptorBoundedAdmissionTest {
                                             WALEventType.APPEND,
                                             overflowId,
                                             TimeUnit.SECONDS.toNanos(30)));
+                            interruptPreservedOnExit.set(Thread.currentThread().isInterrupted());
                         },
                         "wal-saturated-publisher");
         publisher.start();
@@ -200,7 +202,8 @@ class WALDisruptorBoundedAdmissionTest {
 
         Assertions.assertFalse(admitted.get(), "interrupted admission must fail");
         Assertions.assertTrue(
-                publisher.isInterrupted(), "the waiting thread's interrupt status must remain set");
+                interruptPreservedOnExit.get(),
+                "tryPublish must return without clearing the caller's interrupt status");
         Assertions.assertNull(RequestFutureCache.get(overflowId));
     }
 
