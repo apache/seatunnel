@@ -204,6 +204,15 @@ class HighByWhatWasTouchedTest(unittest.TestCase):
                      "seatunnel-edge-agent/src/main/java/A.java", "seatunnel-e2e/seatunnel-engine-e2e/pom.xml"):
             self.assertEqual(score([f(path)])["level"], MEDIUM, path)
 
+    def test_tooling_does_not_hide_a_medium_unclassified_floor(self):
+        result = score([f("seatunnel-cli/src/cli.py"), f(".dlc.json")])
+        self.assertEqual((result["base"], result["level"], result["class"]), (MEDIUM, MEDIUM, "other"))
+
+    def test_tooling_does_not_hide_a_medium_shared_connector_floor(self):
+        shared = "seatunnel-connectors-v2/connector-file/connector-file-base/src/main/java/a/ReaderHelper.java"
+        result = score([f("seatunnel-cli/src/cli.py"), f(shared), TEST])
+        self.assertEqual((result["base"], result["level"], result["class"]), (MEDIUM, MEDIUM, "shared"))
+
     def test_repository_permissions_file_is_high(self):
         self.assertEqual(score([f(".asf.yaml")])["level"], HIGH)
 
@@ -836,7 +845,7 @@ class FakeGitHub(object):
 
     def get(self, path):
         assert path.endswith("/pulls/%d" % self.pr["number"]), path
-        return self.pr
+        return dict(self.pr, head=dict(self.pr["head"]))
 
     def paginate(self, path):
         if path.endswith("/files"):
@@ -879,6 +888,41 @@ class ApplyTest(unittest.TestCase):
         gh = FakeGitHub(fake_pr("a" * 40), [f("docs/en/a.md")], [])
         self.assertEqual(impact.run_evaluate(gh, 7, impact.Config({}), expect_head="b" * 40, apply=True), "stale")
         self.assertEqual((gh.writes, open(self.tmp.name).read()), ([], ""))
+
+    def test_apply_rechecks_head_after_collecting_files_and_labels(self):
+        for endpoint in ("/files", "/labels"):
+            with self.subTest(endpoint=endpoint):
+                gh = FakeGitHub(fake_pr("a" * 40), [f("docs/en/a.md")], [])
+                paginate = gh.paginate
+
+                def move_head(path):
+                    if path.endswith(endpoint):
+                        gh.pr["head"]["sha"] = "b" * 40
+                    return paginate(path)
+
+                gh.paginate = move_head
+                self.assertEqual(
+                    impact.run_evaluate(gh, 7, impact.Config({}), expect_head="a" * 40, apply=True),
+                    "stale",
+                )
+                self.assertEqual((gh.writes, open(self.tmp.name).read()), ([], ""))
+
+    def test_apply_reports_head_movement_during_write_without_rollback(self):
+        gh = FakeGitHub(fake_pr("a" * 40), [f("docs/en/a.md")], ["impact: high"])
+        write = gh.write
+
+        def move_head(*args, **kwargs):
+            status = write(*args, **kwargs)
+            gh.pr["head"]["sha"] = "b" * 40
+            return status
+
+        gh.write = move_head
+        self.assertEqual(
+            impact.run_evaluate(gh, 7, impact.Config({}), expect_head="a" * 40, apply=True),
+            "stale-after-write",
+        )
+        self.assertEqual(gh.writes, [("POST", "7/labels", {"labels": ["impact: low"]})])
+        self.assertIn("head moved during label update", open(self.tmp.name).read())
 
     def test_apply_with_matching_head_labels(self):
         gh = FakeGitHub(fake_pr("a" * 40), [f("docs/en/a.md")], [])

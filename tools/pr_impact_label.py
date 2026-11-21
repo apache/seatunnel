@@ -690,27 +690,27 @@ def evaluate(pr, files, cfg=None, known=None):
     if new_keys:
         sc.adjust(2, "option-added", "-", "new option key(s) added to an existing connector: %s" % ", ".join(sorted(new_keys)))
 
-    # ---- base level
+    # ---- base level: combine every applicable floor before naming its representative class.
     platform_base = max((level for _p, _r, level in platform), default=LOW)
-    if platform and (not core_connectors or platform_base == HIGH):
-        base = platform_base
-        pr_class = {HIGH: "platform", MEDIUM: "platform", LOW: "tooling"}[base]
-    elif core_connectors:
-        base, pr_class = HIGH, "core-connector"
-    elif other:
-        base, pr_class = MEDIUM, "other"
-    elif shared_units:
-        base, pr_class = MEDIUM, "shared"
-    elif new_modules:
-        base, pr_class = LOW, "new-connector"
-    elif units:
-        base, pr_class = LOW, "connector"
-    elif registration_touched:
-        base, pr_class = LOW, "registration"
-    elif tests:
-        base, pr_class = LOW, "tests"
-    else:
-        base, pr_class = LOW, "docs"
+    # Prepend in display-priority order (platform > core > other > shared > low-only classes).
+    floors = [(LOW, "docs")]
+    if tests:
+        floors.insert(0, (LOW, "tests"))
+    if registration_touched:
+        floors.insert(0, (LOW, "registration"))
+    if units:
+        floors.insert(0, (LOW, "connector"))
+    if new_modules:
+        floors.insert(0, (LOW, "new-connector"))
+    if shared_units:
+        floors.insert(0, (MEDIUM, "shared"))
+    if other:
+        floors.insert(0, (MEDIUM, "other"))
+    if core_connectors:
+        floors.insert(0, (HIGH, "core-connector"))
+    if platform:
+        floors.insert(0, (platform_base, "tooling" if platform_base == LOW else "platform"))
+    base, pr_class = max(floors, key=lambda floor: floor[0])
 
     # ---- whole-PR adjustments
     if len(units | shared_units) > 1:
@@ -1058,32 +1058,51 @@ def write_summary(report, env=None):
             fh.write(report + "\n")
 
 
-def apply_label(gh, number, level):
-    existing = [x["name"] for x in gh.paginate("/repos/%s/issues/%d/labels" % (gh.repo, number))]
+def apply_label(gh, number, level, evaluated_head):
+    pr_path = "/repos/%s/pulls/%d" % (gh.repo, number)
+    labels_path = "/repos/%s/issues/%d/labels" % (gh.repo, number)
+    existing = [x["name"] for x in gh.paginate(labels_path)]
     to_add, to_remove = plan_label_changes(existing, level)
     # Add before removing so the PR never has zero impact labels in between.
+    writes = []
     if to_add:
-        gh.write("POST", "/repos/%s/issues/%d/labels" % (gh.repo, number), {"labels": to_add})
-    for name in to_remove:
-        gh.write("DELETE", "/repos/%s/issues/%d/labels/%s" % (gh.repo, number, urllib.parse.quote(name, safe="")),
-                 tolerate=(404,))
+        writes.append(("POST", labels_path, {"labels": to_add}, ()))
+    writes.extend(("DELETE", "%s/%s" % (labels_path, urllib.parse.quote(name, safe="")), None, (404,))
+                  for name in to_remove)
+    # GitHub's issue-label endpoint has no compare-and-set on PR head. Check just before the
+    # first mutation and after each write (also before any follow-on DELETE). Do not roll back
+    # on drift: that could remove a label for the new head.
+    if gh.get(pr_path)["head"]["sha"] != evaluated_head:
+        return "stale"
+    for method, path, body, tolerate in writes:
+        gh.write(method, path, body, tolerate=tolerate)
+        if gh.get(pr_path)["head"]["sha"] != evaluated_head:
+            return "stale-after-write"
+    return "applied"
 
 
 def run_evaluate(gh, number, cfg, expect_head=None, apply=False):
-    """Evaluate one PR; return 'stale' when the head moved past `expect_head`, else 'applied' or 'reported'."""
+    """Evaluate one PR and distinguish stale snapshots from possible post-write drift."""
     pr, result = evaluate_pr(gh, number, cfg)
     head = pr["head"]["sha"]
     if expect_head and head != expect_head:
         # The labelling run was triggered for an older commit; a newer run will handle the current head.
         print("PR #%d head is %s, expected %s: nothing applied" % (number, head[:12], expect_head[:12]))
         return "stale"
+    outcome = apply_label(gh, number, result["level"], head) if apply else "reported"
+    if outcome == "stale":
+        print("PR #%d head moved after evaluation of %s: nothing applied" % (number, head[:12]))
+        return outcome
+    if outcome == "stale-after-write":
+        message = ("PR #%d head moved during label update for %s; "
+                   "a newer run must reconcile the labels." % (number, head[:12]))
+        print(message)
+        write_summary(message)
+        return outcome
     report = render_report(result, head)
     print(report)
     write_summary(report)
-    if apply:
-        apply_label(gh, number, result["level"])
-        return "applied"
-    return "reported"
+    return outcome
 
 
 def main(argv=None):
