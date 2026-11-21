@@ -116,7 +116,9 @@ public class MySqlIncrementalSourceStartupConfigTest {
         @Override
         public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(
                 ReadonlyConfig options) {
-            return index -> Mockito.mock(JdbcSourceConfig.class);
+            JdbcSourceConfig config = Mockito.mock(JdbcSourceConfig.class);
+            Mockito.when(config.getStartupConfig()).thenReturn(createStartupConfig(options));
+            return index -> config;
         }
 
         @Override

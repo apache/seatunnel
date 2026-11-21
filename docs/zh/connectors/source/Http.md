@@ -216,7 +216,7 @@ source {
 sink {
   LocalFile {
     path = "/tmp/download"
-    file_format = "binary"
+    file_format_type = "binary"
   }
 }
 ```

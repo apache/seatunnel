@@ -55,6 +55,7 @@
         <module>connector-intercom-e2e</module>
         <module>connector-typeform-e2e</module>
         <module>connector-mailchimp-e2e</module>
+        <module>connector-amplitude-e2e</module>
         <module>connector-http-e2e</module>
         <module>connector-paypal-e2e</module>
         <module>connector-woocommerce-e2e</module>
@@ -100,6 +101,7 @@
         <module>connector-hudi-e2e</module>
         <module>connector-milvus-e2e</module>
         <module>connector-activemq-e2e</module>
+        <module>connector-jms-e2e</module>
         <module>connector-prometheus-e2e</module>
         <module>connector-sentry-e2e</module>
         <module>connector-qdrant-e2e</module>
