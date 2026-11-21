@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -24,6 +25,10 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.StateRestoreException;
+import org.apache.seatunnel.engine.server.checkpoint.StateRestoreExceptionTest;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -358,6 +363,57 @@ public class SourceSplitEnumeratorTaskTest {
         Assertions.assertInstanceOf(AssignSplitOperation.class, operation);
         Assertions.assertEquals(firstReader, readField(operation, "taskID"));
         Assertions.assertTrue(((java.util.List<?>) readField(operation, "splits")).isEmpty());
+    }
+
+    @Test
+    void testRestoreStateNamesTheActionWhenEnumeratorStateIsUnreadable() throws Exception {
+        SourceSplitEnumeratorTask enumeratorTask = createRestoringEnumeratorTask();
+        ActionSubtaskState state =
+                new ActionSubtaskState(
+                        new ActionStateKey("ActionStateKey - fake"),
+                        -1,
+                        Collections.singletonList(
+                                StateRestoreExceptionTest.stateWrittenByAnOlderVersion()));
+
+        StateRestoreException e =
+                Assertions.assertThrows(
+                        StateRestoreException.class,
+                        () -> enumeratorTask.restoreState(Collections.singletonList(state)));
+
+        StateRestoreExceptionTest.assertUpgradeFailure(e, "fake", "FakeSource", 1L, 1);
+    }
+
+    @Test
+    void testRestoreSplitNamesTheActionWhenSplitIsUnreadable() throws Exception {
+        SourceSplitEnumeratorTask enumeratorTask = createRestoringEnumeratorTask();
+        enumeratorTask.restoreState(new ArrayList<>());
+        byte[] split = StateRestoreExceptionTest.stateWrittenByAnOlderVersion();
+
+        StateRestoreException e =
+                Assertions.assertThrows(
+                        StateRestoreException.class, () -> enumeratorTask.restoreSplit(split));
+
+        StateRestoreExceptionTest.assertUpgradeFailure(e, "fake", "FakeSource", 1L, 1);
+    }
+
+    private static SourceSplitEnumeratorTask createRestoringEnumeratorTask() throws Exception {
+        SeaTunnelSource source = Mockito.mock(SeaTunnelSource.class);
+        Mockito.when(source.getPluginName()).thenReturn("FakeSource");
+        Mockito.when(source.getEnumeratorStateSerializer()).thenReturn(new DefaultSerializer<>());
+        Mockito.when(source.getSplitSerializer()).thenReturn(new DefaultSerializer<>());
+        Mockito.when(source.createEnumerator(Mockito.any()))
+                .thenReturn(Mockito.mock(SourceSplitEnumerator.class));
+        SourceAction action =
+                new SourceAction<>(1, "fake", source, new HashSet<>(), Collections.emptySet());
+        SourceSplitEnumeratorTask enumeratorTask =
+                new SourceSplitEnumeratorTask<>(
+                        1, new TaskLocation(new TaskGroupLocation(1, 1, 1), 1, 1), action);
+        TaskExecutionContext context = Mockito.mock(TaskExecutionContext.class);
+        Mockito.when(context.getTaskExecutionService())
+                .thenReturn(Mockito.mock(TaskExecutionService.class));
+        enumeratorTask.setTaskExecutionContext(context);
+        enumeratorTask.init();
+        return enumeratorTask;
     }
 
     @SuppressWarnings("unchecked")

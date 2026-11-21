@@ -45,6 +45,7 @@ import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.StateRestoreException;
 import org.apache.seatunnel.engine.server.event.JobEventListener;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.ConnectorMetricsCalcContext;
@@ -100,7 +101,6 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_ERROR_REC
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_PREPARE_COMMIT_NANOS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_RECORDS_IN;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_NANOS;
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
 /** Drives the sink writer lifecycle, checkpointing, and final stain trace event emission. */
@@ -387,11 +387,13 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                             .filter(Objects::nonNull)
                             .map(
                                     bytes ->
-                                            sneaky(
-                                                    () ->
-                                                            writerStateSerializer
-                                                                    .get()
-                                                                    .deserialize(bytes)))
+                                            StateRestoreException.deserialize(
+                                                    writerStateSerializer.get(),
+                                                    bytes,
+                                                    sinkAction.getName(),
+                                                    StateRestoreException.sinkPluginName(
+                                                            sinkAction.getSink()),
+                                                    taskLocation))
                             .collect(Collectors.toList());
         }
         initRowErrorCollectorIfNeed();
