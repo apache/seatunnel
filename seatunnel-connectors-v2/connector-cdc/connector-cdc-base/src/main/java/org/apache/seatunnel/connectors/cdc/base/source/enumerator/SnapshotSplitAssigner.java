@@ -227,9 +227,11 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
 
     @Override
     public void addSplits(Collection<SourceSplitBase> splits) {
+        boolean restoredCompletedSplit = false;
         for (SourceSplitBase split : splits) {
             SnapshotSplit snapshotSplit = split.asSnapshotSplit();
             if (restoreCompletedSnapshotSplit(snapshotSplit)) {
+                restoredCompletedSplit = true;
                 LOG.info(
                         "Restore completed snapshot split {} from checkpoint without replaying it",
                         snapshotSplit.splitId());
@@ -240,6 +242,17 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
             // failed
             assignedSplits.remove(snapshotSplit.splitId());
             splitCompletedOffsets.remove(snapshotSplit.splitId());
+        }
+        if (restoredCompletedSplit && !assignerCompleted && allSplitsCompleted()) {
+            if (currentParallelism == 1) {
+                assignerCompleted = true;
+                LOG.info(
+                        "Snapshot split assigner received all splits completed at parallelism 1 after restore, snapshot split assigner is turn into completed status.");
+            } else {
+                LOG.info(
+                        "Snapshot split assigner received all splits completed at parallelism {} after restore, waiting for a complete checkpoint to mark the assigner completed.",
+                        currentParallelism);
+            }
         }
     }
 
@@ -319,12 +332,16 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                 || !assignedSplits.containsKey(snapshotSplit.splitId())) {
             return false;
         }
-        splitCompletedOffsets.putIfAbsent(
-                snapshotSplit.splitId(),
+        SnapshotSplitWatermark completedWatermark =
                 new SnapshotSplitWatermark(
                         snapshotSplit.splitId(),
                         snapshotSplit.getLowWatermark(),
-                        snapshotSplit.getHighWatermark()));
+                        snapshotSplit.getHighWatermark());
+        splitCompletedOffsets.putIfAbsent(snapshotSplit.splitId(), completedWatermark);
+        if (context != null) {
+            context.getSplitCompletedOffsets()
+                    .putIfAbsent(snapshotSplit.splitId(), completedWatermark);
+        }
         return true;
     }
 
