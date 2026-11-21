@@ -155,7 +155,7 @@ The field data types currently supported by where conditions are as follows:
 * timestamp
 * time
 
-### paimon.hadoop.conf [string]
+### paimon.hadoop.conf [map]
 
 Properties in hadoop conf
 
