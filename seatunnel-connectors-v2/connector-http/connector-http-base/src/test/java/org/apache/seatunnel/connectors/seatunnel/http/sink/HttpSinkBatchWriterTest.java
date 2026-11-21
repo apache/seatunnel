@@ -277,6 +277,46 @@ public class HttpSinkBatchWriterTest {
         assertEquals("connection refused", exception.getCause().getMessage());
     }
 
+    @Test
+    public void testArrayModeRequestExceptionIsPropagatedDuringCheckpoint() throws Exception {
+        httpParameter.setArrayMode(true);
+        httpParameter.setBatchSize(BATCH_SIZE);
+        sinkWriter = new TestableHttpSinkWriter(rowType, httpParameter);
+
+        when(httpClientProvider.doPost(anyString(), any(), anyString()))
+                .thenThrow(new IOException("connection refused"))
+                .thenReturn(new HttpResponse(HttpResponse.STATUS_OK));
+
+        sinkWriter.write(createTestRow(1, "user1", 20));
+
+        HttpConnectorException exception =
+                assertThrows(HttpConnectorException.class, () -> sinkWriter.prepareCommit());
+
+        assertEquals("connection refused", exception.getCause().getMessage());
+
+        sinkWriter.prepareCommit();
+
+        verify(httpClientProvider, times(2)).doPost(eq(TEST_URL), any(), anyString());
+    }
+
+    @Test
+    public void testCloseClosesHttpClientWhenFlushFails() throws Exception {
+        httpParameter.setArrayMode(true);
+        httpParameter.setBatchSize(BATCH_SIZE);
+        sinkWriter = new TestableHttpSinkWriter(rowType, httpParameter);
+
+        when(httpClientProvider.doPost(anyString(), any(), anyString()))
+                .thenReturn(new HttpResponse(500, "server error"));
+
+        sinkWriter.write(createTestRow(1, "user1", 20));
+
+        HttpConnectorException exception =
+                assertThrows(HttpConnectorException.class, () -> sinkWriter.close());
+
+        assertTrue(exception.getMessage().contains("http response status code:[500]"));
+        verify(httpClientProvider, times(1)).close();
+    }
+
     private SeaTunnelRow createTestRow(int id, String name, int age) {
         return new SeaTunnelRow(new Object[] {id, name, age});
     }
