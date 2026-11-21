@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -225,6 +226,17 @@ public class DuckDBCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
     }
 
     private String buildTableName(TablePath tablePath) {
+        if (!DuckDBDialect.isDefaultDatabaseAlias(tablePath.getDatabaseName())) {
+            String schemaName =
+                    StringUtils.isBlank(tablePath.getSchemaName())
+                            ? "main"
+                            : tablePath.getSchemaName();
+            return String.format(
+                    "%s.%s.%s",
+                    quoteIdentifier(tablePath.getDatabaseName()),
+                    quoteIdentifier(schemaName),
+                    quoteIdentifier(tablePath.getTableName()));
+        }
         if (StringUtils.isNotBlank(tablePath.getSchemaName())) {
             return String.format(
                     "%s.%s",
