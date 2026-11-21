@@ -28,12 +28,15 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.sink.InfluxDBSink;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.sink.InfluxDBSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.source.InfluxDBSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -107,7 +110,7 @@ class InfluxDBFactoryTest {
     }
 
     @Test
-    void testCreateSinkWithDefaultMeasurementSuccess() {
+    void testCreateSinkWithDefaultMeasurementSuccess() throws Exception {
         Map<String, Object> map = new HashMap<>();
         map.put(InfluxDBSinkOptions.URL.key(), "http://localhost:8086");
         map.put(InfluxDBSinkOptions.DATABASES.key(), "test_db");
@@ -119,9 +122,17 @@ class InfluxDBFactoryTest {
                         catalogTable, config, Thread.currentThread().getContextClassLoader());
 
         InfluxDBSinkFactory factory = new InfluxDBSinkFactory();
-        TableSink<?, ?, ?, ?> sink =
+        TableSink<?, ?, ?, ?> tableSink =
                 Assertions.assertDoesNotThrow(() -> factory.createSink(context));
-        Assertions.assertNotNull(sink);
+        Assertions.assertNotNull(tableSink);
+
+        InfluxDBSink influxDBSink = (InfluxDBSink) tableSink.createSink();
+        Field sinkConfigField = InfluxDBSink.class.getDeclaredField("sinkConfig");
+        sinkConfigField.setAccessible(true);
+        SinkConfig sinkConfig = (SinkConfig) sinkConfigField.get(influxDBSink);
+
+        Assertions.assertEquals(
+                catalogTable.getTableId().toTablePath().getFullName(), sinkConfig.getMeasurement());
     }
 
     private CatalogTable createMockCatalogTable() {
