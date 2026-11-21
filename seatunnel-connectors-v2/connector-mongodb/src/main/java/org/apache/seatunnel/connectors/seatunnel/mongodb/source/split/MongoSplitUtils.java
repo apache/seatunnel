@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source.split;
 
+import org.bson.BsonArray;
 import org.bson.BsonDocument;
 
 import javax.annotation.Nullable;
+
+import java.util.Arrays;
 
 import static com.mongodb.client.model.Filters.and;
 import static com.mongodb.client.model.Filters.gte;
@@ -48,12 +51,8 @@ public class MongoSplitUtils {
             @Nullable Object lowerBound,
             @Nullable Object upperBound,
             long startOffset) {
-        BsonDocument splitQuery = new BsonDocument();
-        if (matchQuery != null) {
-            matchQuery.forEach(splitQuery::append);
-        }
+        BsonDocument boundaryQuery = new BsonDocument();
         if (splitKey != null) {
-            BsonDocument boundaryQuery;
             if (lowerBound != null && upperBound != null) {
                 boundaryQuery =
                         and(gte(splitKey, lowerBound), lt(splitKey, upperBound)).toBsonDocument();
@@ -61,12 +60,34 @@ public class MongoSplitUtils {
                 boundaryQuery = gte(splitKey, lowerBound).toBsonDocument();
             } else if (upperBound != null) {
                 boundaryQuery = lt(splitKey, upperBound).toBsonDocument();
-            } else {
-                boundaryQuery = new BsonDocument();
             }
-            boundaryQuery.forEach(splitQuery::append);
         }
         return new MongoSplit(
-                String.format(SPLIT_ID_TEMPLATE, index), splitQuery, projection, startOffset);
+                String.format(SPLIT_ID_TEMPLATE, index),
+                combine(matchQuery, boundaryQuery),
+                projection,
+                startOffset);
+    }
+
+    /** Creates a split that reads the documents of {@code matchQuery} that match {@code query}. */
+    public static MongoSplit createMongoSplit(
+            int index, BsonDocument matchQuery, BsonDocument projection, BsonDocument query) {
+        return new MongoSplit(
+                String.format(SPLIT_ID_TEMPLATE, index), combine(matchQuery, query), projection, 0);
+    }
+
+    /**
+     * Returns a filter that both filters match. They are combined with {@code $and}: merging their
+     * fields would let one replace a condition of the other on the same field or operator.
+     */
+    static BsonDocument combine(@Nullable BsonDocument matchQuery, BsonDocument query) {
+        if (matchQuery == null || matchQuery.isEmpty()) {
+            return query.clone();
+        }
+        if (query.isEmpty()) {
+            return matchQuery.clone();
+        }
+        return new BsonDocument(
+                "$and", new BsonArray(Arrays.asList(matchQuery.clone(), query.clone())));
     }
 }

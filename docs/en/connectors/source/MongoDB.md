@@ -129,6 +129,14 @@ deadline (for example, DNS resolution is controlled by the JVM). Runtime setting
 >    split key should reference an indexed field for best performance.
 > 3. When `flat.sync-string = true`, the configured schema is ignored except for the single `STRING`
 >    field that receives the document.
+> 4. The split key may hold values of several BSON types, and may be missing or null in some
+>    documents. MongoDB compares a range bound only with values of its own type bracket (numbers,
+>    strings, ObjectIds, dates and so on), so the source builds the ranges of each type bracket of
+>    the sampled values separately, and one more split reads the documents whose split key is
+>    missing, null, NaN or of another type. That split can read many documents when most of them
+>    have no split key value. `match.query` applies to every split. A split key with a dot, such as
+>    `a.b`, names a field of an embedded document. The split key must not hold arrays: a range
+>    matches an array by each of its elements, so such a document can be read more than once.
 
 ## How to Create a MongoDB Data Synchronization Job
 
