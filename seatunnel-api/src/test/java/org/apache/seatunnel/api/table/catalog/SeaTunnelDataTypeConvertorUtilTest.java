@@ -19,6 +19,8 @@ package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -26,6 +28,8 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Locale;
 
 public class SeaTunnelDataTypeConvertorUtilTest {
 
@@ -227,5 +231,54 @@ public class SeaTunnelDataTypeConvertorUtilTest {
         MapType<?, ?> innerMostMapType = (MapType<?, ?>) middleMapType.getValueType();
         Assertions.assertEquals(BasicType.STRING_TYPE, innerMostMapType.getKeyType());
         Assertions.assertEquals(BasicType.INT_TYPE, innerMostMapType.getValueType());
+    }
+
+    @Test
+    public void testParseDoesNotDependOnTheDefaultLocale() {
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+        try {
+            for (Locale locale : new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
+                // Upper casing "i" gives a dotted capital I under these locales.
+                Locale.setDefault(locale);
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE,
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_string", "string"),
+                        locale.toString());
+                Assertions.assertEquals(
+                        BasicType.INT_TYPE,
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("c_int", "int"),
+                        locale.toString());
+                Assertions.assertEquals(
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_timestamp", "timestamp"),
+                        locale.toString());
+                Assertions.assertEquals(
+                        new DecimalType(10, 2),
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_decimal", "decimal(10, 2)"),
+                        locale.toString());
+                Assertions.assertEquals(
+                        ArrayType.INT_ARRAY_TYPE,
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_array", "array<int>"),
+                        locale.toString());
+                Assertions.assertEquals(
+                        new MapType<>(new DecimalType(10, 2), BasicType.STRING_TYPE),
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_map", "map<decimal(10, 2), string>"),
+                        locale.toString());
+            }
+        } finally {
+            // The base locale first, because setting it overwrites both category defaults.
+            Locale.setDefault(saved[0]);
+            Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+            Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
+        }
     }
 }

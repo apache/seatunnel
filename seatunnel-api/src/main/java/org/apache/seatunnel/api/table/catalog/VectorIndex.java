@@ -22,6 +22,7 @@ import lombok.Getter;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Locale;
 
 /** Vector Database need special Index on its vector field. */
 @EqualsAndHashCode(callSuper = true)
@@ -89,7 +90,7 @@ public class VectorIndex extends ConstraintKey.ConstraintKeyColumn implements Se
         ;
 
         public static IndexType of(String name) {
-            return valueOf(name.toUpperCase());
+            return valueOf(name.toUpperCase(Locale.ROOT));
         }
     }
 
@@ -105,7 +106,7 @@ public class VectorIndex extends ConstraintKey.ConstraintKeyColumn implements Se
         ;
 
         public static MetricType of(String name) {
-            return valueOf(name.toUpperCase());
+            return valueOf(name.toUpperCase(Locale.ROOT));
         }
     }
 
