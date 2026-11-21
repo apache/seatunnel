@@ -956,10 +956,16 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             condition = null;
         } else if (isFirstSplit) {
             StringBuilder sql = new StringBuilder();
+            sql.append("(");
             addKeyColumnsToCondition(schema, rowType, sql, " <= ?");
             sql.append(" AND NOT (");
             addKeyColumnsToCondition(schema, rowType, sql, " = ?");
-            sql.append(")");
+            sql.append("))");
+            // Rows whose split-key is NULL match none of the comparison predicates and
+            // would fall outside every chunk. Fold them into the first split so they are
+            // not silently dropped.
+            sql.append(" OR ");
+            addKeyColumnsIsNullToCondition(sql, rowType);
             condition = sql.toString();
         } else if (isLastSplit) {
             StringBuilder sql = new StringBuilder();
@@ -1016,6 +1022,15 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             sql.append(fieldName).append(predicate);
             if (i < rowType.getTotalFields() - 1) {
                 sql.append(" AND ");
+            }
+        }
+    }
+
+    private void addKeyColumnsIsNullToCondition(StringBuilder sql, SeaTunnelRowType rowType) {
+        for (int i = 0; i < rowType.getTotalFields(); i++) {
+            sql.append(jdbcDialect.quoteIdentifier(rowType.getFieldName(i))).append(" IS NULL");
+            if (i < rowType.getTotalFields() - 1) {
+                sql.append(" OR ");
             }
         }
     }
