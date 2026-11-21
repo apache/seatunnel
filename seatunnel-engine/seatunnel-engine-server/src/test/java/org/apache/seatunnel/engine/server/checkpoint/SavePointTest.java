@@ -17,10 +17,31 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.InMemoryCdcRestoreTestFixture;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
+import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
+import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 
 import org.junit.jupiter.api.Assertions;
@@ -29,8 +50,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import com.hazelcast.internal.serialization.Data;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.awaitility.Awaitility.await;
 
@@ -215,5 +246,155 @@ public class SavePointTest extends AbstractSeaTunnelServerTest<SavePointTest> {
         Assertions.assertEquals(100, FileUtils.getFileLineNumberFromDir(outPath));
 
         Thread.sleep(1000);
+    }
+
+    @Test
+    public void testSavePointAndRestoreCdcUnackedTailSplit() throws Exception {
+        String runTag = "savepoint-cdc-" + UUID.randomUUID();
+        InMemoryCdcRestoreTestFixture.RunCoordinationState runState =
+                InMemoryCdcRestoreTestFixture.registerRun(runTag);
+        long jobId = 13340001L + Math.abs(runTag.hashCode() % 100000);
+
+        try {
+            Data phase1Job = createCdcSavePointJobData(jobId, runTag, false, 60000L);
+            server.getCoordinatorService()
+                    .submitJob(jobId, phase1Job, false)
+                    .get(60, TimeUnit.SECONDS);
+
+            Assertions.assertTrue(
+                    runState.awaitSplit0Acked(30, TimeUnit.SECONDS),
+                    "Timed out waiting for enumerator to acknowledge split0");
+            Assertions.assertTrue(
+                    runState.awaitTailSplitWatermarksRecorded(30, TimeUnit.SECONDS),
+                    "Timed out waiting for tail split watermarks in finishedUnackedSplits");
+            await().atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            new HashSet<>(Arrays.asList(1L, 100L)),
+                                            new HashSet<>(runState.getEmittedIds())));
+
+            server.getCoordinatorService().savePoint(jobId).get(60, TimeUnit.SECONDS);
+            await().atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.SAVEPOINT_DONE,
+                                            server.getCoordinatorService().getJobStatus(jobId)));
+            runState.releaseTailSplit();
+
+            List<PipelineState> savedStates =
+                    server.getCheckpointService()
+                            .getCheckpointStorage()
+                            .getAllCheckpoints(String.valueOf(jobId));
+            Assertions.assertFalse(savedStates.isEmpty());
+
+            Data phase2Job = createCdcSavePointJobData(jobId, runTag, true, 200L);
+            server.getCoordinatorService()
+                    .submitJob(jobId, phase2Job, true)
+                    .get(60, TimeUnit.SECONDS);
+
+            JobResult restoreResult =
+                    server.getCoordinatorService()
+                            .waitForJobComplete(jobId)
+                            .get(60, TimeUnit.SECONDS);
+            Assertions.assertEquals(
+                    JobStatus.FINISHED,
+                    restoreResult.getStatus(),
+                    () -> "CDC savepoint restore failed:\n" + restoreResult.getError());
+
+            List<Long> emitted = new ArrayList<>(runState.getEmittedIds());
+            Assertions.assertEquals(4, emitted.size(), "Unexpected row count: " + emitted);
+            Assertions.assertEquals(
+                    4,
+                    new HashSet<>(emitted).size(),
+                    "Duplicate primary keys emitted across restore: " + emitted);
+            Assertions.assertEquals(
+                    Arrays.asList(1L, 100L, 200L, 300L),
+                    emitted.stream().sorted().collect(Collectors.toList()));
+        } finally {
+            runState.releaseTailSplit();
+            try {
+                JobStatus status = server.getCoordinatorService().getJobStatus(jobId);
+                if (status != null && !status.isEndState()) {
+                    server.getCoordinatorService().cancelJob(jobId).get(30, TimeUnit.SECONDS);
+                }
+            } catch (Exception ignored) {
+            }
+            InMemoryCdcRestoreTestFixture.unregisterRun(runTag);
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            0,
+                                            server.getSlotService()
+                                                    .getWorkerProfile()
+                                                    .getAssignedSlots()
+                                                    .length));
+            FileUtils.deleteFile("/tmp/seatunnel/checkpoint_snapshot/" + jobId);
+        }
+    }
+
+    private Data createCdcSavePointJobData(
+            long jobId, String runTag, boolean isStartWithSavePoint, long checkpointIntervalMs) {
+        JobContext jobContext = new JobContext(jobId);
+        jobContext.setJobMode(JobMode.STREAMING);
+
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("savepoint-cdc-13340-" + runTag);
+        jobConfig.setJobContext(jobContext);
+        Map<String, Object> envOptions = jobConfig.getEnvOptions();
+        envOptions.put(EnvCommonOptions.JOB_MODE.key(), JobMode.STREAMING.name());
+        envOptions.put(EnvCommonOptions.CHECKPOINT_INTERVAL.key(), checkpointIntervalMs);
+        envOptions.put(EnvCommonOptions.CHECKPOINT_TIMEOUT.key(), 30000L);
+        envOptions.put(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key(), 10L);
+        envOptions.put(EnvCommonOptions.JOB_RETRY_TIMES.key(), 0);
+        envOptions.put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
+
+        IdGenerator idGenerator = new IdGenerator();
+        CatalogTable catalogTable = InMemoryCdcRestoreTestFixture.createCatalogTable();
+
+        IncrementalSource<SeaTunnelRow, SourceConfig> cdcSource =
+                InMemoryCdcRestoreTestFixture.createSource(
+                        runTag, catalogTable, false, StopMode.LATEST, !isStartWithSavePoint);
+        cdcSource.setJobContext(jobContext);
+        Action sourceAction =
+                new SourceAction<>(
+                        idGenerator.getNextId(),
+                        "cdc-source",
+                        cdcSource,
+                        Collections.emptySet(),
+                        Collections.emptySet());
+        sourceAction.setParallelism(2);
+        LogicalVertex sourceVertex = new LogicalVertex(sourceAction.getId(), sourceAction, 2);
+
+        AbstractSimpleSink<SeaTunnelRow, Void> sink =
+                InMemoryCdcRestoreTestFixture.createCollectingSink(runTag, catalogTable);
+        sink.setJobContext(jobContext);
+        Action sinkAction =
+                new SinkAction<>(
+                        idGenerator.getNextId(),
+                        "collecting-sink",
+                        sink,
+                        Collections.emptySet(),
+                        Collections.emptySet());
+        sinkAction.setParallelism(2);
+        LogicalVertex sinkVertex = new LogicalVertex(sinkAction.getId(), sinkAction, 2);
+
+        LogicalDag logicalDag = new LogicalDag(jobConfig, idGenerator);
+        logicalDag.addLogicalVertex(sourceVertex);
+        logicalDag.addLogicalVertex(sinkVertex);
+        logicalDag.addEdge(new LogicalEdge(sourceVertex, sinkVertex));
+
+        JobImmutableInformation jobInfo =
+                new JobImmutableInformation(
+                        jobId,
+                        jobConfig.getName(),
+                        isStartWithSavePoint,
+                        nodeEngine.getSerializationService(),
+                        logicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        return nodeEngine.getSerializationService().toData(jobInfo);
     }
 }
