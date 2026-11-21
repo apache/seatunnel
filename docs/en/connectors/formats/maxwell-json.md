@@ -23,6 +23,8 @@ UPDATE messages must contain a complete row image; partial updates containing on
 
 > **Note:** The prefixed keys `maxwell_json.ignore-parse-errors`, `maxwell_json.database.include`, and `maxwell_json.table.include` are not valid configuration keys and have no effect. Whether unparseable records are skipped is decided by each connector (for example, the Kafka source always skips them for Maxwell JSON), and the `database.include`/`table.include` filters of the format module are currently not wired to any connector.
 
+When `maxwell_json.ignore-parse-errors` is `true`, Maxwell messages whose JSON cannot be parsed are skipped without emitting a row, and processing continues with the next message.
+
 # How To Use MaxWell format
 
 ## Kafka Uses Example

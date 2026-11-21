@@ -119,6 +119,10 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
                 Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath).orElse(null);
 
         ObjectNode jsonNode = (ObjectNode) convertBytes(message);
+        if (jsonNode == null) {
+            // the message could not be parsed and ignoreParseErrors is enabled, so skip it
+            return;
+        }
         if (database != null
                 && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
             return;
