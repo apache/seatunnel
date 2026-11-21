@@ -465,7 +465,14 @@ public class LocalFileIT extends TestSuiteBase {
     /** Exercises multiple real ORC stripes through the shared factory and parallel source. */
     @TestTemplate
     public void testLocalFileOrcStripeSplits(TestContainer container) throws Exception {
-        new TestHelper(container).execute("/orc/local_file_orc_stripes_to_assert.conf");
+        // Spark closes task-local Assert writers before subsequent tasks have contributed rows.
+        // Keep exact whole-file counting there; Flink and Zeta exercise parallel stripe readers.
+        int parallelism = container.identifier().getEngineType() == EngineType.SPARK ? 1 : 2;
+        Container.ExecResult result =
+                container.executeJob(
+                        "/orc/local_file_orc_stripes_to_assert.conf",
+                        Lists.newArrayList("stripe_parallelism=" + parallelism));
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
     }
 
     /** Prepare the fixture for each engine container, including distributed workers. */
