@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -44,13 +46,18 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -67,6 +74,15 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table_no_primary_key";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_checkpoint_restore";
     private static final String CONF_FILE = "/mysqlcdc_to_mysql_with_checkpoint_restore.conf";
+    private static final String SNAPSHOT_RECOVERY_SOURCE_TABLE =
+            "mysql_cdc_e2e_source_table_snapshot_recovery";
+
+    private static final String SNAPSHOT_RECOVERY_CONF_FILE =
+            "/mysqlcdc_to_mysql_snapshot_emission_checkpoint_restore.conf";
+
+    private static final int SNAPSHOT_RECOVERY_ROWS = 5000;
+
+    private volatile GenericContainer<?> engineContainer;
 
     private static final String SOURCE_SQL_TEMPLATE =
             "select id, cast(f_binary as char) as f_binary, cast(f_blob as char) as f_blob, cast(f_long_varbinary as char) as f_long_varbinary,"
@@ -97,9 +113,11 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container ->
-                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
-                            .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
+            container -> {
+                engineContainer = container;
+                DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
+            };
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         return new MySqlContainer(version)
@@ -330,6 +348,283 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
         container.stopJob(String.valueOf(restoreJobId));
         awaitJobStatus(container, restoreJobId, "CANCELED");
         Assertions.assertEquals(0, restoreFuture.get().getExitCode());
+    }
+
+    /**
+     * Requests a savepoint while a source exactly-once snapshot is emitting, then verifies that
+     * restoring the completed savepoint does not replay any part of that snapshot.
+     *
+     * @param container engine test container used to run and restore the job
+     * @throws Exception when the database gate, savepoint, or restore fails
+     */
+    @TestTemplate
+    public void testMysqlCdcExactlyOnceSnapshotEmissionCheckpointRestore(TestContainer container)
+            throws Exception {
+        executeSql("DROP TABLE IF EXISTS " + MYSQL_DATABASE + "." + SNAPSHOT_RECOVERY_SOURCE_TABLE);
+        executeSql(
+                "CREATE TABLE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SNAPSHOT_RECOVERY_SOURCE_TABLE
+                        + " LIKE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SOURCE_TABLE);
+        executeSql(
+                "ALTER TABLE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SNAPSHOT_RECOVERY_SOURCE_TABLE
+                        + " MODIFY id INT NOT NULL, ADD PRIMARY KEY (id)");
+        // Exceed the engine queue (2048 blocking / 1024 disruptor) plus the
+        // MultiTableSink writer queue (1024) to backpressure the single snapshot emission.
+        insertSnapshotRecoveryRows(1, SNAPSHOT_RECOVERY_ROWS);
+        createAppendOnlySinkTable(MYSQL_DATABASE, SNAPSHOT_RECOVERY_SOURCE_TABLE, SINK_TABLE);
+        dropPrimaryKey(MYSQL_DATABASE, SINK_TABLE);
+
+        String lockName = "snapshot-emission-" + UUID.randomUUID();
+        String triggerName = "gate_snapshot_emission";
+        executeSql("DROP TRIGGER IF EXISTS " + MYSQL_DATABASE + "." + triggerName);
+        executeSql(
+                "CREATE TRIGGER "
+                        + MYSQL_DATABASE
+                        + "."
+                        + triggerName
+                        + " BEFORE INSERT ON "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SINK_TABLE
+                        + " FOR EACH ROW BEGIN IF NEW.id = 3 THEN "
+                        + "IF GET_LOCK('"
+                        + lockName
+                        + "', 120) <> 1 THEN SIGNAL SQLSTATE '45000' "
+                        + "SET MESSAGE_TEXT = 'snapshot emission gate timed out'; END IF; "
+                        + "DO RELEASE_LOCK('"
+                        + lockName
+                        + "'); END IF; END");
+
+        long jobId = JobIdGenerator.newJobId();
+        CompletableFuture<Container.ExecResult> jobFuture = null;
+        CompletableFuture<Container.ExecResult> restoreFuture = null;
+        try (Connection gateConnection = getJdbcConnection();
+                Statement gate = gateConnection.createStatement()) {
+            try (ResultSet acquired = gate.executeQuery("SELECT GET_LOCK('" + lockName + "', 0)")) {
+                Assertions.assertTrue(acquired.next());
+                Assertions.assertEquals(1, acquired.getInt(1));
+            }
+            try {
+                jobFuture =
+                        CompletableFuture.supplyAsync(
+                                () -> {
+                                    try {
+                                        return container.executeJob(
+                                                SNAPSHOT_RECOVERY_CONF_FILE, String.valueOf(jobId));
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                });
+                Awaitility.await()
+                        .atMost(60, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () -> {
+                                    Assertions.assertEquals(
+                                            1L,
+                                            ((Number)
+                                                            query(
+                                                                            "SELECT COUNT(*) FROM performance_schema.metadata_locks l "
+                                                                                    + "JOIN performance_schema.threads t ON l.OWNER_THREAD_ID = t.THREAD_ID "
+                                                                                    + "WHERE l.OBJECT_TYPE = 'USER LEVEL LOCK' AND l.OBJECT_NAME = '"
+                                                                                    + lockName
+                                                                                    + "' AND l.LOCK_STATUS = 'PENDING' AND t.PROCESSLIST_STATE = 'User lock' "
+                                                                                    + "AND t.PROCESSLIST_USER = 'st_user_sink' AND t.PROCESSLIST_INFO LIKE '%"
+                                                                                    + SINK_TABLE
+                                                                                    + "%'")
+                                                                    .get(0)
+                                                                    .get(0))
+                                                    .longValue(),
+                                            "the real sink INSERT must be waiting on the database gate");
+                                });
+
+                log.info(
+                        "Sink INSERT is waiting on the unique snapshot emission lock {}", lockName);
+                assertSnapshotSpillDirectories(true);
+
+                CompletableFuture<Container.ExecResult> savepointFuture =
+                        CompletableFuture.supplyAsync(
+                                () -> {
+                                    try {
+                                        return container.savepointJob(String.valueOf(jobId));
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                });
+                awaitCheckpointBlockedOnSnapshotEmitter();
+                Assertions.assertFalse(
+                        savepointFuture.isDone(),
+                        "the savepoint must not commit a prefix of the source snapshot");
+
+                gate.executeQuery("SELECT RELEASE_LOCK('" + lockName + "')").close();
+                Assertions.assertEquals(0, savepointFuture.get(60, TimeUnit.SECONDS).getExitCode());
+                awaitJobStatus(container, jobId, "SAVEPOINT_DONE");
+                Assertions.assertEquals(0, jobFuture.get(60, TimeUnit.SECONDS).getExitCode());
+                assertSnapshotRowsReplicatedOnce(SNAPSHOT_RECOVERY_ROWS);
+                assertSnapshotSpillDirectories(false);
+
+                insertSnapshotRecoveryRows(SNAPSHOT_RECOVERY_ROWS + 1, SNAPSHOT_RECOVERY_ROWS + 1);
+                restoreFuture =
+                        CompletableFuture.supplyAsync(
+                                () -> {
+                                    try {
+                                        return container.restoreJob(
+                                                SNAPSHOT_RECOVERY_CONF_FILE, String.valueOf(jobId));
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                });
+                awaitJobStatus(container, jobId, "RUNNING");
+                Awaitility.await()
+                        .atMost(60, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () -> assertSnapshotRowsReplicatedOnce(SNAPSHOT_RECOVERY_ROWS + 1));
+                container.stopJob(String.valueOf(jobId));
+                awaitJobStatus(container, jobId, "CANCELED");
+                Assertions.assertEquals(0, restoreFuture.get(60, TimeUnit.SECONDS).getExitCode());
+                assertSnapshotSpillDirectories(false);
+            } finally {
+                gate.executeQuery("SELECT RELEASE_LOCK('" + lockName + "')").close();
+                executeSql("DROP TRIGGER IF EXISTS " + MYSQL_DATABASE + "." + triggerName);
+                if ((jobFuture != null && !jobFuture.isDone())
+                        || (restoreFuture != null && !restoreFuture.isDone())) {
+                    container.cancelJob(String.valueOf(jobId));
+                }
+            }
+        }
+    }
+
+    /** Checks spill ownership and cleanup in this test's live engine before container teardown. */
+    private void assertSnapshotSpillDirectories(boolean expected) throws Exception {
+        if (expected) {
+            Container.ExecResult processes = engineContainer.execInContainer("jps");
+            Assertions.assertEquals(0, processes.getExitCode());
+            String pid =
+                    Arrays.stream(processes.getStdout().split("\n"))
+                            .filter(line -> line.contains("SeaTunnelServer"))
+                            .map(line -> line.trim().split("\\s+")[0])
+                            .findFirst()
+                            .orElseThrow(() -> new AssertionError("engine JVM not found"));
+            Container.ExecResult properties =
+                    engineContainer.execInContainer("jcmd", pid, "VM.system_properties");
+            Assertions.assertEquals(0, properties.getExitCode());
+            Assertions.assertTrue(
+                    Arrays.asList(properties.getStdout().split("\n"))
+                            .contains("java.io.tmpdir=/tmp"),
+                    "the spill assertion must inspect the engine JVM's actual temporary directory");
+        }
+        Container.ExecResult directories =
+                engineContainer.execInContainer(
+                        "find",
+                        "/tmp",
+                        "-maxdepth",
+                        "1",
+                        "-type",
+                        "d",
+                        "-name",
+                        "seatunnel-cdc-snapshot-*");
+        Assertions.assertEquals(0, directories.getExitCode());
+        log.info(
+                "Snapshot spill directories expected={}: {}",
+                expected,
+                directories.getStdout().trim());
+        Assertions.assertEquals(
+                expected,
+                !directories.getStdout().trim().isEmpty(),
+                "snapshot spill must exist during blocked emission and be removed after release");
+    }
+
+    /** Waits for a real checkpoint barrier to contend on the snapshot emitter's monitor. */
+    private void awaitCheckpointBlockedOnSnapshotEmitter() {
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertNotNull(engineContainer);
+                            List<String> threads = new ArrayList<>();
+                            ContainerUtil.getJVMThreads(engineContainer)
+                                    .forEach(thread -> threads.add(thread.getV2()));
+                            boolean blockedOnEmitter = false;
+                            for (String checkpoint : threads) {
+                                if (!checkpoint.contains("SourceFlowLifeCycle.triggerBarrier")
+                                        || !checkpoint.contains(
+                                                "java.lang.Thread.State: BLOCKED")) {
+                                    continue;
+                                }
+                                Matcher waiting =
+                                        Pattern.compile("- waiting to lock <(0x[0-9a-f]+)>")
+                                                .matcher(checkpoint);
+                                while (waiting.find()) {
+                                    String monitor = "- locked <" + waiting.group(1) + ">";
+                                    for (String emitter : threads) {
+                                        if (emitter.contains(
+                                                        "IncrementalSourceRecordEmitter.emitRecord")
+                                                && emitter.contains(monitor)) {
+                                            log.info(
+                                                    "Checkpoint blocked on snapshot emitter monitor {}:\n{}\n{}",
+                                                    waiting.group(1),
+                                                    checkpoint,
+                                                    emitter);
+                                            blockedOnEmitter = true;
+                                        }
+                                    }
+                                }
+                            }
+                            Assertions.assertTrue(
+                                    blockedOnEmitter,
+                                    "a checkpoint must be BLOCKED on the exact monitor held by the snapshot emitter");
+                        });
+    }
+
+    /** Checks full contents and multiplicity in an append-only sink without an upsert key. */
+    private void assertSnapshotRowsReplicatedOnce(int expectedRows) {
+        Assertions.assertIterableEquals(
+                query(
+                        getSourceQuerySQL(MYSQL_DATABASE, SNAPSHOT_RECOVERY_SOURCE_TABLE)
+                                + " ORDER BY id"),
+                query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE) + " ORDER BY id"));
+        Assertions.assertEquals(
+                expectedRows,
+                ((Number)
+                                query("SELECT COUNT(*) FROM " + MYSQL_DATABASE + "." + SINK_TABLE)
+                                        .get(0)
+                                        .get(0))
+                        .intValue());
+        Assertions.assertTrue(
+                query(
+                                "SELECT id FROM "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + SINK_TABLE
+                                        + " GROUP BY id HAVING COUNT(*) <> 1")
+                        .isEmpty(),
+                "every expected source id must have exactly one sink INSERT");
+    }
+
+    /** Seeds a small single split without depending on date/year values derived from the id. */
+    private void insertSnapshotRecoveryRows(int firstId, int lastId) throws SQLException {
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement insert =
+                        connection.prepareStatement(
+                                "INSERT INTO "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + SNAPSHOT_RECOVERY_SOURCE_TABLE
+                                        + " (id, f_text) VALUES (?, ?)")) {
+            for (int id = firstId; id <= lastId; id++) {
+                insert.setInt(1, id);
+                insert.setString(2, "snapshot-recovery-" + id);
+                insert.addBatch();
+            }
+            insert.executeBatch();
+        }
     }
 
     private Connection getJdbcConnection() throws SQLException {
