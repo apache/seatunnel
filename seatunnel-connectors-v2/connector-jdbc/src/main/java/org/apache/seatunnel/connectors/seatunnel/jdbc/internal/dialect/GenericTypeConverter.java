@@ -27,13 +27,12 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.common.exception.CommonError;
 
 import com.google.auto.service.AutoService;
-import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Types;
 
-@Slf4j
 @AutoService(TypeConverter.class)
 public class GenericTypeConverter implements TypeConverter<BasicTypeDefine> {
 
@@ -176,10 +175,13 @@ public class GenericTypeConverter implements TypeConverter<BasicTypeDefine> {
             case Types.REF:
             case Types.ROWID:
             default:
-                log.warn(
-                        "JDBC type {} ({}) not currently supported",
-                        sqlType,
-                        typeDefine.getNativeType());
+                // Report unsupported native types instead of returning a column without a data
+                // type: catalog consumers aggregate this error per column and fail with the
+                // offending fields. `getDataType()` (the driver-reported type name) carries the
+                // native text on both the ResultSetMetaData and getColumns metadata paths, while
+                // `getNativeType()` is not populated there.
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.GENERIC, typeDefine.getDataType(), typeDefine.getName());
         }
         return builder.build();
     }
