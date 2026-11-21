@@ -1309,12 +1309,6 @@ public abstract class BaseService {
         }
     }
 
-    protected String mapToUrlParams(Map<String, String> params) {
-        return params.entrySet().stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .collect(Collectors.joining("&", "?", ""));
-    }
-
     protected JsonObject submitJobInternal(
             Config config,
             Map<String, String> requestParams,
