@@ -221,7 +221,7 @@ public class CheckpointCoordinator {
             PipelineState pipelineState,
             ExecutorService executorService,
             IMap<Object, Object> runningJobStateIMap,
-            boolean isStartWithSavePoint,
+            boolean isRestoreJob,
             CheckpointMonitorService checkpointMonitorService) {
 
         this.executorService = executorService;
@@ -282,7 +282,7 @@ public class CheckpointCoordinator {
                 (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
 
         // This is not a new job
-        if (isStartWithSavePoint) {
+        if (isRestoreJob) {
             updateStatus(CheckpointCoordinatorStatus.RUNNING);
             return;
         }
