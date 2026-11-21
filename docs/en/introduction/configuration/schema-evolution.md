@@ -31,8 +31,16 @@ Schema Evolution means that the schema of a data table can be changed and the da
 [BigQuery](../../connectors/sink/BigQuery.md#schema-evolution) (`ADD COLUMN` only)
 [Redis](../../connectors/sink/Redis.md#schema-evolution)
 
+### Transform
+
+| Status | Transforms | Reason |
+|--------|------------|--------|
+| Supported, event translated | [Sql](../../transforms/sql.md#schema-evolution-ddl), FieldRename, TableRename | They rewrite the event so that it describes their own output. |
+| Supported, pass-through | FilterRowKind, Replace, FieldEncrypt, DataValidator | Column set, order and types are unchanged, so the upstream event describes their output. Limitation: a column rename fails when such a transform follows another transform in the same chain. |
+| Not supported | Filter, FieldMapper, Copy, Split, JsonPath, Metadata, RowKindExtractor, RegexExtract, Embedding, LLM, DynamicCompile, Python, TextChunk, Calcite, TableFilter, TableMerge, DefineSinkType | They add, remove or reorder columns, change the table identifier or keep a stale table, while forwarding the upstream event unchanged. Using them with `schema-changes.enabled = true` produces a sink schema that does not match the rows. A Sql transform placed after Metadata or RowKindExtractor adopts their produced layout and emits a correct event, see the [Sql transform](../../transforms/sql.md#schema-evolution-ddl). |
+
 Note:  
-* The schema evolution is not support the transform at now. The schema evolution of different types of databases（Oracle-CDC -> Jdbc-Mysql）is currently not supported the default value of the column in ddl.
+* The schema evolution of different types of databases（Oracle-CDC -> Jdbc-Mysql）is currently not supported the default value of the column in ddl.
 
 * When you use the Oracle-CDC，you can not use the username named `SYS` or `SYSTEM` to modify the table schema, otherwise the ddl event will be filtered out which can lead to the schema evolution not working.
 Otherwise, If your table name start with `ORA_TEMP_` will also has the same problem.
