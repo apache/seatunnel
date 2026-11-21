@@ -112,6 +112,8 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     private static final String CASSANDRA_JOB_CONFIG = "/cassandra_to_cassandra.conf";
     private static final String CASSANDRA_MULTI_TABLE_JOB_CONFIG =
             "/cassandra_multitable_source.conf";
+    private static final String NULL_PRIMARY_KEY_JOB_CONFIG =
+            "/fake_null_primary_key_to_cassandra.conf";
     private static final String CASSANDRA_DRIVER_CONFIG = "/application.conf";
     private static final String DATACENTER = "datacenter1";
     private static final String KEYSPACE = "test";
@@ -124,6 +126,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     private static final String MT_INSERT_A = "mt_insert_a";
     private static final String MT_INSERT_B = "mt_insert_b";
     private static final int MT_ROWS_PER_TABLE = 5;
+    private static final long NULL_CELLS_ROW_ID = -1L;
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
             generateTestDataSet();
     private Config config;
@@ -375,11 +378,37 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testCassandra(TestContainer container) throws Exception {
+        // The job must clear these values: a NULL cell is written as NULL, not left unset
+        session.execute(
+                SimpleStatement.builder(
+                                String.format(
+                                        "insert into %s (id, c_text, c_int, c_list_int)"
+                                                + " values (%d, 'old value', 7, [1, 2])",
+                                        SINK_TABLE, NULL_CELLS_ROW_ID))
+                        .setKeyspace(KEYSPACE)
+                        .build());
         Container.ExecResult execResult = container.executeJob(CASSANDRA_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertNotNull(getRow());
+        assertNullCellsStayNull();
         compareResult();
         clearSinkTable();
+        Assertions.assertNull(getRow());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason =
+                    "Spark does not close the sink writer when a task aborts, so the CQL session"
+                            + " keeps spark-submit running in local mode after the job failed.")
+    public void testNullPrimaryKeyFailsTheJob(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob(NULL_PRIMARY_KEY_JOB_CONFIG);
+        Assertions.assertNotEquals(0, execResult.getExitCode());
+        Assertions.assertTrue(
+                (execResult.getStdout() + execResult.getStderr())
+                        .contains("Primary key column id of table sink_table is NULL"));
         Assertions.assertNull(getRow());
     }
 
@@ -502,8 +531,34 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             }
             session.execute(batchStatement);
             batchStatement.clear();
+            // Every column of this row except the key is NULL.
+            session.execute(
+                    SimpleStatement.builder(
+                                    String.format(
+                                            "insert into %s (id) values (%d)",
+                                            SOURCE_TABLE, NULL_CELLS_ROW_ID))
+                            .setKeyspace(KEYSPACE)
+                            .build());
         } catch (Exception e) {
             throw new RuntimeException("Batch insert data failed!", e);
+        }
+    }
+
+    private void assertNullCellsStayNull() {
+        Row row =
+                session.execute(
+                                SimpleStatement.builder(
+                                                String.format(
+                                                        "select * from %s where id = %d",
+                                                        SINK_TABLE, NULL_CELLS_ROW_ID))
+                                        .setKeyspace(KEYSPACE)
+                                        .build())
+                        .one();
+        Assertions.assertNotNull(row, "The sink table has no row with id " + NULL_CELLS_ROW_ID);
+        for (String column : TEST_DATASET.getKey().getFieldNames()) {
+            if (!"id".equals(column)) {
+                Assertions.assertTrue(row.isNull(column), column);
+            }
         }
     }
 
@@ -524,29 +579,29 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         Iterator<Row> sourceIterator = sourceResultSet.iterator();
         Iterator<Row> sinkIterator = sinkResultSet.iterator();
         while (sourceIterator.hasNext()) {
-            if (sinkIterator.hasNext()) {
-                Row sourceNext = sourceIterator.next();
-                Row sinkNext = sinkIterator.next();
-                for (String column : columnList) {
-                    Object source = sourceNext.getObject(column);
-                    Object sink = sinkNext.getObject(column);
-                    if (!Objects.deepEquals(source, sink)) {
-                        InputStream sourceAsciiStream =
-                                sourceNext.get(column, ByteArrayInputStream.class);
-                        InputStream sinkAsciiStream =
-                                sinkNext.get(column, ByteArrayInputStream.class);
-                        Assertions.assertNotNull(sourceAsciiStream);
-                        Assertions.assertNotNull(sinkAsciiStream);
-                        String sourceValue =
-                                IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
-                        String sinkValue =
-                                IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
-                        Assertions.assertEquals(sourceValue, sinkValue);
-                    }
-                    Assertions.assertTrue(true);
+            Row sourceNext = sourceIterator.next();
+            Assertions.assertTrue(
+                    sinkIterator.hasNext(),
+                    "The sink table has no row for source row id " + sourceNext.getLong("id"));
+            Row sinkNext = sinkIterator.next();
+            for (String column : columnList) {
+                Object source = sourceNext.getObject(column);
+                Object sink = sinkNext.getObject(column);
+                if (!Objects.deepEquals(source, sink)) {
+                    InputStream sourceAsciiStream =
+                            sourceNext.get(column, ByteArrayInputStream.class);
+                    InputStream sinkAsciiStream = sinkNext.get(column, ByteArrayInputStream.class);
+                    Assertions.assertNotNull(sourceAsciiStream);
+                    Assertions.assertNotNull(sinkAsciiStream);
+                    String sourceValue =
+                            IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
+                    String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
+                    Assertions.assertEquals(sourceValue, sinkValue);
                 }
             }
         }
+        Assertions.assertFalse(
+                sinkIterator.hasNext(), "The sink table has more rows than the source table");
     }
 
     private void createKeyspace() {
