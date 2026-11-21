@@ -53,8 +53,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
@@ -894,6 +896,13 @@ public class ClusterFaultToleranceIT {
             node2.shutdown();
             engineClient.close();
 
+            // Include any region created during the first member's shutdown/failover, so an old
+            // snapshot cannot satisfy the assertion that compaction resumes after the restart.
+            Set<Path> previousRegions;
+            try (Stream<Path> regions = Files.list(runningJobInfoDirectory)) {
+                previousRegions = regions.filter(Files::isDirectory).collect(Collectors.toSet());
+            }
+
             log.warn(
                     "==========================================All node is done========================================");
             Thread.sleep(10000);
@@ -934,6 +943,22 @@ public class ClusterFaultToleranceIT {
             // waitForJobComplete.
             CompletableFuture<JobStatus> waitForCompletableFuture =
                     CompletableFuture.supplyAsync(newClientJobProxy::waitForJobComplete);
+
+            // Closing the last old writer shuts down the shared executor. Recovered writers
+            // must register a working executor again and compact their newly created region.
+            IMap<Long, Object> restoredJobInfo =
+                    restoreFinalNode.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            Object restoredInfo = restoredJobInfo.get(jobId);
+            Assertions.assertNotNull(restoredInfo);
+            for (int i = 0; i < 16; i++) {
+                restoredJobInfo.set(jobId, restoredInfo);
+            }
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .until(
+                            () ->
+                                    containsCompactionSnapshotOutside(
+                                            runningJobInfoDirectory, previousRegions));
 
             Awaitility.await()
                     .atMost(100000, TimeUnit.MILLISECONDS)
@@ -993,11 +1018,17 @@ public class ClusterFaultToleranceIT {
     }
 
     private static boolean containsCompactionSnapshot(Path directory) throws IOException {
+        return containsCompactionSnapshotOutside(directory, java.util.Collections.emptySet());
+    }
+
+    private static boolean containsCompactionSnapshotOutside(
+            Path directory, Set<Path> excludedRegions) throws IOException {
         try (Stream<Path> files = Files.walk(directory)) {
             return files.anyMatch(
                     path ->
                             path.getFileName().toString().contains("snapshot-")
                                     && path.getFileName().toString().endsWith("wal.txt")
+                                    && !excludedRegions.contains(path.getParent())
                                     && Files.isRegularFile(path));
         }
     }

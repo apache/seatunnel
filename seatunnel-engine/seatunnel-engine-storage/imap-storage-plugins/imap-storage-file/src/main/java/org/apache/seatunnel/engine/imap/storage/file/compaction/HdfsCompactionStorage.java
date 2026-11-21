@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.imap.storage.file.compaction;
 
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
+import org.apache.seatunnel.engine.imap.storage.file.config.CompactionConfig;
 import org.apache.seatunnel.engine.imap.storage.file.wal.reader.DefaultReader;
 import org.apache.seatunnel.engine.imap.storage.file.wal.reader.IFileReader.RecordConsumer;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
@@ -33,6 +34,7 @@ import org.apache.hadoop.fs.Path;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -51,18 +53,28 @@ public class HdfsCompactionStorage implements CompactionStorage {
     private final FileSystem fs;
     private final Serializer serializer;
     private final DefaultReader reader;
+    private final long maxRecordBytes;
 
     public HdfsCompactionStorage(FileSystem fs, Serializer serializer) throws IOException {
+        this(fs, serializer, CompactionConfig.MAX_MEMORY_BYTES.defaultValue());
+    }
+
+    public HdfsCompactionStorage(FileSystem fs, Serializer serializer, long maxRecordBytes)
+            throws IOException {
         String scheme = fs.getUri().getScheme();
         if (!"hdfs".equalsIgnoreCase(scheme) && !"file".equalsIgnoreCase(scheme)) {
             throw new IllegalArgumentException(
                     "compaction.enabled currently supports only hdfs:// and file:///; scheme="
                             + scheme);
         }
+        if (maxRecordBytes <= 0) {
+            throw new IllegalArgumentException("Compaction record limit must be positive");
+        }
         this.fs = fs;
         // Local atomic pointer replacement must not leave a checksum from its previous contents.
         fs.setWriteChecksum(false);
         this.serializer = serializer;
+        this.maxRecordBytes = maxRecordBytes;
         reader = new DefaultReader();
         reader.initialize(fs, serializer);
     }
@@ -78,7 +90,7 @@ public class HdfsCompactionStorage implements CompactionStorage {
 
     @Override
     public void read(Path input, RecordConsumer<IMapFileData> consumer) throws IOException {
-        reader.readCompletedFile(input, consumer);
+        reader.readCompletedFile(input, consumer, maxRecordBytes);
     }
 
     /**
@@ -95,15 +107,20 @@ public class HdfsCompactionStorage implements CompactionStorage {
         boolean published = false;
         Exception failure = null;
         try {
+            checkInterrupted(plan.getOutputDirectory());
             try (FSDataOutputStream output = fs.create(temporary, false)) {
                 for (IMapFileData mutation : mutations) {
+                    checkInterrupted(plan.getOutputDirectory());
                     output.write(WALDataUtils.wrapperBytes(serializer.serialize(mutation)));
                 }
+                checkInterrupted(plan.getOutputDirectory());
                 output.hsync();
             }
+            checkInterrupted(plan.getOutputDirectory());
             if (!fs.rename(temporary, snapshot)) {
                 throw new IOException("Cannot publish IMap snapshot " + snapshot);
             }
+            checkInterrupted(plan.getOutputDirectory());
             writeToken(plan.getOutputDirectory(), id, true);
             published = true;
             return snapshot;
@@ -127,10 +144,12 @@ public class HdfsCompactionStorage implements CompactionStorage {
         Path current = new Path(directory, CURRENT_FILE);
         Exception failure = null;
         try {
+            checkInterrupted(directory);
             try (FSDataOutputStream output = fs.create(temporary, false)) {
                 output.writeUTF(token);
                 output.hsync();
             }
+            checkInterrupted(directory);
             if (overwrite) {
                 replaceToken(temporary, current);
             } else if (!fs.rename(temporary, current)) {
@@ -141,6 +160,13 @@ public class HdfsCompactionStorage implements CompactionStorage {
             throw e;
         } finally {
             cleanupUnpublishedFile(temporary, failure);
+        }
+    }
+
+    private static void checkInterrupted(Path directory) throws InterruptedIOException {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedIOException(
+                    "IMap compaction stopped before publication under " + directory);
         }
     }
 

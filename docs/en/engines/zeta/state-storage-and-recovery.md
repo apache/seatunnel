@@ -214,6 +214,8 @@ region. It is disabled by default. Enable it in the `map-store.properties` of th
 | `compaction.enabled` | boolean | `false` | Enable regional snapshot compaction for HDFS or local-file IMap storage. |
 | `compaction.interval-seconds` | long | `300` | Delay in seconds between compaction checks; must be greater than zero. Used when compaction is enabled. |
 | `wal.segment-size` | long | `67108864` (64 MiB) | WAL segment rotation size in bytes; must be greater than zero. Used when compaction is enabled. |
+| `compaction.max-memory-bytes` | long | `67108864` (64 MiB) | Estimated retained mutation memory budget; also limits one serialized input frame. Must be greater than zero when compaction is enabled. |
+| `compaction.max-keys` | long | `100000` | Maximum distinct keys retained per compaction attempt; must be greater than zero when compaction is enabled. |
 
 Compaction requires `storage.type: hdfs` backed by an `hdfs://` or `file:///` file system.
 Enabling it for S3, OSS, GCS, or another file-system scheme is rejected; their existing writers
@@ -240,8 +242,26 @@ compaction. Before rollback or replay with an older release, disable compaction 
 running compaction finish. The default remains `false`; with compaction disabled, the legacy
 single `wal.txt` writer is unchanged.
 
-Compaction keeps one latest mutation per distinct key in its input in memory. Size the JVM heap
-for that additional work alongside the in-memory IMaps, and continue monitoring storage growth.
+Rotation is size-based: interval checks do not close active segments. A writer producing less than
+`wal.segment-size` per run gets no compaction; its final tail and previous regions remain for replay.
+Use a smaller segment size for low-volume IMaps.
+
+Compaction keeps one latest mutation per distinct key in memory. `compaction.max-memory-bytes`
+limits estimated retained mutations, including an allowance for map/object overhead; it is not an
+exact JVM heap limit. A serialized input frame exceeding this budget is rejected before its buffer
+is allocated. `compaction.max-keys` independently limits the retained key count. Exceeding either
+budget defers publication without deleting inputs. An unchanged deferred input plan is not reread
+or repeatedly logged; a changed plan can be tried again. Increase limits only with sufficient heap
+alongside the live IMaps. These initial defaults are safety budgets, not benchmark-derived optima.
+
+An unresolved segment write/close failure retains that file and disables compaction for that writer
+region, so later snapshots cannot move records ahead of it. Subsequent writes open another segment;
+failed writes are reported to Hazelcast. Restart creates a fresh region and still replays the old one.
+Ordinary stop requests cancellation and waits at most five seconds for the current compaction;
+uninterruptible filesystem I/O may outlive that wait. If close cannot confirm completion, destruction
+fails and does not delete the storage directory. A fatal compaction error is logged and disables
+that task until the writer restarts. Continue monitoring WAL growth when compaction is deferred,
+paused, or disabled.
 
 **Mitigation:**
 

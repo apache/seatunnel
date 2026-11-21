@@ -108,16 +108,37 @@ public class WALDisruptor implements Closeable {
     }
 
     @Override
-    public void close() throws IOException {
-        handler.stopCompaction();
+    public synchronized void close() throws IOException {
+        IOException compactionFailure = null;
+        try {
+            handler.stopCompaction();
+        } catch (IOException e) {
+            compactionFailure = e;
+        }
         // we can wait for 5 seconds, so that backlog can be committed
         try {
-            tryPublish(null, WALEventType.CLOSED, 0L);
-            isClosed = true;
+            if (!isClosed) {
+                tryPublish(null, WALEventType.CLOSED, 0L);
+                isClosed = true;
+            }
             disruptor.shutdown(DEFAULT_CLOSE_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             log.error("WALDisruptor close timeout error", e);
+            if (compactionFailure != null) {
+                e.addSuppressed(compactionFailure);
+            }
             throw new IMapStorageException("WALDisruptor close timeout error", e);
+        }
+        try {
+            handler.checkCloseFailure();
+        } catch (IOException e) {
+            if (compactionFailure != null) {
+                e.addSuppressed(compactionFailure);
+            }
+            throw e;
+        }
+        if (compactionFailure != null) {
+            throw compactionFailure;
         }
     }
 }

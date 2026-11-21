@@ -21,9 +21,13 @@
 package org.apache.seatunnel.engine.imap.storage.file;
 
 import org.apache.seatunnel.engine.imap.storage.api.ExpirableValue;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
+import org.apache.seatunnel.engine.imap.storage.file.common.WALWriter;
 import org.apache.seatunnel.engine.imap.storage.file.compaction.HdfsCompactionStorage;
 import org.apache.seatunnel.engine.imap.storage.file.config.CompactionConfig;
+import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALDisruptor;
+import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALWorkHandler;
 import org.apache.seatunnel.engine.imap.storage.file.wal.reader.DefaultReader;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
@@ -38,7 +42,10 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.Closeable;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,6 +56,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.WRITE_DATA_TIMEOUT_MILLISECONDS_KEY;
@@ -145,6 +153,46 @@ public class IMapFileStorageTest {
                 Arrays.asList("expiring", "expired", "batch-expiring", "batch-never-expiring"));
     }
 
+    /** A timed-out stop must drain CLOSED and allow safe deletion after the task actually exits. */
+    @Test
+    void testFailedStopRetainsStorageUntilAConfirmedRetry() throws Exception {
+        IMapFileStorage storage = new IMapFileStorage();
+        storage.initialize(compactionProperties("failed-stop"));
+        AtomicBoolean running = new AtomicBoolean(true);
+        try {
+            Assertions.assertTrue(storage.store("key", "value"));
+            Path region = regionPath(storage);
+            Field handlerField = WALDisruptor.class.getDeclaredField("handler");
+            handlerField.setAccessible(true);
+            WALWorkHandler handler = (WALWorkHandler) handlerField.get(storage.walDisruptor);
+            Field writerField = WALWorkHandler.class.getDeclaredField("writer");
+            writerField.setAccessible(true);
+            WALWriter writer = (WALWriter) writerField.get(handler);
+            Field registrationField = WALWriter.class.getDeclaredField("compactionRegistration");
+            registrationField.setAccessible(true);
+            ((Closeable) registrationField.get(writer)).close();
+            registrationField.set(
+                    writer,
+                    (Closeable)
+                            () -> {
+                                if (running.get()) {
+                                    throw new IOException("compaction still running");
+                                }
+                            });
+
+            Assertions.assertThrows(IMapStorageException.class, () -> storage.destroy(true));
+            Assertions.assertTrue(storage.fs.exists(region));
+            Assertions.assertTrue(storage.walDisruptor.isClosed());
+
+            running.set(false);
+            storage.destroy(true);
+            Assertions.assertFalse(storage.fs.exists(region));
+        } finally {
+            running.set(false);
+            storage.destroy(true);
+        }
+    }
+
     @Test
     void testStoreArray() {
         Long[] data = new Long[10];
@@ -173,7 +221,8 @@ public class IMapFileStorageTest {
             long expirationTime = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(10);
             Assertions.assertTrue(first.store("expiring", "value", expirationTime));
 
-            await().atMost(15, TimeUnit.SECONDS)
+            await().ignoreException(FileNotFoundException.class)
+                    .atMost(15, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 Path snapshot = snapshot(first, firstRegion);
@@ -232,6 +281,8 @@ public class IMapFileStorageTest {
         for (String key :
                 Arrays.asList(
                         CompactionConfig.SEGMENT_SIZE.key(),
+                        CompactionConfig.MAX_MEMORY_BYTES.key(),
+                        CompactionConfig.MAX_KEYS.key(),
                         CompactionConfig.INTERVAL_SECONDS.key())) {
             Map<String, Object> invalid = compactionProperties("invalid");
             invalid.put(key, "0");
@@ -271,7 +322,8 @@ public class IMapFileStorageTest {
                     storage.store("expired", "value", System.currentTimeMillis() - 1));
             Assertions.assertTrue(storage.store("expiring", "value", expirationTime));
             Path region = regionPath(storage);
-            await().atMost(30, TimeUnit.SECONDS)
+            await().ignoreException(FileNotFoundException.class)
+                    .atMost(30, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 Path snapshot = snapshot(storage, region);

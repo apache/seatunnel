@@ -306,6 +306,17 @@ regional snapshot compaction:
 | `compaction.enabled` | boolean | `false` | Enable regional snapshot compaction. |
 | `compaction.interval-seconds` | long | `300` | Delay between compaction checks, in seconds; must be greater than zero. |
 | `wal.segment-size` | long | `67108864` (64 MiB) | WAL rotation size in bytes when compaction is enabled; must be greater than zero. |
+| `compaction.max-memory-bytes` | long | `67108864` (64 MiB) | Estimated retained mutation memory budget; also limits one serialized input frame. Must be greater than zero when compaction is enabled. |
+| `compaction.max-keys` | long | `100000` | Maximum distinct keys retained per compaction attempt; must be greater than zero when compaction is enabled. |
+
+Rotation is size-based: the interval checks do not close the active segment. A region that writes
+less than `wal.segment-size` before shutdown is not compacted, and the final tail remains for replay.
+Use a smaller segment size for low-volume IMaps.
+
+**Upgrade and rollback:** enable compaction only after every member using IMap persistence has
+been upgraded to a compaction-aware release. Before rollback, disable compaction and wait for
+running compaction to finish. See
+[MapStore File Maintenance](state-storage-and-recovery.md#4-mapstore-file-maintenance) for details.
 
 Master-role members can each own IMap partitions and persist their entries; this is not limited to
 the elected active master. One shared background thread per JVM compacts closed WAL segments and

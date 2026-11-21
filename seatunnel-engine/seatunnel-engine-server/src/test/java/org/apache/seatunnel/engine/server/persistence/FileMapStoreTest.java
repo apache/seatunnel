@@ -18,6 +18,8 @@
 package org.apache.seatunnel.engine.server.persistence;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALReader;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
@@ -47,6 +49,7 @@ import com.hazelcast.map.IMap;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -60,7 +63,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for FileMapStore.
@@ -82,6 +89,34 @@ import static org.mockito.Mockito.mock;
 public class FileMapStoreTest {
 
     @TempDir Path tempDir;
+
+    /** A rejected storage operation must reach Hazelcast as a failure, including batch writes. */
+    @Test
+    public void testRejectedStorageOperationsAreNotAcknowledged() throws Exception {
+        IMapStorage storage = mock(IMapStorage.class);
+        FileMapStore store = new FileMapStore();
+        Field storageField = FileMapStore.class.getDeclaredField("mapStorage");
+        storageField.setAccessible(true);
+        storageField.set(store, storage);
+        when(storage.store(any(), any(), anyLong())).thenReturn(false, true);
+        when(storage.storeAllWithExpirationTime(anyMap())).thenReturn(Collections.singleton("key"));
+        when(storage.deleteAll(Collections.singleton("key")))
+                .thenReturn(Collections.singleton("key"));
+
+        Assertions.assertThrows(
+                IMapStorageException.class,
+                () -> store.store("key", new MetadataAwareValue<>("value")));
+        Assertions.assertDoesNotThrow(() -> store.store("key", new MetadataAwareValue<>("value")));
+        Assertions.assertThrows(IMapStorageException.class, () -> store.delete("key"));
+        Assertions.assertThrows(
+                IMapStorageException.class,
+                () ->
+                        store.storeAll(
+                                Collections.singletonMap(
+                                        "key", new MetadataAwareValue<>("value"))));
+        Assertions.assertThrows(
+                IMapStorageException.class, () -> store.deleteAll(Collections.singleton("key")));
+    }
 
     /**
      * Verifies that FileMapStore.init() can successfully resolve the "hdfs" factory via SPI and

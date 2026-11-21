@@ -21,6 +21,7 @@ package org.apache.seatunnel.engine.imap.storage.file.wal.reader;
 
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
+import org.apache.seatunnel.engine.imap.storage.file.compaction.CompactionDeferredException;
 import org.apache.seatunnel.engine.imap.storage.file.compaction.ConcurrentCompactionException;
 import org.apache.seatunnel.engine.imap.storage.file.compaction.HdfsCompactionStorage;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
@@ -158,11 +159,30 @@ public class DefaultReader implements IFileReader<IMapFileData> {
      */
     public void readCompletedFile(Path path, RecordConsumer<IMapFileData> consumer)
             throws IOException {
-        readData(fs.getFileStatus(path), consumer, true);
+        readCompletedFile(path, consumer, Long.MAX_VALUE);
+    }
+
+    /** Rejects an oversized compaction input frame before allocating its serialized buffer. */
+    public void readCompletedFile(
+            Path path, RecordConsumer<IMapFileData> consumer, long maxRecordBytes)
+            throws IOException {
+        if (maxRecordBytes <= 0) {
+            throw new IllegalArgumentException("Compaction record limit must be positive");
+        }
+        readData(fs.getFileStatus(path), consumer, true, maxRecordBytes);
     }
 
     private void readData(
             FileStatus file, RecordConsumer<IMapFileData> consumer, boolean requireComplete)
+            throws IOException {
+        readData(file, consumer, requireComplete, Long.MAX_VALUE);
+    }
+
+    private void readData(
+            FileStatus file,
+            RecordConsumer<IMapFileData> consumer,
+            boolean requireComplete,
+            long maxRecordBytes)
             throws IOException {
         long remainingBytes = file.getLen();
         byte[] metadata = new byte[WAL_DATA_METADATA_LENGTH];
@@ -187,6 +207,13 @@ public class DefaultReader implements IFileReader<IMapFileData> {
                     }
                     // The writer may have stopped in the middle of its last record.
                     break;
+                }
+                if (dataLength > maxRecordBytes) {
+                    throw new CompactionDeferredException(
+                            "Compaction deferred: serialized record exceeds compaction.max-memory-bytes="
+                                    + maxRecordBytes
+                                    + " in "
+                                    + file.getPath());
                 }
 
                 byte[] serializedRecord = new byte[dataLength];

@@ -302,7 +302,13 @@ public class IMapFileStorage implements IMapStorage {
         try {
             walDisruptor.close();
         } catch (IOException e) {
-            log.error("close walDisruptor error", e);
+            // A timed-out compactor can still be using these files. Never delete its directory
+            // until a later close confirms that both compaction and WAL writes have stopped.
+            throw new IMapStorageException(
+                    e,
+                    "Cannot stop IMap storage for map %s, region %s; retained files",
+                    businessName,
+                    region);
         }
         if (deleteAllFileFlag) {
             // delete all files

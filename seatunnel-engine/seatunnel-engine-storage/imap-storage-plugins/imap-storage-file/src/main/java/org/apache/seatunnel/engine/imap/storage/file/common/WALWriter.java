@@ -65,7 +65,7 @@ public class WALWriter implements AutoCloseable {
                 throw new IllegalArgumentException(
                         "compaction.enabled currently supports storage.type=hdfs only");
             }
-            storage = new HdfsCompactionStorage(fs, serializer);
+            storage = new HdfsCompactionStorage(fs, serializer, compaction.getMaxMemoryBytes());
             storage.initialize(parentPath);
             planner = new RegionCompactionPlanner(parentPath);
             this.writer = new SegmentedHdfsWriter(compaction.getSegmentSize(), planner);
@@ -77,7 +77,11 @@ public class WALWriter implements AutoCloseable {
         if (planner != null) {
             compactionRegistration =
                     CompactionCoordinator.register(
-                            planner, storage, compaction.getIntervalSeconds());
+                            planner,
+                            storage,
+                            compaction.getIntervalSeconds(),
+                            compaction.getMaxMemoryBytes(),
+                            compaction.getMaxKeys());
         }
     }
 
@@ -87,11 +91,19 @@ public class WALWriter implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        stopCompaction();
+        try {
+            stopCompaction();
+        } finally {
+            closeWriter();
+        }
+    }
+
+    /** Closes the drained WAL stream after the owner has requested compaction cancellation. */
+    public void closeWriter() throws Exception {
         this.writer.close();
     }
 
-    /** Waits for compaction outside the Disruptor shutdown deadline before closing the writer. */
+    /** Requests compaction cancellation and waits for its bounded shutdown deadline. */
     public void stopCompaction() throws IOException {
         if (compactionRegistration != null) {
             compactionRegistration.close();

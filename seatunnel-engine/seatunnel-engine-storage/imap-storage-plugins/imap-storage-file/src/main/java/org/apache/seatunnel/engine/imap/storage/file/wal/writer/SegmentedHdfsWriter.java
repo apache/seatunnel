@@ -71,7 +71,23 @@ public final class SegmentedHdfsWriter extends HdfsWriter {
             openNextSegment();
         }
         byte[] bytes = serializer.serialize(mutation);
-        super.write(bytes);
+        try {
+            super.write(bytes);
+        } catch (IOException e) {
+            Path failed = current;
+            planner.failedSeal(failed);
+            // A failed append may leave a partial frame. Never append another record to it, or
+            // compact later segments across the resulting gap in the replay prefix.
+            current = null;
+            try {
+                super.close();
+            } catch (Exception closeFailure) {
+                if (e != closeFailure) {
+                    e.addSuppressed(closeFailure);
+                }
+            }
+            throw new IOException("Cannot append IMap WAL segment " + failed, e);
+        }
         writtenBytes += bytes.length + WALDataUtils.WAL_DATA_METADATA_LENGTH;
         if (writtenBytes >= segmentSize) {
             seal();
@@ -79,15 +95,20 @@ public final class SegmentedHdfsWriter extends HdfsWriter {
     }
 
     private void seal() throws IOException {
+        Path sealed = current;
         try {
             super.close();
         } catch (Exception e) {
-            throw new IOException("Cannot seal IMap WAL segment " + current, e);
+            planner.failedSeal(sealed);
+            throw new IOException("Cannot seal IMap WAL segment " + sealed, e);
+        } finally {
+            // Closing can fail after the stream is already closed. The following write must open
+            // a fresh stream rather than permanently retrying the failed one.
+            current = null;
         }
         if (writtenBytes > 0) {
-            planner.sealed(current);
+            planner.sealed(sealed);
         }
-        current = null;
     }
 
     @Override

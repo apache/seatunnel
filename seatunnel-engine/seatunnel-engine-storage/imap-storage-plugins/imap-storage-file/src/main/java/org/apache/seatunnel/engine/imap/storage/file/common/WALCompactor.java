@@ -17,12 +17,16 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
+import org.apache.seatunnel.engine.imap.storage.file.compaction.CompactionDeferredException;
 import org.apache.seatunnel.engine.imap.storage.file.compaction.CompactionPlan;
 import org.apache.seatunnel.engine.imap.storage.file.compaction.CompactionStorage;
+import org.apache.seatunnel.engine.imap.storage.file.config.CompactionConfig;
 
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.util.function.BooleanSupplier;
 
 /** Reduces an explicit file set without depending on regions, writer lifecycle, or a backend. */
 public final class WALCompactor {
@@ -31,15 +35,55 @@ public final class WALCompactor {
      * timestamps nor payloads are rewritten. Input reclamation is a separate post-commit operation.
      */
     public Path compact(CompactionPlan plan, CompactionStorage storage) throws IOException {
+        return compact(
+                plan,
+                storage,
+                CompactionConfig.MAX_MEMORY_BYTES.defaultValue(),
+                CompactionConfig.MAX_KEYS.defaultValue(),
+                () -> false);
+    }
+
+    /** Bounds retained mutations and observes cooperative cancellation before publication. */
+    public Path compact(
+            CompactionPlan plan,
+            CompactionStorage storage,
+            long maxMemoryBytes,
+            long maxKeys,
+            BooleanSupplier cancelled)
+            throws IOException {
+        if (maxMemoryBytes <= 0 || maxKeys <= 0) {
+            throw new IllegalArgumentException("Compaction memory and key limits must be positive");
+        }
         LatestMutationAccumulator accumulator = new LatestMutationAccumulator(null);
         for (Path input : plan.getInputs()) {
-            storage.read(input, accumulator::accept);
+            checkCancelled(cancelled, plan);
+            try {
+                storage.read(
+                        input,
+                        mutation -> {
+                            checkCancelled(cancelled, plan);
+                            accumulator.acceptWithinLimits(mutation, maxMemoryBytes, maxKeys);
+                        });
+            } catch (CompactionDeferredException e) {
+                throw new CompactionDeferredException(
+                        e.getMessage() + " under " + plan.getOutputDirectory(), e);
+            }
         }
+        checkCancelled(cancelled, plan);
         if (accumulator.hasAmbiguousExpirationTimes()) {
-            throw new IOException(
+            throw new CompactionDeferredException(
                     "Compaction deferred: equal WAL mutations have different expiration times in "
                             + plan.getOutputDirectory());
         }
         return storage.publish(plan, accumulator.values());
+    }
+
+    private static void checkCancelled(BooleanSupplier cancelled, CompactionPlan plan)
+            throws InterruptedIOException {
+        if (Thread.currentThread().isInterrupted() || cancelled.getAsBoolean()) {
+            throw new InterruptedIOException(
+                    "IMap compaction stopped before publication under "
+                            + plan.getOutputDirectory());
+        }
     }
 }

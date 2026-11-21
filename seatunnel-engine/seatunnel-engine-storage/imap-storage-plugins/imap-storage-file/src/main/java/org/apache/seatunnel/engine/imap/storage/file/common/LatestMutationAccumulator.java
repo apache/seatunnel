@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.compaction.CompactionDeferredException;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -34,6 +35,7 @@ class LatestMutationAccumulator {
     private final Map<SerializedKey, IMapFileData> latestMutations = new HashMap<>();
     private final Set<SerializedKey> searchKeys;
     private final Set<SerializedKey> ambiguousExpirationTimes = new HashSet<>();
+    private long retainedBytes;
 
     LatestMutationAccumulator(Set<SerializedKey> searchKeys) {
         this.searchKeys = searchKeys;
@@ -47,13 +49,44 @@ class LatestMutationAccumulator {
         }
 
         IMapFileData current = latestMutations.get(serializedKey);
+        accept(mutation, serializedKey, current);
+    }
+
+    /** Checks the retained working set before adding or replacing a mutation. */
+    void acceptWithinLimits(IMapFileData mutation, long maxMemoryBytes, long maxKeys)
+            throws CompactionDeferredException {
+        SerializedKey serializedKey =
+                SerializedKey.of(mutation.getKey(), mutation.getKeyClassName());
+        if (searchKeys != null && !searchKeys.contains(serializedKey)) {
+            return;
+        }
+        IMapFileData current = latestMutations.get(serializedKey);
+        if (current == null && latestMutations.size() >= maxKeys) {
+            throw new CompactionDeferredException(
+                    "Compaction deferred: distinct keys exceed compaction.max-keys=" + maxKeys);
+        }
+        if (current == null || mutation.compareTo(current) < 0) {
+            long replacedBytes = current == null ? 0 : estimateRetainedBytes(current);
+            long remainingBytes = maxMemoryBytes - (retainedBytes - replacedBytes);
+            if (estimateRetainedBytes(mutation) > remainingBytes) {
+                throw new CompactionDeferredException(
+                        "Compaction deferred: retained mutations exceed compaction.max-memory-bytes="
+                                + maxMemoryBytes);
+            }
+        }
+        accept(mutation, serializedKey, current);
+    }
+
+    private void accept(IMapFileData mutation, SerializedKey serializedKey, IMapFileData current) {
         if (current == null) {
             latestMutations.put(serializedKey, mutation);
+            retainedBytes += estimateRetainedBytes(mutation);
             return;
         }
         int comparison = mutation.compareTo(current);
         if (comparison < 0) {
             latestMutations.put(serializedKey, mutation);
+            retainedBytes += estimateRetainedBytes(mutation) - estimateRetainedBytes(current);
             ambiguousExpirationTimes.remove(serializedKey);
         } else if (comparison == 0
                 && !Objects.equals(mutation.getExpirationTime(), current.getExpirationTime())) {
@@ -61,6 +94,24 @@ class LatestMutationAccumulator {
             // Reordering it into a snapshot could change the expiry selected by replay.
             ambiguousExpirationTimes.add(serializedKey);
         }
+    }
+
+    /**
+     * Estimates serialized payloads, class names and per-key map/object bookkeeping. Actual heap
+     * usage also depends on the serializer and JVM; this guard is not an exact heap reservation.
+     */
+    private static long estimateRetainedBytes(IMapFileData mutation) {
+        // HashMap retains its original SerializedKey on replacement; the latest mutation and
+        // the ambiguity set can each retain another copy of its key bytes and class name.
+        return 512L
+                + (mutation.getKey() == null ? 0 : 3L * mutation.getKey().length)
+                + (mutation.getValue() == null ? 0 : mutation.getValue().length)
+                + (mutation.getKeyClassName() == null
+                        ? 0
+                        : 6L * mutation.getKeyClassName().length())
+                + (mutation.getValueClassName() == null
+                        ? 0
+                        : 2L * mutation.getValueClassName().length());
     }
 
     boolean hasAmbiguousExpirationTimes() {

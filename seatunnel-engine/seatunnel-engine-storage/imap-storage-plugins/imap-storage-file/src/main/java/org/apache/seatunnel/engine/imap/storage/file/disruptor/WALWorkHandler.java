@@ -42,6 +42,8 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
 
     private WALWriter writer;
 
+    private volatile IOException closeFailure;
+
     public WALWorkHandler(
             FileSystem fs,
             FileConfiguration fileConfiguration,
@@ -70,6 +72,13 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
         writer.stopCompaction();
     }
 
+    /** Surfaces stream-close failures after the CLOSED event has been fully consumed. */
+    public void checkCloseFailure() throws IOException {
+        if (closeFailure != null) {
+            throw closeFailure;
+        }
+    }
+
     @Override
     public void onEvent(FileWALEvent fileWALEvent) throws Exception {
         log.debug("write data to orc file");
@@ -93,8 +102,14 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
         }
 
         if (type == WALEventType.CLOSED) {
-            // close writer and archive
-            writer.close();
+            // The owner already attempted the bounded compaction stop. Repeating it here would
+            // kill the processor on timeout before it acknowledges CLOSED, preventing retries.
+            try {
+                writer.closeWriter();
+            } catch (Exception e) {
+                closeFailure = new IOException("Cannot close IMap WAL writer", e);
+                log.error("Cannot close IMap WAL writer", e);
+            }
         }
     }
 
