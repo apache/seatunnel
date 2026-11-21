@@ -76,7 +76,7 @@ class FileSplitStrategyFactoryTest {
     void shouldFallbackToDefaultWhenFormatNotSupportSplit() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
-        configMap.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), FileFormat.ORC);
+        configMap.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), FileFormat.XML);
         configMap.put(FileBaseSourceOptions.FILE_SPLIT_SIZE.key(), 0L);
 
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(configMap);
@@ -84,5 +84,30 @@ class FileSplitStrategyFactoryTest {
         FileSplitStrategy strategy =
                 FileSplitStrategyFactory.initFileSplitStrategy(readonlyConfig, null);
         Assertions.assertInstanceOf(DefaultFileSplitStrategy.class, strategy);
+    }
+
+    @Test
+    void shouldSelectOrcStrategyOnlyWhenEnabled() throws Exception {
+        Map<String, Object> config = new HashMap<>();
+        config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), FileFormat.ORC);
+        config.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), false);
+        Assertions.assertInstanceOf(
+                DefaultFileSplitStrategy.class,
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(config), null));
+        config.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
+        config.put(FileBaseSourceOptions.FILE_SPLIT_SIZE.key(), 1024L);
+        try (OrcFileSplitStrategy strategy =
+                (OrcFileSplitStrategy)
+                        FileSplitStrategyFactory.initFileSplitStrategy(
+                                ReadonlyConfig.fromMap(config), new HadoopConf("file:///"))) {
+            Assertions.assertNotNull(strategy);
+        }
+        config.put(FileBaseSourceOptions.FILE_SPLIT_SIZE.key(), 0L);
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class,
+                () ->
+                        FileSplitStrategyFactory.initFileSplitStrategy(
+                                ReadonlyConfig.fromMap(config), new HadoopConf("file:///")));
     }
 }

@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.split.AccordingToSp
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategyFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.OrcFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.ParquetFileSplitStrategy;
 
 import org.junit.jupiter.api.Assertions;
@@ -71,7 +72,7 @@ public class LocalFileSourceTest {
         FileSplitStrategy fileSplitStrategy =
                 FileSplitStrategyFactory.initFileSplitStrategy(
                         ReadonlyConfig.fromMap(map), new LocalFileHadoopConf());
-        Assertions.assertInstanceOf(DefaultFileSplitStrategy.class, fileSplitStrategy);
+        Assertions.assertInstanceOf(OrcFileSplitStrategy.class, fileSplitStrategy);
         closeQuietly(fileSplitStrategy);
         // test text, no split
         Map<String, Object> map1 = new HashMap<>();

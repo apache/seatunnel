@@ -35,6 +35,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
@@ -84,6 +85,22 @@ public class OrcReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
+        read(new FileSourceSplit(tableId, path), output);
+    }
+
+    /**
+     * Reads a complete-stripe range while retaining the projected schema. A negative split length
+     * preserves whole-file reading for legacy callers. Each call closes its ORC reader and record
+     * reader on success or failure; the shared filesystem remains owned by the read strategy.
+     *
+     * @throws FileConnectorException if the file format is invalid
+     * @throws IOException if opening, reading or closing the ORC file fails
+     */
+    @Override
+    public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws FileConnectorException, IOException {
+        String path = split.getFilePath();
+        String tableId = split.getTableId();
         if (Boolean.FALSE.equals(checkFileType(path))) {
             String errorMsg =
                     String.format(
@@ -117,40 +134,46 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 schema.addField(seaTunnelRowType.getFieldName(i), typeDescription);
             }
             List<TypeDescription> children = schema.getChildren();
-            RecordReader rows = reader.rows(reader.options().schema(schema));
-            VectorizedRowBatch rowBatch = schema.createRowBatch();
-            while (rows.nextBatch(rowBatch)) {
-                int num = 0;
-                for (int i = 0; i < rowBatch.size; i++) {
-                    int numCols = rowBatch.numCols;
-                    Object[] fields;
-                    if (isMergePartition) {
-                        int index = numCols;
-                        fields = new Object[numCols + partitionsMap.size()];
-                        for (String value : partitionsMap.values()) {
-                            fields[index++] = value;
-                        }
-                    } else {
-                        fields = new Object[numCols];
-                    }
-                    ColumnVector[] cols = rowBatch.cols;
-                    for (int j = 0; j < numCols; j++) {
-                        if (cols[j] == null) {
-                            fields[j] = null;
+            Reader.Options options = reader.options().schema(schema);
+            // Keep the projected schema when restricting the reader to complete stripes.
+            if (split.getLength() >= 0) {
+                options.range(split.getStart(), split.getLength());
+            }
+            try (RecordReader rows = reader.rows(options)) {
+                VectorizedRowBatch rowBatch = schema.createRowBatch();
+                while (rows.nextBatch(rowBatch)) {
+                    int num = 0;
+                    for (int i = 0; i < rowBatch.size; i++) {
+                        int numCols = rowBatch.numCols;
+                        Object[] fields;
+                        if (isMergePartition) {
+                            int index = numCols;
+                            fields = new Object[numCols + partitionsMap.size()];
+                            for (String value : partitionsMap.values()) {
+                                fields[index++] = value;
+                            }
                         } else {
-                            fields[j] =
-                                    readColumn(
-                                            cols[j],
-                                            children.get(j),
-                                            seaTunnelRowType.getFieldType(j),
-                                            num,
-                                            charset);
+                            fields = new Object[numCols];
                         }
+                        ColumnVector[] cols = rowBatch.cols;
+                        for (int j = 0; j < numCols; j++) {
+                            if (cols[j] == null) {
+                                fields[j] = null;
+                            } else {
+                                fields[j] =
+                                        readColumn(
+                                                cols[j],
+                                                children.get(j),
+                                                seaTunnelRowType.getFieldType(j),
+                                                num,
+                                                charset);
+                            }
+                        }
+                        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                        seaTunnelRow.setTableId(tableId);
+                        output.collect(seaTunnelRow);
+                        num++;
                     }
-                    SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
-                    seaTunnelRow.setTableId(tableId);
-                    output.collect(seaTunnelRow);
-                    num++;
                 }
             }
         }
