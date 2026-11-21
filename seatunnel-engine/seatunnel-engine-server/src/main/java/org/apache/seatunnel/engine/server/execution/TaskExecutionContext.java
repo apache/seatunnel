@@ -61,11 +61,25 @@ public class TaskExecutionContext {
         return nodeEngine.getLogger(task.getClass());
     }
 
+    /**
+     * Gets or creates the {@link SeaTunnelMetricsContext} for this task location.
+     *
+     * <p>When restoring from a snapshot or savepoint, restored task-local intermediate-queue
+     * metrics are cleaned during task initialization, before the recreated queue registers its new
+     * owner. This prevents stale queue metric contributions from accumulating in current realtime
+     * queue statistics (#13137).
+     *
+     * <p>WARNING: This cleanup must ONLY occur during task initialization and must NOT be performed
+     * on a live context after queue registration, as doing so would discard active queue metrics.
+     */
     public SeaTunnelMetricsContext getOrCreateMetricsContext(TaskLocation taskLocation) {
-        return engineContext
-                .getStateStores()
-                .metricsSnapshotStore()
-                .getOrDefault(taskLocation, new SeaTunnelMetricsContext());
+        SeaTunnelMetricsContext metricsContext =
+                engineContext
+                        .getStateStores()
+                        .metricsSnapshotStore()
+                        .getOrDefault(taskLocation, new SeaTunnelMetricsContext());
+        metricsContext.cleanIntermediateQueueMetrics();
+        return metricsContext;
     }
 
     public EngineStateStores getStateStores() {

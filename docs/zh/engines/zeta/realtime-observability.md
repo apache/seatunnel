@@ -611,6 +611,9 @@ Sink 侧通常已经有“Sink 前队列”作为天然观测点，因此：
 3. **capacity 使用 Counter 表达**：当前实现用 counter 固定为 capacity 值，避免引入新的 Gauge 类型；UI 侧需要按“常量”理解该指标。
 4. **bpRatio 是估算**：分母使用 measurement 数作为 subtask 数的近似，重启/扩缩容时会波动。
 5. **只有 Master 侧聚合并提供 REST**：Worker 节点上不会维护时序 store；非 master 节点访问会返回 404/不可用。
+6. **Savepoint/Restore 时的中间队列指标生命周期**：
+   - 当任务恢复时，瞬态的中间队列（IntermediateQueue）指标所有权会在任务初始化阶段重置。从先前任务上下文快照加载的陈旧中间队列指标项（IntermediateQueueSize、IntermediateQueueCapacity、IntermediateQueuePutBlockedNs）会在新创建的队列注册其所有者之前被清理，从而防止陈旧指标贡献或重复所有者累加到当前实时队列统计中。
+   - 非队列维度的累加指标（例如 `SourceReceivedCount`、Sink 写入记录数等）以及历史运行任务指标在恢复时保留原有的累积语义，不在此次实时队列指标清理范围之内。
 
 ---
 
