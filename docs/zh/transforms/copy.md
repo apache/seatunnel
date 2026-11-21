@@ -16,7 +16,7 @@ Copy 转换通过复制已有字段的值来增加新字段。输出中仍保留
 
 | 名称 | 类型 | 是否必填 | 默认值 | 描述 |
 |------|------|----------|--------|------|
-| `fields` | `Map<String, String>` | 条件必填 | - | 将新字段名映射到已有的源字段名。 |
+| `fields` | `Map<String, String>` | 条件必填 | - | 未使用已废弃的 `src_field`、`dest_field` 组合时必填。将新字段名映射到已有的源字段名。 |
 | `src_field` | `String` | 条件必填 | - | 已废弃的源字段选项，需与 `dest_field` 配套使用。 |
 | `dest_field` | `String` | 条件必填 | - | 已废弃的目标字段选项，使用 `src_field` 时必填。 |
 | `table_transform` | `List<Map<String, Object>>` | 否 | `[]` | 为指定表配置完整的 Copy 规则。 |

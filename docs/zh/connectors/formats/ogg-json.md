@@ -19,10 +19,9 @@ SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息转化为 Ogg
 
 |              选项              |  默认值   | 是否需要 |                                         描述                                         |
 |------------------------------|--------|------|------------------------------------------------------------------------------------|
-| format                       | (none) | 是    | 指定要使用的格式，这里应该是`-json`                                                              |
-| ogg_json.ignore-parse-errors | false  | 否    | 跳过有解析错误的字段和行而不是失败。如果出现错误，字段将设置为 null                                               |
-| ogg_json.database.include    | (none) | 否    | 正则表达式，可选，通过正则匹配 Canal 记录中的`database`元字段来仅读取特定数据库变更日志行。此字符串Pattern模式与Java的Pattern兼容 |
-| ogg_json.table.include       | (none) | 否    | 正则表达式，可选，通过正则匹配 Canal 记录中的 `table` 元字段来仅读取特定表的更改日志行。此字符串Pattern模式与Java的Pattern兼容   |
+| format                       | json   | 是    | 指定要使用的格式，这里应该是`ogg_json`                                                           |
+
+> **注意：** 带前缀的 `ogg_json.ignore-parse-errors`、`ogg_json.database.include` 和 `ogg_json.table.include` 不是有效的配置项，配置后不会生效。是否跳过无法解析的记录由各连接器自行决定（例如 Kafka 读取 Ogg JSON 时始终跳过），format 模块的 `database.include`/`table.include` 过滤器目前也未接入任何连接器。
 
 # 如何使用 Ogg 格式
 

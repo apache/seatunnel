@@ -174,7 +174,7 @@ export SEATUNNEL_HOME=/path/to/apache-seatunnel
 **默认行为：** 如果未设置 `SEATUNNEL_HOME`，CLI 会根据自身包位置自动检测。在发行版压缩包中，CLI 位于 `cli/seatunnel_cli/`，因此会向上解析两级到压缩包根目录：
 
 ```
-apache-seatunnel-3.0.1/          <-- 自动检测为 SEATUNNEL_HOME
+apache-seatunnel-3.1.0/          <-- 自动检测为 SEATUNNEL_HOME
 ├── bin/seatunnel.sh
 ├── bin/seatunnel-ai.sh
 ├── cli/seatunnel_cli/            <-- CLI 包位置
@@ -247,7 +247,7 @@ seatunnel "Read CSV files and write to Elasticsearch" --provider openai --model 
 ### 诊断作业
 
 `--diagnose` 用引擎已经暴露的信息回答"这个作业为什么不往前走"。它是只读的——
-只发 `GET /job-info/<id>` 和 `GET /jobs/checkpoints/<id>`，不会提交也不会停止
+只用 GET 读取作业状态、checkpoint 历史和可选的实时指标，不会提交也不会停止
 作业——并且完全不调用 LLM，因此在没有 API key、没有配置任何提供商的情况下也能用：
 
 ```bash
@@ -263,10 +263,9 @@ SEATUNNEL_API_BASE=http://zeta-master:8080 seatunnel --diagnose 8523626707716669
 
 ```
 Job 852362670771666945 mysql-to-doris — RUNNING
-  [warning] Pipeline 1 has restarted 4 times and its current attempt is only 20s old.
-            It is failing and being restored repeatedly, so the job looks alive while
-            making no progress. (restoreCount=4/10 pipelineStatus=RUNNING running for 20s
-            since the last restore)
+  [warning] Pipeline 1 has restarted 4 times, and the current attempt is only 20s old.
+            Check the task logs for what triggered the restores. (restoreCount=4/10
+            pipelineStatus=RUNNING running for 20s since the last restore)
 ```
 
 它会报告：失败作业解析出的错误码与根因、反复重启的 pipeline（以及是否已用尽
@@ -294,14 +293,50 @@ acknowledged it`），指向具体的某一环而不是整个作业。
 退化、之后一直慢的作业同样有效。如果集群版本没有该 checkpoint 端点，或其监控服务
 未开启，诊断的其余部分照常输出，并会额外打印一行说明这部分分析没有执行。
 
-每条规则都刻意只说单次响应能证明的事情，因为错误的提示比没有提示代价更大：
+对于运行中的作业，CLI 还读取最近三分钟的
+`/metrics/realtime/jobs/<id>/edges` 和 `/vertices`。开启
+`env.engine.observability.enabled = true` 后，三个连续且已完成的时间桶
+可用于识别持续满载、持续背压的队列。输出保留 `queueId`、`targetVertexId`、
+观测时间窗口、`bucketMs` 桶宽和比率。如果相同时间桶里的 sink 写入或 transform 处理也很忙，
+下游节点会被标记为**待排查的瓶颈候选**，而不是确定的根因。
+sink prepare/commit 耗时单独分析，即使写入忙碌度很低也可见；总耗时会按
+时间桶长度和子任务数归一化。
+
+下面是五秒桶宽的测试样例输出，时间戳为合成的毫秒值：
+
+```text
+Job 852 (unnamed) — RUNNING
+  [warning] Queue -3 into vertex 1 was persistently backpressured in the matched window. Downstream sink
+writes were busy too; investigate this vertex as a bottleneck candidate. (queueId=-3 targetVertexId=1
+buckets=3 window=0..15000ms bucketMs=5000 median bpRatio=0.80 queueFillRatio=0.90)
+```
+
+它指出一个值得排查的队列和目标节点，观测窗口为 15 秒，并不判断根因。
+如果观测未开启，同一命令会说明缺少分析依据：
+
+```text
+Job 852 (unnamed) — RUNNING
+  [info] Realtime pressure checks unavailable: engine.observability.enabled is false.
+```
+
+初始阈值为三个时间桶均满足背压 ≥ 0.5、队列填充 ≥ 0.8；忙碌度或提交耗时
+占比 ≥ 0.5 用于提供对应的执行证据。重复数据不算新样本，当前尚未完成的
+时间桶被排除，两次响应必须使用相同桶宽且窗口重叠。三个桶必须是引擎共同
+窗口中最近完成的桶；最近数据缺失或冲突时，不会用更早的匹配样本替代。
+观测关闭、数据缺失或样本不足会显示为不可分析，作业和 checkpoint 诊断仍继续。source read
+耗时本身不能证明源端是瓶颈，因为同步下游操作也可能发生在 `pollNext()` 中。
+背压比率按引擎原始值显示，包括大于 1 的值；队列填充和节点忙碌比率则由
+引擎限制在 0 到 1 之间。
+
+每条规则都刻意只说输入能证明的事情，因为错误的提示比没有提示代价更大：
 
 - `restoreCount` 统计的是自提交以来的重启次数，所以它的含义完全取决于 pipeline
   当前的状态。`FINISHED` / `CANCELED` 的 pipeline 已经结束，不会输出任何内容；
   `FAILED` 的只在重启预算用尽时以过去时报告；正在关停的则把重启次数作为历史
   记录输出。只有当 pipeline 处于两次尝试之间、或距上次重启运行不足 10 分钟时，
   才会判定为重启循环——因此每次尝试都能存活超过 10 分钟的循环会被当作历史
-  记录，而不是当前故障。
+  记录，而不是当前故障。有一个例外：重启预算已经用尽的 pipeline 即使只重启过
+  一次也会被报告，`job.retry.times = 1` 的作业就会遇到这种情况。
 - 行数规则要等作业进入 RUNNING 满两分钟后才生效；对 `job.mode = STREAMING`
   的作业，源端空闲只作为提示而非告警——安静的 topic 和配错的 topic 在这里
   读数完全相同。
@@ -313,9 +348,12 @@ acknowledged it`），指向具体的某一环而不是整个作业。
 - checkpoint 卡住的判定阈值是进行中超过 2 分钟，高于打包配置里的
   `checkpoint.timeout`（60 秒）。默认配置下挂死的 checkpoint 会先超时、以失败
   的形式报出，因此这条规则主要服务于调高了该超时的集群。
-- 时长以引擎自己的时钟为基准计算（作业规则用 `diagnostics.generatedAt`，
-  checkpoint 规则用 `updatedAt`），客户端时钟与集群不一致时不会凭空造出一个
-  "卡住"的作业。
+- 时长以引擎自己的时钟为基准计算：作业规则和 checkpoint 规则都使用
+  `/job-info` 响应里的 `diagnostics.generatedAt`（由 master 在构造响应时打上），
+  因此客户端时钟与集群不一致时不会凭空造出一个"卡住"的作业。checkpoint
+  overview 自带的 `updatedAt` 刻意不使用——引擎只在记录 checkpoint 事件时才
+  写入它，所以当某个 checkpoint 卡在最后一个 subtask 上时它就不再前进，反而
+  会把这条规则本该发现的卡死隐藏掉。
 
 ### CLI 参数
 

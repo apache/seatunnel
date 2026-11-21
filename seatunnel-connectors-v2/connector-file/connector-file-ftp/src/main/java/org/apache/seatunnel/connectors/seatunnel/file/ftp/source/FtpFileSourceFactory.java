@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -104,6 +105,7 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                 .optional(
                         FileBaseSourceOptions.SHEET_NAME,
                         FileBaseSourceOptions.EXCEL_ENGINE,
+                        FileBaseSourceOptions.EXCEL_USE_HEADER_LINE,
                         FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
@@ -115,6 +117,11 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.PDF_RAG_METADATA_ENABLED)
                 .optional(FtpFileSourceOptions.FTP_REMOTE_VERIFICATION_ENABLED)
                 .optional(FtpFileSourceOptions.FTP_CONTROL_ENCODING)
+                .optional(
+                        FtpFileSourceOptions.FTP_CONTROL_TIMEOUT,
+                        // A negative value reaches Socket.setSoTimeout, which throws an
+                        // IllegalArgumentException that does not name the offending option.
+                        Conditions.greaterOrEqual(FtpFileSourceOptions.FTP_CONTROL_TIMEOUT, 0))
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
                 .optional(ConnectorCommonOptions.METALAKE_TYPE)

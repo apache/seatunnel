@@ -117,6 +117,7 @@ public class JdbcSourceFactory implements TableSourceFactory, SupportSourceDryRu
                         JdbcSourceOptions.SPLIT_ALLOW_SAMPLING,
                         JdbcSourceOptions.DECIMAL_TYPE_NARROWING,
                         JdbcSourceOptions.INT_TYPE_NARROWING,
+                        JdbcSourceOptions.NUMERIC_SPECIAL_VALUE_AS_NULL,
                         JdbcSourceOptions.DIALECT,
                         JdbcSourceOptions.ENABLE_CONCURRENT_READ)
                 .build();

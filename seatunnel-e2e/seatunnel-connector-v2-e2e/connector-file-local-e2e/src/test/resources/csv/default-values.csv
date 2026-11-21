@@ -1,0 +1,3 @@
+id,optional,date,timestamp
+NULL,keep,NULL,2020/01/01 12:34:56
+NULL,keep,2020/01/01,NULL

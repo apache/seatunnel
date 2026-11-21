@@ -16,7 +16,7 @@ The Copy transform adds new fields by copying values from existing fields. The o
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| `fields` | `Map<String, String>` | Conditional | - | Maps each new field name to an existing source field name. |
+| `fields` | `Map<String, String>` | Conditional | - | Required unless the deprecated `src_field` and `dest_field` pair is used. Maps each new field name to an existing source field name. |
 | `src_field` | `String` | Conditional | - | Deprecated source field option; use with `dest_field`. |
 | `dest_field` | `String` | Conditional | - | Deprecated destination field option; required with `src_field`. |
 | `table_transform` | `List<Map<String, Object>>` | No | `[]` | Complete Copy rules for specific tables. |

@@ -79,6 +79,8 @@ Only the data types listed in [Data Type Mapping](#data-type-mapping) are suppor
 
 Because the connector submits inline CSV data to Druid, string values should not contain raw commas or line breaks unless they are normalized before the Druid sink.
 
+A null field is written as an empty CSV value, so it keeps its column. Druid stores it according to `druid.generic.useDefaultValueForNull`: with the default `true`, as `''` for string columns and `0` for numeric columns; with `false`, as a SQL null.
+
 ## Example
 
 ### Write One Table
