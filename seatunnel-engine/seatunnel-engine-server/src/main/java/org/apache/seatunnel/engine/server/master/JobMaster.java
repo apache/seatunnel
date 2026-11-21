@@ -496,8 +496,13 @@ public class JobMaster {
                             JobMaster.this.errorMessage = v.getError();
                             JobResult jobResult =
                                     new JobResult(physicalPlan.getJobStatus(), v.getError());
-                            cleanJob();
-                            jobMasterCompleteFuture.complete(jobResult);
+                            try {
+                                cleanJob();
+                            } finally {
+                                // run() and the clients wait for this future, so a failed cleanup
+                                // must not keep it from completing
+                                jobMasterCompleteFuture.complete(jobResult);
+                            }
                         }));
     }
 
@@ -1038,11 +1043,60 @@ public class JobMaster {
         }
     }
 
+    /**
+     * Cleans up after the job ended: clears its checkpoints if needed, stores its history and
+     * schedules the removal of its state maps.
+     *
+     * <p>A failed step is logged with the job id and does not stop the steps after it, so the job
+     * master future still completes. The only exception is the removal of the state maps: it is
+     * scheduled only when the job info and the finished state were both stored. If either is
+     * missing, the state maps and the job info stay, so that the next active master finds the job
+     * as a terminal job without a cleanup record and stores its history again before it removes
+     * them.
+     */
     public void cleanJob() {
-        checkpointManager.clearCheckpointIfNeed(physicalPlan.getJobStatus());
-        jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
-        jobHistoryService.storeFinishedJobState(this);
-        scheduleRemoveJobStateMaps();
+        long jobId = jobImmutableInformation.getJobId();
+        runCleanupStep(
+                jobId,
+                "clear its checkpoints",
+                () -> checkpointManager.clearCheckpointIfNeed(physicalPlan.getJobStatus()));
+        boolean jobInfoStored =
+                runCleanupStep(
+                        jobId,
+                        "store its job info",
+                        () -> jobHistoryService.storeJobInfo(jobId, getJobDAGInfo()));
+        boolean finishedStateStored =
+                runCleanupStep(
+                        jobId,
+                        "store its finished state",
+                        () -> jobHistoryService.storeFinishedJobState(this));
+        if (!jobInfoStored || !finishedStateStored) {
+            LOGGER.warning(
+                    String.format(
+                            "Job %s ended, but its history was not fully stored, so its state"
+                                    + " maps are kept for the next active master to recover it",
+                            jobId));
+            return;
+        }
+        runCleanupStep(
+                jobId, "schedule the removal of its state maps", this::scheduleRemoveJobStateMaps);
+    }
+
+    /**
+     * Runs one step of {@link #cleanJob()}. A {@link RuntimeException} is logged and swallowed so
+     * that the remaining steps and the completion of the job master future still happen; an {@link
+     * Error} is not caught.
+     *
+     * @return whether the step completed without an exception
+     */
+    private static boolean runCleanupStep(long jobId, String step, Runnable action) {
+        try {
+            action.run();
+            return true;
+        } catch (RuntimeException e) {
+            LOGGER.warning(String.format("Job %s ended, but failed to %s", jobId, step), e);
+            return false;
+        }
     }
 
     public void storeJobEndState() {
