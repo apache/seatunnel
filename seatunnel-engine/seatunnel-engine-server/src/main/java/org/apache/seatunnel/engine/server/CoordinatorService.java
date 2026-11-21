@@ -112,6 +112,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -226,6 +227,13 @@ public class CoordinatorService {
     private ExecutorService executorService;
     private final ExecutorService metricsFetchExecutor;
 
+    /**
+     * Fixed-size pool dedicated to OpenLineage HTTP emission. Shared by every JobMaster so a slow
+     * lineage receiver can only stall lineage reporting, never PlanUtils / checkpoint scheduling on
+     * {@link #executorService}. At most 64 jobs await a delivery thread.
+     */
+    private ExecutorService lineageEmissionExecutor;
+
     private final SeaTunnelServer seaTunnelServer;
 
     private final ScheduledExecutorService masterActiveListener;
@@ -273,6 +281,7 @@ public class CoordinatorService {
         this.resourceManagerFactory = resourceManagerFactory;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService = createCoordinatorExecutor();
+        this.lineageEmissionExecutor = createLineageEmissionExecutor();
 
         int metricsFetchThreads =
                 Math.max(1, Math.min(8, Runtime.getRuntime().availableProcessors()));
@@ -313,6 +322,37 @@ public class CoordinatorService {
                         .setNameFormat("seatunnel-coordinator-service-%d")
                         .build(),
                 new ThreadPoolStatus.RejectionCountingHandler());
+    }
+
+    /**
+     * Builds the isolated lineage-emission pool.
+     *
+     * <p>Each job has at most one queued drain. When full, lifecycle events can replace a queued
+     * heartbeat-only job; see {@link JobMaster#submitLineageEmission(Runnable)}.
+     */
+    private ExecutorService createLineageEmissionExecutor() {
+        return new ThreadPoolExecutor(
+                2,
+                2,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(64),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("seatunnel-lineage-emission-%d")
+                        .setDaemon(true)
+                        .build()) {
+            @Override
+            public List<Runnable> shutdownNow() {
+                List<Runnable> pending = super.shutdownNow();
+                if (!pending.isEmpty()) {
+                    logger.warning(
+                            "Dropped "
+                                    + pending.size()
+                                    + " pending lineage emission task(s) during shutdown");
+                }
+                return pending;
+            }
+        };
     }
 
     /**
@@ -1152,6 +1192,7 @@ public class CoordinatorService {
                         jobInfo.getJobImmutableInformation(),
                         nodeEngine,
                         MDCTracer.tracing(jobId, executorService),
+                        lineageEmissionExecutor,
                         getResourceManager(),
                         getJobHistoryService(),
                         runningJobStateIMap,
@@ -1267,6 +1308,10 @@ public class CoordinatorService {
                 if (this.executorService.isShutdown() || this.executorService.isTerminated()) {
                     this.executorService = createCoordinatorExecutor();
                 }
+                if (this.lineageEmissionExecutor.isShutdown()
+                        || this.lineageEmissionExecutor.isTerminated()) {
+                    this.lineageEmissionExecutor = createLineageEmissionExecutor();
+                }
                 initCoordinatorService();
                 pendingJobScheduleEpoch.incrementAndGet();
                 isActive = true;
@@ -1331,6 +1376,7 @@ public class CoordinatorService {
                         });
         pendingJobQueue.clear();
         executorService.shutdownNow();
+        lineageEmissionExecutor.shutdownNow();
         runningJobMasterMap.clear();
 
         try {
@@ -1343,6 +1389,18 @@ public class CoordinatorService {
             Thread.currentThread().interrupt();
             logger.info(
                     "Coordinator service shutdown interrupted while waiting executorService termination, continue cleanup.");
+        }
+        try {
+            boolean lineageTerminated =
+                    lineageEmissionExecutor.awaitTermination(20, TimeUnit.SECONDS);
+            if (!lineageTerminated) {
+                logger.warning(
+                        "Coordinator service lineageEmissionExecutor did not terminate within 20 seconds.");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.info(
+                    "Coordinator service shutdown interrupted while waiting lineageEmissionExecutor termination, continue cleanup.");
         }
 
         ResourceManager manager = resourceManager;
@@ -1366,6 +1424,11 @@ public class CoordinatorService {
         } catch (Exception e) {
             throw new SeaTunnelEngineException("close event processor error", e);
         }
+    }
+
+    /** Returns the bounded executor used for OpenLineage HTTP emission. */
+    public ExecutorService getLineageEmissionExecutor() {
+        return lineageEmissionExecutor;
     }
 
     /** Lazy load for resource manager */
@@ -1447,6 +1510,7 @@ public class CoordinatorService {
                                         jobImmutableInformation,
                                         this.nodeEngine,
                                         mdcExecutorService,
+                                        lineageEmissionExecutor,
                                         getResourceManager(),
                                         getJobHistoryService(),
                                         runningJobStateIMap,

@@ -42,6 +42,17 @@
             <artifactId>seatunnel-engine-ui</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!--
+            Runtime only: the backend is discovered through the LineageBackend service loader, so
+            no engine class links against it. Compile scope would put openlineage-java and its
+            unshaded Jackson on every master and worker for a feature that is off by default.
+        -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-lineage-openlineage</artifactId>
+            <version>${project.version}</version>
+            <scope>runtime</scope>
+        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>checkpoint-storage-hdfs</artifactId>
