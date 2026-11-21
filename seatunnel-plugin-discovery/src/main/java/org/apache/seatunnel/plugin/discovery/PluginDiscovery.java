@@ -63,10 +63,11 @@ public interface PluginDiscovery<T> {
      * Get plugin instance by plugin identifier.
      *
      * @param pluginIdentifier plugin identifier.
-     * @param pluginJars used to help plugin load
+     * @param additionalPluginJars additional jars supplied by the caller to help the plugin load,
+     *     as opposed to the plugin jars discovered from the plugin directory.
      * @return plugin instance. If not found, throw IllegalArgumentException.
      */
-    T createPluginInstance(PluginIdentifier pluginIdentifier, Collection<URL> pluginJars);
+    T createPluginInstance(PluginIdentifier pluginIdentifier, Collection<URL> additionalPluginJars);
 
     /**
      * Get plugin instance by plugin identifier.
@@ -80,11 +81,12 @@ public interface PluginDiscovery<T> {
      * Get plugin instance by plugin identifier.
      *
      * @param pluginIdentifier plugin identifier.
-     * @param pluginJars used to help plugin load
+     * @param additionalPluginJars additional jars supplied by the caller to help the plugin load,
+     *     as opposed to the plugin jars discovered from the plugin directory.
      * @return plugin instance. If not found, return Optional.empty().
      */
     Optional<T> createOptionalPluginInstance(
-            PluginIdentifier pluginIdentifier, Collection<URL> pluginJars);
+            PluginIdentifier pluginIdentifier, Collection<URL> additionalPluginJars);
 
     /**
      * Get all plugin instances.
