@@ -69,6 +69,8 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Getter private final SlotAllocationStrategy slotAllocationStrategy;
 
+    private final FixedSlotReservations fixedSlotReservations = new FixedSlotReservations();
+
     // Track master-side slot request cost without changing allocation behavior.
     private final AtomicLong requestSlotOperationSuccessCount = new AtomicLong();
     private final AtomicLong requestSlotOperationNoSlotCount = new AtomicLong();
@@ -180,7 +182,9 @@ public abstract class AbstractResourceManager implements ResourceManager {
                 "Node heartbeat timeout, disconnected for resource manager. "
                         + "Node Address: "
                         + event.getMember().getAddress());
-        registerWorker.remove(event.getMember().getAddress());
+        Address workerAddress = event.getMember().getAddress();
+        registerWorker.remove(workerAddress);
+        fixedSlotReservations.releaseWorker(workerAddress);
     }
 
     @Override
@@ -385,5 +389,54 @@ public abstract class AbstractResourceManager implements ResourceManager {
                             return match;
                         })
                 .collect(Collectors.toConcurrentMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    /**
+     * Lock that makes fixed-slot selection and reservation atomic across resource handlers.
+     *
+     * <p>Hold this lock while choosing a worker and reserving one of its unassigned slots.
+     * Releasing a reservation does not require the lock.
+     */
+    Object fixedSlotReservationLock() {
+        return fixedSlotReservations.lock();
+    }
+
+    /**
+     * Whether {@code worker} has a fixed slot that satisfies {@code required} and is not already
+     * reserved for an in-flight request.
+     */
+    boolean hasUnreservedFixedSlot(WorkerProfile worker, ResourceProfile required) {
+        return fixedSlotReservations.hasMatchingSlot(worker, required, System.nanoTime());
+    }
+
+    /**
+     * Reserves one matching fixed slot on {@code worker}. Caller must hold {@link
+     * #fixedSlotReservationLock()}.
+     *
+     * @return the reserved slot, or {@code null} when no matching slot is free to reserve
+     */
+    SlotProfile reserveFixedSlot(WorkerProfile worker, ResourceProfile required) {
+        return fixedSlotReservations.tryReserve(worker, required, System.nanoTime());
+    }
+
+    /** Drops the in-flight lease for one slot. Idempotent. */
+    void releaseFixedSlotReservation(SlotProfile reservedSlot) {
+        if (reservedSlot == null) {
+            return;
+        }
+        fixedSlotReservations.release(reservedSlot.getWorker(), reservedSlot.getSlotID());
+    }
+
+    boolean isFixedSlotReserved(Address worker, int slotId) {
+        return fixedSlotReservations.isReserved(worker, slotId, System.nanoTime());
+    }
+
+    /** Test hook. A deadline in the past is treated as not reserved on the next read. */
+    void reserveFixedSlotUntil(Address worker, int slotId, long untilNanos) {
+        fixedSlotReservations.reserveUntil(worker, slotId, untilNanos);
+    }
+
+    int fixedSlotReservationCount() {
+        return fixedSlotReservations.activeCount(System.nanoTime());
     }
 }
