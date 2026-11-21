@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-> 默认情况下 `semantics` 为 `NON`，不保证消息恰好一次发送到 Kafka。如需 exactly-once 语义，请将 `semantics` 设置为 `EXACTLY_ONCE` 并开启 checkpoint。
+> 默认的 `semantics = NON` 直接发送记录，不使用 Kafka 事务；失败时可能丢失或重复发送记录。要在 checkpoint 时提交 Kafka 事务，请设置 `semantics = EXACTLY_ONCE` 并开启 checkpoint。
 
 ## 描述
 
@@ -456,7 +456,7 @@ sink {
 }
 ```
 
-注意：上游记录使用 `format = "NATIVE"` 时，`key` 和 `value` 是 `byte[]`。`kafka_headers_fields` 不能与 `format = "NATIVE"` 同时使用——这不是"小心配置即可"的问题：两者同时配置时，sink 序列化器初始化会抛出 `KafkaConnectorException(OPERATION_NOT_SUPPORTED)`，作业无法启动。NATIVE 输入的 headers 已编码在 `value` 字节数组内，无需也无法通过该选项转发。
+注意：上游记录使用 `format = "NATIVE"` 时，`key` 和 `value` 列为 `byte[]`。`kafka_headers_fields` 不能与 `format = "NATIVE"` 同时使用：若两者同时配置，sink 在构建序列化器时会抛出 `KafkaConnectorException(OPERATION_NOT_SUPPORTED)`，作业将无法启动。NATIVE 输入的记录 headers 并未写入 `value` 字节数组——它们保存在 Kafka 记录的独立 headers 中，因此 `kafka_headers_fields` 无法与该格式组合使用。
 
 ## 常见问题
 

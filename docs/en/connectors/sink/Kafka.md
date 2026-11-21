@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-> By default, `semantics` is `NON`, which does not guarantee that messages are sent to Kafka exactly once. To get exactly-once semantics, set `semantics` to `EXACTLY_ONCE` and enable checkpointing.
+> With the default `semantics = NON`, the sink sends records without Kafka transactions; a failure can lose or duplicate records. To commit Kafka transactions at checkpoints, set `semantics = EXACTLY_ONCE` and enable checkpointing.
 
 ## Description
 
@@ -458,7 +458,7 @@ sink {
 }
 ```
 
-Note: when the upstream rows are produced with `format = "NATIVE"`, the `key` and `value` columns are `byte[]`. Combining `kafka_headers_fields` with `format = "NATIVE"` is not a "configure carefully" situation — the sink's serializer construction throws `KafkaConnectorException(OPERATION_NOT_SUPPORTED)` at job initialization if both are set, so the job fails to start. Do not configure `kafka_headers_fields` together with `format = "NATIVE"`; headers for NATIVE inputs are already encoded inside the `value` byte array.
+Note: when the upstream rows are produced with `format = "NATIVE"`, the `key` and `value` columns are `byte[]`. Combining `kafka_headers_fields` with `format = "NATIVE"` is not a "configure carefully" situation — the sink's serializer construction throws `KafkaConnectorException(OPERATION_NOT_SUPPORTED)` at job initialization if both are set, so the job fails to start. Do not configure `kafka_headers_fields` together with `format = "NATIVE"`; for NATIVE inputs the record headers are not written into the `value` byte array — they are carried separately in the Kafka record headers, which is why `kafka_headers_fields` cannot be combined with this format.
 
 ## FAQ
 

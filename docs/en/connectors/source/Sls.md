@@ -127,6 +127,42 @@ sink {
 }
 ```
 
+### Discover New Shards Periodically
+
+By default the connector enumerates shards once when the job starts. Set
+`partition-discovery.interval-millis` to a positive value to keep discovering new shards created
+while the job is running. The example below refreshes the shard list every five minutes:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  Sls {
+    endpoint = "cn-hangzhou-intranet.log.aliyuncs.com"
+    project = "project1"
+    logstore = "logstore1"
+    access_key_id = "xxxxxxxxxxxxxxxxxxxxxxxx"
+    access_key_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    consumer_group = "seatunnel-sls-demo"
+    partition-discovery.interval-millis = 300000
+    schema = {
+      fields = {
+        id = "int"
+        name = "string"
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
 ## Changelog
 
 <ChangeLog />

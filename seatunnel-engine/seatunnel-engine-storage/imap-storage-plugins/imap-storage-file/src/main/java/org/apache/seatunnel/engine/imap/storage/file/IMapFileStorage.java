@@ -20,6 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
+import org.apache.seatunnel.engine.imap.storage.api.ExpirableValue;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
@@ -169,9 +170,14 @@ public class IMapFileStorage implements IMapStorage {
 
     @Override
     public boolean store(Object key, Object value) {
+        return store(key, value, ExpirableValue.NO_EXPIRATION_TIME);
+    }
+
+    @Override
+    public boolean store(Object key, Object value, long expirationTime) {
         IMapFileData data;
         try {
-            data = parseToIMapFileData(key, value);
+            data = parseToIMapFileData(key, value, expirationTime);
         } catch (IOException e) {
             log.error("parse to IMapFileData error, key is {}, value is {}", key, value, e);
             return false;
@@ -183,12 +189,21 @@ public class IMapFileStorage implements IMapStorage {
 
     @Override
     public Set<Object> storeAll(Map<Object, Object> map) {
+        Map<Object, ExpirableValue> values = new HashMap<>(map.size());
+        map.forEach((key, value) -> values.put(key, new ExpirableValue(value)));
+        return storeAllWithExpirationTime(values);
+    }
+
+    @Override
+    public Set<Object> storeAllWithExpirationTime(Map<Object, ExpirableValue> map) {
         Map<Long, Object> requestMap = new HashMap<>(map.size());
         Set<Object> failures = new HashSet<>();
         map.forEach(
                 (key, value) -> {
                     try {
-                        IMapFileData data = parseToIMapFileData(key, value);
+                        IMapFileData data =
+                                parseToIMapFileData(
+                                        key, value.getValue(), value.getExpirationTime());
                         long requestId = sendToDisruptorQueue(data, WALEventType.APPEND);
                         requestMap.put(requestId, key);
                     } catch (IOException e) {
@@ -242,6 +257,17 @@ public class IMapFileStorage implements IMapStorage {
     }
 
     @Override
+    public Map<Object, ExpirableValue> loadAllWithExpirationTime() {
+        try {
+            WALReader reader = new WALReader(fs, fileConfiguration, serializer);
+            return reader.loadAllDataWithExpirationTime(
+                    new Path(businessRootPath), new HashSet<>());
+        } catch (IOException e) {
+            throw new IMapStorageException("load all data error", e);
+        }
+    }
+
+    @Override
     public Set<Object> loadAllKeys() {
         try {
             WALReader reader = new WALReader(fs, fileConfiguration, serializer);
@@ -283,7 +309,8 @@ public class IMapFileStorage implements IMapStorage {
         }
     }
 
-    private IMapFileData parseToIMapFileData(Object key, Object value) throws IOException {
+    private IMapFileData parseToIMapFileData(Object key, Object value, long expirationTime)
+            throws IOException {
         return IMapFileData.builder()
                 .key(serializer.serialize(key))
                 .keyClassName(key.getClass().getName())
@@ -291,6 +318,9 @@ public class IMapFileStorage implements IMapStorage {
                 .valueClassName(value.getClass().getName())
                 .timestamp(System.currentTimeMillis())
                 .deleted(false)
+                // Leave the field unset for entries that never expire, as older releases did.
+                .expirationTime(
+                        expirationTime == ExpirableValue.NO_EXPIRATION_TIME ? null : expirationTime)
                 .build();
     }
 

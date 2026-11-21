@@ -62,7 +62,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | doris.batch.size               | int     | No       | 1024                         | 每次http请求写入doris的批量大小，当row达到该大小或者执行checkpoint时，缓存的数据就会写入服务器。                                                                                           |
 | needs_unsupported_type_casting | boolean | No       | false                        | 是否启用不支持的类型转换，例如 Decimal64 到 Double。                                                                                                                   |
 | case_sensitive                 | boolean | No       | true                         | 是否保留表名和字段名的原始大小写。当设置为 false 时，表名和字段名将被转换为小写。                                                                                        |
-| sink.datetime-timezone         | string  | No       | JVM 默认时区                | 用于将 `TIMESTAMP_TZ` 值转换为 Doris `DATETIME` 列的 wall-clock 字符串的会话时区 ID（兼容 `java.time.ZoneId`，例如 `Asia/Shanghai` 或 `+08:00`）。未设置时使用 JVM 默认时区（旧行为）。请将其设置为 Doris 会话时区，以避免依赖 JVM 默认时区。 |
+| sink.datetime-timezone         | string  | No       | JVM 默认时区                | 用于将 `TIMESTAMP_TZ` 值转换为 Doris `DATETIME` 列的 wall-clock 字符串的会话时区 ID（兼容 `java.time.ZoneId`，例如 `Asia/Shanghai` 或 `+08:00`）。未设置时使用 JVM 默认时区（旧行为）。请将其设置为 Doris 会话时区，以避免依赖 JVM 默认时区。未设置且表中有 `TIMESTAMP_TZ` 列时，writer 会打印一条警告，列出这些列和实际使用的 JVM 时区。 |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                   |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                        |
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                  |
@@ -115,7 +115,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 默认模板：
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
 ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
@@ -133,7 +133,7 @@ DISTRIBUTED BY HASH (${rowtype_primary_key})
 如果模板中填写了自定义字段，例如添加 id 字段
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}`
 (   
     id,
     ${rowtype_fields}
@@ -699,7 +699,8 @@ Doris 通过 Stream Load label 去重，防止重复提交。开启 2PC 后重�
 
 ### Doris Stream Load 使用什么数据格式？
 
-默认使用 JSON 格式，可按需显式配置：
+Doris Sink 必须在 `doris.config` 中显式配置 Stream Load 的 `format`（`json` 或 `csv`）；
+该项没有默认值，缺少时作业会启动失败：
 
 ```hocon
 doris.config {
