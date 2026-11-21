@@ -419,7 +419,8 @@ public class FileMapStoreTest {
     /**
      * A real WAL append failure must stick: the next write-through put fails without another
      * successful frame, the node restart replays only the prefix written before the failure, and a
-     * fresh node on the same files stays fail-closed instead of recreating the writer.
+     * fresh node writes the next record into a new region file. The new node is not fail-closed;
+     * the durable prefix from the failed node's region must still replay.
      */
     @Test
     public void testWalAppendFailureFailClosesAndRestartReplaysOnlyDurablePrefix()

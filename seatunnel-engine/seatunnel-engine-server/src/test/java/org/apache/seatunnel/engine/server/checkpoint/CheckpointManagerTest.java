@@ -254,6 +254,31 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
             long jobId,
             boolean isStartWithSavePoint,
             CheckpointStorage checkpointStorage,
+            CheckpointConfig checkpointConfig,
+            CheckpointMonitorService checkpointMonitorService) {
+        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
+        planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
+        return new CheckpointManager(
+                jobId,
+                false,
+                RestoreMode.NONE,
+                null,
+                false,
+                nodeEngine,
+                null,
+                planMap,
+                checkpointConfig,
+                checkpointStorage,
+                instance.getExecutorService("test"),
+                nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                server.getEngineContext(),
+                checkpointMonitorService);
+    }
+
+    private CheckpointManager createCheckpointManager(
+            long jobId,
+            boolean isStartWithSavePoint,
+            CheckpointStorage checkpointStorage,
             CheckpointConfig checkpointConfig) {
         return createCheckpointManager(
                 jobId,
@@ -415,6 +440,67 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
         Assertions.assertTrue(
                 checkpointStorage.getAllCheckpoints(jobId + "").isEmpty(),
                 "Checkpoint should be cleaned up after FINISHED regardless of retain setting");
+    }
+
+    /**
+     * Payload durability and auxiliary bookkeeping fail independently. A retained checkpoint stays
+     * loadable for a later restore when the monitor map is fail-closed, and that monitor failure
+     * does not delete the payload. A payload-delete failure stops before monitor cleanup.
+     */
+    @Test
+    public void testPayloadAndMonitorFailuresStayIsolatedAcrossRestore()
+            throws CheckpointStorageException {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointStorage checkpointStorage = createCheckpointStorage();
+        storeCompletedCheckpoint(checkpointStorage, jobId, 1L);
+        CheckpointMonitorService monitorService = Mockito.mock(CheckpointMonitorService.class);
+        Mockito.doThrow(new IMapStorageException("overview WAL fail-closed"))
+                .when(monitorService)
+                .cleanupJob(jobId);
+
+        CheckpointConfig retain = new CheckpointConfig();
+        retain.setRetainAfterJobCancelled(true);
+        CheckpointManager monitorFailed =
+                createCheckpointManager(jobId, false, checkpointStorage, retain, monitorService);
+        monitorFailed.clearCheckpointIfNeed(JobStatus.CANCELED);
+        Mockito.verify(monitorService).cleanupJob(jobId);
+        Assertions.assertFalse(
+                checkpointStorage.getAllCheckpoints(jobId + "").isEmpty(),
+                "a failed monitor write must not delete the durable checkpoint payload");
+
+        CheckpointManager restored =
+                createCheckpointManager(
+                        jobId,
+                        true,
+                        RestoreMode.CHECKPOINT,
+                        jobId,
+                        true,
+                        checkpointStorage,
+                        new CheckpointConfig());
+        Assertions.assertEquals(
+                2L,
+                restored.getCheckpointCoordinator(1).getCheckpointIdCounter().get(),
+                "the durable payload must still restore after the monitor write failed");
+
+        CheckpointStorage failingStorage = Mockito.mock(CheckpointStorage.class);
+        Mockito.doThrow(new RuntimeException("checkpoint payload delete failed"))
+                .when(failingStorage)
+                .deleteCheckpoint(Mockito.any());
+        CheckpointMonitorService untouchedMonitor = Mockito.mock(CheckpointMonitorService.class);
+        CheckpointManager payloadFailed =
+                createCheckpointManager(
+                        jobId + 1, false, failingStorage, new CheckpointConfig(), untouchedMonitor);
+        RuntimeException payloadFailure =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> payloadFailed.clearCheckpointIfNeed(JobStatus.FINISHED));
+        Assertions.assertTrue(
+                payloadFailure.getMessage().contains("checkpoint payload delete failed"),
+                "Expected the payload failure, got: " + payloadFailure.getMessage());
+        Mockito.verify(untouchedMonitor, Mockito.never()).cleanupJob(Mockito.anyLong());
+        Assertions.assertTrue(
+                checkpointStorage.getAllCheckpoints((jobId + 1) + "").isEmpty(),
+                "a failed payload delete must leave the other job's checkpoint untouched");
     }
 
     @Test

@@ -66,12 +66,13 @@ class IMapFileStorageBatchDeadlineTest {
             requestMap.put(requestId, "key-" + i);
         }
 
+        long deadlineNanos = clock.get() + TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MS);
         try {
             @SuppressWarnings("unchecked")
             Set<Object> failures =
                     (Set<Object>)
                             invokeBatchQueryExecuteFailsStatus(
-                                    storage, requestMap, new HashSet<Object>());
+                                    storage, requestMap, new HashSet<Object>(), deadlineNanos);
 
             Assertions.assertEquals(PENDING_KEYS, failures.size());
             long budgetNanos = TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MS);
@@ -110,12 +111,13 @@ class IMapFileStorageBatchDeadlineTest {
             requestMap.put(requestId, "key-" + i);
         }
 
+        long deadlineNanos = clock.get() + TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MS);
         try {
             @SuppressWarnings("unchecked")
             Set<Object> failures =
                     (Set<Object>)
                             invokeBatchQueryExecuteFailsStatus(
-                                    storage, requestMap, new HashSet<Object>());
+                                    storage, requestMap, new HashSet<Object>(), deadlineNanos);
 
             Assertions.assertEquals(PENDING_KEYS, failures.size());
             // The first wait consumes the whole budget. Later entries are already completed with
@@ -143,13 +145,16 @@ class IMapFileStorageBatchDeadlineTest {
     }
 
     private static Object invokeBatchQueryExecuteFailsStatus(
-            IMapFileStorage storage, Map<Long, Object> requestMap, Set<Object> failures)
+            IMapFileStorage storage,
+            Map<Long, Object> requestMap,
+            Set<Object> failures,
+            long deadlineNanos)
             throws Exception {
         Method method =
                 IMapFileStorage.class.getDeclaredMethod(
-                        "batchQueryExecuteFailsStatus", Map.class, Set.class);
+                        "batchQueryExecuteFailsStatus", Map.class, Set.class, long.class);
         method.setAccessible(true);
-        return method.invoke(storage, requestMap, failures);
+        return method.invoke(storage, requestMap, failures, deadlineNanos);
     }
 
     /**

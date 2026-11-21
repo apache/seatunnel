@@ -39,6 +39,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 @Slf4j
 public class WALDisruptor implements Closeable {
@@ -97,6 +98,48 @@ public class WALDisruptor implements Closeable {
         return workHandler.isAppendBlockedAfterWriteFailure();
     }
 
+    /**
+     * Publishes one WAL event if a ring slot is free before {@code deadlineNanos}.
+     *
+     * <p>A full ring used to block inside {@code publishEvent} with no timeout, so a stalled
+     * consumer held the write-through caller before any future wait started. A closed ring returns
+     * false immediately; the caller must drop the pending request instead of waiting for a result
+     * that will never arrive.
+     *
+     * @param waitNanos maximum time to wait for a ring slot, in the same unit as {@link
+     *     System#nanoTime()}; callers must derive this from the shared operation deadline using the
+     *     same clock as {@link org.apache.seatunnel.engine.imap.storage.file.IMapFileStorage}
+     * @return false when the ring is closed or no slot was claimed before {@code waitNanos} elapses
+     */
+    public boolean tryPublish(
+            IMapFileData message, WALEventType status, Long requestId, long waitNanos) {
+        if (isClosed()) {
+            return false;
+        }
+        if (waitNanos <= 0L) {
+            return false;
+        }
+        long deadline = System.nanoTime() + waitNanos;
+        while (System.nanoTime() < deadline) {
+            if (disruptor.getRingBuffer().tryPublishEvent(TRANSLATOR, message, status, requestId)) {
+                return true;
+            }
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0L) {
+                break;
+            }
+            LockSupport.parkNanos(Math.min(remaining, 100_000L));
+        }
+        return false;
+    }
+
+    /**
+     * Publishes one WAL event, waiting for a ring slot with no caller deadline.
+     *
+     * <p>Shutdown uses this for the terminal {@code CLOSED} marker. Steady-state appends must use
+     * {@link #tryPublish(IMapFileData, WALEventType, Long, long)} so admission stays inside the
+     * configured write timeout.
+     */
     public boolean tryPublish(IMapFileData message, WALEventType status, Long requestId) {
         if (isClosed()) {
             return false;

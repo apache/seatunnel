@@ -188,8 +188,12 @@ public class IMapFileStorage implements IMapStorage {
             return false;
         }
 
-        long requestId = sendToDisruptorQueue(data, WALEventType.APPEND);
-        return queryExecuteStatus(requestId);
+        long deadlineNanos = operationDeadlineNanos();
+        Admission admission = admit(data, WALEventType.APPEND, deadlineNanos);
+        if (!admission.published) {
+            return false;
+        }
+        return queryExecuteStatusBeforeDeadline(admission.requestId, deadlineNanos);
     }
 
     /**
@@ -214,20 +218,27 @@ public class IMapFileStorage implements IMapStorage {
     public Set<Object> storeAllWithExpirationTime(Map<Object, ExpirableValue> map) {
         Map<Long, Object> requestMap = new HashMap<>(map.size());
         Set<Object> failures = new HashSet<>();
+        // One deadline covers every ring admission and the later shared wait. Publishing the whole
+        // batch before starting the clock would let a full ring stall each key outside the timeout.
+        long deadlineNanos = operationDeadlineNanos();
         map.forEach(
                 (key, value) -> {
                     try {
                         IMapFileData data =
                                 parseToIMapFileData(
                                         key, value.getValue(), value.getExpirationTime());
-                        long requestId = sendToDisruptorQueue(data, WALEventType.APPEND);
-                        requestMap.put(requestId, key);
+                        Admission admission = admit(data, WALEventType.APPEND, deadlineNanos);
+                        if (admission.published) {
+                            requestMap.put(admission.requestId, key);
+                        } else {
+                            failures.add(key);
+                        }
                     } catch (IOException e) {
                         log.error("parse to IMapFileData error", e);
                         failures.add(key);
                     }
                 });
-        return batchQueryExecuteFailsStatus(requestMap, failures);
+        return batchQueryExecuteFailsStatus(requestMap, failures, deadlineNanos);
     }
 
     @Override
@@ -239,28 +250,37 @@ public class IMapFileStorage implements IMapStorage {
             log.error("parse to IMapFileData error, key is {} ", key, e);
             return false;
         }
-        long requestId = sendToDisruptorQueue(data, WALEventType.APPEND);
-        return queryExecuteStatus(requestId);
+        long deadlineNanos = operationDeadlineNanos();
+        Admission admission = admit(data, WALEventType.APPEND, deadlineNanos);
+        if (!admission.published) {
+            return false;
+        }
+        return queryExecuteStatusBeforeDeadline(admission.requestId, deadlineNanos);
     }
 
     @Override
     public Set<Object> deleteAll(Collection<Object> keys) {
         Map<Long, Object> requestMap = new HashMap<>(keys.size());
         Set<Object> failures = new HashSet<>();
+        long deadlineNanos = operationDeadlineNanos();
         keys.forEach(
                 key -> {
                     try {
                         IMapFileData data = buildDeleteIMapFileData(key);
-                        // sendToDisruptorQueue already publishes APPEND; do not double-publish.
-                        long requestId = sendToDisruptorQueue(data, WALEventType.APPEND);
+                        // admit already publishes APPEND; do not double-publish.
+                        Admission admission = admit(data, WALEventType.APPEND, deadlineNanos);
                         // Match storeAll: failure set / exception detail must carry caller keys.
-                        requestMap.put(requestId, key);
+                        if (admission.published) {
+                            requestMap.put(admission.requestId, key);
+                        } else {
+                            failures.add(key);
+                        }
                     } catch (IOException e) {
                         log.error("parse to IMapFileData error", e);
                         failures.add(key);
                     }
                 });
-        return batchQueryExecuteFailsStatus(requestMap, failures);
+        return batchQueryExecuteFailsStatus(requestMap, failures, deadlineNanos);
     }
 
     @Override
@@ -358,30 +378,65 @@ public class IMapFileStorage implements IMapStorage {
                 .build();
     }
 
-    private long sendToDisruptorQueue(IMapFileData data, WALEventType type) {
+    /**
+     * Result of trying to queue one WAL append inside the operation deadline.
+     *
+     * <p>{@code requestId} is set only when the frame was admitted. A rejected publish removes its
+     * future immediately so the caller does not wait for a completion that cannot arrive.
+     */
+    private static final class Admission {
+        private final boolean published;
+        private final long requestId;
+
+        private Admission(boolean published, long requestId) {
+            this.published = published;
+            this.requestId = requestId;
+        }
+    }
+
+    /**
+     * Queues one append before {@code deadlineNanos}. The deadline is the same clock as the later
+     * future wait, so ring admission cannot extend a write-through call past {@code
+     * writDataTimeoutMilliseconds}.
+     */
+    private Admission admit(IMapFileData data, WALEventType type, long deadlineNanos) {
         long requestId = RequestFutureCache.getRequestId();
         RequestFuture requestFuture = new RequestFuture(this.writDataTimeoutMilliseconds);
         RequestFutureCache.put(requestId, requestFuture);
-        walDisruptor.tryPublish(data, type, requestId);
-        return requestId;
-    }
-
-    private boolean queryExecuteStatus(long requestId) {
-        return queryExecuteStatus(requestId, this.writDataTimeoutMilliseconds);
-    }
-
-    private boolean queryExecuteStatus(long requestId, long timeout) {
-        RequestFuture requestFuture = RequestFutureCache.get(requestId);
-        long waitStartedNanos = System.nanoTime();
-        try {
-            return Boolean.TRUE.equals(requestFuture.get(timeout, TimeUnit.MILLISECONDS));
-        } catch (TimeoutException e) {
-            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - waitStartedNanos);
+        long waitNanos = Math.max(0L, deadlineNanos - nanoTimeSource.getAsLong());
+        if (!walDisruptor.tryPublish(data, type, requestId, waitNanos)) {
+            RequestFutureCache.remove(requestId);
             log.warn(
-                    "wait for write status timed out for requestId {} after {} ms (limit {} ms)",
+                    "WAL ring did not admit requestId {} before the write timeout of {} ms",
+                    requestId,
+                    this.writDataTimeoutMilliseconds);
+            return new Admission(false, requestId);
+        }
+        return new Admission(true, requestId);
+    }
+
+    private long operationDeadlineNanos() {
+        return nanoTimeSource.getAsLong()
+                + TimeUnit.MILLISECONDS.toNanos(this.writDataTimeoutMilliseconds);
+    }
+
+    private boolean queryExecuteStatusBeforeDeadline(long requestId, long deadlineNanos) {
+        RequestFuture requestFuture = RequestFutureCache.get(requestId);
+        long waitStartedNanos = nanoTimeSource.getAsLong();
+        try {
+            long remainingNanos = Math.max(0L, deadlineNanos - nanoTimeSource.getAsLong());
+            if (remainingNanos == 0L) {
+                return Boolean.TRUE.equals(requestFuture.get(0L, TimeUnit.NANOSECONDS));
+            }
+            return Boolean.TRUE.equals(requestFuture.get(remainingNanos, TimeUnit.NANOSECONDS));
+        } catch (TimeoutException e) {
+            long elapsedMs =
+                    TimeUnit.NANOSECONDS.toMillis(nanoTimeSource.getAsLong() - waitStartedNanos);
+            log.warn(
+                    "wait for write status timed out for requestId {} after {} ms (shared limit {} ms)",
                     requestId,
                     elapsedMs,
-                    timeout);
+                    this.writDataTimeoutMilliseconds);
             log.debug("wait for write status timed out for requestId {}", requestId, e);
         } catch (Exception e) {
             log.error("wait for write status error for requestId {}", requestId, e);
@@ -392,13 +447,11 @@ public class IMapFileStorage implements IMapStorage {
     }
 
     private Set<Object> batchQueryExecuteFailsStatus(
-            Map<Long, Object> requestMap, Set<Object> failures) {
-        // Shared deadline across the batch so a stuck worker cannot block storeAll/deleteAll for
-        // N × writDataTimeoutMilliseconds. Computed once before the loop; each timed get uses the
-        // remaining time clamped to a non-negative value (skip wait when already expired).
+            Map<Long, Object> requestMap, Set<Object> failures, long deadlineNanos) {
+        // Shared deadline across admission and the batch wait, so a stuck worker cannot block
+        // storeAll/deleteAll for N × writDataTimeoutMilliseconds. Each timed get uses the remaining
+        // time clamped to a non-negative value (skip wait when already expired).
         long waitStartedNanos = nanoTimeSource.getAsLong();
-        long deadlineNanos =
-                waitStartedNanos + TimeUnit.MILLISECONDS.toNanos(this.writDataTimeoutMilliseconds);
         for (Map.Entry<Long, Object> entry : requestMap.entrySet()) {
             boolean success = false;
             RequestFuture requestFuture = RequestFutureCache.get(entry.getKey());
