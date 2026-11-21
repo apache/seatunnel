@@ -18,7 +18,7 @@ Write data to Apache Hive tables. The connector uses Hive Metastore for table ma
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9 and 3.1.3 .
 
-If you use SeaTunnel Engine, You need put seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar and hive-exec-3.1.3.jar and libfb303-0.9.3.jar in $SEATUNNEL_HOME/lib/ dir.
+If you use SeaTunnel Engine, use the `seatunnel-shade-hadoop3-uber-*.jar` bundled in `$SEATUNNEL_HOME/lib/`. Add `hive-exec-3.1.3.jar` and `libfb303-0.9.3.jar` to the same directory.
 :::
 
 ## Key features
@@ -41,7 +41,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 |---------------------------------------|---------|----------|----------------|-------------|
 | table_name                            | string  | yes      | -              | Target Hive table name, e.g. `db1.table1`. For multi-table mode, you can use `${database_name}.${table_name}` and SeaTunnel will substitute the upstream values. |
 | metastore_uri                         | string  | no       | -              | Hive metastore URI. Required unless `hive.metastore.client.factory.class` is configured through `hive_site_path`, `hive.hadoop.conf-path`, or `hive.hadoop.conf`. Comma-separated values enable HA failover. |
-| compress_codec                        | string  | no       | none           | Output compression codec. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
+| compress_codec                        | string  | no       | none           | Explicit output compression codec. ORC supports `NONE`, `SNAPPY`, `ZLIB`, `LZ4` and `LZO`. Defaults to `none`; see `use_table_compression` to inherit compression from an existing ORC table. |
+| use_table_compression                 | boolean | no       | false          | Inherit `orc.compress` from an existing ORC table when no explicit codec is configured. |
 | hdfs_site_path                        | string  | no       | -              | Local path of `hdfs-site.xml`. Deprecated for new jobs — prefer `hive.hadoop.conf` or `hive.hadoop.conf-path`. |
 | hive_site_path                        | string  | no       | -              | Local path of `hive-site.xml`. |
 | hive.hadoop.conf                      | Map     | no       | -              | Inline Hadoop configuration properties. |
@@ -57,6 +58,27 @@ By default, we use 2PC commit to ensure `exactly-once`
 | schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table schema before writing. `RECREATE_SCHEMA`, `CREATE_SCHEMA_WHEN_NOT_EXIST`, `ERROR_WHEN_SCHEMA_NOT_EXIST`, `IGNORE`. |
 | save_mode_create_template             | string  | no       | -              | Custom DDL template used when auto-creating the target Hive table. Variables: `${database}`, `${table}`, `${rowtype_fields}`, `${rowtype_partition_fields}`, `${table_location}`, `${current_timestamp}`. |
 | common-options                        |         | no       | -              | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
+
+### use_table_compression [boolean]
+
+Default: `false`. Enable this option to inherit `orc.compress` from the metastore when preparing an **existing ORC table**. It does not change automatic table creation, non-ORC tables, or table metadata.
+
+For non-ORC tables, `use_table_compression` is ignored: no table compression property is inherited or validated. If the table does not exist when the sink is initialized and follows the automatic table-creation path, inheritance is also skipped, including `orc.compress` declared in `save_mode_create_template`. In both cases, enabling this option alone does not cause the job to fail; explicit `compress_codec` handling, existing defaults, and normal configuration validation and table-creation errors still apply.
+
+Priority: explicit `compress_codec` (including `NONE`) > table `orc.compress` when enabled > the existing default `NONE`. Table values are trimmed and matched without case sensitivity. Missing, null or blank properties retain the default. Unknown values or codecs without a supported ORC mapping fail during sink initialization instead of silently writing uncompressed files. In versions where ORC ZSTD maps to NONE, inherited ZSTD is rejected; verify your SeaTunnel version supports ORC ZSTD before using that table property. Downstream readers must support the selected codec.
+
+For an existing table created with `TBLPROPERTIES ('orc.compress'='SNAPPY')`:
+
+```hocon
+sink {
+  Hive {
+    table_name = "default.existing_orc_table"
+    metastore_uri = "thrift://metastore:9083"
+    use_table_compression = true
+    # Optional: compress_codec = "NONE" overrides the table property.
+  }
+}
+```
 
 ### table_name [string]
 
@@ -279,6 +301,7 @@ sink {
       bucket = "s3a://mybucket"
       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
     }
+  }
 }
 ```
 
@@ -518,7 +541,7 @@ sink {
 }
 ```
 
-### example 2
+### example 3
 
 We have multiple source table like this:
 

@@ -227,12 +227,12 @@ sink {
 | FLOAT               | FLOAT               |
 | DOUBLE              | DOUBLE              |
 | DECIMAL             | DECIMAL             |
-| DATE                | STRING              |
+| DATE                | DATE                |
 | TIME                | STRING              |
-| DATETIME            | STRING              |
+| DATETIME            | TIMESTAMP           |
 | STRING              | STRING              |
-| ARRAY               | STRING              |
-| MAP                 | STRING              |
+| ARRAY               | ARRAY               |
+| MAP                 | MAP                 |
 | BYTES               | STRING              |
 
 #### Supported import data formats
