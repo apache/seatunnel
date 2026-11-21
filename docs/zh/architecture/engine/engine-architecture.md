@@ -513,6 +513,15 @@ env {
 - [DAG 执行](dag-execution.md)
 
 ## 10. 参考资料
+
+### 关键源码文件
+
+- [CoordinatorService.java](https://github.com/apache/seatunnel/blob/dev/seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/CoordinatorService.java)
+- [JobMaster.java](https://github.com/apache/seatunnel/blob/dev/seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/master/JobMaster.java)
+- [ResourceManager.java](https://github.com/apache/seatunnel/blob/dev/seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/ResourceManager.java)
+- [AbstractResourceManager.java](https://github.com/apache/seatunnel/blob/dev/seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/AbstractResourceManager.java)
+- [CheckpointCoordinator.java](https://github.com/apache/seatunnel/blob/dev/seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/checkpoint/CheckpointCoordinator.java)
+
 ### 进一步阅读
 
 - [Hazelcast IMDG](https://docs.hazelcast.com/imdg/latest/)
