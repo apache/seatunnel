@@ -40,6 +40,8 @@ import org.apache.seatunnel.engine.core.checkpoint.PipelineCheckpointOverview;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.checkpoint.ActionState;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
@@ -50,6 +52,7 @@ import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -120,6 +123,9 @@ public class CheckpointCoordinatorFailoverIT {
      * to the actual configured value instead of a magic number.
      */
     private static final long BARRIER_DISPATCH_CHECKPOINT_TIMEOUT_MILLIS = 8000;
+
+    // Matches the finite row budget in STREAM_BARRIER_DISPATCH_TEMPLATE_CONF.
+    private static final long BARRIER_DISPATCH_SOURCE_ROWS = 50_000L;
 
     /**
      * Explicit override for {@code hazelcast.max.no.heartbeat.seconds}, applied to every node in
@@ -1132,6 +1138,34 @@ public class CheckpointCoordinatorFailoverIT {
                                     + ", so the surviving worker could never host the redeploy"
                                     + " alone");
 
+            SourceSeaTunnelTask<?, ?> sourceTask =
+                    (SourceSeaTunnelTask<?, ?>)
+                            soleTaskVertex(getJobMaster(masterNode, jobId)).getTaskGroup()
+                                    .getTasks().stream()
+                                    .filter(SourceSeaTunnelTask.class::isInstance)
+                                    .findFirst()
+                                    .orElseThrow();
+            PhysicalExecutionFlow<?, ?> sourceFlow =
+                    (PhysicalExecutionFlow<?, ?>)
+                            ReflectionUtils.getField(sourceTask, "sourceFlow").orElseThrow();
+            ActionStateKey sourceStateKey = ActionStateKey.of(sourceFlow.getAction());
+            CompletedCheckpoint completedBeforeFailure =
+                    latestCompletedCheckpoint(masterNode, jobId);
+            Assertions.assertNotNull(
+                    completedBeforeFailure, "A durable checkpoint must precede worker termination");
+            ActionState savedSource = completedBeforeFailure.getTaskStates().get(sourceStateKey);
+            Assertions.assertNotNull(
+                    savedSource,
+                    () ->
+                            "Missing source checkpoint state "
+                                    + sourceStateKey
+                                    + "; available: "
+                                    + completedBeforeFailure.getTaskStates().keySet());
+            Assertions.assertTrue(
+                    savedSource.getSubtaskStates().stream()
+                            .anyMatch(subtask -> subtask != null && !subtask.getState().isEmpty()),
+                    "The completed checkpoint must have pending FakeSource reader splits");
+
             // Observe a checkpoint-counter advance before terminating the task's worker. This
             // does not reveal whether an inner barrier RPC is pending or already acknowledged;
             // membership removal can independently recover the worker loss.
@@ -1156,6 +1190,14 @@ public class CheckpointCoordinatorFailoverIT {
 
             long rowsBeforeTermination =
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft());
+            Assertions.assertTrue(
+                    rowsBeforeTermination < BARRIER_DISPATCH_SOURCE_ROWS,
+                    () ->
+                            "FakeSource must have rows left after worker termination; already"
+                                    + " committed "
+                                    + rowsBeforeTermination
+                                    + " of "
+                                    + BARRIER_DISPATCH_SOURCE_ROWS);
             log.info(
                     "Job {} checkpoint id just advanced to {}; terminating worker {} ungracefully"
                             + " after counter progress; the barrier RPC acknowledgement state is"
