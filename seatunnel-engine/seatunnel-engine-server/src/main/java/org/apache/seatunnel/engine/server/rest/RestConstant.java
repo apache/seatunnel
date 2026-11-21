@@ -38,6 +38,8 @@ public class RestConstant {
 
     public static final String CONFIG_FORMAT = "format";
 
+    public static final String VARIABLES = "variables";
+
     public static final String JOB_STATUS = "jobStatus";
 
     public static final String CREATE_TIME = "createTime";

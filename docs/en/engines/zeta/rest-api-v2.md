@@ -965,6 +965,7 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 > | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
 > | restoreSourceJobId   | optional | string    | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
 > | format               | optional | string    | config format, support json, hocon and sql, default json |
+> | variables            | optional | string    | config variables as comma separated `key=value` pairs, the same syntax as `-i` on the command line, see [Config variables](#config-variables) |
 
 **Note:** The dry-run feature is intentionally not supported via the REST API. It is exclusively available through the SeaTunnel CLI.
 
@@ -1075,6 +1076,76 @@ CREATE TABLE console_sink (
 INSERT INTO console_sink SELECT * FROM fake_source;
 ```
 
+#### Config variables
+
+`${name}` placeholders in a job config can be filled when the job is submitted, the same way
+`-i` / `--variable` fills them on the command line. This lets a scheduler reuse one config for jobs
+that differ only in a date, a table or a connection setting. Pass the variables in the `variables`
+request parameter as URL-encoded, comma separated `key=value` pairs; this works for every format.
+A JSON body can also carry them in a top-level `variables` object, which is not part of the job
+config.
+For SQL submissions, substitution applies to configuration values after SQL parsing, such as values
+in a `WITH` clause. It does not rewrite SQL identifiers or expressions.
+
+Unquoted HOCON optional references also use submitted variables. For example,
+`row.num = 3` followed by `row.num = ${?rows}` uses the submitted `rows` value when present
+and keeps `3` when absent. Optional references inside nested included configuration files still do not fall back to
+unprefixed root request variables; required references retain that fallback. Variables used only for substitution are not added to the job config.
+
+With this `job.conf`:
+
+```hocon
+env {
+  job.mode = "BATCH"
+  job.name = "sync_${region}"
+}
+source {
+  FakeSource {
+    row.num = ${rows}
+    schema = { fields { name = "string" } }
+  }
+}
+sink {
+  Console {}
+}
+```
+
+these submissions produce the same job config:
+
+```bash
+./bin/seatunnel.sh -c job.conf -i region=eu -i rows=100
+
+# variables=region=eu,rows=100, URL-encoded
+curl -X POST 'http://127.0.0.1:8080/submit-job?format=hocon&variables=region%3Deu%2Crows%3D100' \
+  -H 'Content-Type: text/plain' --data-binary @job.conf
+```
+
+and the same job as a JSON body:
+
+```json
+{
+  "variables": {"region": "eu", "rows": 100},
+  "env": {"job.mode": "BATCH", "job.name": "sync_${region}"},
+  "source": [{"plugin_name": "FakeSource", "row.num": "${rows}", "schema": {"fields": {"name": "string"}}}],
+  "sink": [{"plugin_name": "Console"}]
+}
+```
+
+- Values follow the `-i` rules: keys and values are trimmed, a value in double quotes may contain
+  commas, and a value written as `[...]` or `{...}` becomes a list or an object.
+- As on the command line, a quoted placeholder without a variable is kept as written. When
+  variables are given, an unquoted one that none of them fills is rejected with HTTP 400. Sink table
+  placeholders such as `${table_name}` are always left for the sink.
+- Unlike the command line, placeholders are never filled from the system properties or the
+  environment variables of the engine, and a value cannot `include` a file or a URL.
+- Invalid entries, empty keys, and reserved roots such as `table_name` return HTTP 400. Variable
+  names are compared as HOCON paths, so `rows` and `"rows"` are duplicates even across inputs.
+  Repeated properties in JSON job submission bodies and repeated `variables` query parameters also
+  return HTTP 400. Error messages do not include variable values.
+- The variables are not kept with the job, but the resulting config is. A value used in `env` or in
+  a table name is shown by `/job-info` like any other config value. Request parameters may appear
+  in proxy or access logs, so prefer the JSON `variables` object or [Config Encryption](../../introduction/configuration/config-encryption-decryption.md) for secrets.
+
 #### Responses
 
 ```json
@@ -1102,6 +1173,7 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 > | isStartWithSavePoint | optional | string    | if job is started with save point |
 > | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
 > | restoreSourceJobId   | optional | string    | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
+> | variables            | optional | string    | config variables as comma separated `key=value` pairs, see [Config variables](#config-variables) |
 
 #### Request Body
 The name of the uploaded file key is config_file, and supports the following formats:
@@ -1123,6 +1195,9 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 # Upload a config file and restore from the latest checkpoint of a previous job
 curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375666689' --form 'config_file=@"/temp/fake_to_console.conf"'
+
+# Upload a config file with variables region=eu,rows=100
+curl --location 'http://127.0.0.1:8080/submit-job/upload?variables=region%3Deu%2Crows%3D100' --form 'config_file=@"/temp/job.conf"'
 ```
 #### Responses
 
@@ -1149,6 +1224,9 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 > | jobId                | optional     | string  | job id                                |
 > | jobName              | optional     | string  | job name                              |
 > | isStartWithSavePoint | optional     | string  | if the job is started with save point |
+> | variables            | optional     | string  | config variables of this job as comma separated `key=value` pairs, see [Config variables](#config-variables) |
+
+Each job can also carry its variables in a top-level `variables` object next to `params`.
 
 #### Request Body
 

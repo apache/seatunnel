@@ -459,17 +459,28 @@ public class JobInfoService extends BaseService {
         validateCheckpointRestoreRequest(requestParams);
         Config config;
         ConfigFormat configFormat = ConfigFormat.fromString(requestParams.get(CONFIG_FORMAT));
+        String variables = requestParams.get(RestConstant.VARIABLES);
 
         switch (configFormat) {
             case HOCON:
-                config = ConfigFactory.parseString(new String(requestBody, StandardCharsets.UTF_8));
+                config =
+                        RestUtil.applyVariables(
+                                ConfigFactory.parseString(
+                                        new String(requestBody, StandardCharsets.UTF_8)),
+                                RestUtil.parseVariables(variables));
                 break;
             case SQL:
-                config = SqlConfigBuilder.of(new String(requestBody, StandardCharsets.UTF_8));
+                config =
+                        RestUtil.applyVariables(
+                                SqlConfigBuilder.of(
+                                        new String(requestBody, StandardCharsets.UTF_8)),
+                                RestUtil.parseVariables(variables));
                 break;
             case JSON:
             default:
-                config = RestUtil.buildConfig(requestHandle(requestBody));
+                config =
+                        RestUtil.buildConfig(
+                                RestUtil.readJobSubmissionJson(requestBody), variables);
                 break;
         }
 
@@ -496,7 +507,7 @@ public class JobInfoService extends BaseService {
 
     public JsonArray submitJobs(byte[] requestBody) {
         List<Tuple2<Map<String, String>, Config>> configTuples =
-                RestUtil.buildConfigList(requestHandle(requestBody));
+                RestUtil.buildConfigList(RestUtil.readJobSubmissionJson(requestBody));
 
         return configTuples.stream()
                 .map(

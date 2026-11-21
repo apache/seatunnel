@@ -259,6 +259,8 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
                                     null,
                                     200,
                                     false);
+                    // Empty successful responses must not stop diagnostics for later Pods.
+                    logs = logs == null ? "" : logs;
                     Files.write(
                             reports.resolve(name + ".log"), logs.getBytes(StandardCharsets.UTF_8));
                     LOG.error("Application Pod {} logs: {}", name, logs);
@@ -479,18 +481,21 @@ public abstract class AbstractKubernetesApplicationIT implements TestResource {
     /** Reads retained Pod logs even after the application has finished, for failure diagnostics. */
     protected static String retainedPodLogs(String name) throws Exception {
         try {
-            return core.readNamespacedPodLog(
-                    name,
-                    namespace,
-                    CONTAINER_NAME,
-                    false,
-                    false,
-                    null,
-                    null,
-                    false,
-                    null,
-                    null,
-                    false);
+            String logs =
+                    core.readNamespacedPodLog(
+                            name,
+                            namespace,
+                            CONTAINER_NAME,
+                            false,
+                            false,
+                            null,
+                            null,
+                            false,
+                            null,
+                            null,
+                            false);
+            // The SDK returns null for an empty successful response while logs are starting.
+            return logs == null ? "" : logs;
         } catch (ApiException failure) {
             // Pod phase can become Running before kubelet makes its container log available.
             if (failure.getCode() == 400 || failure.getCode() == 404) {
