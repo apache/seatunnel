@@ -481,10 +481,9 @@ public class MySqlTypeConverterTest {
                         .build();
         column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(
-                new DecimalType(
-                        MySqlTypeConverter.DEFAULT_PRECISION, MySqlTypeConverter.DEFAULT_SCALE),
-                column.getDataType());
+        Assertions.assertEquals(new DecimalType(39, 2), column.getDataType());
+        Assertions.assertEquals(39, column.getColumnLength());
+        Assertions.assertEquals(2, column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
@@ -497,8 +496,99 @@ public class MySqlTypeConverterTest {
                         .build();
         column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(new DecimalType(39, 2), column.getDataType());
+        Assertions.assertEquals(new DecimalType(38, 2), column.getDataType());
+        Assertions.assertEquals(38, column.getColumnLength());
+        Assertions.assertEquals(2, column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
+
+    @Test
+    public void testConvertWideDecimalPreservesDeclaredPrecisionAndScale() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("amount")
+                        .columnType("decimal(65,0)")
+                        .dataType("decimal")
+                        .precision(65L)
+                        .scale(0)
+                        .build();
+        Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(new DecimalType(65, 0), column.getDataType());
+        Assertions.assertEquals(65, column.getColumnLength());
+        Assertions.assertEquals(0, column.getScale());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("ratio")
+                        .columnType("decimal(50,30)")
+                        .dataType("decimal")
+                        .precision(50L)
+                        .scale(30)
+                        .build();
+        column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(new DecimalType(50, 30), column.getDataType());
+        Assertions.assertEquals(50, column.getColumnLength());
+        Assertions.assertEquals(30, column.getScale());
+    }
+
+    @Test
+    public void testConvertUnsignedWideDecimalUsesDeclaredPrecision() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("amount")
+                        .columnType("decimal(65,0) unsigned")
+                        .dataType("decimal unsigned")
+                        .precision(65L)
+                        .scale(0)
+                        .build();
+
+        Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
+
+        Assertions.assertEquals(new DecimalType(65, 0), column.getDataType());
+        Assertions.assertEquals(65, column.getColumnLength());
+        Assertions.assertEquals(0, column.getScale());
+    }
+
+    @Test
+    public void testConvertDecimalClampsPrecisionAndScale() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("amount")
+                        .columnType("decimal(70,10)")
+                        .dataType("decimal")
+                        .precision(70L)
+                        .scale(10)
+                        .build();
+        Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(new DecimalType(65, 5), column.getDataType());
+        Assertions.assertEquals(65, column.getColumnLength());
+        Assertions.assertEquals(5, column.getScale());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("amount")
+                        .columnType("decimal(70,3)")
+                        .dataType("decimal")
+                        .precision(70L)
+                        .scale(3)
+                        .build();
+        column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(new DecimalType(65, 0), column.getDataType());
+        Assertions.assertEquals(65, column.getColumnLength());
+        Assertions.assertEquals(0, column.getScale());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("amount")
+                        .columnType("decimal(50,40)")
+                        .dataType("decimal")
+                        .precision(50L)
+                        .scale(40)
+                        .build();
+        column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(new DecimalType(50, 30), column.getDataType());
+        Assertions.assertEquals(50, column.getColumnLength());
+        Assertions.assertEquals(30, column.getScale());
     }
 
     @Test
