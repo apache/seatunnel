@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -58,8 +59,12 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     private long lastRequestTime;
     private boolean statusRequested;
     private final UUID readerAttempt = UUID.randomUUID();
-    private final Set<TablePath> restoredMarkersAwaitingStatus = new HashSet<>();
+    private boolean closeStatusHint;
+    // Includes queued and currently reading splits. The counter drops only after input
+    // rows have been collected and the JDBC split has been closed successfully.
+    private final Map<TablePath, Integer> localRemaining = new HashMap<>();
     private final Set<TablePath> receivedFinishedTables = new HashSet<>();
+    private final Set<TablePath> emittedCloseTables = new HashSet<>();
     private final Context context;
     private final JdbcInputFormat inputFormat;
     private final Deque<JdbcSourceSplit> splits = new ArrayDeque<>();
@@ -110,9 +115,13 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
             boolean finished;
             synchronized (stateLock) {
                 closeTableEvent = pendingCloseTableEvents.poll();
-                split = closeTableEvent == null ? splits.poll() : null;
-                finished = noMoreSplit && pendingGlobalCloseTables.isEmpty();
-                if (closeTableEvent == null && split == null && noMoreSplit && !finished) {
+                if (closeTableEvent != null) {
+                    emittedCloseTables.add(closeTableEvent.getTablePath());
+                }
+                finished = noMoreSplit && splits.isEmpty() && pendingGlobalCloseTables.isEmpty();
+                if (closeTableEvent == null
+                        && !pendingGlobalCloseTables.isEmpty()
+                        && (closeStatusHint || (noMoreSplit && splits.isEmpty()))) {
                     long now = nanoTime.getAsLong();
                     if (!statusRequested || now - lastRequestTime >= STATUS_RETRY_NANOS) {
                         if (unansweredRequests >= MAX_UNANSWERED_STATUS_REQUESTS) {
@@ -122,6 +131,7 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                                             + " requests; still waiting for "
                                             + pendingGlobalCloseTables);
                         }
+                        closeStatusHint = false;
                         statusRequested = true;
                         unansweredRequests++;
                         lastRequestTime = now;
@@ -130,6 +140,7 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                                         readerAttempt, pendingGlobalCloseTables);
                     }
                 }
+                split = closeTableEvent == null && statusRequest == null ? splits.poll() : null;
             }
             if (closeTableEvent != null) {
                 output.collect(closeTableEvent);
@@ -143,6 +154,14 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                     }
                 } finally {
                     inputFormat.close();
+                }
+                synchronized (stateLock) {
+                    int remaining = localRemaining.get(split.getTablePath()) - 1;
+                    if (remaining == 0) {
+                        localRemaining.remove(split.getTablePath());
+                    } else {
+                        localRemaining.put(split.getTablePath(), remaining);
+                    }
                 }
                 // A failed or partially consumed split must not count as table progress.
                 context.sendSourceEventToEnumerator(
@@ -203,9 +222,25 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                     restoreCloseTableState(split);
                     continue;
                 }
+                if (emittedCloseTables.contains(split.getTablePath())) {
+                    // The downstream marker is already on the ordered output. Silently appending
+                    // a replay split now could make a sink discard rows for a retired table.
+                    throw new IllegalStateException(
+                            "Split "
+                                    + split.splitId()
+                                    + " assigned after close was emitted for table "
+                                    + split.getTablePath());
+                }
+                if (receivedFinishedTables.contains(split.getTablePath())
+                        && pendingCloseTableEvents.removeIf(
+                                event -> split.getTablePath().equals(event.getTablePath()))) {
+                    // New local work invalidates an otherwise valid but not-yet-emitted close.
+                    receivedFinishedTables.remove(split.getTablePath());
+                }
                 if (!receivedFinishedTables.contains(split.getTablePath())) {
                     pendingGlobalCloseTables.add(split.getTablePath());
                 }
+                localRemaining.merge(split.getTablePath(), 1, Integer::sum);
                 this.splits.add(split);
                 // Progress logging counts only splits that are queued for reading; close-table
                 // markers only restore state and never reach splits.poll().
@@ -231,9 +266,11 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
         synchronized (stateLock) {
             if (sourceEvent instanceof JdbcTableFinishedEvent) {
                 JdbcTableFinishedEvent event = (JdbcTableFinishedEvent) sourceEvent;
-                if (!restoredMarkersAwaitingStatus.contains(event.getTablePath())) {
-                    enqueueFinished(
-                            event.getTablePath(), readerId, event.getExpectedCloseEventCount());
+                // An unsolicited push has no reader-attempt identity. In particular, a
+                // predecessor's message may reach this replacement at the same TaskLocation.
+                // It may accelerate a probe but cannot authorize a downstream close.
+                if (pendingGlobalCloseTables.contains(event.getTablePath())) {
+                    closeStatusHint = true;
                 }
             } else {
                 JdbcTableCloseStatus.Reply reply = (JdbcTableCloseStatus.Reply) sourceEvent;
@@ -244,8 +281,10 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                 reply.getFinishedTables()
                         .forEach(
                                 (table, count) -> {
-                                    restoredMarkersAwaitingStatus.remove(table);
-                                    enqueueFinished(table, readerId, count);
+                                    if (pendingGlobalCloseTables.contains(table)
+                                            && (count == 0 || !localRemaining.containsKey(table))) {
+                                        enqueueFinished(table, readerId, count);
+                                    }
                                 });
             }
         }
@@ -258,9 +297,12 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
         // A positive marker in reader state may be newer than the enumerator's checkpoint.
         // Reconcile it with this attempt's enumerator instead of emitting it from restore.
         TablePath table = split.getTablePath();
+        if (emittedCloseTables.contains(table)) {
+            return;
+        }
         pendingCloseTableEvents.removeIf(event -> table.equals(event.getTablePath()));
         receivedFinishedTables.remove(table);
-        restoredMarkersAwaitingStatus.add(table);
+        closeStatusHint = true;
         pendingGlobalCloseTables.add(table);
     }
 

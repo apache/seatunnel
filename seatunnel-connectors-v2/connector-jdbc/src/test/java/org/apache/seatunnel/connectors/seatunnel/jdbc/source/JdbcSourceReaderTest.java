@@ -52,6 +52,63 @@ import java.util.concurrent.atomic.AtomicReference;
 class JdbcSourceReaderTest {
 
     @Test
+    void stalePositivePushCannotOvertakeARealRestoredSplitWithoutAMarker() throws Exception {
+        TablePath table = TablePath.of("db", "schema", "t");
+        JdbcSourceSplit split =
+                new JdbcSourceSplit(table, "split-0", "select 1", null, null, null, null);
+        SourceSplitEnumerator.Context<JdbcSourceSplit> ctx =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+        JdbcSourceSplitEnumerator restoredEnum =
+                createEnumerator(
+                        ctx,
+                        new JdbcSourceState(
+                                Collections.emptyList(),
+                                Collections.emptyMap(),
+                                Collections.singletonMap(table, 1),
+                                Collections.singletonMap(table, Collections.singleton(0))));
+        AtomicBoolean ended = new AtomicBoolean();
+        JdbcInputFormat format = Mockito.mock(JdbcInputFormat.class);
+        Mockito.when(format.reachedEnd()).thenReturn(false, true);
+        Mockito.when(format.nextRecord()).thenReturn(new SeaTunnelRow(new Object[] {1}));
+        AtomicLong clock = new AtomicLong();
+        JdbcSourceReader restored =
+                new JdbcSourceReader(
+                        new TestSourceReaderContext() {
+                            @Override
+                            public void sendSourceEventToEnumerator(SourceEvent event) {
+                                restoredEnum.handleSourceEvent(0, event);
+                            }
+
+                            @Override
+                            public void signalNoMoreElement() {
+                                ended.set(true);
+                            }
+                        },
+                        format,
+                        () -> clock.getAndAdd(JdbcSourceReader.STATUS_RETRY_NANOS));
+        Mockito.doAnswer(
+                        call -> {
+                            restored.handleSourceEvent(call.getArgument(1));
+                            return null;
+                        })
+                .when(ctx)
+                .sendEventToSourceReader(Mockito.eq(0), Mockito.any());
+        restored.addSplits(Collections.singletonList(split));
+        restored.handleNoMoreSplits();
+        // Old task routed this to the replacement's deterministic TaskLocation.
+        restored.handleSourceEvent(new JdbcTableFinishedEvent(table, 1));
+        TestCollector out = new TestCollector();
+        for (int poll = 0; !ended.get() && poll < 5; poll++) {
+            restored.pollNext(out);
+            Assertions.assertTrue(
+                    out.closeTableEvents.isEmpty(), "stale push must never retire the table");
+        }
+        Mockito.verify(format).open(split);
+        Mockito.verify(format).nextRecord();
+        Assertions.assertTrue(ended.get());
+    }
+
+    @Test
     void shouldRecoverDroppedTableFinishedDeliveryWithoutReaderReregistration() throws Exception {
         TablePath table = TablePath.of("db", "schema", "t");
         SourceSplitEnumerator.Context<JdbcSourceSplit> enumContext =
@@ -244,10 +301,17 @@ class JdbcSourceReaderTest {
         Mockito.doAnswer(
                         call -> {
                             int id = call.getArgument(0);
-                            JdbcTableFinishedEvent event = call.getArgument(1);
-                            Assertions.assertEquals(2, event.getExpectedCloseEventCount());
-                            published.incrementAndGet();
-                            if (captureReadyMarkers) liveReaders[id].handleSourceEvent(event);
+                            SourceEvent event = call.getArgument(1);
+                            if (event instanceof JdbcTableFinishedEvent) {
+                                Assertions.assertEquals(
+                                        2,
+                                        ((JdbcTableFinishedEvent) event)
+                                                .getExpectedCloseEventCount());
+                                published.incrementAndGet();
+                                if (captureReadyMarkers) liveReaders[id].handleSourceEvent(event);
+                            } else {
+                                liveReaders[id].handleSourceEvent(event);
+                            }
                             return null;
                         })
                 .when(liveContext)
@@ -261,6 +325,9 @@ class JdbcSourceReaderTest {
                 1, beforeLastReport.getUnfinishedSplitsPerTableOrEmpty().get(table));
         liveReaders[1].pollNext(new TestCollector());
         Assertions.assertEquals(2, published.get());
+        if (captureReadyMarkers) {
+            for (JdbcSourceReader reader : liveReaders) reader.pollNext(new TestCollector());
+        }
         SourceSplitEnumerator.Context<JdbcSourceSplit> afterContext =
                 Mockito.mock(SourceSplitEnumerator.Context.class);
         AtomicReference<JdbcSourceSplitEnumerator> after =
@@ -441,6 +508,12 @@ class JdbcSourceReaderTest {
             releaseMarker.countDown();
             delivery.get(5, TimeUnit.SECONDS);
         }
+        JdbcTableCloseStatus.Request proof =
+                (JdbcTableCloseStatus.Request)
+                        context.sourceEvents.get(context.sourceEvents.size() - 1);
+        reader.handleSourceEvent(
+                new JdbcTableCloseStatus.Reply(
+                        proof.getReaderAttempt(), Collections.singletonMap(table, 1)));
         reader.pollNext(collector);
         Assertions.assertEquals(1, collector.closeTableEvents.size());
         reader.pollNext(collector);
@@ -448,21 +521,68 @@ class JdbcSourceReaderTest {
     }
 
     @Test
-    void testPollNextEmitsPendingCloseTableEventBeforeReadingNextSplit() throws Exception {
+    void testVerifiedCloseIsEmittedBeforeReadingAnUnrelatedQueuedSplit() throws Exception {
         TestSourceReaderContext context = new TestSourceReaderContext();
-        JdbcInputFormat inputFormat = Mockito.mock(JdbcInputFormat.class);
-        JdbcSourceReader reader = new JdbcSourceReader(context, inputFormat);
-        TablePath tablePath = TablePath.of("db", "schema", "table");
-        TestCollector collector = new TestCollector();
+        JdbcInputFormat format = Mockito.mock(JdbcInputFormat.class);
+        Mockito.when(format.reachedEnd()).thenReturn(true);
+        JdbcSourceReader reader = new JdbcSourceReader(context, format);
+        TablePath first = TablePath.of("db", "schema", "one");
+        TablePath second = TablePath.of("db", "schema", "two");
+        JdbcSourceSplit a = new JdbcSourceSplit(first, "a", "s", null, null, null, null);
+        JdbcSourceSplit b = new JdbcSourceSplit(second, "b", "s", null, null, null, null);
+        reader.addSplits(Arrays.asList(a, b));
+        TestCollector out = new TestCollector();
+        reader.pollNext(out); // finish A with B still queued
+        reader.handleSourceEvent(new JdbcTableFinishedEvent(first, 1));
+        reader.pollNext(out); // request proof without consuming B
+        JdbcTableCloseStatus.Request proof =
+                (JdbcTableCloseStatus.Request) context.sourceEvents.get(1);
+        reader.handleSourceEvent(
+                new JdbcTableCloseStatus.Reply(
+                        proof.getReaderAttempt(), Collections.singletonMap(first, 1)));
+        reader.pollNext(out);
+        Assertions.assertEquals(1, out.closeTableEvents.size());
+        Assertions.assertEquals(first, out.closeTableEvents.get(0).getTablePath());
+        Mockito.verify(format, Mockito.never()).open(b);
+        reader.pollNext(out);
+        Mockito.verify(format).open(b);
+    }
 
-        reader.handleSourceEvent(new JdbcTableFinishedEvent(tablePath, 1));
-        reader.pollNext(collector);
-
-        Assertions.assertEquals(1, collector.closeTableEvents.size());
-        Assertions.assertEquals(tablePath, collector.closeTableEvents.get(0).getTablePath());
-        Assertions.assertEquals(0, collector.closeTableEvents.get(0).getSourceSubtaskId());
-        Assertions.assertEquals(1, collector.closeTableEvents.get(0).getExpectedSourceEventCount());
-        Mockito.verifyNoInteractions(inputFormat);
+    @Test
+    void anAttemptMatchedResponseMustNotOvertakeQueuedOrReassignedLocalWork() throws Exception {
+        TablePath table = TablePath.of("db", "schema", "t");
+        TestSourceReaderContext ctx = new TestSourceReaderContext();
+        JdbcInputFormat format = Mockito.mock(JdbcInputFormat.class);
+        Mockito.when(format.reachedEnd()).thenReturn(true);
+        AtomicLong clock = new AtomicLong();
+        JdbcSourceReader reader =
+                new JdbcSourceReader(
+                        ctx, format, () -> clock.getAndAdd(JdbcSourceReader.STATUS_RETRY_NANOS));
+        JdbcSourceSplit first = new JdbcSourceSplit(table, "a", "s", null, null, null, null);
+        JdbcSourceSplit replay = new JdbcSourceSplit(table, "b", "s", null, null, null, null);
+        reader.addSplits(Collections.singletonList(first));
+        TestCollector out = new TestCollector();
+        reader.handleSourceEvent(new JdbcTableFinishedEvent(table, 1));
+        reader.pollNext(out);
+        JdbcTableCloseStatus.Request req = (JdbcTableCloseStatus.Request) ctx.sourceEvents.get(0);
+        JdbcTableCloseStatus.Reply positive =
+                new JdbcTableCloseStatus.Reply(
+                        req.getReaderAttempt(), Collections.singletonMap(table, 1));
+        reader.handleSourceEvent(positive);
+        reader.pollNext(out);
+        Mockito.verify(format).open(first);
+        Assertions.assertTrue(out.closeTableEvents.isEmpty());
+        reader.handleSourceEvent(positive); // now valid but still only queued
+        reader.addSplits(Collections.singletonList(replay));
+        reader.pollNext(out);
+        Mockito.verify(format).open(replay);
+        Assertions.assertTrue(out.closeTableEvents.isEmpty());
+        reader.handleSourceEvent(positive);
+        reader.pollNext(out);
+        Assertions.assertEquals(1, out.closeTableEvents.size());
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> reader.addSplits(Collections.singletonList(replay)));
     }
 
     @Test
@@ -489,10 +609,21 @@ class JdbcSourceReaderTest {
     @Test
     void testRestoredReadyMarkerRequiresACurrentEnumeratorReply() throws Exception {
         TablePath tablePath = TablePath.of("db", "schema", "table");
-        JdbcSourceReader reader =
-                new JdbcSourceReader(
-                        new TestSourceReaderContext(), Mockito.mock(JdbcInputFormat.class));
+        TestSourceReaderContext originalContext = new TestSourceReaderContext();
+        JdbcInputFormat format = Mockito.mock(JdbcInputFormat.class);
+        Mockito.when(format.reachedEnd()).thenReturn(true);
+        JdbcSourceReader reader = new JdbcSourceReader(originalContext, format);
+        reader.addSplits(
+                Collections.singletonList(
+                        new JdbcSourceSplit(tablePath, "a", "s", null, null, null, null)));
+        reader.pollNext(new TestCollector());
         reader.handleSourceEvent(new JdbcTableFinishedEvent(tablePath, 2));
+        reader.pollNext(new TestCollector());
+        JdbcTableCloseStatus.Request original =
+                (JdbcTableCloseStatus.Request) originalContext.sourceEvents.get(1);
+        reader.handleSourceEvent(
+                new JdbcTableCloseStatus.Reply(
+                        original.getReaderAttempt(), Collections.singletonMap(tablePath, 2)));
 
         List<JdbcSourceSplit> snapshot = reader.snapshotState(1L);
 
