@@ -43,6 +43,7 @@ for application_argument in "$@"; do
 done
 
 case "${application_target}" in
+    [Yy][Aa][Rr][Nn]) application_target="yarn" ;;
     [Kk][Uu][Bb][Ee][Rr][Nn][Ee][Tt][Ee][Ss]) application_target="kubernetes" ;;
     "") ;;
     *)

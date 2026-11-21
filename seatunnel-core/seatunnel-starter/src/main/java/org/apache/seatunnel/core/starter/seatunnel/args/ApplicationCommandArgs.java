@@ -52,7 +52,7 @@ public class ApplicationCommandArgs extends CommandArgs {
 
     @Parameter(
             names = {"-t", "--target"},
-            description = "External resource platform: kubernetes",
+            description = "External resource platform: kubernetes or yarn",
             required = true,
             converter = DeployTypeConverter.class)
     private DeployType target;
@@ -60,7 +60,7 @@ public class ApplicationCommandArgs extends CommandArgs {
     @Parameter(
             names = {"-c", "--config"},
             description =
-                    "SeaTunnel job configuration file (required for submit unless the provider supplies it, for example kubernetes.job-config-file)")
+                    "SeaTunnel job configuration file (optional with kubernetes.job-config-file or yarn.job-config-file)")
     private String config;
 
     @Parameter(names = "--job-id", description = "Optional native Zeta job ID for submit")
@@ -214,17 +214,20 @@ public class ApplicationCommandArgs extends CommandArgs {
 
         @Override
         public DeployType convert(String value) {
+            if (value != null && DeployType.YARN.name().equalsIgnoreCase(value.trim())) {
+                return DeployType.YARN;
+            }
             if (value != null && DeployType.KUBERNETES.name().equalsIgnoreCase(value.trim())) {
                 return DeployType.KUBERNETES;
             }
             if (value != null && DeployType.STANDALONE.name().equalsIgnoreCase(value.trim())) {
                 throw new ParameterException(
-                        "Use seatunnel.sh for standalone jobs; the application target is kubernetes");
+                        "Use seatunnel.sh for standalone jobs. Application targets are kubernetes and yarn");
             }
             throw new ParameterException(
                     "Unsupported target '"
                             + value
-                            + "'. Currently only [kubernetes] is supported!");
+                            + "'. Supported application targets are [kubernetes, yarn].");
         }
     }
 }

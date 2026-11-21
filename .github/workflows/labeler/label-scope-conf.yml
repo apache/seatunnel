@@ -499,6 +499,10 @@ application-k8s:
   - changed-files:
       - any-glob-to-any-file: 'seatunnel-resource-managers/kubernetes/**'
 
+yarn:
+  - changed-files:
+      - any-glob-to-any-file: 'seatunnel-resource-managers/yarn/**'
+
 websocket:
   - all:
       - changed-files:
