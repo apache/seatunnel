@@ -17,21 +17,32 @@
 
 package org.apache.seatunnel.engine.e2e;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
+import org.apache.seatunnel.engine.client.job.JobMetricsRunner;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
+import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
+import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -40,6 +51,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.cluster.Address;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.EntryView;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -174,6 +186,25 @@ public class ClusterFaultToleranceIT {
     private ImmutablePair<String, String> createTestResources(
             @NonNull String testCaseName, @NonNull JobMode jobMode, long rowNumber, int parallelism)
             throws IOException {
+        return createTestResources(
+                "cluster_batch_fake_to_localfile_template.conf",
+                testCaseName,
+                jobMode,
+                rowNumber,
+                parallelism);
+    }
+
+    /**
+     * Same as {@link #createTestResources(String, JobMode, long, int)}, but builds the job config
+     * from the given template, which must use the same placeholders.
+     */
+    private ImmutablePair<String, String> createTestResources(
+            @NonNull String templateName,
+            @NonNull String testCaseName,
+            @NonNull JobMode jobMode,
+            long rowNumber,
+            int parallelism)
+            throws IOException {
         checkArgument(rowNumber > 0, "rowNumber must greater than 0");
         checkArgument(parallelism > 0, "parallelism must greater than 0");
         Map<String, String> valueMap = new HashMap<>();
@@ -196,8 +227,7 @@ public class ClusterFaultToleranceIT {
                         + File.separator
                         + testCaseName
                         + ".conf";
-        TestUtils.createTestConfigFileFromTemplate(
-                "cluster_batch_fake_to_localfile_template.conf", valueMap, targetConfigFilePath);
+        TestUtils.createTestConfigFileFromTemplate(templateName, valueMap, targetConfigFilePath);
 
         return new ImmutablePair<>(targetDir, targetConfigFilePath);
     }
@@ -397,6 +427,233 @@ public class ClusterFaultToleranceIT {
                 node2.shutdown();
             }
         }
+    }
+
+    /**
+     * Regression guard for #11472, fixed by #11495: after a worker failure restores a batch
+     * pipeline, the finished job must report the metrics of the restored attempt only.
+     *
+     * <p>Task locations are stable across pipeline restores and a new task seeds its metrics
+     * context from the master's metrics store, so before #11495 the restored attempt continued
+     * counting from the failed attempt's last reported snapshot: a FINISHED job reported {@code
+     * SourceReceivedCount} and {@code SinkWriteCount} above the real row count and a non-zero
+     * {@code IntermediateQueueSize}. #11495 clears the pipeline's snapshots in {@code
+     * SubPlan#prepareRestorePipeline} through {@code JobMaster#clearPipelineMetricsForRestore}.
+     *
+     * <p>The existing worker-down tests only check the sink output and log the metrics, and the
+     * unit coverage in {@code StateTransitionCleanupTest} mocks the restore, so nothing asserts the
+     * metrics a real restored job reports.
+     *
+     * <p>The scenario is made deterministic as follows. Static slots with the {@code SLOT_RATIO}
+     * strategy spread the task groups evenly over both nodes, so the surviving master node hosts at
+     * least one reader and the shut down worker hosts at least one task group, which forces a
+     * pipeline restore (asserted below). The worker is only shut down once every reader has emitted
+     * rows, and the surviving node reports the final counters of its canceled readers to the store
+     * when they finish, so the failed attempt's non-zero counts are in the store before the
+     * restore. The job's checkpoint interval exceeds its runtime, so the restored attempt re-reads
+     * every row from the start and its own counters equal the configured row count.
+     */
+    @Test
+    public void testBatchJobMetricsResetAfterWorkerDownRestore() throws Exception {
+        String testCaseName = "testBatchJobMetricsResetAfterWorkerDownRestore";
+        String testClusterName =
+                "ClusterFaultToleranceIT_testBatchJobMetricsResetAfterWorkerDownRestore";
+        long testRowNumber = 1000;
+        int testParallelism = 4;
+        long expectedRows = testRowNumber * testParallelism;
+        HazelcastInstanceImpl node1 = null;
+        HazelcastInstanceImpl node2 = null;
+        SeaTunnelClient engineClient = null;
+
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
+        SlotServiceConfig slotServiceConfig =
+                seaTunnelConfig.getEngineConfig().getSlotServiceConfig();
+        slotServiceConfig.setSlotNum(10);
+        slotServiceConfig.setDynamicSlot(false);
+        slotServiceConfig.setAllocateStrategy(AllocateStrategy.SLOT_RATIO);
+        try {
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+
+            // waiting all node added to cluster
+            HazelcastInstanceImpl finalNode = node1;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalNode.getCluster().getMembers().size()));
+
+            // SLOT_RATIO can only spread the task groups over workers the resource manager
+            // already knows, so wait until both workers are registered before submitting.
+            SeaTunnelServer server =
+                    node1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+            Address node1Address = node1.node.address;
+            Address node2Address = node2.node.address;
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(
+                                        resourceManager
+                                                .getRegisterWorker()
+                                                .containsKey(node1Address));
+                                Assertions.assertTrue(
+                                        resourceManager
+                                                .getRegisterWorker()
+                                                .containsKey(node2Address));
+                            });
+
+            Common.setDeployMode(DeployMode.CLIENT);
+            ImmutablePair<String, String> testResources =
+                    createTestResources(
+                            "cluster_batch_fake_to_localfile_no_periodic_checkpoint_template.conf",
+                            testCaseName,
+                            JobMode.BATCH,
+                            testRowNumber,
+                            testParallelism);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testCaseName);
+
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
+            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            long jobId = clientJobProxy.getJobId();
+
+            // Every reader must have emitted rows in the first attempt, so the reader on the
+            // surviving node leaves a non-zero snapshot behind when it is canceled.
+            SeaTunnelClient finalEngineClient = engineClient;
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, clientJobProxy.getJobStatus());
+                                Assertions.assertEquals(
+                                        testParallelism,
+                                        countPositiveMeasurements(
+                                                finalEngineClient, jobId, "SourceReceivedCount"));
+                            });
+            JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
+            Assertions.assertNotNull(jobMaster);
+            // In the restore case, ensure that JobStatus is in the RUNNING state before calling
+            // waitForJobComplete.
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+
+            log.info(
+                    "Failed attempt metrics before shutting down node2: {}",
+                    engineClient.getJobMetrics(jobId));
+            node2.shutdown();
+
+            Awaitility.await()
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED, clientJobProxy.getJobStatus());
+                                Assertions.assertTrue(objectCompletableFuture.isDone());
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED, objectCompletableFuture.get());
+                            });
+
+            // Precondition: the worker shutdown really restored the pipeline. Without a restore
+            // the counters below would be exact even with the #11472 bug.
+            Assertions.assertFalse(jobMaster.getPhysicalPlan().getPipelineList().isEmpty());
+            for (SubPlan subPlan : jobMaster.getPhysicalPlan().getPipelineList()) {
+                Assertions.assertTrue(
+                        subPlan.getPipelineRestoreNum() >= 1,
+                        "Pipeline " + subPlan.getPipelineLocation() + " was never restored");
+            }
+
+            // Read the metrics from the finished-job history only: while the coordinator still
+            // holds the job master the live metrics are merged into the history ones.
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(200, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertNull(
+                                            server.getCoordinatorService().getJobMaster(jobId)));
+            String jobMetrics = engineClient.getJobMetrics(jobId);
+            log.info("Finished job metrics after the restore: {}", jobMetrics);
+            JobMetricsRunner.JobMetricsSummary summary = engineClient.getJobMetricsSummary(jobId);
+            Assertions.assertEquals(
+                    expectedRows,
+                    summary.getSourceReadCount(),
+                    "SourceReceivedCount must not include rows read by the failed attempt");
+            Assertions.assertEquals(
+                    expectedRows,
+                    summary.getSinkWriteCount(),
+                    "SinkWriteCount must not include rows written by the failed attempt");
+            JsonNode queueSizes =
+                    JsonUtils.stringToJsonNode(jobMetrics).get("IntermediateQueueSize");
+            if (queueSizes != null) {
+                for (JsonNode queueSize : queueSizes) {
+                    Assertions.assertEquals(
+                            0L,
+                            queueSize.get("value").asLong(),
+                            "A finished job must not report queued rows: " + queueSize);
+                }
+            }
+
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(), expectedRows, testRowNumber, 60_000L);
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+
+            if (node1 != null) {
+                node1.shutdown();
+            }
+
+            if (node2 != null) {
+                node2.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Counts the measurements of {@code metricName} with a positive value, that is the number of
+     * tasks that already reported progress for that metric. The metrics RPC can fail transiently
+     * while task groups are being deployed; such a failure counts as no progress so the surrounding
+     * poll retries instead of aborting.
+     */
+    private static long countPositiveMeasurements(
+            SeaTunnelClient engineClient, long jobId, String metricName)
+            throws JsonProcessingException {
+        String jobMetrics;
+        try {
+            jobMetrics = engineClient.getJobMetrics(jobId);
+        } catch (RuntimeException e) {
+            log.warn(
+                    "Transient failure reading metrics of job {}: {}",
+                    jobId,
+                    ExceptionUtils.getMessage(e));
+            return 0;
+        }
+        JsonNode measurements = JsonUtils.stringToJsonNode(jobMetrics).get(metricName);
+        long positive = 0;
+        if (measurements != null) {
+            for (JsonNode measurement : measurements) {
+                if (measurement.get("value").asLong() > 0) {
+                    positive++;
+                }
+            }
+        }
+        return positive;
     }
 
     @Test
