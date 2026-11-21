@@ -30,6 +30,7 @@ import org.apache.hadoop.fs.FileSystem;
 import com.lmax.disruptor.BlockingWaitStrategy;
 import com.lmax.disruptor.EventTranslatorThreeArg;
 import com.lmax.disruptor.TimeoutException;
+import com.lmax.disruptor.WorkHandler;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import com.lmax.disruptor.util.DaemonThreadFactory;
@@ -39,11 +40,20 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 @Slf4j
 public class WALDisruptor implements Closeable {
 
     private volatile Disruptor<FileWALEvent> disruptor;
+
+    /**
+     * Sole consumer installed in {@link #WALDisruptor}. Owned by this disruptor for the process
+     * lifetime: its fail-close flag is never reset in-process and is cleared only by restarting the
+     * engine node. Do not replace this handler to "un-stick" a failed writer; {@code fs.create}
+     * would truncate the fixed {@code wal.txt} path.
+     */
+    private final WALWorkHandler workHandler;
 
     private static final int DEFAULT_RING_BUFFER_SIZE = 1024;
 
@@ -65,21 +75,97 @@ public class WALDisruptor implements Closeable {
             String parentPath,
             Serializer serializer) {
         // todo should support multi thread producer
+        this(
+                fs,
+                fileConfiguration,
+                parentPath,
+                serializer,
+                DEFAULT_RING_BUFFER_SIZE,
+                new WALWorkHandler(fs, fileConfiguration, parentPath, serializer));
+    }
+
+    /**
+     * Alternate constructor for tests that need a small ring buffer or a custom consumer.
+     * Production uses the four-arg constructor above.
+     */
+    public WALDisruptor(
+            FileSystem fs,
+            FileConfiguration fileConfiguration,
+            String parentPath,
+            Serializer serializer,
+            int ringBufferSize,
+            WorkHandler<FileWALEvent> eventHandler) {
         ThreadFactory threadFactory = DaemonThreadFactory.INSTANCE;
         this.disruptor =
                 new Disruptor<>(
                         FileWALEvent.FACTORY,
-                        DEFAULT_RING_BUFFER_SIZE,
+                        ringBufferSize,
                         threadFactory,
                         ProducerType.SINGLE,
                         new BlockingWaitStrategy());
-
-        disruptor.handleEventsWithWorkerPool(
-                new WALWorkHandler(fs, fileConfiguration, parentPath, serializer));
-
+        this.workHandler =
+                eventHandler instanceof WALWorkHandler ? (WALWorkHandler) eventHandler : null;
+        disruptor.handleEventsWithWorkerPool(eventHandler);
         disruptor.start();
     }
 
+    /**
+     * Whether the sole WAL consumer has permanently fail-closed APPEND after a write failure.
+     *
+     * @return true until process restart once fail-close has tripped
+     */
+    public boolean isAppendBlockedAfterWriteFailure() {
+        return workHandler != null && workHandler.isAppendBlockedAfterWriteFailure();
+    }
+
+    /**
+     * Publishes one WAL event if a ring slot is free before {@code deadlineNanos}.
+     *
+     * <p>A full ring used to block inside {@code publishEvent} with no timeout, so a stalled
+     * consumer held the write-through caller before any future wait started. A closed ring returns
+     * false immediately; the caller must drop the pending request instead of waiting for a result
+     * that will never arrive.
+     *
+     * @param waitNanos maximum time to wait for a ring slot, in the same unit as {@link
+     *     System#nanoTime()}; callers must derive this from the shared operation deadline using the
+     *     same clock as {@link org.apache.seatunnel.engine.imap.storage.file.IMapFileStorage}
+     * @return false when the ring is closed or no slot was claimed before {@code waitNanos} elapses
+     */
+    public boolean tryPublish(
+            IMapFileData message, WALEventType status, Long requestId, long waitNanos) {
+        if (isClosed()) {
+            return false;
+        }
+        if (waitNanos <= 0L) {
+            return false;
+        }
+        long deadline = System.nanoTime() + waitNanos;
+        while (System.nanoTime() < deadline) {
+            if (Thread.currentThread().isInterrupted()) {
+                return false;
+            }
+            if (disruptor.getRingBuffer().tryPublishEvent(TRANSLATOR, message, status, requestId)) {
+                return true;
+            }
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0L) {
+                break;
+            }
+            LockSupport.parkNanos(Math.min(remaining, 100_000L));
+            if (Thread.currentThread().isInterrupted()) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Publishes one WAL event, waiting for a ring slot with no caller deadline.
+     *
+     * <p>Shutdown uses this for the terminal {@code CLOSED} marker. Steady-state appends must use
+     * {@link #tryPublish(IMapFileData, WALEventType, Long, long)} so admission stays inside the
+     * configured write timeout.
+     */
     public boolean tryPublish(IMapFileData message, WALEventType status, Long requestId) {
         if (isClosed()) {
             return false;
