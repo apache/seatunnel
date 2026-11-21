@@ -139,6 +139,12 @@ class LowByDefaultTest(unittest.TestCase):
         dialect = score([f(JDBC + "internal/dialect/mysql/MysqlDialect.java"), TEST])
         self.assertEqual((dialect["level"], dialect["class"], dialect["units"]), (HIGH, "core-connector", ["connector-jdbc:mysql"]))
 
+    def test_core_connector_stays_high_with_medium_platform_change(self):
+        jdbc = f(JDBC + "internal/dialect/mysql/MysqlDialect.java")
+        platform = f("seatunnel-core/src/main/java/Core.java")
+        outcome = score([jdbc, platform])
+        self.assertEqual((outcome["level"], outcome["class"]), (HIGH, "core-connector"))
+
     def test_comment_only_change_in_a_core_class_is_low(self):
         patch = "@@ -1 +1 @@\n-// old\n+// new\n"
         self.assertEqual(score([f(KAFKA + "sink/KafkaSink.java", patch, dele=1, add=1)])["level"], LOW)

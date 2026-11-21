@@ -691,8 +691,9 @@ def evaluate(pr, files, cfg=None, known=None):
         sc.adjust(2, "option-added", "-", "new option key(s) added to an existing connector: %s" % ", ".join(sorted(new_keys)))
 
     # ---- base level
-    if platform:
-        base = max(level for _p, _r, level in platform)
+    platform_base = max((level for _p, _r, level in platform), default=LOW)
+    if platform and (not core_connectors or platform_base == HIGH):
+        base = platform_base
         pr_class = {HIGH: "platform", MEDIUM: "platform", LOW: "tooling"}[base]
     elif core_connectors:
         base, pr_class = HIGH, "core-connector"
