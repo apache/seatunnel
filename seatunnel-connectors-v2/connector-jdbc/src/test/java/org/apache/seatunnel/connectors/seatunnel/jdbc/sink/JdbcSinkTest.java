@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
@@ -28,13 +29,57 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Collections;
 
-/**
- * Verifies restored JDBC schemas retain configured fallback and reject divergent state.
- *
- * <p>Legacy state without a schema must keep the configured table definition, while incompatible
- * schemas from the same checkpoint must fail instead of silently choosing one.
- */
 class JdbcSinkTest {
+
+    @Test
+    void getPrimaryKeyIndexReturnsEmptyForPrimaryKeyWithoutColumns() {
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("id")
+                                        .dataType(BasicType.INT_TYPE)
+                                        .build())
+                        .primaryKey(PrimaryKey.of("empty_pk", Collections.emptyList()))
+                        .build();
+
+        Assertions.assertFalse(JdbcSink.getPrimaryKeyIndex(tableSchema).isPresent());
+    }
+
+    @Test
+    void getPrimaryKeyIndexReturnsEmptyForPrimaryKeyWithNullColumns() {
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("id")
+                                        .dataType(BasicType.INT_TYPE)
+                                        .build())
+                        .primaryKey(PrimaryKey.of("null_pk", null))
+                        .build();
+
+        Assertions.assertFalse(JdbcSink.getPrimaryKeyIndex(tableSchema).isPresent());
+    }
+
+    @Test
+    void getPrimaryKeyIndexReturnsFirstPrimaryKeyColumnIndex() {
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("name")
+                                        .dataType(BasicType.STRING_TYPE)
+                                        .build())
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("id")
+                                        .dataType(BasicType.INT_TYPE)
+                                        .build())
+                        .primaryKey(PrimaryKey.of("id_pk", Collections.singletonList("id")))
+                        .build();
+
+        Assertions.assertEquals(1, JdbcSink.getPrimaryKeyIndex(tableSchema).get());
+    }
 
     @Test
     void shouldUseTheOnlyRestoredSchemaOrTheInitialSchema() {

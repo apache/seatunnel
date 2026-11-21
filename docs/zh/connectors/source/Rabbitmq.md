@@ -12,7 +12,13 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## 描述
 
-用于从 RabbitMQ 队列读取数据。
+RabbitMQ 源连接器从一个或多个 RabbitMQ 队列中读取消息，并将每条 AMQP 消息转换为一行
+SeaTunnel 数据。它以流处理模式运行，既可以消费单个队列，也可以通过多表选项 `tables_configs`
+同时消费多个队列。
+
+使用手动确认时，连接器在检查点完成后确认消息。开启 `use_correlation_id` 后，
+连接器通过消息发布方提供的 correlation ID 对尚未确认的消息去重。每个配置的队列
+只分配给一个 reader；通过 `tables_configs` 配置的不同队列可以分配到多个 reader。
 
 ## 主要特性
 
@@ -26,7 +32,8 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 :::tip
 
-为了实现精确一次，源必须是非并行的（并行度设置为 1）。这个限制主要是由于 RabbitMQ 从单个队列向多个消费者分派消息的方式。
+单个队列只由一个 reader 读取，提高并行度不会拆分该队列。需要使用多个 reader 时，
+请通过 `tables_configs` 配置不同的队列。
 
 :::
 
@@ -364,6 +371,15 @@ RabbitMQ Source 默认支持 JSON。当 `format` 设置为 `protobuf` 时支持 
 ### 任务发生故障时未确认的消息如何处理？
 
 当 SeaTunnel 任务失败或异常退出时，与 RabbitMQ 的连接会断开，RabbitMQ 会自动将所有未确认（unacknowledged）的消息重新入队（requeue）。在任务从检查点恢复后，Reader 可以重新处理这些消息，避免数据丢失。
+
+## 恢复旧版本检查点
+
+当前 RabbitMQ source 可以读取 SeaTunnel 2.3.13 序列化的旧版 `RabbitmqSourceState`。
+旧状态没有保存已分配的队列 split，因此恢复时先建立空的分配映射，再重新发现当前配置中的队列。
+升级时应保留队列配置和 broker 数据；此兼容层不会重建旧检查点中原本没有的消息位点或确认信息。
+
+当前版本的检查点会保存已分配的 split。故障前尚未确认的 broker 消息可能重新投递，
+旧状态兼容本身不提供额外的 Exactly-Once 保证。
 
 ## 变更日志
 

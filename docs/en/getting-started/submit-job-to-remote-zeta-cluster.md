@@ -24,18 +24,19 @@ port-forward` or direct NodePort/LoadBalancer access, and EKS/Helm deployments.
 
 ### 2.1 `--master` flag (Zeta)
 
-All SeaTunnel Zeta client commands accept a `--master` argument that tells the client which cluster
-to connect to:
+All SeaTunnel Zeta client commands accept a `--master` (or `-m`) argument that tells the client
+whether the job runs locally or on a cluster. It only accepts `local` or `cluster` — it does not
+take a cluster address:
 
 ```bash
 bin/seatunnel.sh \
   --config job.conf \
-  --master seatunnel://192.168.1.100:5801
+  -m cluster
 ```
 
-The default Zeta cluster-internal port is **5801**. This is *different* from the REST API port
-(8080). The `--master` flag is used when running the job via the SeaTunnel client binary, which
-communicates with the cluster over the Hazelcast member protocol.
+The client picks up the target cluster from `config/hazelcast-client.yaml` (`cluster-name` and
+`cluster-members`). The default Zeta cluster-internal port is **5801**. This is *different* from
+the REST API port (8080). The client communicates with the cluster over the Hazelcast protocol.
 
 ### 2.2 Using the REST API (recommended for automation)
 
@@ -303,7 +304,7 @@ helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm
 
-helm install seatunnel . \
+helm install seatunnel . --set-string image.tag="${VERSION}" \
   --namespace seatunnel \
   --create-namespace
 ```
@@ -311,7 +312,7 @@ helm install seatunnel . \
 Scale masters and workers with the `master.replicas` and `worker.replicas` values:
 
 ```bash
-helm upgrade seatunnel . --namespace seatunnel \
+helm upgrade seatunnel . --reuse-values --namespace seatunnel \
   --set master.replicas=2 \
   --set worker.replicas=4
 ```
@@ -369,7 +370,7 @@ The chart has no `seatunnel.config` values tree. To customize engine files such 
 Apply with:
 
 ```bash
-helm upgrade seatunnel . \
+helm upgrade seatunnel . --reuse-values \
   --namespace seatunnel \
   -f values-prod.yaml
 ```
@@ -382,7 +383,6 @@ helm upgrade seatunnel . \
 |---|---|---|---|
 | **5801** | TCP | Hazelcast cluster | Member-to-member communication; do NOT expose publicly |
 | **8080** | TCP | REST API | Expose only via authenticated gateway in production |
-| **8090** | TCP | Web UI | Optional; only needed for the dashboard |
 
 In Kubernetes, set up a `NetworkPolicy` to restrict port 5801 to the SeaTunnel namespace only:
 

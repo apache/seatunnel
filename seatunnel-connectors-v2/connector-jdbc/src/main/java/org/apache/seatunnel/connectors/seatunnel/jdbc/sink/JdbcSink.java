@@ -59,6 +59,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -121,6 +122,21 @@ public class JdbcSink
     @Override
     public AbstractJdbcSinkWriter createWriter(SinkWriter.Context context) {
         return createWriter(context, tableSchema, new ArrayList<>());
+    }
+
+    static Optional<Integer> getPrimaryKeyIndex(TableSchema tableSchema) {
+        return getPrimaryKeyIndex(tableSchema, tableSchema.getPrimaryKey());
+    }
+
+    private static Optional<Integer> getPrimaryKeyIndex(
+            TableSchema tableSchema, PrimaryKey primaryKey) {
+        if (primaryKey == null
+                || primaryKey.getColumnNames() == null
+                || primaryKey.getColumnNames().isEmpty()) {
+            return Optional.empty();
+        }
+        int index = tableSchema.toPhysicalRowDataType().indexOf(primaryKey.getColumnNames().get(0));
+        return index > -1 ? Optional.of(index) : Optional.empty();
     }
 
     @Override
@@ -305,6 +321,9 @@ public class JdbcSink
 
     @Override
     public List<SchemaChangeType> supports() {
+        if (!dialect.supportsSchemaChange()) {
+            return Collections.emptyList();
+        }
         return Arrays.asList(
                 SchemaChangeType.ADD_COLUMN,
                 SchemaChangeType.DROP_COLUMN,
@@ -381,13 +400,6 @@ public class JdbcSink
                         primaryKey.getColumnNames());
             }
         }
-        if (primaryKey == null) {
-            return null;
-        }
-        int index =
-                writerTableSchema
-                        .toPhysicalRowDataType()
-                        .indexOf(primaryKey.getColumnNames().get(0));
-        return index > -1 ? index : null;
+        return getPrimaryKeyIndex(writerTableSchema, primaryKey).orElse(null);
     }
 }

@@ -42,6 +42,7 @@ The source is bounded. The enumerator calls Bigtable `sampleRowKeys` to cut the 
 | end_timestamp    | long   | no       | -             |
 | max_versions     | int    | no       | 1             |
 | scan_row_limit   | int    | no       | -1            |
+| schema           | config | yes      | -             |
 | common-options   |        | no       | -             |
 
 ### project_id [string]
@@ -91,6 +92,14 @@ Maximum number of cell versions to return per column qualifier. Default `1` retu
 ### scan_row_limit [int]
 
 Maximum number of rows to return **per split**. `-1` (default) means no limit. When the enumerator produces multiple splits, the job-level upper bound is about `scan_row_limit × split count`, not a single table-wide cap. Use this option together with `start_rowkey` / `end_rowkey` to do paginated full-table scans across multiple jobs.
+
+### schema [config]
+
+The output schema of the source. This option is required: the source builds its output table from
+`schema` and fails at startup with `Schema config need option [schema]` when it is missing. Field
+names follow the `familyName:qualifier` pattern described in [Schema Mapping](#schema-mapping), and
+the row-key field is selected by `rowkey_column`. See
+[Schema Feature](../../introduction/concepts/schema-feature.md) for the general syntax.
 
 ### common options
 

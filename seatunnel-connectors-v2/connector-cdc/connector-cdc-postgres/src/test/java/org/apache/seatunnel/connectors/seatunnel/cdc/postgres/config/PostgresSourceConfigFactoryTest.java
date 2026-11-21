@@ -172,10 +172,13 @@ public class PostgresSourceConfigFactoryTest {
         PostgresSourceConfigFactory factory = baseFactory();
         Properties dbzProperties = new Properties();
         dbzProperties.setProperty("slot.name", "custom_slot");
+        dbzProperties.setProperty("plugin.name", "decoderbufs");
         factory.debeziumProperties(dbzProperties);
 
         Assertions.assertEquals(
                 "custom_slot", factory.create(0).getDbzConfiguration().getString("slot.name"));
+        Assertions.assertEquals(
+                "decoderbufs", factory.create(0).getDbzConfiguration().getString("plugin.name"));
     }
 
     /**
