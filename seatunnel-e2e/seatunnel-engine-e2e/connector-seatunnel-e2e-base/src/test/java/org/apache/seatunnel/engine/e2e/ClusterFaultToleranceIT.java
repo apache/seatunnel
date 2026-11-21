@@ -49,10 +49,15 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
@@ -794,6 +799,9 @@ public class ClusterFaultToleranceIT {
                             + TestUtils.getClusterName(testClusterName)
                             + "\n"
                             + "          fs.defaultFS: file:///\n"
+                            + "          compaction.enabled: true\n"
+                            + "          compaction.interval-seconds: 1\n"
+                            + "          wal.segment-size: 1\n"
                             + "\n"
                             + "  properties:\n"
                             + "    hazelcast.invocation.max.retry.count: 200\n"
@@ -867,11 +875,33 @@ public class ClusterFaultToleranceIT {
             Assertions.assertFalse(
                     new File(imapStorageRoot, EngineStateStoreNames.CHECKPOINT_MONITOR).exists());
 
+            // Repeated writes to real recovery metadata produce sealed WAL segments. Await an
+            // actual committed snapshot before stopping the cluster so recovery exercises the
+            // compaction output rather than only its configuration.
+            IMap<Long, Object> runningJobInfo = finalNode.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            Object persistedJobInfo = runningJobInfo.get(jobId);
+            Assertions.assertNotNull(persistedJobInfo);
+            for (int i = 0; i < 16; i++) {
+                runningJobInfo.set(jobId, persistedJobInfo);
+            }
+            Path runningJobInfoDirectory =
+                    new File(imapStorageRoot, Constant.IMAP_RUNNING_JOB_INFO).toPath();
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .until(() -> containsCompactionSnapshot(runningJobInfoDirectory));
+
             Thread.sleep(5000);
             // shutdown all node
             node1.shutdown();
             node2.shutdown();
             engineClient.close();
+
+            // Include any region created during the first member's shutdown/failover, so an old
+            // snapshot cannot satisfy the assertion that compaction resumes after the restart.
+            Set<Path> previousRegions;
+            try (Stream<Path> regions = Files.list(runningJobInfoDirectory)) {
+                previousRegions = regions.filter(Files::isDirectory).collect(Collectors.toSet());
+            }
 
             log.warn(
                     "==========================================All node is done========================================");
@@ -913,6 +943,22 @@ public class ClusterFaultToleranceIT {
             // waitForJobComplete.
             CompletableFuture<JobStatus> waitForCompletableFuture =
                     CompletableFuture.supplyAsync(newClientJobProxy::waitForJobComplete);
+
+            // Closing the last old writer shuts down the shared executor. Recovered writers
+            // must register a working executor again and compact their newly created region.
+            IMap<Long, Object> restoredJobInfo =
+                    restoreFinalNode.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            Object restoredInfo = restoredJobInfo.get(jobId);
+            Assertions.assertNotNull(restoredInfo);
+            for (int i = 0; i < 16; i++) {
+                restoredJobInfo.set(jobId, restoredInfo);
+            }
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .until(
+                            () ->
+                                    containsCompactionSnapshotOutside(
+                                            runningJobInfoDirectory, previousRegions));
 
             Awaitility.await()
                     .atMost(100000, TimeUnit.MILLISECONDS)
@@ -968,6 +1014,22 @@ public class ClusterFaultToleranceIT {
             if (node2 != null) {
                 node2.shutdown();
             }
+        }
+    }
+
+    private static boolean containsCompactionSnapshot(Path directory) throws IOException {
+        return containsCompactionSnapshotOutside(directory, java.util.Collections.emptySet());
+    }
+
+    private static boolean containsCompactionSnapshotOutside(
+            Path directory, Set<Path> excludedRegions) throws IOException {
+        try (Stream<Path> files = Files.walk(directory)) {
+            return files.anyMatch(
+                    path ->
+                            path.getFileName().toString().contains("snapshot-")
+                                    && path.getFileName().toString().endsWith("wal.txt")
+                                    && !excludedRegions.contains(path.getParent())
+                                    && Files.isRegularFile(path));
         }
     }
 

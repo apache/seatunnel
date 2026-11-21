@@ -18,8 +18,16 @@
 package org.apache.seatunnel.engine.server.persistence;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
+import org.apache.seatunnel.engine.imap.storage.file.common.WALReader;
+import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -39,16 +47,27 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.EntryLoader.MetadataAwareValue;
 import com.hazelcast.map.IMap;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for FileMapStore.
@@ -70,6 +89,34 @@ import static org.mockito.Mockito.mock;
 public class FileMapStoreTest {
 
     @TempDir Path tempDir;
+
+    /** A rejected storage operation must reach Hazelcast as a failure, including batch writes. */
+    @Test
+    public void testRejectedStorageOperationsAreNotAcknowledged() throws Exception {
+        IMapStorage storage = mock(IMapStorage.class);
+        FileMapStore store = new FileMapStore();
+        Field storageField = FileMapStore.class.getDeclaredField("mapStorage");
+        storageField.setAccessible(true);
+        storageField.set(store, storage);
+        when(storage.store(any(), any(), anyLong())).thenReturn(false, true);
+        when(storage.storeAllWithExpirationTime(anyMap())).thenReturn(Collections.singleton("key"));
+        when(storage.deleteAll(Collections.singleton("key")))
+                .thenReturn(Collections.singleton("key"));
+
+        Assertions.assertThrows(
+                IMapStorageException.class,
+                () -> store.store("key", new MetadataAwareValue<>("value")));
+        Assertions.assertDoesNotThrow(() -> store.store("key", new MetadataAwareValue<>("value")));
+        Assertions.assertThrows(IMapStorageException.class, () -> store.delete("key"));
+        Assertions.assertThrows(
+                IMapStorageException.class,
+                () ->
+                        store.storeAll(
+                                Collections.singletonMap(
+                                        "key", new MetadataAwareValue<>("value"))));
+        Assertions.assertThrows(
+                IMapStorageException.class, () -> store.deleteAll(Collections.singleton("key")));
+    }
 
     /**
      * Verifies that FileMapStore.init() can successfully resolve the "hdfs" factory via SPI and
@@ -228,13 +275,112 @@ public class FileMapStoreTest {
         }
     }
 
+    /** Verifies EAGER recovery from an actual compacted snapshot, including deletes and TTLs. */
+    @Test
+    public void testCompactedEntriesKeepStateAcrossRestart() {
+        String clusterName = "file-map-store-compaction-" + System.nanoTime();
+        String mapName = Constant.IMAP_FINISHED_JOB_STATE;
+        Map<Object, Object> expected = new HashMap<>();
+        expected.put(1L, "latest");
+        expected.put(4L, "never-expiring");
+        long expirationTimeBeforeRestart;
+
+        HazelcastInstance writer =
+                Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName, true));
+        try {
+            IMap<Long, String> map = writer.getMap(mapName);
+            map.put(1L, "old");
+            map.put(2L, "deleted");
+            map.put(3L, "expired", 1, TimeUnit.SECONDS);
+            map.put(4L, "old");
+            await().atMost(10, TimeUnit.SECONDS).until(() -> !map.containsKey(3L));
+
+            map.delete(2L);
+            for (int i = 0; i < 16; i++) {
+                map.put(4L, "never-expiring");
+            }
+            // Write this update last so its presence proves the snapshot includes the mutations
+            // above, rather than merely observing an earlier scheduled compaction.
+            map.put(1L, "latest", 10, TimeUnit.MINUTES);
+            expirationTimeBeforeRestart = map.getEntryView(1L).getExpirationTime();
+            Path mapDirectory = tempDir.resolve("test-cluster").resolve(mapName);
+            await().atMost(30, TimeUnit.SECONDS)
+                    .until(() -> hasCompactedEntries(mapDirectory, expected));
+        } finally {
+            writer.shutdown();
+        }
+
+        HazelcastInstance restarted =
+                Hazelcast.newHazelcastInstance(hazelcastConfig(clusterName, true));
+        try {
+            IMap<Long, String> map = restarted.getMap(mapName);
+            Assertions.assertEquals(expected, new HashMap<>(map));
+            Assertions.assertNull(map.getEntryView(2L));
+            Assertions.assertNull(map.getEntryView(3L));
+            long expirationDrift =
+                    Math.abs(
+                            map.getEntryView(1L).getExpirationTime() - expirationTimeBeforeRestart);
+            Assertions.assertTrue(
+                    expirationDrift <= TimeUnit.SECONDS.toMillis(2),
+                    "expiration time moved by " + expirationDrift + " ms after compaction/restart");
+            Assertions.assertEquals(Long.MAX_VALUE, map.getEntryView(4L).getExpirationTime());
+        } finally {
+            restarted.shutdown();
+        }
+    }
+
+    private boolean hasCompactedEntries(Path mapDirectory, Map<Object, Object> expected)
+            throws IOException {
+        if (!Files.isDirectory(mapDirectory)) {
+            return false;
+        }
+        WALReader reader =
+                new WALReader(
+                        FileSystem.getLocal(new Configuration()),
+                        FileConfiguration.HDFS,
+                        new ProtoStuffSerializer());
+        try (Stream<Path> files = Files.walk(mapDirectory)) {
+            Iterator<Path> snapshots =
+                    files.filter(
+                                    path ->
+                                            path.getFileName().toString().contains("snapshot-")
+                                                    && path.getFileName()
+                                                            .toString()
+                                                            .endsWith("wal.txt"))
+                            .iterator();
+            while (snapshots.hasNext()) {
+                try {
+                    if (expected.equals(
+                            reader.loadAllData(
+                                    new org.apache.hadoop.fs.Path(snapshots.next().toUri()),
+                                    Collections.emptySet()))) {
+                        return true;
+                    }
+                } catch (FileNotFoundException ignored) {
+                    // A newer compaction can replace this snapshot between listing and opening it.
+                }
+            }
+        }
+        return false;
+    }
+
     private Config hazelcastConfig(String clusterName) {
+        return hazelcastConfig(clusterName, false);
+    }
+
+    private Config hazelcastConfig(String clusterName, boolean compactionEnabled) {
+        Properties properties = buildLocalFsProperties(tempDir.toString());
+        if (compactionEnabled) {
+            properties.setProperty("compaction.enabled", "true");
+            properties.setProperty("compaction.interval-seconds", "1");
+            properties.setProperty("wal.segment-size", "1");
+        }
         MapStoreConfig mapStoreConfig =
                 new MapStoreConfig()
                         .setEnabled(true)
                         .setInitialLoadMode(MapStoreConfig.InitialLoadMode.EAGER)
                         .setFactoryClassName(FileMapStoreFactory.class.getName())
-                        .setProperties(buildLocalFsProperties(tempDir.toString()));
+                        .setProperties(properties);
 
         Config config = new Config();
         config.setClusterName(clusterName);

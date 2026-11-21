@@ -26,14 +26,25 @@ import org.apache.seatunnel.engine.common.job.JobStatusData;
 import org.apache.seatunnel.engine.imap.storage.api.ExpirableValue;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.compaction.CompactionDeferredException;
+import org.apache.seatunnel.engine.imap.storage.file.compaction.CompactionPlan;
+import org.apache.seatunnel.engine.imap.storage.file.compaction.HdfsCompactionStorage;
+import org.apache.seatunnel.engine.imap.storage.file.compaction.RegionCompactionPlanner;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
+import org.apache.seatunnel.engine.imap.storage.file.wal.reader.DefaultReader;
+import org.apache.seatunnel.engine.imap.storage.file.wal.reader.IFileReader.RecordConsumer;
+import org.apache.seatunnel.engine.imap.storage.file.wal.writer.SegmentedHdfsWriter;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FilterFileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -43,13 +54,20 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.condition.OS.LINUX;
@@ -284,6 +302,826 @@ public class WALReaderAndWriterTest {
         Assertions.assertArrayEquals(record.getValue(), read.value);
         Assertions.assertEquals(record.getValueClassName(), read.valueClassName);
         Assertions.assertEquals(record.getTimestamp(), read.timestamp);
+    }
+
+    @Test
+    void shouldCompactRawMutationsWithoutResurrectingOtherRegionValues() throws IOException {
+        Path root = new Path(PARENT_PATH, "compaction-metadata");
+        Path scope = new Path(root, "region-b");
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, SERIALIZER);
+        storage.initialize(scope);
+        writeWalFile(
+                new Path(root, "region-a/legacy-wal.txt"),
+                mutation("deleted", "old-region-value", 5, false),
+                mutation("expired", "old-region-value", 5, false));
+        Path first = new Path(scope, "segment-1-wal.txt");
+        Path second = new Path(scope, "segment-2-wal.txt");
+        writeWalFile(
+                first,
+                mutation("updated", "old", 10, false),
+                mutation("deleted", "old", 10, false),
+                mutation("expired", "old", 10, false),
+                mutation("expiring", "old", 10, false));
+        IMapFileData updated = mutation("updated", "new", 20, false);
+        IMapFileData deleted = mutation("deleted", null, 20, true);
+        IMapFileData expired = mutation("expired", "expired-payload", 20, false);
+        expired.setExpirationTime(System.currentTimeMillis() - 1);
+        IMapFileData expiring = mutation("expiring", "live-payload", 20, false);
+        expiring.setExpirationTime(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1));
+        writeWalFile(second, updated, deleted, expired, expiring);
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        Map<Object, ExpirableValue> before =
+                reader.loadAllDataWithExpirationTime(root, Collections.emptySet());
+        String previousToken =
+                HdfsCompactionStorage.readToken(
+                        FS, new Path(scope, HdfsCompactionStorage.CURRENT_FILE));
+
+        Path snapshot =
+                new WALCompactor()
+                        .compact(new CompactionPlan(Arrays.asList(first, second), scope), storage);
+
+        Map<String, IMapFileData> compacted = readRawMutationMap(snapshot);
+        Assertions.assertEquals(4, compacted.size());
+        for (IMapFileData expected : Arrays.asList(updated, deleted, expired, expiring)) {
+            String key = SERIALIZER.deserialize(expected.getKey(), String.class);
+            Assertions.assertArrayEquals(
+                    SERIALIZER.serialize(expected), SERIALIZER.serialize(compacted.get(key)));
+        }
+        Assertions.assertNotEquals(
+                previousToken,
+                HdfsCompactionStorage.readToken(
+                        FS, new Path(scope, HdfsCompactionStorage.CURRENT_FILE)));
+        // A crash after publication may leave both inputs, or only one of them, alongside the
+        // snapshot.
+        Assertions.assertEquals(
+                before, reader.loadAllDataWithExpirationTime(root, Collections.emptySet()));
+        storage.delete(first);
+        Assertions.assertEquals(
+                before, reader.loadAllDataWithExpirationTime(root, Collections.emptySet()));
+        storage.delete(second);
+        Assertions.assertEquals(
+                before, reader.loadAllDataWithExpirationTime(root, Collections.emptySet()));
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList("updated", "expiring")), reader.loadAllKeys(root));
+        Assertions.assertTrue(FS.exists(new Path(root, "region-a/legacy-wal.txt")));
+    }
+
+    @Test
+    void shouldRotateCompleteSegmentsAndCompactWithoutTouchingActiveTail() throws IOException {
+        Path root = new Path(PARENT_PATH, "rotating-writer");
+        Path scope = new Path(root, "region");
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, SERIALIZER);
+        storage.initialize(scope);
+        RegionCompactionPlanner planner = new RegionCompactionPlanner(scope);
+        IMapFileData older = mutation("key", "old", 10, false);
+        IMapFileData latest = mutation("key", "new", 20, false);
+        long segmentSize = wrapped(older).length + wrapped(latest).length;
+        try (SegmentedHdfsWriter writer = new SegmentedHdfsWriter(segmentSize, planner)) {
+            writer.initialize(FS, scope, SERIALIZER);
+            writer.write(older);
+            Assertions.assertFalse(
+                    planner.plan().isPresent(), "an open segment must never be selected");
+            writer.write(latest);
+            CompactionPlan plan = planner.plan().get();
+            Assertions.assertEquals(1, plan.getInputs().size());
+            writer.write(mutation("tail", "active", 30, false));
+            Path activeTail = new Path(scope, "segment-00000000000000000002-wal.txt");
+            Assertions.assertTrue(FS.exists(activeTail));
+            Assertions.assertFalse(plan.getInputs().contains(activeTail));
+
+            Path snapshot = new WALCompactor().compact(plan, storage);
+            planner.committed(plan, snapshot);
+            for (Path input : plan.getInputs()) {
+                storage.delete(input);
+            }
+
+            Assertions.assertFalse(planner.plan().isPresent());
+            Assertions.assertTrue(FS.exists(activeTail));
+            Assertions.assertArrayEquals(
+                    SERIALIZER.serialize(latest),
+                    SERIALIZER.serialize(readRawMutationMap(snapshot).get("key")));
+            writer.write(mutation("tail", "still-writable", 40, false));
+            Map<Object, Object> expected = new HashMap<>();
+            expected.put("key", "new");
+            expected.put("tail", "still-writable");
+            WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+            Assertions.assertEquals(expected, reader.loadAllData(root, Collections.emptySet()));
+        }
+    }
+
+    @Test
+    void shouldResumeWritesAfterFailedSealWithoutCompactingAcrossTheFailedSegment()
+            throws IOException {
+        Path root = new Path(PARENT_PATH, "failed-seal");
+        Path scope = new Path(root, "region");
+        RegionCompactionPlanner planner = new RegionCompactionPlanner(scope);
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, SERIALIZER);
+        storage.initialize(scope);
+        AtomicBoolean failClose = new AtomicBoolean(true);
+        FileSystem failingFileSystem =
+                new FilterFileSystem(FS) {
+                    @Override
+                    public FSDataOutputStream create(Path path) throws IOException {
+                        return new FSDataOutputStream(super.create(path), null) {
+                            @Override
+                            public void close() throws IOException {
+                                super.close();
+                                if (failClose.compareAndSet(true, false)) {
+                                    throw new IOException("close failed after closing the stream");
+                                }
+                            }
+                        };
+                    }
+                };
+
+        try (SegmentedHdfsWriter writer = new SegmentedHdfsWriter(1, planner)) {
+            writer.initialize(failingFileSystem, scope, SERIALIZER);
+            IOException failure =
+                    Assertions.assertThrows(
+                            IOException.class,
+                            () -> writer.write(mutation("synced", "before-close", 10, false)));
+            Assertions.assertTrue(failure.getMessage().contains("Cannot seal IMap WAL segment"));
+            writer.write(mutation("following", "new-segment", 20, false));
+
+            Assertions.assertFalse(
+                    planner.plan().isPresent(),
+                    "later segments must not be compacted before the uncertain failed segment");
+            Assertions.assertTrue(
+                    FS.exists(new Path(scope, "segment-00000000000000000001-wal.txt")));
+            Assertions.assertTrue(
+                    FS.exists(new Path(scope, "segment-00000000000000000002-wal.txt")));
+        }
+
+        // The first mutation completed append+sync before its close failed. It is still replayed,
+        // alongside the following successful write, while the failure is surfaced to the caller.
+        Map<Object, Object> expected = new HashMap<>();
+        expected.put("synced", "before-close");
+        expected.put("following", "new-segment");
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        Assertions.assertEquals(expected, reader.loadAllData(root, Collections.emptySet()));
+    }
+
+    @Test
+    void shouldRetryOpeningANewSegmentAfterCreateFailure() throws IOException {
+        Path scope = new Path(PARENT_PATH, "failed-create/region");
+        RegionCompactionPlanner planner = new RegionCompactionPlanner(scope);
+        AtomicInteger creates = new AtomicInteger();
+        FileSystem failingFileSystem =
+                new FilterFileSystem(FS) {
+                    @Override
+                    public FSDataOutputStream create(Path path) throws IOException {
+                        if (creates.incrementAndGet() == 2) {
+                            throw new IOException("injected create failure");
+                        }
+                        return super.create(path);
+                    }
+                };
+
+        try (SegmentedHdfsWriter writer = new SegmentedHdfsWriter(1, planner)) {
+            writer.initialize(failingFileSystem, scope, SERIALIZER);
+            writer.write(mutation("first", "value", 10, false));
+            IOException failure =
+                    Assertions.assertThrows(
+                            IOException.class,
+                            () -> writer.write(mutation("not-written", "value", 20, false)));
+            Assertions.assertEquals("injected create failure", failure.getMessage());
+            writer.write(mutation("following", "value", 30, false));
+        }
+
+        Map<Object, Object> expected = new HashMap<>();
+        expected.put("first", "value");
+        expected.put("following", "value");
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        Assertions.assertEquals(expected, reader.loadAllData(scope, Collections.emptySet()));
+    }
+
+    @Test
+    void shouldQuarantineASegmentAfterSyncFailureAndResumeWrites() throws IOException {
+        Path scope = new Path(PARENT_PATH, "failed-sync/region");
+        RegionCompactionPlanner planner = new RegionCompactionPlanner(scope);
+        AtomicBoolean failSync = new AtomicBoolean(true);
+        IOException syncFailure = new IOException("injected sync failure");
+        FileSystem failingFileSystem =
+                new FilterFileSystem(FS) {
+                    @Override
+                    public FSDataOutputStream create(Path path) throws IOException {
+                        return new FSDataOutputStream(super.create(path), null) {
+                            @Override
+                            public void hsync() throws IOException {
+                                if (failSync.compareAndSet(true, false)) {
+                                    throw syncFailure;
+                                }
+                                super.hsync();
+                            }
+                        };
+                    }
+                };
+
+        try (SegmentedHdfsWriter writer = new SegmentedHdfsWriter(1, planner)) {
+            writer.initialize(failingFileSystem, scope, SERIALIZER);
+            IOException failure =
+                    Assertions.assertThrows(
+                            IOException.class,
+                            () -> writer.write(mutation("uncertain", "value", 10, false)));
+            Assertions.assertSame(syncFailure, failure.getCause());
+            writer.write(mutation("following", "value", 20, false));
+            Assertions.assertFalse(planner.plan().isPresent());
+        }
+
+        // A failed sync is not acknowledged. Its partial/durable outcome is not assumed, but it
+        // must not prevent a later successful mutation from being recovered.
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        Assertions.assertEquals(
+                "value", reader.loadAllData(scope, Collections.emptySet()).get("following"));
+    }
+
+    @Test
+    void shouldMergeAnExplicitInputSetAcrossRegionsWithoutResolvingPayloadClasses()
+            throws IOException {
+        Path root = new Path(PARENT_PATH, "cross-region-plan");
+        Path first = new Path(root, "region-a/first-wal.txt");
+        Path second = new Path(root, "region-b/second-wal.txt");
+        Path output = new Path(root, "independent-output");
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, SERIALIZER);
+        storage.initialize(output);
+        IMapFileData latest = mutation("shared", "opaque-payload", 20, false);
+        latest.setValueClassName("example.UnavailablePayloadClass");
+        IMapFileData separate = mutation("separate", "value", 10, false);
+        writeWalFile(first, mutation("shared", "old", 10, false), separate);
+        writeWalFile(second, latest);
+
+        Path snapshot =
+                new WALCompactor()
+                        .compact(new CompactionPlan(Arrays.asList(first, second), output), storage);
+
+        Assertions.assertEquals(FS.makeQualified(output), FS.makeQualified(snapshot.getParent()));
+        Map<String, IMapFileData> compacted = readRawMutationMap(snapshot);
+        Assertions.assertEquals(2, compacted.size());
+        Assertions.assertArrayEquals(
+                SERIALIZER.serialize(latest), SERIALIZER.serialize(compacted.get("shared")));
+        Assertions.assertArrayEquals(
+                SERIALIZER.serialize(separate), SERIALIZER.serialize(compacted.get("separate")));
+        Assertions.assertTrue(FS.exists(first));
+        Assertions.assertTrue(FS.exists(second));
+    }
+
+    @Test
+    void shouldIgnoreAnInterruptedSnapshotTemporaryFile() throws IOException {
+        Path root = new Path(PARENT_PATH, "interrupted-snapshot");
+        Path scope = new Path(root, "region");
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, SERIALIZER);
+        storage.initialize(scope);
+        writeWalFile(new Path(scope, "segment-1-wal.txt"), mutation("key", "value", 10, false));
+        Path temporary = new Path(scope, ".snapshot-interrupted.tmp");
+        byte[] incomplete = wrapped(mutation("uncommitted", "ignored", 20, false));
+        try (FSDataOutputStream output = FS.create(temporary, false)) {
+            output.write(incomplete, 0, WALDataUtils.WAL_DATA_METADATA_LENGTH + 3);
+        }
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+
+        Assertions.assertEquals(
+                Collections.singletonMap("key", "value"),
+                reader.loadAllData(root, Collections.emptySet()));
+        Assertions.assertEquals(Collections.singleton("key"), reader.loadAllKeys(root));
+        Assertions.assertTrue(FS.exists(temporary));
+    }
+
+    @Test
+    void shouldKeepInputsWhenSnapshotTokenPublicationFails() throws IOException {
+        Path root = new Path(PARENT_PATH, "failed-publication");
+        Path scope = new Path(root, "region");
+        HdfsCompactionStorage storage =
+                new HdfsCompactionStorage(FS, SERIALIZER) {
+                    @Override
+                    protected void replaceToken(Path source, Path target) throws IOException {
+                        throw new IOException("simulated token publication failure");
+                    }
+                };
+        storage.initialize(scope);
+        Path first = new Path(scope, "segment-1-wal.txt");
+        Path second = new Path(scope, "segment-2-wal.txt");
+        writeWalFile(first, mutation("key", "old", 10, false));
+        writeWalFile(second, mutation("key", "new", 20, false));
+        Path tokenPath = new Path(scope, HdfsCompactionStorage.CURRENT_FILE);
+        String previousToken = HdfsCompactionStorage.readToken(FS, tokenPath);
+
+        for (int attempt = 0; attempt < 2; attempt++) {
+            IOException exception =
+                    Assertions.assertThrows(
+                            IOException.class,
+                            () ->
+                                    new WALCompactor()
+                                            .compact(
+                                                    new CompactionPlan(
+                                                            Arrays.asList(first, second), scope),
+                                                    storage));
+
+            Assertions.assertTrue(
+                    exception.getMessage().contains("simulated token publication failure"));
+            Assertions.assertEquals(previousToken, HdfsCompactionStorage.readToken(FS, tokenPath));
+            Assertions.assertTrue(FS.exists(first));
+            Assertions.assertTrue(FS.exists(second));
+            Assertions.assertTrue(
+                    Arrays.stream(FS.listStatus(scope))
+                            .noneMatch(file -> file.getPath().getName().contains("snapshot-")),
+                    "Repeated failed attempts must not accumulate untracked snapshots");
+        }
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        Assertions.assertEquals(
+                Collections.singletonMap("key", "new"),
+                reader.loadAllData(root, Collections.emptySet()));
+    }
+
+    @Test
+    void shouldRejectATruncatedCompletedInputBeforePublishingSnapshot() throws IOException {
+        Path scope = new Path(PARENT_PATH, "truncated-compaction-input/region");
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, SERIALIZER);
+        storage.initialize(scope);
+        Path first = new Path(scope, "segment-1-wal.txt");
+        Path second = new Path(scope, "segment-2-wal.txt");
+        writeWalFile(first, mutation("key", "old", 10, false));
+        byte[] complete = wrapped(mutation("key", "new", 20, false));
+        byte[] incomplete = wrapped(mutation("missing", "ignored", 30, false));
+        try (FSDataOutputStream output = FS.create(second, false)) {
+            output.write(complete);
+            output.write(incomplete, 0, WALDataUtils.WAL_DATA_METADATA_LENGTH + 3);
+        }
+        Path tokenPath = new Path(scope, HdfsCompactionStorage.CURRENT_FILE);
+        String previousToken = HdfsCompactionStorage.readToken(FS, tokenPath);
+
+        IOException exception =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () ->
+                                new WALCompactor()
+                                        .compact(
+                                                new CompactionPlan(
+                                                        Arrays.asList(first, second), scope),
+                                                storage));
+
+        Assertions.assertTrue(exception.getMessage().contains("Incomplete sealed WAL"));
+        Assertions.assertEquals(previousToken, HdfsCompactionStorage.readToken(FS, tokenPath));
+        Assertions.assertTrue(FS.exists(first));
+        Assertions.assertTrue(FS.exists(second));
+        Assertions.assertTrue(
+                Arrays.stream(FS.listStatus(scope))
+                        .noneMatch(
+                                file ->
+                                        file.getPath()
+                                                .getName()
+                                                .startsWith(
+                                                        HdfsCompactionStorage.SNAPSHOT_PREFIX)));
+    }
+
+    @Test
+    void shouldDeferCompactionAtTheKeyBudgetWithoutDroppingExpiredOrDeletedMutations()
+            throws IOException {
+        Path scope = new Path(PARENT_PATH, "compaction-key-budget/region");
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, SERIALIZER);
+        storage.initialize(scope);
+        Path input = new Path(scope, "segment-1-wal.txt");
+        IMapFileData expired = mutation("expired", "value", 20, false);
+        expired.setExpirationTime(1L);
+        writeWalFile(input, mutation("deleted", null, 10, true), expired);
+        Path token = new Path(scope, HdfsCompactionStorage.CURRENT_FILE);
+        String beforeToken = HdfsCompactionStorage.readToken(FS, token);
+
+        CompactionDeferredException exception =
+                Assertions.assertThrows(
+                        CompactionDeferredException.class,
+                        () ->
+                                new WALCompactor()
+                                        .compact(
+                                                new CompactionPlan(
+                                                        Collections.singletonList(input), scope),
+                                                storage,
+                                                8192,
+                                                1,
+                                                () -> false));
+
+        Assertions.assertTrue(exception.getMessage().contains("compaction.max-keys=1"));
+        Assertions.assertTrue(FS.exists(input));
+        Assertions.assertEquals(beforeToken, HdfsCompactionStorage.readToken(FS, token));
+        Assertions.assertEquals(2, FS.listStatus(scope).length);
+    }
+
+    @Test
+    void shouldBoundRetainedBytesWithoutChargingEveryHotKeyUpdate() throws IOException {
+        Path scope = new Path(PARENT_PATH, "compaction-byte-budget/region");
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, SERIALIZER);
+        storage.initialize(scope);
+        Path input = new Path(scope, "segment-1-wal.txt");
+        IMapFileData[] history = new IMapFileData[100];
+        for (int i = 0; i < history.length; i++) {
+            history[i] = mutation("hot", "value-" + i, i + 1, false);
+        }
+        writeWalFile(input, history);
+        Assertions.assertTrue(FS.getFileStatus(input).getLen() > 1024);
+
+        Path snapshot =
+                new WALCompactor()
+                        .compact(
+                                new CompactionPlan(Collections.singletonList(input), scope),
+                                storage,
+                                1024,
+                                1,
+                                () -> false);
+
+        Assertions.assertArrayEquals(
+                SERIALIZER.serialize(history[history.length - 1]),
+                SERIALIZER.serialize(readRawMutationMap(snapshot).get("hot")));
+
+        Path oversized = new Path(scope, "segment-2-wal.txt");
+        char[] payload = new char[2048];
+        Arrays.fill(payload, 'x');
+        writeWalFile(oversized, mutation("hot", new String(payload), 101, false));
+        Path token = new Path(scope, HdfsCompactionStorage.CURRENT_FILE);
+        String beforeToken = HdfsCompactionStorage.readToken(FS, token);
+
+        CompactionDeferredException exception =
+                Assertions.assertThrows(
+                        CompactionDeferredException.class,
+                        () ->
+                                new WALCompactor()
+                                        .compact(
+                                                new CompactionPlan(
+                                                        Arrays.asList(snapshot, oversized), scope),
+                                                storage,
+                                                1024,
+                                                1,
+                                                () -> false));
+
+        Assertions.assertTrue(exception.getMessage().contains("compaction.max-memory-bytes=1024"));
+        Assertions.assertEquals(beforeToken, HdfsCompactionStorage.readToken(FS, token));
+        Assertions.assertTrue(FS.exists(snapshot));
+        Assertions.assertTrue(FS.exists(oversized));
+    }
+
+    @Test
+    void shouldRejectOversizedCompactionFramesBeforeDeserializingThem() throws IOException {
+        Path input = new Path(PARENT_PATH, "compaction-frame-budget/segment-1-wal.txt");
+        char[] payload = new char[2048];
+        Arrays.fill(payload, 'x');
+        writeWalFile(input, mutation("key", new String(payload), 1, false));
+        Serializer unreadable =
+                new Serializer() {
+                    @Override
+                    public <T> byte[] serialize(T obj) {
+                        throw new AssertionError("serialization must not be called");
+                    }
+
+                    @Override
+                    public <T> T deserialize(byte[] data, Class<T> clazz) {
+                        throw new AssertionError("oversized frames must not be deserialized");
+                    }
+                };
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, unreadable, 128);
+
+        CompactionDeferredException exception =
+                Assertions.assertThrows(
+                        CompactionDeferredException.class,
+                        () -> storage.read(input, ignored -> {}));
+
+        Assertions.assertTrue(exception.getMessage().contains("serialized record"));
+        Assertions.assertTrue(FS.exists(input));
+        DefaultReader replay = new DefaultReader();
+        replay.initialize(FS, SERIALIZER);
+        Assertions.assertEquals(1, replay.readAllData(input).size());
+    }
+
+    @Test
+    void shouldCancelCompactionBetweenReadingAndPublication() throws IOException {
+        Path scope = new Path(PARENT_PATH, "compaction-cancellation/region");
+        AtomicBoolean cancelled = new AtomicBoolean();
+        AtomicBoolean published = new AtomicBoolean();
+        HdfsCompactionStorage storage =
+                new HdfsCompactionStorage(FS, SERIALIZER) {
+                    @Override
+                    public void read(Path input, RecordConsumer<IMapFileData> consumer)
+                            throws IOException {
+                        super.read(input, consumer);
+                        cancelled.set(true);
+                    }
+
+                    @Override
+                    public Path publish(CompactionPlan plan, Collection<IMapFileData> mutations)
+                            throws IOException {
+                        published.set(true);
+                        return super.publish(plan, mutations);
+                    }
+                };
+        storage.initialize(scope);
+        Path input = new Path(scope, "segment-1-wal.txt");
+        writeWalFile(input, mutation("key", "value", 1, false));
+        Path token = new Path(scope, HdfsCompactionStorage.CURRENT_FILE);
+        String beforeToken = HdfsCompactionStorage.readToken(FS, token);
+
+        Assertions.assertThrows(
+                InterruptedIOException.class,
+                () ->
+                        new WALCompactor()
+                                .compact(
+                                        new CompactionPlan(Collections.singletonList(input), scope),
+                                        storage,
+                                        8192,
+                                        100,
+                                        cancelled::get));
+
+        Assertions.assertFalse(published.get());
+        Assertions.assertEquals(beforeToken, HdfsCompactionStorage.readToken(FS, token));
+        Assertions.assertTrue(FS.exists(input));
+    }
+
+    @Test
+    void shouldDeferAmbiguousExpirationTimesUntilANewerMutationResolvesThem() throws IOException {
+        Path scope = new Path(PARENT_PATH, "ambiguous-expiration/region");
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, SERIALIZER);
+        storage.initialize(scope);
+        Path first = new Path(scope, "segment-1-wal.txt");
+        Path second = new Path(scope, "segment-2-wal.txt");
+        IMapFileData expiring = mutation("key", "same-value", 10, false);
+        expiring.setExpirationTime(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1));
+        writeWalFile(first, mutation("key", "same-value", 10, false));
+        writeWalFile(second, expiring);
+        Path tokenPath = new Path(scope, HdfsCompactionStorage.CURRENT_FILE);
+        String previousToken = HdfsCompactionStorage.readToken(FS, tokenPath);
+
+        IOException exception =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () ->
+                                new WALCompactor()
+                                        .compact(
+                                                new CompactionPlan(
+                                                        Arrays.asList(first, second), scope),
+                                                storage));
+
+        Assertions.assertTrue(exception.getMessage().contains("different expiration times"));
+        Assertions.assertEquals(previousToken, HdfsCompactionStorage.readToken(FS, tokenPath));
+        Assertions.assertTrue(FS.exists(first));
+        Assertions.assertTrue(FS.exists(second));
+        Path third = new Path(scope, "segment-3-wal.txt");
+        IMapFileData latest = mutation("key", "same-value", 20, false);
+        writeWalFile(third, latest);
+        Path snapshot =
+                new WALCompactor()
+                        .compact(
+                                new CompactionPlan(Arrays.asList(first, second, third), scope),
+                                storage);
+        Assertions.assertArrayEquals(
+                SERIALIZER.serialize(latest),
+                SERIALIZER.serialize(readRawMutationMap(snapshot).get("key")));
+    }
+
+    @Test
+    void shouldRetryWhenCompactionCommitsAfterInventoryWithoutDeletingInputs() throws IOException {
+        Path root = new Path(PARENT_PATH, "concurrent-publication");
+        Path scope = new Path(root, "region");
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, SERIALIZER);
+        storage.initialize(scope);
+        Path first = new Path(scope, "segment-1-wal.txt");
+        Path second = new Path(scope, "segment-2-wal.txt");
+        writeWalFile(first, mutation("key", "old", 10, false));
+        writeWalFile(second, mutation("key", "new", 20, false));
+        AtomicBoolean commitOnce = new AtomicBoolean();
+        AtomicInteger firstInputReads = new AtomicInteger();
+        FileSystem racingFileSystem =
+                new FilterFileSystem(FS) {
+                    @Override
+                    public FSDataInputStream open(Path file, int bufferSize) throws IOException {
+                        if (file.equals(FS.makeQualified(first))) {
+                            firstInputReads.incrementAndGet();
+                            if (commitOnce.compareAndSet(false, true)) {
+                                new WALCompactor()
+                                        .compact(
+                                                new CompactionPlan(
+                                                        Arrays.asList(first, second), scope),
+                                                storage);
+                            }
+                        }
+                        return super.open(file, bufferSize);
+                    }
+                };
+        WALReader reader = new WALReader(racingFileSystem, FileConfiguration.HDFS, SERIALIZER);
+
+        Assertions.assertEquals(
+                Collections.singletonMap("key", "new"),
+                reader.loadAllData(root, Collections.emptySet()));
+        Assertions.assertTrue(commitOnce.get());
+        Assertions.assertEquals(
+                2, firstInputReads.get(), "the changed token must force a fresh scan");
+        Assertions.assertTrue(FS.exists(first));
+        Assertions.assertTrue(FS.exists(second));
+    }
+
+    @Test
+    void shouldRetryWhenListedInputsDisappearDuringCompaction() throws IOException {
+        Path root = new Path(PARENT_PATH, "concurrent-retirement");
+        Path scope = new Path(root, "region");
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, SERIALIZER);
+        storage.initialize(scope);
+        Path first = new Path(scope, "segment-1-wal.txt");
+        Path second = new Path(scope, "segment-2-wal.txt");
+        writeWalFile(first, mutation("key", "old", 10, false));
+        writeWalFile(second, mutation("key", "new", 20, false));
+        AtomicBoolean compactOnce = new AtomicBoolean();
+        FileSystem racingFileSystem =
+                new FilterFileSystem(FS) {
+                    @Override
+                    public FSDataInputStream open(Path file, int bufferSize) throws IOException {
+                        if (file.equals(FS.makeQualified(first))
+                                && compactOnce.compareAndSet(false, true)) {
+                            new WALCompactor()
+                                    .compact(
+                                            new CompactionPlan(Arrays.asList(first, second), scope),
+                                            storage);
+                            storage.delete(first);
+                            storage.delete(second);
+                        }
+                        return super.open(file, bufferSize);
+                    }
+                };
+        WALReader reader = new WALReader(racingFileSystem, FileConfiguration.HDFS, SERIALIZER);
+
+        Assertions.assertEquals(
+                Collections.singletonMap("key", "new"),
+                reader.loadAllData(root, Collections.emptySet()));
+        Assertions.assertTrue(compactOnce.get());
+        Assertions.assertFalse(FS.exists(first));
+        Assertions.assertFalse(FS.exists(second));
+    }
+
+    @Test
+    void shouldRetryWhenPagedInventoryMissesBothRetiredInputsAndTheirSnapshot() throws IOException {
+        Path root = new Path(PARENT_PATH, "concurrent-paged-inventory");
+        Path scope = new Path(root, "region");
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, SERIALIZER);
+        storage.initialize(scope);
+        Path first = new Path(scope, "segment-1-wal.txt");
+        Path second = new Path(scope, "segment-2-wal.txt");
+        Path tail = new Path(scope, "segment-3-wal.txt");
+        writeWalFile(first, mutation("compacted", "old", 10, false));
+        writeWalFile(second, mutation("compacted", "new", 20, false));
+        writeWalFile(tail, mutation("tail", "still-active", 30, false));
+        Set<Path> retiredInputs =
+                new HashSet<>(Arrays.asList(FS.makeQualified(first), FS.makeQualified(second)));
+        AtomicInteger inventories = new AtomicInteger();
+        FileSystem racingFileSystem =
+                new FilterFileSystem(FS) {
+                    @Override
+                    public RemoteIterator<LocatedFileStatus> listFiles(Path path, boolean recursive)
+                            throws IOException {
+                        RemoteIterator<LocatedFileStatus> original =
+                                super.listFiles(path, recursive);
+                        if (inventories.incrementAndGet() != 2) {
+                            return original;
+                        }
+                        List<LocatedFileStatus> staleInventory = new ArrayList<>();
+                        while (original.hasNext()) {
+                            LocatedFileStatus file = original.next();
+                            if (!retiredInputs.contains(file.getPath())) {
+                                staleInventory.add(file);
+                            }
+                        }
+                        // The new snapshot falls behind a paged listing's cursor; the inputs
+                        // disappear before its remaining pages, so neither representation is
+                        // listed.
+                        new WALCompactor()
+                                .compact(
+                                        new CompactionPlan(Arrays.asList(first, second), scope),
+                                        storage);
+                        storage.delete(first);
+                        storage.delete(second);
+                        Iterator<LocatedFileStatus> files = staleInventory.iterator();
+                        return new RemoteIterator<LocatedFileStatus>() {
+                            @Override
+                            public boolean hasNext() {
+                                return files.hasNext();
+                            }
+
+                            @Override
+                            public LocatedFileStatus next() {
+                                return files.next();
+                            }
+                        };
+                    }
+                };
+        WALReader reader = new WALReader(racingFileSystem, FileConfiguration.HDFS, SERIALIZER);
+        Map<Object, Object> expected = new HashMap<>();
+        expected.put("compacted", "new");
+        expected.put("tail", "still-active");
+
+        Assertions.assertEquals(expected, reader.loadAllData(root, Collections.emptySet()));
+        Assertions.assertTrue(
+                inventories.get() >= 4, "replay must discard the incomplete inventory");
+        Assertions.assertFalse(FS.exists(first));
+        Assertions.assertFalse(FS.exists(second));
+        Assertions.assertTrue(FS.exists(tail));
+    }
+
+    @Test
+    void shouldDiscoverATokenOmittedByTheInitialScopeInventory() throws IOException {
+        Path root = new Path(PARENT_PATH, "omitted-new-scope-token");
+        Path scope = new Path(root, "region");
+        HdfsCompactionStorage storage = new HdfsCompactionStorage(FS, SERIALIZER);
+        storage.initialize(scope);
+        Path first = new Path(scope, "segment-1-wal.txt");
+        Path second = new Path(scope, "segment-2-wal.txt");
+        Path tail = new Path(scope, "segment-3-wal.txt");
+        writeWalFile(first, mutation("compacted", "old", 10, false));
+        writeWalFile(second, mutation("compacted", "new", 20, false));
+        writeWalFile(tail, mutation("tail", "still-active", 30, false));
+        Set<Path> retiredInputs =
+                new HashSet<>(Arrays.asList(FS.makeQualified(first), FS.makeQualified(second)));
+        AtomicInteger inventories = new AtomicInteger();
+        AtomicInteger tokenReadsBeforeDataInventory = new AtomicInteger();
+        FileSystem racingFileSystem =
+                new FilterFileSystem(FS) {
+                    @Override
+                    public FSDataInputStream open(Path file, int bufferSize) throws IOException {
+                        if (file.getName().equals(HdfsCompactionStorage.CURRENT_FILE)
+                                && inventories.get() == 1) {
+                            tokenReadsBeforeDataInventory.incrementAndGet();
+                        }
+                        return super.open(file, bufferSize);
+                    }
+
+                    @Override
+                    public RemoteIterator<LocatedFileStatus> listFiles(Path path, boolean recursive)
+                            throws IOException {
+                        RemoteIterator<LocatedFileStatus> original =
+                                super.listFiles(path, recursive);
+                        int inventory = inventories.incrementAndGet();
+                        if (inventory > 2) {
+                            return original;
+                        }
+                        List<LocatedFileStatus> partialInventory = new ArrayList<>();
+                        while (original.hasNext()) {
+                            LocatedFileStatus file = original.next();
+                            if (inventory == 1
+                                    && file.getPath()
+                                            .getName()
+                                            .equals(HdfsCompactionStorage.CURRENT_FILE)) {
+                                // The token was created behind the cursor, but its segments
+                                // were created later and still appear in this initial listing.
+                                continue;
+                            }
+                            if (inventory != 2 || !retiredInputs.contains(file.getPath())) {
+                                partialInventory.add(file);
+                            }
+                        }
+                        if (inventory == 2) {
+                            new WALCompactor()
+                                    .compact(
+                                            new CompactionPlan(Arrays.asList(first, second), scope),
+                                            storage);
+                            storage.delete(first);
+                            storage.delete(second);
+                        }
+                        Iterator<LocatedFileStatus> files = partialInventory.iterator();
+                        return new RemoteIterator<LocatedFileStatus>() {
+                            @Override
+                            public boolean hasNext() {
+                                return files.hasNext();
+                            }
+
+                            @Override
+                            public LocatedFileStatus next() {
+                                return files.next();
+                            }
+                        };
+                    }
+                };
+        WALReader reader = new WALReader(racingFileSystem, FileConfiguration.HDFS, SERIALIZER);
+        Map<Object, Object> expected = new HashMap<>();
+        expected.put("compacted", "new");
+        expected.put("tail", "still-active");
+
+        Assertions.assertEquals(expected, reader.loadAllData(root, Collections.emptySet()));
+        Assertions.assertEquals(
+                1,
+                tokenReadsBeforeDataInventory.get(),
+                "a segment path must trigger token discovery before a fresh data inventory");
+        Assertions.assertTrue(
+                inventories.get() >= 4, "the discovered token must detect and retry the commit");
+        Assertions.assertFalse(FS.exists(first));
+        Assertions.assertFalse(FS.exists(second));
+        Assertions.assertTrue(FS.exists(tail));
+    }
+
+    private static Map<String, IMapFileData> readRawMutationMap(Path snapshot) throws IOException {
+        Map<String, IMapFileData> records = new HashMap<>();
+        DefaultReader reader = new DefaultReader();
+        reader.initialize(FS, SERIALIZER);
+        reader.readCompletedFile(
+                snapshot,
+                mutation -> {
+                    String key = SERIALIZER.deserialize(mutation.getKey(), String.class);
+                    Assertions.assertNull(
+                            records.put(key, mutation), "snapshot must keep one mutation per key");
+                });
+        return records;
     }
 
     private static IMapFileData mutation(String key, String value, long timestamp, boolean deleted)

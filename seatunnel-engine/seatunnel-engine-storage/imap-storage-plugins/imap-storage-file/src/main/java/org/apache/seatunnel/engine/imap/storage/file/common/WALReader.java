@@ -25,6 +25,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.ClassUtils;
 import org.apache.seatunnel.engine.imap.storage.api.ExpirableValue;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.compaction.ConcurrentCompactionException;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.imap.storage.file.wal.DiscoveryWalFileFactory;
 import org.apache.seatunnel.engine.imap.storage.file.wal.reader.IFileReader;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -164,9 +166,21 @@ public class WALReader {
 
     private LatestMutationAccumulator readLatestMutations(
             Path parentPath, Set<SerializedKey> serializedSearchKeys) throws IOException {
-        LatestMutationAccumulator accumulator = new LatestMutationAccumulator(serializedSearchKeys);
-        fileReader.forEachData(parentPath, accumulator::accept);
-        return accumulator;
+        for (int attempt = 0; attempt < 5; attempt++) {
+            LatestMutationAccumulator accumulator =
+                    new LatestMutationAccumulator(serializedSearchKeys);
+            try {
+                fileReader.forEachData(parentPath, accumulator::accept);
+                return accumulator;
+            } catch (ConcurrentCompactionException | FileNotFoundException e) {
+                if (attempt == 4) {
+                    throw e;
+                }
+                // Never reuse a partially read accumulator: a removed input can contain a
+                // tombstone or expired put that suppresses values already accumulated elsewhere.
+            }
+        }
+        throw new IOException("Cannot obtain a stable IMap WAL view under " + parentPath);
     }
 
     private Set<SerializedKey> serializeSearchKeys(Set<Object> searchKeys) throws IOException {

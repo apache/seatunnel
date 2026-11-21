@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.imap.storage.api.ExpirableValue;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
 import com.hazelcast.core.HazelcastInstance;
@@ -37,6 +38,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * Persists engine IMaps to {@link IMapStorage}.
@@ -54,8 +56,11 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
 
     private IMapStorage mapStorage;
 
+    private String mapName;
+
     @Override
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
+        this.mapName = mapName;
         if (isAuxiliaryObservabilityMap(mapName)) {
             this.mapStorage = NoOpMapStorage.INSTANCE;
             log.info(
@@ -92,7 +97,9 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
 
     @Override
     public void store(Object key, MetadataAwareValue<Object> value) {
-        mapStorage.store(key, value.getValue(), value.getExpirationTime());
+        if (!mapStorage.store(key, value.getValue(), value.getExpirationTime())) {
+            throw persistenceFailure("store", 1);
+        }
     }
 
     @Override
@@ -103,17 +110,36 @@ public class FileMapStore implements EntryStore<Object, Object>, MapLoaderLifecy
                         values.put(
                                 key,
                                 new ExpirableValue(value.getValue(), value.getExpirationTime())));
-        mapStorage.storeAllWithExpirationTime(values);
+        checkFailures("storeAll", mapStorage.storeAllWithExpirationTime(values));
     }
 
     @Override
     public void delete(Object key) {
-        mapStorage.delete(key);
+        if (!mapStorage.delete(key)) {
+            throw persistenceFailure("delete", 1);
+        }
     }
 
     @Override
     public void deleteAll(Collection<Object> keys) {
-        mapStorage.deleteAll(keys);
+        checkFailures("deleteAll", mapStorage.deleteAll(keys));
+    }
+
+    /** Reports rejected writes to Hazelcast instead of acknowledging unpersisted state. */
+    private void checkFailures(String operation, Set<Object> failures) {
+        if (!failures.isEmpty()) {
+            throw persistenceFailure(operation, failures.size());
+        }
+    }
+
+    private IMapStorageException persistenceFailure(String operation, int count) {
+        return new IMapStorageException(
+                "IMap persistence "
+                        + operation
+                        + " failed for map '"
+                        + mapName
+                        + "', failed entries="
+                        + count);
     }
 
     @SneakyThrows
