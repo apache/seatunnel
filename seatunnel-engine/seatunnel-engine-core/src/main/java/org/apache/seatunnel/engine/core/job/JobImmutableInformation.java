@@ -211,6 +211,8 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
+        // JobInfoService#decodeJobBasicInfoFromPrefix in seatunnel-engine-server reads the next
+        // four fields by hand for the running-jobs summary. Keep their order and types.
         out.writeLong(jobId);
         out.writeString(jobName);
         out.writeBoolean(isStartWithSavePoint);
