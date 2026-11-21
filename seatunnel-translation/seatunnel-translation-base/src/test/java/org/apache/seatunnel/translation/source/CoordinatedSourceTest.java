@@ -558,7 +558,6 @@ class CoordinatedSourceTest {
         }
     }
 
-
     @Test
     void testCloseIgnoresReaderContextRemovedAfterCompletion() throws IOException {
         AtomicBoolean readerClosed = new AtomicBoolean(false);
@@ -568,6 +567,7 @@ class CoordinatedSourceTest {
                         new TestingSource(readerClosed, enumeratorClosed), null, 1, "job-1");
 
         coordinatedSource.handleNoMoreElement(0);
+        Assertions.assertNotNull(coordinatedSource.readerContextMap.remove(0));
 
         coordinatedSource.close();
 

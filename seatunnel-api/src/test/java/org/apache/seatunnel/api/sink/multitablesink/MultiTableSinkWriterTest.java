@@ -205,6 +205,12 @@ public class MultiTableSinkWriterTest {
         MultiTableSinkWriter multiTableSinkWriter =
                 new MultiTableSinkWriter(sinkWriters, 2, sinkWritersContext);
 
+        // An unattributed first event cannot prove that this is a single-reader table either.
+        multiTableSinkWriter.handleCloseTableEvent(
+                new CloseTableEvent(TablePath.of("db", "schema", "table1")));
+        multiTableSinkWriter.snapshotState(0L);
+        Assertions.assertEquals(0, table1Writer0.closeCount.get());
+
         // Subtask 0 properly attributes its vote and establishes that 2 subtasks are expected.
         multiTableSinkWriter.handleCloseTableEvent(
                 new CloseTableEvent(TablePath.of("db", "schema", "table1"), 0, 2));
@@ -248,7 +254,7 @@ public class MultiTableSinkWriterTest {
                 new MultiTableSinkWriter(sinkWriters, 1, sinkWritersContext);
 
         multiTableSinkWriter.handleCloseTableEvent(
-                new CloseTableEvent(TablePath.of("db", "schema", "table1")));
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 0, 1));
 
         Assertions.assertThrows(IOException.class, () -> multiTableSinkWriter.snapshotState(1L));
         Assertions.assertEquals(1, table1Writer0.closeAttempts.get());
@@ -293,7 +299,7 @@ public class MultiTableSinkWriterTest {
                         JobMode.BATCH);
 
         multiTableSinkWriter.handleCloseTableEvent(
-                new CloseTableEvent(TablePath.of("db", "schema", "table1")));
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 0, 1));
         multiTableSinkWriter.snapshotState(1L);
         Assertions.assertEquals(1, table1Writer0.closeCount.get());
 
@@ -328,7 +334,7 @@ public class MultiTableSinkWriterTest {
                 new MultiTableSinkWriter(sinkWriters, 1, sinkWritersContext);
 
         multiTableSinkWriter.handleCloseTableEvent(
-                new CloseTableEvent(TablePath.of("db", "schema", "table1")));
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 0, 1));
         multiTableSinkWriter.snapshotState(1L);
         Assertions.assertEquals(1, table1Writer0.closeCount.get());
 
@@ -1801,6 +1807,11 @@ public class MultiTableSinkWriterTest {
         private final AtomicInteger closeCount = new AtomicInteger();
         private final String stateValue;
 
+        @Override
+        public boolean supportsCloseAfterSnapshot() {
+            return true;
+        }
+
         TrackingSinkWriter(String stateValue) {
             this.stateValue = stateValue;
         }
@@ -1823,6 +1834,11 @@ public class MultiTableSinkWriterTest {
 
     /** A sink writer whose first {@code close()} call fails; subsequent attempts succeed. */
     static class FailOnceSinkWriter extends TestSinkWriter {
+        @Override
+        public boolean supportsCloseAfterSnapshot() {
+            return true;
+        }
+
         private final AtomicInteger closeAttempts = new AtomicInteger();
 
         @Override

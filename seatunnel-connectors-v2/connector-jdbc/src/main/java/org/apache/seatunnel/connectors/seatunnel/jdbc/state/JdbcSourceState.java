@@ -45,6 +45,12 @@ public class JdbcSourceState implements Serializable {
      */
     private Map<TablePath, Set<Integer>> readersPerTable;
 
+    /** Split identities already counted while a table is only partly finished. */
+    private Map<TablePath, Set<String>> reportedSplitIds;
+
+    /** Old checkpoints cannot prove that every reader-owned split participates in the count. */
+    private boolean earlyCloseSuppressed;
+
     public JdbcSourceState(
             List<TablePath> pendingTables, Map<Integer, List<JdbcSourceSplit>> pendingSplits) {
         this(pendingTables, pendingSplits, null, null);
@@ -59,6 +65,20 @@ public class JdbcSourceState implements Serializable {
         this.pendingSplits = pendingSplits;
         this.unfinishedSplitsPerTable = unfinishedSplitsPerTable;
         this.readersPerTable = readersPerTable;
+    }
+
+    public JdbcSourceState(
+            List<TablePath> pendingTables,
+            Map<Integer, List<JdbcSourceSplit>> pendingSplits,
+            Map<TablePath, Integer> unfinishedSplitsPerTable,
+            Map<TablePath, Set<Integer>> readersPerTable,
+            Map<TablePath, Set<String>> reportedSplitIds) {
+        this(pendingTables, pendingSplits, unfinishedSplitsPerTable, readersPerTable);
+        this.reportedSplitIds = reportedSplitIds;
+    }
+
+    public Map<TablePath, Set<String>> getReportedSplitIdsOrEmpty() {
+        return reportedSplitIds == null ? new HashMap<>() : reportedSplitIds;
     }
 
     public Map<TablePath, Set<Integer>> getReadersPerTableOrEmpty() {

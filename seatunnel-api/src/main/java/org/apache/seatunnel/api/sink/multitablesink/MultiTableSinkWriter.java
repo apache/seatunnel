@@ -98,6 +98,9 @@ public class MultiTableSinkWriter
     private final List<BlockingQueue<MultiTableWriterRunnable.QueueElement>> blockingQueues =
             new ArrayList<>();
     private final ExecutorService executorService;
+    // Populated during construction. Do not retire any queue for a table if another queue
+    // needs its child writer for abortPrepare() after state or commit-info serialization fails.
+    private final Set<String> retainUntilTaskClose = new HashSet<>();
     private final Set<String> closedTableIds = ConcurrentHashMap.newKeySet();
     /**
      * Tables that have received all close-table events and whose writers will be closed after their
@@ -321,6 +324,9 @@ public class MultiTableSinkWriter
                     writerMap.entrySet()) {
                 SupportMultiTableSinkWriter<?> sink =
                         ((SupportMultiTableSinkWriter<?>) entry.getValue());
+                if (!sink.supportsCloseAfterSnapshot()) {
+                    retainUntilTaskClose.add(entry.getKey().getTableIdentifier());
+                }
                 sink.setMultiTableResourceManager(resourceManager, i);
                 sinkPrimaryKeys.put(entry.getKey().getTableIdentifier(), sink.primaryKey());
             }
@@ -582,6 +588,9 @@ public class MultiTableSinkWriter
             log.debug("Ignore empty close table event: {}", event);
             return;
         }
+        if (retainUntilTaskClose.contains(event.tableId())) {
+            return;
+        }
         if (closedTableIds.contains(event.tableId())) {
             // A straggler close-table event arriving after this table's writers are already
             // closed must not recreate closeTableEventSources/expectedCloseTableEventCounts
@@ -596,31 +605,11 @@ public class MultiTableSinkWriter
         Integer sourceSubtaskId = event.getSourceSubtaskId();
         Integer expectedSourceEventCount = event.getExpectedSourceEventCount();
         if (sourceSubtaskId == null
+                || sourceSubtaskId < 0
                 || expectedSourceEventCount == null
-                || expectedSourceEventCount <= 1) {
-            Integer requiredCountOnFile = expectedCloseTableEventCounts.get(event.tableId());
-            if (requiredCountOnFile != null && requiredCountOnFile > 1) {
-                // Another, properly attributed event already established that more than one
-                // upstream subtask must report in before this table can close. This event
-                // cannot be attributed to a specific subtask, so it cannot safely count as one
-                // of those votes; closing now would risk cutting off sibling subtasks that are
-                // still writing rows for this table, so wait for the real aggregation to
-                // converge instead.
-                log.debug(
-                        "Ignoring un-attributed close table event for table {} while {} upstream readers are still expected",
-                        event.tableId(),
-                        requiredCountOnFile);
-                return;
-            }
-            // Known gap (tracked, non-blocking): if this un-attributed event is the FIRST close
-            // event ever seen for this table, requiredCountOnFile is null here, so we cannot yet
-            // know whether another upstream subtask will still report for the same table --
-            // multi-reader membership is only learned from a properly attributed event's own
-            // expectedSourceEventCount. Closing on this first, un-attributed signal is a much
-            // narrower window than the original bug (which closed on ANY un-attributed event
-            // regardless of known multi-reader state), but it is not fully eliminated; it is
-            // inherent to this ordering ambiguity rather than an oversight in this fix.
-            markTablePendingClose(event.tableId());
+                || expectedSourceEventCount <= 0) {
+            // No observer can infer that this is a single-reader table merely because this
+            // was the first event. Retain the child until a verifiable quorum or task close.
             return;
         }
         Set<Integer> receivedSourceSubtasks =
@@ -1321,7 +1310,10 @@ public class MultiTableSinkWriter
                     if (completion.isDone()) {
                         return;
                     }
-                    if (isTableFailed(id.getTableIdentifier())) {
+                    // A weakly consistent key iterator may have returned this identifier before
+                    // closeTable acquired this same queue lock and retired the child.
+                    if (isTableFailed(id.getTableIdentifier())
+                            || !sinkWritersWithIndex.get(queueIndex).containsKey(id)) {
                         continue;
                     }
                     SinkContextProxy proxy = proxyContexts.get(id);

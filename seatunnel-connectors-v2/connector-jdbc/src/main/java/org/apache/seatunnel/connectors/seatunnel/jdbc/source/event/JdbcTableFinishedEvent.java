@@ -33,5 +33,6 @@ public class JdbcTableFinishedEvent implements SourceEvent {
     private static final long serialVersionUID = 1L;
 
     private final TablePath tablePath;
+    /** Zero releases an old-checkpoint reader's wait without authorizing any downstream close. */
     private final int expectedCloseEventCount;
 }

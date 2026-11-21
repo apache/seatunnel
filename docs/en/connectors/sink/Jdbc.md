@@ -832,6 +832,8 @@ sink {
 
 ### Multiple tables
 
+In a bounded Zeta multi-table job, ordinary (non-XA) JDBC writers may release a table's resources at snapshot time after all participating reader subtasks have reported its completion. JDBC XA and child writers that do not explicitly support closing before checkpoint publication stay open until normal task cleanup, so a failed checkpoint can still roll back prepared work. When a restored JDBC source checkpoint predates participant tracking, readers finish normally but do not authorize early close.
+
 #### MySQL CDC source
 
 ```hocon

@@ -33,4 +33,10 @@ public class JdbcSplitFinishedEvent implements SourceEvent {
     private static final long serialVersionUID = 1L;
 
     private final TablePath tablePath;
+    private final String splitId;
+
+    /** Compatibility with senders that predate split identities. Do not retry these reports. */
+    public JdbcSplitFinishedEvent(TablePath tablePath) {
+        this(tablePath, null);
+    }
 }

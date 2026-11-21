@@ -47,6 +47,9 @@ public class CloseTableEvent implements Serializable {
     /** Number of distinct upstream subtasks that must emit this event before closing the table. */
     private final Integer expectedSourceEventCount;
 
+    /**
+     * Advisory only: without a participant identity and count this cannot authorize early close.
+     */
     public CloseTableEvent(TablePath tablePath) {
         this(tablePath, null, null);
     }

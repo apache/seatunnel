@@ -127,7 +127,11 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
                 .whenComplete(
                         (ignored, failure) -> {
                             if (failure != null) {
-                                log.warn("Failed to send source event {} to reader {}", event, subtaskId, failure);
+                                log.warn(
+                                        "Failed to send source event {} to reader {}",
+                                        event,
+                                        subtaskId,
+                                        failure);
                             }
                         });
     }

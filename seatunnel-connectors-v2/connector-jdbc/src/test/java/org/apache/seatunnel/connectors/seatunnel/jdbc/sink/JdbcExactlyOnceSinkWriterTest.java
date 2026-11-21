@@ -20,6 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableCommitInfo;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.multitablesink.SinkIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
@@ -35,9 +40,14 @@ import org.mockito.ArgumentCaptor;
 
 import javax.transaction.xa.Xid;
 
+import java.io.ByteArrayOutputStream;
+import java.io.NotSerializableException;
+import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -51,6 +61,40 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class JdbcExactlyOnceSinkWriterTest {
+
+    @Test
+    void shouldRollBackPreparedXidIfCloseMarkerPrecedesCommitInfoSerializationFailure()
+            throws Exception {
+        TestContext context = createWriter();
+        TablePath table = TablePath.of("db", "schema", "t");
+        SinkIdentifier id = SinkIdentifier.of(table.getFullName(), 0);
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> children = new HashMap<>();
+        children.put(id, context.writer);
+        MultiTableSinkWriter wrapper =
+                new MultiTableSinkWriter(
+                        children,
+                        1,
+                        Collections.singletonMap(id, new DefaultSinkWriterContext(0, 1)));
+        try {
+            wrapper.handleCloseTableEvent(new CloseTableEvent(table, 0, 1));
+            MultiTableCommitInfo commitInfo = wrapper.prepareCommit(42L).get();
+            ArgumentCaptor<Xid> prepared = ArgumentCaptor.forClass(Xid.class);
+            verify(context.xaFacade).endAndPrepare(prepared.capture());
+            wrapper.snapshotState(42L);
+
+            // Use the real serialization failure of this non-Serializable TestXid after the
+            // snapshot and before handing the committable to the aggregate committer.
+            try (ObjectOutputStream stream = new ObjectOutputStream(new ByteArrayOutputStream())) {
+                Assertions.assertThrows(
+                        NotSerializableException.class, () -> stream.writeObject(commitInfo));
+            }
+            wrapper.abortPrepare();
+            verify(context.xaFacade, times(1)).rollback(prepared.getValue());
+            verify(context.xaFacade, never()).close();
+        } finally {
+            wrapper.close();
+        }
+    }
 
     @Test
     void testPrepareCommitWithSameCheckpointGeneratesMonotonicTxIds() throws Exception {
