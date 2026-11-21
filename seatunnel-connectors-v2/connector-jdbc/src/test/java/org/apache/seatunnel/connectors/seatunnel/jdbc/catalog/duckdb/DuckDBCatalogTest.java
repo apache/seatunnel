@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCreateTableSqlBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import org.junit.jupiter.api.AfterAll;
@@ -45,6 +47,7 @@ import java.io.File;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -156,6 +159,67 @@ public class DuckDBCatalogTest {
         TablePath copyPath = getMainTablePath(TABLE_NAME_COPY);
         catalog.createTable(copyPath, catalogTable, true);
         Assertions.assertTrue(catalog.tableExists(copyPath));
+    }
+
+    @Test
+    public void testCreateTableWithQuotedIdentifiers() throws Exception {
+        TablePath source = getMainTablePath("quoted\"source");
+        TablePath target = getMainTablePath("quoted\"target");
+        try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
+            statement.execute(
+                    "CREATE TABLE \"main\".\"quoted\"\"source\" (\"odd\"\"column\" INTEGER)");
+            try {
+                List<ConstraintKey.ConstraintKeyColumn> columns =
+                        Collections.singletonList(
+                                ConstraintKey.ConstraintKeyColumn.of("odd\"column", null));
+                List<String> sqls =
+                        DuckDBCreateTableSqlBuilder.builder(
+                                        target,
+                                        catalog.getTable(source),
+                                        DuckDBTypeConverter.INSTANCE,
+                                        true)
+                                .constraintKeys(
+                                        Arrays.asList(
+                                                ConstraintKey.of(
+                                                        ConstraintKey.ConstraintType.UNIQUE_KEY,
+                                                        "odd\"unique",
+                                                        columns),
+                                                ConstraintKey.of(
+                                                        ConstraintKey.ConstraintType.INDEX_KEY,
+                                                        "odd\"index",
+                                                        columns)))
+                                .build(target);
+                Assertions.assertTrue(sqls.get(0).contains("CONSTRAINT \"odd\"\"unique\" UNIQUE"));
+                for (String sql : sqls) {
+                    statement.execute(sql);
+                }
+                statement.execute("INSERT INTO \"main\".\"quoted\"\"target\" VALUES (42)");
+                Assertions.assertThrows(
+                        java.sql.SQLException.class,
+                        () -> {
+                            try (Statement duplicate =
+                                    catalog.getConnection(jdbcUrl).createStatement()) {
+                                duplicate.execute(
+                                        "INSERT INTO \"main\".\"quoted\"\"target\" VALUES (42)");
+                            }
+                        });
+                try (ResultSet indexes =
+                        statement.executeQuery(
+                                "SELECT index_name FROM duckdb_indexes() WHERE table_name = 'quoted\"target'")) {
+                    Assertions.assertTrue(indexes.next());
+                    Assertions.assertEquals("odd\"index", indexes.getString(1));
+                }
+                try (ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT \"odd\"\"column\" FROM \"main\".\"quoted\"\"target\"")) {
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals(42, resultSet.getInt(1));
+                }
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS \"main\".\"quoted\"\"target\"");
+                statement.execute("DROP TABLE \"main\".\"quoted\"\"source\"");
+            }
+        }
     }
 
     @Test
