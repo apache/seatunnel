@@ -378,11 +378,11 @@ source {
 **排除 `drop.column` 时的数据处理方式。** 对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
 NOT NULL 列排除 `drop.column` 会在 sink 端失败。
 
-### 数据库名包含特殊字符
+### 名称中包含特殊字符的数据库
 
-`database-names` 列表和 JDBC URL 中的 `databaseName` 参数必须使用与服务器上存储一致的精确标识符。
-当数据库名包含 `-` 或 `.` 等字符时，在 SQL 中需要给数据库名加引号，但 URL 参数要保持原样书写。
-连接器不会自动对数据库名做 URL 编码。
+`database-names` 列表以及 JDBC URL 中的 `databaseName` 参数必须使用与服务器上存储完全一致的标识符。当数据库名称
+包含 `-` 或 `.` 等字符时，在 SQL 中需要为数据库名称加上引号，而 URL 参数则按字面值书写。连接器不会自动对数据库名称
+进行 URL 编码。
 
 ```hocon
 env {
