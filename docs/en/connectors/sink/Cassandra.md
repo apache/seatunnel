@@ -93,7 +93,9 @@ Use this option when the upstream row has extra fields that should not be writte
 ### batch_size [number]
 
 The number of rows written through [Cassandra-Java-Driver](https://github.com/datastax/java-driver) each time,
-default is `5000`.
+default is `5000`. With `async_write = false`, the sink sends the buffered rows as one batch once
+this many rows have arrived. With `async_write = true`, it waits for the asynchronous writes in
+flight once this many rows have been sent, so no more than this many writes are in flight.
 
 ### batch_type [String]
 
@@ -101,7 +103,9 @@ The `Cassandra` batch processing mode, default is `UNLOGGED`.
 
 ### async_write [boolean]
 
-Whether `cassandra` writes in asynchronous mode, default is `true`.
+Whether `cassandra` writes in asynchronous mode, default is `true`. In both modes, a row that
+Cassandra rejects fails the job, and every row received before a checkpoint is written before the
+checkpoint completes.
 
 ### common-options
 
@@ -111,7 +115,19 @@ Sink plugin common parameters. For details, see [Sink Common Options](../common-
 
 - The target keyspace and table must already exist before the job starts.
 - `fields` is useful when the upstream row has extra columns. It is not a schema creation option.
-- `async_write = true` (default) sends each row as an individual async statement, while `batch_size` controls how often the buffer is flushed. With `async_write = false`, rows are grouped into one `batch_type` batch of at most `batch_size` statements per flush.
+- `async_write = true` (default) sends each row as an individual async statement, and the sink waits for the writes in flight once `batch_size` rows have been sent. With `async_write = false`, rows are grouped into one `batch_type` batch of at most `batch_size` statements per flush.
+  At each checkpoint the sink writes the buffered rows and waits for the writes in flight, so the
+  sink gives at-least-once delivery: a restored job may write some rows again.
+- The sink drops the rows it still holds, without sending them, only when the engine aborts the
+  writer: Spark does so after a failed write or checkpoint preparation, and Zeta after a failed
+  checkpoint preparation. In other cases a failed task closes the sink normally, and closing writes
+  the buffered rows first, so rows received before the failure can reach the table. Either way the
+  engine writes the rows after the last checkpoint again when it retries the task or restores the
+  job, as the at-least-once note above says.
+- When it starts, the sink reads the primary key of the target table from the driver schema
+  metadata, and reads the schema from the server once more if the table is missing there. A NULL
+  key then fails the job with the table and column before anything is sent. If the primary key
+  still cannot be read, the job fails with error `CASSANDRA-06`.
 - The sink uses the Cassandra Java driver. Authentication options match the driver's terminology.
   Note that `consistency_level` is currently accepted but not applied to write statements; to
   change the write consistency level, adjust the driver default in your cluster/client setup.

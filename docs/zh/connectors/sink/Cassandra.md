@@ -89,7 +89,8 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 ### batch_size [number]
 
 通过 [Cassandra-Java-Driver](https://github.com/datastax/java-driver) 每次写入的行数,
-默认值 `5000`.
+默认值 `5000`. 当 `async_write = false` 时，缓冲的行达到这个数量后，Sink 会把它们作为一个批次发送。当 `async_write = true` 时，
+每发送这么多行，Sink 会等待正在进行的异步写入完成，因此同时进行的写入不会超过这个数量。
 
 ### batch_type [String]
 
@@ -97,7 +98,8 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 
 ### async_write [boolean]
 
-`cassandra` 是否以异步模式写入, 默认值 `true`.
+`cassandra` 是否以异步模式写入, 默认值 `true`. 两种模式下，被 Cassandra 拒绝的行都会导致作业失败，并且
+在 checkpoint 完成前，该 checkpoint 之前收到的每一行都会写入。
 
 ### common-options
 
@@ -107,7 +109,14 @@ Sink 插件通用参数，详情请参考 [Sink 常用选项](../common-options/
 
 - 任务启动前，目标 keyspace 和表必须已经存在。
 - `fields` 适合上游数据有额外字段、只想写入其中一部分字段的场景；它不是建表配置。
-- `async_write = true`（默认）下每行都会作为独立的异步语句发送，`batch_size` 只控制 flush 频率；`async_write = false` 时，行才会按 `batch_type` 聚合成一个批次，每次 flush 最多包含 `batch_size` 条。
+- `async_write = true`（默认）下每行都会作为独立的异步语句发送，每发送 `batch_size` 行，Sink 会等待正在进行的写入完成；`async_write = false` 时，行才会按 `batch_type` 聚合成一个批次，每次 flush 最多包含 `batch_size` 条。
+  每次 checkpoint 时，Sink 会写入缓冲的行并等待正在进行的写入完成，因此 Sink 提供至少一次（at-least-once）语义：恢复后的作业可能会再次写入部分行。
+- 只有引擎中止 writer 时，Sink 才会丢弃仍在缓冲中的行而不发送：Spark 在写入或准备 checkpoint 失败后中止，
+  Zeta 在准备 checkpoint 失败后中止。其他情况下，失败的任务会正常关闭 Sink，关闭时会先写入缓冲的行，
+  因此失败前收到的行可能已经写入表中。无论哪种情况，引擎在重试任务或恢复作业时都会再次写入最后一个
+  checkpoint 之后的行，即上文所述的至少一次语义。
+- 启动时，Sink 会从 Driver 的 schema 元数据中读取目标表的主键；如果元数据中没有该表，会再从服务端读取一次 schema。
+  这样，主键为 NULL 的行会在发送任何数据之前使作业失败，并给出表名和列名。如果仍然无法读取主键，作业会以错误 `CASSANDRA-06` 失败。
 - 连接器底层使用 Cassandra Java Driver；认证相关参数与 Driver 保持一致。注意：`consistency_level` 当前
   仅被接受、不会应用到写入语句；如需调整写入一致性级别，请调整集群/客户端的 Driver 默认配置。
 - `batch_type = "UNLOGGED"` 是常见默认值；当正确性优先于吞吐时使用 `LOGGED`，counter 表使用 `COUNTER`。

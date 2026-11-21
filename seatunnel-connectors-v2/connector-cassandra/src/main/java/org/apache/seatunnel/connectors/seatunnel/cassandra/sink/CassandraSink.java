@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cassandra.sink;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -28,8 +29,6 @@ import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClien
 import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParameters;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
@@ -41,7 +40,7 @@ import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSinkOptions.TABLE;
 
-public class CassandraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class CassandraSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> {
 
     private final CassandraParameters cassandraParameters;
     private final CatalogTable catalogTable;
@@ -96,7 +95,7 @@ public class CassandraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
+    public SinkWriter<SeaTunnelRow, Void, Void> createWriter(SinkWriter.Context context)
             throws IOException {
         return new CassandraSinkWriter(
                 cassandraParameters, catalogTable.getSeaTunnelRowType(), tableSchema);
