@@ -28,7 +28,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.OptionalLong;
 
 /**
  * Simplified aggregated committer for Flink 1.20 that directly wraps SeaTunnel's
@@ -40,9 +42,17 @@ public class FlinkSimpleAggregatedCommitter<CommT, GlobalCommT>
 
     private final SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter;
     private MultiTableResourceManager<Object> resourceManager;
+    private final OptionalLong restoredCheckpointId;
 
     public FlinkSimpleAggregatedCommitter(
             SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter) {
+        this(aggregatedCommitter, OptionalLong.empty());
+    }
+
+    public FlinkSimpleAggregatedCommitter(
+            SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter,
+            OptionalLong restoredCheckpointId) {
+        this.restoredCheckpointId = restoredCheckpointId;
         this.aggregatedCommitter = aggregatedCommitter;
 
         if (aggregatedCommitter instanceof SupportResourceShare) {
@@ -63,6 +73,29 @@ public class FlinkSimpleAggregatedCommitter<CommT, GlobalCommT>
     @Override
     public void commit(Collection<Committer.CommitRequest<CommitWrapper<CommT>>> committables)
             throws IOException, InterruptedException {
+        if (committables == null || committables.isEmpty()) {
+            return;
+        }
+        List<Committer.CommitRequest<CommitWrapper<CommT>>> restored = new ArrayList<>();
+        List<Committer.CommitRequest<CommitWrapper<CommT>>> current = new ArrayList<>();
+        for (Committer.CommitRequest<CommitWrapper<CommT>> request : committables) {
+            CommitWrapper<CommT> wrapper = request == null ? null : request.getCommittable();
+            boolean recovered =
+                    restoredCheckpointId.isPresent()
+                            && wrapper != null
+                            && (!(wrapper instanceof CheckpointCommitWrapper)
+                                    || ((CheckpointCommitWrapper<CommT>) wrapper).getCheckpointId()
+                                            <= restoredCheckpointId.getAsLong());
+            (recovered ? restored : current).add(request);
+        }
+        commitRequests(restored, true);
+        commitRequests(current, false);
+    }
+
+    private void commitRequests(
+            Collection<Committer.CommitRequest<CommitWrapper<CommT>>> committables,
+            boolean recovered)
+            throws IOException {
         if (committables == null || committables.isEmpty()) {
             return;
         }
@@ -136,29 +169,15 @@ public class FlinkSimpleAggregatedCommitter<CommT, GlobalCommT>
             // Step 2: Commit the global commit
             log.debug("Committing global commit to aggregated committer");
             List<GlobalCommT> reCommittable =
-                    aggregatedCommitter.commit(java.util.Collections.singletonList(globalCommit));
+                    recovered
+                            ? aggregatedCommitter.restoreCommit(
+                                    Collections.singletonList(globalCommit))
+                            : aggregatedCommitter.commit(Collections.singletonList(globalCommit));
 
             if (reCommittable != null && !reCommittable.isEmpty()) {
-                log.warn(
-                        "Aggregated committer returned {} items for re-commit. "
-                                + "Following Flink-Common pattern: logging but treating as successful. "
-                                + "Re-commit is not supported in current Flink engine versions.",
-                        reCommittable.size());
-
-                // Log details for debugging, but don't fail the commit
-                if (log.isDebugEnabled()) {
-                    log.debug("Re-committable items (ignored): {}", reCommittable);
-                    log.debug("Original global commit: {}", globalCommit);
-                }
-
-                for (Committer.CommitRequest<CommitWrapper<CommT>> request : validRequests) {
-                    request.signalAlreadyCommitted();
-                }
-
-                log.info(
-                        "Successfully handled {} commit requests (with {} ignored re-committable items)",
-                        validRequests.size(),
-                        reCommittable.size());
+                // Retry the entire original batch: the connector's recovery path reconciles any
+                // transactions committed before a retry. Do not acknowledge outstanding work.
+                throw new IOException("Aggregated committer returned uncommitted transactions");
 
             } else {
                 // All commits succeeded

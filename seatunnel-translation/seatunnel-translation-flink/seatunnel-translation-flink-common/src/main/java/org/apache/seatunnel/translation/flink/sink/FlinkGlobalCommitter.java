@@ -27,9 +27,14 @@ import org.apache.flink.api.connector.sink.Sink;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -47,8 +52,57 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
     private final SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter;
 
     private MultiTableResourceManager resourceManager;
+    private final RecoveredCommitTracker tracker;
+    private final ReferenceQueue<GlobalCommT> recoveredQueue = new ReferenceQueue<>();
+    private final Map<IdentityReference<GlobalCommT>, Boolean> recovered = new HashMap<>();
+
+    private static final class IdentityReference<T> extends WeakReference<T> {
+        private final int hash;
+
+        IdentityReference(T value, ReferenceQueue<T> queue) {
+            super(value, queue);
+            hash = System.identityHashCode(value);
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return this == other
+                    || (other instanceof IdentityReference
+                            && get() != null
+                            && get() == ((IdentityReference<?>) other).get());
+        }
+    }
+
+    private void cleanRecovered() {
+        Reference<? extends GlobalCommT> reference;
+        while ((reference = recoveredQueue.poll()) != null) {
+            recovered.remove(reference);
+        }
+    }
+
+    private void markRecovered(GlobalCommT value) {
+        cleanRecovered();
+        recovered.put(new IdentityReference<>(value, recoveredQueue), Boolean.TRUE);
+    }
+
+    private boolean isRecovered(GlobalCommT value) {
+        cleanRecovered();
+        return recovered.containsKey(new IdentityReference<>(value, null));
+    }
 
     FlinkGlobalCommitter(SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter) {
+        this(aggregatedCommitter, null);
+    }
+
+    FlinkGlobalCommitter(
+            SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter,
+            RecoveredCommitTracker tracker) {
+        this.tracker = tracker;
         this.aggregatedCommitter = aggregatedCommitter;
         if (this.aggregatedCommitter instanceof SupportResourceShare) {
             resourceManager =
@@ -65,23 +119,80 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
     @Override
     public List<GlobalCommT> filterRecoveredCommittables(List globalCommittables)
             throws IOException {
+        if (tracker != null) {
+            tracker.finishRestore();
+        }
+        List<GlobalCommT> pending = aggregatedCommitter.restoreCommit(globalCommittables);
+        if (pending != null) {
+            pending.forEach(this::markRecovered);
+        }
+        failIfPending(pending, "restoreCommit");
         return Collections.emptyList();
     }
 
     @Override
     public GlobalCommT combine(List<CommitWrapper<CommT>> committables) throws IOException {
-        return aggregatedCommitter.combine(
-                committables.stream().map(CommitWrapper::getCommit).collect(Collectors.toList()));
+        // Flink can restore a partially completed end-of-input batch and add live transactions
+        // from the remaining writers. Reconcile the entire aggregate through the idempotent path.
+        boolean replay = committables.stream().anyMatch(CommitWrapper::isRecovered);
+        GlobalCommT combined =
+                aggregatedCommitter.combine(
+                        committables.stream()
+                                .map(CommitWrapper::getCommit)
+                                .collect(Collectors.toList()));
+        if (replay) {
+            markRecovered(combined);
+        } else if (isRecovered(combined)) {
+            throw new IOException("Aggregated committer reused a pending restored transaction");
+        }
+        return combined;
     }
 
     @Override
     public List<GlobalCommT> commit(List<GlobalCommT> globalCommittables) throws IOException {
-        List<GlobalCommT> reCommittable = aggregatedCommitter.commit(globalCommittables);
-        if (reCommittable != null && !reCommittable.isEmpty()) {
-            log.warn("this version not support re-commit when use flink engine");
+        List<GlobalCommT> replay = new ArrayList<>();
+        List<GlobalCommT> live = new ArrayList<>();
+        for (GlobalCommT committable : globalCommittables) {
+            (isRecovered(committable) ? replay : live).add(committable);
         }
-        // TODO re-commit the data
-        return new ArrayList<>();
+        List<GlobalCommT> pending = new ArrayList<>();
+        List<GlobalCommT> replayRetry = Collections.emptyList();
+        if (!replay.isEmpty()) {
+            List<GlobalCommT> retry = aggregatedCommitter.restoreCommit(replay);
+            if (retry != null) {
+                replayRetry = retry;
+                pending.addAll(retry);
+            }
+        }
+        if (!live.isEmpty()) {
+            List<GlobalCommT> retry = aggregatedCommitter.commit(live);
+            if (retry != null) {
+                pending.addAll(retry);
+            }
+        }
+        replay.forEach(value -> recovered.remove(new IdentityReference<>(value, null)));
+        replayRetry.forEach(this::markRecovered);
+        failIfPending(
+                pending,
+                "restoreCommit="
+                        + replayRetry.size()
+                        + ", commit="
+                        + (pending.size() - replayRetry.size()));
+        return Collections.emptyList();
+    }
+
+    private void failIfPending(List<GlobalCommT> pending, String operation) throws IOException {
+        if (pending != null && !pending.isEmpty()) {
+            // Flink 1.15 retries pending global committables in a tight loop at end of input.
+            // Fail instead: recovery replays checkpointed work through restoreCommit, without
+            // acknowledging unresolved transactions or spinning indefinitely on permanent errors.
+            throw new IOException(
+                    "Aggregated commit has "
+                            + pending.size()
+                            + " unresolved transactions ("
+                            + operation
+                            + "); recovery is required");
+        }
     }
 
     @Override
