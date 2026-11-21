@@ -128,6 +128,17 @@ public class MaxcomputeSourceFactoryTest {
         assertTimeoutAndRetryOptionsRegistered(new MaxcomputeSinkFactory().optionRule());
     }
 
+    @Test
+    void optionRuleRegistersIgnoreMissingPartition() {
+        Set<String> optionalKeys = new HashSet<>();
+        for (Option<?> option : new MaxcomputeSourceFactory().optionRule().getOptionalOptions()) {
+            optionalKeys.add(option.key());
+        }
+        Assertions.assertTrue(
+                optionalKeys.contains("ignore_missing_partition"),
+                "ignore_missing_partition not registered");
+    }
+
     private void assertTimeoutAndRetryOptionsRegistered(OptionRule rule) {
         Set<String> optionalKeys = new HashSet<>();
         for (Option<?> option : rule.getOptionalOptions()) {
