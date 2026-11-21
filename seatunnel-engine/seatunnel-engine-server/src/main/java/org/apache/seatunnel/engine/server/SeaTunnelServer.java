@@ -106,7 +106,17 @@ public class SeaTunnelServer
     @Getter private ClassLoaderService classLoaderService;
     private CoordinatorService coordinatorService;
     @Getter private CheckpointService checkpointService;
+
+    /**
+     * Storage used to resolve externalized (STIP-45) task state on restore. Created lazily by
+     * {@link #getChunkStateStorage()} on first use and cached for the lifetime of this server, so
+     * nodes that never restore externalized state never create it. When this node runs the master
+     * services it is the {@link CheckpointService} storage itself, which that service owns;
+     * otherwise it is a node-local instance owned by this server. {@code volatile} for the
+     * double-checked initialization in {@link #getChunkStateStorage()}.
+     */
     private volatile ChunkSupportStorage chunkStateStorage;
+
     @Getter private CheckpointMonitorService checkpointMonitorService;
     @Getter private ScheduledExecutorService monitorService;
     @Getter private volatile RealtimeMetricsService realtimeMetricsService;
@@ -500,6 +510,26 @@ public class SeaTunnelServer
         return storage;
     }
 
+    /**
+     * Creates the storage cached in {@link #chunkStateStorage}; called at most once, under the lock
+     * in {@link #getChunkStateStorage()}.
+     *
+     * <ul>
+     *   <li>If the master services were started on this node ({@code checkpointService} is set in
+     *       {@code startMaster()}), their storage is reused, so the master reads state through the
+     *       same plugin instance that persists its checkpoints.
+     *   <li>Otherwise a new plugin instance is created from this node's {@code checkpoint.storage}
+     *       configuration. The plugin options are copied first, because some plugins consume
+     *       entries of the map they are given and the shared configuration must stay intact.
+     * </ul>
+     *
+     * <p>The storage plugin API has no close method, so the instance is kept until the server shuts
+     * down. A plugin that does not implement {@link ChunkSupportStorage} is rejected here with the
+     * plugin name and node address; nothing is cached then, and the next call fails the same way.
+     *
+     * @throws IllegalStateException if the configured storage plugin does not implement {@link
+     *     ChunkSupportStorage}
+     */
     private ChunkSupportStorage createChunkStateStorage() {
         CheckpointConfig config = seaTunnelConfig.getEngineConfig().getCheckpointConfig();
         CheckpointStorage storage =
