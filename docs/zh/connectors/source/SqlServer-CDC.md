@@ -415,6 +415,16 @@ sink {
 }
 ```
 
+### 数据库名称包含点号
+
+数据库名称如 `LIS6.0` 可以在 `table-names` 和 `table-names-config` 中写成 `LIS6.0.dbo.LIS_ITEM`，限制如下：
+
+- 该数据库必须列在 `database-names` 中，否则点号分隔部分超过三段的名称会被拒绝。schema 名和表名不能包含 `.`。
+- 数据库名称包含点号时，`table-pattern` 未经测试。
+- 在指标、`Metadata` 转换以及 Debezium、Canal、Maxwell JSON 格式中，行标识保持为 `database.schema.table`（`LIS6.0.dbo.LIS_ITEM`）；最后两段被解析为 schema 和表名，数据库部分保留其中的点号。
+
+`SqlServerCDCIT` 中的 `testDatabaseNameWithDot` 用例以 JDBC sink 端到端运行该配置。
+
 ## 变更日志
 
 <ChangeLog />

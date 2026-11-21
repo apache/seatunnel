@@ -458,6 +458,19 @@ sink {
 }
 ```
 
+### Database names containing a dot
+
+A database name such as `LIS6.0` can be used in `table-names` and `table-names-config` as
+`LIS6.0.dbo.LIS_ITEM`, with these limits:
+
+- The database must be listed in `database-names`; a name with more than three dot-separated parts is rejected
+  otherwise. Schema and table names must not contain `.`.
+- `table-pattern` with such a database name is not tested.
+- Row identities stay `database.schema.table` (`LIS6.0.dbo.LIS_ITEM`) in metrics, the `Metadata` transform and the
+  Debezium, Canal and Maxwell JSON formats; the last two parts are read as schema and table, so the database part keeps its dots.
+
+The `testDatabaseNameWithDot` case in `SqlServerCDCIT` runs this setup end to end with a JDBC sink.
+
 ## Changelog
 
 <ChangeLog />

@@ -99,7 +99,7 @@ public final class CalciteUdfContext {
             return;
         }
         try {
-            TablePath tablePath = TablePath.of(rawTableId);
+            TablePath tablePath = TablePath.ofTableId(rawTableId);
             this.database = tablePath.getDatabaseName();
             this.schema = tablePath.getSchemaName();
             this.table = tablePath.getTableName();

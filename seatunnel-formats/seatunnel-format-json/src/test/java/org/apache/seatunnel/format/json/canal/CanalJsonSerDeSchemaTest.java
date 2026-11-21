@@ -18,6 +18,9 @@
 
 package org.apache.seatunnel.format.json.canal;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -268,6 +271,17 @@ public class CanalJsonSerDeSchemaTest {
                         "{\"old\":null,\"data\":[{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":5.17}],\"type\":\"DELETE\",\"database\":\"\",\"table\":\"test\",\"ts\":1598944418418}",
                         "{\"old\":null,\"data\":[{\"id\":103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":0.8}],\"type\":\"DELETE\",\"database\":\"\",\"table\":\"test\",\"ts\":1598944418418}");
         assertEquals(expectedResult, result);
+    }
+
+    @Test
+    public void testSerializationKeepsDottedDatabaseName() throws Exception {
+        CanalJsonSerializationSchema serializationSchema =
+                new CanalJsonSerializationSchema(SEATUNNEL_ROW_TYPE);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "scooter", "desc", 3.14f});
+        row.setTableId("db.with.dot.dbo.LIS_ITEM");
+        JsonNode json = new ObjectMapper().readTree(serializationSchema.serialize(row));
+        assertEquals("db.with.dot", json.get("database").asText());
+        assertEquals("LIS_ITEM", json.get("table").asText());
     }
 
     // --------------------------------------------------------------------------------------------

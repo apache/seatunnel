@@ -907,6 +907,74 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Job-id submit and cancel are only implemented by the Zeta container")
+    public void testDatabaseNameWithDot(TestContainer container) throws Exception {
+        initializeSqlServerTable("test_dotted_db_name");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/sqlservercdc_dotted_db_name.conf", jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        String sourceTable = "[LIS6.0].dbo.LIS_ITEM";
+        String sinkTable = "[LIS6.0].dbo.LIS_ITEM_SINK";
+        String selectSql = "select id, name, value from %s order by id asc";
+
+        try {
+            // snapshot rows, then an incremental row, must both reach the sink; a job that
+            // already ended (e.g. failed at source creation) fails the wait with its output
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobNotEnded(jobFuture);
+                                Assertions.assertIterableEquals(
+                                        querySql(selectSql, sourceTable),
+                                        querySql(selectSql, sinkTable));
+                            });
+
+            executeSql("INSERT INTO [LIS6.0].dbo.LIS_ITEM VALUES (4, 'test4', 400)");
+
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobNotEnded(jobFuture);
+                                List<List<Object>> sink = querySql(selectSql, sinkTable);
+                                Assertions.assertEquals(4, sink.size());
+                                Assertions.assertIterableEquals(
+                                        querySql(selectSql, sourceTable), sink);
+                            });
+        } finally {
+            if (!jobFuture.isDone()) {
+                Container.ExecResult cancelled = container.cancelJob(jobId);
+                Assertions.assertEquals(0, cancelled.getExitCode(), cancelled.getStderr());
+            }
+            jobFuture.get(60, TimeUnit.SECONDS);
+        }
+    }
+
+    private static void assertJobNotEnded(CompletableFuture<Container.ExecResult> jobFuture)
+            throws Exception {
+        if (jobFuture.isDone()) {
+            Container.ExecResult result = jobFuture.get();
+            Assertions.fail(
+                    "Streaming job ended early: exit="
+                            + result.getExitCode()
+                            + " stderr="
+                            + result.getStderr());
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
             type = {EngineType.SPARK},
             disabledReason =
                     "This case validates SqlServer CDC schema evolution on the Flink engine & zeta engine.")
