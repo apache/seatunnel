@@ -181,6 +181,39 @@ public class ZetaSQLFunctionTest {
     }
 
     @Test
+    public void testIfFunction() {
+        SeaTunnelRowType rt =
+                new SeaTunnelRowType(
+                        new String[] {"age"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        ZetaSQLType type = new ZetaSQLType(rt, Collections.emptyList());
+        ZetaSQLFunction function = new ZetaSQLFunction(rt, type, Collections.emptyList());
+
+        net.sf.jsqlparser.expression.Function ifExpr = new net.sf.jsqlparser.expression.Function();
+        ifExpr.setName(ZetaSQLFunction.IF);
+
+        // condition: age > 18 -> "adult", otherwise "other"
+        GreaterThan greaterThan = new GreaterThan();
+        greaterThan.setLeftExpression(new Column("age"));
+        greaterThan.setRightExpression(new net.sf.jsqlparser.expression.LongValue(18));
+
+        List<Expression> args =
+                Arrays.asList(greaterThan, new StringValue("adult"), new StringValue("other"));
+        ifExpr.setParameters(new ExpressionList<>(args));
+
+        // True condition returns the second argument
+        Object adultResult = function.computeForValue(ifExpr, new Object[] {25});
+        Assertions.assertEquals("adult", adultResult);
+
+        // False condition returns the third argument
+        Object otherResult = function.computeForValue(ifExpr, new Object[] {16});
+        Assertions.assertEquals("other", otherResult);
+
+        // Null condition is treated as false
+        Object nullResult = function.computeForValue(ifExpr, new Object[] {null});
+        Assertions.assertEquals("other", nullResult);
+    }
+
+    @Test
     public void testCustomUdfEvaluation() {
         SeaTunnelRowType rt =
                 new SeaTunnelRowType(
