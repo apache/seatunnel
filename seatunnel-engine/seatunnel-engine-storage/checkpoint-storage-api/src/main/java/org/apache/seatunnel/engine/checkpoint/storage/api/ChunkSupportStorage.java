@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.checkpoint.storage.api;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CorruptCheckpointException;
 import org.apache.seatunnel.engine.checkpoint.storage.state.ChunkDescriptor;
 import org.apache.seatunnel.engine.checkpoint.storage.state.FileChunkStateHandle;
 import org.apache.seatunnel.engine.checkpoint.storage.state.MetadataEnvelope;
@@ -35,20 +36,24 @@ import java.util.List;
  * <p>Storage plugins that do not implement this interface keep working with the v1 format only.
  * Implementations must keep every method of {@link CheckpointStorage} restricted to v1 files, so
  * existing callers observe no change.
+ *
+ * <p>Read failures are reported in two kinds, so restore can decide whether an older checkpoint may
+ * be used: a {@link CorruptCheckpointException} means the data was read but its content is invalid;
+ * any other {@link CheckpointStorageException} means it could not be read at all, and the
+ * checkpoint itself may be intact.
  */
 public interface ChunkSupportStorage extends CheckpointStorage {
 
     /**
-     * Writes the state segments of one subtask action into its chunk file. Readers never observe a
-     * partially written chunk. A chunk of an uncommitted checkpoint (no {@code _metadata} yet) may
-     * be written again, which replaces it; this happens when a checkpoint id is attempted again
-     * after a restore. Chunks of a committed checkpoint are immutable.
+     * Writes the state segments of one subtask action into a new chunk file. Every call writes a
+     * file with a name unique to that call, so chunks are written exactly once and are never
+     * replaced; readers never observe a partially written chunk. The returned handle (location,
+     * length and CRC32) is what the checkpoint metadata references.
      *
-     * @param descriptor identifies the chunk, its location is derived from it
+     * @param descriptor identifies the checkpoint, action and subtask of the chunk
      * @param states the state segments, elements may be {@code null}
      * @return a handle referencing the written chunk
-     * @throws CheckpointStorageException if the chunk could not be written, or the checkpoint is
-     *     already committed
+     * @throws CheckpointStorageException if the chunk could not be written
      */
     FileChunkStateHandle writeChunk(ChunkDescriptor descriptor, List<byte[]> states)
             throws CheckpointStorageException;
@@ -56,9 +61,14 @@ public interface ChunkSupportStorage extends CheckpointStorage {
     /**
      * Reads the state segments referenced by a chunk handle.
      *
+     * <p>The location must have the engine chunk layout and cannot address a file outside the
+     * storage namespace; the file length, CRC32 and decoded state size must match the handle.
+     *
      * @param handle a handle returned by {@link #writeChunk}
      * @return the state segments, in the order they were written
-     * @throws CheckpointStorageException if the chunk is missing or malformed
+     * @throws CorruptCheckpointException if the location is invalid or the content does not match
+     *     the handle
+     * @throws CheckpointStorageException if the chunk could not be read
      */
     List<byte[]> readChunk(FileChunkStateHandle handle) throws CheckpointStorageException;
 
@@ -80,7 +90,11 @@ public interface ChunkSupportStorage extends CheckpointStorage {
      * Reads and validates (magic, version, length and CRC) the {@code _metadata} file of a
      * checkpoint.
      *
-     * @throws CheckpointStorageException if the file is missing or fails validation
+     * <p>The envelope does not identify its checkpoint; callers must check that the payload belongs
+     * to the checkpoint directory it was read from.
+     *
+     * @throws CorruptCheckpointException if the content fails validation
+     * @throws CheckpointStorageException if the file could not be read
      */
     MetadataEnvelope readMetadata(String jobId, String pipelineId, long checkpointId)
             throws CheckpointStorageException;
@@ -88,7 +102,8 @@ public interface ChunkSupportStorage extends CheckpointStorage {
     /**
      * Lists the ids of the v2 checkpoints of a pipeline that have a {@code _metadata} file, in
      * ascending order. Directories without metadata (incomplete checkpoints) are not listed. The
-     * metadata content is not validated here.
+     * metadata content is not validated here, so an id whose metadata later fails validation is
+     * still listed: it was committed and must not be used for a new checkpoint again.
      *
      * @return completed checkpoint ids, ascending; empty if there are none
      * @throws CheckpointStorageException if the pipeline directory could not be listed
@@ -109,11 +124,12 @@ public interface ChunkSupportStorage extends CheckpointStorage {
 
     /**
      * Reads one v1 checkpoint file. Unlike the {@link CheckpointStorage} getters, which log and
-     * skip unreadable files, every read or deserialization failure is thrown, so restore can tell
-     * an unreadable checkpoint apart from a missing one.
+     * skip unreadable files, every failure is thrown, so restore can tell an unreadable checkpoint
+     * apart from a missing one.
      *
-     * @throws CheckpointStorageException if the file cannot be read or does not contain the
-     *     expected checkpoint
+     * @throws CorruptCheckpointException if the file cannot be deserialized or does not contain the
+     *     pipeline and checkpoint its name claims
+     * @throws CheckpointStorageException if the file could not be read
      */
     PipelineState readV1Checkpoint(V1CheckpointFile file) throws CheckpointStorageException;
 }

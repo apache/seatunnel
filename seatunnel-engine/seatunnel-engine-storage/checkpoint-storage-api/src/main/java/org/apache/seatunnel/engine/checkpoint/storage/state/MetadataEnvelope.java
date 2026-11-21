@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.checkpoint.storage.state;
 
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CorruptCheckpointException;
 
 import lombok.ToString;
 
@@ -97,12 +98,12 @@ public final class MetadataEnvelope {
      * @param data the file content
      * @param location the file location, used in error messages only
      * @return the decoded envelope
-     * @throws CheckpointStorageException if the magic, version, length or CRC does not match
+     * @throws CorruptCheckpointException if the magic, version, length or CRC does not match
      */
     public static MetadataEnvelope decode(byte[] data, String location)
             throws CheckpointStorageException {
         if (data == null || data.length < HEADER_LENGTH) {
-            throw new CheckpointStorageException(
+            throw new CorruptCheckpointException(
                     String.format(
                             "Checkpoint metadata %s is truncated: %d bytes, header needs %d",
                             location, data == null ? 0 : data.length, HEADER_LENGTH));
@@ -111,12 +112,12 @@ public final class MetadataEnvelope {
         byte[] magic = new byte[MAGIC.length];
         buffer.get(magic);
         if (!Arrays.equals(MAGIC, magic)) {
-            throw new CheckpointStorageException(
+            throw new CorruptCheckpointException(
                     String.format("Checkpoint metadata %s has an invalid magic header", location));
         }
         int version = buffer.getInt();
         if (version != CURRENT_VERSION) {
-            throw new CheckpointStorageException(
+            throw new CorruptCheckpointException(
                     String.format(
                             "Checkpoint metadata %s has unsupported version %d, expected %d",
                             location, version, CURRENT_VERSION));
@@ -125,7 +126,7 @@ public final class MetadataEnvelope {
         int payloadLength = buffer.getInt();
         int expectedCrc = buffer.getInt();
         if (payloadLength < 0 || payloadLength != buffer.remaining()) {
-            throw new CheckpointStorageException(
+            throw new CorruptCheckpointException(
                     String.format(
                             "Checkpoint metadata %s declares %d payload bytes but has %d",
                             location, payloadLength, buffer.remaining()));
@@ -134,7 +135,7 @@ public final class MetadataEnvelope {
         buffer.get(payload);
         int actualCrc = crc32(payload);
         if (actualCrc != expectedCrc) {
-            throw new CheckpointStorageException(
+            throw new CorruptCheckpointException(
                     String.format(
                             "Checkpoint metadata %s failed the CRC check (expected %08x, actual %08x)",
                             location, expectedCrc, actualCrc));

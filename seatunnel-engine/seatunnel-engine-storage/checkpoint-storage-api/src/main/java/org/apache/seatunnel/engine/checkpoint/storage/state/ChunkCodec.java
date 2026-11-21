@@ -18,12 +18,14 @@
 package org.apache.seatunnel.engine.checkpoint.storage.state;
 
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CorruptCheckpointException;
 
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.zip.CRC32;
 
 /**
  * Encodes the state segments of one subtask action into the chunk file format:
@@ -40,6 +42,13 @@ public final class ChunkCodec {
     private static final int NULL_LENGTH = -1;
 
     private ChunkCodec() {}
+
+    /** Returns the CRC32 of an encoded chunk, as stored in {@link FileChunkStateHandle}. */
+    public static long checksum(byte[] encoded) {
+        CRC32 crc = new CRC32();
+        crc.update(encoded, 0, encoded.length);
+        return crc.getValue();
+    }
 
     /** Encodes the segments into a chunk file body. */
     public static byte[] encode(List<byte[]> states) {
@@ -70,7 +79,7 @@ public final class ChunkCodec {
      * @param data chunk file content
      * @param location chunk location, used in error messages only
      * @return the state segments, in snapshot order
-     * @throws CheckpointStorageException if the content is truncated or malformed
+     * @throws CorruptCheckpointException if the content is truncated or malformed
      */
     public static List<byte[]> decode(byte[] data, String location)
             throws CheckpointStorageException {
@@ -79,7 +88,7 @@ public final class ChunkCodec {
             int count = buffer.getInt();
             // every entry needs at least its 4-byte length, which bounds a corrupt count
             if (count < 0 || (long) count * Integer.BYTES > buffer.remaining()) {
-                throw new CheckpointStorageException(
+                throw new CorruptCheckpointException(
                         String.format(
                                 "Checkpoint chunk %s declares an invalid entry count %d",
                                 location, count));
@@ -96,7 +105,7 @@ public final class ChunkCodec {
                     continue;
                 }
                 if (length < 0 || length > buffer.remaining()) {
-                    throw new CheckpointStorageException(
+                    throw new CorruptCheckpointException(
                             String.format(
                                     "Checkpoint chunk %s entry %d has invalid length %d",
                                     location, i, length));
@@ -108,7 +117,7 @@ public final class ChunkCodec {
             ensureFullyConsumed(buffer, location);
             return states;
         } catch (BufferUnderflowException e) {
-            throw new CheckpointStorageException(
+            throw new CorruptCheckpointException(
                     String.format("Checkpoint chunk %s is truncated", location), e);
         }
     }
@@ -116,7 +125,7 @@ public final class ChunkCodec {
     private static void ensureFullyConsumed(ByteBuffer buffer, String location)
             throws CheckpointStorageException {
         if (buffer.hasRemaining()) {
-            throw new CheckpointStorageException(
+            throw new CorruptCheckpointException(
                     String.format(
                             "Checkpoint chunk %s has %d unexpected trailing bytes",
                             location, buffer.remaining()));

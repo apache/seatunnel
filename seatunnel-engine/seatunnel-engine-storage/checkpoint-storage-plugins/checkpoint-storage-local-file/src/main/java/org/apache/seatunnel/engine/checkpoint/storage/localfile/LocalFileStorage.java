@@ -39,7 +39,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -401,40 +401,40 @@ public class LocalFileStorage extends AbstractChunkSupportStorage {
     }
 
     @Override
-    protected void publishFile(String relativePath, byte[] data, boolean replace)
-            throws IOException {
-        Path target = resolve(relativePath);
-        Path tmp = resolve(attemptTmpPath(relativePath));
-        Files.createDirectories(target.getParent());
-        try {
-            Files.write(tmp, data);
-            if (replace) {
-                // a POSIX rename replaces the target atomically
-                Files.move(
-                        tmp,
-                        target,
-                        StandardCopyOption.ATOMIC_MOVE,
-                        StandardCopyOption.REPLACE_EXISTING);
-            } else {
-                publishOnce(tmp, target);
-            }
-        } finally {
-            Files.deleteIfExists(tmp);
-        }
+    protected void writeNewFile(String relativePath, byte[] data) throws IOException {
+        Path file = resolve(relativePath);
+        Files.createDirectories(file.getParent());
+        Files.write(file, data, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
     }
 
     /**
-     * Creates {@code target} from {@code tmp} only if it does not exist yet. A hard link is created
-     * atomically and fails if the target exists, unlike a POSIX rename, which silently replaces it.
+     * Creates {@code target} from {@code source} only if it does not exist yet. A hard link is
+     * created atomically and fails if the target exists, unlike a POSIX rename, which silently
+     * replaces it. The source link is then removed on a best-effort basis.
      */
-    private static void publishOnce(Path tmp, Path target) throws IOException {
+    @Override
+    protected void moveIfAbsent(String source, String target) throws IOException {
+        Path from = resolve(source);
+        Path to = resolve(target);
         try {
-            Files.createLink(target, tmp);
+            Files.createLink(to, from);
         } catch (UnsupportedOperationException e) {
             // file systems without hard links: move fails if the target exists (not atomic, but
             // there is a single committer per checkpoint)
-            Files.move(tmp, target);
+            Files.move(from, to);
+            return;
         }
+        try {
+            Files.deleteIfExists(from);
+        } catch (IOException e) {
+            // the target is published; a leftover temporary file is ignored by readers
+            log.warn("Failed to delete temporary checkpoint file {}", from, e);
+        }
+    }
+
+    @Override
+    protected void deleteIfExists(String relativePath) throws IOException {
+        Files.deleteIfExists(resolve(relativePath));
     }
 
     @Override

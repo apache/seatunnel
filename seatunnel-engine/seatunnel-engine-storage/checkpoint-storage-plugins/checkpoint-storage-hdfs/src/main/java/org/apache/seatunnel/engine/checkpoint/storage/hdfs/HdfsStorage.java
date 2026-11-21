@@ -380,50 +380,41 @@ public class HdfsStorage extends AbstractChunkSupportStorage {
         return new Path(getStorageParentDirectory() + relativePath);
     }
 
+    @Override
+    protected void writeNewFile(String relativePath, byte[] data) throws IOException {
+        try (FSDataOutputStream out = fs.create(resolve(relativePath), false)) {
+            out.write(data);
+        }
+    }
+
     /**
-     * Writes a temporary file unique to this attempt and renames it into place. On HDFS a rename is
-     * atomic, and a committed {@code _metadata} ({@code replace == false}) is never deleted or
+     * Renames {@code source} to {@code target} if the target does not exist. On HDFS a rename is
+     * atomic and never overwrites an existing file, so a committed file is never deleted or
      * modified: the publication fails instead. On object stores (S3/OSS/COS/GCS) a rename is a
-     * copy, which is why {@code _metadata} carries a CRC that readers validate.
-     *
-     * <p>{@code replace == true} is only used for chunks of an uncommitted checkpoint, which no
-     * {@code _metadata} references yet; for those the existing file is deleted before the rename.
+     * copy, which is why {@code _metadata} and chunks carry a CRC that readers validate.
      */
     @Override
-    protected void publishFile(String relativePath, byte[] data, boolean replace)
-            throws IOException {
-        Path target = resolve(relativePath);
-        Path tmp = resolve(attemptTmpPath(relativePath));
-        try {
-            try (FSDataOutputStream out = fs.create(tmp, false)) {
-                out.write(data);
-            }
-            if (!replace) {
-                // HDFS refuses to rename onto an existing file, but not every FileSystem
-                // implementation does (e.g. the local one replaces it), so check explicitly.
-                // There is a single committer per checkpoint, so check-then-rename is not racy.
-                if (fs.exists(target)) {
-                    throw new FileAlreadyExistsException(target.toString());
-                }
-                if (!fs.rename(tmp, target)) {
-                    if (fs.exists(target)) {
-                        throw new FileAlreadyExistsException(target.toString());
-                    }
-                    throw new IOException(String.format("Failed to rename %s to %s", tmp, target));
-                }
-                return;
-            }
-            if (fs.exists(target)) {
-                fs.delete(target, false);
-            }
-            if (!fs.rename(tmp, target)) {
-                throw new IOException(String.format("Failed to rename %s to %s", tmp, target));
-            }
-        } finally {
-            if (fs.exists(tmp)) {
-                fs.delete(tmp, false);
-            }
+    protected void moveIfAbsent(String source, String target) throws IOException {
+        Path from = resolve(source);
+        Path to = resolve(target);
+        // HDFS refuses to rename onto an existing file, but not every FileSystem implementation
+        // does (e.g. the local one replaces it), so check explicitly. There is a single committer
+        // per file name, so check-then-rename is not racy.
+        if (fs.exists(to)) {
+            throw new FileAlreadyExistsException(to.toString());
         }
+        if (!fs.rename(from, to)) {
+            if (fs.exists(to)) {
+                throw new FileAlreadyExistsException(to.toString());
+            }
+            throw new IOException(String.format("Failed to rename %s to %s", from, to));
+        }
+    }
+
+    @Override
+    protected void deleteIfExists(String relativePath) throws IOException {
+        // delete returns false when the file does not exist
+        fs.delete(resolve(relativePath), false);
     }
 
     @Override

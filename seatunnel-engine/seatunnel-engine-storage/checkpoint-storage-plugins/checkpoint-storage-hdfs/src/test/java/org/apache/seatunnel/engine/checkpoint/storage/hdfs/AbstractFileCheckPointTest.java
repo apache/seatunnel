@@ -22,11 +22,14 @@ package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CorruptCheckpointException;
 import org.apache.seatunnel.engine.checkpoint.storage.state.CheckpointFileLayout;
+import org.apache.seatunnel.engine.checkpoint.storage.state.ChunkCodec;
 import org.apache.seatunnel.engine.checkpoint.storage.state.ChunkDescriptor;
 import org.apache.seatunnel.engine.checkpoint.storage.state.FileChunkStateHandle;
 import org.apache.seatunnel.engine.checkpoint.storage.state.MetadataEnvelope;
 
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 
@@ -81,11 +84,12 @@ public abstract class AbstractFileCheckPointTest {
     @Test
     public void testV2ChunkRoundTrip() throws Exception {
         List<byte[]> states = Arrays.asList(bytes("split-a"), null, bytes("split-bb"));
+        ChunkDescriptor descriptor = new ChunkDescriptor(JOB_ID, "3", 1, "action", 0);
 
-        FileChunkStateHandle handle =
-                STORAGE.writeChunk(new ChunkDescriptor(JOB_ID, "3", 1, "action", 0), states);
-        // a retried write of the same checkpoint must replace the chunk, not fail
-        handle = STORAGE.writeChunk(new ChunkDescriptor(JOB_ID, "3", 1, "action", 0), states);
+        FileChunkStateHandle first = STORAGE.writeChunk(descriptor, states);
+        // a retried write never replaces a chunk: every attempt gets its own file
+        FileChunkStateHandle handle = STORAGE.writeChunk(descriptor, states);
+        Assertions.assertNotEquals(first.getLocation(), handle.getLocation());
 
         Assertions.assertEquals(15, handle.getStateSize());
         Assertions.assertEquals(
@@ -98,22 +102,48 @@ public abstract class AbstractFileCheckPointTest {
     }
 
     @Test
+    public void testChunkContentAndLocationAreValidated() throws Exception {
+        FileChunkStateHandle handle =
+                STORAGE.writeChunk(
+                        new ChunkDescriptor(JOB_ID, "6", 4, "action", 0),
+                        Arrays.asList(bytes("state-a")));
+
+        // a replaced chunk with valid framing is rejected by the CRC bound in the handle
+        writeRaw(handle.getLocation(), ChunkCodec.encode(Arrays.asList(bytes("state-b"))));
+        Assertions.assertThrows(CorruptCheckpointException.class, () -> STORAGE.readChunk(handle));
+
+        // a location outside the layout is never read
+        Assertions.assertThrows(
+                CorruptCheckpointException.class,
+                () ->
+                        STORAGE.readChunk(
+                                new FileChunkStateHandle(
+                                        "../../outside.chunk",
+                                        handle.getStateSize(),
+                                        handle.getEncodedLength(),
+                                        handle.getChecksum())));
+    }
+
+    @Test
     public void testV2MetadataCorruptionDetection() throws Exception {
         STORAGE.writeMetadata(JOB_ID, "4", 2, MetadataEnvelope.of(bytes("payload")));
         Assertions.assertArrayEquals(
                 bytes("payload"), STORAGE.readMetadata(JOB_ID, "4", 2).getPayload());
 
         byte[] encoded = MetadataEnvelope.of(bytes("payload")).encode();
-        STORAGE.publishFile(
+        writeRaw(
                 CheckpointFileLayout.metadataPath(JOB_ID, "4", 3),
-                Arrays.copyOf(encoded, encoded.length - 2),
-                false);
+                Arrays.copyOf(encoded, encoded.length - 2));
         Assertions.assertThrows(
-                CheckpointStorageException.class, () -> STORAGE.readMetadata(JOB_ID, "4", 3));
+                CorruptCheckpointException.class, () -> STORAGE.readMetadata(JOB_ID, "4", 3));
     }
 
     @Test
     public void testCommittedMetadataIsNeverReplaced() throws Exception {
+        FileChunkStateHandle chunk =
+                STORAGE.writeChunk(
+                        new ChunkDescriptor(JOB_ID, "5", 6, "action", 0),
+                        Arrays.asList(bytes("committed-state")));
         STORAGE.writeMetadata(JOB_ID, "5", 6, MetadataEnvelope.of(bytes("committed")));
 
         // a second commit of the same checkpoint fails and leaves the committed file untouched
@@ -127,16 +157,25 @@ public abstract class AbstractFileCheckPointTest {
         Assertions.assertArrayEquals(
                 bytes("committed"), STORAGE.readMetadata(JOB_ID, "5", 6).getPayload());
 
-        // chunks of a committed checkpoint are immutable as well
-        Assertions.assertThrows(
-                CheckpointStorageException.class,
-                () ->
-                        STORAGE.writeChunk(
-                                new ChunkDescriptor(JOB_ID, "5", 6, "action", 0),
-                                Arrays.asList(bytes("late"))));
+        // a late chunk write lands in its own file; the committed chunk is untouched
+        FileChunkStateHandle late =
+                STORAGE.writeChunk(
+                        new ChunkDescriptor(JOB_ID, "5", 6, "action", 0),
+                        Arrays.asList(bytes("late")));
+        Assertions.assertNotEquals(chunk.getLocation(), late.getLocation());
+        Assertions.assertArrayEquals(bytes("committed-state"), STORAGE.readChunk(chunk).get(0));
         Assertions.assertEquals(
                 Collections.emptyList(),
                 tmpFilesIn(CheckpointFileLayout.checkpointDir(JOB_ID, "5", 6)));
+    }
+
+    /** Overwrites a file through the Hadoop file system, keeping its checksum file consistent. */
+    private static void writeRaw(String relativePath, byte[] data) throws IOException {
+        try (FSDataOutputStream out =
+                STORAGE.fs.create(
+                        new Path(STORAGE.getStorageParentDirectory() + relativePath), true)) {
+            out.write(data);
+        }
     }
 
     private static List<String> tmpFilesIn(String relativeDir) throws IOException {

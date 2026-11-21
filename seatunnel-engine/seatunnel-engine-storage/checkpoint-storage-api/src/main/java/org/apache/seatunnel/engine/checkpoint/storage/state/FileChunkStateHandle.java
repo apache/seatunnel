@@ -27,9 +27,12 @@ import java.util.Objects;
  * org.apache.seatunnel.engine.checkpoint.storage.api.ChunkSupportStorage}.
  *
  * <p>The location is relative to the storage namespace (for example {@code
- * 100/1/chk-7/subtask-ab12cd34ef56ab78-0.chunk}), so a checkpoint directory stays valid when the
- * namespace is moved. Reading it back requires the storage it was written to, see {@link
+ * 100/1/chk-7/subtask-ab12cd34ef56ab78-0-<attemptId>.chunk}), so a checkpoint directory stays valid
+ * when the namespace is moved. Reading it back requires the storage it was written to, see {@link
  * org.apache.seatunnel.engine.checkpoint.storage.api.ChunkSupportStorage#readChunk}.
+ *
+ * <p>The handle binds the chunk content: readers verify the encoded length and CRC32 of the file
+ * and the decoded state size against it, so a replaced, truncated or foreign chunk is rejected.
  */
 @EqualsAndHashCode
 @ToString
@@ -41,9 +44,22 @@ public final class FileChunkStateHandle implements StateHandle {
 
     private final long stateSize;
 
-    public FileChunkStateHandle(String location, long stateSize) {
+    private final long encodedLength;
+
+    private final long checksum;
+
+    /**
+     * @param location chunk location relative to the storage namespace
+     * @param stateSize total bytes of the state segments
+     * @param encodedLength length of the chunk file
+     * @param checksum CRC32 of the chunk file content
+     */
+    public FileChunkStateHandle(
+            String location, long stateSize, long encodedLength, long checksum) {
         this.location = Objects.requireNonNull(location, "location");
         this.stateSize = stateSize;
+        this.encodedLength = encodedLength;
+        this.checksum = checksum;
     }
 
     /** Returns the chunk location relative to the storage namespace. */
@@ -54,5 +70,15 @@ public final class FileChunkStateHandle implements StateHandle {
     @Override
     public long getStateSize() {
         return stateSize;
+    }
+
+    /** Returns the length of the chunk file. */
+    public long getEncodedLength() {
+        return encodedLength;
+    }
+
+    /** Returns the CRC32 of the chunk file content. */
+    public long getChecksum() {
+        return checksum;
     }
 }

@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.state;
 
-import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CorruptCheckpointException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -55,16 +55,16 @@ public class CheckpointStateFormatTest {
 
         byte[] truncated = Arrays.copyOf(encoded, encoded.length - 1);
         Assertions.assertThrows(
-                CheckpointStorageException.class, () -> ChunkCodec.decode(truncated, "test"));
+                CorruptCheckpointException.class, () -> ChunkCodec.decode(truncated, "test"));
 
         byte[] padded = Arrays.copyOf(encoded, encoded.length + 1);
         Assertions.assertThrows(
-                CheckpointStorageException.class, () -> ChunkCodec.decode(padded, "test"));
+                CorruptCheckpointException.class, () -> ChunkCodec.decode(padded, "test"));
 
         byte[] hugeCount = encoded.clone();
         hugeCount[0] = 0x7f;
         Assertions.assertThrows(
-                CheckpointStorageException.class, () -> ChunkCodec.decode(hugeCount, "test"));
+                CorruptCheckpointException.class, () -> ChunkCodec.decode(hugeCount, "test"));
     }
 
     @Test
@@ -85,9 +85,9 @@ public class CheckpointStateFormatTest {
 
         byte[] flippedPayload = encoded.clone();
         flippedPayload[flippedPayload.length - 1] ^= 0x01;
-        CheckpointStorageException crcFailure =
+        CorruptCheckpointException crcFailure =
                 Assertions.assertThrows(
-                        CheckpointStorageException.class,
+                        CorruptCheckpointException.class,
                         () -> MetadataEnvelope.decode(flippedPayload, "chk-1/_metadata"));
         Assertions.assertTrue(crcFailure.getMessage().contains("CRC"));
         Assertions.assertTrue(crcFailure.getMessage().contains("chk-1/_metadata"));
@@ -95,18 +95,18 @@ public class CheckpointStateFormatTest {
         byte[] badMagic = encoded.clone();
         badMagic[0] = 'X';
         Assertions.assertThrows(
-                CheckpointStorageException.class, () -> MetadataEnvelope.decode(badMagic, "t"));
+                CorruptCheckpointException.class, () -> MetadataEnvelope.decode(badMagic, "t"));
 
         byte[] partial = Arrays.copyOf(encoded, encoded.length - 3);
         Assertions.assertThrows(
-                CheckpointStorageException.class, () -> MetadataEnvelope.decode(partial, "t"));
+                CorruptCheckpointException.class, () -> MetadataEnvelope.decode(partial, "t"));
 
         Assertions.assertThrows(
-                CheckpointStorageException.class, () -> MetadataEnvelope.decode(new byte[3], "t"));
+                CorruptCheckpointException.class, () -> MetadataEnvelope.decode(new byte[3], "t"));
 
         byte[] futureVersion = new MetadataEnvelope(3, 0, bytes("p")).encode();
         Assertions.assertThrows(
-                CheckpointStorageException.class,
+                CorruptCheckpointException.class,
                 () -> MetadataEnvelope.decode(futureVersion, "t"));
     }
 
@@ -116,26 +116,78 @@ public class CheckpointStateFormatTest {
         Assertions.assertEquals(
                 "100/1/chk-7/_metadata", CheckpointFileLayout.metadataPath("100", "1", 7));
 
+        String attempt = CheckpointFileLayout.newAttemptId();
         String subtask =
                 CheckpointFileLayout.chunkPath(
-                        new ChunkDescriptor("100", "1", 7, "ActionStateKey - Source[0]", 3));
+                        new ChunkDescriptor("100", "1", 7, "ActionStateKey - Source[0]", 3),
+                        attempt);
         Assertions.assertTrue(
-                subtask.matches("100/1/chk-7/subtask-[0-9a-f]{16}-3\\.chunk"), subtask);
+                subtask.matches("100/1/chk-7/subtask-[0-9a-f]{16}-3-[0-9a-f]{32}\\.chunk"),
+                subtask);
+        Assertions.assertTrue(subtask.endsWith("-" + attempt + ".chunk"), subtask);
 
         String coordinator =
                 CheckpointFileLayout.chunkPath(
-                        new ChunkDescriptor("100", "1", 7, "ActionStateKey - Source[0]", -1));
-        Assertions.assertTrue(coordinator.endsWith("-coordinator.chunk"), coordinator);
-
-        // deterministic: the same descriptor always maps to the same location
-        Assertions.assertEquals(
-                subtask,
-                CheckpointFileLayout.chunkPath(
-                        new ChunkDescriptor("100", "1", 7, "ActionStateKey - Source[0]", 3)));
+                        new ChunkDescriptor("100", "1", 7, "ActionStateKey - Source[0]", -1),
+                        attempt);
+        Assertions.assertTrue(
+                coordinator.endsWith("-coordinator-" + attempt + ".chunk"), coordinator);
         Assertions.assertNotEquals(
                 subtask,
                 CheckpointFileLayout.chunkPath(
-                        new ChunkDescriptor("100", "1", 7, "ActionStateKey - Sink[0]", 3)));
+                        new ChunkDescriptor("100", "1", 7, "ActionStateKey - Sink[0]", 3),
+                        attempt));
+
+        // every write attempt gets its own file name
+        Assertions.assertNotEquals(
+                CheckpointFileLayout.newAttemptId(), CheckpointFileLayout.newAttemptId());
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        CheckpointFileLayout.chunkPath(
+                                new ChunkDescriptor("100", "1", 7, "a", 0), "../x"));
+    }
+
+    @Test
+    public void testChunkLocationValidation() {
+        String valid =
+                CheckpointFileLayout.chunkPath(
+                        new ChunkDescriptor("100", "1", 7, "a", 0),
+                        CheckpointFileLayout.newAttemptId());
+        Assertions.assertEquals(valid, CheckpointFileLayout.checkChunkLocation(valid));
+        Assertions.assertEquals(
+                valid, CheckpointFileLayout.checkChunkLocation(valid, "100", "1", 7));
+
+        String chunkName = valid.substring(valid.lastIndexOf('/') + 1);
+        for (String invalid :
+                Arrays.asList(
+                        "../../other-ns/x.chunk",
+                        "100/1/chk-7/../../../../etc/passwd",
+                        "100/../chk-7/" + chunkName,
+                        "100/1/chk-7/./" + chunkName,
+                        "100//chk-7/" + chunkName,
+                        "100\\1/1/chk-7/" + chunkName,
+                        "/100/1/chk-7/" + chunkName,
+                        "100/1/chk-x/" + chunkName,
+                        "100/1/chk-7/_metadata",
+                        "100/1/chk-7/" + chunkName + ".tmp",
+                        "100/1/chk-7")) {
+            Assertions.assertThrows(
+                    IllegalArgumentException.class,
+                    () -> CheckpointFileLayout.checkChunkLocation(invalid),
+                    invalid);
+        }
+
+        // a chunk of another job, pipeline or checkpoint is rejected for this checkpoint
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> CheckpointFileLayout.checkChunkLocation(valid, "200", "1", 7));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> CheckpointFileLayout.checkChunkLocation(valid, "100", "2", 7));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> CheckpointFileLayout.checkChunkLocation(valid, "100", "1", 70));
     }
 
     @Test

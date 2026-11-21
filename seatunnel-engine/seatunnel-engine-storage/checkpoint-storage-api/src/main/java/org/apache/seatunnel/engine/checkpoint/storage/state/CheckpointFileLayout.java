@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.checkpoint.storage.state;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,8 +30,12 @@ import java.util.regex.Pattern;
  *
  * <pre>
  * &lt;jobId&gt;/&lt;pipelineId&gt;/chk-&lt;checkpointId&gt;/_metadata
- * &lt;jobId&gt;/&lt;pipelineId&gt;/chk-&lt;checkpointId&gt;/subtask-&lt;actionHash&gt;-&lt;index&gt;.chunk
+ * &lt;jobId&gt;/&lt;pipelineId&gt;/chk-&lt;checkpointId&gt;/subtask-&lt;actionHash&gt;-&lt;index&gt;-&lt;attemptId&gt;.chunk
  * </pre>
+ *
+ * <p>Every chunk write uses a new attempt id, so a chunk file is written exactly once and a late
+ * writer of an earlier attempt can never replace a chunk that a committed {@code _metadata}
+ * references. Readers find chunks through the location stored in the state handle.
  *
  * <p>v1 checkpoints are files named {@code <ts>-<rand>-<pipelineId>-<checkpointId>.ser} directly
  * under {@code <jobId>/}; the v2 tree never produces names with the {@code ser} extension, so the
@@ -56,6 +61,18 @@ public final class CheckpointFileLayout {
     private static final Pattern CHECKPOINT_DIR_PATTERN =
             Pattern.compile("^" + CHECKPOINT_DIR_PREFIX + "([0-9]+)$");
 
+    private static final Pattern ATTEMPT_ID_PATTERN = Pattern.compile("^[0-9a-f]{32}$");
+
+    private static final Pattern CHUNK_FILE_PATTERN =
+            Pattern.compile(
+                    "^"
+                            + CHUNK_FILE_PREFIX
+                            + "[0-9a-f]{16}-("
+                            + COORDINATOR_INDEX_NAME
+                            + "|[0-9]+)-[0-9a-f]{32}"
+                            + Pattern.quote(CHUNK_FILE_SUFFIX)
+                            + "$");
+
     private CheckpointFileLayout() {}
 
     /** Returns {@code <jobId>/<pipelineId>}. */
@@ -76,8 +93,15 @@ public final class CheckpointFileLayout {
         return checkpointDir(jobId, pipelineId, checkpointId) + SEPARATOR + METADATA_FILE_NAME;
     }
 
-    /** Returns the deterministic chunk location of the given descriptor. */
-    public static String chunkPath(ChunkDescriptor descriptor) {
+    /**
+     * Returns the location of a chunk of the given descriptor, written by one attempt.
+     *
+     * @param attemptId identifies the write attempt, see {@link #newAttemptId()}
+     */
+    public static String chunkPath(ChunkDescriptor descriptor, String attemptId) {
+        if (attemptId == null || !ATTEMPT_ID_PATTERN.matcher(attemptId).matches()) {
+            throw new IllegalArgumentException("Invalid chunk attempt id: '" + attemptId + "'");
+        }
         String index =
                 descriptor.getSubtaskIndex() < 0
                         ? COORDINATOR_INDEX_NAME
@@ -91,7 +115,67 @@ public final class CheckpointFileLayout {
                 + actionHash(descriptor.getActionKey())
                 + "-"
                 + index
+                + "-"
+                + attemptId
                 + CHUNK_FILE_SUFFIX;
+    }
+
+    /** Returns a new, unique chunk attempt id. */
+    public static String newAttemptId() {
+        return UUID.randomUUID().toString().replace("-", "");
+    }
+
+    /**
+     * Validates that a chunk location read from a state handle has the engine layout {@code
+     * <jobId>/<pipelineId>/chk-<id>/subtask-<hash>-<index>-<attempt>.chunk} and cannot address a
+     * file outside the storage namespace (no empty, {@code .}, {@code ..} or backslash segments).
+     *
+     * @return the location
+     * @throws IllegalArgumentException if the location is not a valid chunk location
+     */
+    public static String checkChunkLocation(String location) {
+        if (location == null) {
+            throw new IllegalArgumentException("Chunk location must not be null");
+        }
+        String[] segments = location.split(SEPARATOR, -1);
+        if (segments.length != 4) {
+            throw new IllegalArgumentException(
+                    "Chunk location does not match <jobId>/<pipelineId>/chk-<id>/<chunk>: '"
+                            + location
+                            + "'");
+        }
+        checkSegment("jobId", segments[0]);
+        checkSegment("pipelineId", segments[1]);
+        if (parseCheckpointId(segments[2]) < 0) {
+            throw new IllegalArgumentException(
+                    "Chunk location has no chk-<id> directory: '" + location + "'");
+        }
+        if (!CHUNK_FILE_PATTERN.matcher(segments[3]).matches()) {
+            throw new IllegalArgumentException(
+                    "Chunk location has no engine chunk file name: '" + location + "'");
+        }
+        return location;
+    }
+
+    /**
+     * Validates a chunk location like {@link #checkChunkLocation(String)} and that it lies in the
+     * directory of the given checkpoint, so a checkpoint can only reference its own chunks.
+     *
+     * @throws IllegalArgumentException if the location is invalid or belongs to another job,
+     *     pipeline or checkpoint
+     */
+    public static String checkChunkLocation(
+            String location, String jobId, String pipelineId, long checkpointId) {
+        checkChunkLocation(location);
+        String expectedDir = checkpointDir(jobId, pipelineId, checkpointId) + SEPARATOR;
+        if (!location.startsWith(expectedDir)) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Chunk location '%s' does not belong to checkpoint %d of job %s, "
+                                    + "pipeline %s",
+                            location, checkpointId, jobId, pipelineId));
+        }
+        return location;
     }
 
     /**

@@ -100,7 +100,12 @@ public class CheckpointSerializeTest {
     public void testExternalStateHandleSurvivesCheckpointAndAckSerialization() throws Exception {
         ActionStateKey key = new ActionStateKey("ActionStateKey - external");
         FileChunkStateHandle handle =
-                new FileChunkStateHandle("100/1/chk-8/subtask-0011223344556677-0.chunk", 4096);
+                new FileChunkStateHandle(
+                        "100/1/chk-8/subtask-0011223344556677-0-"
+                                + "0123456789abcdef0123456789abcdef.chunk",
+                        4096,
+                        4120,
+                        12345L);
         ActionSubtaskState external = ActionSubtaskState.ofExternal(key, 0, handle);
         ActionState actionState = new ActionState(key, 1);
         actionState.reportState(0, external);
@@ -116,6 +121,9 @@ public class CheckpointSerializeTest {
                         2L,
                         taskStates,
                         new HashMap<>());
+
+        // the handle lies in the directory of its own checkpoint
+        CheckpointCoordinator.checkExternalStateLocations(checkpoint);
 
         // _metadata payload path: ProtoStuff
         ProtoStuffSerializer serializer = new ProtoStuffSerializer();
@@ -141,6 +149,41 @@ public class CheckpointSerializeTest {
             @SuppressWarnings("unchecked")
             List<ActionSubtaskState> acked = (List<ActionSubtaskState>) in.readObject();
             Assertions.assertEquals(external, acked.get(0));
+        }
+    }
+
+    /** A restored checkpoint must not reference chunks of another job, pipeline or checkpoint. */
+    @Test
+    public void testRestoredExternalStateOutsideItsCheckpointIsRejected() {
+        String attempt = "-0-0123456789abcdef0123456789abcdef.chunk";
+        for (String location :
+                Arrays.asList(
+                        "100/1/chk-7/subtask-0011223344556677" + attempt,
+                        "100/2/chk-8/subtask-0011223344556677" + attempt,
+                        "200/1/chk-8/subtask-0011223344556677" + attempt,
+                        "100/1/chk-8/../chk-7/subtask-0011223344556677" + attempt)) {
+            ActionStateKey key = new ActionStateKey("ActionStateKey - foreign");
+            ActionState actionState = new ActionState(key, 1);
+            actionState.reportState(
+                    0,
+                    ActionSubtaskState.ofExternal(
+                            key, 0, new FileChunkStateHandle(location, 1, 9, 0)));
+            Map<ActionStateKey, ActionState> taskStates = new HashMap<>();
+            taskStates.put(key, actionState);
+            CompletedCheckpoint checkpoint =
+                    new CompletedCheckpoint(
+                            100L,
+                            1,
+                            8L,
+                            1L,
+                            CheckpointType.CHECKPOINT_TYPE,
+                            2L,
+                            taskStates,
+                            new HashMap<>());
+            Assertions.assertThrows(
+                    IllegalArgumentException.class,
+                    () -> CheckpointCoordinator.checkExternalStateLocations(checkpoint),
+                    location);
         }
     }
 

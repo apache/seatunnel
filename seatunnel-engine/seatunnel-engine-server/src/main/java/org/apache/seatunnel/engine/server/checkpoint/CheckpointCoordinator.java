@@ -25,6 +25,8 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.state.CheckpointFileLayout;
+import org.apache.seatunnel.engine.checkpoint.storage.state.FileChunkStateHandle;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
@@ -267,6 +269,7 @@ public class CheckpointCoordinator {
         if (pipelineState != null) {
             this.latestCompletedCheckpoint =
                     serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
+            checkExternalStateLocations(latestCompletedCheckpoint);
             this.latestCompletedCheckpoint.setRestored(true);
             LOG.info(
                     "Restore checkpoint, job id: {}, pipeline id: {}, checkpoint id: {}, data: {} ",
@@ -301,6 +304,34 @@ public class CheckpointCoordinator {
 
     public int getPipelineId() {
         return pipelineId;
+    }
+
+    /**
+     * Checks that every external (STIP-45) state of a restored checkpoint references a chunk in the
+     * directory of that same checkpoint. The handles come from storage, so without this check a
+     * crafted or misplaced checkpoint could make workers read another job's or checkpoint's chunks
+     * and restore them as this job's state.
+     *
+     * @throws IllegalArgumentException if a handle points outside the checkpoint directory
+     */
+    static void checkExternalStateLocations(CompletedCheckpoint checkpoint) {
+        String jobId = String.valueOf(checkpoint.getJobId());
+        String pipelineId = String.valueOf(checkpoint.getPipelineId());
+        for (ActionState actionState : checkpoint.getTaskStates().values()) {
+            List<ActionSubtaskState> states = new ArrayList<>(actionState.getSubtaskStates());
+            states.add(actionState.getCoordinatorState());
+            for (ActionSubtaskState state : states) {
+                if (state != null
+                        && !state.isInline()
+                        && state.getStateHandle() instanceof FileChunkStateHandle) {
+                    CheckpointFileLayout.checkChunkLocation(
+                            ((FileChunkStateHandle) state.getStateHandle()).getLocation(),
+                            jobId,
+                            pipelineId,
+                            checkpoint.getCheckpointId());
+                }
+            }
+        }
     }
 
     // --------------------------------------------------------------------------------------------
