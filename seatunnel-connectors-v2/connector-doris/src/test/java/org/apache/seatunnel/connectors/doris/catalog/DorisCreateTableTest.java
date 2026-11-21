@@ -514,4 +514,47 @@ public class DorisCreateTableTest {
                         + "\"disable_auto_compaction\" = \"false\"\n"
                         + ")");
     }
+
+    @Test
+    public void testQuoteInsideSqlCommentOfTemplate() {
+        List<Column> columns = new ArrayList<>();
+
+        columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, (Long) null, false, null, ""));
+        columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, true, null, ""));
+
+        String result =
+                DorisCatalogUtil.getCreateTableStatement(
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
+                                + "`id` BIGINT NOT NULL -- don't change this type\n"
+                                + ",\n"
+                                + "`name`,\n"
+                                + "${rowtype_fields}\n"
+                                + ") ENGINE=OLAP\n"
+                                + "UNIQUE KEY (`id`)\n"
+                                + "DISTRIBUTED BY HASH (`id`)",
+                        TablePath.of("test1.test2"),
+                        CatalogTable.of(
+                                TableIdentifier.of("test", "test1", "test2"),
+                                TableSchema.builder()
+                                        .primaryKey(
+                                                PrimaryKey.of("", Collections.singletonList("id")))
+                                        .columns(columns)
+                                        .build(),
+                                Collections.emptyMap(),
+                                Collections.emptyList(),
+                                ""),
+                        DorisTypeConverterV1.INSTANCE);
+
+        Assertions.assertEquals(
+                "CREATE TABLE IF NOT EXISTS `test1`.`test2` (\n"
+                        + "`id` BIGINT NOT NULL -- don't change this type\n"
+                        + ",\n"
+                        + "`name` STRING NULL ,\n"
+                        + "`age` INT NULL \n"
+                        + ") ENGINE=OLAP\n"
+                        + "UNIQUE KEY (`id`)\n"
+                        + "DISTRIBUTED BY HASH (`id`)",
+                result);
+    }
 }
