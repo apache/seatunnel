@@ -31,19 +31,18 @@ import io.restassured.common.mapper.TypeRef;
 
 import java.io.IOException;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongPredicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
@@ -140,76 +139,71 @@ public abstract class AbstractSavepointRescaleIT extends SeaTunnelEngineContaine
      * distinct JUnit test name.
      */
     protected void verifySavepointRestoreWithRescale()
-            throws IOException, InterruptedException, java.util.concurrent.ExecutionException {
-        FileUtils.createNewDir(sinkOutputDir());
-        try {
-            long jobId = JobIdGenerator.newJobId();
-            CompletableFuture<Container.ExecResult> sourceJobFuture =
-                    CompletableFuture.supplyAsync(
-                            () -> {
-                                try {
-                                    return executeJob(originalConfFile(), String.valueOf(jobId));
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                }
-                            });
+            throws IOException, InterruptedException, ExecutionException, TimeoutException {
+        long jobId = JobIdGenerator.newJobId();
+        CompletableFuture<Container.ExecResult> sourceJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return executeJob(originalConfFile(), String.valueOf(jobId));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
 
-            awaitJobStatus(jobId, "RUNNING");
-            awaitCompletedCheckpoint(jobId);
-            // A completed checkpoint requires every subtask of every parallel instance to have
-            // acknowledged the barrier, so it is safe to treat the task count observed here as
-            // the fully-deployed baseline for the original parallelism.
-            long taskCountBeforeRestore =
-                    awaitTaskItemCount(
-                            jobId,
-                            count -> count > 0,
-                            "Expected at least one deployed task before restore");
+        awaitJobStatus(jobId, "RUNNING");
+        awaitCompletedCheckpoint(jobId);
+        // A completed checkpoint requires every subtask of every parallel instance to have
+        // acknowledged the barrier, so it is safe to treat the task count observed here as
+        // the fully-deployed baseline for the original parallelism.
+        long taskCountBeforeRestore =
+                awaitTaskItemCount(
+                        jobId,
+                        count -> count > 0,
+                        "Expected at least one deployed task before restore");
 
-            Container.ExecResult savepointResult = savepointJob(String.valueOf(jobId));
-            Assertions.assertEquals(0, savepointResult.getExitCode(), savepointResult.getStderr());
-            awaitJobStatus(jobId, "SAVEPOINT_DONE");
+        Container.ExecResult savepointResult = savepointJob(String.valueOf(jobId));
+        Assertions.assertEquals(0, savepointResult.getExitCode(), savepointResult.getStderr());
+        awaitJobStatus(jobId, "SAVEPOINT_DONE");
 
-            List<Long> offsetsBeforeRestore = readObservedOffsets();
-            long maxOffsetBeforeRestore = getMaxOffset(offsetsBeforeRestore);
-            Assertions.assertFalse(
-                    offsetsBeforeRestore.isEmpty(), "Expected committed offsets before restore");
-            Container.ExecResult sourceResult = sourceJobFuture.get(2, TimeUnit.MINUTES);
-            Assertions.assertEquals(0, sourceResult.getExitCode(), sourceResult.getStderr());
+        List<Long> offsetsBeforeRestore = readObservedOffsets();
+        long maxOffsetBeforeRestore = getMaxOffset(offsetsBeforeRestore);
+        Assertions.assertFalse(
+                offsetsBeforeRestore.isEmpty(), "Expected committed offsets before restore");
+        Container.ExecResult sourceResult = sourceJobFuture.get(2, TimeUnit.MINUTES);
+        Assertions.assertEquals(0, sourceResult.getExitCode(), sourceResult.getStderr());
 
-            CompletableFuture<Container.ExecResult> restoreFuture =
-                    CompletableFuture.supplyAsync(
-                            () -> {
-                                try {
-                                    return restoreJob(restoreConfFile(), String.valueOf(jobId));
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                }
-                            });
+        CompletableFuture<Container.ExecResult> restoreFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return restoreJob(restoreConfFile(), String.valueOf(jobId));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
 
-            awaitJobStatus(jobId, "RUNNING");
-            long expectedTaskCountAfterRestore = taskCountBeforeRestore + expectedTaskCountDelta();
-            awaitTaskItemCount(
-                    jobId,
-                    count -> count == expectedTaskCountAfterRestore,
-                    "Expected restored job's physical task count ("
-                            + taskCountBeforeRestore
-                            + " -> "
-                            + expectedTaskCountAfterRestore
-                            + ") to reflect the new parallelism ("
-                            + originalParallelism()
-                            + " -> "
-                            + restoredParallelism()
-                            + ")");
-            assertRestoreContinuesAfterBoundary(offsetsBeforeRestore, maxOffsetBeforeRestore);
+        awaitJobStatus(jobId, "RUNNING");
+        long expectedTaskCountAfterRestore = taskCountBeforeRestore + expectedTaskCountDelta();
+        awaitTaskItemCount(
+                jobId,
+                count -> count == expectedTaskCountAfterRestore,
+                "Expected restored job's physical task count ("
+                        + taskCountBeforeRestore
+                        + " -> "
+                        + expectedTaskCountAfterRestore
+                        + ") to reflect the new parallelism ("
+                        + originalParallelism()
+                        + " -> "
+                        + restoredParallelism()
+                        + ")");
+        assertRestoreContinuesAfterBoundary(offsetsBeforeRestore, maxOffsetBeforeRestore);
 
-            stopJob(String.valueOf(jobId));
-            awaitJobStatus(jobId, "CANCELED");
-            Container.ExecResult restoreResult = restoreFuture.get(2, TimeUnit.MINUTES);
-            Assertions.assertEquals(0, restoreResult.getExitCode(), restoreResult.getStderr());
-            assertCommittedSequenceHasNoGapsOrDuplicates(maxOffsetBeforeRestore);
-        } finally {
-            FileUtils.deleteFile(sinkOutputDir());
-        }
+        stopJob(String.valueOf(jobId));
+        awaitJobStatus(jobId, "CANCELED");
+        Container.ExecResult restoreResult = restoreFuture.get(2, TimeUnit.MINUTES);
+        Assertions.assertEquals(0, restoreResult.getExitCode(), restoreResult.getStderr());
+        assertCommittedSequenceHasNoGapsOrDuplicates(maxOffsetBeforeRestore);
     }
 
     /**
@@ -321,7 +315,8 @@ public abstract class AbstractSavepointRescaleIT extends SeaTunnelEngineContaine
      * configurations. Check the stable output after stopping the restored job: no duplicate or gap
      * is valid, and at least one record must be committed beyond the saved boundary.
      */
-    private void assertCommittedSequenceHasNoGapsOrDuplicates(long maxOffsetBeforeRestore) {
+    private void assertCommittedSequenceHasNoGapsOrDuplicates(long maxOffsetBeforeRestore)
+            throws IOException, InterruptedException {
         List<Long> sortedOffsets = new ArrayList<>(readObservedOffsets());
         Collections.sort(sortedOffsets);
         Assertions.assertTrue(
@@ -340,32 +335,28 @@ public abstract class AbstractSavepointRescaleIT extends SeaTunnelEngineContaine
     }
 
     /**
-     * Reads every line written under {@link #sinkOutputDir()} across all sink output files and
-     * parses each as a {@code long} offset. Returns an empty list if the output directory does not
-     * exist yet (e.g. before the job has flushed its first record).
+     * Reads committed text files from the same container that runs the sink. This does not depend
+     * on bind-mount visibility between the Docker engine and the test JVM.
      */
-    private List<Long> readObservedOffsets() {
-        Path outputDir = Paths.get(sinkOutputDir());
-        if (!Files.exists(outputDir)) {
-            return Collections.emptyList();
+    private List<Long> readObservedOffsets() throws IOException, InterruptedException {
+        Container.ExecResult result =
+                server.execInContainer(
+                        "sh",
+                        "-ec",
+                        "if [ -d \"$1\" ]; then "
+                                + "find \"$1\" -type f -name 'offset_*.txt' -exec sh -ec "
+                                + "'for file; do cat \"$file\"; printf \"\\n\"; done' sh {} +; fi",
+                        "read-rescale-offsets",
+                        sinkOutputDir());
+        if (result.getExitCode() != 0) {
+            throw new IOException("Could not read committed offsets: " + result.getStderr());
         }
-        try (Stream<Path> paths = Files.walk(outputDir)) {
-            return paths.filter(Files::isRegularFile)
-                    .flatMap(
-                            path -> {
-                                try {
-                                    return Files.readAllLines(path).stream();
-                                } catch (IOException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            })
-                    .map(String::trim)
-                    .filter(line -> !line.isEmpty())
-                    .map(Long::parseLong)
-                    .collect(Collectors.toList());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return result.getStdout()
+                .lines()
+                .map(String::trim)
+                .filter(line -> !line.isEmpty())
+                .map(Long::parseLong)
+                .collect(Collectors.toList());
     }
 
     private long getCompletedCheckpointCount(long jobId) {

@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.e2e;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Verifies that a savepoint taken at one parallelism can be restored at a HIGHER parallelism
@@ -43,8 +45,7 @@ public class SavepointRestoreScaleUpIT extends AbstractSavepointRescaleIT {
             "/savepoint-restore-rescale/stream_p2_to_localfile_scaleup.conf";
     private static final String RESTORE_CONF_FILE =
             "/savepoint-restore-rescale/stream_p4_to_localfile_scaleup.conf";
-    private static final String SINK_OUTPUT_DIR =
-            HOST_VOLUME_MOUNT_PATH + "/savepoint-restore-rescale/scale-up/sinkfile";
+    private static final String SINK_OUTPUT_DIR = "/tmp/seatunnel-rescale/scale-up/sinkfile";
 
     // Must match env.parallelism in stream_p2_to_localfile_scaleup.conf.
     private static final int ORIGINAL_PARALLELISM = 2;
@@ -78,7 +79,7 @@ public class SavepointRestoreScaleUpIT extends AbstractSavepointRescaleIT {
 
     @Test
     public void testRestoreFromSavepointWithHigherParallelism()
-            throws IOException, InterruptedException, java.util.concurrent.ExecutionException {
+            throws IOException, InterruptedException, ExecutionException, TimeoutException {
         verifySavepointRestoreWithRescale();
     }
 }
