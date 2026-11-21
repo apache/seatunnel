@@ -46,6 +46,7 @@ Usage: seatunnel.sh [options]
                                               and --encrypt are specified, only
                                               --encrypt will take effect (default:
                                               false)
+    --format                                  校验输出格式。支持：[text, json]（默认：text）
     --get_running_job_metrics                 Gets metrics for running jobs (default:
                                               false)
     -h, --help                                Show the usage message
@@ -95,6 +96,16 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 ```
 
 使用 `--dry-run static`（或者 `--check`）参数可以在**不提交作业**的前提下静态校验配置文件（包括 HOCON/YAML 语法、插件可加载性、DAG 拓扑、必填项与未知配置键等）。它不会执行完整的数据管道。插件加载可能读取本地 JAR，因此这是配置文件的离线校验，不是严格的零 I/O 沙箱。
+
+需要机器可读的校验结果时，可在 `--check`、`--dry-run static` 或 `--dry-run connect` 后添加 `--format json`。无论校验成功还是失败，标准输出都只写入一份 JSON 文档；校验失败以状态码 1 退出。随发行版提供的 Bash 启动脚本和客户端日志配置会在该模式下将诊断信息写入标准错误。其他启动入口需要在 JVM 启动前设置 `-Dseatunnel.console.target=SYSTEM_ERR`；自定义日志配置也必须避免向标准输出写入诊断信息。
+
+JSON 标准输出契约由 Bash 启动脚本集成测试覆盖；该测试不覆盖原生 Windows 启动入口。文本与 JSON 模式的校验失败均使用脱敏后的消息，并省略原始异常原因，避免通过堆栈泄露凭据。异常没有消息时，使用 `Validation failed`。
+
+JSON 契约包含 `schemaVersion`、`valid`、`phase`（`static` 或 `connectivity`）和 `errors`。`errors` 的每一项包含 `location`、`plugin`、`optionPath`、`ruleCategory` 与已脱敏的 `message`；无法提供的字段为 `null`。
+
+```shell
+bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --check --format json
+```
 
 ```shell
 bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run connect
