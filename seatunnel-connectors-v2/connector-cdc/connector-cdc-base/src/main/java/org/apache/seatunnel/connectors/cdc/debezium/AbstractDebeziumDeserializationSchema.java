@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.debezium;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.connectors.cdc.base.utils.SerializableTableIdMap;
 
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
@@ -28,7 +29,6 @@ import io.debezium.relational.history.HistoryRecord;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.AbstractMap;
 import java.util.Collections;
@@ -51,8 +51,10 @@ import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.i
 public abstract class AbstractDebeziumDeserializationSchema<T>
         implements DebeziumDeserializationSchema<T> {
 
-    // Runtime Debezium TableId may not be Serializable, so write table identifiers as strings.
-    protected final Map<TableId, byte[]> tableChangesStructMap = new TableChangesStructMap();
+    // Pin the UID computed before the table-history map became replaceable on legacy restore.
+    private static final long serialVersionUID = 6374126268879340608L;
+
+    protected Map<TableId, byte[]> tableChangesStructMap = new SerializableTableIdMap<>();
     protected transient JsonConverter converter;
 
     public AbstractDebeziumDeserializationSchema(Map<TableId, Struct> tableIdTableChangeMap) {
@@ -108,46 +110,42 @@ public abstract class AbstractDebeziumDeserializationSchema<T>
         return converter.fromConnectData("topic", struct.schema(), struct);
     }
 
-    /**
-     * Holds table history while replacing runtime Debezium table identifiers during Java
-     * serialization.
-     */
+    private void readObject(ObjectInputStream input) throws IOException, ClassNotFoundException {
+        input.defaultReadObject();
+        if (!(tableChangesStructMap instanceof SerializableTableIdMap)) {
+            // An old job can carry an empty plain HashMap even with stock Debezium on Flink.
+            // Upgrade it before recovery populates history and Flink serializes the source again.
+            Map<TableId, byte[]> upgraded = new SerializableTableIdMap<>();
+            upgraded.putAll(tableChangesStructMap);
+            tableChangesStructMap = upgraded;
+        }
+    }
+
+    /** Read the identifier-string streams created by the earlier private implementation. */
     private static final class TableChangesStructMap extends AbstractMap<TableId, byte[]>
             implements Serializable {
 
         private static final long serialVersionUID = 1L;
 
-        private transient Map<TableId, byte[]> entries = new HashMap<>();
-
-        @Override
-        public byte[] put(TableId tableId, byte[] tableChangesStruct) {
-            return entries.put(tableId, tableChangesStruct);
-        }
+        private transient SerializableTableIdMap<byte[]> entries;
 
         @Override
         public Set<Entry<TableId, byte[]>> entrySet() {
             return entries.entrySet();
         }
 
-        private void writeObject(ObjectOutputStream output) throws IOException {
-            synchronized (this) {
-                output.defaultWriteObject();
-                output.writeInt(entries.size());
-                for (Entry<TableId, byte[]> entry : entries.entrySet()) {
-                    output.writeUTF(entry.getKey().identifier());
-                    output.writeObject(entry.getValue());
-                }
-            }
-        }
-
         private void readObject(ObjectInputStream input)
                 throws IOException, ClassNotFoundException {
             input.defaultReadObject();
-            entries = new HashMap<>();
+            entries = new SerializableTableIdMap<>();
             int entryCount = input.readInt();
             for (int index = 0; index < entryCount; index++) {
                 entries.put(TableId.parse(input.readUTF()), (byte[]) input.readObject());
             }
+        }
+
+        private Object readResolve() {
+            return entries;
         }
     }
 }

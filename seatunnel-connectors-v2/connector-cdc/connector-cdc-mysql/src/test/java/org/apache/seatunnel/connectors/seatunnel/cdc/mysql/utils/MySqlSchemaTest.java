@@ -25,8 +25,10 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.connectors.cdc.base.utils.SerializableTableIdMap;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.MySqlDialect;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -41,10 +43,16 @@ import io.debezium.relational.history.TableChanges;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -52,6 +60,87 @@ import static org.mockito.Mockito.when;
 
 public class MySqlSchemaTest {
     private static final String QUOTED_CHARACTER = "`";
+
+    @Test
+    void dialectRoundTripDoesNotWriteDebeziumTableId() throws Exception {
+        MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
+        factory.hostname("localhost");
+        factory.username("test");
+        factory.password("test");
+
+        TableId tableId = new TableId("catalog.with.dots", null, "table.with.dots");
+        PrimaryKey primaryKey = PrimaryKey.of("pk", Collections.singletonList("id"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of(
+                                "test", TablePath.of(tableId.catalog(), tableId.table())),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("id")
+                                                .dataType(BasicType.LONG_TYPE)
+                                                .build())
+                                .primaryKey(primaryKey)
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        MySqlDialect dialect = new MySqlDialect(factory, Collections.singletonList(catalogTable));
+        MySqlDialect restored = roundTripDialect(dialect, false);
+        Assertions.assertEquals(
+                primaryKey.getColumnNames(),
+                restored.getPrimaryKey(null, tableId).get().getColumnNames());
+
+        MySqlDialect migrated = roundTripDialect(dialect, true);
+        Assertions.assertEquals(
+                primaryKey.getColumnNames(),
+                roundTripDialect(migrated, false)
+                        .getPrimaryKey(null, tableId)
+                        .get()
+                        .getColumnNames());
+    }
+
+    private static MySqlDialect roundTripDialect(MySqlDialect dialect, boolean legacyIndex)
+            throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream output =
+                new ObjectOutputStream(bytes) {
+                    {
+                        enableReplaceObject(true);
+                    }
+
+                    @Override
+                    protected Object replaceObject(Object object) throws IOException {
+                        if (object instanceof TableId) {
+                            throw new IOException(
+                                    "Debezium TableId must not be serialized directly");
+                        }
+                        return object;
+                    }
+                }) {
+            output.writeObject(dialect);
+        }
+
+        try (ObjectInputStream input =
+                new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray())) {
+                    {
+                        enableResolveObject(legacyIndex);
+                    }
+
+                    @Override
+                    protected Object resolveObject(Object object) {
+                        if (object instanceof SerializableTableIdMap) {
+                            // Emulate the populated plain Java map an old shadow-based deployment
+                            // can restore without requiring that TableId copy on this test JVM.
+                            return Collections.unmodifiableMap(new HashMap<>((Map<?, ?>) object));
+                        }
+                        return object;
+                    }
+                }) {
+            return (MySqlDialect) input.readObject();
+        }
+    }
 
     @Test
     public void testReadSchemaFallbackDescTable() {
