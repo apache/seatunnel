@@ -45,7 +45,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -333,6 +335,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
         PhysicalPlan physicalPlan = mock(PhysicalPlan.class);
         JobMaster jobMaster = mock(JobMaster.class);
         when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
+        when(jobMaster.isStatePersistenceAllowed()).thenReturn(true);
         when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
         doAnswer(
                         invocation -> {
@@ -354,7 +357,7 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
                             Collections.singletonList(vertex),
                             Collections.emptyList());
             subPlan.setJobMaster(jobMaster);
-            subPlan.setCurrPipelineStatus(PipelineStatus.FAILED);
+            subPlan.updatePipelineState(PipelineStatus.FAILED);
 
             String failure = "java.sql.SQLException: Access denied for user 'etl'@'10.0.1.7'";
             setErrorByPhysicalVertex(subPlan, failure);
@@ -370,6 +373,37 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
                     causes.get(0).contains("Access denied for user"),
                     "captured the placeholder instead of the real error: " + causes.get(0));
             Assertions.assertTrue(causes.get(0).startsWith("restore 1: "));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldNotAdmitRestoreWhenVertexResetIsRefused() throws Exception {
+        JobMaster jobMaster = mock(JobMaster.class);
+        CheckpointManager checkpointManager = mock(CheckpointManager.class);
+        PhysicalPlan physicalPlan = mock(PhysicalPlan.class);
+        when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
+        when(jobMaster.isStatePersistenceAllowed()).thenReturn(true);
+        when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
+        PhysicalVertex vertex = mockPhysicalVertex(ExecutionState.FAILED);
+        doThrow(new IllegalStateException("vertex reset was fenced")).when(vertex).reset();
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    newSubPlan(
+                            executorService,
+                            Collections.singletonList(vertex),
+                            Collections.emptyList());
+            subPlan.setJobMaster(jobMaster);
+            subPlan.updatePipelineState(PipelineStatus.FAILED);
+
+            Assertions.assertFalse(invokePrepareRestorePipeline(subPlan));
+            Assertions.assertEquals(PipelineStatus.FAILED, subPlan.getPipelineState());
+            verify(vertex).reset();
+            verify(checkpointManager, never()).reportedPipelineRunning(1, false);
+            verify(physicalPlan, never()).addPipelineEndCallback(subPlan);
         } finally {
             executorService.shutdownNow();
         }

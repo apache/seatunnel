@@ -42,6 +42,7 @@ import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.dag.physical.UnknownPhysicalPlanException;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -62,10 +63,13 @@ import com.hazelcast.map.IMap;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -324,6 +328,122 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
         Assertions.assertDoesNotThrow(() -> jobMaster.init(System.currentTimeMillis(), true));
         Assertions.assertEquals(1, jobMaster.getPhysicalPlan().getPipelineList().size());
+    }
+
+    @Test
+    void testCleanupFenceBlocksMissingStateWriterBetweenSnapshotAndRegistration() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster =
+                newJobMaster(
+                        jobId,
+                        "batch_fake_to_console.conf",
+                        "test_terminal_cleanup_writer_fence",
+                        false);
+        PipelineLocation lateStateKey = new PipelineLocation(jobId, 99);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        runningJobInfoIMap.put(jobId, new JobInfo(0L, null));
+
+        ExecutorService writerExecutor = Executors.newSingleThreadExecutor();
+        CountDownLatch writerStarted = new CountDownLatch(1);
+        boolean cleanupFenceUnlocked = false;
+        pendingJobCleanupIMap.lock(jobId);
+        try {
+            // Terminal cleanup has completed its key snapshot while still holding this fence.
+            LinkedHashSet<Object> snapshottedStateKeys = new LinkedHashSet<>();
+            snapshottedStateKeys.add(jobId);
+
+            Future<Boolean> lateWriter =
+                    writerExecutor.submit(
+                            () -> {
+                                writerStarted.countDown();
+                                jobMaster.lockStatePersistenceFence();
+                                try {
+                                    if (!jobMaster.isStatePersistenceAllowed()) {
+                                        return false;
+                                    }
+                                    runningJobStateIMap.put(lateStateKey, "late-state");
+                                    return true;
+                                } finally {
+                                    jobMaster.unlockStatePersistenceFence();
+                                }
+                            });
+            Assertions.assertTrue(writerStarted.await(10, TimeUnit.SECONDS));
+            Assertions.assertFalse(
+                    lateWriter.isDone(),
+                    "A missing-key writer must wait while terminal cleanup publishes its fence");
+
+            pendingJobCleanupIMap.put(
+                    jobId,
+                    new JobCleanupRecord(
+                            0L,
+                            JobStatus.FINISHED,
+                            snapshottedStateKeys,
+                            Collections.emptySet(),
+                            System.currentTimeMillis()));
+            pendingJobCleanupIMap.unlock(jobId);
+            cleanupFenceUnlocked = true;
+
+            Assertions.assertFalse(lateWriter.get(10, TimeUnit.SECONDS));
+            Assertions.assertFalse(runningJobStateIMap.containsKey(lateStateKey));
+        } finally {
+            if (!cleanupFenceUnlocked) {
+                pendingJobCleanupIMap.unlock(jobId);
+            }
+            writerExecutor.shutdownNow();
+            pendingJobCleanupIMap.remove(jobId);
+            runningJobInfoIMap.remove(jobId);
+            runningJobStateIMap.remove(lateStateKey);
+        }
+    }
+
+    @Test
+    void testOldGenerationCleanupDoesNotFenceCurrentGeneration() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        long oldInitializationTimestamp = 1L;
+        long currentInitializationTimestamp = 2L;
+        JobMaster jobMaster =
+                newJobMaster(
+                        jobId,
+                        "batch_fake_to_console.conf",
+                        "test_restore_cleanup_generation_fence",
+                        false);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        try {
+            runningJobInfoIMap.put(jobId, new JobInfo(currentInitializationTimestamp, null));
+            jobMaster.init(currentInitializationTimestamp, false);
+
+            pendingJobCleanupIMap.put(
+                    jobId,
+                    new JobCleanupRecord(
+                            oldInitializationTimestamp,
+                            JobStatus.FINISHED,
+                            Collections.singleton(jobId),
+                            Collections.singleton(jobId),
+                            System.currentTimeMillis()));
+            Assertions.assertTrue(
+                    jobMaster.isStatePersistenceAllowed(),
+                    "A cleanup record from an older generation must not fence a restored job with the same job id");
+
+            pendingJobCleanupIMap.put(
+                    jobId,
+                    new JobCleanupRecord(
+                            currentInitializationTimestamp,
+                            JobStatus.FINISHED,
+                            Collections.singleton(jobId),
+                            Collections.singleton(jobId),
+                            System.currentTimeMillis()));
+            Assertions.assertFalse(
+                    jobMaster.isStatePersistenceAllowed(),
+                    "The cleanup record for the current generation must still fence late writers");
+        } finally {
+            pendingJobCleanupIMap.remove(jobId);
+            runningJobInfoIMap.remove(jobId);
+            runningJobStateIMap.remove(jobId);
+            runningJobStateTimestampsIMap.remove(jobId);
+        }
     }
 
     @Test

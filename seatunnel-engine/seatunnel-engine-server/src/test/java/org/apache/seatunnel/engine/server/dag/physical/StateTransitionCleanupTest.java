@@ -610,6 +610,7 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
                                         new CheckpointCoordinatorState(
                                                 CheckpointCoordinatorStatus.FINISHED, null))));
         JobMaster jobMaster = Mockito.mock(JobMaster.class);
+        Mockito.when(jobMaster.isStatePersistenceAllowed()).thenReturn(true);
         Mockito.when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
         Mockito.when(jobMaster.getExecutorService()).thenReturn(Executors.newCachedThreadPool());
         return jobMaster;
