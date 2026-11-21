@@ -1045,8 +1045,14 @@ public class JobMaster {
 
     /**
      * Cleans up after the job ended: clears its checkpoints if needed, stores its history and
-     * schedules the removal of its state maps. Each step runs even when an earlier one fails, and a
-     * failure is logged with the job id.
+     * schedules the removal of its state maps.
+     *
+     * <p>A failed step is logged with the job id and does not stop the steps after it, so the job
+     * master future still completes. The only exception is the removal of the state maps: it is
+     * scheduled only when the job info and the finished state were both stored. If either is
+     * missing, the state maps and the job info stay, so that the next active master finds the job
+     * as a terminal job without a cleanup record and stores its history again before it removes
+     * them.
      */
     public void cleanJob() {
         long jobId = jobImmutableInformation.getJobId();
@@ -1054,23 +1060,42 @@ public class JobMaster {
                 jobId,
                 "clear its checkpoints",
                 () -> checkpointManager.clearCheckpointIfNeed(physicalPlan.getJobStatus()));
-        runCleanupStep(
-                jobId,
-                "store its job info",
-                () -> jobHistoryService.storeJobInfo(jobId, getJobDAGInfo()));
-        runCleanupStep(
-                jobId,
-                "store its finished state",
-                () -> jobHistoryService.storeFinishedJobState(this));
+        boolean jobInfoStored =
+                runCleanupStep(
+                        jobId,
+                        "store its job info",
+                        () -> jobHistoryService.storeJobInfo(jobId, getJobDAGInfo()));
+        boolean finishedStateStored =
+                runCleanupStep(
+                        jobId,
+                        "store its finished state",
+                        () -> jobHistoryService.storeFinishedJobState(this));
+        if (!jobInfoStored || !finishedStateStored) {
+            LOGGER.warning(
+                    String.format(
+                            "Job %s ended, but its history was not fully stored, so its state"
+                                    + " maps are kept for the next active master to recover it",
+                            jobId));
+            return;
+        }
         runCleanupStep(
                 jobId, "schedule the removal of its state maps", this::scheduleRemoveJobStateMaps);
     }
 
-    private static void runCleanupStep(long jobId, String step, Runnable action) {
+    /**
+     * Runs one step of {@link #cleanJob()}. A {@link RuntimeException} is logged and swallowed so
+     * that the remaining steps and the completion of the job master future still happen; an {@link
+     * Error} is not caught.
+     *
+     * @return whether the step completed without an exception
+     */
+    private static boolean runCleanupStep(long jobId, String step, Runnable action) {
         try {
             action.run();
+            return true;
         } catch (RuntimeException e) {
             LOGGER.warning(String.format("Job %s ended, but failed to %s", jobId, step), e);
+            return false;
         }
     }
 

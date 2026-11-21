@@ -63,15 +63,12 @@ import org.mockito.Mockito;
 
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
-import com.hazelcast.map.listener.EntryAddedListener;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -446,7 +443,8 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     /**
      * A cleanup step that threw when the job ended used to skip the completion of the job master
      * future, so {@code JobMaster.run()} and every client waiting for the job blocked forever, and
-     * the steps after it did not run either.
+     * the steps after it did not run either. The state maps of the job are only removed once its
+     * history was stored.
      */
     @ParameterizedTest
     @EnumSource(CleanupStep.class)
@@ -483,17 +481,13 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                         .when(jobHistoryService)
                         .storeFinishedJobState(Mockito.any(JobMaster.class));
         }
-        // The last step puts a cleanup record for the job; the coordinator may process and remove
-        // it right away, so its addition is observed with a listener.
+        // The last step puts a cleanup record for the job before the future completes. A long
+        // cleanup delay keeps the coordinator from removing the record during the test.
         IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
-        CountDownLatch cleanupRecordAdded = new CountDownLatch(1);
-        UUID listenerId =
-                pendingJobCleanupIMap.addEntryListener(
-                        (EntryAddedListener<Long, JobCleanupRecord>)
-                                event -> cleanupRecordAdded.countDown(),
-                        jobId,
-                        false);
+        server.getSeaTunnelConfig()
+                .getEngineConfig()
+                .setStateCleanupDelayMillis(TimeUnit.MINUTES.toMillis(10));
 
         try {
             jobMaster.cancelJob();
@@ -503,11 +497,23 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
             Mockito.verify(checkpointManager).clearCheckpointIfNeed(JobStatus.CANCELED);
             Mockito.verify(jobHistoryService).storeJobInfo(Mockito.eq(jobId), Mockito.any());
             Mockito.verify(jobHistoryService).storeFinishedJobState(jobMaster);
-            Assertions.assertTrue(
-                    cleanupRecordAdded.await(10, TimeUnit.SECONDS),
-                    "the removal of the job state maps was not scheduled");
+            if (failingStep == CleanupStep.CLEAR_CHECKPOINTS) {
+                Assertions.assertTrue(
+                        pendingJobCleanupIMap.containsKey(jobId),
+                        "the removal of the job state maps was not scheduled");
+            } else {
+                // Without its history the job keeps its state maps, so that the next active master
+                // finds it as a terminal job without a cleanup record and stores its history
+                // again, see CoordinatorServiceJobCleanupTest
+                // #testTerminalZombieJobWithoutCleanupRecordPersistsHistoryAndRemovesState.
+                Assertions.assertFalse(
+                        pendingJobCleanupIMap.containsKey(jobId),
+                        "the job state maps must be kept when the job history was not stored");
+                Assertions.assertEquals(JobStatus.CANCELED, runningJobStateIMap.get(jobId));
+            }
         } finally {
-            pendingJobCleanupIMap.removeEntryListener(listenerId);
+            pendingJobCleanupIMap.remove(jobId);
+            server.getSeaTunnelConfig().getEngineConfig().setStateCleanupDelayMillis(0L);
         }
     }
 
