@@ -163,6 +163,7 @@ public class Condition<T> {
                 && Objects.equals(this.expectValue, that.expectValue)
                 && Objects.equals(this.operator, that.operator)
                 && Objects.equals(this.compareOption, that.compareOption)
+                && Objects.equals(this.extension, that.extension)
                 && Objects.equals(this.and, that.and)
                 && Objects.equals(this.next, that.next);
     }
@@ -174,6 +175,7 @@ public class Condition<T> {
                 this.expectValue,
                 this.operator,
                 this.compareOption,
+                this.extension,
                 this.and,
                 this.next);
     }

@@ -168,9 +168,15 @@ public class ConfigValidator {
         validate(rule, null);
     }
 
-    public void validate(OptionRule rule, Expression expression) {
+    /**
+     * Validates the rule, using the given condition as the enclosing condition for error hints.
+     *
+     * @param rule the option rule to validate
+     * @param condition the enclosing condition chain, may be {@code null}
+     */
+    public void validate(OptionRule rule, Condition<?> condition) {
         List<String> errors = new ArrayList<>();
-        collectErrors(rule, expression, errors);
+        collectErrors(rule, condition, errors);
         if (!errors.isEmpty()) {
             StringBuilder sb = new StringBuilder();
             sb.append(
@@ -184,11 +190,11 @@ public class ConfigValidator {
         }
     }
 
-    private void collectErrors(OptionRule rule, Expression expression, List<String> errors) {
+    private void collectErrors(OptionRule rule, Condition<?> condition, List<String> errors) {
         Set<String> structurallyAbsentKeys = new HashSet<>();
 
         for (RequiredOption requiredOption : rule.getRequiredOptions()) {
-            String error = checkRequiredOption(requiredOption, expression);
+            String error = checkRequiredOption(requiredOption, condition);
             if (error != null) {
                 errors.add(error);
                 collectAbsentKeys(requiredOption, structurallyAbsentKeys);
@@ -214,14 +220,14 @@ public class ConfigValidator {
 
         for (ConditionRule conditionRule : rule.getConditionRules()) {
             try {
-                if (validate(conditionRule.getExpression())) {
+                if (validate(conditionRule.getCondition())) {
                     collectErrors(
-                            conditionRule.getOptionRule(), conditionRule.getExpression(), errors);
+                            conditionRule.getOptionRule(), conditionRule.getCondition(), errors);
                 }
             } catch (OptionValidationException e) {
                 errors.add(
                         formatError(
-                                conditionRule.getExpression().toString(),
+                                conditionRule.getCondition().toString(),
                                 TYPE_CONDITIONAL,
                                 e.getRawMessage()));
             }
@@ -365,10 +371,10 @@ public class ConfigValidator {
         }
     }
 
-    String checkRequiredOption(RequiredOption requiredOption, Expression expression) {
+    String checkRequiredOption(RequiredOption requiredOption, Condition<?> condition) {
         if (requiredOption instanceof RequiredOption.AbsolutelyRequiredOptions) {
             return checkAbsolutelyRequired(
-                    (RequiredOption.AbsolutelyRequiredOptions) requiredOption, expression);
+                    (RequiredOption.AbsolutelyRequiredOptions) requiredOption, condition);
         }
         if (requiredOption instanceof RequiredOption.BundledRequiredOptions) {
             return checkBundled((RequiredOption.BundledRequiredOptions) requiredOption);
@@ -396,12 +402,12 @@ public class ConfigValidator {
     }
 
     String checkAbsolutelyRequired(
-            RequiredOption.AbsolutelyRequiredOptions requiredOption, Expression expression) {
+            RequiredOption.AbsolutelyRequiredOptions requiredOption, Condition<?> condition) {
         List<Option<?>> absentOptions = getAbsentOptions(requiredOption.getRequiredOption());
         if (absentOptions.isEmpty()) {
             return null;
         }
-        String hint = expression == null ? "" : " when [" + expression + "]";
+        String hint = condition == null ? "" : " when [" + condition + "]";
         return formatError(
                 getOptionKeys(absentOptions),
                 TYPE_REQUIRED,
@@ -474,20 +480,7 @@ public class ConfigValidator {
                 TYPE_CONDITIONAL,
                 String.format(
                         "required because [%s] is true",
-                        conditionalRequiredOptions.getExpression().toString()));
-    }
-
-    private boolean validate(Expression expression) {
-        Condition<?> condition = expression.getCondition();
-        boolean match = validate(condition);
-        if (!expression.hasNext()) {
-            return match;
-        }
-        if (expression.and()) {
-            return match && validate(expression.getNext());
-        } else {
-            return match || validate(expression.getNext());
-        }
+                        conditionalRequiredOptions.getCondition().toString()));
     }
 
     /**
@@ -525,7 +518,6 @@ public class ConfigValidator {
 
     private boolean matchCondition(
             RequiredOption.ConditionalRequiredOptions conditionalRequiredOptions) {
-        Expression expression = conditionalRequiredOptions.getExpression();
-        return validate(expression);
+        return validate(conditionalRequiredOptions.getCondition());
     }
 }

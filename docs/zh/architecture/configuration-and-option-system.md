@@ -403,6 +403,8 @@ AND 优先级高于 OR，因此 `A.or(B.and(C))` 等价于 `A || (B && C)`。适
 
 实现 `ConditionExtension<T>` 接口，通过 `Conditions.extension(option, ext)` 接入。扩展算子复用与内置算子完全相同的 `valueConstraints` 管线，支持 `.and()` / `.or()` 链式组合，适用于 `required`、`optional`、`conditional` 等所有规则类型。
 
+条件的相等性和哈希计算包含扩展校验器的 `equals` 和 `hashCode`，链中的扩展条件也遵循这一规则。构建等价规则时可复用同一个扩展实例；不同实例默认视为不同，除非扩展实现自行定义了基于值的相等性。
+
 匿名内部类写法：
 
 ```java

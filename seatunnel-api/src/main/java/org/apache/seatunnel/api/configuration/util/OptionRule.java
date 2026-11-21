@@ -54,16 +54,12 @@ import java.util.stream.Collectors;
  *     .build();
  *
  * // complex conditional rule
- * Expression expression = Expression.of(TOPIC_DISCOVERY_INTERVAL, 200)
- *     .and(Expression.of(Condition.of(CURSOR_STARTUP_MODE, StartMode.EARLIEST)
- *         .or(CURSOR_STARTUP_MODE, StartMode.LATEST)))
- *     .or(Expression.of(Condition.of(TOPIC_DISCOVERY_INTERVAL, 100)));
- *
  * OptionRule complexRule = OptionRule.builder()
  *     .optional(POLL_TIMEOUT, POLL_INTERVAL, CURSOR_STARTUP_MODE)
  *     .required(CLIENT_SERVICE_URL, ADMIN_SERVICE_URL)
  *     .exclusive(TOPIC_PATTERN, TOPIC)
- *     .conditional(expression, CURSOR_RESET_MODE)
+ *     .conditional(CURSOR_STARTUP_MODE,
+ *         Arrays.asList(StartMode.EARLIEST, StartMode.LATEST), CURSOR_RESET_MODE)
  *     .build();
  *
  * // value constraints — attach Condition to required / optional / conditional
@@ -169,7 +165,7 @@ public class OptionRule {
     public static class Builder {
         private final List<Option<?>> optionalOptions = new ArrayList<>();
         private final List<RequiredOption> requiredOptions = new ArrayList<>();
-        private final Map<Expression, OptionRule> conditionRulesMap = new HashMap<>();
+        private final Map<Condition<?>, OptionRule> conditionRulesMap = new HashMap<>();
         private final List<Condition<?>> valueConstraints = new ArrayList<>();
 
         private Builder() {}
@@ -224,15 +220,15 @@ public class OptionRule {
                                 conditionalOption.key()));
             }
 
-            Expression expression =
+            Condition<T> condition =
                     expectValues.stream()
-                            .map(v -> Expression.of(Condition.of(conditionalOption, v)))
-                            .reduce(Expression::or)
+                            .map(v -> Condition.of(conditionalOption, v))
+                            .reduce(Condition::or)
                             .get();
 
             RequiredOption.ConditionalRequiredOptions option =
                     RequiredOption.ConditionalRequiredOptions.of(
-                            expression, new ArrayList<>(Arrays.asList(requiredOptions)));
+                            condition, new ArrayList<>(Arrays.asList(requiredOptions)));
             verifyRequiredOptionDuplicate(option, true);
             this.requiredOptions.add(option);
             return this;
@@ -244,10 +240,10 @@ public class OptionRule {
                 @NonNull Option<?>... requiredOptions) {
             verifyConditionalExists(conditionalOption);
 
-            Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
+            Condition<T> condition = Condition.of(conditionalOption, expectValue);
             RequiredOption.ConditionalRequiredOptions conditionalRequiredOption =
                     RequiredOption.ConditionalRequiredOptions.of(
-                            expression, new ArrayList<>(Arrays.asList(requiredOptions)));
+                            condition, new ArrayList<>(Arrays.asList(requiredOptions)));
 
             verifyRequiredOptionDuplicate(conditionalRequiredOption, true);
             this.requiredOptions.add(conditionalRequiredOption);
@@ -283,19 +279,19 @@ public class OptionRule {
                                 conditionalOption.key()));
             }
 
-            Expression expression =
+            Condition<T> condition =
                     expectValues.stream()
-                            .map(v -> Expression.of(Condition.of(conditionalOption, v)))
-                            .reduce(Expression::or)
+                            .map(v -> Condition.of(conditionalOption, v))
+                            .reduce(Condition::or)
                             .get();
 
-            if (conditionRulesMap.containsKey(expression)) {
+            if (conditionRulesMap.containsKey(condition)) {
                 throw new OptionValidationException(
                         String.format(
                                 "conditional option rule for '%s' with expression '%s' already exists.",
-                                conditionalOption.key(), expression.toString()));
+                                conditionalOption.key(), condition.toString()));
             }
-            this.conditionRulesMap.put(expression, conditionalOptionRule);
+            this.conditionRulesMap.put(condition, conditionalOptionRule);
             return this;
         }
 
@@ -382,11 +378,11 @@ public class OptionRule {
                 @NonNull Condition<?> condition1,
                 @NonNull Condition<?>... conditions) {
             verifyConditionalExists(conditionalOption);
-            Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
+            Condition<T> condition = Condition.of(conditionalOption, expectValue);
             List<Condition<?>> allConditions = new ArrayList<>();
             allConditions.add(condition1);
             Collections.addAll(allConditions, conditions);
-            mergeConditionalRule(expression, Collections.emptyList(), allConditions);
+            mergeConditionalRule(condition, Collections.emptyList(), allConditions);
             return this;
         }
 
@@ -402,28 +398,28 @@ public class OptionRule {
                 @NonNull Condition<?> condition1,
                 @NonNull Condition<?>... conditions) {
             verifyConditionalExists(conditionalOption);
-            Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
+            Condition<T> condition = Condition.of(conditionalOption, expectValue);
             List<Condition<?>> allConditions = new ArrayList<>();
             allConditions.add(condition1);
             Collections.addAll(allConditions, conditions);
             List<RequiredOption> reqList = new ArrayList<>();
             reqList.add(RequiredOption.AbsolutelyRequiredOptions.of(option1, option2));
-            mergeConditionalRule(expression, reqList, allConditions);
+            mergeConditionalRule(condition, reqList, allConditions);
             return this;
         }
 
         private void mergeConditionalRule(
-                Expression expression,
+                Condition<?> condition,
                 List<RequiredOption> newRequired,
                 List<Condition<?>> newConditions) {
-            if (conditionRulesMap.containsKey(expression)) {
-                OptionRule existing = conditionRulesMap.get(expression);
+            if (conditionRulesMap.containsKey(condition)) {
+                OptionRule existing = conditionRulesMap.get(condition);
                 List<RequiredOption> mergedReq = new ArrayList<>(existing.getRequiredOptions());
                 mergedReq.addAll(newRequired);
                 List<Condition<?>> mergedCond = new ArrayList<>(existing.getValueConstraints());
                 mergedCond.addAll(newConditions);
                 conditionRulesMap.put(
-                        expression,
+                        condition,
                         new OptionRule(
                                 existing.getOptionalOptions(),
                                 mergedReq,
@@ -431,7 +427,7 @@ public class OptionRule {
                                 mergedCond));
             } else {
                 conditionRulesMap.put(
-                        expression,
+                        condition,
                         new OptionRule(
                                 Collections.emptyList(),
                                 newRequired,
@@ -506,14 +502,12 @@ public class OptionRule {
                                                 Option<?> requiredOptionCondition =
                                                         ((RequiredOption.ConditionalRequiredOptions)
                                                                         requiredOption)
-                                                                .getExpression()
                                                                 .getCondition()
                                                                 .getOption();
 
                                                 Option<?> roOptionCondition =
                                                         ((RequiredOption.ConditionalRequiredOptions)
                                                                         ro)
-                                                                .getExpression()
                                                                 .getCondition()
                                                                 .getOption();
 

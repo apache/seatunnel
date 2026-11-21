@@ -86,6 +86,29 @@ public class OptionRuleTest {
     }
 
     @Test
+    public void testConditionalRuleMergeWithEqualConditionChains() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(TEST_MODE, TEST_NUM)
+                        .conditional(
+                                TEST_MODE,
+                                OptionTest.TestMode.TIMESTAMP,
+                                Conditions.greaterThan(TEST_NUM, 0))
+                        .conditional(
+                                TEST_MODE,
+                                OptionTest.TestMode.TIMESTAMP,
+                                Conditions.lessThan(TEST_NUM, 100))
+                        .build();
+
+        assertEquals(1, rule.getConditionRules().size());
+        ConditionRule conditionRule = rule.getConditionRules().get(0);
+        assertEquals(
+                Condition.of(TEST_MODE, OptionTest.TestMode.TIMESTAMP),
+                conditionRule.getCondition());
+        assertEquals(2, conditionRule.getOptionRule().getValueConstraints().size());
+    }
+
+    @Test
     public void testVerify() {
         Executable executable =
                 () -> {

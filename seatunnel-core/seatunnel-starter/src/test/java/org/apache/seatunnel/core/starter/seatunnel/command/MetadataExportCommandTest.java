@@ -18,24 +18,35 @@
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.ConditionRule;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.starter.seatunnel.args.MetadataExportCommandArgs;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedConstruction;
 
 import java.lang.reflect.Method;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.when;
 
 class MetadataExportCommandTest {
 
@@ -87,5 +98,67 @@ class MetadataExportCommandTest {
         assertEquals("extension", conditionTree.get("compareOperator").asText());
         assertEquals("EXTENSION", conditionTree.get("conditionOperator").asText());
         assertEquals("EXTENSION", conditionTree.get("conditionOperatorCategory").asText());
+    }
+
+    /**
+     * A mixed AND/OR chain is exported as one flat chain: the operator and the next link stay on
+     * the expression-tree level, and the node's own condition does not repeat them.
+     */
+    @Test
+    void shouldExportMixedConditionChainAsOneFlatExpressionTree(@TempDir Path temporary)
+            throws Exception {
+        Option<String> a = Options.key("a").stringType().noDefaultValue();
+        Option<String> b = Options.key("b").stringType().noDefaultValue();
+        Option<String> c = Options.key("c").stringType().noDefaultValue();
+        Condition<?> chain =
+                Condition.of(a, "1").and(Condition.of(b, "2")).or(Condition.of(c, "3"));
+
+        OptionRule optionRule = OptionRule.builder().optional(a, b, c).build();
+        optionRule
+                .getConditionRules()
+                .add(new ConditionRule(chain, OptionRule.builder().required(a).build()));
+        LinkedHashMap<PluginIdentifier, OptionRule> plugins = new LinkedHashMap<>();
+        plugins.put(PluginIdentifier.of("seatunnel", "source", "MixedChainSource"), optionRule);
+        Path output = temporary.resolve("metadata.json");
+        MetadataExportCommandArgs args = new MetadataExportCommandArgs();
+        args.setPluginType(PluginType.SOURCE);
+        args.setPluginName("MixedChainSource");
+        args.setOutputPath(output.toString());
+
+        try (MockedConstruction<SeaTunnelSourcePluginDiscovery> discoveries =
+                mockConstruction(
+                        SeaTunnelSourcePluginDiscovery.class,
+                        (discovery, context) -> when(discovery.getPlugins()).thenReturn(plugins))) {
+            new MetadataExportCommand(args).execute();
+        }
+
+        JsonNode connectors = new ObjectMapper().readTree(output.toFile()).get("connectors");
+        assertEquals(1, connectors.size());
+        JsonNode connector = connectors.get(0);
+        assertEquals("MixedChainSource", connector.get("name").asText());
+        assertEquals("source", connector.get("type").asText());
+        assertEquals(1, connector.get("conditionRules").size());
+        JsonNode metadata = connector.get("conditionRules").get(0);
+        assertEquals(chain.toString(), metadata.get("expression").asText());
+        assertEquals("a", metadata.get("requiredOptions").get(0).get("key").asText());
+        JsonNode tree = metadata.get("expressionTree");
+
+        // (A && B) || C renders as A -AND-> B -OR-> C
+        JsonNode first = tree.get("condition");
+        assertEquals("a", first.get("key").asText());
+        assertFalse(first.has("operator"));
+        assertFalse(first.has("next"));
+        assertEquals("AND", tree.get("operator").asText());
+
+        JsonNode second = tree.get("next");
+        assertEquals("b", second.get("condition").get("key").asText());
+        assertFalse(second.get("condition").has("operator"));
+        assertFalse(second.get("condition").has("next"));
+        assertEquals("OR", second.get("operator").asText());
+
+        JsonNode third = second.get("next");
+        assertEquals("c", third.get("condition").get("key").asText());
+        assertFalse(third.has("operator"));
+        assertFalse(third.has("next"));
     }
 }
