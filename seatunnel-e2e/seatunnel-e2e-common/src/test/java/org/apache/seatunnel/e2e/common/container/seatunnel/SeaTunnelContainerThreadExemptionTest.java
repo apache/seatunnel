@@ -25,7 +25,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -238,6 +244,67 @@ class SeaTunnelContainerThreadExemptionTest {
     // -------------------------------------------------------------------------
     // Sanity — existing global system threads must still pass isSystemThread
     // -------------------------------------------------------------------------
+
+    @ParameterizedTest
+    @ValueSource(strings = {"G1 Refine#0", "G1 Refine#6", "G1 Refine#123"})
+    void cleanupRemovesNativeRefinementWorkersFromBothSnapshots(String threadName) {
+        List<String> expected = Collections.singletonList("connector-worker");
+        assertEquals(
+                expected,
+                containerMock.removeSystemThread(
+                        Collections.emptyList(),
+                        new ArrayList<>(Arrays.asList(threadName, "connector-worker")),
+                        Collections.emptyMap()));
+        assertEquals(
+                expected,
+                containerMock.removeSystemThread(
+                        Collections.emptyList(),
+                        new ArrayList<>(),
+                        Map.of(
+                                threadName,
+                                "PluginClassLoader",
+                                "connector-worker",
+                                "PluginClassLoader")));
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "G1 Refine",
+                "G1 Refine#",
+                "G1 Refine#-1",
+                "G1 Refine#x",
+                "G1 Refine#6-worker",
+                "app-G1 Refine#6",
+                "G1 Refine#6 ",
+                "G1 Refine#6\n",
+                "G1 Refine#6\nworker",
+                "G1 application-worker"
+            })
+    void cleanupReportsApplicationThreadsFromBothSnapshots(String threadName) {
+        assertEquals(
+                Collections.singletonList(threadName),
+                containerMock.removeSystemThread(
+                        Collections.emptyList(),
+                        new ArrayList<>(Collections.singletonList(threadName)),
+                        Collections.emptyMap()));
+        assertEquals(
+                Collections.singletonList(threadName),
+                containerMock.removeSystemThread(
+                        Collections.emptyList(),
+                        new ArrayList<>(),
+                        Collections.singletonMap(threadName, "PluginClassLoader")));
+    }
+
+    @Test
+    void cleanupPreservesExistingSnapshotAndClassLoaderRules() {
+        assertEquals(
+                Collections.singletonList("new-connector-worker"),
+                containerMock.removeSystemThread(
+                        Collections.singletonList("existing-worker"),
+                        new ArrayList<>(Arrays.asList("existing-worker", "new-connector-worker")),
+                        Map.of("app-worker", "AppClassLoader", "native-worker", "null")));
+    }
 
     @ParameterizedTest(name = "isSystemThread(\"{0}\") must still be true")
     @ValueSource(
