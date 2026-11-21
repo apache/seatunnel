@@ -174,7 +174,7 @@ network:
 
 ```json
 {
-    "projectVersion":"3.1.0-SNAPSHOT",
+    "projectVersion":"3.1.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -637,7 +637,7 @@ network:
 ]
 ```
 
-每个成员的请求会被并行发出，并共享一个统一截止时间（`seatunnel.engine.health-metrics-timeout-seconds`，默认 `3` 秒）。在截止时间内未应答的成员会以 `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}` 的形式返回；请求分发或响应失败时也会带有对应的 `error` 标记。
+每个成员的请求会被并行发出，并共享一个统一截止时间（`seatunnel.engine.health-metrics-timeout-seconds`，默认 `3` 秒）。在截止时间内未应答的成员会以 `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}` 的形式返回；请求分发或响应失败时也会带有对应的 `error` 标记。健康成员还会额外包含 `isMaster` 与示例中的连接信息（`host`、`port`）。
 
 - `isMaster`：当前节点是否为激活中的 SeaTunnel coordinator。在 master / worker 分离部署中，
   这个字段可能与 Hazelcast master 身份不同。

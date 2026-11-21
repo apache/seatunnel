@@ -24,7 +24,7 @@ Write data to Snowflake through JDBC. The sink supports batch and streaming jobs
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [x] [cdc](../../introduction/concepts/connector-v2-features.md) (via primary-key upsert / merge SQL)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md) (via primary-key based insert-or-update)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
@@ -62,10 +62,10 @@ Write data to Snowflake through JDBC. The sink supports batch and streaming jobs
 | driver                                    | String  | Yes      | -       | JDBC driver class name. Use `net.snowflake.client.jdbc.SnowflakeDriver` for Snowflake.                                                                                                     |
 | username                                  | String  | No       | -       | Username for the Snowflake account.                                                                                                                                                        |
 | password                                  | String  | No       | -       | Password for the Snowflake account.                                                                                                                                                        |
-| query                                     | String  | No       | -       | SQL used to write upstream rows. Takes precedence over `database`/`table` auto-generated SQL, and disables catalog-based optimizations (no `MERGE` upsert).                                |
-| database                                  | String  | No       | -       | Database name. When `generate_sink_sql = true`, used with `table` to generate `INSERT`/`MERGE` SQL. Mutually exclusive with `query`; when both are set, `query` wins.                       |
+| query                                     | String  | No       | -       | SQL used to write upstream rows. Takes precedence over `database`/`table` auto-generated SQL, and disables catalog-based optimizations (no auto-generated upsert).                          |
+| database                                  | String  | No       | -       | Database name. When `generate_sink_sql = true`, used with `table` to generate `INSERT`/upsert SQL. Mutually exclusive with `query`; when both are set, `query` wins.                        |
 | table                                     | String  | No       | -       | Target table name. Used together with `database` and `generate_sink_sql` to generate writes.                                                                                              |
-| primary_keys                              | Array   | No       | -       | Primary-key columns. Required when `generate_sink_sql = true` together with `enable_upsert = true` to build a `MERGE` upsert statement.                                                    |
+| primary_keys                              | Array   | No       | -       | Primary-key columns. Required when `generate_sink_sql = true` together with `enable_upsert = true` to build an upsert (insert-or-update) statement.                                        |
 | connection_check_timeout_sec              | Int     | No       | 30      | Seconds to wait for the connection check before failing.                                                                                                                                   |
 | max_retries                               | Int     | No       | 0       | Number of retries on `executeBatch` failures.                                                                                                                                              |
 | batch_size                                | Int     | No       | 1000    | Buffered-row threshold that triggers a flush. Also flushes at `checkpoint.interval`.                                                                                                       |
@@ -75,7 +75,7 @@ Write data to Snowflake through JDBC. The sink supports batch and streaming jobs
 | auto_commit                               | Boolean | No       | true    | Whether to auto-commit each batch.                                                                                                                                                         |
 | properties                                | Map     | No       | -       | Extra JDBC connection properties. When the same key appears in both `properties` and `url`, the precedence is driver-specific.                                                            |
 | common-options                            |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                              |
-| enable_upsert                             | Boolean | No       | true    | When `primary_keys` is set with `generate_sink_sql = true`, generate `MERGE` upsert SQL. Set to `false` if your input has no duplicate keys and you want the faster insert-only path.       |
+| enable_upsert                             | Boolean | No       | true    | When `primary_keys` is set with `generate_sink_sql = true`, generate upsert SQL. The Snowflake dialect has no native upsert statement, so upsert is executed as client-side insert-or-update. Set to `false` if your input has no duplicate keys and you want the faster insert-only path.       |
 
 ## Notes
 
