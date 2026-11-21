@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.oceanbase.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.MySqlDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.MySqlIncrementalSource;
 
 import java.util.List;
@@ -45,6 +47,11 @@ public class OceanBaseIncrementalSource<T> extends MySqlIncrementalSource<T> {
      */
     public OceanBaseIncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
         super(options, catalogTables);
+    }
+
+    @Override
+    public MySqlDialect createDataSourceDialect(ReadonlyConfig config) {
+        return new MySqlDialect((MySqlSourceConfigFactory) configFactory, catalogTables, true);
     }
 
     /**

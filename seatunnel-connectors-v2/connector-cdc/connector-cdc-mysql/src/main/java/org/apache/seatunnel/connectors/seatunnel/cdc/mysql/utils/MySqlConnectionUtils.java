@@ -52,7 +52,13 @@ public class MySqlConnectionUtils {
 
     /** Creates a new {@link MySqlConnection}, but not open the connection. */
     public static MySqlConnection createMySqlConnection(Configuration dbzConfiguration) {
-        return new MySqlConnection(new CustomMySqlConnectionConfiguration(dbzConfiguration));
+        return createMySqlConnection(dbzConfiguration, false);
+    }
+
+    public static MySqlConnection createMySqlConnection(
+            Configuration dbzConfiguration, boolean preferBinaryLogListing) {
+        return new MySqlConnection(
+                new CustomMySqlConnectionConfiguration(dbzConfiguration), preferBinaryLogListing);
     }
 
     /** Creates a new {@link BinaryLogClient} for consuming mysql binlog. */
@@ -81,10 +87,7 @@ public class MySqlConnectionUtils {
 
     /** Fetch earliest binlog offsets in MySql Server. */
     public static BinlogOffset earliestBinlogOffset(JdbcConnection jdbc) {
-        final String showMasterStmt =
-                ((MySqlConnection) jdbc).binaryLogStatusStatement().startsWith("SHOW BINARY")
-                        ? "SHOW BINARY LOGS"
-                        : "SHOW MASTER LOGS";
+        final String showMasterStmt = ((MySqlConnection) jdbc).binaryLogListingStatement();
         JdbcConnection.ResultSetMapper<BinlogOffset> getCurrentBinlogOffset =
                 rs -> {
                     final String binlogFilename = rs.getString(1);
@@ -199,10 +202,7 @@ public class MySqlConnectionUtils {
 
     public static BinlogOffset findBinlogOffsetBytimestamp(
             JdbcConnection jdbc, BinaryLogClient client, long timestamp) {
-        final String showBinaryLogStmt =
-                ((MySqlConnection) jdbc).binaryLogStatusStatement().startsWith("SHOW BINARY")
-                        ? "SHOW BINARY LOGS"
-                        : "SHOW MASTER LOGS";
+        final String showBinaryLogStmt = ((MySqlConnection) jdbc).binaryLogListingStatement();
         List<String> binlogFiles = new ArrayList<>();
         JdbcConnection.ResultSetConsumer rsc =
                 rs -> {

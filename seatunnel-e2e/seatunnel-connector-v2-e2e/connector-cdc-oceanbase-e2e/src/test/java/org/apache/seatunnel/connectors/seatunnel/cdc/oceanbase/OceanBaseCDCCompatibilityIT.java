@@ -152,7 +152,22 @@ public class OceanBaseCDCCompatibilityIT extends TestSuiteBase implements TestRe
      */
     @TestTemplate
     public void testOceanBaseCdcWrapperRuntimeE2e(TestContainer container) {
-        recreateTestTables();
+        verifyOceanBaseCdcWrapper(container, "initial", SOURCE_TABLE, SINK_TABLE, 5752);
+    }
+
+    @TestTemplate
+    public void testOceanBaseCdcWrapperFromEarliestBinlog(TestContainer container) {
+        verifyOceanBaseCdcWrapper(
+                container, "earliest", SOURCE_TABLE + "_earliest", SINK_TABLE + "_earliest", 5753);
+    }
+
+    private void verifyOceanBaseCdcWrapper(
+            TestContainer container,
+            String startupMode,
+            String sourceTable,
+            String sinkTable,
+            int serverId) {
+        recreateTestTables(sourceTable, sinkTable);
 
         CompletableFuture<Void> jobFuture =
                 CompletableFuture.runAsync(
@@ -160,7 +175,12 @@ public class OceanBaseCDCCompatibilityIT extends TestSuiteBase implements TestRe
                             try {
                                 Container.ExecResult execResult =
                                         container.executeJob(
-                                                "/oceanbasecdc_to_mysql_compatible.conf");
+                                                "/oceanbasecdc_to_mysql_compatible.conf",
+                                                Arrays.asList(
+                                                        "startup_mode=" + startupMode,
+                                                        "source_table=" + sourceTable,
+                                                        "sink_table=" + sinkTable,
+                                                        "server_id=" + serverId));
                                 Assertions.assertEquals(
                                         0, execResult.getExitCode(), execResult.getStderr());
                             } catch (Exception e) {
@@ -173,51 +193,50 @@ public class OceanBaseCDCCompatibilityIT extends TestSuiteBase implements TestRe
                         () -> {
                             assertStreamingJobStillRunning(jobFuture);
                             Assertions.assertIterableEquals(
-                                    queryTable(SOURCE_TABLE), queryTable(SINK_TABLE));
+                                    queryTable(sourceTable), queryTable(sinkTable));
                         });
 
-        applyIncrementalChanges();
+        applyIncrementalChanges(sourceTable);
 
         await().atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             assertStreamingJobStillRunning(jobFuture);
                             Assertions.assertIterableEquals(
-                                    queryTable(SOURCE_TABLE), queryTable(SINK_TABLE));
+                                    queryTable(sourceTable), queryTable(sinkTable));
                         });
     }
 
     /** Recreate isolated source and sink tables for deterministic snapshot assertions. */
-    private void recreateTestTables() {
-        executeSql("DROP TABLE IF EXISTS " + MYSQL_DATABASE + "." + SINK_TABLE);
-        executeSql("DROP TABLE IF EXISTS " + MYSQL_DATABASE + "." + SOURCE_TABLE);
+    private void recreateTestTables(String sourceTable, String sinkTable) {
+        executeSql("DROP TABLE IF EXISTS " + MYSQL_DATABASE + "." + sinkTable);
+        executeSql("DROP TABLE IF EXISTS " + MYSQL_DATABASE + "." + sourceTable);
         executeSql(
                 "CREATE TABLE "
                         + MYSQL_DATABASE
                         + "."
-                        + SOURCE_TABLE
+                        + sourceTable
                         + " (id INT PRIMARY KEY, name VARCHAR(64), score INT)");
         executeSql(
                 "CREATE TABLE "
                         + MYSQL_DATABASE
                         + "."
-                        + SINK_TABLE
+                        + sinkTable
                         + " (id INT PRIMARY KEY, name VARCHAR(64), score INT)");
         executeSql(
                 "INSERT INTO "
                         + MYSQL_DATABASE
                         + "."
-                        + SOURCE_TABLE
+                        + sourceTable
                         + " VALUES (1, 'alpha', 10), (2, 'beta', 20)");
     }
 
     /** Apply insert, update and delete operations after the initial snapshot is synchronized. */
-    private void applyIncrementalChanges() {
+    private void applyIncrementalChanges(String sourceTable) {
         executeSql(
-                "INSERT INTO " + MYSQL_DATABASE + "." + SOURCE_TABLE + " VALUES (3, 'gamma', 30)");
-        executeSql(
-                "UPDATE " + MYSQL_DATABASE + "." + SOURCE_TABLE + " SET score = 25 WHERE id = 2");
-        executeSql("DELETE FROM " + MYSQL_DATABASE + "." + SOURCE_TABLE + " WHERE id = 1");
+                "INSERT INTO " + MYSQL_DATABASE + "." + sourceTable + " VALUES (3, 'gamma', 30)");
+        executeSql("UPDATE " + MYSQL_DATABASE + "." + sourceTable + " SET score = 25 WHERE id = 2");
+        executeSql("DELETE FROM " + MYSQL_DATABASE + "." + sourceTable + " WHERE id = 1");
     }
 
     /**
