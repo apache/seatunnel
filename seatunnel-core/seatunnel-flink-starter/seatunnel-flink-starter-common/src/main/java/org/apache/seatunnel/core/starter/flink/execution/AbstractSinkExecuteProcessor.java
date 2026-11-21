@@ -103,7 +103,7 @@ public abstract class AbstractSinkExecuteProcessor
                         sinkConfig -> {
                             // Add jar paths for each plugin
                             jarPaths.addAll(
-                                    sinkPluginDiscovery.getPluginJarPaths(
+                                    sinkPluginDiscovery.getPluginJarAndDependencyPaths(
                                             Lists.newArrayList(
                                                     PluginIdentifier.of(
                                                             EngineType.SEATUNNEL.getEngine(),
