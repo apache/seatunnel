@@ -140,6 +140,30 @@ sink {
 
 If you need more transform options, see [Transforms Catalog](../transforms) and [Transform Common Options](../transforms/common-options/common-options.md).
 
+## Plugin Archive Directory For Cluster Submissions
+
+In cluster deploy mode, the starter packages the `plugins` directory into `plugins.tar.gz`
+and passes the archive to `spark-submit` through `--files`. By default, the archive is
+written under `SEATUNNEL_HOME`, preserving the existing behavior.
+
+For Spark 2, Spark 3 and Spark 3.5, set the optional `SEATUNNEL_PLUGIN_TARBALL_DIR`
+environment variable to an existing writable directory to stage the archive elsewhere:
+
+```bash
+mkdir -p /tmp/seatunnel-submission-001
+export SEATUNNEL_PLUGIN_TARBALL_DIR=/tmp/seatunnel-submission-001
+./bin/start-seatunnel-spark-3-connector-v2.sh --master yarn --deploy-mode cluster --config config/job.conf
+```
+
+Use a different directory for each concurrent submission; setting the same directory
+does not provide isolation. The archive name remains `plugins.tar.gz`. An unset, empty
+or whitespace-only value uses the default path; a missing directory or a regular file
+causes command generation to fail. This setting does not affect client deploy mode.
+
+The caller creates and cleans up the directory. Keep the archive available until
+`spark-submit` finishes, including uploads; the starter JVM exits before submission
+and does not delete the archive automatically.
+
 ## Running From A Source Checkout
 
 If you are running examples from the repository source tree, the example module is:

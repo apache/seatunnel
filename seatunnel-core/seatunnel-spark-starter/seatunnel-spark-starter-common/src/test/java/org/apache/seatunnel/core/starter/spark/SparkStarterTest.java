@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.spark;
 
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.constants.EngineType;
 
 import org.junit.jupiter.api.AfterEach;
@@ -51,6 +52,41 @@ class SparkStarterTest {
     private final Map<String, String> originalProperties = new HashMap<>();
 
     @TempDir Path tempDir;
+
+    @Test
+    void preserveDefaultPluginTarballWithoutDirectory() throws IOException {
+        for (String directory : new String[] {null, "", "  "}) {
+            Assertions.assertEquals(
+                    Common.pluginTarball(), SparkStarter.getPluginTarball(directory));
+        }
+    }
+
+    @Test
+    void isolatePluginTarballsInExistingSubmissionDirectories() throws IOException {
+        Path first = Files.createDirectory(tempDir.resolve("submission one"));
+        Path second = Files.createDirectory(tempDir.resolve("submission two"));
+        Path firstArchive = SparkStarter.getPluginTarball(first.toString());
+        Path secondArchive = SparkStarter.getPluginTarball(second.toString());
+        Assertions.assertEquals(first.toAbsolutePath().resolve("plugins.tar.gz"), firstArchive);
+        Assertions.assertEquals(second.toAbsolutePath().resolve("plugins.tar.gz"), secondArchive);
+        Files.write(firstArchive, new byte[] {1});
+        Files.write(secondArchive, new byte[] {2});
+        Assertions.assertArrayEquals(new byte[] {1}, Files.readAllBytes(firstArchive));
+    }
+
+    @Test
+    void rejectMissingOrNonDirectoryPluginTarballLocations() throws IOException {
+        Path missing = tempDir.resolve("missing");
+        Path file = Files.createFile(tempDir.resolve("file"));
+        for (Path path : Arrays.asList(missing, file)) {
+            IOException error =
+                    Assertions.assertThrows(
+                            IOException.class,
+                            () -> SparkStarter.getPluginTarball(path.toString()));
+            Assertions.assertTrue(error.getMessage().contains(path.toAbsolutePath().toString()));
+        }
+        Assertions.assertFalse(Files.exists(missing));
+    }
 
     @BeforeEach
     void saveStarterProperties() {
