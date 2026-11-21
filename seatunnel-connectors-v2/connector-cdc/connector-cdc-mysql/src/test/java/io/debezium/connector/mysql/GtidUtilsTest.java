@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.debezium.connector.mysql.GtidUtils.fixRestoredGtidSet;
 import static io.debezium.connector.mysql.GtidUtils.mergeGtidSetInto;
+import static io.debezium.connector.mysql.GtidUtils.untrackedGtids;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** Unit test for {@link GtidUtils}. */
@@ -67,5 +68,68 @@ class GtidUtilsTest {
         base = new GtidSet("A:1-100,C:1-100");
         toMerge = new GtidSet("A:1-10,B:1-10");
         assertEquals("A:1-100,B:1-10,C:1-100", mergeGtidSetInto(base, toMerge).toString());
+    }
+
+    @Test
+    void testUntrackedGtids() {
+        GtidSet restored = new GtidSet("A:9-90");
+
+        // A lineage the restored set does not mention is returned, one it does is dropped.
+        assertEquals("B:1-1000", untrackedGtids("A:1-80,B:1-1000", restored).toString());
+        assertEquals("", untrackedGtids("A:1-80", restored).toString());
+
+        // The oldest retained binlog file reports no earlier transactions.
+        assertEquals("", untrackedGtids("", restored).toString());
+        assertEquals("", untrackedGtids("   ", restored).toString());
+        assertEquals("", untrackedGtids(null, restored).toString());
+    }
+
+    @Test
+    void testCompletingLineageMissingFromRestoredSet() {
+        // B is inherited from a previous master and no longer written to, so a job started from a
+        // binlog file and position never recorded it. It was executed before the resume file.
+        GtidSet server = new GtidSet("A:1-100,B:1-1000");
+        GtidSet purged = new GtidSet("B:1-900");
+        GtidSet restored = new GtidSet("A:9-90");
+        String previousGtids = "A:1-80,B:1-1000";
+
+        // Without the Previous_gtids adjustment B is claimed only as far as the purge point, so
+        // the 100 transactions the server still retains for it are re-delivered.
+        assertEquals("A:1-90,B:1-900", merge(server, purged, restored, null).toString());
+
+        assertEquals("A:1-90,B:1-1000", merge(server, purged, restored, previousGtids).toString());
+    }
+
+    @Test
+    void testRestoredSetTrackingEveryLineageIsUnchanged() {
+        GtidSet server = new GtidSet("A:1-100,B:1-1000");
+        GtidSet purged = new GtidSet("B:1-900");
+        GtidSet restored = new GtidSet("A:9-90,B:1-1000");
+
+        assertEquals(
+                merge(server, purged, restored, null).toString(),
+                merge(server, purged, restored, "A:1-80,B:1-1000").toString());
+    }
+
+    @Test
+    void testLineageWrittenAfterTheResumePositionIsNotClaimed() {
+        // C has just become active, as after a failover, so it is absent from Previous_gtids and
+        // has to keep being read from its earliest available position.
+        GtidSet server = new GtidSet("A:1-100,C:1-50");
+        GtidSet restored = new GtidSet("A:9-90");
+
+        GtidSet merged = merge(server, new GtidSet(""), restored, "A:1-80");
+
+        assertEquals("A:1-90", merged.toString());
+    }
+
+    /** The merge performed by MySqlStreamingChangeEventSource#filterGtidSet. */
+    private static GtidSet merge(
+            GtidSet server, GtidSet purged, GtidSet restored, String previousGtids) {
+        GtidSet tracked = server.retainAll(uuid -> restored.forServerWithId(uuid) != null);
+        return fixRestoredGtidSet(
+                mergeGtidSetInto(
+                        mergeGtidSetInto(tracked, untrackedGtids(previousGtids, restored)), purged),
+                restored);
     }
 }
