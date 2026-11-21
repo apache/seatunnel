@@ -204,8 +204,7 @@ public class JdbcSourceSplitEnumerator
                 }
             }
             context.sendEventToSourceReader(
-                    subtaskId,
-                    new JdbcTableCloseStatus.Reply(request.getReaderAttempt(), finished));
+                    subtaskId, new JdbcTableCloseStatus.Reply(request.getRequestId(), finished));
             return;
         }
         if (!(sourceEvent instanceof JdbcSplitFinishedEvent)) {

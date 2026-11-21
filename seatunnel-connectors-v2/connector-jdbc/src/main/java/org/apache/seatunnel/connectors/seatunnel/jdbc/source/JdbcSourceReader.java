@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,7 +59,12 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     private int unansweredRequests;
     private long lastRequestTime;
     private boolean statusRequested;
-    private final UUID readerAttempt = UUID.randomUUID();
+    // Keep at most one bounded window of outstanding nonces. Accept each response once.
+    // Track assignment generations separately so even a valid delayed response cannot
+    // authorize a table whose queue changed since its probe was sent.
+    private final Map<UUID, Long> outstandingProbes = new LinkedHashMap<>();
+    private final Map<TablePath, Long> lastAssignment = new HashMap<>();
+    private long assignmentGeneration;
     private boolean closeStatusHint;
     // Includes queued and currently reading splits. The counter drops only after input
     // rows have been collected and the JDBC split has been closed successfully.
@@ -135,9 +141,13 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                         statusRequested = true;
                         unansweredRequests++;
                         lastRequestTime = now;
+                        UUID nonce = UUID.randomUUID();
+                        if (outstandingProbes.size() >= MAX_UNANSWERED_STATUS_REQUESTS) {
+                            outstandingProbes.remove(outstandingProbes.keySet().iterator().next());
+                        }
+                        outstandingProbes.put(nonce, assignmentGeneration);
                         statusRequest =
-                                new JdbcTableCloseStatus.Request(
-                                        readerAttempt, pendingGlobalCloseTables);
+                                new JdbcTableCloseStatus.Request(nonce, pendingGlobalCloseTables);
                     }
                 }
                 split = closeTableEvent == null && statusRequest == null ? splits.poll() : null;
@@ -240,6 +250,7 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                 if (!receivedFinishedTables.contains(split.getTablePath())) {
                     pendingGlobalCloseTables.add(split.getTablePath());
                 }
+                lastAssignment.put(split.getTablePath(), ++assignmentGeneration);
                 localRemaining.merge(split.getTablePath(), 1, Integer::sum);
                 this.splits.add(split);
                 // Progress logging counts only splits that are queued for reading; close-table
@@ -274,14 +285,17 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                 }
             } else {
                 JdbcTableCloseStatus.Reply reply = (JdbcTableCloseStatus.Reply) sourceEvent;
-                if (!readerAttempt.equals(reply.getReaderAttempt())) {
+                Long generation = outstandingProbes.remove(reply.getRequestId());
+                if (generation == null) {
                     return;
                 }
                 unansweredRequests = 0;
                 reply.getFinishedTables()
                         .forEach(
                                 (table, count) -> {
-                                    if (pendingGlobalCloseTables.contains(table)
+                                    if (count >= 0
+                                            && pendingGlobalCloseTables.contains(table)
+                                            && lastAssignment.getOrDefault(table, 0L) <= generation
                                             && (count == 0 || !localRemaining.containsKey(table))) {
                                         enqueueFinished(table, readerId, count);
                                     }
@@ -302,6 +316,7 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
         }
         pendingCloseTableEvents.removeIf(event -> table.equals(event.getTablePath()));
         receivedFinishedTables.remove(table);
+        lastAssignment.put(table, ++assignmentGeneration);
         closeStatusHint = true;
         pendingGlobalCloseTables.add(table);
     }
@@ -312,5 +327,6 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
             pendingCloseTableEvents.add(new CloseTableEvent(table, readerId, expectedCount));
         }
         pendingGlobalCloseTables.remove(table);
+        lastAssignment.remove(table);
     }
 }

@@ -35,11 +35,11 @@ public final class JdbcTableCloseStatus {
     @Getter
     public static final class Request implements SourceEvent {
         private static final long serialVersionUID = 1L;
-        private final UUID readerAttempt;
+        private final UUID requestId;
         private final Set<TablePath> tables;
 
-        public Request(UUID readerAttempt, Set<TablePath> tables) {
-            this.readerAttempt = readerAttempt;
+        public Request(UUID requestId, Set<TablePath> tables) {
+            this.requestId = requestId;
             this.tables = new HashSet<>(tables);
         }
     }
@@ -47,11 +47,11 @@ public final class JdbcTableCloseStatus {
     @Getter
     public static final class Reply implements SourceEvent {
         private static final long serialVersionUID = 1L;
-        private final UUID readerAttempt;
+        private final UUID requestId;
         private final Map<TablePath, Integer> finishedTables;
 
-        public Reply(UUID readerAttempt, Map<TablePath, Integer> finishedTables) {
-            this.readerAttempt = readerAttempt;
+        public Reply(UUID requestId, Map<TablePath, Integer> finishedTables) {
+            this.requestId = requestId;
             this.finishedTables = new HashMap<>(finishedTables);
         }
     }

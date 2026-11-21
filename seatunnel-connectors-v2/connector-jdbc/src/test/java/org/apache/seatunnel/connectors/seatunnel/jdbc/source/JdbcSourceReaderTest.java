@@ -176,7 +176,7 @@ class JdbcSourceReaderTest {
                                     .handleSourceEvent(
                                             new JdbcTableCloseStatus.Reply(
                                                     ((JdbcTableCloseStatus.Request) event)
-                                                            .getReaderAttempt(),
+                                                            .getRequestId(),
                                                     Collections.emptyMap()));
                         }
                     }
@@ -513,7 +513,7 @@ class JdbcSourceReaderTest {
                         context.sourceEvents.get(context.sourceEvents.size() - 1);
         reader.handleSourceEvent(
                 new JdbcTableCloseStatus.Reply(
-                        proof.getReaderAttempt(), Collections.singletonMap(table, 1)));
+                        proof.getRequestId(), Collections.singletonMap(table, 1)));
         reader.pollNext(collector);
         Assertions.assertEquals(1, collector.closeTableEvents.size());
         reader.pollNext(collector);
@@ -539,7 +539,7 @@ class JdbcSourceReaderTest {
                 (JdbcTableCloseStatus.Request) context.sourceEvents.get(1);
         reader.handleSourceEvent(
                 new JdbcTableCloseStatus.Reply(
-                        proof.getReaderAttempt(), Collections.singletonMap(first, 1)));
+                        proof.getRequestId(), Collections.singletonMap(first, 1)));
         reader.pollNext(out);
         Assertions.assertEquals(1, out.closeTableEvents.size());
         Assertions.assertEquals(first, out.closeTableEvents.get(0).getTablePath());
@@ -567,22 +567,47 @@ class JdbcSourceReaderTest {
         JdbcTableCloseStatus.Request req = (JdbcTableCloseStatus.Request) ctx.sourceEvents.get(0);
         JdbcTableCloseStatus.Reply positive =
                 new JdbcTableCloseStatus.Reply(
-                        req.getReaderAttempt(), Collections.singletonMap(table, 1));
+                        req.getRequestId(), Collections.singletonMap(table, 1));
         reader.handleSourceEvent(positive);
         reader.pollNext(out);
         Mockito.verify(format).open(first);
         Assertions.assertTrue(out.closeTableEvents.isEmpty());
-        reader.handleSourceEvent(positive); // now valid but still only queued
+        reader.handleSourceEvent(positive); // consumed nonce; must not become valid on replay
+        JdbcTableCloseStatus.Reply beforeReassignment = askToClose(reader, ctx, table, out);
         reader.addSplits(Collections.singletonList(replay));
         reader.pollNext(out);
         Mockito.verify(format).open(replay);
+        reader.handleSourceEvent(
+                beforeReassignment); // even after replay drains, this nonce predates its assignment
+        JdbcTableCloseStatus.Reply fresh = askToClose(reader, ctx, table, out);
+        reader.handleSourceEvent(fresh); // valid, but queued rather than delivered
+        JdbcSourceSplit finalSplit = new JdbcSourceSplit(table, "c", "s", null, null, null, null);
+        reader.addSplits(Collections.singletonList(finalSplit)); // retract the queued marker
+        reader.pollNext(out);
+        Mockito.verify(format).open(finalSplit);
         Assertions.assertTrue(out.closeTableEvents.isEmpty());
-        reader.handleSourceEvent(positive);
+        reader.handleSourceEvent(askToClose(reader, ctx, table, out));
         reader.pollNext(out);
         Assertions.assertEquals(1, out.closeTableEvents.size());
         Assertions.assertThrows(
                 IllegalStateException.class,
                 () -> reader.addSplits(Collections.singletonList(replay)));
+    }
+
+    private static JdbcTableCloseStatus.Reply askToClose(
+            JdbcSourceReader reader,
+            TestSourceReaderContext ctx,
+            TablePath table,
+            TestCollector out)
+            throws Exception {
+        int previous = ctx.sourceEvents.size();
+        reader.handleSourceEvent(new JdbcTableFinishedEvent(table, 1));
+        reader.pollNext(out);
+        Assertions.assertEquals(previous + 1, ctx.sourceEvents.size());
+        JdbcTableCloseStatus.Request req =
+                (JdbcTableCloseStatus.Request) ctx.sourceEvents.get(previous);
+        return new JdbcTableCloseStatus.Reply(
+                req.getRequestId(), Collections.singletonMap(table, 1));
     }
 
     @Test
@@ -623,7 +648,7 @@ class JdbcSourceReaderTest {
                 (JdbcTableCloseStatus.Request) originalContext.sourceEvents.get(1);
         reader.handleSourceEvent(
                 new JdbcTableCloseStatus.Reply(
-                        original.getReaderAttempt(), Collections.singletonMap(tablePath, 2)));
+                        original.getRequestId(), Collections.singletonMap(tablePath, 2)));
 
         List<JdbcSourceSplit> snapshot = reader.snapshotState(1L);
 
@@ -646,7 +671,7 @@ class JdbcSourceReaderTest {
                 (JdbcTableCloseStatus.Request) restoredContext.sourceEvents.get(0);
         restoredReader.handleSourceEvent(
                 new JdbcTableCloseStatus.Reply(
-                        probe.getReaderAttempt(), Collections.singletonMap(tablePath, 0)));
+                        probe.getRequestId(), Collections.singletonMap(tablePath, 0)));
         restoredReader.pollNext(collector);
         Assertions.assertTrue(collector.closeTableEvents.isEmpty());
     }
