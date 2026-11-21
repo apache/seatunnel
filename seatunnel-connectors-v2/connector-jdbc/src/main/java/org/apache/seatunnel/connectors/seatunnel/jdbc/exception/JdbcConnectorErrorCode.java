@@ -33,7 +33,8 @@ public enum JdbcConnectorErrorCode implements SeaTunnelErrorCode {
     NO_SUPPORT_OPERATION_FAILED("JDBC-09", "The jdbc driver not support operation."),
     DATA_TYPE_CAST_FAILED("JDBC-10", "Data type cast failed"),
     REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT(
-            "JDBC-11", "Refresh the table with schema change failed");
+            "JDBC-11", "Refresh the table with schema change failed"),
+    APPLY_TABLE_OPERATION_FAILED("JDBC-12", "Apply table operation failed");
 
     private final String code;
 

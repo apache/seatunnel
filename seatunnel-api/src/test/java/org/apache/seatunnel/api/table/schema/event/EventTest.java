@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.operation.event.TruncateTableEvent;
 import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -69,6 +70,15 @@ public class EventTest {
         AlterTableDropColumnEvent dropColumnEvent =
                 new AlterTableDropColumnEvent(TableIdentifier.of("", TablePath.DEFAULT), "test");
         Assertions.assertEquals(EventType.SCHEMA_CHANGE_DROP_COLUMN, getEventType(dropColumnEvent));
+    }
+
+    @Test
+    public void testTruncateTableEventType() {
+        TruncateTableEvent event = TruncateTableEvent.of(TableIdentifier.of("", TablePath.DEFAULT));
+        Assertions.assertEquals(EventType.TABLE_OPERATION_TRUNCATE, event.getEventType());
+        Assertions.assertEquals(
+                org.apache.seatunnel.api.table.operation.TableOperationType.TRUNCATE_TABLE,
+                event.operationType());
     }
 
     @Test
