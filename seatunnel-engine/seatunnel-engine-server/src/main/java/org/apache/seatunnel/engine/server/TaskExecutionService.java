@@ -166,6 +166,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /** Flag indicating whether the service is running. */
     private volatile boolean isRunning = true;
 
+    /**
+     * Whether this service is still running; used by worker-side retry loops to give up when the
+     * service (and with it the worker's engine) is shutting down.
+     */
+    public boolean isRunning() {
+        return isRunning;
+    }
+
     /** Queue for tasks that can share threads (cooperative multitasking). */
     private final LinkedBlockingDeque<TaskTracker> threadShareTaskQueue =
             new LinkedBlockingDeque<>();

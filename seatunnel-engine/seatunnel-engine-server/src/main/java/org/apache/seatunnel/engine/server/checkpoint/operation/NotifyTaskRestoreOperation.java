@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.common.Constant;
@@ -109,10 +110,8 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
                                                         "NotifyTaskRestoreOperation.finished "
                                                                 + restoredState);
                                             } catch (Throwable e) {
-                                                task.getExecutionContext()
-                                                        .sendToMaster(
-                                                                new CheckpointErrorReportOperation(
-                                                                        taskLocation, e));
+                                                reportRestoreErrorWithRetry(
+                                                        task, taskLocation, e, 1000L);
                                             } finally {
                                                 Thread.currentThread()
                                                         .setContextClassLoader(classLoader);
@@ -131,5 +130,46 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
                                 exception instanceof TaskGroupContextNotFoundException
                                         && !server.taskIsEnded(taskLocation.getTaskGroupLocation()),
                         Constant.OPERATION_RETRY_SLEEP));
+    }
+
+    /**
+     * Reports a restore failure to the master, retrying until the master accepts the report (a
+     * restoring master answers with {@code JobRestoreInProgressException} until it finished
+     * restoring) or this worker's task execution service stops.
+     *
+     * <p>The report is the only signal that lets the pipeline recover from a failed restore: if it
+     * is lost, the task spins in WAITING_RESTORE forever and nothing times that phase out. Terminal
+     * task-status reports are already retried indefinitely by {@code
+     * TaskExecutionService#notifyTaskStatusToMaster}; the restore path must not use a less reliable
+     * channel.
+     *
+     * @param sleepMillis pause between two report attempts
+     */
+    static void reportRestoreErrorWithRetry(
+            Task task, TaskLocation taskLocation, Throwable error, long sleepMillis) {
+        while (task.getExecutionContext().getTaskExecutionService().isRunning()) {
+            try {
+                task.getExecutionContext()
+                        .sendToMaster(new CheckpointErrorReportOperation(taskLocation, error))
+                        .join();
+                return;
+            } catch (Throwable e) {
+                log.warn(
+                        String.format(
+                                "Report the restore error of task %s to the master failed: %s, retry in %s millis",
+                                taskLocation, ExceptionUtils.getMessage(e), sleepMillis));
+                try {
+                    Thread.sleep(sleepMillis);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+        log.error(
+                "Give up reporting the restore error of task {} to the master because the task"
+                        + " execution service stopped: {}",
+                taskLocation,
+                ExceptionUtils.getMessage(error));
     }
 }
