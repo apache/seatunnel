@@ -35,7 +35,6 @@ import org.apache.seatunnel.connectors.doris.util.ErrorMessages;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpStatus;
-import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
@@ -71,8 +70,8 @@ public class RestService implements Serializable {
     private static final String QUERY_PLAN = "_query_plan";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    private static String send(
-            DorisSourceConfig dorisSourceConfig, HttpRequestBase request, Logger logger)
+    @VisibleForTesting
+    static String send(DorisSourceConfig dorisSourceConfig, HttpRequestBase request, Logger logger)
             throws DorisConnectorException {
         int connectTimeout = dorisSourceConfig.getRequestConnectTimeoutMs();
         int socketTimeout = dorisSourceConfig.getRequestReadTimeoutMs();
@@ -83,13 +82,6 @@ public class RestService implements Serializable {
                 socketTimeout,
                 retries);
 
-        RequestConfig requestConfig =
-                RequestConfig.custom()
-                        .setConnectTimeout(connectTimeout)
-                        .setSocketTimeout(socketTimeout)
-                        .build();
-
-        request.setConfig(requestConfig);
         logger.info(
                 "Send request to Doris FE '{}' with user '{}'.",
                 request.getURI(),
@@ -107,6 +99,8 @@ public class RestService implements Serializable {
                                     request.getURI().toString(),
                                     dorisSourceConfig.getUsername(),
                                     dorisSourceConfig.getPassword(),
+                                    connectTimeout,
+                                    socketTimeout,
                                     logger);
                 } else {
                     response =
@@ -114,6 +108,8 @@ public class RestService implements Serializable {
                                     request,
                                     dorisSourceConfig.getUsername(),
                                     dorisSourceConfig.getPassword(),
+                                    connectTimeout,
+                                    socketTimeout,
                                     logger);
                 }
                 if (StringUtils.isEmpty(response)) {
@@ -150,9 +146,17 @@ public class RestService implements Serializable {
     }
 
     private static String getConnectionPost(
-            HttpRequestBase request, String user, String passwd, Logger logger) throws IOException {
+            HttpRequestBase request,
+            String user,
+            String passwd,
+            int connectTimeout,
+            int socketTimeout,
+            Logger logger)
+            throws IOException {
         URL url = new URL(request.getURI().toString());
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setConnectTimeout(connectTimeout);
+        conn.setReadTimeout(socketTimeout);
         conn.setInstanceFollowRedirects(false);
         conn.setRequestMethod(request.getMethod());
         String authEncoding =
@@ -175,10 +179,18 @@ public class RestService implements Serializable {
     }
 
     private static String getConnectionGet(
-            String request, String user, String passwd, Logger logger) throws IOException {
+            String request,
+            String user,
+            String passwd,
+            int connectTimeout,
+            int socketTimeout,
+            Logger logger)
+            throws IOException {
         URL realUrl = new URL(request);
         // open connection
         HttpURLConnection connection = (HttpURLConnection) realUrl.openConnection();
+        connection.setConnectTimeout(connectTimeout);
+        connection.setReadTimeout(socketTimeout);
         String authEncoding =
                 Base64.getEncoder()
                         .encodeToString(
