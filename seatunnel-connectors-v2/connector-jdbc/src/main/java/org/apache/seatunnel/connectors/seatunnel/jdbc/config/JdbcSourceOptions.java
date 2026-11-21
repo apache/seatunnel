@@ -97,6 +97,20 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                                     + "For example, a value of 1000 means a sampling rate of 1/1000. "
                                     + "This parameter is used when the sample sharding strategy is triggered.");
 
+    public static final Option<Boolean> SPLIT_HASH_SHARD_PARALLELISM_CAP =
+            Options.key("split.hash-shard-parallelism-cap")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Cap the hash chunk count for String split columns at the reader "
+                                    + "parallelism explicitly configured on the source plugin. "
+                                    + "Hash chunk predicates wrap the split column in a hash "
+                                    + "function (for example ABS(MD5(col) % N)) that no index can "
+                                    + "serve, so every chunk scans the whole table and the total "
+                                    + "scan cost grows linearly with the chunk count. Capping at "
+                                    + "the parallelism keeps every reader busy while bounding the "
+                                    + "read amplification.");
+
     public static final Option<Boolean> SPLIT_ALLOW_SAMPLING =
             Options.key("split.allow-sampling")
                     .booleanType()

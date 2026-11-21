@@ -231,12 +231,38 @@ public class MysqlDialect implements JdbcDialect {
                                         "No result returned after running query [%s]",
                                         rowCountQuery));
                     }
-                    return rs.getLong(5);
+                    return arbiterZeroEstimate(connection, tablePath, rs.getLong(5));
                 }
             }
         }
 
         return SQLUtils.countForSubquery(connection, table.getQuery());
+    }
+
+    /**
+     * Re-checks a zero row estimate from SHOW TABLE STATUS with COUNT(*). The Rows column is an
+     * InnoDB statistics estimate and can stay at 0 after a bulk load when statistics were not
+     * refreshed; a stale zero collapses concurrent read to a single split. COUNT(*) is the arbiter:
+     * it is instant on a genuinely empty table, so the empty-table behavior is unchanged, while a
+     * stale zero on a loaded table is corrected before splitting.
+     */
+    private long arbiterZeroEstimate(Connection connection, TablePath tablePath, long estimated)
+            throws SQLException {
+        if (estimated != 0) {
+            return estimated;
+        }
+        long actual = SQLUtils.countForTable(connection, tableIdentifier(tablePath));
+        if (actual > 0) {
+            log.warn(
+                    "SHOW TABLE STATUS returned 0 rows for {} but COUNT(*) returned {}; "
+                            + "InnoDB statistics are stale and concurrent read would collapse "
+                            + "to a single split, so the real count is used. "
+                            + "Run ANALYZE TABLE to refresh statistics.",
+                    tablePath,
+                    actual);
+            return actual;
+        }
+        return actual;
     }
 
     @Override
