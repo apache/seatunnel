@@ -23,17 +23,25 @@ import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBas
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.aliyun.credentials.models.CredentialModel;
+import com.aliyun.credentials.provider.AlibabaCloudCredentialsProvider;
+import com.aliyun.credentials.provider.OIDCRoleArnCredentialProvider;
 import com.aliyun.odps.Odps;
 import com.aliyun.odps.account.Account;
 import com.aliyun.odps.account.AklessAccount;
 import com.aliyun.odps.account.AliyunAccount;
+import com.aliyun.odps.account.RequestSigner;
 import com.aliyun.odps.account.StsAccount;
 import com.aliyun.odps.commons.GeneralConfiguration;
+import com.aliyun.odps.commons.transport.Request;
 import com.aliyun.odps.rest.RestClient;
 import com.aliyun.odps.tunnel.TableTunnel;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class MaxcomputeUtilTest {
 
@@ -80,6 +88,77 @@ public class MaxcomputeUtilTest {
         Account account = MaxcomputeUtil.getAccount(ReadonlyConfig.fromMap(new HashMap<>()));
 
         Assertions.assertInstanceOf(AklessAccount.class, account);
+    }
+
+    /**
+     * Verifies that credentials-java 1.0.8 resolves the VPC STS endpoint when VPC endpoint and STS
+     * region are enabled using builder-local settings, avoiding process-wide AuthUtils overrides.
+     */
+    @Test
+    void testOIDCRoleArnCredentialProviderVpcEndpointResolution() {
+        // Builder-local VPC endpoint resolution with regional STS
+        OIDCRoleArnCredentialProvider vpcProvider =
+                OIDCRoleArnCredentialProvider.builder()
+                        .roleArn("acs:ram::1234567890123456:role/test-role")
+                        .oidcProviderArn("acs:ram::1234567890123456:oidc-provider/test-idp")
+                        .oidcTokenFilePath("/tmp/non-existent-token")
+                        .enableVpc(true)
+                        .stsRegionId("cn-hangzhou")
+                        .build();
+        Assertions.assertEquals("sts-vpc.cn-hangzhou.aliyuncs.com", vpcProvider.getSTSEndpoint());
+
+        // Builder-local public endpoint resolution with regional STS
+        OIDCRoleArnCredentialProvider publicProvider =
+                OIDCRoleArnCredentialProvider.builder()
+                        .roleArn("acs:ram::1234567890123456:role/test-role")
+                        .oidcProviderArn("acs:ram::1234567890123456:oidc-provider/test-idp")
+                        .oidcTokenFilePath("/tmp/non-existent-token")
+                        .enableVpc(false)
+                        .stsRegionId("cn-hangzhou")
+                        .build();
+        Assertions.assertEquals("sts.cn-hangzhou.aliyuncs.com", publicProvider.getSTSEndpoint());
+
+        // Default endpoint without VPC or regional overrides
+        OIDCRoleArnCredentialProvider defaultProvider =
+                OIDCRoleArnCredentialProvider.builder()
+                        .roleArn("acs:ram::1234567890123456:role/test-role")
+                        .oidcProviderArn("acs:ram::1234567890123456:oidc-provider/test-idp")
+                        .oidcTokenFilePath("/tmp/non-existent-token")
+                        .build();
+        Assertions.assertEquals("sts.aliyuncs.com", defaultProvider.getSTSEndpoint());
+    }
+
+    /**
+     * Exercises AklessAccount authentication path: verifies that the Alibaba Cloud credentials
+     * model produces an ODPS RequestSigner and signs an ODPS request with required headers.
+     */
+    @Test
+    void testAklessAccountSignWithCredentialsProvider() {
+        AlibabaCloudCredentialsProvider mockProvider = mock(AlibabaCloudCredentialsProvider.class);
+        CredentialModel credentials =
+                CredentialModel.builder()
+                        .accessKeyId("STS.test-access-key-id")
+                        .accessKeySecret("test-access-key-secret")
+                        .securityToken("test-security-token")
+                        .build();
+        when(mockProvider.getCredentials()).thenReturn(credentials);
+
+        AklessAccount account = new AklessAccount(mockProvider);
+        Assertions.assertEquals(Account.AccountProvider.STS, account.getType());
+
+        RequestSigner signer = account.getRequestSigner();
+        Assertions.assertNotNull(signer);
+        Request request = new Request();
+        request.setMethod(Request.Method.GET);
+        signer.sign("/projects/my_project/tables", request);
+
+        Assertions.assertTrue(
+                request.getHeaders()
+                        .get("Authorization")
+                        .startsWith("ODPS STS.test-access-key-id:"),
+                "Authorization header must be formatted with STS AK");
+        Assertions.assertEquals(
+                "test-security-token", request.getHeaders().get("authorization-sts-token"));
     }
 
     /**
