@@ -62,4 +62,4 @@
 
 # ─── SeaTunnel Engine (optional) ───
 # export SEATUNNEL_HOME=/path/to/seatunnel
-# export SEATUNNEL_API_BASE=http://localhost:5801
+# export SEATUNNEL_API_BASE=http://localhost:8080

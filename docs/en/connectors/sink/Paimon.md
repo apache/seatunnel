@@ -70,25 +70,32 @@ libfb303-xxx.jar
 
 | name                         | type    | required | default value                | Description                                                                                                                                                      |
 |------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| warehouse                    | String  | Yes      | -                            | Paimon warehouse path. Must not be blank.                                                                                                                        |
-| catalog_name                 | String  | No       | paimon                       | The name of Paimon catalog                                                                                                                                       |
-| catalog_type                 | String  | No       | filesystem                   | Catalog type of Paimon, support filesystem and hive                                                                                                              |
-| catalog_uri                  | String  | Yes when `catalog_type` is `hive` | -                            | Catalog URI of Paimon. Required when `catalog_type` is `hive`.                                                                                                  |
-| database                     | String  | Yes      | -                            | The database you want to access. Must not be blank.                                                                                                              |
-| table                        | String  | Yes      | -                            | The table you want to access. Must not be blank.                                                                                                                 |
-| user                         | String  | No       | -                            | Paimon user to access table                                                                                                                                      |
-| password                     | String  | No      | -                            | Paimon user password to access table                                                                                                                             |
-| hdfs_site_path               | String  | No       | -                            | Deprecated. The path of hdfs-site.xml. Prefer `paimon.hadoop.conf` or `paimon.hadoop.conf-path` for new jobs                                                     |
-| schema_save_mode             | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | The schema save mode                                                                                                                                             |
-| data_save_mode               | Enum    | No       | APPEND_DATA                  | The data save mode                                                                                                                                               |
-| paimon.table.primary-keys    | String  | No       | -                            | Default comma-separated list of columns (primary key) that identify a row in tables.(Notice: The partition field needs to be included in the primary key fields) |
+| warehouse                    | String  | Yes      | -                            | Paimon warehouse path. Must not be blank. For `rest`, use the managed warehouse name instead of a path.                                                                                                                                           |
+| catalog_name                 | String  | No       | paimon                       | The name of the Paimon catalog.                                                                                                                                  |
+| catalog_type                 | String  | No       | filesystem                   | Catalog type of Paimon. Supports `filesystem`, `hive` and `rest`.                                                                                                        |
+| catalog_uri                  | String  | Yes when `catalog_type` is `hive` or `rest` | -                            | Catalog URI of Paimon: the Hive metastore URI, or the REST catalog endpoint. Required when `catalog_type` is `hive` or `rest`.                                                                                                  |
+| token.provider               | String  | Yes when `catalog_type` is `rest` | -                            | Authentication provider for the REST catalog: exactly `bear` or `dlf`. |
+| token                        | String  | Yes when `token.provider` is `bear` | -                            | Bearer token for the REST catalog. |
+| dlf.access-key-id            | String  | Yes when `token.provider` is `dlf` | -                            | DLF access key ID. |
+| dlf.access-key-secret        | String  | Yes when `token.provider` is `dlf` | -                            | DLF access key secret. |
+| dlf.security-token           | String  | No       | -                            | Optional temporary DLF security token. |
+| dlf.region                   | String  | No       | -                            | DLF region. Inferred from `catalog_uri` when omitted. |
+| database                     | String  | Yes      | -                            | The database you want to access. Must not be blank.                                                                                                                                 |
+| table                        | String  | Yes      | -                            | The table you want to access. Must not be blank.                                                                                                                                    |
+| user                         | String  | No       | -                            | The Paimon user used to access the table. Required when the underlying catalog enforces authentication.                                                          |
+| password                     | String  | No       | -                            | The Paimon user password. Required when `user` is configured.                                                                                                    |
+| hdfs_site_path               | String  | No       | -                            | Deprecated. The path of `hdfs-site.xml`. Prefer `paimon.hadoop.conf` or `paimon.hadoop.conf-path` for new jobs.                                                  |
+| schema_save_mode             | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | The schema save mode.                                                                                                                                            |
+| data_save_mode               | Enum    | No       | APPEND_DATA                  | The data save mode.                                                                                                                                              |
+| paimon.table.primary-keys    | String  | No       | -                            | Default comma-separated list of columns (primary key) that identify a row in tables. (Notice: The partition field needs to be included in the primary key fields.) |
 | paimon.table.partition-keys  | String  | No       | -                            | Default comma-separated list of partition fields to use when creating tables.                                                                                    |
-| paimon.table.write-props     | Map     | No       | -                            | Properties passed through to paimon table initialization, [reference](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions).            |
+| paimon.table.write-props     | Map     | No       | -                            | Properties passed through to Paimon table initialization, see [Paimon CoreOptions](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions). |
 | table_options                | Map     | No       | -                            | Sink-specific table options for SaveMode auto-create only (not runtime write-props). See below.                                                                  |
-| paimon.hadoop.conf           | Map     | No       | -                            | Properties in hadoop conf                                                                                                                                        |
-| paimon.hadoop.conf-path      | String  | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
-| paimon.table.non-primary-key | Boolean | No       | false                        | Switch to create `table with PK` or `table without PK`. true : `table without PK`, false : `table with PK`                                                       |
-| branch                       | String  | No       | -                            | The branch name of Paimon table to write data to. If omitted, data is written to the main branch. For non-main branches, the main table and target branch must already exist, and `schema_save_mode=RECREATE_SCHEMA` or `data_save_mode=DROP_DATA` is not supported. |
+| paimon.hadoop.conf           | Map     | No       | -                            | Properties in Hadoop conf.                                                                                                                                       |
+| paimon.hadoop.conf-path      | String  | No       | -                            | The specified loading path for `core-site.xml`, `hdfs-site.xml`, and `hive-site.xml` files.                                                                      |
+| paimon.table.non-primary-key | Boolean | No       | false                        | Switch to create `table with PK` or `table without PK`. `true`: table without PK, `false`: table with PK.                                                       |
+| branch                       | String  | No       | -                            | The branch name of the Paimon table to write data to. If omitted, data is written to the main branch. For non-main branches, the main table and target branch must already exist, and `schema_save_mode=RECREATE_SCHEMA` or `data_save_mode=DROP_DATA` is not supported. |
+| multi_table_sink_replica | int | No | 1 | The replica number of multi table sink writer. Use this when one upstream job writes to multiple Paimon tables and each table needs more than one sink writer. |
 
 ### table_options [Map]
 
@@ -140,7 +147,7 @@ All `changelog-producer` modes are currently supported. The default is `none`.
 > **Note**
 >
 > When you use a streaming mode to read a Paimon table, different `changelog-producer` modes will
-> produce [different results](../source/Paimon.md#changelog). Pick `input` for the most faithful
+> produce [different results](../source/Paimon.md#read-paimon-table-changelog). Pick `input` for the most faithful
 > pass-through of upstream CDC events, or `lookup` / `full-compaction` if the upstream does not emit
 > full changelog records.
 
@@ -176,6 +183,58 @@ CDC ingestion supports a limited number of schema changes. The currently support
 
 
 ## Examples
+
+### REST catalog authentication
+
+`catalog_type = "rest"` uses the REST implementation included in Paimon 1.1.1. Set `catalog_uri` to the HTTPS catalog endpoint and `warehouse` to the managed warehouse **name**, not an HDFS/S3 path. The REST server supplies table locations; workers still need access and credentials for the underlying storage. Existing filesystem and Hive configurations are unchanged.
+
+For REST, `catalog_uri` must be an HTTP or HTTPS URL with a host and no user information. Use HTTPS outside loopback testing: HTTP to a non-loopback host produces a warning because authentication credentials travel in clear text. `token.provider` is required and accepts exactly `bear` or `dlf`. `bear` requires a non-blank `token`; `dlf` requires both `dlf.access-key-id` and `dlf.access-key-secret`.
+
+Bearer tokens and DLF credentials are masked in parsed-configuration logs. For configuration encryption, `token` is included in the default `shade.identifier` handling; add the DLF secret keys explicitly to `shade.options` to encrypt and decrypt them. Log masking alone does not encrypt configuration. Do not put credentials in endpoint URLs. Supply secrets through environment variables or your deployment's secret mechanism.
+
+Only explicitly configured Hadoop storage properties are forwarded to REST. Catalog and authentication keys (`uri`, `warehouse`, `metastore`, `token`, `token.*`, `dlf.*`, including `hadoop.`-prefixed forms) are rejected in `paimon.hadoop.conf` and the configured Hadoop XML files. Configure REST authentication with the top-level options shown below. `dlf.token-path`, `dlf.token-loader`, `dlf.token-ecs-*`, and `token.refresh-time` are not supported in this version and cannot be enabled through `paimon.hadoop.conf`.
+
+Parsed-configuration masking does not redact dependency logs. Paimon 1.1.1 logs Hadoop storage-property values, which may include credentials, when `org.apache.paimon.utils.HadoopUtils` DEBUG logging is enabled. Keep this logger at INFO or higher when using credential-bearing storage configuration.
+
+Paimon 1.1.1's shared OkHttp client follows cross-host redirects and forwards `x-dlf-security-token`, although it strips bearer `Authorization`. Use trusted catalog endpoints that do not redirect to another host; do not rely on redirects to protect DLF temporary credentials. This dependency limitation is not changed by the connector.
+
+Bearer example:
+
+```hocon
+sink {
+  Paimon {
+    catalog_type = "rest"
+    catalog_uri = "https://catalog.example.com"
+    warehouse = "managed-warehouse"
+    database = "example_db"
+    table = "example_table"
+    "token.provider" = "bear"
+    token = ${PAIMON_REST_TOKEN}
+  }
+}
+```
+
+DLF example (replace `catalog_uri` with your DLF endpoint):
+
+```hocon
+sink {
+  Paimon {
+    catalog_type = "rest"
+    catalog_uri = "https://catalog.example.com"
+    warehouse = "managed-warehouse"
+    database = "example_db"
+    table = "example_table"
+    "token.provider" = "dlf"
+    "dlf.access-key-id" = ${DLF_ACCESS_KEY_ID}
+    "dlf.access-key-secret" = ${DLF_ACCESS_KEY_SECRET}
+    "dlf.security-token" = ${?DLF_SECURITY_TOKEN}
+    "dlf.region" = "cn-hangzhou"
+  }
+}
+```
+
+`dlf.security-token` is optional and only needed for temporary credentials. `dlf.region` may be omitted if Paimon can infer it from the DLF endpoint. The connector forwards static credentials; it does not implement automatic refresh of temporary credentials. Live DLF authentication and cloud-storage permissions must be verified in the target deployment.
+
 ### Schema evolution
 ```hocon
 env {
@@ -741,7 +800,7 @@ sink {
 
 ### Does Paimon sink support automatic table creation and schema evolution?
 
-Yes. When `paimon.auto-create-table = true` or `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`, SeaTunnel automatically initializes the destination Paimon table using upstream table schema and primary key information.
+Yes. When `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`, SeaTunnel automatically initializes the destination Paimon table using upstream table schema and primary key information.
 
 ### How does Paimon sink achieve exactly-once writes?
 

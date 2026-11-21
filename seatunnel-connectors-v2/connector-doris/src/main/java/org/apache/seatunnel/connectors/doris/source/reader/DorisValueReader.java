@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.connectors.doris.source.reader;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.backend.BackendClient;
@@ -39,13 +43,18 @@ import org.apache.doris.sdk.thrift.TScanOpenResult;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static org.apache.seatunnel.connectors.doris.datatype.AbstractDorisTypeConverter.DORIS_IPV4;
 import static org.apache.seatunnel.connectors.doris.util.ErrorMessages.SHOULD_NOT_HAPPEN_MESSAGE;
 
 @Slf4j
@@ -71,6 +80,8 @@ public class DorisValueReader {
     protected Schema schema;
 
     protected SeaTunnelRowType seaTunnelRowType;
+    // Doris BE sends IPV4 through Arrow as a 32-bit integer, while the column is a STRING
+    private final int[] ipv4FieldIndexes;
     protected boolean asyncThreadStarted;
 
     public DorisValueReader(
@@ -83,6 +94,8 @@ public class DorisValueReader {
         this.client = backendClient();
         this.deserializeArrowToRowBatchAsync = config.getDeserializeArrowAsync();
         this.seaTunnelRowType = dorisSourceTable.getCatalogTable().getSeaTunnelRowType();
+        this.ipv4FieldIndexes =
+                ipv4FieldIndexes(dorisSourceTable.getCatalogTable(), seaTunnelRowType);
         int blockingQueueSize = config.getDeserializeQueueSize();
         if (this.deserializeArrowToRowBatchAsync) {
             this.rowBatchBlockingQueue = new ArrayBlockingQueue<>(blockingQueueSize);
@@ -284,8 +297,54 @@ public class DorisValueReader {
                     DorisConnectorErrorCode.SHOULD_NEVER_HAPPEN, "never happen error.");
         }
         SeaTunnelRow next = rowBatch.next();
+        convertIpv4Fields(next, ipv4FieldIndexes);
         next.setTableId(dorisSourceTable.getTablePath().toString());
         return next;
+    }
+
+    /**
+     * Finds the IPV4 fields by their catalog source type, because the row type only says STRING and
+     * the Arrow reader cannot tell an IPV4 column from a plain integer.
+     */
+    @VisibleForTesting
+    static int[] ipv4FieldIndexes(CatalogTable catalogTable, SeaTunnelRowType rowType) {
+        Map<String, String> sourceTypes = new HashMap<>();
+        for (Column column : catalogTable.getTableSchema().getColumns()) {
+            sourceTypes.put(column.getName(), column.getSourceType());
+        }
+        List<Integer> indexes = new ArrayList<>();
+        String[] fieldNames = rowType.getFieldNames();
+        for (int i = 0; i < fieldNames.length; i++) {
+            if (DORIS_IPV4.equalsIgnoreCase(sourceTypes.get(fieldNames[i]))) {
+                indexes.add(i);
+            }
+        }
+        return indexes.stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    /**
+     * Runs after the Arrow-to-row step and turns the integer that Doris sends for IPV4 into
+     * dotted-decimal text, leaving NULL as is.
+     */
+    @VisibleForTesting
+    static void convertIpv4Fields(SeaTunnelRow row, int[] ipv4FieldIndexes) {
+        for (int index : ipv4FieldIndexes) {
+            Object value = row.getField(index);
+            if (value instanceof Number) {
+                row.setField(index, ipv4ToString(((Number) value).longValue()));
+            }
+        }
+    }
+
+    @VisibleForTesting
+    static String ipv4ToString(long value) {
+        return ((value >>> 24) & 0xFF)
+                + "."
+                + ((value >>> 16) & 0xFF)
+                + "."
+                + ((value >>> 8) & 0xFF)
+                + "."
+                + (value & 0xFF);
     }
 
     public void close() {

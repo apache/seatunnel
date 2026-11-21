@@ -45,8 +45,6 @@ import java.util.Map;
 @AutoService(Factory.class)
 public class OceanBaseIncrementalSourceFactory extends MySqlIncrementalSourceFactory {
 
-    private static final String MYSQL_COMPATIBLE_MODE = "mysql";
-
     /**
      * Return the identifier used in SeaTunnel source config.
      *
@@ -110,14 +108,18 @@ public class OceanBaseIncrementalSourceFactory extends MySqlIncrementalSourceFac
      */
     ReadonlyConfig mysqlCompatibleConfig(ReadonlyConfig config) {
         String compatibleMode =
-                config.getOptional(JdbcCommonOptions.COMPATIBLE_MODE).orElse(MYSQL_COMPATIBLE_MODE);
-        if (!MYSQL_COMPATIBLE_MODE.equalsIgnoreCase(compatibleMode)) {
+                config.getOptional(JdbcCommonOptions.COMPATIBLE_MODE)
+                        .orElse(OceanBaseIncrementalSourceOptions.MYSQL_COMPATIBLE_MODE);
+        if (!OceanBaseIncrementalSourceOptions.MYSQL_COMPATIBLE_MODE.equalsIgnoreCase(
+                compatibleMode)) {
             throw new IllegalArgumentException(
                     "OceanBase-CDC supports only MySQL compatible mode, but compatible_mode is "
                             + compatibleMode);
         }
         Map<String, Object> options = new HashMap<>(config.getSourceMap());
-        options.put(JdbcCommonOptions.COMPATIBLE_MODE.key(), MYSQL_COMPATIBLE_MODE);
+        options.put(
+                JdbcCommonOptions.COMPATIBLE_MODE.key(),
+                OceanBaseIncrementalSourceOptions.MYSQL_COMPATIBLE_MODE);
         return ReadonlyConfig.fromMap(options);
     }
 }

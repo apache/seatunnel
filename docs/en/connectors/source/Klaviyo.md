@@ -13,7 +13,7 @@ Reads data from Klaviyo APIs. The connector builds Klaviyo request headers from 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 

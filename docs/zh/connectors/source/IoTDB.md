@@ -48,9 +48,12 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | FLOAT      | FLOAT          |
 | DOUBLE     | DOUBLE         |
 | TEXT       | STRING         |
-| STRING     | STRING         |
 | 时间列        | BIGINT         |
 | 时间列        | TIMESTAMP      |
+
+该 Source 基于 IoTDB `0.13.x` session 客户端实现，只能识别上表列出的数据类型。不支持 IoTDB 1.3
+新增的 `STRING`、`BLOB`、`DATE`、`TIMESTAMP` 数据类型的列；如需通过该 Source 读取字符串数据，请使用
+`TEXT` 类型存储。
 
 ## Source 选项
 
@@ -67,7 +70,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | fetch_size                 | int     | 否    | -   | 单次获取数据量：查询时每次从 IoTDB 获取的数据量                                                      |
 | lower_bound                | long    | 否    | -   | 时间范围下界（通过时间列进行数据分片时使用）                                                           |
 | upper_bound                | long    | 否    | -   | 时间范围上界（通过时间列进行数据分片时使用）                                                           |
-| num_partitions             | int     | 否    | -   | 分区数量（通过时间列进行数据分片时使用）：<br/> - 1 个分区：使用完整时间范围 <br/> - 若分区数 < (上界 -下界)，则使用差值作为实际分区数 |
+| num_partitions             | int     | 否    | -   | 分区数量（通过时间列进行数据分片时使用）：<br/> - 1 个分区：使用完整时间范围 <br/> - 若 (上界 - 下界) < 分区数，则使用差值作为实际分区数 |
 | thrift_default_buffer_size | int     | 否    | -   | Thrift 协议缓冲区大小                                                                   |
 | thrift_max_frame_size      | int     | 否    | -   | Thrift 最大帧尺寸                                                                     |
 | enable_cache_leader        | boolean | 否    | -   | 是否启用 Leader 节点缓存                                                                 |
@@ -278,7 +281,7 @@ IoTDB> SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_strin
 
 拆分规则：
 
-- 如果 `num_partitions = 1`，则整个范围 `[lower_bound, upper_bound)` 作为一个分片。
+- 如果 `num_partitions = 1`，则整个范围 `[lower_bound, upper_bound]` 作为一个分片。
 - 否则把范围等分成 `num_partitions` 个分片。如果 `upper_bound - lower_bound < num_partitions`，则回退为 `upper_bound - lower_bound` 个分片。
 
 例如 `lower_bound = 1`、`upper_bound = 10`、`num_partitions = 2`，SQL 为 `select * from test where age > 0 and age < 10`，会生成：

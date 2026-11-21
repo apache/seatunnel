@@ -75,7 +75,7 @@ Source 复用现有驱动的连接和认证配置，并返回与正常 Source �
 
 ## 注意事项
 
-- 认证方式只选一种：用户名密码、bearer token 或 Kerberos ticket。
+- 至少配置一种认证方式：用户名密码、bearer token 或 Kerberos ticket。若同时配置多种，优先级依次为用户名密码、bearer token、Kerberos ticket。
 - `query` 决定返回哪些字段，`schema.fields` 必须写清这些返回字段和对应类型。
 - 多表模式下，连接和认证选项放在根级别；每个 `tables_configs` 配置项定义一个 `query` 和一个 `schema`。
 - 每个多表 `schema` 必须设置唯一的 `table`，该值会作为数据行的表 ID，用于下游路由。

@@ -50,6 +50,12 @@ public class SQLMultiCatalogFlatMapTransform extends AbstractMultiCatalogFlatMap
         return new SQLTransform(config, inputCatalogTable);
     }
 
+    /** Mirrors the mandatory options of the transform-level rule declared by the factory. */
+    @Override
+    protected boolean hasTransformLevelRuleConfigured(ReadonlyConfig config) {
+        return hasAnyOptionConfigured(config, SQLTransform.KEY_QUERY);
+    }
+
     @Override
     public RowErrorClassification classifyRowError(Throwable t, SeaTunnelRow row) {
         TransformException transformException = findTransformException(t);

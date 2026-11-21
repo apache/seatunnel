@@ -52,13 +52,16 @@ Read external data source data through JDBC.
 | FLOAT                                                                                                    | DECIMAL(38, 18)     |
 | NUMBER(precision <= 9, scale == 0)                                                                       | INT                 |
 | NUMBER(9 < precision <= 18, scale == 0)                                                                  | BIGINT              |
-| NUMBER(18 < precision, scale == 0)                                                                       | DECIMAL(38, 0)      |
-| NUMBER(scale != 0)                                                                                       | DECIMAL(38, 18)     |
+| NUMBER(18 < precision < 38, scale == 0)                                                                  | DECIMAL(precision, 0) |
+| NUMBER(precision >= 38, scale == 0)                                                                      | DECIMAL(38, 0)      |
+| NUMBER(scale > 0)                                                                                       | DECIMAL(precision, min(scale, 18)) |
+| NUMBER(scale < 0)                                                                                        | Normalized to `DECIMAL(precision - scale, 0)`, or `LONG`/`INT`/`BOOLEAN` when decimal narrowing applies. Missing precision/scale default to 38/18. |
 | BINARY_DOUBLE                                                                                            | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                                    | FLOAT               |
 | CHAR<br/>NCHAR<br/>VARCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XML<br/>INTERVAL | STRING              |
 | DATE                                                                                                     | TIMESTAMP           |
-| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                                             | TIMESTAMP           |
+| TIMESTAMP                                                                                                | TIMESTAMP           |
+| TIMESTAMP WITH TIME ZONE<br/>TIMESTAMP WITH LOCAL TIME ZONE                                              | TIMESTAMP_TZ        |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                                      | BYTES               |
 
 ## Source Options
@@ -71,9 +74,9 @@ Read external data source data through JDBC.
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
 | query                        | String     | No       | -               | Query statement. Required when neither `table_path` nor `table_list` is configured.                                                                                                                                                                                |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
-| partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                     |
-| partition_lower_bound        | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
-| partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
+| partition_column             | String     | No       | -               | Column used to split data for parallel reading. Supports numeric and string columns; Oracle `DATE` and `TIMESTAMP` columns are read as `TIMESTAMP` and cannot be used. Only one column can be configured. |
+| partition_lower_bound        | String     | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
+| partition_upper_bound        | String     | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
 | partition_num                | Int        | No       | 10              | The number of partition count, only support positive integer. default value is 10                                                                                                                                                                                 |
 | fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
 | properties                   | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in Oracle, properties take precedence over the URL.                    |
@@ -126,7 +129,8 @@ The JDBC Source connector supports parallel reading of data from tables. SeaTunn
 **Supported split data type:**
 * String
 * Number(int, bigint, decimal, ...)
-* Date
+
+Oracle `DATE` and `TIMESTAMP` columns are mapped to SeaTunnel `TIMESTAMP` (see the type mapping above), which is not a supported split type.
 
 ### Options Related To Split
 
@@ -158,11 +162,11 @@ The inverse of the sampling rate used in the sample sharding strategy. For examp
 
 The column name for split data.
 
-#### partition_upper_bound [BigDecimal]
+#### partition_upper_bound [string]
 
 The partition_column max value for scan, if not set SeaTunnel will query database get max value.
 
-#### partition_lower_bound [BigDecimal]
+#### partition_lower_bound [string]
 
 The partition_column min value for scan, if not set SeaTunnel will query database get min value.
 
@@ -333,7 +337,7 @@ sink {
 
 ### Streaming With Incremental ID Range
 
-The Oracle Source connector is batch-oriented. Setting `job.mode = "STREAMING"` only enables checkpointing so the job can resume on failure; the source itself is bounded and reads the configured `[partition_lower_bound, partition_upper_bound)` range exactly once per job run. To pick up new rows repeatedly you must externally resubmit the job (for example on a schedule, with a sliding window), or use Oracle-CDC for continuous change capture.
+The Oracle Source connector is batch-oriented. Setting `job.mode = "STREAMING"` only enables checkpointing so the job can resume on failure; the source itself is bounded and reads the configured `[partition_lower_bound, partition_upper_bound]` range exactly once per job run. To pick up new rows repeatedly you must externally resubmit the job (for example on a schedule, with a sliding window), or use Oracle-CDC for continuous change capture.
 
 ```hocon
 env {
@@ -348,7 +352,7 @@ source {
     driver = "oracle.jdbc.OracleDriver"
     username = "root"
     password = "123456"
-    query = "SELECT * FROM ORDERS WHERE ORDER_ID >= ? AND ORDER_ID < ?"
+    query = "SELECT * FROM ORDERS"
     partition_column = "ORDER_ID"
     partition_lower_bound = 1
     partition_upper_bound = 1000000

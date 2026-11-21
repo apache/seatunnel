@@ -17,14 +17,14 @@ authenticates with a Zendesk account email and API token (sent as an HTTP Basic 
 header) and reads a Zendesk endpoint such as tickets, users, or organizations into SeaTunnel rows.
 
 This connector is built on top of the [Http source](Http.md) connector and inherits most of its
-options. The differences are the required authentication options and the `format` default.
+options. The differences are the required authentication options (`email` and `api_token`).
 
 ## Key features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
@@ -37,7 +37,7 @@ options. The differences are the required authentication options and the `format
 | api_token                   | String  | Yes      | -             | The Zendesk API token. See the [Zendesk API token docs](https://support.zendesk.com/hc/en-us/articles/4408889192858) for how to generate one.                                                                                            |
 | method                      | String  | No       | get           | HTTP request method. Only `GET` and `POST` are supported.                                                                                                                                                                              |
 | schema                      | Config  | No       | -             | The structure of the data, including field names and field types. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                   |
-| format                      | String  | No       | text          | The format of upstream data, only `json` and `text` are supported.                                                                                                                                                                      |
+| format                      | String  | No       | text          | The format of upstream data, supports `json` and `text` (the underlying HTTP source also accepts `binary`).                                                                                                                             |
 | params                      | Map     | No       | -             | Query parameters appended to the request URL.                                                                                                                                                                                           |
 | body                        | String  | No       | -             | Request body sent for `POST` (or any method that accepts a body). When `format = "json"`, the body must be valid JSON.                                                                                                                  |
 | json_field                  | Config  | No       | -             | Maps JSON paths in the response to schema fields. Must be used together with `schema`. See the [Http source](./Http.md) connector for details and examples.                                                                              |
@@ -76,9 +76,10 @@ The structure of the data, including field names and field types. For more detai
 
 ### format [String]
 
-The format of upstream data. Only `json` and `text` are supported; default is `text`. Zendesk
-endpoints always return JSON, so set `format = "json"` together with `content_field` to extract
-the result array before mapping to rows.
+The format of upstream data, supports `json` and `text`; default is `text`. Like the generic
+[Http source](Http.md), the underlying connector also accepts `binary`, but Zendesk endpoints
+always return JSON, so set `format = "json"` together with `content_field` to extract the result
+array before mapping to rows.
 
 ### params [Map]
 

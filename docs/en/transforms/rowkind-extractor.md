@@ -4,7 +4,7 @@
 
 ## Description
 
-The RowKindExtractor transform plugin is used to convert CDC (Change Data Capture) data streams into Append-Only mode while extracting the original RowKind information as a new field.
+The RowKindExtractor transform plugin is used to convert CDC (Change Data Capture) data streams into Append-Only mode while extracting the original RowKind information as a new field. Only the branch handled by this plugin becomes INSERT, while other branches keep their original CDC RowKind.
 
 **Core Features:**
 - Converts all data rows' RowKind to `+I` (INSERT), achieving Append-Only mode
@@ -24,10 +24,12 @@ Input (CDC data):
   RowKind: -D (DELETE)
   Data: id=1, name="test1", age=20
 
-Output (Append-Only data):
+Output (Append-Only data, with the default `transform_type = SHORT`):
   RowKind: +I (INSERT)
-  Data: id=1, name="test1", age=20, row_kind="DELETE"
+  Data: id=1, name="test1", age=20, row_kind="-D"
 ```
+
+With `transform_type = FULL`, the field stores the full name instead: `row_kind="DELETE"`.
 
 **Typical Use Cases:**
 - Writing CDC data to data lakes that only support Append mode
@@ -40,6 +42,9 @@ Output (Append-Only data):
 |-------------------|--------|----------|---------------|-------------|
 | custom_field_name | string | no       | row_kind      | The name of the new field used to store the original RowKind information |
 | transform_type    | enum   | no       | SHORT         | The output format of RowKind, options: SHORT (short format) or FULL (full format) |
+| table_match_regex | string | no       | `.*`          | Regex matched against the upstream table path. The transform level rule only applies to matching tables. |
+| table_transform   | array  | no       | -             | Per-table rules, see [Multi-Table Transform](transform-multi-table.md). |
+| rule_match_mode   | string | no       | `FIRST_MATCH` | How multiple `table_transform` entries with the same `table_path` are evaluated. |
 
 ### custom_field_name [string]
 
@@ -86,6 +91,10 @@ Specifies the output format of the RowKind field value.
 ```hocon
 transform_type = FULL  # Use full format
 ```
+
+### table_match_regex / table_transform / rule_match_mode
+
+Multi-table options. When the upstream source outputs several tables, one RowKindExtractor transform can apply this rule to all of them: `table_match_regex` selects the tables the transform level rule applies to (default `.*`), `table_transform` holds complete per-table rules (`table_path` plus `custom_field_name` / `transform_type`), and `rule_match_mode` (`FIRST_MATCH` or `ALL_MATCH`) controls how duplicate `table_path` entries are evaluated. See [Multi-Table Transform](transform-multi-table.md).
 
 ## Complete Examples
 

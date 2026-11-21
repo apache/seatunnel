@@ -424,7 +424,7 @@ source {
 根据源表能够提供的保证来选择合适的路径：
 
 - **仅追加（append-only）场景**：源表不会产生 UPDATE/DELETE 事件，保持 `exactly_once = false` 且不声明主键，源端会退回到尽力而为的行标识。在没有可用主键的情况下，connector 无法安全地应用 UPDATE/DELETE 事件。
-- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 redo log 阶段都使用同一配置主键作为稳定的行标识。
+- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 redo log 阶段都使用同一配置主键作为稳定的行标识。该列在数据库中必须为 NOT NULL：可空列不会用于切分快照，开启 `exactly_once = true` 时作业会在启动时失败。
 
 ```hocon
 source {
