@@ -48,9 +48,6 @@ public class JdbcSourceState implements Serializable {
     /** Split identities already counted while a table is only partly finished. */
     private Map<TablePath, Set<String>> reportedSplitIds;
 
-    /** Old checkpoints cannot prove that every reader-owned split participates in the count. */
-    private boolean earlyCloseSuppressed;
-
     public JdbcSourceState(
             List<TablePath> pendingTables, Map<Integer, List<JdbcSourceSplit>> pendingSplits) {
         this(pendingTables, pendingSplits, null, null);

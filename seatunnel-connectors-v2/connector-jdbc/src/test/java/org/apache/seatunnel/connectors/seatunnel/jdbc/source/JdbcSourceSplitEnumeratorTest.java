@@ -417,7 +417,7 @@ class JdbcSourceSplitEnumeratorTest {
     }
 
     @Test
-    void testHandleSplitFinishedEventBroadcastsCloseSignalToAllParticipatingReaders() {
+    void testRestoredSplitCompletionReleasesAllReadersWithoutEarlyClose() {
         TablePath tablePath = TablePath.of("db", "schema", "table");
         Map<TablePath, JdbcSourceTable> tables = new HashMap<>();
         tables.put(tablePath, createJdbcSourceTable(tablePath));
@@ -502,10 +502,10 @@ class JdbcSourceSplitEnumeratorTest {
         Assertions.assertInstanceOf(JdbcTableFinishedEvent.class, readerEvents.get(0).get(0));
         Assertions.assertInstanceOf(JdbcTableFinishedEvent.class, readerEvents.get(1).get(0));
         Assertions.assertEquals(
-                2,
+                0,
                 ((JdbcTableFinishedEvent) readerEvents.get(0).get(0)).getExpectedCloseEventCount());
         Assertions.assertEquals(
-                2,
+                0,
                 ((JdbcTableFinishedEvent) readerEvents.get(1).get(0)).getExpectedCloseEventCount());
     }
 
@@ -734,10 +734,10 @@ class JdbcSourceSplitEnumeratorTest {
         Assertions.assertEquals(1, readerEvents.get(0).size());
         Assertions.assertEquals(1, readerEvents.get(1).size());
         Assertions.assertEquals(
-                2,
+                0,
                 ((JdbcTableFinishedEvent) readerEvents.get(0).get(0)).getExpectedCloseEventCount());
         Assertions.assertEquals(
-                2,
+                0,
                 ((JdbcTableFinishedEvent) readerEvents.get(1).get(0)).getExpectedCloseEventCount());
     }
 

@@ -94,9 +94,9 @@ public class JdbcSourceSplitEnumerator
             this.readersPerTable = copySets(sourceState.getReadersPerTableOrEmpty());
             this.legacyTableStateRestore = sourceState.isLegacyTableState();
         }
-        this.earlyCloseSuppressed =
-                legacyTableStateRestore
-                        || (sourceState != null && sourceState.isEarlyCloseSuppressed());
+        // Zeta snapshots the enumerator before the readers. A count in a restored checkpoint
+        // can include a split no restored reader still owns. Never use such counts as a quorum.
+        this.earlyCloseSuppressed = sourceState != null;
         this.countReturnedSplitsAsNew = legacyTableStateRestore;
         if (unfinishedSplitsPerTable.isEmpty() && readersPerTable.isEmpty()) {
             rebuildTableStateFromPendingSplits();
@@ -187,9 +187,10 @@ public class JdbcSourceSplitEnumerator
     @Override
     public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {
         if (sourceEvent instanceof JdbcTableCloseStatus.Request) {
+            JdbcTableCloseStatus.Request request = (JdbcTableCloseStatus.Request) sourceEvent;
             Map<TablePath, Integer> finished = new HashMap<>();
             synchronized (stateLock) {
-                for (TablePath table : ((JdbcTableCloseStatus.Request) sourceEvent).getTables()) {
+                for (TablePath table : request.getTables()) {
                     if (earlyCloseSuppressed) {
                         finished.put(table, 0);
                         continue;
@@ -202,7 +203,9 @@ public class JdbcSourceSplitEnumerator
                     }
                 }
             }
-            context.sendEventToSourceReader(subtaskId, new JdbcTableCloseStatus.Reply(finished));
+            context.sendEventToSourceReader(
+                    subtaskId,
+                    new JdbcTableCloseStatus.Reply(request.getReaderAttempt(), finished));
             return;
         }
         if (!(sourceEvent instanceof JdbcSplitFinishedEvent)) {
@@ -250,15 +253,12 @@ public class JdbcSourceSplitEnumerator
     @Override
     public JdbcSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            JdbcSourceState checkpoint =
-                    new JdbcSourceState(
-                            new ArrayList<>(pendingTables),
-                            new HashMap<>(pendingSplits),
-                            new HashMap<>(unfinishedSplitsPerTable),
-                            copySets(readersPerTable),
-                            copySets(reportedSplitIds));
-            checkpoint.setEarlyCloseSuppressed(earlyCloseSuppressed);
-            return checkpoint;
+            return new JdbcSourceState(
+                    new ArrayList<>(pendingTables),
+                    new HashMap<>(pendingSplits),
+                    new HashMap<>(unfinishedSplitsPerTable),
+                    copySets(readersPerTable),
+                    copySets(reportedSplitIds));
         }
     }
 

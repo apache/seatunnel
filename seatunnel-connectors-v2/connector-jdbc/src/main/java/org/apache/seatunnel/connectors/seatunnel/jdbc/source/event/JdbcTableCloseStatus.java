@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /** Read-only JDBC table-completion probe. Retrying it never decrements split counts. */
 public final class JdbcTableCloseStatus {
@@ -34,9 +35,11 @@ public final class JdbcTableCloseStatus {
     @Getter
     public static final class Request implements SourceEvent {
         private static final long serialVersionUID = 1L;
+        private final UUID readerAttempt;
         private final Set<TablePath> tables;
 
-        public Request(Set<TablePath> tables) {
+        public Request(UUID readerAttempt, Set<TablePath> tables) {
+            this.readerAttempt = readerAttempt;
             this.tables = new HashSet<>(tables);
         }
     }
@@ -44,9 +47,11 @@ public final class JdbcTableCloseStatus {
     @Getter
     public static final class Reply implements SourceEvent {
         private static final long serialVersionUID = 1L;
+        private final UUID readerAttempt;
         private final Map<TablePath, Integer> finishedTables;
 
-        public Reply(Map<TablePath, Integer> finishedTables) {
+        public Reply(UUID readerAttempt, Map<TablePath, Integer> finishedTables) {
+            this.readerAttempt = readerAttempt;
             this.finishedTables = new HashMap<>(finishedTables);
         }
     }

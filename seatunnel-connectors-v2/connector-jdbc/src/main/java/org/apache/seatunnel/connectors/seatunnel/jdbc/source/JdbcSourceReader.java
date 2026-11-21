@@ -40,6 +40,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
@@ -56,6 +57,8 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     private int unansweredRequests;
     private long lastRequestTime;
     private boolean statusRequested;
+    private final UUID readerAttempt = UUID.randomUUID();
+    private final Set<TablePath> restoredMarkersAwaitingStatus = new HashSet<>();
     private final Set<TablePath> receivedFinishedTables = new HashSet<>();
     private final Context context;
     private final JdbcInputFormat inputFormat;
@@ -122,7 +125,9 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                         statusRequested = true;
                         unansweredRequests++;
                         lastRequestTime = now;
-                        statusRequest = new JdbcTableCloseStatus.Request(pendingGlobalCloseTables);
+                        statusRequest =
+                                new JdbcTableCloseStatus.Request(
+                                        readerAttempt, pendingGlobalCloseTables);
                     }
                 }
             }
@@ -226,12 +231,22 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
         synchronized (stateLock) {
             if (sourceEvent instanceof JdbcTableFinishedEvent) {
                 JdbcTableFinishedEvent event = (JdbcTableFinishedEvent) sourceEvent;
-                enqueueFinished(event.getTablePath(), readerId, event.getExpectedCloseEventCount());
+                if (!restoredMarkersAwaitingStatus.contains(event.getTablePath())) {
+                    enqueueFinished(
+                            event.getTablePath(), readerId, event.getExpectedCloseEventCount());
+                }
             } else {
+                JdbcTableCloseStatus.Reply reply = (JdbcTableCloseStatus.Reply) sourceEvent;
+                if (!readerAttempt.equals(reply.getReaderAttempt())) {
+                    return;
+                }
                 unansweredRequests = 0;
-                ((JdbcTableCloseStatus.Reply) sourceEvent)
-                        .getFinishedTables()
-                        .forEach((table, count) -> enqueueFinished(table, readerId, count));
+                reply.getFinishedTables()
+                        .forEach(
+                                (table, count) -> {
+                                    restoredMarkersAwaitingStatus.remove(table);
+                                    enqueueFinished(table, readerId, count);
+                                });
             }
         }
     }
@@ -240,14 +255,13 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 
     private void restoreCloseTableState(JdbcSourceSplit split) {
-        if (split.isPendingCloseTableEvent()) {
-            enqueueFinished(
-                    split.getTablePath(),
-                    context.getIndexOfSubtask(),
-                    split.getExpectedCloseEventCount());
-        } else if (!receivedFinishedTables.contains(split.getTablePath())) {
-            pendingGlobalCloseTables.add(split.getTablePath());
-        }
+        // A positive marker in reader state may be newer than the enumerator's checkpoint.
+        // Reconcile it with this attempt's enumerator instead of emitting it from restore.
+        TablePath table = split.getTablePath();
+        pendingCloseTableEvents.removeIf(event -> table.equals(event.getTablePath()));
+        receivedFinishedTables.remove(table);
+        restoredMarkersAwaitingStatus.add(table);
+        pendingGlobalCloseTables.add(table);
     }
 
     /** Called only under stateLock: the terminal decision must never see half this transition. */
