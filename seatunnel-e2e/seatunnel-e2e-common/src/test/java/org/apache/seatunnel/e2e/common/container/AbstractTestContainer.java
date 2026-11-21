@@ -39,6 +39,7 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.adaptPathForWin;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConfigFileToContainer;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConnectorJarToContainer;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConnectorJarToContainerAtomically;
 
 public abstract class AbstractTestContainer implements TestContainer {
 
@@ -358,7 +359,7 @@ public abstract class AbstractTestContainer implements TestContainer {
             String restoreCommand)
             throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
-        copyConnectorJarToContainer(
+        copyConnectorJarToContainerAtomically(
                 container,
                 confFile,
                 getConnectorModulePath(),
@@ -397,7 +398,7 @@ public abstract class AbstractTestContainer implements TestContainer {
             throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
-        copyConnectorJarToContainer(
+        copyConnectorJarToContainerAtomically(
                 container,
                 confFile,
                 getConnectorModulePath(),
