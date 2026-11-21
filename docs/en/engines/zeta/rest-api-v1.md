@@ -399,7 +399,7 @@ None.
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` are returned for a job the cluster knows; an unknown id returns the `found: false` response below.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishTime`, `errorMsg` will return when job is finished.
 A running job also returns a `diagnostics` block (state timestamps and per-pipeline restore counts),
@@ -427,13 +427,17 @@ not.
 | TableSinkWrite* | Per-table sink write attempts, key format `TableSinkWriteXXX#<table>` |
 | TableSinkCommitted* | Per-table sink committed metrics, key format `TableSinkCommittedXXX#<table>` |
 
-When we can't get the job info, the response contains only the requested `jobId`:
+An unknown id is still an HTTP 200 response with `found: false`:
 
 ```json
 {
-  "jobId" : "733584788375666689"
+  "jobId" : "<id>",
+  "found" : false
 }
 ```
+
+See the `/job-info/:jobId` section in [REST API V2](rest-api-v2.md) for details and the
+older-server fallback.
 
 </details>
 
@@ -513,17 +517,21 @@ This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId in
 }
 ```
 
-`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` are returned for a job the cluster knows; an unknown id returns the `found: false` response below.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishTime`, `errorMsg` will return when job is finished.
 
-When we can't get the job info, the response contains only the requested `jobId`:
+An unknown id is still an HTTP 200 response with `found: false`:
 
 ```json
 {
-  "jobId" : "733584788375666689"
+  "jobId" : "<id>",
+  "found" : false
 }
 ```
+
+See the `/job-info/:jobId` section in [REST API V2](rest-api-v2.md) for details and the
+older-server fallback.
 
 </details>
 

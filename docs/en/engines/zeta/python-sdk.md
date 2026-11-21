@@ -69,6 +69,16 @@ with SeaTunnelClient(base_url="http://localhost:8080") as client:
   print(job_details)
 ```
 
+An unknown id is still an HTTP 200 response and contains `"found": false`. Use `job_exists`
+when you only need an existence check; it also supports older servers that return only `jobId`
+for an unknown job:
+
+```python
+with SeaTunnelClient(base_url="http://localhost:8080") as client:
+  if not client.jobs.job_exists(jobId=12345):
+    print("The job id is unknown or has expired from finished-job history")
+```
+
 ### Cluster Monitoring
 
 You can use the `cluster` property to get cluster information.
