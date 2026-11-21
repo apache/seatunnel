@@ -4,6 +4,14 @@
 
 ## dev
 
+### MongoDB Sink：未配置的缓冲与重试选项使用文档中的默认值
+
+- **行为变更：未设置 `buffer-flush.*` 或 `retry.*` 选项的非事务 MongoDB Sink 会按批写入，并重试失败的写入**
+  - **影响范围**：`transaction = false`（默认值）且未设置 `buffer-flush.max-rows`、`buffer-flush.interval`、`retry.max`、`retry.interval` 中任意一个或多个选项的 MongoDB Sink。`transaction = true` 的 Sink 不受影响：它们会把数据保留到下一次 checkpoint，再由 committer 在一个事务中写入，既不使用缓冲选项，也不使用 `retry.*`。
+  - **描述**：`MongodbSinkFactory` 此前只在显式设置时才把这些选项传给 writer，未设置的选项实际为 `0` 而不是声明的默认值，因此每一行都单独执行一次 `bulkWrite`，失败的批量写入也不会重试。现在会使用声明并写入文档的默认值：`buffer-flush.max-rows = 1000`、`buffer-flush.interval = 30000` 毫秒、`retry.max = 3`、`retry.interval = 1000` 毫秒。
+  - **影响**：数据按批写入目标端，每批最多 1000 行，而不再逐行写入，写入远端服务器的吞吐量会大幅提升。每个 writer 的第一行仍会立即写入。30 秒间隔只在有新数据到达时检查，因此在没有后续数据时，它不能限制未写满的批次等待多久。未写满的批次会在下一次 checkpoint、writer 关闭时写入；如果在 `env` 中设置了 `sink.flush.interval`，引擎的定时 flush 也会写入（仅 Zeta 支持，默认关闭）。失败的批量写入会在作业失败前最多重试 3 次，依次等待 1、2、3 秒。重试会重新发送整个有序批次，因此在 `upsert-enable = false` 时，如果批次已部分写入，重试可能因主键重复而失败；这与此前显式设置 `retry.max` 时的行为相同。显式设置了这些选项的作业不受影响。
+  - **迁移指南**：如需文档中描述的行为，无需修改配置。如需保持此前的行为，请显式设置 `buffer-flush.max-rows = 1` 和 `retry.max = 0`。把 `buffer-flush.max-rows` 调小到大于 1 的值只能减少缓冲的行数，在没有后续数据时，不能限制未写满的批次等待多久。如果流式作业需要缓冲的数据在一定时间内可见，请依赖 checkpoint，或在 `env` 中设置 `sink.flush.interval`（Zeta）。如需每一行立即写入，请设置 `buffer-flush.max-rows = 1`。(#13198)
+
 ### Http Sink：`array_mode = true` 时每行作为 JSON 对象发送
 
 - **行为变更：请求体数组的元素是 JSON 对象，而不再是字符串**
