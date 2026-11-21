@@ -286,7 +286,8 @@ public abstract class AbstractSavepointRescaleIT extends SeaTunnelEngineContaine
      * post-restore offset count equals the pre-restore count plus exactly the newly-observed
      * offsets past that boundary. This only confirms the restored run continues without a gap in
      * count; it does not by itself rule out replayed (duplicate) offsets - {@link
-     * #assertCommittedSequenceHasNoGapsOrDuplicates(long)} is the complementary check that directly enforces exactly-once.
+     * #assertCommittedSequenceHasNoGapsOrDuplicates(long)} is the complementary check that directly
+     * enforces exactly-once.
      */
     private void assertRestoreContinuesAfterBoundary(
             List<Long> offsetsBeforeRestore, long maxOffsetBeforeRestore) {
