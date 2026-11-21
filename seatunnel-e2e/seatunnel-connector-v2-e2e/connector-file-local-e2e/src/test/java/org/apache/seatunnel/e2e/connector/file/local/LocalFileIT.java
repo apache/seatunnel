@@ -488,7 +488,7 @@ public class LocalFileIT extends TestSuiteBase {
                 Assertions.assertEquals(6, reader.getStripes().size());
             }
             ContainerUtil.copyFileIntoContainers(
-                    file, "/seatunnel/read/orc-stripes/stripes.orc", container);
+                    file, "/seatunnel/read/orc-stripes/stripes.orc", baseContainer);
             new TestHelper(container).execute("/orc/local_file_orc_stripes_to_assert.conf");
         } finally {
             Files.deleteIfExists(file);
