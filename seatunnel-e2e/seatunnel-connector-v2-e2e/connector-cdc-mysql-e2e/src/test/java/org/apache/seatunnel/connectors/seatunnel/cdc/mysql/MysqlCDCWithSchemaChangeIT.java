@@ -75,6 +75,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -172,6 +173,18 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     /** SQL template that adds and modifies SET / ENUM columns while the job is running. */
     private static final String SET_ENUM_SCHEMA_CHANGE_ALTER_TEMPLATE = "add_set_enum_columns";
 
+    /** Source table of the case where DDL names existing columns in another case. */
+    private static final String COLUMN_CASE_SOURCE_TABLE = "products_column_case";
+    /** Sink table the column-name case evolves. */
+    private static final String COLUMN_CASE_SINK_TABLE = "mysql_cdc_e2e_sink_table_column_case";
+    /** Job config for the column-name case. */
+    private static final String COLUMN_CASE_SCHEMA_CHANGE_JOB_CONFIG =
+            "/mysqlcdc_to_mysql_with_column_name_case_schema_change.conf";
+    /** SQL template that resets the column-name case source and sink tables. */
+    private static final String COLUMN_CASE_SCHEMA_CHANGE_INIT_TEMPLATE =
+            "column_name_case_schema_change";
+    /** SQL template whose DDL names existing columns in another case while the job is running. */
+    private static final String COLUMN_CASE_SCHEMA_CHANGE_ALTER_TEMPLATE = "column_name_case_alter";
     /**
      * Dedicated database of the {@code DESC} schema-fallback cases, so the tables the other cases
      * reset in {@code shop} cannot interfere with them.
@@ -657,6 +670,73 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         assertColumnTypeEquals(SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE, "c_enum");
         assertColumnTypeEquals(SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE, "c_set_added");
         assertColumnTypeEquals(SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE, "c_enum_added");
+    }
+
+    /**
+     * MySQL column names are case-insensitive, so DDL may name an existing column in another case,
+     * for example {@code AFTER NAME} for the column {@code name}. The job must apply such ADD
+     * AFTER, MODIFY AFTER, CHANGE and DROP statements, and a CHANGE that renames a column only by
+     * case, to the column the table has, keep its values and keep running.
+     */
+    @Order(6)
+    @TestTemplate
+    public void testMysqlCdcWithColumnNamedInAnotherCase(TestContainer container)
+            throws IOException, InterruptedException {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        shopDatabase.setTemplateName(COLUMN_CASE_SCHEMA_CHANGE_INIT_TEMPLATE).createAndInitialize();
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(COLUMN_CASE_SCHEMA_CHANGE_JOB_CONFIG, jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        assertTableStructureAndData(
+                MYSQL_DATABASE, COLUMN_CASE_SOURCE_TABLE, COLUMN_CASE_SINK_TABLE);
+
+        waitForIncrementalRead(container, MYSQL_DATABASE + "." + COLUMN_CASE_SOURCE_TABLE);
+        shopDatabase
+                .setTemplateName(COLUMN_CASE_SCHEMA_CHANGE_ALTER_TEMPLATE)
+                .createAndInitialize();
+        // MySQL renames the source column to NOTE on "modify column NOTE", while Debezium keeps
+        // note, and so do the change records and the sink: compare the names ignoring case.
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        descIgnoringNameCase(
+                                                MYSQL_DATABASE, COLUMN_CASE_SOURCE_TABLE),
+                                        descIgnoringNameCase(
+                                                MYSQL_DATABASE, COLUMN_CASE_SINK_TABLE)));
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        MYSQL_DATABASE,
+                                        COLUMN_CASE_SOURCE_TABLE,
+                                        MYSQL_DATABASE,
+                                        COLUMN_CASE_SINK_TABLE,
+                                        null));
+
+        Assertions.assertTrue(columnExists(MYSQL_DATABASE, COLUMN_CASE_SINK_TABLE, "note"));
+        Assertions.assertTrue(columnExists(MYSQL_DATABASE, COLUMN_CASE_SINK_TABLE, "details"));
+        Assertions.assertFalse(columnExists(MYSQL_DATABASE, COLUMN_CASE_SINK_TABLE, "description"));
+        Assertions.assertFalse(columnExists(MYSQL_DATABASE, COLUMN_CASE_SINK_TABLE, "weight"));
+    }
+
+    /** DESCRIBE rows with lower-case column names, sorted by name. */
+    private List<List<Object>> descIgnoringNameCase(String database, String table) {
+        List<List<Object>> rows = new ArrayList<>();
+        for (List<Object> row : query(String.format(DESC, database, table))) {
+            List<Object> copy = new ArrayList<>(row);
+            copy.set(0, String.valueOf(row.get(0)).toLowerCase(Locale.ROOT));
+            rows.add(copy);
+        }
+        return normalizeDescRows(rows);
     }
 
     /**

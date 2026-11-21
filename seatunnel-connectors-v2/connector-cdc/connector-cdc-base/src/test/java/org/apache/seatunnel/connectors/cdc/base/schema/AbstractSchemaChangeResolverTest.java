@@ -23,9 +23,11 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -290,6 +292,48 @@ public class AbstractSchemaChangeResolverTest {
                         TablePath.of("test_db", "test_table"));
 
         Assertions.assertSame(modifyColumnEvent, events.get(0));
+    }
+
+    /**
+     * Column names stay as parsed unless a dialect resolves them: in a case-sensitive dialect
+     * {@code "Name"} and {@code name} are different columns.
+     */
+    @Test
+    void testResolveColumnNamesKeepsParsedNamesByDefault() {
+        AbstractSchemaChangeResolver resolver = createResolver();
+        TableIdentifier tableId = TableIdentifier.of(null, "test_db", "test_table");
+        AlterTableAddColumnEvent addEvent =
+                AlterTableAddColumnEvent.addAfter(
+                        tableId,
+                        PhysicalColumn.builder()
+                                .name("email")
+                                .dataType(BasicType.STRING_TYPE)
+                                .build(),
+                        "NAME");
+        AlterTableDropColumnEvent dropEvent = new AlterTableDropColumnEvent(tableId, "Name");
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId,
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("name")
+                                                .dataType(BasicType.STRING_TYPE)
+                                                .build())
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null,
+                        null);
+
+        List<AlterTableEvent> events =
+                resolver.resolveColumnNames(
+                        Arrays.asList(addEvent, dropEvent),
+                        Collections.singletonList(catalogTable),
+                        TablePath.of("test_db", "test_table"));
+
+        Assertions.assertSame(addEvent, events.get(0));
+        Assertions.assertSame(dropEvent, events.get(1));
     }
 
     private AbstractSchemaChangeResolver createResolver() {

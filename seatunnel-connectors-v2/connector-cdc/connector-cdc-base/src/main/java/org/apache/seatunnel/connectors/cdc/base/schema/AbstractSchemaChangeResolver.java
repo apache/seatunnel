@@ -24,11 +24,14 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
@@ -46,6 +49,11 @@ import io.debezium.relational.history.HistoryRecord;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -95,6 +103,7 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
         ddlParser.parse(ddl, tables);
         List<AlterTableEvent> parsedEvents = getAndClearParsedSchemaChangeEvents();
         parsedEvents = normalizeTableIdentifiers(parsedEvents, tablePath);
+        parsedEvents = resolveColumnNames(parsedEvents, catalogTables, tablePath);
         parsedEvents = completeSchemaChangeEvents(parsedEvents, catalogTables, tablePath);
         parsedEvents.forEach(e -> e.setSourceDialectName(getSourceDialectName()));
 
@@ -267,6 +276,119 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
                             return event;
                         })
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Rewrites the existing columns that each parsed event refers to (the dropped, modified or
+     * renamed column and the {@code AFTER} anchor) to their names in the source table, using {@link
+     * #resolveColumnName}, and the new name of a change event that resolves to its old column to
+     * that column's name. Columns added or renamed by an earlier part of the same statement count
+     * as existing for the later parts. Names that do not resolve are kept as parsed.
+     */
+    List<AlterTableEvent> resolveColumnNames(
+            List<AlterTableEvent> events, List<CatalogTable> catalogTables, TablePath tablePath) {
+        if (catalogTables == null || catalogTables.isEmpty()) {
+            return events;
+        }
+        CatalogTable table = findCatalogTable(catalogTables, tablePath);
+        if (table == null) {
+            return events;
+        }
+        TableSchema schema = table.getTableSchema();
+        Collection<String> columnNames = new LinkedHashSet<>(Arrays.asList(schema.getFieldNames()));
+        List<AlterTableEvent> resolved = new ArrayList<>(events.size());
+        for (AlterTableEvent event : events) {
+            AlterTableEvent resolvedEvent = resolveColumnNames(event, columnNames);
+            resolved.add(resolvedEvent);
+            trackColumnNames(resolvedEvent, columnNames);
+        }
+        return resolved;
+    }
+
+    /**
+     * Returns the name under which {@code columnNames} holds the column that a DDL statement calls
+     * {@code name}. The default keeps the parsed name; dialects whose column names are
+     * case-insensitive override it.
+     *
+     * @param columnNames the columns of the table before this part of the statement
+     * @param name the column name as written in the DDL, may be null
+     */
+    protected String resolveColumnName(Collection<String> columnNames, String name) {
+        return name;
+    }
+
+    private AlterTableEvent resolveColumnNames(
+            AlterTableEvent event, Collection<String> columnNames) {
+        AlterTableEvent resolved = event;
+        if (event instanceof AlterTableAddColumnEvent) {
+            AlterTableAddColumnEvent add = (AlterTableAddColumnEvent) event;
+            String after = resolveColumnName(columnNames, add.getAfterColumn());
+            if (!Objects.equals(after, add.getAfterColumn())) {
+                resolved =
+                        new AlterTableAddColumnEvent(
+                                add.tableIdentifier(), add.getColumn(), add.isFirst(), after);
+            }
+        } else if (event instanceof AlterTableDropColumnEvent) {
+            AlterTableDropColumnEvent drop = (AlterTableDropColumnEvent) event;
+            String column = resolveColumnName(columnNames, drop.getColumn());
+            if (!Objects.equals(column, drop.getColumn())) {
+                resolved = new AlterTableDropColumnEvent(drop.tableIdentifier(), column);
+            }
+        } else if (event instanceof AlterTableModifyColumnEvent) {
+            AlterTableModifyColumnEvent modify = (AlterTableModifyColumnEvent) event;
+            String column = resolveColumnName(columnNames, modify.getColumn().getName());
+            String after = resolveColumnName(columnNames, modify.getAfterColumn());
+            if (!Objects.equals(column, modify.getColumn().getName())
+                    || !Objects.equals(after, modify.getAfterColumn())) {
+                // Debezium keeps the name of the existing column, and the change records carry
+                // it, so the modified column keeps that name as well.
+                resolved =
+                        new AlterTableModifyColumnEvent(
+                                modify.tableIdentifier(),
+                                modify.getColumn().rename(column),
+                                modify.isFirst(),
+                                after);
+            }
+        } else if (event instanceof AlterTableChangeColumnEvent) {
+            AlterTableChangeColumnEvent change = (AlterTableChangeColumnEvent) event;
+            String oldColumn = resolveColumnName(columnNames, change.getOldColumn());
+            // A new name that is the old one in another case resolves to the old one: it names
+            // the same column, and Debezium keeps the existing name for it.
+            String newName =
+                    resolveColumnName(
+                            Collections.singletonList(oldColumn), change.getColumn().getName());
+            String after = resolveColumnName(columnNames, change.getAfterColumn());
+            if (!Objects.equals(oldColumn, change.getOldColumn())
+                    || !Objects.equals(newName, change.getColumn().getName())
+                    || !Objects.equals(after, change.getAfterColumn())) {
+                resolved =
+                        new AlterTableChangeColumnEvent(
+                                change.tableIdentifier(),
+                                oldColumn,
+                                change.getColumn().rename(newName),
+                                change.isFirst(),
+                                after);
+            }
+        }
+        if (resolved != event) {
+            resolved.setJobId(event.getJobId());
+            resolved.setStatement(event.getStatement());
+            resolved.setSourceDialectName(event.getSourceDialectName());
+            resolved.setChangeAfter(event.getChangeAfter());
+        }
+        return resolved;
+    }
+
+    private static void trackColumnNames(AlterTableEvent event, Collection<String> columnNames) {
+        if (event instanceof AlterTableAddColumnEvent) {
+            columnNames.add(((AlterTableAddColumnEvent) event).getColumn().getName());
+        } else if (event instanceof AlterTableDropColumnEvent) {
+            columnNames.remove(((AlterTableDropColumnEvent) event).getColumn());
+        } else if (event instanceof AlterTableChangeColumnEvent) {
+            AlterTableChangeColumnEvent change = (AlterTableChangeColumnEvent) event;
+            columnNames.remove(change.getOldColumn());
+            columnNames.add(change.getColumn().getName());
+        }
     }
 
     private CatalogTable findCatalogTable(List<CatalogTable> catalogTables, TablePath tablePath) {

@@ -309,6 +309,9 @@ sink {
 }
 ```
 ### 支持模式演变（表结构变更）
+
+MySQL 的列名不区分大小写，模式演变同样如此：DDL 语句以不同大小写引用已有列时（例如对列 `name` 写作 `AFTER NAME`），变更会应用到该列。
+
 ```
 env {
   # You can set engine configuration here
