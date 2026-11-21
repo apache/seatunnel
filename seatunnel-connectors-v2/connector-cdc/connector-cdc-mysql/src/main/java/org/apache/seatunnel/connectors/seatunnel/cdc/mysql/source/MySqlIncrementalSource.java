@@ -227,6 +227,11 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     }
 
     @Override
+    protected String cdcProgressPositionType() {
+        return "MYSQL_BINLOG";
+    }
+
+    @Override
     public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(ReadonlyConfig config) {
         MySqlSourceConfigFactory configFactory = new MySqlSourceConfigFactory();
         configFactory.serverId(config.get(JdbcSourceOptions.SERVER_ID));

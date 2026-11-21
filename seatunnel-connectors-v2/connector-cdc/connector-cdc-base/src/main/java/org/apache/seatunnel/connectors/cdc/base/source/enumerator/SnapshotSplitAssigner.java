@@ -19,11 +19,18 @@ package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressPosition;
+import org.apache.seatunnel.api.cdc.CdcProgressValue;
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
+import org.apache.seatunnel.api.cdc.CdcSnapshotSplitProgress;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
+import org.apache.seatunnel.connectors.cdc.base.source.progress.CdcEnumeratorProgressSource;
+import org.apache.seatunnel.connectors.cdc.base.source.progress.CdcProgressPositions;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
@@ -32,25 +39,25 @@ import org.slf4j.LoggerFactory;
 
 import io.debezium.relational.TableId;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /** Assigner for snapshot split. */
-public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssigner {
+public class SnapshotSplitAssigner<C extends SourceConfig>
+        implements SplitAssigner, CdcEnumeratorProgressSource {
     private static final Logger LOG = LoggerFactory.getLogger(SnapshotSplitAssigner.class);
 
     private final SplitAssigner.Context<C> context;
@@ -60,6 +67,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     private final Queue<SnapshotSplit> remainingSplits;
     private final Map<String, SnapshotSplit> assignedSplits;
     private final Map<String, SnapshotSplitWatermark> splitCompletedOffsets;
+    private final Map<String, SnapshotSplit> activeSplits;
     private boolean assignerCompleted;
     private final int currentParallelism;
     private final Deque<TableId> remainingTables;
@@ -70,6 +78,11 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
 
     private Long checkpointIdToFinish;
     private final DataSourceDialect<C> dialect;
+
+    // Mutations use this assigner's monitor, but discovery/chunking and progress reads never do.
+    private boolean discoveringTables;
+    private boolean chunkingTable;
+    private volatile CdcEnumeratorProgressReport latestProgress;
 
     SnapshotSplitAssigner(
             SplitAssigner.Context<C> context,
@@ -126,14 +139,18 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
         this.sourceConfig = context.getSourceConfig();
         this.currentParallelism = currentParallelism;
         this.alreadyProcessedTables = Collections.synchronizedList(alreadyProcessedTables);
-        this.remainingSplits = new ConcurrentLinkedQueue(remainingSplits);
+        this.remainingSplits = new ArrayDeque<>(remainingSplits);
         this.assignedSplits = new ConcurrentHashMap<>(assignedSplits);
         this.splitCompletedOffsets = new ConcurrentHashMap<>(splitCompletedOffsets);
+        this.activeSplits = new TreeMap<>(assignedSplits);
+        this.splitCompletedOffsets.keySet().forEach(this.activeSplits::remove);
         this.assignerCompleted = assignerCompleted;
-        this.remainingTables = new ConcurrentLinkedDeque<>(remainingTables);
+        this.remainingTables = new ArrayDeque<>(remainingTables);
         this.isRemainingTablesCheckpointed = isRemainingTablesCheckpointed;
         this.isTableIdCaseSensitive = isTableIdCaseSensitive;
         this.dialect = dialect;
+        this.discoveringTables = !isRemainingTablesCheckpointed && !assignerCompleted;
+        publishProgress();
 
         LOG.info("SnapshotSplitAssigner created with remaining tables: {}", this.remainingTables);
         LOG.info(
@@ -148,7 +165,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
 
     @Override
     public void open() {
-        chunkSplitter = dialect.createChunkSplitter(sourceConfig);
+        ChunkSplitter openedSplitter = dialect.createChunkSplitter(sourceConfig);
 
         // the legacy state didn't snapshot remaining tables, discovery remaining table here
         if (!isRemainingTablesCheckpointed && !assignerCompleted) {
@@ -156,51 +173,82 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                 final List<TableId> discoverTables = dialect.discoverDataCollections(sourceConfig);
                 context.getCapturedTables().addAll(discoverTables);
                 discoverTables.removeAll(alreadyProcessedTables);
-                this.remainingTables.addAll(discoverTables);
-                this.isTableIdCaseSensitive = dialect.isDataCollectionIdCaseSensitive(sourceConfig);
+                boolean caseSensitive = dialect.isDataCollectionIdCaseSensitive(sourceConfig);
+                synchronized (this) {
+                    this.remainingTables.addAll(discoverTables);
+                    this.isTableIdCaseSensitive = caseSensitive;
+                    this.discoveringTables = false;
+                    publishProgress();
+                }
             } catch (Exception e) {
                 throw new RuntimeException("Failed to discover remaining tables to capture", e);
             }
+        }
+        synchronized (this) {
+            chunkSplitter = openedSplitter;
         }
     }
 
     @Override
     public Optional<SourceSplitBase> getNext() {
-        if (chunkSplitter == null) {
-            return Optional.empty();
-        }
-        if (!remainingSplits.isEmpty()) {
-            // return remaining splits firstly
-            Iterator<SnapshotSplit> iterator = remainingSplits.iterator();
-            SnapshotSplit split = iterator.next();
-            iterator.remove();
-            assignedSplits.put(split.splitId(), split);
-            context.getAssignedSnapshotSplit().put(split.splitId(), split);
-            return Optional.of(split);
-        } else {
-            // it's turn for new table
-            TableId nextTable = remainingTables.pollFirst();
-            if (nextTable != null) {
-                // split the given table into chunks (snapshot splits)
-                Collection<SnapshotSplit> splits = chunkSplitter.generateSplits(nextTable);
+        while (true) {
+            final TableId nextTable;
+            final ChunkSplitter splitter;
+            synchronized (this) {
+                if (chunkSplitter == null) {
+                    return Optional.empty();
+                }
+                SnapshotSplit split = remainingSplits.poll();
+                if (split != null) {
+                    assignedSplits.put(split.splitId(), split);
+                    if (!splitCompletedOffsets.containsKey(split.splitId())) {
+                        activeSplits.put(split.splitId(), split);
+                    }
+                    context.getAssignedSnapshotSplit().put(split.splitId(), split);
+                    publishProgress();
+                    return Optional.of(split);
+                }
+                if (chunkingTable || remainingTables.isEmpty()) {
+                    return Optional.empty();
+                }
+                nextTable = remainingTables.pollFirst();
+                splitter = chunkSplitter;
+                chunkingTable = true;
+                publishProgress();
+            }
+            final Collection<SnapshotSplit> splits;
+            try {
+                splits = splitter.generateSplits(nextTable);
+            } catch (RuntimeException | Error failure) {
+                synchronized (this) {
+                    chunkingTable = false;
+                    publishProgress();
+                }
+                throw failure;
+            }
+            synchronized (this) {
                 remainingSplits.addAll(splits);
                 alreadyProcessedTables.add(nextTable);
-                return getNext();
-            } else {
-                return Optional.empty();
+                chunkingTable = false;
+                publishProgress();
             }
         }
     }
 
     @Override
-    public boolean waitingForCompletedSplits() {
+    public synchronized boolean waitingForCompletedSplits() {
         return !allSplitsCompleted();
     }
 
     @Override
-    public void onCompletedSplits(List<SnapshotSplitWatermark> completedSplitWatermarks) {
+    public synchronized void onCompletedSplits(
+            List<SnapshotSplitWatermark> completedSplitWatermarks) {
         completedSplitWatermarks.forEach(
-                watermark -> this.splitCompletedOffsets.put(watermark.getSplitId(), watermark));
+                watermark -> {
+                    String splitId = watermark.getSplitId();
+                    this.splitCompletedOffsets.put(splitId, watermark);
+                    this.activeSplits.remove(watermark.getSplitId());
+                });
         if (allSplitsCompleted()) {
             if (currentParallelism == 1) {
                 // A single-reader job completes immediately. Zeta disables checkpointing
@@ -223,10 +271,11 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                         currentParallelism);
             }
         }
+        publishProgress();
     }
 
     @Override
-    public void addSplits(Collection<SourceSplitBase> splits) {
+    public synchronized void addSplits(Collection<SourceSplitBase> splits) {
         for (SourceSplitBase split : splits) {
             SnapshotSplit snapshotSplit = split.asSnapshotSplit();
             if (restoreCompletedSnapshotSplit(snapshotSplit)) {
@@ -240,19 +289,23 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
             // failed
             assignedSplits.remove(snapshotSplit.splitId());
             splitCompletedOffsets.remove(snapshotSplit.splitId());
+            activeSplits.remove(snapshotSplit.splitId());
         }
+        publishProgress();
     }
 
     @Override
-    public SnapshotPhaseState snapshotState(long checkpointId) {
+    public synchronized SnapshotPhaseState snapshotState(long checkpointId) {
+        // Engine serialization holds enumeratorContext, but add-back uses task/assigner monitors.
+        // Detach collections so later add-back cannot mutate the state being serialized.
         SnapshotPhaseState state =
                 new SnapshotPhaseState(
-                        alreadyProcessedTables,
+                        new ArrayList<>(alreadyProcessedTables),
                         remainingSplits.isEmpty()
                                 ? new ArrayList<>()
                                 : new ArrayList<>(remainingSplits),
-                        assignedSplits,
-                        splitCompletedOffsets,
+                        new HashMap<>(assignedSplits),
+                        new HashMap<>(splitCompletedOffsets),
                         assignerCompleted,
                         remainingTables.isEmpty()
                                 ? new ArrayList<>()
@@ -268,7 +321,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
+    public synchronized void notifyCheckpointComplete(long checkpointId) {
         // we have waited for at-least one complete checkpoint after all snapshot-splits are
         // completed, then we can mark snapshot assigner as completed.
         if (checkpointIdToFinish != null && !assignerCompleted && allSplitsCompleted()) {
@@ -278,7 +331,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     }
 
     /** Indicates there is no more splits available in this assigner. */
-    public boolean noMoreSplits() {
+    public synchronized boolean noMoreSplits() {
         return remainingTables.isEmpty() && remainingSplits.isEmpty();
     }
 
@@ -286,8 +339,129 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
      * Returns whether the snapshot split assigner is completed, which indicates there is no more
      * splits and all records of splits have been completely processed in the pipeline.
      */
-    public boolean isCompleted() {
+    public synchronized boolean isCompleted() {
         return assignerCompleted;
+    }
+
+    @Override
+    public CdcEnumeratorProgressReport getCdcEnumeratorProgress(
+            String connectorType, String positionType) {
+        CdcEnumeratorProgressReport snapshot = latestProgress;
+        List<CdcSnapshotSplitProgress> details =
+                snapshot.getActiveSplits().stream()
+                        .map(
+                                split ->
+                                        new CdcSnapshotSplitProgress(
+                                                split.getSplitId(),
+                                                split.getTablePath(),
+                                                positionType(split.getLowWatermark(), positionType),
+                                                positionType(
+                                                        split.getHighWatermark(), positionType)))
+                        .collect(Collectors.toList());
+        return new CdcEnumeratorProgressReport(
+                connectorType,
+                snapshot.getSnapshotAssignmentStatus(),
+                snapshot.getAssignedSplitCount(),
+                snapshot.getCompletedSplitCount(),
+                snapshot.getRunningSplitCount(),
+                snapshot.getPreparedRemainingSplitCount(),
+                snapshot.getRemainingUnchunkedTableCount(),
+                details,
+                snapshot.isActiveSplitsTruncated());
+    }
+
+    private CdcProgressValue<CdcProgressPosition> positionType(
+            CdcProgressValue<CdcProgressPosition> position, String positionType) {
+        return position.getValue() == null
+                ? position
+                : CdcProgressValue.exact(
+                        new CdcProgressPosition(
+                                positionType,
+                                position.getValue().getSchemaVersion(),
+                                position.getValue().getValues()));
+    }
+
+    /** Publishes one complete transition; readers never traverse mutable assigner state. */
+    private void publishProgress() {
+        try {
+            latestProgress = buildProgress();
+        } catch (RuntimeException failure) {
+            // Observation must not fail assignment or restore. Do not log native positions.
+            LOG.debug(
+                    "Unable to publish CDC assignment progress: {}", failure.getClass().getName());
+            latestProgress =
+                    new CdcEnumeratorProgressReport(
+                            "UNKNOWN",
+                            snapshotAssignmentStatus(),
+                            CdcProgressValue.unavailable(),
+                            CdcProgressValue.unavailable(),
+                            CdcProgressValue.unavailable(),
+                            CdcProgressValue.unavailable(),
+                            CdcProgressValue.unavailable(),
+                            Collections.emptyList(),
+                            !activeSplits.isEmpty());
+        }
+    }
+
+    private CdcEnumeratorProgressReport buildProgress() {
+        int assignedCount = assignedSplits.size();
+        int completedCount = splitCompletedOffsets.size();
+        int activeSplitCount = activeSplits.size();
+        boolean consistent = (long) assignedCount == (long) completedCount + activeSplitCount;
+        if (!consistent) {
+            LOG.debug(
+                    "CDC assignment counts are best effort: assigned={}, completed={}, running={}",
+                    assignedCount,
+                    completedCount,
+                    activeSplitCount);
+        }
+        List<CdcSnapshotSplitProgress> activeSplitProgress =
+                activeSplits.entrySet().stream()
+                        .limit(CdcEnumeratorProgressReport.MAX_ACTIVE_SPLITS)
+                        .map(entry -> activeSplitProgress(entry.getValue(), "UNKNOWN"))
+                        .collect(Collectors.toList());
+        return new CdcEnumeratorProgressReport(
+                "UNKNOWN",
+                snapshotAssignmentStatus(),
+                consistent
+                        ? CdcProgressValue.exact(assignedCount)
+                        : CdcProgressValue.bestEffort(assignedCount),
+                consistent
+                        ? CdcProgressValue.exact(completedCount)
+                        : CdcProgressValue.bestEffort(completedCount),
+                consistent
+                        ? CdcProgressValue.exact(activeSplitCount)
+                        : CdcProgressValue.bestEffort(activeSplitCount),
+                CdcProgressValue.exact(remainingSplits.size()),
+                CdcProgressValue.exact(remainingTables.size() + (chunkingTable ? 1 : 0)),
+                activeSplitProgress,
+                activeSplitCount > activeSplitProgress.size());
+    }
+
+    private CdcSnapshotAssignmentStatus snapshotAssignmentStatus() {
+        if (discoveringTables || chunkingTable || !remainingTables.isEmpty()) {
+            return CdcSnapshotAssignmentStatus.DISCOVERING;
+        }
+        if (!remainingSplits.isEmpty()) {
+            return CdcSnapshotAssignmentStatus.ASSIGNING;
+        }
+        return CdcSnapshotAssignmentStatus.COMPLETED;
+    }
+
+    private CdcSnapshotSplitProgress activeSplitProgress(SnapshotSplit split, String positionType) {
+        CdcProgressPosition lowWatermark =
+                CdcProgressPositions.fromOffset(positionType, split.getLowWatermark());
+        CdcProgressPosition highWatermark =
+                CdcProgressPositions.fromOffset(positionType, split.getHighWatermark());
+        return new CdcSnapshotSplitProgress(
+                split.splitId(),
+                split.getTableId().toString(),
+                lowWatermark == null
+                        ? CdcProgressValue.unavailable()
+                        : CdcProgressValue.exact(lowWatermark),
+                highWatermark == null
+                        ? CdcProgressValue.unavailable()
+                        : CdcProgressValue.exact(highWatermark));
     }
 
     // -------------------------------------------------------------------------------------------
@@ -325,6 +499,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                         snapshotSplit.splitId(),
                         snapshotSplit.getLowWatermark(),
                         snapshotSplit.getHighWatermark()));
+        activeSplits.remove(snapshotSplit.splitId());
         return true;
     }
 
@@ -338,7 +513,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
         return splitCompletedOffsets;
     }
 
-    public boolean completedSnapshotPhase(List<TableId> tableIds) {
+    public synchronized boolean completedSnapshotPhase(List<TableId> tableIds) {
         checkArgument(isCompleted() && allSplitsCompleted());
 
         for (String splitKey : new ArrayList<>(assignedSplits.keySet())) {
@@ -346,9 +521,11 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
             if (tableIds.contains(assignedSplit.getTableId())) {
                 assignedSplits.remove(splitKey);
                 splitCompletedOffsets.remove(assignedSplit.splitId());
+                activeSplits.remove(assignedSplit.splitId());
             }
         }
 
+        publishProgress();
         return assignedSplits.isEmpty() && splitCompletedOffsets.isEmpty();
     }
 }
