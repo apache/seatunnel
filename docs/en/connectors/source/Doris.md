@@ -94,7 +94,7 @@ Table list configuration:
 | doris.batch.size                 | int    | no       | 1024       | The maximum value that can be obtained by reading Doris BE once.                                    |
 | doris.exec.mem.limit             | long   | no       | 2147483648 | Maximum memory that can be used by a single be scan request. The default memory is 2G (2147483648). |
  
-Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer. If `table_list` is not configured, `database` and `table` must be configured at the outer source level.
+Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer. If `table_list` is not configured, `database` and `table` must be configured at the outer source level. Each `database`.`table` pair in `table_list` must be unique; duplicate entries are rejected at job submission.
 
 ### Tips
 

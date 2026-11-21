@@ -405,6 +405,13 @@ public class PhysicalPlan {
             case FAILING:
             case CANCELING:
                 jobMaster.neverNeedRestore();
+                if (JobStatus.CANCELING.equals(jobStatus)) {
+                    // Mark every pipeline as cancel-requested before any cancelPipeline() can
+                    // block on checkpoint cancellation: CoordinatorService.makeTasksFailed()
+                    // may otherwise complete the remaining RUNNING vertices as FAILED while
+                    // the cancel loop has not reached their pipeline yet (#12353).
+                    getPipelineList().forEach(SubPlan::markCancelRequested);
+                }
                 getPipelineList().forEach(SubPlan::cancelPipeline);
                 break;
             case FAILED:

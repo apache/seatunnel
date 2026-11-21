@@ -20,7 +20,7 @@ Use `tables_configs` to read multiple queries, databases, and output schemas thr
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
@@ -153,7 +153,7 @@ Upper bound of the `split_column` column when parallel scan is enabled.
 Lower bound of the `split_column` column when parallel scan is enabled.
 
 The split column range is divided into `partition_num` parts. If `partition_num = 1`, the connector
-uses the whole range. If `partition_num` is less than `upper_bound - lower_bound`, the connector
+uses the whole range. If `partition_num` is greater than `upper_bound - lower_bound`, the connector
 uses `(upper_bound - lower_bound)` partitions.
 
 For example, with `lower_bound = 1`, `upper_bound = 10`, `partition_num = 2`, and
@@ -174,10 +174,13 @@ the query results overlap.
 
 :::caution Reserved option
 
-The current split logic reads the lowercase `where` keyword directly from the `sql` option.
-Setting `where` has no effect on the generated split queries — put the filter inside `sql`
-instead, for example `select * from test where age > 0`. The split parser is case-sensitive on
-the `where` keyword.
+Single-table mode (root-level `sql`): setting `where` has no effect on the generated split
+queries — put the filter inside `sql` instead, for example `select * from test where age > 0`.
+That split parser is case-sensitive on the `where` keyword.
+
+`tables_configs` multi-table mode: setting `where` in a table entry fails at build time with an
+`OptionValidationException` (`InfluxDBSourceFactory` rejects it); that split parser is
+case-insensitive on the `where` keyword.
 
 This option is kept in the option list only because the validation rule
 (`InfluxDBSourceFactory.optionRule()`) still references it for backward compatibility; the
