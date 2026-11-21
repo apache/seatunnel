@@ -429,7 +429,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
         logMySqlServerIdentity();
         logMySqlBinlogRetentionVariables();
-        logMySqlMasterStatus();
+        logMySqlBinaryLogStatus(connection);
         logMySqlReplicationStatus();
         logBinlogRangeAnalysis(requiredBinlogFilename, availableBinlogFiles);
     }
@@ -445,7 +445,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 getDbzConnectorConfig().port());
         logMySqlServerIdentity();
         logMySqlBinlogRetentionVariables();
-        logMySqlMasterStatus();
+        logMySqlBinaryLogStatus(connection);
         logMySqlReplicationStatus();
     }
 
@@ -510,28 +510,27 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         }
     }
 
-    private void logMySqlMasterStatus() {
+    static void logMySqlBinaryLogStatus(MySqlConnection connection) {
+        final String statement = connection.binaryLogStatusStatement();
         try {
             connection.query(
-                    "SHOW MASTER STATUS",
+                    statement,
                     rs -> {
                         if (!rs.next()) {
-                            LOG.warn(
-                                    "MySQL-CDC diagnostic: SHOW MASTER STATUS returned empty result");
+                            LOG.warn("MySQL-CDC diagnostic: {} returned empty result", statement);
                             return;
                         }
                         String file = safeGetString(rs, "File");
                         String position = safeGetString(rs, "Position");
                         String gtidSet = safeGetString(rs, "Executed_Gtid_Set");
                         LOG.warn(
-                                "MySQL-CDC diagnostic: master status file={}, position={}, executed_gtid_set={}",
+                                "MySQL-CDC diagnostic: binary log status file={}, position={}, executed_gtid_set={}",
                                 file,
                                 position,
                                 gtidSet);
                     });
         } catch (SQLException e) {
-            LOG.warn(
-                    "MySQL-CDC diagnostic: failed to query SHOW MASTER STATUS: {}", e.getMessage());
+            LOG.warn("MySQL-CDC diagnostic: failed to query {}: {}", statement, e.getMessage());
         }
     }
 

@@ -181,6 +181,17 @@ public class MySqlTypeUtils {
                     builder.length(optionListLength).precision(optionListLength);
                 }
                 break;
+            case MySqlTypeConverter.MYSQL_VECTOR:
+                // The DDL parser reports the dimension as the length, while the value is the
+                // stored bytes (4 per dimension), which is what the BYTES column length describes.
+                long dimension =
+                        column.length() > 0
+                                ? column.length()
+                                : MySqlTypeConverter.MYSQL_VECTOR_DEFAULT_DIMENSION;
+                builder.columnType(
+                        String.format("%s(%s)", MySqlTypeConverter.MYSQL_VECTOR, dimension));
+                builder.length(dimension * Float.BYTES).precision(dimension * Float.BYTES);
+                break;
             default:
                 break;
         }

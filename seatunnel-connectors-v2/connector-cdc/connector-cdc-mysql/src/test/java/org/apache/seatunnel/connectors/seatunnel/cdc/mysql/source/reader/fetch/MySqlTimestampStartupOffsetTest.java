@@ -24,12 +24,45 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogO
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import io.debezium.connector.mysql.MySqlConnection;
+import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 
+import java.sql.ResultSet;
 import java.util.Collections;
 
 public class MySqlTimestampStartupOffsetTest {
+
+    @Test
+    public void testBinlogDiagnosticsUseNegotiatedStatementAndKeepResultFields() throws Exception {
+        for (String statement :
+                new String[] {
+                    MySqlConnection.MASTER_STATUS_STATEMENT,
+                    MySqlConnection.BINARY_LOG_STATUS_STATEMENT
+                }) {
+            MySqlConnection connection = Mockito.mock(MySqlConnection.class);
+            ResultSet status = Mockito.mock(ResultSet.class);
+            Mockito.when(connection.binaryLogStatusStatement()).thenReturn(statement);
+            Mockito.when(status.next()).thenReturn(true);
+            Mockito.when(connection.query(Mockito.eq(statement), Mockito.any()))
+                    .thenAnswer(
+                            invocation -> {
+                                JdbcConnection.ResultSetConsumer consumer =
+                                        invocation.getArgument(1);
+                                consumer.accept(status);
+                                return connection;
+                            });
+
+            MySqlSourceFetchTaskContext.logMySqlBinaryLogStatus(connection);
+
+            Mockito.verify(connection).query(Mockito.eq(statement), Mockito.any());
+            Mockito.verify(status).getString("File");
+            Mockito.verify(status).getString("Position");
+            Mockito.verify(status).getString("Executed_Gtid_Set");
+        }
+    }
 
     @Test
     public void testTimestampStartupResolvesConfiguredTimestampOnlyForBootstrapOffset() {
