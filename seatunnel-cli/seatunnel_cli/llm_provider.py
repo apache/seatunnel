@@ -22,6 +22,7 @@ Supports multiple backends while presenting a unified interface:
   - anthropic: Anthropic Messages API (direct)
   - openai   : OpenAI Chat Completions API
   - orcarouter: OrcaRouter AI gateway (OpenAI Chat Completions API)
+  - cheaperinference: Cheaper Inference LLM gateway (OpenAI Chat Completions API)
 
 All providers normalize their responses to a common internal format
 so that the agent layer (agents.py) needs no provider-specific code.
@@ -1311,6 +1312,64 @@ class OrcaRouterProvider(OpenAIProvider):
         return self._fast_model_id
 
 
+# ─── Cheaper Inference Provider ───
+
+class CheaperInferenceProvider(OpenAIProvider):
+    """Cheaper Inference LLM gateway provider (OpenAI Chat Completions API).
+
+    Cheaper Inference is an OpenAI-compatible gateway that exposes models
+    from several labs behind one endpoint. Model IDs are bare, e.g.
+    ``gpt-5.4-mini``, ``gpt-5.4`` or ``claude-sonnet-5``.
+
+    Since Cheaper Inference speaks the OpenAI Chat Completions protocol, this
+    provider mirrors :class:`OpenAIProvider` and only customizes the base
+    URL, the API key environment variable, and the default model.
+    """
+
+    #: Cheaper Inference's OpenAI-compatible base URL.
+    DEFAULT_BASE_URL = "https://api.cheaperinference.com/v1"
+    #: Default model: supports tool calls, vision and JSON output.
+    DEFAULT_MODEL = "gpt-5.4-mini"
+
+    def __init__(self):
+        try:
+            import openai
+        except ImportError:
+            raise ImportError(
+                "openai package required for AI_PROVIDER=cheaperinference. "
+                "Install it: pip install openai"
+            )
+
+        api_key = os.environ.get("CHEAPER_INFERENCE_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "CHEAPER_INFERENCE_API_KEY environment variable is required for "
+                "AI_PROVIDER=cheaperinference"
+            )
+
+        self._model_id = os.environ.get(
+            "CHEAPER_INFERENCE_MODEL",
+            os.environ.get("OPENAI_MODEL", self.DEFAULT_MODEL))
+        self._fast_model_id = os.environ.get(
+            "CHEAPER_INFERENCE_SMALL_FAST_MODEL",
+            os.environ.get("OPENAI_SMALL_FAST_MODEL", self._model_id))
+        self._client = openai.OpenAI(api_key=api_key, base_url=self.DEFAULT_BASE_URL)
+        self._echo_reasoning_content = _env_bool(
+            "CHEAPER_INFERENCE_ECHO_REASONING_CONTENT", True)
+
+    @property
+    def provider_name(self) -> str:
+        return "cheaperinference"
+
+    @property
+    def model_id(self) -> str:
+        return self._model_id
+
+    @property
+    def fast_model_id(self) -> str:
+        return self._fast_model_id
+
+
 # ─── Config file ───
 
 
@@ -1351,11 +1410,15 @@ def _auto_detect_provider() -> str | None:
     if os.environ.get("ORCAROUTER_API_KEY"):
         return "orcarouter"
 
-    # 3. OpenAI API key
+    # 3. Cheaper Inference gateway key
+    if os.environ.get("CHEAPER_INFERENCE_API_KEY"):
+        return "cheaperinference"
+
+    # 4. OpenAI API key
     if os.environ.get("OPENAI_API_KEY"):
         return "openai"
 
-    # 4. AWS credentials (for Bedrock)
+    # 5. AWS credentials (for Bedrock)
     if os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_PROFILE"):
         return "bedrock"
     try:
@@ -1378,6 +1441,7 @@ _PROVIDERS = {
     "anthropic": AnthropicProvider,
     "openai": OpenAIProvider,
     "orcarouter": OrcaRouterProvider,
+    "cheaperinference": CheaperInferenceProvider,
 }
 
 
@@ -1423,6 +1487,8 @@ def create_provider(provider: str | None = None) -> LLMProvider:
         if model_config.get("model"):
             if name == "orcarouter":
                 os.environ.setdefault("ORCAROUTER_MODEL", model_config["model"])
+            elif name == "cheaperinference":
+                os.environ.setdefault("CHEAPER_INFERENCE_MODEL", model_config["model"])
             elif not os.environ.get("ANTHROPIC_MODEL") and not os.environ.get("OPENAI_MODEL"):
                 if name in ("openai", "bedrock-mantle"):
                     os.environ.setdefault("OPENAI_MODEL", model_config["model"])
@@ -1431,6 +1497,8 @@ def create_provider(provider: str | None = None) -> LLMProvider:
         if model_config.get("fast_model"):
             if name == "orcarouter":
                 os.environ.setdefault("ORCAROUTER_SMALL_FAST_MODEL", model_config["fast_model"])
+            elif name == "cheaperinference":
+                os.environ.setdefault("CHEAPER_INFERENCE_SMALL_FAST_MODEL", model_config["fast_model"])
             elif not os.environ.get("ANTHROPIC_SMALL_FAST_MODEL") and not os.environ.get("OPENAI_SMALL_FAST_MODEL"):
                 if name in ("openai", "bedrock-mantle"):
                     os.environ.setdefault("OPENAI_SMALL_FAST_MODEL", model_config["fast_model"])
