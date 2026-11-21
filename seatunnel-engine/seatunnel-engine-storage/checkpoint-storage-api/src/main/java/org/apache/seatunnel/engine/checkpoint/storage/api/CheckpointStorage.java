@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CheckpointStorage {
 
@@ -85,6 +86,25 @@ public interface CheckpointStorage {
      */
     List<PipelineState> getCheckpointsByJobIdAndPipelineId(String jobId, String pipelineId)
             throws CheckpointStorageException;
+
+    /**
+     * Lists persisted checkpoint IDs without reading or deserializing checkpoint payloads.
+     *
+     * <p>An empty optional means that the storage does not support metadata-only enumeration. The
+     * default preserves compatibility with external storage plugins. A supported implementation
+     * returns a present list, including an empty list when no checkpoints exist. It must include
+     * valid checkpoint IDs even when the corresponding payload is corrupt, so retention can retire
+     * those files. The returned IDs need not be ordered or unique.
+     *
+     * @param jobId job id
+     * @param pipelineId pipeline id
+     * @return persisted checkpoint IDs, or an empty optional when unsupported
+     * @throws CheckpointStorageException if supported metadata enumeration fails
+     */
+    default Optional<List<Long>> getCheckpointIdsByJobIdAndPipelineId(
+            String jobId, String pipelineId) throws CheckpointStorageException {
+        return Optional.empty();
+    }
 
     /**
      * Delete all checkpoint data under the job
