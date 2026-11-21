@@ -52,14 +52,25 @@ public class CheckpointService {
     @Getter private CheckpointStorage checkpointStorage;
     private Serializer serializer = new ProtoStuffSerializer();
 
-    @SneakyThrows
     public CheckpointService(CheckpointConfig config) {
         this.checkpointStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CheckpointStorageFactory.class,
-                                config.getStorage().getStorage())
-                        .create(config.getStorage().getStoragePluginConfig());
+                createStorage(config, config.getStorage().getStoragePluginConfig());
+    }
+
+    /**
+     * Creates the checkpoint storage plugin configured in {@code config}.
+     *
+     * @param pluginConfig the plugin options; some plugins consume entries of this map, so callers
+     *     creating more than one instance must pass a copy
+     */
+    @SneakyThrows
+    public static CheckpointStorage createStorage(
+            CheckpointConfig config, Map<String, String> pluginConfig) {
+        return FactoryUtil.discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CheckpointStorageFactory.class,
+                        config.getStorage().getStorage())
+                .create(pluginConfig);
     }
 
     @SneakyThrows

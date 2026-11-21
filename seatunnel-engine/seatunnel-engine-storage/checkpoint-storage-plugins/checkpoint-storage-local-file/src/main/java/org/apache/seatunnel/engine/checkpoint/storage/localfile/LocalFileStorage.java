@@ -24,7 +24,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.exception.ExceptionUtils;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
-import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractChunkSupportStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
 import org.apache.commons.collections4.MapUtils;
@@ -34,7 +34,12 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -47,7 +52,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageConstants.STORAGE_NAME_SPACE;
 
 @Slf4j
-public class LocalFileStorage extends AbstractCheckpointStorage {
+public class LocalFileStorage extends AbstractChunkSupportStorage {
 
     private static final String[] FILE_EXTENSIONS = new String[] {FILE_FORMAT};
 
@@ -389,5 +394,86 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                         }
                     }
                 });
+    }
+
+    private Path resolve(String relativePath) {
+        return Paths.get(getStorageParentDirectory(), relativePath);
+    }
+
+    @Override
+    protected void writeNewFile(String relativePath, byte[] data) throws IOException {
+        Path file = resolve(relativePath);
+        Files.createDirectories(file.getParent());
+        Files.write(file, data, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+    }
+
+    /**
+     * Creates {@code target} from {@code source} only if it does not exist yet. A hard link is
+     * created atomically and fails if the target exists, unlike a POSIX rename, which silently
+     * replaces it. The source link is then removed on a best-effort basis.
+     */
+    @Override
+    protected void moveIfAbsent(String source, String target) throws IOException {
+        Path from = resolve(source);
+        Path to = resolve(target);
+        try {
+            Files.createLink(to, from);
+        } catch (UnsupportedOperationException e) {
+            // file systems without hard links: move fails if the target exists (not atomic, but
+            // there is a single committer per checkpoint)
+            Files.move(from, to);
+            return;
+        }
+        try {
+            Files.deleteIfExists(from);
+        } catch (IOException e) {
+            // the target is published; a leftover temporary file is ignored by readers
+            log.warn("Failed to delete temporary checkpoint file {}", from, e);
+        }
+    }
+
+    @Override
+    protected void deleteIfExists(String relativePath) throws IOException {
+        Files.deleteIfExists(resolve(relativePath));
+    }
+
+    @Override
+    protected byte[] readFile(String relativePath) throws IOException {
+        return Files.readAllBytes(resolve(relativePath));
+    }
+
+    @Override
+    protected boolean fileExists(String relativePath) {
+        return Files.isRegularFile(resolve(relativePath));
+    }
+
+    @Override
+    protected List<String> listChildDirectories(String relativePath) throws IOException {
+        Path dir = resolve(relativePath);
+        List<String> names = new ArrayList<>();
+        if (!Files.isDirectory(dir)) {
+            return names;
+        }
+        try (DirectoryStream<Path> children = Files.newDirectoryStream(dir, Files::isDirectory)) {
+            for (Path child : children) {
+                names.add(child.getFileName().toString());
+            }
+        }
+        return names;
+    }
+
+    @Override
+    protected List<String> listFileNames(String relativePath) throws IOException {
+        Path dir = resolve(relativePath);
+        List<String> names = new ArrayList<>();
+        if (!Files.isDirectory(dir)) {
+            return names;
+        }
+        try (DirectoryStream<Path> children = Files.newDirectoryStream(dir, Files::isRegularFile)) {
+            for (Path child : children) {
+                names.add(child.getFileName().toString());
+            }
+        }
+        return names;
     }
 }

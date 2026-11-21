@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
@@ -79,6 +80,19 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
         }
     }
 
+    /**
+     * Reads externalized (STIP-45) states from the checkpoint storage so the task only sees inline
+     * states. Runs on the task's executor, never on the operation thread, because it performs IO.
+     */
+    private List<ActionSubtaskState> resolveExternalStates(SeaTunnelServer server)
+            throws CheckpointStorageException {
+        List<ActionSubtaskState> resolved = new ArrayList<>(restoredState.size());
+        for (ActionSubtaskState state : restoredState) {
+            resolved.add(state == null ? null : state.toInline(server::getChunkStateStorage));
+        }
+        return resolved;
+    }
+
     @Override
     public void runInternal() throws Exception {
         SeaTunnelServer server = getService();
@@ -104,7 +118,7 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
                                                 log.debug(
                                                         "NotifyTaskRestoreOperation.restoreState "
                                                                 + restoredState);
-                                                task.restoreState(restoredState);
+                                                task.restoreState(resolveExternalStates(server));
                                                 log.debug(
                                                         "NotifyTaskRestoreOperation.finished "
                                                                 + restoredState);

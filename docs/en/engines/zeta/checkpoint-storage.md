@@ -426,3 +426,15 @@ seatunnel:
           disable.cache: false
           fs.defaultFS: file:///
 ```
+
+### Restoring from an unreadable checkpoint
+
+With the `localfile` and `hdfs` storage types (including the OSS, COS, GCS and S3 configurations of `hdfs`), the engine lists the completed checkpoints of a pipeline by file name and then reads them from the newest one down. It reads both the per-pipeline checkpoint files and the `chk-<id>/_metadata` directories of the chunked format.
+
+- **Corrupt content**: a checkpoint whose content is invalid is skipped with a `WARN` log, and the next older checkpoint is restored. Invalid content means the file fails its length or CRC32 check, cannot be deserialized, or holds the checkpoint of another job, pipeline or checkpoint id.
+- **Read failure**: if a checkpoint file exists but cannot be read, for example because of a network error or missing permissions, the restore fails. It does not fall back to an older checkpoint, because the file may be intact and an older checkpoint would replay data. Fix the storage and restore the job again.
+- **Nothing valid**: if completed checkpoints exist but all of them are corrupt, the restore fails instead of starting the job from the beginning.
+- **Savepoints**: when a job is restored from a savepoint and a newer checkpoint is corrupt, its type cannot be known, so it may be the requested savepoint. The restore then fails instead of using an older savepoint or starting from the beginning. A restore from a checkpoint falls back as described above.
+- **Checkpoint ids**: after a restore, new checkpoint ids continue above the highest id on storage, including ids of corrupt checkpoints that were skipped.
+
+Each chunk file is written once under a unique name, and the checkpoint metadata records its location, length and CRC32. On restore, a chunk outside the directory of its own checkpoint, or one whose length, checksum or state size does not match, is rejected as corrupt.

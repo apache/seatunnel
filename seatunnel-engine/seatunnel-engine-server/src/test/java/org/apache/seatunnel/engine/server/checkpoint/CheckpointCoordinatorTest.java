@@ -20,6 +20,10 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.localfile.LocalFileStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.state.ChunkDescriptor;
+import org.apache.seatunnel.engine.checkpoint.storage.state.FileChunkStateHandle;
+import org.apache.seatunnel.engine.checkpoint.storage.state.MetadataEnvelope;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -28,11 +32,19 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointErrorReportOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestoreOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
+import org.apache.seatunnel.engine.server.execution.TaskGroup;
+import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -41,6 +53,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -48,9 +61,12 @@ import org.mockito.Mockito;
 import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1485,6 +1501,274 @@ public class CheckpointCoordinatorTest
                 expected,
                 delivered,
                 scenario + ": every checkpointed subtask state must be restored exactly once");
+    }
+
+    /**
+     * STIP-45 restore path for external (v2) state, end to end on the master and worker side: real
+     * v2 chunks and {@code _metadata} are written, the checkpoint is selected by {@link
+     * DualFormatCheckpointReader} (as {@link CheckpointManager} does) and deserialized by a real
+     * {@link CheckpointCoordinator}. The tasks then report {@code WAITING_RESTORE} through {@link
+     * CheckpointCoordinator#reportedTask}, which remaps the state from parallelism 2 to 1; each
+     * resulting {@link NotifyTaskRestoreOperation} crosses Hazelcast serialization, and its real
+     * {@code runInternal} resolves the handles before {@link Task#restoreState} is invoked. Only
+     * the task itself and the executor lookup are stubbed. A missing chunk must fail the restore
+     * (reported to the master) instead of handing the task empty state.
+     */
+    @Test
+    void testExternalStateIsResolvedThroughTheRealRestoreOperation(@TempDir Path namespace)
+            throws Exception {
+        Map<String, String> storageConfig = new HashMap<>();
+        storageConfig.put("namespace", namespace.toString());
+        LocalFileStorage storage = new LocalFileStorage(storageConfig);
+        String jobId = "1";
+        String pipelineId = "1";
+        long checkpointId = 7;
+        ActionStateKey actionKey = new ActionStateKey("ActionStateKey - external-source");
+
+        // an older v1 checkpoint that must lose against the newer v2 one
+        storage.storeCheckPoint(
+                PipelineState.builder()
+                        .jobId(jobId)
+                        .pipelineId(1)
+                        .checkpointId(3)
+                        .states(new byte[0])
+                        .build());
+
+        // v2 checkpoint taken at parallelism 2: every state lives in its own chunk
+        ActionState actionState = new ActionState(actionKey, 2);
+        actionState.reportState(
+                CheckpointPlan.COORDINATOR_INDEX,
+                externalState(
+                        storage,
+                        actionKey,
+                        checkpointId,
+                        CheckpointPlan.COORDINATOR_INDEX,
+                        Collections.singletonList(utf8("enumerator-state"))));
+        actionState.reportState(
+                0,
+                externalState(
+                        storage, actionKey, checkpointId, 0, Arrays.asList(utf8("split-0"), null)));
+        FileChunkStateHandle subtaskOneChunk =
+                (FileChunkStateHandle)
+                        externalState(
+                                        storage,
+                                        actionKey,
+                                        checkpointId,
+                                        1,
+                                        Collections.singletonList(utf8("split-1")))
+                                .getStateHandle();
+        actionState.reportState(1, ActionSubtaskState.ofExternal(actionKey, 1, subtaskOneChunk));
+        Map<ActionStateKey, ActionState> taskStates = new HashMap<>();
+        taskStates.put(actionKey, actionState);
+        long now = System.currentTimeMillis();
+        CompletedCheckpoint completed =
+                new CompletedCheckpoint(
+                        1L,
+                        1,
+                        checkpointId,
+                        now,
+                        CheckpointType.CHECKPOINT_TYPE,
+                        now,
+                        taskStates,
+                        new HashMap<>());
+        storage.writeMetadata(
+                jobId,
+                pipelineId,
+                checkpointId,
+                MetadataEnvelope.of(new ProtoStuffSerializer().serialize(completed)));
+
+        PipelineState selected =
+                DualFormatCheckpointReader.getLatestCheckpoint(storage, jobId, pipelineId);
+        Assertions.assertEquals(checkpointId, selected.getCheckpointId());
+
+        // restored plan at parallelism 1: the single subtask receives both old subtask states
+        TaskLocation coordinatorTask = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 0, 0);
+        TaskLocation subtask = new TaskLocation(new TaskGroupLocation(1L, 1, 2), 0, 0);
+        Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions = new HashMap<>();
+        subtaskActions.put(
+                coordinatorTask,
+                Collections.singleton(Tuple2.tuple2(actionKey, CheckpointPlan.COORDINATOR_INDEX)));
+        subtaskActions.put(subtask, Collections.singleton(Tuple2.tuple2(actionKey, 0)));
+        CheckpointPlan plan =
+                CheckpointPlan.builder()
+                        .pipelineId(1)
+                        .pipelineSubtasks(new HashSet<>(Arrays.asList(coordinatorTask, subtask)))
+                        .startingSubtasks(Collections.singleton(coordinatorTask))
+                        .pipelineActions(Collections.singletonMap(actionKey, 1))
+                        .subtaskActions(subtaskActions)
+                        .build();
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(new CheckpointStorageConfig());
+        // capture the restore operations the coordinator sends to the workers
+        Map<TaskLocation, NotifyTaskRestoreOperation> sent = new ConcurrentHashMap<>();
+        CountDownLatch restoresSent = new CountDownLatch(2);
+        CheckpointManager mockManager = Mockito.mock(CheckpointManager.class);
+        Mockito.doAnswer(
+                        invocation -> {
+                            NotifyTaskRestoreOperation operation = invocation.getArgument(0);
+                            sent.put(operation.getTaskLocation(), operation);
+                            restoresSent.countDown();
+                            return Mockito.mock(InvocationFuture.class);
+                        })
+                .when(mockManager)
+                .sendOperationToMemberNode(Mockito.any(NotifyTaskRestoreOperation.class));
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            @SuppressWarnings("unchecked")
+            IMap<Object, Object> mockIMap = Mockito.mock(IMap.class);
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            mockManager,
+                            storage,
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            selected,
+                            executorService,
+                            mockIMap,
+                            true,
+                            null);
+            // enter through the supported lifecycle boundary: the tasks report WAITING_RESTORE
+            // (sent through Hazelcast serialization like the worker-to-master RPC), and the
+            // coordinator dispatches restoreTaskState asynchronously on its executor
+            for (TaskLocation task : Arrays.asList(coordinatorTask, subtask)) {
+                TaskReportStatusOperation report =
+                        nodeEngine
+                                .getSerializationService()
+                                .toObject(
+                                        nodeEngine
+                                                .getSerializationService()
+                                                .toData(
+                                                        new TaskReportStatusOperation(
+                                                                task,
+                                                                SeaTunnelTaskState
+                                                                        .WAITING_RESTORE)));
+                coordinator.reportedTask(report);
+            }
+            Assertions.assertTrue(
+                    restoresSent.await(10, TimeUnit.SECONDS),
+                    "the coordinator did not send a restore operation to every task");
+        } finally {
+            executorService.shutdownNow();
+        }
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList(coordinatorTask, subtask)), sent.keySet());
+
+        // the coordinator task receives the enumerator state, read from its chunk
+        Task enumeratorTask = runRestoreOperation(sent.get(coordinatorTask), storage);
+        List<ActionSubtaskState> enumeratorStates = restoredStates(enumeratorTask);
+        Assertions.assertEquals(1, enumeratorStates.size());
+        Assertions.assertTrue(enumeratorStates.get(0).isInline());
+        Assertions.assertEquals(
+                CheckpointPlan.COORDINATOR_INDEX, enumeratorStates.get(0).getIndex());
+        Assertions.assertArrayEquals(
+                utf8("enumerator-state"), enumeratorStates.get(0).getState().get(0));
+
+        // the reader task receives both old subtask states, inline and with null segments kept
+        Task readerTask = runRestoreOperation(sent.get(subtask), storage);
+        List<ActionSubtaskState> readerStates = restoredStates(readerTask);
+        Assertions.assertEquals(
+                Arrays.asList(0, 1),
+                readerStates.stream()
+                        .map(ActionSubtaskState::getIndex)
+                        .sorted()
+                        .collect(Collectors.toList()));
+        for (ActionSubtaskState state : readerStates) {
+            Assertions.assertTrue(state.isInline());
+            if (state.getIndex() == 0) {
+                Assertions.assertArrayEquals(utf8("split-0"), state.getState().get(0));
+                Assertions.assertNull(state.getState().get(1));
+            } else {
+                Assertions.assertArrayEquals(utf8("split-1"), state.getState().get(0));
+            }
+        }
+
+        // a missing chunk fails the restore: the error goes to the master and the task never
+        // restores (i.e. never starts from empty state)
+        Files.delete(namespace.resolve(subtaskOneChunk.getLocation()));
+        Task failedTask = runRestoreOperation(sent.get(subtask), storage);
+        Mockito.verify(failedTask, Mockito.never()).restoreState(Mockito.anyList());
+        ArgumentCaptor<CheckpointErrorReportOperation> error =
+                ArgumentCaptor.forClass(CheckpointErrorReportOperation.class);
+        Mockito.verify(failedTask.getExecutionContext()).sendToMaster(error.capture());
+        Assertions.assertEquals(subtask, error.getValue().getTaskLocation());
+        Assertions.assertTrue(
+                ReflectionUtils.getField(error.getValue(), "errorMsg")
+                        .map(String::valueOf)
+                        .orElse("")
+                        .contains(subtaskOneChunk.getLocation()));
+    }
+
+    private static ActionSubtaskState externalState(
+            LocalFileStorage storage,
+            ActionStateKey actionKey,
+            long checkpointId,
+            int index,
+            List<byte[]> states)
+            throws Exception {
+        FileChunkStateHandle handle =
+                storage.writeChunk(
+                        new ChunkDescriptor("1", "1", checkpointId, actionKey.getName(), index),
+                        states);
+        return ActionSubtaskState.ofExternal(actionKey, index, handle);
+    }
+
+    /**
+     * Sends {@code operation} through Hazelcast serialization, as the RPC to the worker does, and
+     * runs the real {@link NotifyTaskRestoreOperation#runInternal()} against a stubbed task whose
+     * executor runs synchronously. Returns the task, whose {@code restoreState} calls are recorded.
+     */
+    private Task runRestoreOperation(NotifyTaskRestoreOperation operation, LocalFileStorage storage)
+            throws Exception {
+        NotifyTaskRestoreOperation received =
+                nodeEngine
+                        .getSerializationService()
+                        .toObject(nodeEngine.getSerializationService().toData(operation));
+        Assertions.assertNotSame(operation, received);
+
+        TaskExecutionService executionService = Mockito.mock(TaskExecutionService.class);
+        Mockito.doAnswer(
+                        invocation -> {
+                            invocation.<Runnable>getArgument(1).run();
+                            return null;
+                        })
+                .when(executionService)
+                .asyncExecuteFunction(Mockito.any(TaskGroupLocation.class), Mockito.any());
+        TaskExecutionContext executionContext = Mockito.mock(TaskExecutionContext.class);
+        Mockito.when(executionContext.getTaskExecutionService()).thenReturn(executionService);
+        Task task = Mockito.mock(Task.class);
+        Mockito.when(task.getExecutionContext()).thenReturn(executionContext);
+        TaskGroup taskGroup = Mockito.mock(TaskGroup.class);
+        Mockito.when(taskGroup.getTask(Mockito.anyLong())).thenReturn(task);
+        TaskGroupContext groupContext = Mockito.mock(TaskGroupContext.class);
+        Mockito.when(groupContext.getTaskGroup()).thenReturn(taskGroup);
+        Mockito.when(groupContext.getClassLoader(Mockito.anyLong()))
+                .thenReturn(getClass().getClassLoader());
+        Mockito.when(executionService.getExecutionContext(Mockito.any(TaskGroupLocation.class)))
+                .thenReturn(groupContext);
+        SeaTunnelServer worker = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(worker.getTaskExecutionService()).thenReturn(executionService);
+        Mockito.when(worker.getChunkStateStorage()).thenReturn(storage);
+        NodeEngineImpl workerNodeEngine = Mockito.mock(NodeEngineImpl.class);
+        Mockito.doReturn(worker).when(workerNodeEngine).getService(SeaTunnelServer.SERVICE_NAME);
+        received.setNodeEngine(workerNodeEngine);
+
+        received.runInternal();
+        return task;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<ActionSubtaskState> restoredStates(Task task) throws Exception {
+        ArgumentCaptor<List<ActionSubtaskState>> restored = ArgumentCaptor.forClass(List.class);
+        Mockito.verify(task).restoreState(restored.capture());
+        Mockito.verify(task.getExecutionContext(), Mockito.never())
+                .sendToMaster(Mockito.any(CheckpointErrorReportOperation.class));
+        return restored.getValue();
+    }
+
+    private static byte[] utf8(String value) {
+        return value.getBytes(StandardCharsets.UTF_8);
     }
 }
 
