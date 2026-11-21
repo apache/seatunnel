@@ -72,6 +72,7 @@ public class MySqlConnection extends JdbcConnection {
     private final MySqlConnectionConfiguration connectionConfig;
     private final MySqlFieldReader mysqlFieldReader;
     private final String binaryLogStatusStatement;
+    private final boolean preferBinaryLogListing;
     /**
      * Creates a new connection using the supplied configuration.
      *
@@ -80,6 +81,13 @@ public class MySqlConnection extends JdbcConnection {
      */
     public MySqlConnection(
             MySqlConnectionConfiguration connectionConfig, MySqlFieldReader fieldReader) {
+        this(connectionConfig, fieldReader, false);
+    }
+
+    private MySqlConnection(
+            MySqlConnectionConfiguration connectionConfig,
+            MySqlFieldReader fieldReader,
+            boolean preferBinaryLogListing) {
         super(
                 connectionConfig.jdbcConfig,
                 connectionConfig.factory(),
@@ -87,6 +95,7 @@ public class MySqlConnection extends JdbcConnection {
                 QUOTED_CHARACTER);
         this.connectionConfig = connectionConfig;
         this.mysqlFieldReader = fieldReader;
+        this.preferBinaryLogListing = preferBinaryLogListing;
         try {
             query(BINARY_LOG_STATUS_STATEMENT, rs -> {});
         } catch (SQLException e) {
@@ -104,7 +113,19 @@ public class MySqlConnection extends JdbcConnection {
      * @param connectionConfig {@link MySqlConnectionConfiguration} instance, may not be null.
      */
     public MySqlConnection(MySqlConnectionConfiguration connectionConfig) {
-        this(connectionConfig, new MySqlTextProtocolFieldReader(null));
+        this(connectionConfig, false);
+    }
+
+    public MySqlConnection(
+            MySqlConnectionConfiguration connectionConfig, boolean preferBinaryLogListing) {
+        this(connectionConfig, new MySqlTextProtocolFieldReader(null), preferBinaryLogListing);
+    }
+
+    /** Returns the file-listing command independently of the server's status command. */
+    public String binaryLogListingStatement() {
+        return preferBinaryLogListing || binaryLogStatusStatement().startsWith("SHOW BINARY")
+                ? "SHOW BINARY LOGS"
+                : "SHOW MASTER LOGS";
     }
 
     public String binaryLogStatusStatement() {
