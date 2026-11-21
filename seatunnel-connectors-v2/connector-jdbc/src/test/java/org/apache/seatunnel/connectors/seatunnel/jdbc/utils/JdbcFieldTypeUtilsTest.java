@@ -21,6 +21,8 @@ import org.junit.jupiter.api.Test;
 import org.postgresql.util.PSQLException;
 import org.postgresql.util.PSQLState;
 
+import com.ibm.db2.jcc.DBTimestamp;
+
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -37,6 +39,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class JdbcFieldTypeUtilsTest {
@@ -143,6 +147,20 @@ public class JdbcFieldTypeUtilsTest {
 
         assertEquals(instant, result.toInstant());
         assertEquals(ZoneOffset.UTC, result.getOffset());
+    }
+
+    @Test
+    public void testGetOffsetDateTimeFromDb2TimestampPreservesOffsetAndTruncatesPicos()
+            throws SQLException {
+        DBTimestamp timestamp =
+                DBTimestamp.valueOfDBString("2010-10-28-00.22.33.123456789012-05:00");
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getObject(1)).thenReturn(timestamp);
+
+        OffsetDateTime result = JdbcFieldTypeUtils.getOffsetDateTime(rs, 1);
+
+        assertEquals(OffsetDateTime.parse("2010-10-28T00:22:33.123456789-05:00"), result);
+        verify(rs, never()).getString(1);
     }
 
     @Test
