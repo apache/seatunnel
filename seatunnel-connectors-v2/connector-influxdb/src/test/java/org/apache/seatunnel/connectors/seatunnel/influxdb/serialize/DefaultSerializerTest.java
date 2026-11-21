@@ -27,6 +27,7 @@ import org.influxdb.dto.Point;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
@@ -35,13 +36,35 @@ public class DefaultSerializerTest {
 
     private static final String MEASUREMENT = "cpu";
 
+    /** 2024-01-01T00:00:00 in UTC, as epoch milliseconds. */
+    private static final long EPOCH_MILLIS_2024_01_01 = 1704067200000L;
+
+    private static final long EPOCH_MILLIS_2020_01_01 = 1577836800000L;
+
     private DefaultSerializer serializer(SeaTunnelDataType<?> timeType) {
+        return serializer(timeType, TimeUnit.NANOSECONDS);
+    }
+
+    private DefaultSerializer serializer(SeaTunnelDataType<?> timeType, TimeUnit precision) {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"time", "value"},
                         new SeaTunnelDataType[] {timeType, BasicType.DOUBLE_TYPE});
         return new DefaultSerializer(
-                rowType, TimeUnit.NANOSECONDS, Collections.emptyList(), "time", MEASUREMENT);
+                rowType, precision, Collections.emptyList(), "time", MEASUREMENT);
+    }
+
+    /**
+     * Reads the point timestamp from the line protocol. {@link Point#lineProtocol()} always formats
+     * the timestamp as nanoseconds, so the last token is the timestamp in nanoseconds.
+     */
+    private static long emittedTimestampNanos(Point point) {
+        String lineProtocol = point.lineProtocol();
+        Assertions.assertNotNull(lineProtocol);
+        String[] tokens = lineProtocol.split("\\s+");
+        Assertions.assertTrue(
+                tokens.length >= 2, "line protocol does not contain a timestamp: " + lineProtocol);
+        return Long.parseLong(tokens[tokens.length - 1]);
     }
 
     @Test
@@ -103,12 +126,33 @@ public class DefaultSerializerTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"value"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
+        // default epoch (nanoseconds) of the influxdb sink
         DefaultSerializer serializer =
                 new DefaultSerializer(
                         rowType, TimeUnit.NANOSECONDS, Collections.emptyList(), null, MEASUREMENT);
+
+        long before = System.currentTimeMillis();
         Point point = serializer.serialize(new SeaTunnelRow(new Object[] {1.0d}));
+        long after = System.currentTimeMillis();
+
         Assertions.assertNotNull(point);
-        Assertions.assertNotNull(point.lineProtocol());
+        long timestampMillis = TimeUnit.NANOSECONDS.toMillis(emittedTimestampNanos(point));
+        Assertions.assertTrue(
+                timestampMillis >= before && timestampMillis <= after,
+                "processing time timestamp should be the current time in milliseconds but was "
+                        + timestampMillis
+                        + " ("
+                        + Instant.ofEpochMilli(timestampMillis)
+                        + "), expected it to be within ["
+                        + before
+                        + ", "
+                        + after
+                        + "]");
+        // the millisecond value must not be written as if it were nanoseconds (1970-01-01)
+        Assertions.assertTrue(
+                timestampMillis > EPOCH_MILLIS_2020_01_01,
+                "processing time timestamp must not be a 1970 timestamp but was "
+                        + timestampMillis);
     }
 
     @Test
@@ -117,6 +161,26 @@ public class DefaultSerializerTest {
         LocalDateTime time = LocalDateTime.of(2024, 1, 1, 0, 0, 0);
         Point point = serializer.serialize(new SeaTunnelRow(new Object[] {time, 1.0d}));
         Assertions.assertNotNull(point);
-        Assertions.assertNotNull(point.lineProtocol());
+
+        // the TIMESTAMP column is converted with UTC to epoch milliseconds; the line protocol
+        // writes nanoseconds, so the emitted timestamp is the epoch millisecond value * 1_000_000
+        Assertions.assertEquals(
+                TimeUnit.MILLISECONDS.toNanos(EPOCH_MILLIS_2024_01_01),
+                emittedTimestampNanos(point),
+                "TIMESTAMP key_time must be written as epoch milliseconds");
+    }
+
+    @Test
+    public void shouldSerializeLocalDateTimeTimeColumnWithMillisecondEpoch() {
+        // a TIMESTAMP key_time column must be correct for any epoch value, not only for MS
+        DefaultSerializer serializer =
+                serializer(LocalTimeType.LOCAL_DATE_TIME_TYPE, TimeUnit.MILLISECONDS);
+        LocalDateTime time = LocalDateTime.of(2024, 1, 1, 0, 0, 0);
+        Point point = serializer.serialize(new SeaTunnelRow(new Object[] {time, 1.0d}));
+        Assertions.assertNotNull(point);
+        Assertions.assertEquals(
+                TimeUnit.MILLISECONDS.toNanos(EPOCH_MILLIS_2024_01_01),
+                emittedTimestampNanos(point),
+                "TIMESTAMP key_time must be written as epoch milliseconds");
     }
 }

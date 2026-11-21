@@ -222,7 +222,7 @@ Tunnel Quota 允许您使用专用的计算资源进行 MaxCompute Tunnel 数据
 
 ### retry_times [int]
 
-`retry_times` ODPS REST 客户端在瞬态失败时的最大重试次数。默认 `4`。
+`retry_times` ODPS REST 客户端在瞬态失败时的最大重试次数。必须为非负整数，允许设置为 `0`。负数会在配置校验阶段被拒绝。默认 `4`。
 
 ### tunnel_connect_timeout_ms [long]
 
@@ -234,7 +234,7 @@ Tunnel Quota 允许您使用专用的计算资源进行 MaxCompute Tunnel 数据
 
 ### tunnel_retry_times [int]
 
-`tunnel_retry_times` Tunnel 客户端在瞬态失败时的最大重试次数。默认 `4`。
+`tunnel_retry_times` Tunnel 客户端在瞬态失败时的最大重试次数。必须为非负整数，允许设置为 `0`。负数会在配置校验阶段被拒绝。默认 `4`。
 
 ### insert_strategy [string]
 
