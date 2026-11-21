@@ -65,6 +65,23 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 因此，在精确类型与浮点类型混用时，等号不一定满足传递性；需要精度保证时，请统一使用精确类型的操作数。
 以上规则适用于 `ZETA` 和 `INTERNAL` 两种 SQL 引擎设置。
 
+## CDC 流上的 WHERE
+
+`WHERE` 子句逐行判断。在 CDC 流中，一次更新由一条带旧值的 `UPDATE_BEFORE` 行和一条带新值的 `UPDATE_AFTER` 行组成。该 Transform 的输出如下：
+
+| 行类型 | 是否满足 `WHERE` 子句 | 输出 |
+|--------|-----------------------|------|
+| 任意 | 是 | 投影后的行，行类型不变 |
+| `UPDATE_AFTER` | 否 | 投影后的行，作为 `DELETE` |
+| `INSERT`、`UPDATE_BEFORE`、`DELETE` | 否 | 无 |
+
+因此，使某行不再满足条件的更新会以 `DELETE` 到达 Sink，按主键写入的 Sink（例如配置了 `primary_keys` 的 Jdbc）会删除该行。否则，把 `UPDATE_AFTER` 写成 upsert 并跳过 `UPDATE_BEFORE` 的 Sink 会保留旧行。使某行开始满足条件的更新会以 `UPDATE_AFTER` 到达，并照常写入。
+
+- 请选出 Sink 的主键列，以便 `DELETE` 能找到对应的行。
+- 旧值同样不满足条件时也会发送 `DELETE`。按主键写入的 Sink 会删除一个它没有的键，数据不会改变，但 Sink 需要删除权限。Kudu Sink 在这种删除上会失败，除非设置 `ignore_not_found = true`。
+- 使用 `LATERAL VIEW` 时，由被拒绝的 `UPDATE_AFTER` 产生的每一行都是 `DELETE`。
+- 如果被拒绝的 `UPDATE_AFTER` 投影失败（例如 `select 10 / x as r from dual where x <> 0` 且 `x = 0`），该行会被丢弃，并记录一条警告日志。
+
 ## 示例
 
 源端数据读取的表格如下：

@@ -460,10 +460,14 @@ transform {
 |------|------|
 | 单表输入 | 每个 Transform 只注册一张表到 Calcite Schema，不支持多表 `JOIN` |
 | 逐行处理 | 每行独立处理。`GROUP BY` / `SUM()` / `COUNT()` 作用于单行，通常无实际聚合意义 |
-| WHERE 过滤 | `WHERE` 条件为 `false` 的行会被丢弃（不透传） |
+| WHERE 过滤 | `WHERE` 条件为 `false` 的行会被丢弃（不透传），`UPDATE_AFTER` 行除外，它会作为 `DELETE` 发出（见下文） |
 | 表名匹配 | SQL `FROM` 中的表名必须与 `plugin_input` 值完全一致 |
 | 仅标量 UDF | 仅支持标量函数，不支持表值函数和聚合 UDF |
 | 向量类型映射 | 向量类型内部映射为 VARBINARY。可使用内置向量 UDF（COSINE_DISTANCE、L1_DISTANCE 等）进行向量运算 |
+
+:::tip CDC 流上的 WHERE
+当 `WHERE` 子句拒绝一条 `UPDATE_AFTER` 行时，该 Transform 会执行去掉 `WHERE` 子句的查询，并把结果作为 `DELETE` 发出。这样，使某行不再满足条件的更新会从按主键写入的 Sink（例如配置了 `primary_keys` 的 Jdbc）中删除该行，而不是保留旧值。被拒绝的 `INSERT`、`UPDATE_BEFORE` 和 `DELETE` 行仍会被丢弃。这适用于不带 `GROUP BY` 或 `HAVING` 的单个 `SELECT`（可带 `ORDER BY`）。请选出 Sink 的主键列，以便 `DELETE` 能找到对应的行；Sink 需要删除权限，Kudu Sink 需设置 `ignore_not_found = true`。如果该投影失败，该行会被丢弃，并记录一条警告日志。
+:::
 
 :::tip CDC Schema 变更
 收到 `AlterTableEvent`（例如加列、删列）时，引擎会自动重建 SQL 执行计划并重新推导输出 Schema，无需手动干预。

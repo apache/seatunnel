@@ -72,6 +72,23 @@ comparison uses `DOUBLE`. Equality is therefore not necessarily transitive
 across mixed exact and floating types; use exact operands consistently when
 precision matters. These rules apply to both `ZETA` and `INTERNAL`.
 
+## WHERE on a CDC stream
+
+The `WHERE` clause judges each row on its own. On a CDC stream an update arrives as an `UPDATE_BEFORE` row with the old values and an `UPDATE_AFTER` row with the new values. The transform emits:
+
+| Row kind | Matches the `WHERE` clause | Output |
+|----------|----------------------------|--------|
+| any | yes | the projected row, with the same row kind |
+| `UPDATE_AFTER` | no | the projected row, as a `DELETE` |
+| `INSERT`, `UPDATE_BEFORE`, `DELETE` | no | nothing |
+
+An update that moves a row out of the condition therefore reaches the sink as a `DELETE`, and a sink that writes rows by key, such as Jdbc with `primary_keys`, removes the row. Without it, a sink that writes `UPDATE_AFTER` as an upsert and skips `UPDATE_BEFORE` would keep the old row. An update that moves a row into the condition arrives as an `UPDATE_AFTER` and is written as usual.
+
+- Select the key columns of the sink, so that the `DELETE` can find the row.
+- A `DELETE` is also sent when the old values did not match either. A keyed sink then deletes a key it does not hold, which changes no data, but the sink needs the permission to delete. The Kudu sink fails on such a delete unless `ignore_not_found = true`.
+- With `LATERAL VIEW`, every row produced from a rejected `UPDATE_AFTER` is a `DELETE`.
+- If the projection of a rejected `UPDATE_AFTER` fails, for example `select 10 / x as r from dual where x <> 0` with `x = 0`, the row is dropped and a warning is logged.
+
 ## Example
 
 The data read from source is a table like this:

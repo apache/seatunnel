@@ -4312,4 +4312,97 @@ class CalciteSQLEngineTest {
             Locale.setDefault(original);
         }
     }
+
+    private SeaTunnelRowType changelogRowType() {
+        return new SeaTunnelRowType(
+                new String[] {"id", "status"},
+                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+    }
+
+    private static SeaTunnelRow changelogRow(RowKind kind, Object... fields) {
+        SeaTunnelRow row = new SeaTunnelRow(fields);
+        row.setRowKind(kind);
+        row.setTableId("db.t");
+        Map<String, Object> options = new HashMap<>();
+        options.put("offset", "42");
+        row.setOptions(options);
+        return row;
+    }
+
+    /**
+     * A WHERE clause that rejects an UPDATE_AFTER emits its projected new image as a DELETE, so
+     * that a sink which writes UPDATE_AFTER as an upsert and skips UPDATE_BEFORE removes the row.
+     * Every other row kind is kept when it matches and dropped when it does not.
+     */
+    @Test
+    void testWhereOnChangelogRows() {
+        CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT id, UPPER(status) AS status FROM t WHERE status = 'active'",
+                        "t",
+                        changelogRowType());
+        for (RowKind kind : RowKind.values()) {
+            List<SeaTunnelRow> kept = engine.execute(changelogRow(kind, 1, "active"));
+            Assertions.assertEquals(1, kept.size(), kind.name());
+            Assertions.assertEquals(kind, kept.get(0).getRowKind());
+            Assertions.assertArrayEquals(new Object[] {1, "ACTIVE"}, kept.get(0).getFields());
+
+            List<SeaTunnelRow> rejected = engine.execute(changelogRow(kind, 1, "inactive"));
+            if (kind != RowKind.UPDATE_AFTER) {
+                Assertions.assertTrue(rejected.isEmpty(), kind.name());
+                continue;
+            }
+            Assertions.assertEquals(1, rejected.size());
+            SeaTunnelRow delete = rejected.get(0);
+            Assertions.assertEquals(RowKind.DELETE, delete.getRowKind());
+            Assertions.assertArrayEquals(new Object[] {1, "INACTIVE"}, delete.getFields());
+            Assertions.assertEquals("db.t", delete.getTableId());
+            Assertions.assertEquals("42", delete.getOptions().get("offset"));
+        }
+        engine.close();
+    }
+
+    @Test
+    void testWhereWithOrderByOnRejectedUpdateAfter() {
+        CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT id, status FROM t WHERE status = 'active' ORDER BY id",
+                        "t",
+                        changelogRowType());
+        List<SeaTunnelRow> rows = engine.execute(changelogRow(RowKind.UPDATE_AFTER, 1, "inactive"));
+        Assertions.assertEquals(1, rows.size());
+        Assertions.assertEquals(RowKind.DELETE, rows.get(0).getRowKind());
+        Assertions.assertArrayEquals(new Object[] {1, "inactive"}, rows.get(0).getFields());
+        engine.close();
+    }
+
+    @Test
+    void testQueryWithoutWhereKeepsRowKinds() {
+        CalciteSQLEngine engine =
+                createAndInit("SELECT id, status FROM t", "t", changelogRowType());
+        for (RowKind kind : RowKind.values()) {
+            List<SeaTunnelRow> rows = engine.execute(changelogRow(kind, 1, "inactive"));
+            Assertions.assertEquals(1, rows.size());
+            Assertions.assertEquals(kind, rows.get(0).getRowKind());
+        }
+        engine.close();
+    }
+
+    /**
+     * The WHERE clause may guard the projection. When the projection of a rejected UPDATE_AFTER
+     * fails, the row is dropped as before instead of failing the job.
+     */
+    @Test
+    void testWhereRejectedUpdateAfterWithFailingProjection() {
+        CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT id, CAST(status AS INTEGER) AS status FROM t WHERE status <> 'x'",
+                        "t",
+                        changelogRowType());
+        List<SeaTunnelRow> kept = engine.execute(changelogRow(RowKind.UPDATE_AFTER, 1, "7"));
+        Assertions.assertEquals(RowKind.UPDATE_AFTER, kept.get(0).getRowKind());
+        Assertions.assertEquals(7, kept.get(0).getField(1));
+        Assertions.assertTrue(engine.execute(changelogRow(RowKind.UPDATE_AFTER, 1, "x")).isEmpty());
+        engine.close();
+    }
 }

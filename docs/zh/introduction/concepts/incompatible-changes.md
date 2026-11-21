@@ -225,6 +225,13 @@ Markdown File Source 现在将 `child_ids` 声明为 `ARRAY<STRING>`，每行输
   - `-i ' =v1 , k2=v2'` 现在会报错，因为v1的key在trim后为空。
   - 有意义的首尾空白会被静默去除。
 
+### SQL 与 Calcite Transform：被 WHERE 拒绝的 UPDATE_AFTER 会作为 DELETE 发出
+
+- **行为变更：被 `WHERE` 子句拒绝的 `UPDATE_AFTER` 行会作为 `DELETE` 发出**
+  - **描述**：`WHERE` 子句逐行判断，并保留每行的行类型。当一次更新使某行不再满足条件时，它的 `UPDATE_BEFORE`（旧值，满足条件）会被保留，而 `UPDATE_AFTER`（新值，不满足条件）会被丢弃。把 `UPDATE_AFTER` 写成 upsert 并跳过 `UPDATE_BEFORE` 的 Sink（例如配置了 `primary_keys` 的 Jdbc、Elasticsearch、ClickHouse、Kudu 和 MongoDB）会保留旧行，而作业正常结束、没有报错。现在，被拒绝的 `UPDATE_AFTER` 会经过投影后作为 `DELETE` 发出，Sink 会删除该行。被 `WHERE` 子句拒绝的 `INSERT`、`UPDATE_BEFORE` 和 `DELETE` 行仍会被丢弃，没有 `WHERE` 子句的查询不受影响。在 Calcite Transform 中，这适用于不带 `GROUP BY` 或 `HAVING` 的单个 `SELECT`。
+  - **影响**：对 CDC 流做过滤的作业现在会向下游发送 `DELETE` 行。不再满足条件的行会从按主键写入的 Sink 表中删除，而不是保留旧值。旧值同样不满足条件时也会发送 `DELETE`；按主键写入的 Sink 会删除一个它没有的键，数据不会改变，但需要删除权限。Kudu Sink 在这种删除上会写入失败，除非设置 `ignore_not_found = true`。只追加写入的 Sink 会像接收其他变更日志行一样接收这些 `DELETE` 行。如果被拒绝的 `UPDATE_AFTER` 投影失败（例如 `WHERE` 子句用于保护除法运算），该行会像以前一样被丢弃，并记录一条警告日志。
+  - **迁移指南**：无需修改配置。请在查询中选出 Sink 的主键列，以便 `DELETE` 能找到对应的行，并为 Sink 用户授予删除权限；Kudu Sink 需设置 `ignore_not_found = true`。由旧版本写入的目标表可能包含已不满足条件的行，请从数据源重新导入该表以删除这些行。
+
 ### SQL TINYINT 数组模式
 
 Zeta SQL ARRAY 函数现在将 TINYINT 元素声明为 `ARRAY<TINYINT>`，与实际输出的 Byte 值一致。此前错误的 `ARRAY<STRING>` 声明会导致依赖模式的行处理失败。请更新假定元素为 STRING 的下游声明；需要字符串模式时，在 SQL 中显式将值转换为 STRING。受影响的作业应使用修正后的模式重新启动，不要恢复依赖旧声明的状态。

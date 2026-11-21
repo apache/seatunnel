@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -1262,5 +1263,107 @@ public class SQLTransformTest {
         } finally {
             Locale.setDefault(original);
         }
+    }
+
+    private static SQLTransform changelogTransform(String query, String... extraFields) {
+        String[] names = new String[2 + extraFields.length];
+        SeaTunnelDataType<?>[] types = new SeaTunnelDataType[names.length];
+        names[0] = "id";
+        types[0] = BasicType.INT_TYPE;
+        names[1] = "status";
+        types[1] = BasicType.STRING_TYPE;
+        for (int i = 0; i < extraFields.length; i++) {
+            names[2 + i] = extraFields[i];
+            types[2 + i] = BasicType.STRING_TYPE;
+        }
+        SQLTransform transform =
+                new SQLTransform(
+                        ReadonlyConfig.fromMap(Collections.singletonMap("query", query)),
+                        CatalogTableUtil.getCatalogTable(
+                                "test", new SeaTunnelRowType(names, types)));
+        transform.transformTableSchema();
+        return transform;
+    }
+
+    private static SeaTunnelRow changelogRow(RowKind kind, Object... fields) {
+        SeaTunnelRow row = new SeaTunnelRow(fields);
+        row.setRowKind(kind);
+        row.setTableId("db.t");
+        row.setOptions(Collections.singletonMap("offset", "42"));
+        return row;
+    }
+
+    /**
+     * A WHERE clause that rejects an UPDATE_AFTER emits its projected new image as a DELETE, so
+     * that a sink which writes UPDATE_AFTER as an upsert and skips UPDATE_BEFORE removes the row.
+     * Every other row kind is kept when it matches and dropped when it does not.
+     */
+    @Test
+    public void testWhereOnChangelogRows() {
+        SQLTransform transform =
+                changelogTransform(
+                        "select id, upper(status) as status from dual where status = 'active'");
+        for (RowKind kind : RowKind.values()) {
+            List<SeaTunnelRow> kept = transform.transformRow(changelogRow(kind, 1, "active"));
+            Assertions.assertEquals(1, kept.size(), kind.name());
+            Assertions.assertEquals(kind, kept.get(0).getRowKind());
+            Assertions.assertArrayEquals(new Object[] {1, "ACTIVE"}, kept.get(0).getFields());
+
+            List<SeaTunnelRow> rejected = transform.transformRow(changelogRow(kind, 1, "inactive"));
+            if (kind != RowKind.UPDATE_AFTER) {
+                Assertions.assertNull(rejected, kind.name());
+                continue;
+            }
+            Assertions.assertEquals(1, rejected.size());
+            SeaTunnelRow delete = rejected.get(0);
+            Assertions.assertEquals(RowKind.DELETE, delete.getRowKind());
+            Assertions.assertArrayEquals(new Object[] {1, "INACTIVE"}, delete.getFields());
+            Assertions.assertEquals("db.t", delete.getTableId());
+            Assertions.assertEquals("42", delete.getOptions().get("offset"));
+        }
+    }
+
+    @Test
+    public void testQueryWithoutWhereKeepsRowKinds() {
+        SQLTransform transform = changelogTransform("select id, status from dual");
+        for (RowKind kind : RowKind.values()) {
+            List<SeaTunnelRow> rows = transform.transformRow(changelogRow(kind, 1, "inactive"));
+            Assertions.assertEquals(1, rows.size());
+            Assertions.assertEquals(kind, rows.get(0).getRowKind());
+        }
+    }
+
+    @Test
+    public void testWhereRejectedUpdateAfterWithLateralView() {
+        SQLTransform transform =
+                changelogTransform(
+                        "select id, status, tags from dual"
+                                + " LATERAL VIEW EXPLODE(SPLIT(tags, ',')) AS tags"
+                                + " where status = 'active'",
+                        "tags");
+        List<SeaTunnelRow> rows =
+                transform.transformRow(changelogRow(RowKind.UPDATE_AFTER, 1, "inactive", "a,b"));
+        Assertions.assertEquals(2, rows.size());
+        for (SeaTunnelRow row : rows) {
+            Assertions.assertEquals(RowKind.DELETE, row.getRowKind());
+        }
+        Assertions.assertEquals("a", rows.get(0).getField(2));
+        Assertions.assertEquals("b", rows.get(1).getField(2));
+    }
+
+    /**
+     * The WHERE clause may guard the projection. When the projection of a rejected UPDATE_AFTER
+     * fails, the row is dropped as before instead of failing the job.
+     */
+    @Test
+    public void testWhereRejectedUpdateAfterWithFailingProjection() {
+        SQLTransform transform =
+                changelogTransform(
+                        "select id, cast(status as int) as status from dual where status <> 'x'");
+        List<SeaTunnelRow> kept =
+                transform.transformRow(changelogRow(RowKind.UPDATE_AFTER, 1, "7"));
+        Assertions.assertEquals(RowKind.UPDATE_AFTER, kept.get(0).getRowKind());
+        Assertions.assertEquals(7, kept.get(0).getField(1));
+        Assertions.assertNull(transform.transformRow(changelogRow(RowKind.UPDATE_AFTER, 1, "x")));
     }
 }

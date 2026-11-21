@@ -462,10 +462,14 @@ Custom scalar functions can be added via the `CalciteUdf` SPI. For the full deve
 |------------|--------|
 | Single input table | Only one table is registered in the Calcite schema per transform. Multi-table `JOIN` is not supported |
 | Row-at-a-time processing | Each row is processed independently. `GROUP BY` / `SUM()` / `COUNT()` operate on a single row and are generally not useful for batch aggregation |
-| WHERE filtering | `WHERE` conditions that evaluate to `false` cause the row to be dropped (not passed through) |
+| WHERE filtering | `WHERE` conditions that evaluate to `false` cause the row to be dropped (not passed through), except an `UPDATE_AFTER` row, which is emitted as a `DELETE` (see below) |
 | Table name matching | The `FROM` table name in SQL must exactly match the `plugin_input` value |
 | Scalar UDFs only | Only scalar functions are supported. Table-valued functions and aggregate UDFs are not available |
 | Vector type mapping | Vector types are mapped to VARBINARY internally. Use built-in vector UDFs (COSINE_DISTANCE, L1_DISTANCE, etc.) for vector operations |
+
+:::tip WHERE on a CDC stream
+When the `WHERE` clause rejects an `UPDATE_AFTER` row, the transform runs the query without its `WHERE` clause and emits the result as a `DELETE`. An update that moves a row out of the condition is then removed from a sink that writes rows by key, such as Jdbc with `primary_keys`, instead of keeping its old values. Rejected `INSERT`, `UPDATE_BEFORE` and `DELETE` rows are still dropped. This applies to a single `SELECT` without `GROUP BY` or `HAVING`, with or without `ORDER BY`. Select the key columns of the sink so that the `DELETE` can find the row; the sink needs the permission to delete, and a Kudu sink needs `ignore_not_found = true`. If that projection fails, the row is dropped and a warning is logged.
+:::
 
 :::tip CDC schema changes
 When an `AlterTableEvent` is received (for example, add/drop columns), the engine automatically rebuilds the SQL plan and re-infers the output schema. No manual intervention is needed.

@@ -19,6 +19,7 @@ package org.apache.seatunnel.transform.sql.zeta;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -73,6 +74,10 @@ public class ZetaSQLEngine implements SQLEngine {
     private ZetaUDFContext udfContext;
 
     private Integer allColumnsCount = null;
+
+    /** Whether a failed projection of a DELETE image was already logged at WARN. */
+    private boolean deleteImageFailureLogged = false;
+
     private boolean udfOpened;
 
     /**
@@ -334,20 +339,44 @@ public class ZetaSQLEngine implements SQLEngine {
         zetaSQLFunction.updateUDFContext(inputFields, inputRow);
 
         // Filter
+        boolean retain;
         try {
-            boolean retain = zetaSQLFilter.executeFilter(selectBody.getWhere(), inputFields);
-            if (!retain) {
-                return null;
-            }
+            retain = zetaSQLFilter.executeFilter(selectBody.getWhere(), inputFields);
         } catch (Exception e) {
             throw TransformCommonError.sqlWhereStatementError(selectBody.getWhere().toString(), e);
         }
+        if (retain) {
+            return projectRow(inputFields, inputRow, inputRow.getRowKind(), outRowType);
+        }
+        if (inputRow.getRowKind() != RowKind.UPDATE_AFTER) {
+            return null;
+        }
+        // The update moves the row out of the WHERE condition: its UPDATE_BEFORE matched and was
+        // kept, but a sink that writes UPDATE_AFTER as an upsert skips UPDATE_BEFORE and would
+        // keep the old row. Emit the new image as a DELETE so that the sink removes the row.
+        try {
+            return projectRow(inputFields, inputRow, RowKind.DELETE, outRowType);
+        } catch (RuntimeException e) {
+            // The WHERE condition may guard the projection (e.g. "10 / x ... WHERE x <> 0"), so a
+            // failed projection of a rejected row must not fail the job. Drop it as before.
+            logDeleteImageFailure(e);
+            return null;
+        }
+    }
 
-        // Project
+    /**
+     * Projects one input row that passed the filter, or the DELETE image of a rejected
+     * UPDATE_AFTER, and applies the lateral views. The output rows get the given row kind.
+     */
+    private List<SeaTunnelRow> projectRow(
+            Object[] inputFields,
+            SeaTunnelRow inputRow,
+            RowKind rowKind,
+            SeaTunnelRowType outRowType) {
         Object[] outputFields = project(inputFields);
 
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(outputFields);
-        seaTunnelRow.setRowKind(inputRow.getRowKind());
+        seaTunnelRow.setRowKind(rowKind);
         seaTunnelRow.setTableId(inputRow.getTableId());
         seaTunnelRow.setOptions(inputRow.getOptions());
         List<LateralView> lateralViews = selectBody.getLateralViews();
@@ -356,6 +385,20 @@ public class ZetaSQLEngine implements SQLEngine {
         }
         return zetaSQLFunction.lateralView(
                 Lists.newArrayList(seaTunnelRow), lateralViews, outRowType);
+    }
+
+    private void logDeleteImageFailure(RuntimeException e) {
+        String message =
+                "Dropped an UPDATE_AFTER row that the WHERE condition rejected, because its"
+                        + " projection failed, so it cannot be sent as a DELETE. A keyed sink may"
+                        + " keep the old row. Query: "
+                        + sql;
+        if (!deleteImageFailureLogged) {
+            deleteImageFailureLogged = true;
+            log.warn(message, e);
+        } else {
+            log.debug(message, e);
+        }
     }
 
     private Object[] scanTable(SeaTunnelRow inputRow) {

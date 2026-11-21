@@ -45,6 +45,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -133,6 +134,66 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
         }
     }
 
+    /**
+     * A WHERE clause of the Sql transform on a CDC stream: row 1 goes from active to inactive and
+     * must be removed from the keyed sink table, row 3 goes from inactive to active and must be
+     * written, row 2 stays active.
+     */
+    @TestTemplate
+    public void testSqlWhereOnCDCChangelog(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        assertWhereOnCDCChangelog(container, "/jdbc_sink_cdc_changelog_sql_where.conf");
+    }
+
+    /** The same as {@link #testSqlWhereOnCDCChangelog} with the Calcite transform. */
+    @TestTemplate
+    public void testCalciteWhereOnCDCChangelog(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        assertWhereOnCDCChangelog(container, "/jdbc_sink_cdc_changelog_calcite_where.conf");
+    }
+
+    private void assertWhereOnCDCChangelog(TestContainer container, String config)
+            throws IOException, InterruptedException, SQLException {
+        executeSql("truncate table sink_status");
+        try {
+            Container.ExecResult execResult = container.executeJob(config);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+            List<List<Object>> actual = new ArrayList<>();
+            try (Connection connection =
+                            DriverManager.getConnection(
+                                    postgreSQLContainer.getJdbcUrl(),
+                                    postgreSQLContainer.getUsername(),
+                                    postgreSQLContainer.getPassword());
+                    Statement statement = connection.createStatement();
+                    ResultSet resultSet =
+                            statement.executeQuery(
+                                    "select pk_id, status from sink_status order by pk_id")) {
+                while (resultSet.next()) {
+                    actual.add(
+                            Arrays.asList(
+                                    resultSet.getLong("pk_id"), resultSet.getString("status")));
+                }
+            }
+            Assertions.assertEquals(
+                    Arrays.asList(Arrays.asList(2L, "active"), Arrays.asList(3L, "active")),
+                    actual);
+        } finally {
+            executeSql("truncate table sink_status");
+        }
+    }
+
+    private void executeSql(String sql) throws SQLException {
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                postgreSQLContainer.getJdbcUrl(),
+                                postgreSQLContainer.getUsername(),
+                                postgreSQLContainer.getPassword());
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
+    }
+
     private void initializeJdbcTable() {
         try (Connection connection =
                 DriverManager.getConnection(
@@ -147,6 +208,11 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
                             + "score INT\n"
                             + ")";
             statement.execute(sink);
+            statement.execute(
+                    "create table if not exists sink_status(\n"
+                            + "pk_id BIGINT NOT NULL PRIMARY KEY,\n"
+                            + "status varchar(255)\n"
+                            + ")");
         } catch (SQLException e) {
             throw new RuntimeException("Initializing PostgreSql table failed!", e);
         }
