@@ -50,6 +50,14 @@ public class TiDBSource
     private final CatalogTable catalogTable;
 
     public TiDBSource(ReadonlyConfig config, CatalogTable catalogTable) {
+        this(config, catalogTable, false);
+    }
+
+    /**
+     * Carries explicit table key layout from JDBC metadata into each source reader. Existing
+     * constructors default to the historical integer/non-clustered decoding contract.
+     */
+    TiDBSource(ReadonlyConfig config, CatalogTable catalogTable, boolean clusteredPrimaryKey) {
 
         this.config =
                 TiDBSourceConfig.builder()
@@ -57,6 +65,7 @@ public class TiDBSource
                         .databaseName(config.get(TiDBSourceOptions.DATABASE_NAME))
                         .tableName(config.get(TiDBSourceOptions.TABLE_NAME))
                         .batchSize(config.get(TiDBSourceOptions.BATCH_SIZE_PER_SCAN))
+                        .clusteredPrimaryKey(clusteredPrimaryKey)
                         .tiConfiguration(TiDBSourceOptions.getTiConfiguration(config))
                         .build();
         this.catalogTable = catalogTable;
