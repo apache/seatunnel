@@ -102,6 +102,11 @@ public class ExecutionPlanGenerator {
                             action.getJarUrls(),
                             action.getConnectorJarIdentifiers(),
                             (SinkConfig) action.getConfig());
+            // Sink action metadata must survive task-plan recreation; failures are not optional.
+            SinkAction<?, ?, ?, ?> originalSinkAction = (SinkAction<?, ?, ?, ?>) action;
+            SinkAction<?, ?, ?, ?> recreatedSinkAction = (SinkAction<?, ?, ?, ?>) newAction;
+            recreatedSinkAction.setDirtyRecordCollector(
+                    originalSinkAction.getDirtyRecordCollector());
         } else if (action instanceof SourceAction) {
             newAction =
                     new SourceAction<>(

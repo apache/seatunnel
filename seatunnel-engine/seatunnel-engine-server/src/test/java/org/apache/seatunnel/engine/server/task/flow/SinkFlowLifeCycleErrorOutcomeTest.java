@@ -21,8 +21,11 @@ import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.common.error.RowErrorPhase;
 import org.apache.seatunnel.api.common.metrics.ThreadSafeCounter;
 import org.apache.seatunnel.api.signal.FlushSignal;
+import org.apache.seatunnel.api.sink.DirtyDataAwareSinkWriter;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -66,6 +69,120 @@ class SinkFlowLifeCycleErrorOutcomeTest {
 
     private static final TaskLocation TASK_LOCATION =
             new TaskLocation(new TaskGroupLocation(1L, 1, 1L), 2L, 0);
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void incompatibleDirtyPolicyClosesCollectorBeforeWriterCreation() throws Exception {
+        SeaTunnelSink<SeaTunnelRow, String, String, String> sink =
+                Mockito.mock(SeaTunnelSink.class);
+        SinkAction<SeaTunnelRow, String, String, String> action =
+                new SinkAction<>(7L, "sink", sink, Collections.emptySet(), Collections.emptySet());
+        DirtyRecordCollector collector = Mockito.mock(DirtyRecordCollector.class);
+        Mockito.doThrow(new IOException("collector-close")).when(collector).close();
+        action.setDirtyRecordCollector(collector);
+        SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
+        Mockito.when(task.getTaskID()).thenReturn(2L);
+        Mockito.when(task.getEnvOptions())
+                .thenReturn(
+                        Collections.singletonMap(
+                                "sink_error_handler", Collections.singletonMap("mode", "DROP")));
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                new SinkFlowLifeCycle<>(
+                        action,
+                        TASK_LOCATION,
+                        0,
+                        task,
+                        null,
+                        false,
+                        new CompletableFuture<>(),
+                        new SeaTunnelMetricsContext());
+        Mockito.when(sink.getCommitInfoSerializer()).thenReturn(Optional.empty());
+        Mockito.when(sink.getWriterStateSerializer()).thenReturn(Optional.empty());
+        Mockito.when(sink.createCommitter()).thenReturn(Optional.empty());
+        flow.init();
+        IllegalArgumentException error =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> flow.restoreState(Collections.emptyList()));
+        Assertions.assertTrue(error.getMessage().contains("cannot be combined"));
+        Assertions.assertEquals(1, error.getSuppressed().length);
+        Assertions.assertEquals("collector-close", error.getSuppressed()[0].getMessage());
+        Mockito.verify(collector).close();
+        Mockito.verify(sink, Mockito.never()).createWriter(Mockito.any());
+        Mockito.verify(sink, Mockito.never()).restoreWriter(Mockito.any(), Mockito.anyList());
+    }
+
+    @Test
+    void dirtyValidationReportsDroppedInsteadOfSuccessfulWrite() throws Exception {
+        SeaTunnelMetricsContext metrics = new SeaTunnelMetricsContext();
+        List<SeaTunnelRow> writtenRows = new ArrayList<>();
+        AtomicInteger collected = new AtomicInteger();
+        // Deliberately retain the collector's default zero count: outcomes must be per-call.
+        DirtyRecordCollector collector =
+                new DirtyRecordCollector() {
+                    @Override
+                    public void collect(
+                            int subtask,
+                            Object row,
+                            Throwable error,
+                            String message,
+                            CatalogTable table) {
+                        collected.incrementAndGet();
+                    }
+
+                    @Override
+                    public boolean validateAndCollectIfDirty(
+                            int subtask, SeaTunnelRow row, CatalogTable table) {
+                        if (((Integer) row.getField(0)) < 0) {
+                            collect(subtask, row, null, "negative id", table);
+                            return true;
+                        }
+                        return false;
+                    }
+                };
+        SinkWriter<SeaTunnelRow, String, String> raw =
+                new SinkWriter<SeaTunnelRow, String, String>() {
+                    @Override
+                    public void write(SeaTunnelRow row) {
+                        writtenRows.add(row);
+                    }
+
+                    @Override
+                    public Optional<String> prepareCommit() {
+                        return Optional.empty();
+                    }
+
+                    @Override
+                    public void abortPrepare() {}
+
+                    @Override
+                    public void close() {}
+                };
+        SinkWriter<SeaTunnelRow, String, String> wrapped =
+                DirtyDataAwareSinkWriter.wrap(raw, collector, 0, null, null);
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                createFlow(
+                        metrics,
+                        wrapped,
+                        new ErrorHandler<>(
+                                StageErrorConfig.builder().mode(ErrorHandlerMode.DISABLE).build()));
+        SeaTunnelRow rejected = tracedRow();
+        rejected.setField(0, -1);
+        SeaTunnelRow accepted = tracedRow();
+        flow.received(new Record<>(rejected));
+        flow.received(new Record<>(accepted));
+
+        Assertions.assertEquals(Collections.singletonList(accepted), writtenRows);
+        Assertions.assertEquals(1, collected.get());
+        Assertions.assertEquals(0L, collector.getDirtyRecordCount());
+        Assertions.assertEquals(2L, metrics.counter(SINK_RECORDS_IN + "#7").getCount());
+        Assertions.assertEquals(1L, metrics.counter(SINK_WRITE_COUNT).getCount());
+        Assertions.assertEquals(1L, metrics.counter(SINK_ERROR_RECORDS_DROPPED + "#7").getCount());
+        Assertions.assertFalse(hasStage(rejected, StainTraceStage.SINK_WRITE_DONE));
+        Assertions.assertTrue(hasStage(rejected, StainTraceStage.SINK_ERROR_DROPPED));
+        Assertions.assertTrue(hasStage(accepted, StainTraceStage.SINK_WRITE_DONE));
+        Assertions.assertFalse(hasStage(accepted, StainTraceStage.SINK_ERROR_DROPPED));
+    }
 
     @Test
     void routedErrorDoesNotReportMainSinkSuccess() throws Exception {

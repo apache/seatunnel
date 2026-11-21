@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 
 import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.error.RowErrorEvent;
+import org.apache.seatunnel.api.sink.DirtyDataAwareSinkWriter;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -64,6 +66,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -505,6 +508,108 @@ class JdbcSinkWriterTest {
 
         Assertions.assertEquals(1, executor.executeBatchCalls);
         Mockito.verify(connection, Mockito.never()).commit();
+    }
+
+    /**
+     * A failed JDBC batch belongs to all buffered records, not the healthy record that triggered
+     * its flush. The dirty wrapper must preserve the delegate failure and the subsequent latch.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void testDirtyCollectorPreservesBatchFailureAndLatch() throws Exception {
+        JdbcDialect dialect = mock(JdbcDialect.class);
+        JdbcConnectionProvider provider = mock(JdbcConnectionProvider.class);
+        Connection connection = mock(Connection.class);
+        when(dialect.dialectName()).thenReturn(DatabaseIdentifier.ORACLE);
+        when(dialect.getJdbcConnectionProvider(any())).thenReturn(provider);
+        when(dialect.getRowConverter()).thenReturn(mock(JdbcRowConverter.class));
+        when(provider.getConnection()).thenReturn(connection);
+        when(provider.isConnectionValid()).thenReturn(true);
+        JdbcConnectionConfig config =
+                JdbcConnectionConfig.builder()
+                        .driverName(DummyDriver.class.getName())
+                        .url("jdbc:dummy:dirty-batch-failure")
+                        .autoCommit(false)
+                        .batchSize(2)
+                        .batchIntervalMs(0)
+                        .maxRetries(0)
+                        .build();
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+        when(context.getRowErrorCollector()).thenReturn(Optional.empty());
+        JdbcSinkWriter writer =
+                new JdbcSinkWriter(
+                        null,
+                        context,
+                        dialect,
+                        buildJdbcSinkConfig(config),
+                        buildTableSchema(),
+                        buildTableSchema(),
+                        null,
+                        true);
+        JdbcBatchStatementExecutor<SeaTunnelRow> executor = mock(JdbcBatchStatementExecutor.class);
+        List<SeaTunnelRow> bufferedRows = new ArrayList<>();
+        Mockito.doAnswer(
+                        call -> {
+                            bufferedRows.add(call.getArgument(0));
+                            return null;
+                        })
+                .when(executor)
+                .addToBatch(any());
+        SQLException batchFailure = new SQLException("invalid earlier buffered row", "22001");
+        doThrow(batchFailure).when(executor).executeBatch();
+        writer.outputFormat = new JdbcOutputFormat<>(provider, config, () -> executor, false);
+        JdbcSinkWriter delegate = Mockito.spy(writer);
+        AtomicReference<Throwable> delegateFailure = new AtomicReference<>();
+        Mockito.doAnswer(
+                        call -> {
+                            try {
+                                return call.callRealMethod();
+                            } catch (Throwable failure) {
+                                delegateFailure.set(failure);
+                                throw failure;
+                            }
+                        })
+                .when(delegate)
+                .write(any());
+        AtomicInteger collected = new AtomicInteger();
+        DirtyRecordCollector collector =
+                (subtask, record, failure, message, table) -> collected.incrementAndGet();
+        SinkWriter<SeaTunnelRow, ?, ?> wrapped =
+                DirtyDataAwareSinkWriter.wrap(delegate, collector, 0, null, context);
+        SeaTunnelRow badEarlierRow = new SeaTunnelRow(new Object[] {-1});
+        SeaTunnelRow healthyFlushTrigger = new SeaTunnelRow(new Object[] {2});
+
+        wrapped.write(badEarlierRow);
+        verify(executor, never()).executeBatch();
+        Assertions.assertEquals(0, collected.get());
+        JdbcConnectorException flushFailure =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class, () -> wrapped.write(healthyFlushTrigger));
+        Assertions.assertSame(delegateFailure.get(), flushFailure);
+        Assertions.assertEquals(2, bufferedRows.size());
+        Assertions.assertSame(badEarlierRow, bufferedRows.get(0));
+        Assertions.assertSame(healthyFlushTrigger, bufferedRows.get(1));
+        Assertions.assertEquals(
+                0, collected.get(), "A failed batch cannot identify this healthy row as dirty");
+
+        JdbcConnectorException latchedFailure =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> wrapped.write(new SeaTunnelRow(new Object[] {3})));
+        Assertions.assertSame(delegateFailure.get(), latchedFailure);
+        Throwable rootCause = latchedFailure;
+        while (rootCause.getCause() != null) {
+            rootCause = rootCause.getCause();
+        }
+        Assertions.assertSame(batchFailure, rootCause);
+        Assertions.assertEquals(
+                0,
+                collected.get(),
+                "The previous batch failure must not divert later healthy rows");
+        verify(executor, times(2)).addToBatch(any());
+        verify(executor, times(1)).executeBatch();
+        verify(executor, never()).clearBatch();
+        Assertions.assertThrows(JdbcConnectorException.class, wrapped::close);
     }
 
     private static JdbcSinkConfig buildJdbcSinkConfig(JdbcConnectionConfig jdbcConnectionConfig) {
