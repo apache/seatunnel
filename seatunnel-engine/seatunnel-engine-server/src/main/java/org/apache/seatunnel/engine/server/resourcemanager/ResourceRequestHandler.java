@@ -197,11 +197,12 @@ public class ResourceRequestHandler {
 
         for (int index : requestIndexes) {
             ResourceProfile r = resourceProfile.get(index);
-            Optional<WorkerProfile> workerProfile = preCheckWorkerResource(r);
-            if (workerProfile.isPresent()) {
+            WorkerSelection selection = selectWorker(r);
+            if (selection.workerProfile.isPresent()) {
                 // request slot to member
                 CompletableFuture<SlotAndWorkerProfile> internalCompletableFuture =
-                        singleResourceRequestToMember(index, r, workerProfile.get());
+                        singleResourceRequestToMember(
+                                index, r, selection.workerProfile.get(), selection.reservation);
                 allRequestFuture.add(internalCompletableFuture);
             } else {
                 // Leave the original index unassigned so retry or dynamic-worker provisioning can
@@ -210,6 +211,29 @@ public class ResourceRequestHandler {
             }
         }
         return allRequestFuture;
+    }
+
+    /**
+     * Selects a worker and, for a fixed slot, reserves that slot for the in-flight request.
+     *
+     * <p>Handlers for one job run concurrently against the last heartbeat snapshot. Reserving the
+     * slot here keeps a second handler from counting the same unassigned slot and later failing
+     * with {@link NoEnoughResourceException} when the worker rejects the extra request. Dynamic
+     * slots are not reserved; the worker mints a new slot when unassigned resource remains.
+     */
+    private WorkerSelection selectWorker(ResourceProfile resourceProfile) {
+        synchronized (resourceManager.fixedSlotReservationLock()) {
+            Optional<WorkerProfile> workerProfile = preCheckWorkerResource(resourceProfile);
+            if (!workerProfile.isPresent() || workerProfile.get().isDynamicSlot()) {
+                return new WorkerSelection(workerProfile, null);
+            }
+            FixedSlotReservations.FixedSlotReservation reservation =
+                    resourceManager.reserveFixedSlot(workerProfile.get(), resourceProfile);
+            if (reservation == null) {
+                return new WorkerSelection(Optional.empty(), null);
+            }
+            return new WorkerSelection(workerProfile, reservation);
+        }
     }
 
     private void completeRequestWithException(Throwable e) {
@@ -244,36 +268,84 @@ public class ResourceRequestHandler {
     }
 
     private CompletableFuture<SlotAndWorkerProfile> singleResourceRequestToMember(
-            int i, ResourceProfile r, WorkerProfile workerProfile) {
+            int i,
+            ResourceProfile r,
+            WorkerProfile workerProfile,
+            FixedSlotReservations.FixedSlotReservation reservation) {
         long invocationStartNanos = System.nanoTime();
-        CompletableFuture<SlotAndWorkerProfile> future =
-                resourceManager.sendToMember(
-                        new RequestSlotOperation(jobId, r), workerProfile.getAddress());
-        return future.whenComplete(
-                withTryCatch(
-                        LOGGER,
-                        (slotAndWorkerProfile, error) -> {
-                            long elapsedMillis = elapsedMillisSince(invocationStartNanos);
-                            if (error != null) {
-                                resourceManager.recordRequestSlotOperationFailure(elapsedMillis);
-                                throw new RuntimeException(error);
-                            } else {
-                                if (slotAndWorkerProfile.getSlotProfile() == null) {
-                                    resourceManager.recordRequestSlotOperationNoSlot(elapsedMillis);
-                                } else {
-                                    resourceManager.recordRequestSlotOperationSuccess(
-                                            elapsedMillis);
+        AtomicBoolean reservationReleased = new AtomicBoolean(false);
+        Runnable releaseReservation =
+                () -> {
+                    if (reservationReleased.compareAndSet(false, true)) {
+                        resourceManager.releaseFixedSlotReservation(reservation);
+                    }
+                };
+        final CompletableFuture<SlotAndWorkerProfile> future;
+        try {
+            future =
+                    resourceManager.sendToMember(
+                            new RequestSlotOperation(jobId, r), workerProfile.getAddress());
+        } catch (Throwable sendError) {
+            releaseReservation.run();
+            rethrow(sendError);
+            throw new IllegalStateException(sendError);
+        }
+        try {
+            return future.whenComplete(
+                    withTryCatch(
+                            LOGGER,
+                            (slotAndWorkerProfile, error) -> {
+                                long elapsedMillis = elapsedMillisSince(invocationStartNanos);
+                                try {
+                                    if (error != null) {
+                                        resourceManager.recordRequestSlotOperationFailure(
+                                                elapsedMillis);
+                                        throw new RuntimeException(error);
+                                    } else {
+                                        if (slotAndWorkerProfile.getSlotProfile() == null) {
+                                            resourceManager.recordRequestSlotOperationNoSlot(
+                                                    elapsedMillis);
+                                        } else {
+                                            resourceManager.recordRequestSlotOperationSuccess(
+                                                    elapsedMillis);
+                                        }
+                                        // Apply the worker snapshot before dropping the lease so a
+                                        // concurrent handler observes the assignment first.
+                                        resourceManager.heartbeat(
+                                                slotAndWorkerProfile.getWorkerProfile());
+                                    }
+                                } finally {
+                                    releaseReservation.run();
                                 }
-                                resourceManager.heartbeat(slotAndWorkerProfile.getWorkerProfile());
-                                addSlotToCacheMap(i, slotAndWorkerProfile.getSlotProfile());
-                            }
-                        }));
+                                if (error == null) {
+                                    addSlotToCacheMap(i, slotAndWorkerProfile.getSlotProfile());
+                                }
+                            }));
+        } catch (Throwable callbackError) {
+            releaseReservation.run();
+            rethrow(callbackError);
+            throw new IllegalStateException(callbackError);
+        }
+    }
+
+    private static void rethrow(Throwable error) {
+        if (error instanceof RuntimeException) {
+            throw (RuntimeException) error;
+        }
+        if (error instanceof Error) {
+            throw (Error) error;
+        }
     }
 
     private long elapsedMillisSince(long startNanos) {
         return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
     }
 
+    /**
+     * Chooses a worker that can satisfy {@code r}. Fixed slots already reserved for an in-flight
+     * request are not counted, so callers see the capacity concurrent handlers have claimed from
+     * the current snapshot.
+     */
     @VisibleForTesting
     public Optional<WorkerProfile> preCheckWorkerResource(ResourceProfile r) {
         List<WorkerProfile> workerProfiles =
@@ -281,13 +353,7 @@ public class ResourceRequestHandler {
 
         List<WorkerProfile> availableWorkers =
                 workerProfiles.stream()
-                        .filter(
-                                worker ->
-                                        Arrays.stream(worker.getUnassignedSlots())
-                                                .anyMatch(
-                                                        slot ->
-                                                                slot.getResourceProfile()
-                                                                        .enoughThan(r)))
+                        .filter(worker -> resourceManager.hasUnreservedFixedSlot(worker, r))
                         .collect(Collectors.toList());
 
         Optional<WorkerProfile> workerProfile =
@@ -457,5 +523,17 @@ public class ResourceRequestHandler {
     private <T> CompletableFuture<T> getAllOfFuture(List<CompletableFuture<T>> allRequestFuture) {
         return (CompletableFuture<T>)
                 CompletableFuture.allOf(allRequestFuture.toArray(new CompletableFuture[0]));
+    }
+
+    private static final class WorkerSelection {
+        private final Optional<WorkerProfile> workerProfile;
+        private final FixedSlotReservations.FixedSlotReservation reservation;
+
+        private WorkerSelection(
+                Optional<WorkerProfile> workerProfile,
+                FixedSlotReservations.FixedSlotReservation reservation) {
+            this.workerProfile = workerProfile;
+            this.reservation = reservation;
+        }
     }
 }
