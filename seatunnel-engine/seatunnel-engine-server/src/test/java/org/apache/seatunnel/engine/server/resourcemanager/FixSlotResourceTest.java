@@ -131,18 +131,20 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
 
         List<SlotProfile> assigned = new ArrayList<>();
         Set<Integer> assignedIds = new HashSet<>();
-        for (int i = 0; i < requests.size(); i++) {
-            List<SlotProfile> slots = requests.get(i).get();
-            Assertions.assertEquals(1, slots.size());
-            Assertions.assertTrue(assignedIds.add(slots.get(0).getSlotID()));
-            assigned.add(slots.get(0));
-        }
-        Assertions.assertEquals(totalSlots, assignedIds.size());
-
-        for (int i = 0; i < assigned.size(); i++) {
-            List<SlotProfile> owned = new ArrayList<>();
-            owned.add(assigned.get(i));
-            resourceManager.releaseResources(jobIds.get(i), owned);
+        try {
+            for (int i = 0; i < requests.size(); i++) {
+                List<SlotProfile> slots = requests.get(i).get(20, TimeUnit.SECONDS);
+                Assertions.assertEquals(1, slots.size());
+                assigned.add(slots.get(0));
+                Assertions.assertTrue(assignedIds.add(slots.get(0).getSlotID()));
+            }
+            Assertions.assertEquals(totalSlots, assignedIds.size());
+        } finally {
+            for (int i = 0; i < assigned.size(); i++) {
+                List<SlotProfile> owned = new ArrayList<>();
+                owned.add(assigned.get(i));
+                resourceManager.releaseResources(jobIds.get(i), owned);
+            }
         }
         await().atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
