@@ -61,6 +61,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Build the Kafka fact source used by the dynamic lookup checkpoint/restore topology. -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-kafka</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-transforms-v2</artifactId>

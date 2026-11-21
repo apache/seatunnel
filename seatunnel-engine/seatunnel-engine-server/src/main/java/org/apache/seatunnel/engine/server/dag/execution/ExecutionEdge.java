@@ -34,4 +34,15 @@ public class ExecutionEdge {
         this.leftVertexId = leftVertex.getVertexId();
         this.rightVertexId = rightVertex.getVertexId();
     }
+
+    /**
+     * Rebuilds this edge with replacement endpoints while preserving subtype-specific metadata.
+     *
+     * <p>Legacy edges return another legacy edge. Port-aware edges override this method so planner
+     * rewrites cannot silently drop their stable edge and input-port identities.
+     */
+    public ExecutionEdge withVertices(
+            ExecutionVertex replacementLeft, ExecutionVertex replacementRight) {
+        return new ExecutionEdge(replacementLeft, replacementRight);
+    }
 }

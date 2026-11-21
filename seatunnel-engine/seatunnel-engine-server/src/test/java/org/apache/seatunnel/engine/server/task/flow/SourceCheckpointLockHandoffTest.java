@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -561,9 +562,13 @@ public class SourceCheckpointLockHandoffTest {
             SourceAction<SeaTunnelRow, SourceSplit, ?> action =
                     new SourceAction<>(
                             1L, "source", source, Collections.emptySet(), Collections.emptySet());
+            // Plain source: no dynamic lookup fact-gate or dimension role.
+            SourceConfig sourceConfig = new SourceConfig();
+            sourceConfig.setEnumeratorTask(location);
             flow =
                     new SourceFlowLifeCycle<>(
                             action,
+                            sourceConfig,
                             0,
                             location,
                             task,
