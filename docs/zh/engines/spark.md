@@ -133,6 +133,27 @@ sink {
 
 如果你需要更多 transform 能力，继续查看 [Transforms 目录](../transforms) 和 [Transform 通用参数](../transforms/common-options/common-options.md)。
 
+## Cluster 提交的插件压缩包目录
+
+在 cluster 部署模式下，starter 将 `plugins` 目录打包为 `plugins.tar.gz`，
+通过 `--files` 传给 `spark-submit`。默认仍将压缩包写入 `SEATUNNEL_HOME`。
+
+Spark 2、Spark 3 和 Spark 3.5 支持可选环境变量 `SEATUNNEL_PLUGIN_TARBALL_DIR`，
+用于指定已存在且可写的打包目录：
+
+```bash
+mkdir -p /tmp/seatunnel-submission-001
+export SEATUNNEL_PLUGIN_TARBALL_DIR=/tmp/seatunnel-submission-001
+./bin/start-seatunnel-spark-3-connector-v2.sh --master yarn --deploy-mode cluster --config config/job.conf
+```
+
+每个并发提交必须使用不同目录；指定同一个目录不能隔离。压缩包名称仍为
+`plugins.tar.gz`。未设置、空值或纯空白值沿用默认路径；目录不存在或路径指向普通文件时，
+生成命令失败。该变量不影响 client 部署模式。
+
+目录由调用方创建和清理。必须保留压缩包直到 `spark-submit` 结束（包括上传阶段）；
+starter JVM 在实际提交前就已退出，不会自动删除压缩包。
+
 ## 从源码仓库运行示例
 
 如果你是在源码仓库里运行示例，对应模块是：
