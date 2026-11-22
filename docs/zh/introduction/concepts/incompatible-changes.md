@@ -4,6 +4,17 @@
 
 ## dev
 
+### Zeta：可选 HDFS IMap WAL 压缩的升级与回滚
+
+IMap WAL 压缩默认仍关闭，并沿用已有记录格式。设置 `compaction.enabled: true` 前，
+必须将所有使用 IMap 持久化的成员升级到支持压缩期间重放的版本。旧版本无法在输入文件被替换时安全重放。
+回滚前必须关闭压缩，并等待正在进行的压缩完成。旧 region 仍被重放，但不会被接管或压缩。
+详见 [MapStore 文件维护](../../engines/zeta/state-storage-and-recovery.md#4-mapstore-文件维护)。
+
+文件 MapStore 现在会将被拒绝的单条及批量写入/删除向 Hazelcast 报错，而不是静默接受失败状态。
+存储关闭超时或失败时不会删除目录；应先解决存储故障，再重试停止或销毁，然后才能移除文件。
+
+
 ### Http Sink：`array_mode = true` 时每行作为 JSON 对象发送
 
 - **行为变更：请求体数组的元素是 JSON 对象，而不再是字符串**

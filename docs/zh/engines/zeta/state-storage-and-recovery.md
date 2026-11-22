@@ -160,7 +160,8 @@ map:
         fs.defaultFS: hdfs://localhost:9000
 ```
 
-在分离式集群模式下，只有 Master 节点存储 IMap 数据，因此该配置仅在 Master 节点生效。
+在分离式集群模式下，Master 角色的成员存储 IMap 数据；Worker 角色的成员是 Hazelcast lite member，
+不拥有 IMap 分区。因此，持久化可能在多个 Master 角色的成员上执行，而不只是当选的 active master。
 
 ### IMap、MapStore 与 Checkpoint 的关系
 
@@ -178,8 +179,65 @@ IMap / MapStore  <────────────────────�
 ## 4. MapStore 文件维护
 
 IMap 持久化是一种追加写（append-only）的预写日志：`FileMapStore` 委托 `IMapFileStorage`，通过 WAL
-写入器把每次状态变更追加到配置的 `namespace` 目录下的 region 文件中。所有作业的记录都追加到同一批
-region 文件里，因此只要作业持续运行，这些文件就会不断增长。
+写入器把每次状态变更追加到配置的 `namespace` 目录下的 region 文件中。每个写入器针对每个 IMap
+使用独立的 region。重启时，重放会读取该 IMap 的所有 region，在内存中选出每个 key 的最新变更，
+但不会压缩这些文件。
+
+### 可选的 region 级 WAL 压缩
+
+Region 级快照压缩可以减少写入器当前 region 中同一个 key 的重复更新记录。默认关闭。在相关 IMap
+的 `map-store.properties` 中启用：
+
+```yaml
+        type: hdfs
+        storage.type: hdfs
+        fs.defaultFS: hdfs://localhost:9000  # 单节点集群也可使用 file:///
+        compaction.enabled: true
+        compaction.interval-seconds: 300
+        wal.segment-size: 67108864
+```
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `compaction.enabled` | boolean | `false` | 为 HDFS 或本地文件 IMap 存储启用 region 级快照压缩。 |
+| `compaction.interval-seconds` | long | `300` | 两次压缩检查之间的间隔秒数，必须大于零。仅在启用压缩时使用。 |
+| `wal.segment-size` | long | `67108864`（64 MiB）| WAL 分段轮转大小，单位为字节，必须大于零。仅在启用压缩时使用。 |
+| `compaction.max-memory-bytes` | long | `67108864`（64 MiB）| 保留变更的估算内存预算，同时限制单条序列化输入记录的大小。启用压缩时必须大于零。 |
+| `compaction.max-keys` | long | `100000` | 每次压缩可保留的不同 key 数量上限；启用压缩时必须大于零。 |
+
+压缩要求 `storage.type: hdfs`，且底层文件系统为 `hdfs://` 或 `file:///`。
+对 S3、OSS、GCS 或其他文件系统 scheme 启用压缩会被拒绝；这些后端仍使用原有的写入器。
+使用这些后端时请保持压缩关闭。
+
+启用后，写入器会将 WAL 轮转为多个分段。每个 JVM 共享一个后台线程，依次处理各个 IMap。
+每次压缩只合并该写入器当前 region 中已关闭的分段和上一次快照，不处理活动分段、其他写入器的
+region，也不会接管或压缩之前运行遗留的 region。重启时仍然会读取这些旧 region。
+
+快照保留每个 key 的最新原始变更，包括删除标记和已过期的 put。其他 region 中可能仍有该 key 的旧值，
+因此必须保留这些记录。Region 级压缩可以减少更新历史，但不会限制历史 key 的总数，也不会回收所有
+已过期作业元数据。它不改变 IMap 过期规则或 Checkpoint 保留规则。
+如果最新变更按 WAL 排序规则比较相等，但过期时间不同，则本次压缩会推迟且不删除输入文件，以保留原有重放语义。
+
+快照完整写入后，通过原子重命名发布；如果加载期间快照发生变化，重放会重试。分段和使用唯一名称的
+快照沿用现有的 WAL 记录格式，文件名以 `wal.txt` 结尾，因此旧版本可以重放不再变化的文件。
+但是，旧版本无法在压缩同时执行时安全地加载。启用压缩前，必须将所有使用 IMap 持久化的成员升级到
+支持压缩期间重放的版本。回滚到旧版本或使用旧版本重放前，应关闭压缩并等待正在执行的压缩完成。
+默认值仍为 `false`；关闭压缩时，原有的单个 `wal.txt` 写入方式保持不变。
+
+轮转仅由大小触发，检查间隔不会关闭活动分段。写入器在一次运行中的写入量小于
+`wal.segment-size` 时不会进行压缩；最后的尾段和之前的 region 仍用于重放。低写入量的 IMap 可减小分段大小。
+
+压缩在内存中为每个不同 key 保留最新变更。`compaction.max-memory-bytes` 限制保留变更的估算内存，
+其中包含 map/对象开销估算，并非精确的 JVM 堆上限。超过此预算的单条序列化输入记录会在分配缓冲区前被拒绝。
+`compaction.max-keys` 另行限制 key 数量。超限时不发布快照，也不删除输入；输入计划没有变化时，
+不会重复读取或记录同一推迟原因；计划变化后可再次尝试。只有为内存 IMap 之外预留足够堆内存后才能增加限制。
+这些初始默认值是保护预算，并非基准测试得出的最优值。
+
+分段写入或关闭失败时，该文件保留且该写入器 region 的压缩停止，以免后续快照被移动到该文件之前。
+后续写入会打开新分段，失败的写入会向 Hazelcast 报错。重启会创建新 region，并仍重放旧 region。
+停止时请求取消压缩，等待当前任务最多五秒；不可中断的文件系统 I/O 可能超过该等待时间。
+关闭无法确认任务已结束时，销毁会报错且不会删除存储目录。致命压缩错误会记录日志并停用该任务，
+直到写入器重启。压缩推迟、暂停或停用时，仍需监控 WAL 增长。
 
 **缓解措施：**
 
@@ -213,7 +271,7 @@ seatunnel:
 | 从 `engine_finishedJobState` IMap 中移除 | 是 |
 | 从 `engine_finishedJobMetrics` IMap 中移除 | 是 |
 | 集群重启后作业仍保持已移除（启用 IMap 持久化时） | 是（过期时间随条目一起持久化，已过期的作业不会被重新加载，尚未过期的作业保留剩余时间） |
-| 删除该作业的 MapStore 持久化文件 | **否**（过期记录仍保留在 IMap 存储文件中） |
+| 删除该作业的 MapStore 持久化文件 | **否**（region 级压缩也会保留每个 key 的最新过期变更） |
 | 删除 Checkpoint 存储目录 | **否** |
 | 删除 Savepoint 数据 | **否** |
 

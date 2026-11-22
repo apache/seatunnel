@@ -5,6 +5,19 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta: opt-in HDFS IMap WAL compaction rollout
+
+IMap WAL compaction remains disabled by default and retains the existing record format. Before
+setting `compaction.enabled: true`, upgrade every member using IMap persistence to a release with
+compaction-aware replay. Older releases cannot safely replay while input files are being replaced.
+Before rollback, disable compaction and let running compaction finish. Existing regions are replayed
+but are not compacted or adopted. See [MapStore File Maintenance](../../engines/zeta/state-storage-and-recovery.md#4-mapstore-file-maintenance).
+
+The file MapStore now reports rejected single and batch writes/deletes to Hazelcast instead of
+silently accepting their failure status. A storage close that times out or fails prevents directory
+deletion; resolve the storage failure and retry shutdown or destruction before removing files.
+
+
 ### Http sink: `array_mode = true` sends each row as a JSON object
 
 - **Behavior change: the elements of the request body are JSON objects instead of strings**

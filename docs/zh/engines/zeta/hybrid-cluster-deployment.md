@@ -334,6 +334,37 @@ map:
            fs.defaultFS: file:///
 ```
 
+**可选的 WAL 压缩**
+
+当 `storage.type: hdfs` 使用 `hdfs://` 或 `file:///` 文件系统时，可增加以下配置启用 region 级快照压缩：
+
+```yaml
+           compaction.enabled: true
+           compaction.interval-seconds: 300
+           wal.segment-size: 67108864
+```
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `compaction.enabled` | boolean | `false` | 启用 region 级快照压缩。 |
+| `compaction.interval-seconds` | long | `300` | 两次压缩检查之间的间隔秒数，必须大于零。 |
+| `wal.segment-size` | long | `67108864`（64 MiB）| 启用压缩时的 WAL 轮转大小，单位为字节，必须大于零。 |
+| `compaction.max-memory-bytes` | long | `67108864`（64 MiB）| 保留变更的估算内存预算，同时限制单条序列化输入记录的大小。启用压缩时必须大于零。 |
+| `compaction.max-keys` | long | `100000` | 每次压缩可保留的不同 key 数量上限；启用压缩时必须大于零。 |
+
+轮转仅由大小触发，检查间隔不会关闭活动分段。某个 region 在停止前写入量小于
+`wal.segment-size` 时不会进行压缩，最后的尾段仍保留用于重放。低写入量的 IMap 可使用较小的分段大小。
+
+**升级与回滚：** 只有所有使用 IMap 持久化的成员都升级到支持压缩的版本后，才能启用压缩。
+回滚前必须关闭压缩，并等待正在进行的压缩完成。详情见
+[MapStore 文件维护](state-storage-and-recovery.md#4-mapstore-文件维护)。
+
+每个 JVM 共享一个后台线程，合并每个写入器当前 region 中已关闭的 WAL 分段和上一次快照。
+其他写入器的 region 和之前运行遗留的 region 保持不变。删除标记和已过期的 put 会保留，防止旧值重新出现。
+关闭压缩时，检查间隔和分段大小配置不生效，原有 WAL 写入方式保持不变。对 S3、OSS、GCS 或其他文件系统 scheme
+启用压缩会被拒绝。容量规划和恢复注意事项见
+[MapStore 文件维护](state-storage-and-recovery.md#4-mapstore-文件维护)。
+
 说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照，`engine_checkpoint_monitor`
 保存的是 REST API 使用的 checkpoint overview/history。即使通过 `map.engine*` 配置了
 `map-store`，它们也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致 WAL
