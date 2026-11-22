@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
@@ -50,6 +51,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
@@ -332,6 +334,67 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
                 Assertions.assertEquals(
                         BasicType.INT_TYPE, tableSchema.getColumn("c_int").getDataType());
             } finally {
+                statement.execute(
+                        "DROP TABLE IF EXISTS `" + OCEANBASE_DATABASE + "`.`" + tableName + "`");
+            }
+        }
+    }
+
+    /**
+     * OceanBase reports {@code DATA_TYPE} in lower case, for example {@code int} or {@code
+     * datetime}. Under {@code tr-TR} and {@code az-AZ}, upper casing it with the default locale
+     * gave {@code İNT}, which matched no type, so reading the table from the catalog failed.
+     */
+    @Test
+    public void testCatalogReadsColumnTypesUnderTurkishLocale() throws SQLException {
+        String tableName = "locale_type_source";
+        String createSql =
+                "CREATE TABLE IF NOT EXISTS `"
+                        + OCEANBASE_DATABASE
+                        + "`.`"
+                        + tableName
+                        + "` ("
+                        + "  `c_int` int DEFAULT NULL,"
+                        + "  `c_int_unsigned` int unsigned DEFAULT NULL,"
+                        + "  `c_bigint` bigint DEFAULT NULL,"
+                        + "  `c_datetime` datetime DEFAULT NULL)";
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createSql);
+            try {
+                for (Locale locale :
+                        new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
+                    // Upper casing "i" gives a dotted capital I under these locales.
+                    Locale.setDefault(locale);
+                    TableSchema tableSchema =
+                            catalog.getTable(TablePath.of(OCEANBASE_DATABASE, tableName))
+                                    .getTableSchema();
+                    Assertions.assertEquals(
+                            BasicType.INT_TYPE,
+                            tableSchema.getColumn("c_int").getDataType(),
+                            locale.toString());
+                    Assertions.assertEquals(
+                            BasicType.LONG_TYPE,
+                            tableSchema.getColumn("c_int_unsigned").getDataType(),
+                            locale.toString());
+                    Assertions.assertEquals(
+                            BasicType.LONG_TYPE,
+                            tableSchema.getColumn("c_bigint").getDataType(),
+                            locale.toString());
+                    Assertions.assertEquals(
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            tableSchema.getColumn("c_datetime").getDataType(),
+                            locale.toString());
+                }
+            } finally {
+                // The base locale first, because setting it overwrites both category defaults.
+                Locale.setDefault(saved[0]);
+                Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+                Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
                 statement.execute(
                         "DROP TABLE IF EXISTS `" + OCEANBASE_DATABASE + "`.`" + tableName + "`");
             }

@@ -19,8 +19,10 @@ import ChangeLog from '../changelog/connector-dingtalk.md';
 ## Description
 
 A sink plugin that sends SeaTunnel rows to a DingTalk group chat through a DingTalk custom robot
-webhook. The connector identifier used in job configuration is `DingTalk`. For each row, the connector
-signs the request with the configured robot secret and posts a message to the DingTalk robot address.
+webhook. The connector identifier used in job configuration is `DingTalk`. Each row is posted as a
+message to the robot address; the signed client (whose URL embeds the timestamp and the signature
+computed from the configured robot secret) is created lazily on the first write and reused, so the
+signature is computed once per writer, not per row.
 
 ## Data Type Mapping
 

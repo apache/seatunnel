@@ -23,6 +23,7 @@ package org.apache.seatunnel.engine.imap.storage.file.common;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.job.JobStatusData;
+import org.apache.seatunnel.engine.imap.storage.api.ExpirableValue;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
@@ -44,9 +45,11 @@ import org.junit.jupiter.api.condition.EnabledOnOs;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.condition.OS.LINUX;
@@ -194,6 +197,95 @@ public class WALReaderAndWriterTest {
                 reader.loadAllData(path, Collections.emptySet()));
     }
 
+    @Test
+    void shouldSkipExpiredEntriesAndReturnExpirationTimes() throws IOException {
+        Path path = new Path(PARENT_PATH, "expiration");
+        long now = System.currentTimeMillis();
+        long liveExpirationTime = now + TimeUnit.MINUTES.toMillis(10);
+        IMapFileData expired = mutation("expired", "value-a", 10, false);
+        expired.setExpirationTime(now - 1);
+        IMapFileData live = mutation("live", "value-b", 10, false);
+        live.setExpirationTime(liveExpirationTime);
+        // Records written before the expiration time was stored have none.
+        IMapFileData neverExpiring = mutation("never-expiring", "value-c", 10, false);
+        writeWalFile(new Path(path, "region/expiration-wal.txt"), expired, live, neverExpiring);
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList("live", "never-expiring")), reader.loadAllKeys(path));
+        Map<Object, Object> expectedData = new HashMap<>();
+        expectedData.put("live", "value-b");
+        expectedData.put("never-expiring", "value-c");
+        Assertions.assertEquals(expectedData, reader.loadAllData(path, Collections.emptySet()));
+        Map<Object, ExpirableValue> expectedDataWithExpirationTime = new HashMap<>();
+        expectedDataWithExpirationTime.put(
+                "live", new ExpirableValue("value-b", liveExpirationTime));
+        expectedDataWithExpirationTime.put("never-expiring", new ExpirableValue("value-c"));
+        Assertions.assertEquals(
+                expectedDataWithExpirationTime,
+                reader.loadAllDataWithExpirationTime(path, Collections.emptySet()));
+    }
+
+    @Test
+    void shouldNotFallBackToOlderValueWhenLatestValueExpired() throws IOException {
+        Path path = new Path(PARENT_PATH, "latest-expired");
+        IMapFileData expired = mutation("key", "new", 20, false);
+        expired.setExpirationTime(System.currentTimeMillis() - 1);
+        writeWalFile(
+                new Path(path, "region/latest-expired-wal.txt"),
+                mutation("key", "old", 10, false),
+                expired);
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+
+        Assertions.assertEquals(
+                Collections.emptyMap(), reader.loadAllData(path, Collections.emptySet()));
+        Assertions.assertEquals(Collections.emptySet(), reader.loadAllKeys(path));
+    }
+
+    @Test
+    void shouldLoadRecordsWrittenBeforeExpirationTimeWasStored() throws IOException {
+        Path path = new Path(PARENT_PATH, "pre-expiration-time");
+        Path file = new Path(path, "region/pre-expiration-time-wal.txt");
+        FS.mkdirs(file.getParent());
+        try (FSDataOutputStream output = FS.create(file, true)) {
+            output.write(
+                    WALDataUtils.wrapperBytes(
+                            SERIALIZER.serialize(preExpirationTimeRecord("key", "value", 10))));
+        }
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+
+        Assertions.assertEquals(
+                Collections.singletonMap("key", new ExpirableValue("value")),
+                reader.loadAllDataWithExpirationTime(path, Collections.emptySet()));
+    }
+
+    @Test
+    void shouldWriteRecordsWithoutExpirationTimeInThePreviousFormat() throws IOException {
+        Assertions.assertArrayEquals(
+                SERIALIZER.serialize(preExpirationTimeRecord("key", "value", 10)),
+                SERIALIZER.serialize(mutation("key", "value", 10, false)));
+    }
+
+    @Test
+    void shouldKeepRecordsWithExpirationTimeReadableByPreviousReleases() throws IOException {
+        IMapFileData record = mutation("key", "value", 10, false);
+        record.setExpirationTime(1_000L);
+
+        PreExpirationTimeIMapFileData read =
+                SERIALIZER.deserialize(
+                        SERIALIZER.serialize(record), PreExpirationTimeIMapFileData.class);
+
+        Assertions.assertFalse(read.deleted);
+        Assertions.assertArrayEquals(record.getKey(), read.key);
+        Assertions.assertEquals(record.getKeyClassName(), read.keyClassName);
+        Assertions.assertArrayEquals(record.getValue(), read.value);
+        Assertions.assertEquals(record.getValueClassName(), read.valueClassName);
+        Assertions.assertEquals(record.getTimestamp(), read.timestamp);
+    }
+
     private static IMapFileData mutation(String key, String value, long timestamp, boolean deleted)
             throws IOException {
         return IMapFileData.builder()
@@ -217,6 +309,31 @@ public class WALReaderAndWriterTest {
 
     private static byte[] wrapped(IMapFileData mutation) throws IOException {
         return WALDataUtils.wrapperBytes(SERIALIZER.serialize(mutation));
+    }
+
+    private static PreExpirationTimeIMapFileData preExpirationTimeRecord(
+            String key, String value, long timestamp) throws IOException {
+        PreExpirationTimeIMapFileData record = new PreExpirationTimeIMapFileData();
+        record.key = SERIALIZER.serialize(key);
+        record.keyClassName = String.class.getName();
+        record.value = SERIALIZER.serialize(value);
+        record.valueClassName = String.class.getName();
+        record.timestamp = timestamp;
+        return record;
+    }
+
+    /**
+     * Field layout of {@link IMapFileData} before {@code expirationTime} was added. ProtoStuff
+     * numbers fields by declaration order, so this class reads and writes the same bytes as earlier
+     * releases did.
+     */
+    public static class PreExpirationTimeIMapFileData {
+        private boolean deleted;
+        private byte[] key;
+        private String keyClassName;
+        private byte[] value;
+        private String valueClassName;
+        private long timestamp;
     }
 
     @Test

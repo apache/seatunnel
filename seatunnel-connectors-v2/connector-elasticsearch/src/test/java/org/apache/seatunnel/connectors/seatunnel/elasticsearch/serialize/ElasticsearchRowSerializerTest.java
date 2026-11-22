@@ -214,4 +214,38 @@ public class ElasticsearchRowSerializerTest {
                 result.contains("\"ts\":\"2023-01-02T03:04:05\""),
                 "LocalDateTime field should be formatted with ISO-8601 'T' separator");
     }
+
+    @Test
+    public void testSerializeForElasticsearch9() {
+        String index = "st_index";
+        Map<String, Object> confMap = new HashMap<>();
+        confMap.put(ElasticsearchSinkOptions.INDEX.key(), index);
+        confMap.put(ElasticsearchSinkOptions.PRIMARY_KEYS.key(), Arrays.asList("id"));
+        // Elasticsearch 9 rejects a bulk action that carries a type, so it must not be sent.
+        confMap.put(ElasticsearchSinkOptions.INDEX_TYPE.key(), "st");
+
+        ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
+        ElasticsearchClusterInfo clusterInfo =
+                ElasticsearchClusterInfo.builder().clusterVersion("9.5.5").build();
+        IndexInfo indexInfo = new IndexInfo(index, pluginConf);
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {STRING_TYPE, STRING_TYPE});
+
+        final ElasticsearchRowSerializer serializer =
+                new ElasticsearchRowSerializer(clusterInfo, indexInfo, schema);
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {"0001", "jack"});
+        row.setRowKind(RowKind.INSERT);
+        Assertions.assertEquals(
+                "{ \"update\" :{\"_index\":\"st_index\",\"_id\":\"0001\"} }\n"
+                        + "{ \"doc\" :{\"name\":\"jack\",\"id\":\"0001\"}, \"doc_as_upsert\" : true }",
+                serializer.serializeRow(row));
+
+        row.setRowKind(RowKind.DELETE);
+        Assertions.assertEquals(
+                "{ \"delete\" :{\"_index\":\"st_index\",\"_id\":\"0001\"} }",
+                serializer.serializeRow(row));
+    }
 }

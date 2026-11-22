@@ -494,6 +494,22 @@ Result: Records 0-99, 100-199, 200-299 committed exactly once
         Records from 100+ reprocessed but not duplicated (idempotent commit)
 ```
 
+### 4.3 Master Failover with Idle Source Readers
+
+For a running streaming pipeline, Zeta keeps checkpointing after a master switch even when
+an unbounded source reader group has already finished through the idle-close handshake.
+Every enumerator and committer must still be running, and each finished reader group must
+contain at least one source with all its sources unbounded. Bounded sources, non-source
+groups, failed groups and unknown states do not qualify. A finished enumerator is not an
+idle reader and follows the existing restart path.
+
+The new master reconstructs the closed reader groups from the distributed execution states
+before creating the next checkpoint, so it does not wait for acknowledgements from tasks
+that have already exited. This decision applies only to master failover of a running
+pipeline; it does not change normal execution, configuration defaults or the persisted
+checkpoint format. The execution state and source boundedness identify eligible groups;
+they do not record the original reason for closure.
+
 ## 5. Configuration and Tuning
 
 ### 5.1 Checkpoint Configuration
