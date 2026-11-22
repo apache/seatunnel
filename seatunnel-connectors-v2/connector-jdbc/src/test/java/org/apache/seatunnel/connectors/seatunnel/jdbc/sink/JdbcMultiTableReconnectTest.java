@@ -50,6 +50,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.sqlite.SQLiteConnection;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -600,33 +601,44 @@ class JdbcMultiTableReconnectTest {
                 tableA.initMultiTableResourceManager(2, 1);
         ConnectionPoolManager pool = resourceManager.getSharedResource().get();
         boolean aClosed = false;
+        SQLiteConnection physical = null;
         try {
-            tableA.setMultiTableResourceManager(resourceManager, 0);
-            tableB.setMultiTableResourceManager(resourceManager, 0);
-            tableA.write(insertRow(ACTIVE_TABLE_ID, 11, "first"));
-            tableB.write(insertRow(IDLE_TABLE_ID, 21, "second"));
-            tableA.prepareCommit(1L);
-            tableB.prepareCommit(1L);
-            Connection shared = pool.getConnection(0);
+            try {
+                tableA.setMultiTableResourceManager(resourceManager, 0);
+                tableB.setMultiTableResourceManager(resourceManager, 0);
+                tableA.write(insertRow(ACTIVE_TABLE_ID, 11, "first"));
+                tableB.write(insertRow(IDLE_TABLE_ID, 21, "second"));
+                tableA.prepareCommit(1L);
+                tableB.prepareCommit(1L);
+                Connection shared = pool.getConnection(0);
+                physical = shared.unwrap(SQLiteConnection.class);
 
-            tableA.close();
-            aClosed = true;
+                tableA.close();
+                aClosed = true;
 
-            assertFalse(shared.isClosed());
-            assertSame(shared, pool.getConnection(0));
-            tableB.write(insertRow(IDLE_TABLE_ID, 22, "still open"));
-            tableB.prepareCommit(2L);
-            assertEquals(Arrays.asList("11:first"), queryRows(jdbcUrl, "active_table"));
-            assertEquals(
-                    Arrays.asList("21:second", "22:still open"), queryRows(jdbcUrl, "idle_table"));
-        } finally {
-            if (!aClosed) {
-                closeQuietly(tableA);
+                assertFalse(shared.isClosed());
+                assertSame(shared, pool.getConnection(0));
+                tableB.write(insertRow(IDLE_TABLE_ID, 22, "still open"));
+                tableB.prepareCommit(2L);
+                assertEquals(Arrays.asList("11:first"), queryRows(jdbcUrl, "active_table"));
+                assertEquals(
+                        Arrays.asList("21:second", "22:still open"),
+                        queryRows(jdbcUrl, "idle_table"));
+            } finally {
+                if (!aClosed) {
+                    closeQuietly(tableA);
+                }
+                closeQuietly(tableB);
+                resourceManager.close();
             }
-            closeQuietly(tableB);
-            resourceManager.close();
+            assertTrue(pool.getConnectionPool().isClosed());
+            assertTrue(physical.isClosed(), "task close must release the physical SQLite handle");
+        } finally {
+            // Do not leave the native file open when setup or a regression assertion fails.
+            if (physical != null && !physical.isClosed()) {
+                physical.close();
+            }
         }
-        assertTrue(pool.getConnectionPool().isClosed());
     }
 
     /**
