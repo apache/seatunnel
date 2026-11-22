@@ -45,6 +45,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private static final int MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
@@ -56,7 +58,9 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final int timeoutMs;
     private final SingleSplitReaderContext context;
     private final String tableId;
-    private CloseableHttpClient client;
+    private final AtomicBoolean cancelled = new AtomicBoolean();
+    private final AtomicReference<CloseableHttpClient> client = new AtomicReference<>();
+    private final AtomicReference<HttpRequestBase> activeRequest = new AtomicReference<>();
 
     MatomoSourceReader(
             URI endpoint,
@@ -78,8 +82,11 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     @Override
-    public void open() {
-        client =
+    public void open() throws IOException {
+        if (cancelled.get() || client.get() != null) {
+            return;
+        }
+        CloseableHttpClient created =
                 HttpClients.custom()
                         .useSystemProperties()
                         .disableRedirectHandling()
@@ -91,23 +98,75 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                                         .setSocketTimeout(timeoutMs)
                                         .build())
                         .build();
-    }
-
-    @Override
-    public void close() throws IOException {
-        if (client != null) {
-            client.close();
+        if (!client.compareAndSet(null, created)) {
+            created.close();
+        } else if (cancelled.get()) {
+            // close() may have run before this client was published.
+            closeClient();
         }
     }
 
     @Override
-    public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
-        List<SeaTunnelRow> rows = readRows();
-        rows.forEach(output::collect);
-        context.signalNoMoreElement();
+    public void cancel() {
+        cancelled.set(true);
+        HttpRequestBase request = activeRequest.get();
+        if (request != null) {
+            request.abort();
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        cancel();
+        closeClient();
+    }
+
+    private void closeClient() throws IOException {
+        CloseableHttpClient current = client.getAndSet(null);
+        if (current != null) {
+            current.close();
+        }
+    }
+
+    @Override
+    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        if (noMoreSplits || cancelled.get()) {
+            return;
+        }
+        List<SeaTunnelRow> rows;
+        try {
+            // Keep the HTTP exchange outside the collector checkpoint lock.
+            rows = readRows();
+        } catch (IOException e) {
+            if (cancelled.get()) {
+                return;
+            }
+            throw e;
+        }
+        synchronized (output.getCheckpointLock()) {
+            if (noMoreSplits || cancelled.get()) {
+                return;
+            }
+            for (SeaTunnelRow row : rows) {
+                if (cancelled.get()) {
+                    return;
+                }
+                output.collect(row);
+            }
+            noMoreSplits = true;
+        }
+        if (!cancelled.get()) {
+            context.signalNoMoreElement();
+        }
     }
 
     List<SeaTunnelRow> readRows() throws Exception {
+        checkCancelled();
+        CloseableHttpClient current = client.get();
+        if (current == null) {
+            checkCancelled();
+            throw new IOException("Matomo source reader is not open");
+        }
         List<NameValuePair> params = new ArrayList<>();
         params.add(new BasicNameValuePair("module", "API"));
         params.add(new BasicNameValuePair("method", "VisitsSummary.get"));
@@ -127,13 +186,33 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             request = post;
         }
         request.setHeader("Accept", "application/json");
-        try (CloseableHttpResponse response = client.execute(request)) {
+        if (!activeRequest.compareAndSet(null, request)) {
+            throw new IOException("Matomo source reader already has an active request");
+        }
+        try {
+            // A cancel before publication may have missed the newly tracked request.
+            checkCancelled();
+            return execute(current, request);
+        } catch (IOException | IllegalStateException e) {
+            // A concurrent close can shut down the connection pool before execute() acquires it.
+            checkCancelled();
+            throw e;
+        } finally {
+            activeRequest.compareAndSet(request, null);
+        }
+    }
+
+    private List<SeaTunnelRow> execute(CloseableHttpClient current, HttpRequestBase request)
+            throws IOException {
+        try (CloseableHttpResponse response = current.execute(request)) {
             int code = response.getStatusLine().getStatusCode();
             if (code < 200 || code >= 300) {
+                request.abort();
                 throw new IOException("Matomo Reporting API returned HTTP " + code);
             }
             HttpEntity entity = response.getEntity();
             if (entity == null || entity.getContentLength() > MAX_RESPONSE_BYTES) {
+                request.abort();
                 throw new IOException("Missing or oversized Matomo response");
             }
             try (InputStream input = entity.getContent()) {
@@ -142,8 +221,15 @@ final class MatomoSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     request.abort();
                     throw new IOException("Oversized Matomo response");
                 }
+                checkCancelled();
                 return decode(new String(bytes, StandardCharsets.UTF_8));
             }
+        }
+    }
+
+    private void checkCancelled() throws IOException {
+        if (cancelled.get()) {
+            throw new IOException("Matomo source was cancelled");
         }
     }
 

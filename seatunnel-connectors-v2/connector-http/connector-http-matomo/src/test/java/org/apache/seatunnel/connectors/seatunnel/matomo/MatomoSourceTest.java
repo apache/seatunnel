@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.matomo;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
+import okhttp3.mockwebserver.SocketPolicy;
 
 import java.io.IOException;
 import java.net.URI;
@@ -32,11 +34,16 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -130,6 +137,133 @@ class MatomoSourceTest {
                 r.close();
             }
         }
+    }
+
+    @Test
+    void cancellationBeforeOpenIsStickyAndDoesNotSendAnyRequest() throws Exception {
+        try (MockWebServer server = new MockWebServer();
+                MatomoSourceReader reader = reader(server.url("/index.php").uri(), FIRST, null)) {
+            server.enqueue(new MockResponse().setBody(METRICS));
+            reader.cancel();
+            reader.cancel();
+            reader.open();
+            assertCancelled(assertThrows(IOException.class, reader::readRows));
+            reader.close();
+            reader.open();
+            assertCancelled(assertThrows(IOException.class, reader::readRows));
+            assertEquals(0, server.getRequestCount());
+        }
+    }
+
+    @Test
+    void cancellationAbortsAnInFlightRequest() throws Exception {
+        assertStopsInFlight(false);
+    }
+
+    @Test
+    void closingAbortsAnInFlightRequestAndPreventsReopening() throws Exception {
+        assertStopsInFlight(true);
+    }
+
+    private static void assertStopsInFlight(boolean close) throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE));
+            URI uri = server.url("/index.php").uri();
+            MatomoSourceReader reader =
+                    new MatomoSourceReader(uri, 1, FIRST, FIRST, null, 60_000, null, "matomo");
+            ExecutorService worker = Executors.newSingleThreadExecutor();
+            try {
+                reader.open();
+                Future<List<SeaTunnelRow>> rows = worker.submit(reader::readRows);
+                assertNotNull(server.takeRequest(10, TimeUnit.SECONDS));
+                if (close) {
+                    reader.close();
+                } else {
+                    reader.cancel();
+                }
+                assertCancelled(
+                        assertThrows(ExecutionException.class, () -> rows.get(5, TimeUnit.SECONDS))
+                                .getCause());
+                reader.open();
+                assertCancelled(assertThrows(IOException.class, reader::readRows));
+                assertEquals(1, server.getRequestCount());
+            } finally {
+                reader.close();
+                worker.shutdownNow();
+                assertTrue(worker.awaitTermination(5, TimeUnit.SECONDS));
+            }
+        }
+    }
+
+    @Test
+    void pollDoesNotHoldCheckpointLockDuringHttpAndEmitsNothingAfterCancellation()
+            throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE));
+            URI uri = server.url("/index.php").uri();
+            MatomoSourceReader reader =
+                    new MatomoSourceReader(uri, 1, FIRST, FIRST, null, 60_000, null, "matomo");
+            ExecutorService worker = Executors.newFixedThreadPool(2);
+            Collector<SeaTunnelRow> collector = rejectingCollector();
+            try {
+                reader.open();
+                Future<?> poll =
+                        worker.submit(
+                                () -> {
+                                    reader.pollNext(collector);
+                                    return null;
+                                });
+                assertNotNull(server.takeRequest(10, TimeUnit.SECONDS));
+                Future<?> checkpoint =
+                        worker.submit(
+                                () -> {
+                                    synchronized (collector.getCheckpointLock()) {
+                                        return null;
+                                    }
+                                });
+                checkpoint.get(5, TimeUnit.SECONDS);
+                reader.cancel();
+                poll.get(5, TimeUnit.SECONDS);
+            } finally {
+                reader.close();
+                worker.shutdownNow();
+                assertTrue(worker.awaitTermination(5, TimeUnit.SECONDS));
+            }
+        }
+    }
+
+    @Test
+    void pollPropagatesNonCancellationHttpErrors() throws Exception {
+        try (MockWebServer server = new MockWebServer();
+                MatomoSourceReader reader = reader(server.url("/index.php").uri(), FIRST, null)) {
+            server.enqueue(new MockResponse().setResponseCode(429));
+            reader.open();
+            assertTrue(
+                    assertThrows(IOException.class, () -> reader.pollNext(rejectingCollector()))
+                            .getMessage()
+                            .contains("429"));
+        }
+    }
+
+    private static Collector<SeaTunnelRow> rejectingCollector() {
+        return new Collector<SeaTunnelRow>() {
+            private final Object checkpointLock = new Object();
+
+            @Override
+            public void collect(SeaTunnelRow record) {
+                throw new AssertionError("Cancelled or failed reads must not emit rows");
+            }
+
+            @Override
+            public Object getCheckpointLock() {
+                return checkpointLock;
+            }
+        };
+    }
+
+    private static void assertCancelled(Throwable error) {
+        assertTrue(error instanceof IOException);
+        assertEquals("Matomo source was cancelled", error.getMessage());
     }
 
     @Test
