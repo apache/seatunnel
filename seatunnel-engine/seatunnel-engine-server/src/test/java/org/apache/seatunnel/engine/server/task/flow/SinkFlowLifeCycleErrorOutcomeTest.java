@@ -36,6 +36,7 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -135,6 +136,130 @@ class SinkFlowLifeCycleErrorOutcomeTest {
             Mockito.verify(task, Mockito.never()).ack(barrier);
         } finally {
             wrapper.close();
+        }
+    }
+
+    @Test
+    void errorHandlingPreservesEarlyTableCloseThroughSnapshot() throws Exception {
+        TablePath first = TablePath.of("db", "schema", "first");
+        TablePath second = TablePath.of("db", "schema", "second");
+        SinkIdentifier firstId = SinkIdentifier.of(first.getFullName(), 0);
+        SinkIdentifier secondId = SinkIdentifier.of(second.getFullName(), 0);
+        RecordingTableWriter firstWriter = new RecordingTableWriter();
+        RecordingTableWriter secondWriter = new RecordingTableWriter();
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> children = new HashMap<>();
+        children.put(firstId, firstWriter);
+        children.put(secondId, secondWriter);
+        Map<SinkIdentifier, SinkWriter.Context> contexts = new HashMap<>();
+        contexts.put(firstId, new DefaultSinkWriterContext(0, 1));
+        contexts.put(secondId, new DefaultSinkWriterContext(0, 1));
+        MultiTableSinkWriter multiTable = new MultiTableSinkWriter(children, 1, contexts);
+        boolean flowRestored = false;
+        try {
+            SeaTunnelSink<SeaTunnelRow, MultiTableState, MultiTableCommitInfo, String> sink =
+                    Mockito.mock(SeaTunnelSink.class);
+            Mockito.when(sink.createWriter(Mockito.any())).thenReturn(multiTable);
+            Mockito.when(sink.getPluginName()).thenReturn("two-table-test");
+            SinkAction<SeaTunnelRow, MultiTableState, MultiTableCommitInfo, String> action =
+                    new SinkAction<>(
+                            7L, "sink", sink, Collections.emptySet(), Collections.emptySet());
+            SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
+            Mockito.when(task.getEnvOptions())
+                    .thenReturn(
+                            Collections.singletonMap(
+                                    "sink_error_handler", Collections.singletonMap("mode", "LOG")));
+            TaskExecutionContext execution = Mockito.mock(TaskExecutionContext.class);
+            Mockito.when(task.getExecutionContext()).thenReturn(execution);
+            Mockito.when(execution.getTaskExecutionService())
+                    .thenReturn(Mockito.mock(TaskExecutionService.class));
+            SinkFlowLifeCycle<SeaTunnelRow, MultiTableCommitInfo, String, MultiTableState> flow =
+                    new SinkFlowLifeCycle<>(
+                            action,
+                            TASK_LOCATION,
+                            0,
+                            task,
+                            null,
+                            false,
+                            new CompletableFuture<>(),
+                            new SeaTunnelMetricsContext());
+            flow.init();
+            flow.restoreState(Collections.emptyList());
+            flowRestored = true;
+            try {
+                flow.received(tableRow(first, 11));
+                flow.received(tableRow(second, 21));
+                flow.received(new Record<>(new CloseTableEvent(first, 0, 1)));
+                Assertions.assertFalse(firstWriter.closed);
+                Barrier firstSnapshot = sinkSnapshot(42L);
+                flow.received(new Record<>(firstSnapshot));
+
+                Assertions.assertTrue(firstWriter.closed, "first table must close at snapshot");
+                Assertions.assertFalse(secondWriter.closed, "second table must remain open");
+                Assertions.assertEquals(Collections.singletonList(11), firstWriter.rows);
+                Mockito.verify(task).ack(firstSnapshot);
+
+                flow.received(tableRow(second, 22));
+                Barrier secondSnapshot = sinkSnapshot(43L);
+                flow.received(new Record<>(secondSnapshot));
+                Assertions.assertEquals(java.util.Arrays.asList(21, 22), secondWriter.rows);
+                Assertions.assertFalse(secondWriter.closed);
+                Mockito.verify(task).ack(secondSnapshot);
+            } finally {
+                flow.close();
+            }
+            Assertions.assertTrue(secondWriter.closed);
+        } finally {
+            if (!flowRestored) {
+                multiTable.close();
+            }
+        }
+    }
+
+    private static Record<SeaTunnelRow> tableRow(TablePath path, int value) {
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {value});
+        row.setTableId(path.getFullName());
+        return new Record<>(row);
+    }
+
+    private static Barrier sinkSnapshot(long id) {
+        Barrier barrier = Mockito.mock(Barrier.class);
+        Mockito.when(barrier.snapshot()).thenReturn(true);
+        Mockito.when(barrier.getId()).thenReturn(id);
+        return barrier;
+    }
+
+    private static final class RecordingTableWriter
+            implements SinkWriter<SeaTunnelRow, String, String>, SupportMultiTableSinkWriter<Void> {
+        private final List<Integer> rows = Collections.synchronizedList(new ArrayList<>());
+        private volatile boolean closed;
+
+        @Override
+        public void write(SeaTunnelRow row) {
+            Assertions.assertFalse(closed, "must not write after table close");
+            rows.add((Integer) row.getField(0));
+        }
+
+        @Override
+        public Optional<String> prepareCommit() {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<String> snapshotState(long checkpointId) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public void abortPrepare() {}
+
+        @Override
+        public void close() {
+            closed = true;
+        }
+
+        @Override
+        public boolean supportsCloseAfterSnapshot() {
+            return true;
         }
     }
 

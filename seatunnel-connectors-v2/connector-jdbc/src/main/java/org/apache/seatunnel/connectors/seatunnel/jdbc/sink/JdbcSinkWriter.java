@@ -473,7 +473,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                         throwAsIoException(commitError);
                     }
                 } finally {
-                    outputFormat.close();
+                    closeOutputFormat();
                 }
             }
             return;
@@ -491,8 +491,15 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                     "unable to close JDBC sink write",
                     e);
         } finally {
-            outputFormat.close();
+            closeOutputFormat();
         }
+    }
+
+    private void closeOutputFormat() {
+        // Retire this table's statements, not the shared queue connection. Returning its proxy
+        // to Hikari would also close the still-active sibling writers' prepared statements.
+        // The JdbcMultiTableResourceManager owns the queue connection until task shutdown.
+        outputFormat.close(!(connectionProvider instanceof SimpleJdbcConnectionPoolProviderProxy));
     }
 
     private void reportAndClearPendingRowsIfCommitted(boolean autoFlushed) throws IOException {

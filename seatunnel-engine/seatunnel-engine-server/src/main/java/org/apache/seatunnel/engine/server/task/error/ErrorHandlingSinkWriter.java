@@ -20,7 +20,9 @@ package org.apache.seatunnel.engine.server.task.error;
 import org.apache.seatunnel.api.common.error.RowErrorClassification;
 import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportCloseTableSinkWriter;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.function.RunnableWithException;
@@ -33,7 +35,8 @@ import java.util.Optional;
 
 /** SinkWriter wrapper that adds row-level error handling. */
 @Slf4j
-public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, CommT, StateT> {
+public class ErrorHandlingSinkWriter<T, CommT, StateT>
+        implements SinkWriter<T, CommT, StateT>, SupportCloseTableSinkWriter {
 
     public enum WriteOutcome {
         WRITTEN,
@@ -142,6 +145,17 @@ public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, 
             return tableId == null ? "" : tableId;
         }
         return "";
+    }
+
+    /**
+     * Preserves the delegate's optional close-table control path. These are not row writes:
+     * unsupported delegates ignore the advisory event, while supported failures reach the task.
+     */
+    @Override
+    public void handleCloseTableEvent(CloseTableEvent event) throws IOException {
+        if (delegate instanceof SupportCloseTableSinkWriter) {
+            ((SupportCloseTableSinkWriter) delegate).handleCloseTableEvent(event);
+        }
     }
 
     @Override
