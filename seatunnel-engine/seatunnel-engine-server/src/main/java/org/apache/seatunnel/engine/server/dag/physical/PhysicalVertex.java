@@ -388,6 +388,15 @@ public class PhysicalVertex {
         return hasSource;
     }
 
+    /**
+     * Persists a task lifecycle transition and drives state processing for the observed winner.
+     *
+     * <p>The distributed state takes priority. If the key is absent, the local state provides the
+     * transition origin, but only the active job generation may recreate the state and its
+     * timestamps. A generation-fenced transition does not advance the local lifecycle.
+     *
+     * @param targetState requested next task state
+     */
     public synchronized void updateTaskState(@NonNull ExecutionState targetState) {
         try {
             DistributedStateTransition.Result<ExecutionState> transitionResult =

@@ -413,6 +413,15 @@ public class SubPlan {
         return jobMaster.isNeedRestore() && getPipelineRestoreNum() < pipelineMaxRestoreNum;
     }
 
+    /**
+     * Persists a pipeline lifecycle transition and drives state processing for the observed winner.
+     *
+     * <p>The distributed state takes priority. If the key is absent, the local state provides the
+     * transition origin, but only the active job generation may recreate the state and its
+     * timestamps. A generation-fenced transition does not advance the local lifecycle.
+     *
+     * @param targetState requested next pipeline state
+     */
     public synchronized void updatePipelineState(@NonNull PipelineStatus targetState) {
         try {
             DistributedStateTransition.Result<PipelineStatus> transitionResult =

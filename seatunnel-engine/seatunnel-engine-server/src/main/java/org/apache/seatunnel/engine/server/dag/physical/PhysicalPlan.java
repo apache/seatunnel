@@ -90,6 +90,10 @@ public class PhysicalPlan {
 
     private volatile boolean isRunning = false;
 
+    /**
+     * Last job state observed by this plan. Used for reads or as a transition origin when the
+     * distributed key is missing; generation ownership still controls whether it may be repaired.
+     */
     private volatile JobStatus currJobStatus;
 
     public PhysicalPlan(
@@ -276,6 +280,15 @@ public class PhysicalPlan {
         return stateTimestamps[jobStatus.ordinal()];
     }
 
+    /**
+     * Persists a job lifecycle transition and drives state processing for the observed winner.
+     *
+     * <p>The distributed state takes priority. If the key is absent, the local state provides the
+     * transition origin, but only the active job generation may recreate the state and its
+     * timestamps. A generation-fenced transition does not advance the local lifecycle.
+     *
+     * @param targetState requested next job state
+     */
     public synchronized void updateJobState(@NonNull JobStatus targetState) {
         try {
             DistributedStateTransition.Result<JobStatus> transitionResult =

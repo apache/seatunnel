@@ -51,6 +51,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
@@ -286,9 +287,11 @@ public class CoordinatorServiceTest {
                 TestUtils.getClusterName(
                         "CoordinatorServiceTest_testMissingJobStateShouldBeRepairedAfterMasterSwitch");
         HazelcastInstanceImpl instance1 =
-                createHazelcastInstanceWithJoinPortTryCount(clusterName, 50);
+                createHazelcastInstanceWithJoinPortTryCount(
+                        clusterName, 50, TimeUnit.MINUTES.toMillis(10));
         HazelcastInstanceImpl instance2 =
-                createHazelcastInstanceWithJoinPortTryCount(clusterName, 50);
+                createHazelcastInstanceWithJoinPortTryCount(
+                        clusterName, 50, TimeUnit.MINUTES.toMillis(10));
         SeaTunnelServer server1 =
                 instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
         SeaTunnelServer server2 =
@@ -335,9 +338,25 @@ public class CoordinatorServiceTest {
                     instance1.getMap(Constant.IMAP_RUNNING_JOB_STATE);
             IMap<Long, JobInfo> runningJobInfoIMap =
                     instance1.getMap(Constant.IMAP_RUNNING_JOB_INFO);
-            Assertions.assertTrue(runningJobInfoIMap.containsKey(jobId));
+            JobInfo liveJobInfo = runningJobInfoIMap.get(jobId);
+            Assertions.assertNotNull(liveJobInfo);
+            long liveGeneration = liveJobInfo.getInitializationTimestamp();
+            IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                    instance1.getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+            // Insert the record directly, as if its former owner exited before scheduling cleanup.
+            // A fresh record is not yet due for the successor's cleanup scheduler. Recovery must
+            // itself discard it, not wait for an asynchronous cleanup to clear the restore fence.
+            JobCleanupRecord foreignRecord =
+                    new JobCleanupRecord(
+                            liveGeneration - 1,
+                            JobStatus.FINISHED,
+                            Collections.singleton(jobId),
+                            Collections.singleton(jobId),
+                            System.currentTimeMillis());
+            pendingJobCleanupIMap.put(jobId, foreignRecord);
             runningJobStateIMap.remove(jobId);
             Assertions.assertNull(runningJobStateIMap.get(jobId));
+            Assertions.assertEquals(foreignRecord, pendingJobCleanupIMap.get(jobId));
 
             instance1.shutdown();
 
@@ -351,7 +370,16 @@ public class CoordinatorServiceTest {
                                 Assertions.assertTrue(server2.isMasterNode());
                                 Assertions.assertTrue(
                                         server2.getCoordinatorService().isCoordinatorActive());
-                                Assertions.assertTrue(restoredJobInfoIMap.containsKey(jobId));
+                                JobInfo restoredJobInfo = restoredJobInfoIMap.get(jobId);
+                                Assertions.assertNotNull(restoredJobInfo);
+                                Assertions.assertEquals(
+                                        liveGeneration,
+                                        restoredJobInfo.getInitializationTimestamp());
+                                Assertions.assertFalse(
+                                        instance2
+                                                .getMap(Constant.IMAP_PENDING_JOB_CLEANUP)
+                                                .containsKey(jobId),
+                                        "restore must clear the foreign-generation cleanup record");
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING, restoredJobStateIMap.get(jobId));
                                 JobMaster restoredJobMaster =
@@ -865,11 +893,19 @@ public class CoordinatorServiceTest {
 
     private HazelcastInstanceImpl createHazelcastInstanceWithJoinPortTryCount(
             String clusterName, int joinPortTryCount) {
+        return createHazelcastInstanceWithJoinPortTryCount(clusterName, joinPortTryCount, null);
+    }
+
+    private HazelcastInstanceImpl createHazelcastInstanceWithJoinPortTryCount(
+            String clusterName, int joinPortTryCount, Long cleanupDelayMillis) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setProperty("hazelcast.tcp.join.port.try.count", String.valueOf(joinPortTryCount));
+        if (cleanupDelayMillis != null) {
+            seaTunnelConfig.getEngineConfig().setStateCleanupDelayMillis(cleanupDelayMillis);
+        }
         return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
     }
 

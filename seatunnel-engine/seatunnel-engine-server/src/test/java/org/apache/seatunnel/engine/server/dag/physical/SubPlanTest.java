@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
@@ -30,6 +31,8 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import com.hazelcast.map.IMap;
 
@@ -41,6 +44,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -378,15 +382,24 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
         }
     }
 
-    @Test
-    void shouldNotAdmitRestoreWhenVertexResetIsRefused() throws Exception {
+    @ParameterizedTest
+    @EnumSource(
+            value = PipelineStatus.class,
+            names = {"FAILED", "CANCELED"})
+    void shouldNotAdmitRestoreWhenVertexResetIsRefused(PipelineStatus terminalState)
+            throws Exception {
         JobMaster jobMaster = mock(JobMaster.class);
         CheckpointManager checkpointManager = mock(CheckpointManager.class);
         PhysicalPlan physicalPlan = mock(PhysicalPlan.class);
         when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
         when(jobMaster.isStatePersistenceAllowed()).thenReturn(true);
         when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
+        when(jobMaster.isNeedRestore()).thenReturn(true);
+        when(checkpointManager.listenPipeline(1, terminalState))
+                .thenReturn(CompletableFuture.completedFuture(null));
         PhysicalVertex vertex = mockPhysicalVertex(ExecutionState.FAILED);
+        when(vertex.initStateFuture())
+                .thenReturn(new PassiveCompletableFuture<>(new CompletableFuture<>()));
         doThrow(new IllegalStateException("vertex reset was fenced")).when(vertex).reset();
 
         ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -397,13 +410,22 @@ class SubPlanTest extends AbstractSeaTunnelServerTest<SubPlanTest> {
                             Collections.singletonList(vertex),
                             Collections.emptyList());
             subPlan.setJobMaster(jobMaster);
-            subPlan.updatePipelineState(PipelineStatus.FAILED);
+            PassiveCompletableFuture<PipelineExecutionState> completion = subPlan.initStateFuture();
+            subPlan.updatePipelineState(terminalState);
+            Assertions.assertFalse(completion.isDone());
 
-            Assertions.assertFalse(invokePrepareRestorePipeline(subPlan));
-            Assertions.assertEquals(PipelineStatus.FAILED, subPlan.getPipelineState());
+            subPlan.startSubPlanStateProcess();
+
+            PipelineExecutionState result = completion.get(5, TimeUnit.SECONDS);
+            Assertions.assertEquals(terminalState, result.getPipelineStatus());
+            Assertions.assertTrue(result.getThrowableMsg().contains("vertex reset was fenced"));
+            Assertions.assertEquals(terminalState, subPlan.getPipelineState());
             verify(vertex).reset();
             verify(checkpointManager, never()).reportedPipelineRunning(1, false);
             verify(physicalPlan, never()).addPipelineEndCallback(subPlan);
+            verify(jobMaster, never()).preApplyResources(subPlan);
+            verify(vertex, never()).makeTaskGroupDeploy();
+            verify(checkpointManager).listenPipeline(1, terminalState);
         } finally {
             executorService.shutdownNow();
         }

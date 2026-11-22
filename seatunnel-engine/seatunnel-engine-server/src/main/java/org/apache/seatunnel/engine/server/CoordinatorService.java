@@ -1320,18 +1320,15 @@ public class CoordinatorService {
                         engineConfig,
                         seaTunnelServer);
 
-        // Lock-ordering contract for this class: whenever both the per-job cleanup fence
-        // (pendingJobCleanupIMap) and a per-state-key lock (runningJobStateIMap.lock(key), see
-        // cleanupPendingJobStateMaps/initializeMissingJobState) are needed together, the cleanup
-        // fence is always acquired first, matching every other lock(jobId)-then-lock(key) call
-        // site in this class. Confirmed DistributedStateTransition only ever locks
-        // runningJobStateIMap directly and never acquires the cleanup fence, so it cannot violate
-        // this ordering. jobMaster.init(...) is kept inside the fence deliberately: it is what
-        // prevents two concurrent restore attempts for the same job from both passing the
-        // ownership check above and each constructing/initializing their own JobMaster for the
-        // same jobId. Moving init() out from under the fence would remove that mutual exclusion
-        // and is a larger behavioral change than this fix -- left as a follow-up requiring its own
-        // review rather than folded in here.
+        // When both are needed, acquire the per-job cleanup fence before the state-key lock.
+        // DistributedStateTransition's missing-key path releases its initial state-key lock
+        // before invoking the cleanup-fence callback, then reacquires the state-key lock and
+        // revalidates the entry. Existing-key transitions do not acquire the cleanup fence.
+        // Keep init fenced so cleanup or a newer generation cannot invalidate the checked
+        // ownership while initialization is constructing state. This call site has no overall
+        // wall-clock deadline: same-job cleanup/submission can wait until init returns or fails.
+        // A bounded redesign must preserve ownership through slow initialization, not just time
+        // out the caller while initialization can still publish state.
         pendingJobCleanupIMap.lock(jobId);
         try {
             currentJobInfo = getRunningJobInfoWithRetry(jobId);
