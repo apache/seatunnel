@@ -83,20 +83,88 @@ public class ConfigValueUtils {
         return ConfigValueFactory.fromAnyRef(value);
     }
 
+    /**
+     * Parses a string value into a structured ConfigValue (e.g., JSON object or Array).
+     *
+     * <p><b>Parsing Semantics:</b> Attempts to interpret the input as HOCON/JSON. Plain strings
+     * with commas must be wrapped in double quotes.
+     *
+     * <p><b>Error Semantics:</b> Throws {@link StructuredValueParseException} on failure. The
+     * exception contains <b>no raw value content</b> and a sanitized cause message. Callers must
+     * catch this exception and append the configuration key/location context.
+     *
+     * @param value The raw string value to parse.
+     * @return The parsed ConfigValue.
+     * @throws StructuredValueParseException if the value is malformed.
+     */
     public static ConfigValue parseStructured(String value) {
         try {
             Config parsed = ConfigFactory.parseString("v = " + value);
             return parsed.root().get("v");
         } catch (ConfigException e) {
-            throw new ConfigException.BadValue(
-                    ConfigOriginFactory.newSimple(),
-                    "",
+            String sanitizedDetail = sanitizeExceptionDetail(e);
+            throw new StructuredValueParseException("Structured Value", sanitizedDetail, e);
+        }
+    }
+
+    /**
+     * Parses a string value with configuration key context for better error reporting.
+     *
+     * <p>This method wraps {@link #parseStructured(String)} and converts parsing failures into a
+     * {@link ConfigException.BadValue} that includes the key/location, while strictly excluding the
+     * raw value content to prevent sensitive data leakage.
+     *
+     * @param key The configuration key (used for error reporting).
+     * @param value The raw string value to parse.
+     * @return The parsed ConfigValue.
+     * @throws ConfigException.BadValue if the value is malformed.
+     */
+    public static ConfigValue parseStructuredValueForKey(String key, String value) {
+        try {
+            return parseStructured(value);
+        } catch (StructuredValueParseException e) {
+            // TODO: check if the key is sensitive field
+            String errorMessage =
                     String.format(
-                            "Value '%s' looks like JSON or Array but failed to parse. "
+                            "Failed to parse value for key: %s. %s. "
                                     + "If you intended to pass a Map/List, please check the syntax. "
                                     + "If you intended to pass a plain string with comma, wrap the entire value in double quotes (e.g., \"your_value\"). ",
-                            value),
-                    e);
+                            key, e.getMessage());
+            throw new ConfigException.BadValue(
+                    ConfigOriginFactory.newSimple(), key, errorMessage, e);
+        }
+    }
+
+    private static String sanitizeExceptionDetail(ConfigException e) {
+        String msg = e.getMessage();
+        if (msg == null) return e.getClass().getSimpleName();
+        return msg;
+    }
+
+    /**
+     * Exception thrown when a raw string value fails to parse as a structured format.
+     *
+     * <p><b>Error Semantics:</b> This exception intentionally excludes the raw input value to
+     * prevent sensitive data leakage. It only reports the expected syntax category and a sanitized
+     * parsing detail. The caller is responsible for providing the configuration key/location
+     * context.
+     */
+    public static class StructuredValueParseException extends RuntimeException {
+
+        private final String syntaxCategory;
+
+        public StructuredValueParseException(
+                String syntaxCategory, String sanitizedDetail, Throwable cause) {
+            super(
+                    String.format(
+                            "Expected syntax category: [%s]. Parsing detail: %s",
+                            syntaxCategory, sanitizedDetail),
+                    cause);
+            this.syntaxCategory = syntaxCategory;
+        }
+
+        public String getSyntaxCategory() {
+            return syntaxCategory;
         }
     }
 

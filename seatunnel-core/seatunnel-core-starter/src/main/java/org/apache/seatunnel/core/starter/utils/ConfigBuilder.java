@@ -52,7 +52,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.common.utils.ConfigValueUtils.isStructured;
-import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseStructured;
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseStructuredValueForKey;
 import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseValue;
 import static org.apache.seatunnel.common.utils.PlaceholderUtils.hasOnlyOnePlaceholder;
 
@@ -415,7 +415,7 @@ public class ConfigBuilder {
                                         if (rawUserValue != null) {
                                             return parseValue(rawUserValue);
                                         } else if (isStructured(replacedValue)) {
-                                            return parseStructured(replacedValue);
+                                            return parseStructuredValueForKey(key, replacedValue);
                                         } else {
                                             return StringUtils.unwrap(replacedValue, "\"");
                                         }
@@ -466,7 +466,7 @@ public class ConfigBuilder {
                 if (rawUserValue != null) {
                     variableValue = parseValue(rawUserValue);
                 } else if (isStructured(replacedValue)) {
-                    variableValue = parseStructured(replacedValue);
+                    variableValue = parseStructuredValueForKey(variableKey, replacedValue);
                 } else {
                     variableValue = StringUtils.unwrap(replacedValue, "\"");
                 }

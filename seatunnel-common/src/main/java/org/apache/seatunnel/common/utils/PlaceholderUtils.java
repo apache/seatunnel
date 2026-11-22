@@ -31,7 +31,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.apache.seatunnel.common.utils.ConfigValueUtils.isEscapedQuote;
-import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseStructured;
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseStructuredValueForKey;
 
 public class PlaceholderUtils {
 
@@ -348,20 +348,21 @@ public class PlaceholderUtils {
         if (defaultValue != null) {
 
             if (ConfigValueUtils.isStructured(defaultValue)) {
-                ConfigValue parsedDefaultConfigValue = parseStructured(defaultValue);
                 try {
+                    ConfigValue parsedDefaultConfigValue =
+                            parseStructuredValueForKey(key, defaultValue);
                     parsedDefaultConfigValue.unwrapped();
                 } catch (ConfigException.NotResolved e) {
-                    throwBadValueException(key);
+                    throwBadDefaultValueException(key);
                 }
             } else if (!(defaultValue.startsWith("\"") && defaultValue.endsWith("\""))
                     && defaultValue.contains(PLACEHOLDER_STARTER)) {
-                throwBadValueException(key);
+                throwBadDefaultValueException(key);
             }
         }
     }
 
-    private static void throwBadValueException(String key) {
+    private static void throwBadDefaultValueException(String key) {
         throw new ConfigException.BadValue(
                 ConfigOriginFactory.newSimple(),
                 key,
