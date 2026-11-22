@@ -401,7 +401,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /**
      * Submits tasks to the executor service for blocking execution. Each task runs in a dedicated
      * thread using BlockingWorker. A CountDownLatch is used to ensure all workers have started
-     * before returning.
+     * before returning on the success path.
+     *
+     * <p>On a mid-batch submit failure, the catch block publishes only the already-accepted futures
+     * and rethrows without waiting on {@code startedLatch}, so post-publish rollback can cancel
+     * them (including workers that have not started yet) without deadlocking {@code deployTask}.
      *
      * @param taskGroupExecutionTracker the tracker for the task group execution
      * @param tasks the list of tasks to submit
@@ -1734,9 +1738,18 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          * Accounts for tasks dropped during post-publish rollback that will not reach {@link
          * #taskDone(Task)} through a worker thread.
          *
-         * <p>Cooperative tasks removed from the queue, blocking tasks rejected before submit, and
-         * blocking tasks whose {@link Future} was cancelled before {@link BlockingWorker} ran are
-         * counted here. Started workers still report via {@code taskDone}.
+         * <p>Only these dropped paths are accounted here; this does not drain {@code
+         * completionLatch} for tasks still running on a worker thread (they report via {@code
+         * taskDone} on interrupt or rollback guard). Idempotent {@code taskDone} ignores duplicate
+         * reports per task id.
+         *
+         * <ol>
+         *   <li>Cooperative tasks removed from {@code threadShareTaskQueue}
+         *   <li>Blocking tasks rejected before a future was created (index beyond {@code
+         *       blockingFutures})
+         *   <li>Blocking tasks whose future was cancelled before {@link BlockingWorker} ran ({@code
+         *       isCancelled() && isDone()})
+         * </ol>
          */
         void accountForTasksDroppedAfterRollback(
                 Collection<TaskTracker> removedCooperativeTrackers) {
@@ -1755,28 +1768,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 Future<?> workerFuture = blockingFutures.get(i);
                 if (workerFuture.isCancelled() && workerFuture.isDone()) {
                     taskDone(task);
-                }
-            }
-            reconcileCompletionAfterRollback();
-        }
-
-        /**
-         * Completes any remaining per-task accounting after rollback so metrics bookkeeping for
-         * this abandoned generation is not stranded when {@code completionLatch} never reaches
-         * zero.
-         */
-        private void reconcileCompletionAfterRollback() {
-            while (completionLatch.get() > 0) {
-                boolean accounted = false;
-                for (Task task : taskGroup.getTasks()) {
-                    if (!tasksReportedDone.contains(task.getTaskID())) {
-                        taskDone(task);
-                        accounted = true;
-                        break;
-                    }
-                }
-                if (!accounted) {
-                    break;
                 }
             }
         }
