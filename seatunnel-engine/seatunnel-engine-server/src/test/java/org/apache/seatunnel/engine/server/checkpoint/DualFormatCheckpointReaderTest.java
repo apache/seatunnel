@@ -556,6 +556,12 @@ public class DualFormatCheckpointReaderTest {
         storeV1Raw(checkpointId, payload(JOB_ID, 1, checkpointId, type));
     }
 
+    /**
+     * Stores a v1 checkpoint file. Its name carries the write time in milliseconds, and the
+     * existing v1 getters pick the "latest" file by that time alone, keeping whichever file the
+     * directory listing returns first on a tie. Real checkpoints are seconds apart; to give test
+     * files distinct times as well, this returns only once the clock has moved past the write.
+     */
     private void storeV1Raw(long checkpointId, byte[] states) throws Exception {
         storage.storeCheckPoint(
                 PipelineState.builder()
@@ -564,6 +570,11 @@ public class DualFormatCheckpointReaderTest {
                         .checkpointId(checkpointId)
                         .states(states)
                         .build());
+        // read after the write: at or after the time in the file name
+        long writtenAt = System.currentTimeMillis();
+        while (System.currentTimeMillis() <= writtenAt) {
+            Thread.yield();
+        }
     }
 
     /** Commits a v2 checkpoint whose payload is a real serialized {@link CompletedCheckpoint}. */
