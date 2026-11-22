@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergFilesCommitter;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.HadoopStreamFileIO;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -31,9 +32,13 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
+import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.data.IcebergGenerics;
 import org.apache.iceberg.data.Record;
@@ -56,6 +61,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
@@ -74,6 +80,8 @@ public class IcebergSinkIT extends TestSuiteBase {
     private static final String V3_COPY_TABLE = "iceberg_v3_copy";
     private static final String V3_UPSERT_TABLE = "iceberg_v3_upsert";
     private static final String V4_TABLE = "iceberg_v4_table";
+    private static final String FLUSH_UPSERT_TABLE = "iceberg_flush_upsert_table";
+    private static final String FLUSH_CDC_TABLE = "iceberg_flush_cdc_table";
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
@@ -161,17 +169,53 @@ public class IcebergSinkIT extends TestSuiteBase {
     }
 
     @TestTemplate
-    public void testFormatV3UpsertRejectedE2e(TestContainer container)
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Spark does not preserve CDC row kinds")
+    public void testFormatV3CdcE2e(TestContainer container)
             throws IOException, InterruptedException {
         resetTableDirectory(container, V3_UPSERT_TABLE);
 
-        Container.ExecResult execResult =
-                container.executeJob("/iceberg/fake_to_iceberg_v3_upsert.conf");
-        Assertions.assertNotEquals(0, execResult.getExitCode());
-        String output = execResult.getStdout() + execResult.getStderr();
-        Assertions.assertTrue(
-                output.contains("Upsert and CDC writes are not supported for Iceberg tables"),
-                "the job should report that upsert into a format version 3 table is unsupported");
+        // The second job also deletes the first job's committed rows by equality key.
+        for (int attempt = 0; attempt < 2; attempt++) {
+            Container.ExecResult execResult =
+                    container.executeJob("/iceberg/fake_to_iceberg_v3_upsert.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            Table table = loadIcebergTableObject(V3_UPSERT_TABLE);
+            Assertions.assertEquals(
+                    "2", table.currentSnapshot().summary().get("seatunnel.commit-group-count"));
+            Assertions.assertEquals(
+                    "1", table.currentSnapshot().summary().get("seatunnel.commit-group"));
+            Map<Long, String> rows = new HashMap<>();
+            try (CloseableIterable<Record> records = IcebergGenerics.read(table).build()) {
+                for (Record record : records) {
+                    Assertions.assertNull(
+                            rows.put(
+                                    (Long) record.getField("id"), (String) record.getField("name")),
+                            "duplicate live primary key");
+                }
+            }
+            Assertions.assertEquals(2, rows.size());
+            Assertions.assertEquals("A_2", rows.get(1L));
+            Assertions.assertEquals("C_1", rows.get(3L));
+            boolean foundVector = false;
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                for (FileScanTask task : tasks) {
+                    for (org.apache.iceberg.DeleteFile file : task.deletes()) {
+                        if (file.content() == FileContent.POSITION_DELETES) {
+                            Assertions.assertEquals(FileFormat.PUFFIN, file.format());
+                            Assertions.assertEquals(
+                                    task.file().location(), file.referencedDataFile());
+                            Assertions.assertTrue(file.contentOffset() > 0);
+                            Assertions.assertTrue(file.contentSizeInBytes() > 0);
+                            foundVector = true;
+                        }
+                    }
+                }
+            }
+            Assertions.assertTrue(foundVector, "CDC should persist actual deletion vectors");
+        }
     }
 
     @TestTemplate
@@ -186,6 +230,109 @@ public class IcebergSinkIT extends TestSuiteBase {
         Assertions.assertTrue(
                 output.contains("Unsupported Iceberg table format-version '4'"),
                 "the job should report the unsupported format-version");
+    }
+
+    /**
+     * Upsert job with {@code flush_row_size = 2}: the UPDATE and DELETE of earlier rows are written
+     * by later task writers, so they only apply if the checkpoint is committed as ordered
+     * snapshots.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Spark does not carry the row kind of changelog rows")
+    public void testFlushRowSizeUpsertE2e(TestContainer container)
+            throws IOException, InterruptedException {
+        assertFlushRowSizeJob(
+                container,
+                "/iceberg/fake_to_iceberg_flush_row_size_upsert.conf",
+                FLUSH_UPSERT_TABLE);
+    }
+
+    /** Same rows as the upsert case, written as a changelog into a partitioned table. */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Spark does not carry the row kind of changelog rows")
+    public void testFlushRowSizeCdcPartitionedE2e(TestContainer container)
+            throws IOException, InterruptedException {
+        assertFlushRowSizeJob(
+                container, "/iceberg/fake_to_iceberg_flush_row_size_cdc.conf", FLUSH_CDC_TABLE);
+        Assertions.assertFalse(loadIcebergTableObject(FLUSH_CDC_TABLE).spec().isUnpartitioned());
+    }
+
+    private void assertFlushRowSizeJob(TestContainer container, String conf, String tableName)
+            throws IOException, InterruptedException {
+        resetTableDirectory(container, tableName);
+
+        Container.ExecResult execResult = container.executeJob(conf);
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        Table table = loadIcebergTableObject(tableName);
+        Map<Integer, String> rows = new TreeMap<>();
+        try (CloseableIterable<Record> records = IcebergGenerics.read(table).build()) {
+            for (Record record : records) {
+                Assertions.assertNull(
+                        rows.put((Integer) record.getField("id"), (String) record.getField("name")),
+                        "duplicate row for id " + record.getField("id"));
+            }
+        }
+        // 1 and 3 were updated and 2 deleted after the writer that inserted them was rotated
+        Map<Integer, String> expected = new TreeMap<>();
+        expected.put(1, "A2");
+        expected.put(3, "C2");
+        expected.put(4, "D");
+        Assertions.assertEquals(expected, rows);
+
+        // The changes after a rotation must have been committed as ordered snapshots, each group
+        // exactly once.
+        List<Snapshot> snapshots = new ArrayList<>();
+        table.snapshots().forEach(snapshots::add);
+        int splitCheckpoints = 0;
+        for (int i = 0; i < snapshots.size(); i++) {
+            String count =
+                    snapshots
+                            .get(i)
+                            .summary()
+                            .get(IcebergFilesCommitter.SNAPSHOT_PROPERTY_COMMIT_GROUP_COUNT);
+            if (count == null) {
+                continue;
+            }
+            int groupCount = Integer.parseInt(count);
+            Assertions.assertTrue(groupCount > 1, "a split checkpoint has at least two groups");
+            Assertions.assertTrue(
+                    i + groupCount <= snapshots.size(),
+                    "missing groups of a split checkpoint: " + summaries(snapshots));
+            String checkpointId =
+                    snapshots
+                            .get(i)
+                            .summary()
+                            .get(IcebergFilesCommitter.SNAPSHOT_PROPERTY_CHECKPOINT_ID);
+            for (int group = 0; group < groupCount; group++) {
+                Map<String, String> summary = snapshots.get(i + group).summary();
+                Assertions.assertEquals(
+                        String.valueOf(group),
+                        summary.get(IcebergFilesCommitter.SNAPSHOT_PROPERTY_COMMIT_GROUP),
+                        "groups must be committed once and in order: " + summaries(snapshots));
+                Assertions.assertEquals(
+                        checkpointId,
+                        summary.get(IcebergFilesCommitter.SNAPSHOT_PROPERTY_CHECKPOINT_ID));
+            }
+            i += groupCount - 1;
+            splitCheckpoints++;
+        }
+        Assertions.assertTrue(
+                splitCheckpoints > 0,
+                "expected the checkpoint to be committed as ordered snapshots: "
+                        + summaries(snapshots));
+    }
+
+    private static List<Map<String, String>> summaries(List<Snapshot> snapshots) {
+        List<Map<String, String>> summaries = new ArrayList<>();
+        snapshots.forEach(snapshot -> summaries.add(snapshot.summary()));
+        return summaries;
     }
 
     private void assertFormatV3Table(Table table, boolean nanosecondRows) throws IOException {

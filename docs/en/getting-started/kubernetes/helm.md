@@ -28,24 +28,24 @@ minikube start --kubernetes-version=v1.23.3
 
 ## Install
 
-Install with default settings.
+Chart 3.1.0 defaults to the 3.0.0 image. Set `image.tag` to deploy SeaTunnel 3.1.0.
 ```bash
 # Choose the corresponding version yourself
 export VERSION=3.1.0
 helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm
-helm install seatunnel .
+helm install seatunnel . --set-string image.tag="${VERSION}"
 ```
 Install with another namespace.
 ```bash
-helm install seatunnel . -n <your-namespace>
+helm install seatunnel . --set-string image.tag="${VERSION}" -n <your-namespace>
 ```
 
 For managed Kubernetes services, keep provider-specific changes in a separate values file and pass it with `-f`, for example:
 
 ```bash
-helm install seatunnel . -n <your-namespace> -f values-eks.yaml
+helm install seatunnel . --set-string image.tag="${VERSION}" -n <your-namespace> -f values-eks.yaml
 ```
 
 Common managed-cluster values to review include:
