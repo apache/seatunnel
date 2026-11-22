@@ -242,7 +242,7 @@ env {
 
 source {
   FakeSource {
-    plugin_input = "fake"
+    plugin_output = "fake"
     tables_configs = [
       {
         schema {
