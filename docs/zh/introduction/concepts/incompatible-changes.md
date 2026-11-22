@@ -6,7 +6,9 @@
 
 ### JDBC 带时区时间戳发现
 
-共享 JDBC 元数据回退现在将 JDBC 类型 2014（`TIMESTAMP_WITH_TIMEZONE`）映射为 `TIMESTAMP_TZ`（`OffsetDateTime`），此前为 `TIMESTAMP`（`LocalDateTime`）。已有自动发现 schema 的任务可能向下游提供不同的逻辑类型和 Java 类型。升级前请核对转换与 Sink 的字段类型，需要无时区时间戳时显式转换。配置与 checkpoint 格式不变。JDBC Sink 在驱动拒绝 `setObject(OffsetDateTime)` 时仍回退为 UTC `setTimestamp`；这不保证保留原始时区偏移。
+共享 JDBC 元数据回退路径现在把 JDBC 类型 2014（`TIMESTAMP_WITH_TIMEZONE`）映射为 `TIMESTAMP_TZ`（`OffsetDateTime`），不再映射为 `TIMESTAMP`（`LocalDateTime`）。原生类型名 `TIMESTAMPTZ` 或 `TIMESTAMP[(p)] WITH TIME ZONE` 优先于驱动报告的 JDBC 类型编号。例如，驱动同时报告类型 93（`TIMESTAMP`）和原生类型名 `TIMESTAMPTZ` 时，映射结果现在会保留偏移量。编号同为 93 的普通 `TIMESTAMP` 不受影响。
+
+Presto 和 Trino 的 `query` 作业也可能受影响：过去，类型映射器会丢弃精度后面的类型名，将 `timestamp(3) with time zone` 结果列映射为 `TIMESTAMP`；现在映射为 `TIMESTAMP_TZ`。升级前请核对下游转换、显式类型转换和目标列。若需保留无时区的字段类型，请在源查询中先确定转换使用的时区，再显式投影为不带时区的时间戳。配置和 checkpoint 格式不变。 如果驱动拒绝 `setObject(OffsetDateTime)`，JDBC Sink 仍回退到使用 UTC 的 `setTimestamp`，不保证保留原始偏移量。
 
 ### Http Sink：`array_mode = true` 时每行作为 JSON 对象发送
 

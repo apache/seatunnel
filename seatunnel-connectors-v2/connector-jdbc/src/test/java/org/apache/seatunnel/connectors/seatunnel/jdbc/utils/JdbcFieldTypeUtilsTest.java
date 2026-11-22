@@ -164,6 +164,22 @@ public class JdbcFieldTypeUtilsTest {
     }
 
     @Test
+    public void testInvalidDb2TimestampHasColumnContextWithoutRowValue() throws SQLException {
+        DBTimestamp timestamp = mock(DBTimestamp.class);
+        when(timestamp.toDBString(true)).thenReturn(null, "", "invalid-private-value");
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getObject(3)).thenReturn(timestamp);
+        for (int i = 0; i < 3; i++) {
+            SQLException error =
+                    assertThrows(
+                            SQLException.class, () -> JdbcFieldTypeUtils.getOffsetDateTime(rs, 3));
+            assertEquals(
+                    "Invalid com.ibm.db2.jcc.DBTimestamp value at column 3", error.getMessage());
+            assertNull(error.getCause());
+        }
+    }
+
+    @Test
     public void testGetBigDecimalWithNormalValue() throws SQLException {
         ResultSet rs = mock(ResultSet.class);
         when(rs.getBigDecimal(1)).thenReturn(new BigDecimal("123.45"));

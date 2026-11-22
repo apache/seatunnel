@@ -62,6 +62,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DATE                                                                                                 | DATE               |
 | TIME                                                                                                 | TIME               |
 | TIMESTAMP                                                                                            | TIMESTAMP          |
+| TIMESTAMP WITH TIME ZONE（Db2 for z/OS；小数秒截断至 9 位） | TIMESTAMP_TZ |
 | ROWID                                                                                                | 暂不支持           |
 
 ## 源选项

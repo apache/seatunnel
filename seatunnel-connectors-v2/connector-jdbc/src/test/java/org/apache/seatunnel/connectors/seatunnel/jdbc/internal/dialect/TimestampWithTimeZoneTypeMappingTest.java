@@ -76,6 +76,18 @@ public class TimestampWithTimeZoneTypeMappingTest {
         assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, teradataColumn.getDataType());
     }
 
+    @Test
+    public void testNativeTimeZoneNameOverridesTimestampTypeCode() throws SQLException {
+        assertEquals(
+                LocalTimeType.OFFSET_DATE_TIME_TYPE,
+                JdbcColumnConverter.convert(metadata("TIMESTAMPTZ", 6, Types.TIMESTAMP), 1)
+                        .getDataType());
+        assertEquals(
+                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                JdbcColumnConverter.convert(metadata("TIMESTAMP", 6, Types.TIMESTAMP), 1)
+                        .getDataType());
+    }
+
     /* Verifies Presto precision-qualified timezone timestamps remain distinguishable from NTZ. */
     @Test
     public void testPrestoTimestampWithTimeZone() throws SQLException {

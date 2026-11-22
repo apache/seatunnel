@@ -44,6 +44,19 @@ public final class JdbcFieldTypeUtils {
     // IBM JDBC type returned for Db2 for z/OS TIMESTAMP WITH TIME ZONE columns.
     private static final String DB2_TIMESTAMP_CLASS_NAME = "com.ibm.db2.jcc.DBTimestamp";
 
+    // Cache the driver method per class without pinning a connector's class loader.
+    private static final ClassValue<Method> DB2_RENDER_TIMESTAMP =
+            new ClassValue<Method>() {
+                @Override
+                protected Method computeValue(Class<?> type) {
+                    try {
+                        return type.getMethod("toDBString", boolean.class);
+                    } catch (NoSuchMethodException e) {
+                        throw new IllegalStateException("Db2 driver has no toDBString(boolean)", e);
+                    }
+                }
+            };
+
     // Db2 external timestamp form: yyyy-mm-dd-hh.mm.ss.ffffffffffff+hh:mm.
     private static final Pattern DB2_TIMESTAMP_WITH_TIME_ZONE_PATTERN =
             Pattern.compile(
@@ -277,12 +290,25 @@ public final class JdbcFieldTypeUtils {
         // ResultSet.getString() removes its offset, while toDBString(true) preserves it.
         if (DB2_TIMESTAMP_CLASS_NAME.equals(obj.getClass().getName())) {
             try {
-                Method toDBString = obj.getClass().getMethod("toDBString", boolean.class);
+                Method toDBString = DB2_RENDER_TIMESTAMP.get(obj.getClass());
                 String db2Value = (String) toDBString.invoke(obj, true);
-                return parseOffsetDateTimeFromString(db2Value);
-            } catch (ReflectiveOperationException | ClassCastException e) {
-                throw new SQLException("Failed to read Db2 timestamp with time zone", e);
+                if (db2Value != null) {
+                    OffsetDateTime parsed = parseOffsetDateTimeFromString(db2Value);
+                    if (parsed != null) {
+                        return parsed;
+                    }
+                }
+            } catch (DateTimeParseException e) {
+                // Parsing exceptions contain the raw column value; do not propagate that value.
+            } catch (ReflectiveOperationException
+                    | IllegalStateException
+                    | SecurityException
+                    | ClassCastException e) {
+                throw new SQLException(
+                        "Cannot read " + DB2_TIMESTAMP_CLASS_NAME + " at column " + columnIndex, e);
             }
+            throw new SQLException(
+                    "Invalid " + DB2_TIMESTAMP_CLASS_NAME + " value at column " + columnIndex);
         }
 
         // Handle java.sql.Timestamp

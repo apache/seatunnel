@@ -7,7 +7,9 @@ You need to check this document before you upgrade to related version.
 
 ### JDBC timezone timestamp discovery
 
-The shared JDBC metadata fallback now maps JDBC type 2014 (`TIMESTAMP_WITH_TIMEZONE`) to `TIMESTAMP_TZ` (`OffsetDateTime`) instead of `TIMESTAMP` (`LocalDateTime`). Existing auto-discovered jobs may therefore expose a different logical and Java type downstream. Check transform and sink schemas before upgrading, and explicitly convert values where a timezone-less timestamp is required. Configurations and checkpoint formats are unchanged. The JDBC sink still falls back to UTC `setTimestamp` when a driver rejects `setObject(OffsetDateTime)`; this does not guarantee retaining the original offset.
+In the shared JDBC metadata fallback, JDBC type 2014 (`TIMESTAMP_WITH_TIMEZONE`) now produces `TIMESTAMP_TZ` (`OffsetDateTime`), not `TIMESTAMP` (`LocalDateTime`). A native type name of `TIMESTAMPTZ` or `TIMESTAMP[(p)] WITH TIME ZONE` takes precedence over the driver’s numeric type code. For example, a column reported as JDBC type 93 (`TIMESTAMP`) with native type `TIMESTAMPTZ` now retains its offset. An ordinary `TIMESTAMP` reported as type 93 is unchanged.
+
+Presto and Trino `query` jobs are also affected: a result column reported as `timestamp(3) with time zone` previously mapped to `TIMESTAMP` because the mapper discarded the type suffix after the precision. It now maps to `TIMESTAMP_TZ`. Check downstream casts, transforms and target columns before upgrading. To keep a timezone-less contract, explicitly project a timestamp without time zone in the source query, choosing the intended time zone before discarding the offset. Configuration and checkpoint formats are unchanged. The JDBC sink falls back to UTC `setTimestamp` when a driver rejects `setObject(OffsetDateTime)`; this does not guarantee preservation of the original offset.
 
 ### Http sink: `array_mode = true` sends each row as a JSON object
 

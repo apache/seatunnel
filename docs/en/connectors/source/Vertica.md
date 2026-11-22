@@ -58,6 +58,7 @@ Read external data source data through JDBC.
 | DATE                                                                                                                              | DATE                                                                                                                                                |
 | TIME                                                                                                                              | TIME                                                                                                                                                |
 | DATETIME<br/>TIMESTAMP                                                                                                            | TIMESTAMP                                                                                                                                           |
+| TIMESTAMPTZ<br/>TIMESTAMP WITH TIME ZONE | TIMESTAMP_TZ |
 | TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR                                                              | BYTES                                                                                                                                               |
 | GEOMETRY<br/>UNKNOWN                                                                                                              | Not supported yet                                                                                                                                   |
 
