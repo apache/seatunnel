@@ -60,6 +60,7 @@ public class MongodbSinkFactory implements TableSinkFactory, SupportSinkDryRunVa
                         MongodbSinkOptions.UPSERT_ENABLE,
                         MongodbSinkOptions.PRIMARY_KEY,
                         MongodbSinkOptions.DATA_SAVE_MODE,
+                        MongodbSinkOptions.TLS_CA_FILE,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
@@ -100,6 +101,8 @@ public class MongodbSinkFactory implements TableSinkFactory, SupportSinkDryRunVa
             builder.withTransaction(readonlyConfig.get(MongodbSinkOptions.TRANSACTION));
         }
         builder.withDataSaveMode(readonlyConfig.get(MongodbSinkOptions.DATA_SAVE_MODE));
+        builder.withTlsCaFile(
+                readonlyConfig.getOptional(MongodbSinkOptions.TLS_CA_FILE).orElse(null));
         CatalogTable catalogTable = context.getCatalogTable();
         // sourceCatalogTable to sinkCatalogTable
         TableIdentifier tableIdentifier =

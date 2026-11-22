@@ -253,6 +253,9 @@ PDF 特有的解析行为如下：
 
 数据源的读取列列表，用户可以使用它来实现字段投影。
 
+对于 Parquet 文件，读取器还会跳过未选择的顶层列数据。选中的嵌套字段仍完整读取，输出列顺序保持不变。
+显式配置 Hadoop Parquet 投影、读取模式或记录过滤器时，保持原有行为，不启用自动列裁剪。
+
 ### delimiter/field_delimiter [string]
 
 **delimiter** 参数将在 2.3.5 版本后弃用，请使用 **field_delimiter** 代替。
@@ -482,8 +485,9 @@ abc.*
 
 ### null_format [string]
 
-仅在 file_format_type 为 `text` 或 `csv` 时使用。
-null_format 定义哪些字符串可以表示为 null。
+当 `file_format_type` 为 `text` 或 `csv` 时使用。指定表示 null 的字段值。
+对于配置了 `schema.columns[].defaultValue` 的 CSV，如果字段值匹配 `null_format`，或文件表头缺少该列，则使用配置的默认值。空 CSV 字段仍为 null，除非它与 `null_format` 匹配；未配置默认值的列保持原有行为。
+CSV 默认值在创建读取器时进行校验。DATE 和 TIMESTAMP 默认值可以使用与文件数据不同的受支持格式。
 
 例如：`\N`
 
