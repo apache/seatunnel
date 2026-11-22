@@ -16,6 +16,7 @@
 #
 
 import json
+import os
 import ssl
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlsplit
@@ -60,6 +61,18 @@ class Fixture(BaseHTTPRequestHandler):
 
         self.server.offsets.append(offset)
         print("verified WordPress fixture offset=" + str(offset), flush=True)
+        if os.environ.get("WORDPRESS_HOLD_PAGE") == str(offset):
+            # Send neither headers nor body. Only a real client disconnect completes this fixture.
+            self.connection.settimeout(60)
+            print("WordPress fixture holds offset=" + str(offset), flush=True)
+            try:
+                peer_closed = not self.connection.recv(1)
+            except (ConnectionResetError, ssl.SSLEOFError):
+                peer_closed = True
+            if peer_closed:
+                print("WordPress fixture saw offset=" + str(offset) + " disconnect", flush=True)
+            return
+
         body = json.dumps({"found": len(POSTS), "posts": [POSTS[offset]]}).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")

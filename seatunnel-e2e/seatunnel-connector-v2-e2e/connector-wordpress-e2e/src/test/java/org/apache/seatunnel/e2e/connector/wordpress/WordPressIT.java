@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.wordpress;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -40,8 +42,12 @@ import java.security.cert.Certificate;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import static org.awaitility.Awaitility.await;
 
 class WordPressIT extends TestSuiteBase {
     private static final String HOST = "public-api.wordpress.com";
@@ -54,36 +60,9 @@ class WordPressIT extends TestSuiteBase {
         Path truststore = tmp.resolve("wordpress-trust.p12");
         createFixtureCertificate(tmp, serverPem, truststore);
 
-        // This DNS alias and trust anchor exist only in the isolated test network/JVM.
-        // The connector still uses its production HTTPS URL and normal hostname verification.
-        try (GenericContainer<?> fixture =
-                new GenericContainer<>(DockerImageName.parse("python:3.12.12-alpine3.22"))
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(HOST)
-                        .withCopyFileToContainer(
-                                MountableFile.forClasspathResource("wordpress_fixture.py"),
-                                "/tmp/wordpress_fixture.py")
-                        .withCopyFileToContainer(
-                                MountableFile.forHostPath(serverPem), "/tmp/wordpress-fixture.pem")
-                        .withCommand("python", "-u", "/tmp/wordpress_fixture.py")
-                        .waitingFor(Wait.forLogMessage(".*WordPress HTTPS fixture ready.*", 1))) {
+        try (GenericContainer<?> fixture = fixture(serverPem)) {
             fixture.start();
-            SeaTunnelContainer engine =
-                    new SeaTunnelContainer() {
-                        @Override
-                        protected String getJavaToolOptions() {
-                            return "-Djavax.net.ssl.trustStore="
-                                    + TRUSTSTORE
-                                    + " -Djavax.net.ssl.trustStorePassword="
-                                    + STORE_PASSWORD;
-                        }
-
-                        @Override
-                        protected void executeExtraCommands(GenericContainer<?> runtime) {
-                            runtime.withCopyFileToContainer(
-                                    MountableFile.forHostPath(truststore), TRUSTSTORE);
-                        }
-                    };
+            SeaTunnelContainer engine = engine(truststore);
 
             try {
                 engine.startUp();
@@ -124,6 +103,99 @@ class WordPressIT extends TestSuiteBase {
                 engine.tearDown();
             }
         }
+    }
+
+    @Test
+    void zetaCancellationClosesBlockedWordPressRequestBeforeItsDeadline(@TempDir Path tmp)
+            throws Exception {
+        Path serverPem = tmp.resolve("wordpress-fixture.pem");
+        Path truststore = tmp.resolve("wordpress-trust.p12");
+        createFixtureCertificate(tmp, serverPem, truststore);
+
+        try (GenericContainer<?> fixture = fixture(serverPem).withEnv("WORDPRESS_HOLD_PAGE", "1")) {
+            fixture.start();
+            SeaTunnelContainer engine = engine(truststore);
+            try {
+                engine.startUp();
+                String jobId = String.valueOf(JobIdGenerator.newJobId());
+                CompletableFuture<Container.ExecResult> job =
+                        CompletableFuture.supplyAsync(
+                                () -> {
+                                    try {
+                                        return engine.executeJob(
+                                                "/wordpress_to_console.conf", jobId);
+                                    } catch (InterruptedException e) {
+                                        Thread.currentThread().interrupt();
+                                        throw new CompletionException(e);
+                                    } catch (IOException e) {
+                                        throw new CompletionException(e);
+                                    }
+                                });
+
+                await().atMost(60, TimeUnit.SECONDS)
+                        .until(
+                                () ->
+                                        fixture.getLogs()
+                                                .contains("WordPress fixture holds offset=1"));
+                Assertions.assertFalse(
+                        job.isDone(), "The blocked source job unexpectedly completed");
+                CompletableFuture<Void> stop =
+                        CompletableFuture.runAsync(
+                                () -> {
+                                    try {
+                                        engine.stopJob(jobId);
+                                    } catch (InterruptedException e) {
+                                        Thread.currentThread().interrupt();
+                                        throw new CompletionException(e);
+                                    } catch (IOException e) {
+                                        throw new CompletionException(e);
+                                    }
+                                });
+                // A client deadline or socket timeout first fires after 30 seconds.
+                await().atMost(15, TimeUnit.SECONDS)
+                        .until(
+                                () ->
+                                        fixture.getLogs()
+                                                .contains(
+                                                        "WordPress fixture saw offset=1 disconnect"));
+                stop.get(30, TimeUnit.SECONDS);
+                job.get(30, TimeUnit.SECONDS);
+                Assertions.assertEquals("CANCELED", engine.getJobStatus(jobId));
+            } finally {
+                engine.tearDown();
+            }
+        }
+    }
+
+    private static GenericContainer<?> fixture(Path serverPem) {
+        // Keep DNS and trust overrides inside the isolated test network/JVM.
+        return new GenericContainer<>(DockerImageName.parse("python:3.12.12-alpine3.22"))
+                .withNetwork(NETWORK)
+                .withNetworkAliases(HOST)
+                .withCopyFileToContainer(
+                        MountableFile.forClasspathResource("wordpress_fixture.py"),
+                        "/tmp/wordpress_fixture.py")
+                .withCopyFileToContainer(
+                        MountableFile.forHostPath(serverPem), "/tmp/wordpress-fixture.pem")
+                .withCommand("python", "-u", "/tmp/wordpress_fixture.py")
+                .waitingFor(Wait.forLogMessage(".*WordPress HTTPS fixture ready.*", 1));
+    }
+
+    private static SeaTunnelContainer engine(Path truststore) {
+        return new SeaTunnelContainer() {
+            @Override
+            protected String getJavaToolOptions() {
+                return "-Djavax.net.ssl.trustStore="
+                        + TRUSTSTORE
+                        + " -Djavax.net.ssl.trustStorePassword="
+                        + STORE_PASSWORD;
+            }
+
+            @Override
+            protected void executeExtraCommands(GenericContainer<?> runtime) {
+                runtime.withCopyFileToContainer(MountableFile.forHostPath(truststore), TRUSTSTORE);
+            }
+        };
     }
 
     private static void createFixtureCertificate(Path tmp, Path pem, Path truststore)

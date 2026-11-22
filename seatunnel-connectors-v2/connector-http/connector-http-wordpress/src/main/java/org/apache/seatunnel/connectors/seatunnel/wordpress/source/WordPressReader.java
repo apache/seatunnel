@@ -46,9 +46,11 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private static final String API = "https://public-api.wordpress.com/rest/v1/sites/";
@@ -66,10 +68,13 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final int maxPages;
     private final CatalogTable table;
     private final SingleSplitReaderContext context;
-    private volatile CloseableHttpClient client;
-    private volatile boolean closed;
-    private ScheduledThreadPoolExecutor deadlineExecutor;
-    private HttpGet activeRequest;
+    private final AtomicReference<HttpGet> activeRequest = new AtomicReference<>();
+    private volatile boolean cancelled;
+
+    // Only resource publication and detachment use this monitor. In particular, never abort,
+    // execute or close a request under this lock, or acquire it from cancel().
+    private final Object lifecycleLock = new Object();
+    private volatile ClientResources resources;
 
     WordPressReader(
             String site,
@@ -100,11 +105,11 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     @Override
-    public synchronized void open() {
-        if (closed || client != null) {
+    public void open() throws IOException {
+        if (cancelled || resources != null) {
             throw new IllegalStateException("WordPress reader cannot be opened");
         }
-        client =
+        CloseableHttpClient client =
                 HttpClients.custom()
                         .useSystemProperties()
                         .disableAutomaticRetries()
@@ -117,7 +122,7 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                                         .setConnectionRequestTimeout(TIMEOUT_MS)
                                         .build())
                         .build();
-        deadlineExecutor =
+        ScheduledThreadPoolExecutor deadlineExecutor =
                 new ScheduledThreadPoolExecutor(
                         1,
                         runnable -> {
@@ -126,6 +131,16 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                             return thread;
                         });
         deadlineExecutor.setRemoveOnCancelPolicy(true);
+
+        ClientResources opened = new ClientResources(client, deadlineExecutor);
+        synchronized (lifecycleLock) {
+            if (!cancelled && resources == null) {
+                resources = opened;
+                return;
+            }
+        }
+        opened.close();
+        throw new IllegalStateException("WordPress reader cannot be opened");
     }
 
     @Override
@@ -134,7 +149,7 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         long previousId = 0;
         int offset = 0;
         do {
-            ensureOpen();
+            requireOpenResources();
             JsonNode page = readPage(offset);
             JsonNode found = page.path("found");
             JsonNode posts = page.path("posts");
@@ -184,12 +199,12 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 rows.add(row);
             }
             for (SeaTunnelRow row : rows) {
-                ensureOpen();
+                requireOpenResources();
                 output.collect(row);
             }
             offset += posts.size();
         } while (offset < total);
-        ensureOpen();
+        requireOpenResources();
         context.signalNoMoreElement();
     }
 
@@ -208,12 +223,30 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                                 .addParameter("fields", "ID,slug,title,URL,date,modified")
                                 .build());
         request.setHeader("Accept", "application/json");
-        ScheduledFuture<?> deadline;
-        synchronized (this) {
-            ensureOpen();
-            activeRequest = request;
-            deadline = deadlineExecutor.schedule(request::abort, TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        activeRequest.set(request);
+        ScheduledFuture<?> deadline = null;
+        try {
+            // Publish before checking the sticky flag. Either cancel() finds the request or
+            // this check observes cancellation. An abort before execute() is also sticky.
+            ClientResources current = requireOpenResources();
+            deadline =
+                    current.deadlineExecutor.schedule(
+                            request::abort, TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            return executePage(current.client, request, offset);
+        } catch (RejectedExecutionException error) {
+            // close() can shut down the captured executor before schedule() runs.
+            requireOpenResources();
+            throw error;
+        } finally {
+            if (deadline != null) {
+                deadline.cancel(false);
+            }
+            request.abort();
+            activeRequest.compareAndSet(request, null);
         }
+    }
+
+    private JsonNode executePage(CloseableHttpClient client, HttpGet request, int offset) {
         try (CloseableHttpResponse response = client.execute(request)) {
             int status = response.getStatusLine().getStatusCode();
             if (status != 200) {
@@ -228,7 +261,7 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             byte[] buffer = new byte[8192];
             int size;
             while ((size = input.read(buffer)) != -1) {
-                ensureOpen();
+                requireOpenResources();
                 if (body.size() > MAX_BYTES - size) {
                     throw failure("Response page exceeds 4 MiB");
                 }
@@ -240,18 +273,13 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             }
             return value;
         } catch (IOException e) {
+            requireOpenResources();
             throw failure(
                     "Could not read or parse response at offset "
                             + offset
                             + " ("
                             + e.getClass().getSimpleName()
                             + ")");
-        } finally {
-            deadline.cancel(false);
-            request.abort();
-            synchronized (this) {
-                activeRequest = null;
-            }
         }
     }
 
@@ -273,10 +301,12 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
-    private void ensureOpen() {
-        if (closed || client == null || Thread.currentThread().isInterrupted()) {
+    private ClientResources requireOpenResources() {
+        ClientResources current = resources;
+        if (cancelled || current == null || Thread.currentThread().isInterrupted()) {
             throw failure("Reader is not open or was cancelled");
         }
+        return current;
     }
 
     private static IllegalStateException failure(String message) {
@@ -284,20 +314,39 @@ final class WordPressReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     @Override
-    public synchronized void cancel() {
-        closed = true;
-        if (activeRequest != null) {
-            activeRequest.abort();
+    public void cancel() {
+        cancelled = true;
+        HttpGet request = activeRequest.get();
+        if (request != null) {
+            request.abort();
         }
     }
 
     @Override
-    public synchronized void close() throws IOException {
+    public void close() throws IOException {
         cancel();
-        if (deadlineExecutor != null) {
-            deadlineExecutor.shutdownNow();
+        ClientResources closing;
+        synchronized (lifecycleLock) {
+            closing = resources;
+            resources = null;
         }
-        if (client != null) {
+        if (closing != null) {
+            closing.close();
+        }
+    }
+
+    private static final class ClientResources {
+        private final CloseableHttpClient client;
+        private final ScheduledThreadPoolExecutor deadlineExecutor;
+
+        private ClientResources(
+                CloseableHttpClient client, ScheduledThreadPoolExecutor deadlineExecutor) {
+            this.client = client;
+            this.deadlineExecutor = deadlineExecutor;
+        }
+
+        private void close() throws IOException {
+            deadlineExecutor.shutdownNow();
             client.close();
         }
     }

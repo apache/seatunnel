@@ -39,6 +39,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
@@ -224,12 +229,116 @@ class WordPressReaderTest {
     }
 
     @Test
+    void cancellationAfterOpenPreventsHttpDispatch() throws Exception {
+        reply = query -> page(0, "");
+        try (WordPressReader reader = reader(1, 1)) {
+            reader.open();
+            reader.cancel();
+            IllegalStateException error =
+                    assertThrows(IllegalStateException.class, () -> reader.pollNext(collector));
+            assertTrue(error.getMessage().contains("was cancelled"), error.getMessage());
+        }
+        assertEquals(0, calls.get());
+        assertTrue(rows.isEmpty());
+        assertEquals(0, completions.get());
+    }
+
+    @Test
+    void cancellationAbortsInFlightHttpWithoutAcquiringTheReaderMonitor() throws Exception {
+        CountDownLatch received = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        holdResponse(received, release);
+
+        ExecutorService tasks = Executors.newFixedThreadPool(2);
+        try (WordPressReader reader = reader(1, 1)) {
+            reader.open();
+            try {
+                Future<IllegalStateException> poll =
+                        tasks.submit(
+                                () ->
+                                        assertThrows(
+                                                IllegalStateException.class,
+                                                () -> reader.pollNext(collector)));
+                assertTrue(
+                        received.await(5, TimeUnit.SECONDS), "HTTP request did not reach fixture");
+                // The real HTTP request is blocked, and polling already holds the checkpoint
+                // lock. Even a caller holding the reader monitor must not hold up cancellation.
+                synchronized (reader) {
+                    tasks.submit(reader::cancel).get(5, TimeUnit.SECONDS);
+                    IllegalStateException error = poll.get(5, TimeUnit.SECONDS);
+                    assertTrue(error.getMessage().contains("was cancelled"), error.getMessage());
+                }
+                assertEquals(1, calls.get());
+                assertTrue(rows.isEmpty());
+                assertEquals(0, completions.get());
+            } finally {
+                release.countDown();
+            }
+        } finally {
+            tasks.shutdownNow();
+        }
+    }
+
+    @Test
+    void closeAbortsInFlightHttpAndCannotReopenReader() throws Exception {
+        CountDownLatch received = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        holdResponse(received, release);
+        ExecutorService tasks = Executors.newFixedThreadPool(2);
+        try (WordPressReader reader = reader(1, 1)) {
+            reader.open();
+            try {
+                Future<IllegalStateException> poll =
+                        tasks.submit(
+                                () ->
+                                        assertThrows(
+                                                IllegalStateException.class,
+                                                () -> reader.pollNext(collector)));
+                assertTrue(
+                        received.await(5, TimeUnit.SECONDS), "HTTP request did not reach fixture");
+                tasks.submit(
+                                () -> {
+                                    reader.close();
+                                    return null;
+                                })
+                        .get(5, TimeUnit.SECONDS);
+                IllegalStateException error = poll.get(5, TimeUnit.SECONDS);
+                assertTrue(error.getMessage().contains("was cancelled"), error.getMessage());
+                assertThrows(IllegalStateException.class, reader::open);
+                assertEquals(1, calls.get());
+                assertTrue(rows.isEmpty());
+                assertEquals(0, completions.get());
+            } finally {
+                release.countDown();
+            }
+        } finally {
+            tasks.shutdownNow();
+        }
+    }
+
+    @Test
     void rejectsNonPublicSiteAddressFormat() {
         Map<String, Object> options = options();
         options.put("site", "example.wordpress.com/../../");
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new WordPressSource(ReadonlyConfig.fromMap(options)));
+    }
+
+    private void holdResponse(CountDownLatch received, CountDownLatch release) {
+        reply =
+                query -> {
+                    received.countDown();
+                    try {
+                        if (!release.await(20, TimeUnit.SECONDS)) {
+                            throw new AssertionError("Timed out waiting to release HTTP fixture");
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new AssertionError(e);
+                    }
+                    return page(1, post(7));
+                };
     }
 
     private void assertFailure(String expected, int pageSize, int maxPages) throws Exception {
