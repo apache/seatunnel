@@ -4,6 +4,14 @@
 
 ## dev
 
+### CDC Connector：从 checkpoint/savepoint 恢复时拒绝残缺快照水位，不再静默回退 `startupOffset`
+
+- **行为变更：已完成快照分片的水位缺失或为 `null` 时，CDC 恢复以 `IllegalStateException` 快速失败**
+  - **影响范围**：`seatunnel-connectors-v2/connector-cdc/connector-cdc-base` 及其构建的 CDC 连接器。
+  - **描述**：CDC 作业从 checkpoint 或 savepoint 恢复并由快照阶段切入增量阶段时，`IncrementalSplitAssigner` 现在会校验每个已完成 `SnapshotSplit` 均具备非空 `SnapshotSplitWatermark` 且 `highWatermark` 非空（在 `exactly_once = false` 按最小快照位点选择起点时同时校验 `lowWatermark` 非空），并在 `addSplits` 回收已序列化的 `IncrementalSplit` 时校验 `CompletedSnapshotSplitInfo` 中的水位。此前，若所选水位偏移量为 `null`，`minOffset` 可能保持为 `null` 并静默回退到 `tableWatermarks` / `startupOffset`；而 `exactly_once = false` 或归还 `IncrementalSplit` 中高水位为 `null` 的情况则可能在后续 Reader 端抛出缺少表名和分片名的 `NullPointerException`。对于尾分片保存在 Reader `finishedUnackedSplits` 中的正常 checkpoint，现在会将重建水位同步至共享上下文并正常恢复。
+  - **影响**：缺少必要快照水位偏移量的残缺或损坏 checkpoint/savepoint 现在会在协调器侧立即抛出指明表名与分片 ID 的 `IllegalStateException`，而不再从回退位点继续读取或在 Reader 侧抛出裸 `NullPointerException`。原本可以正常恢复的 checkpoint 以及新启动作业继续按原行为恢复与运行。
+  - **迁移指南**：无需修改配置。如果升级后的 CDC 作业在恢复时触发该 `IllegalStateException`，请改从另一个完整的 checkpoint/savepoint 恢复，或重新提交新作业。(#13340)
+
 ### Http Sink：`array_mode = true` 时每行作为 JSON 对象发送
 
 - **行为变更：请求体数组的元素是 JSON 对象，而不再是字符串**

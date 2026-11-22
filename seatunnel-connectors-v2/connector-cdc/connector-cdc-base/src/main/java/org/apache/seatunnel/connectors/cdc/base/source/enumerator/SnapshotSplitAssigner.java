@@ -338,10 +338,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                         snapshotSplit.getLowWatermark(),
                         snapshotSplit.getHighWatermark());
         splitCompletedOffsets.putIfAbsent(snapshotSplit.splitId(), completedWatermark);
-        if (context != null) {
-            context.getSplitCompletedOffsets()
-                    .putIfAbsent(snapshotSplit.splitId(), completedWatermark);
-        }
+        context.getSplitCompletedOffsets().putIfAbsent(snapshotSplit.splitId(), completedWatermark);
         return true;
     }
 

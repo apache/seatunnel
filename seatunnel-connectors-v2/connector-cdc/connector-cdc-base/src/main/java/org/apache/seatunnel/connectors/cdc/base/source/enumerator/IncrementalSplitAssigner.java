@@ -195,15 +195,14 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                                 }
                                 if (info.getWatermark() == null
                                         || info.getWatermark().getHighWatermark() == null) {
-                                    throw new IllegalStateException(
-                                            String.format(
-                                                    "Cannot restore incremental split '%s': completed snapshot split '%s' for table '%s' %s.",
-                                                    incrementalSplit.splitId(),
-                                                    info.getSplitId(),
-                                                    info.getTableId(),
-                                                    info.getWatermark() == null
-                                                            ? "is missing its watermark"
-                                                            : "has null high watermark"));
+                                    throw incompleteCheckpointState(
+                                            "Cannot restore incremental split '%s': completed snapshot split '%s' for table '%s' %s.",
+                                            incrementalSplit.splitId(),
+                                            info.getSplitId(),
+                                            info.getTableId(),
+                                            info.getWatermark() == null
+                                                    ? "is missing its watermark"
+                                                    : "has null high watermark");
                                 }
                                 context.getSplitCompletedOffsets()
                                         .put(info.getSplitId(), info.getWatermark());
@@ -305,33 +304,25 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         for (SnapshotSplit split : assignedSnapshotSplit) {
             SnapshotSplitWatermark splitWatermark = splitCompletedOffsets.get(split.splitId());
             if (splitWatermark == null) {
-                throw new IllegalStateException(
-                        String.format(
-                                "Cannot create incremental split for table '%s': missing completed snapshot watermark for assigned split '%s'. "
-                                        + "The restored checkpoint state is incomplete; submit a new job or restore from another complete checkpoint.",
-                                split.getTableId(), split.splitId()));
+                throw incompleteCheckpointState(
+                        "Cannot create incremental split for table '%s': missing completed snapshot watermark for assigned split '%s'.",
+                        split.getTableId(), split.splitId());
             }
             if (splitWatermark.getHighWatermark() == null) {
-                throw new IllegalStateException(
-                        String.format(
-                                "Cannot create incremental split for table '%s': completed snapshot split '%s' has null high watermark.",
-                                split.getTableId(), split.splitId()));
+                throw incompleteCheckpointState(
+                        "Cannot create incremental split for table '%s': completed snapshot split '%s' has null high watermark.",
+                        split.getTableId(), split.splitId());
             }
             if (startWithSnapshotMinimumOffset) {
                 // find the min offset of change log
-                boolean exactlyOnce = sourceConfig.isExactlyOnce();
                 Offset splitOffset =
-                        exactlyOnce
+                        sourceConfig.isExactlyOnce()
                                 ? splitWatermark.getHighWatermark()
                                 : splitWatermark.getLowWatermark();
                 if (splitOffset == null) {
-                    throw new IllegalStateException(
-                            String.format(
-                                    "Cannot create incremental split for table '%s': completed snapshot split '%s' has null %s watermark (exactly_once=%s).",
-                                    split.getTableId(),
-                                    split.splitId(),
-                                    exactlyOnce ? "high" : "low",
-                                    exactlyOnce));
+                    throw incompleteCheckpointState(
+                            "Cannot create incremental split for table '%s': completed snapshot split '%s' has null low watermark (exactly_once=false).",
+                            split.getTableId(), split.splitId());
                 }
                 if (minOffset == null || splitOffset.isBefore(minOffset)) {
                     minOffset = splitOffset;
@@ -481,5 +472,11 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                 }
             }
         }
+    }
+
+    private static IllegalStateException incompleteCheckpointState(String detail, Object... args) {
+        return new IllegalStateException(
+                String.format(detail, args)
+                        + " The restored checkpoint state is incomplete; submit a new job or restore from another complete checkpoint.");
     }
 }

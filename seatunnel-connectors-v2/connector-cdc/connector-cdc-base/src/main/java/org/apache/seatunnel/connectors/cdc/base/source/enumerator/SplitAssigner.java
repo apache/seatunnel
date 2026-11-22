@@ -116,6 +116,16 @@ public interface SplitAssigner {
         /** key: SnapshotSplit id */
         private final Map<String, SnapshotSplitWatermark> splitCompletedOffsets;
 
+        /**
+         * Creates a shared assigner context.
+         *
+         * <p>{@code assignedSnapshotSplit} and {@code splitCompletedOffsets} are defensively copied
+         * into {@link ConcurrentHashMap} instances (so later mutations on the caller's maps are not
+         * visible through this context and vice versa) and must not contain {@code null} keys or
+         * values; a {@code null} map reference is treated as an empty map. {@code capturedTables}
+         * is deliberately stored by reference and shared mutably (for example when {@link
+         * SnapshotSplitAssigner#open()} discovers tables).
+         */
         public Context(
                 C sourceConfig,
                 Set<TableId> capturedTables,

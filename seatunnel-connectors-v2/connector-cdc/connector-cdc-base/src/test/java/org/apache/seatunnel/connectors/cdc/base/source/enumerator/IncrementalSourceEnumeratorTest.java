@@ -517,6 +517,11 @@ public class IncrementalSourceEnumeratorTest {
                             IllegalStateException.class, () -> enumerator.handleSplitRequest(0));
             Assertions.assertTrue(ex.getMessage().contains(TABLE_ID.toString()), ex.getMessage());
             Assertions.assertTrue(ex.getMessage().contains(split1.splitId()), ex.getMessage());
+            Assertions.assertTrue(
+                    ex.getMessage()
+                            .contains(
+                                    "submit a new job or restore from another complete checkpoint"),
+                    ex.getMessage());
         } finally {
             enumerator.close();
         }
@@ -583,6 +588,11 @@ public class IncrementalSourceEnumeratorTest {
                 Assertions.assertTrue(
                         ex.getMessage().contains(TABLE_ID.toString()), ex.getMessage());
                 Assertions.assertTrue(ex.getMessage().contains(split1.splitId()), ex.getMessage());
+                Assertions.assertTrue(
+                        ex.getMessage()
+                                .contains(
+                                        "submit a new job or restore from another complete checkpoint"),
+                        ex.getMessage());
             } finally {
                 enumerator.close();
             }
@@ -648,6 +658,11 @@ public class IncrementalSourceEnumeratorTest {
             Assertions.assertTrue(ex.getMessage().contains(TABLE_ID.toString()), ex.getMessage());
             Assertions.assertTrue(
                     ex.getMessage().contains(InMemoryCdcRestoreTestFixture.SPLIT_1_ID),
+                    ex.getMessage());
+            Assertions.assertTrue(
+                    ex.getMessage()
+                            .contains(
+                                    "submit a new job or restore from another complete checkpoint"),
                     ex.getMessage());
         } finally {
             enumerator.close();
@@ -725,6 +740,11 @@ public class IncrementalSourceEnumeratorTest {
                             });
             Assertions.assertTrue(ex.getMessage().contains(TABLE_ID.toString()), ex.getMessage());
             Assertions.assertTrue(ex.getMessage().contains(split1.splitId()), ex.getMessage());
+            Assertions.assertTrue(
+                    ex.getMessage()
+                            .contains(
+                                    "submit a new job or restore from another complete checkpoint"),
+                    ex.getMessage());
             Assertions.assertTrue(brokenContext.assignedSplits.isEmpty());
         } finally {
             brokenEnumerator.close();
@@ -849,6 +869,11 @@ public class IncrementalSourceEnumeratorTest {
             Assertions.assertTrue(ex.getMessage().contains(TABLE_ID.toString()), ex.getMessage());
             Assertions.assertTrue(
                     ex.getMessage().contains(InMemoryCdcRestoreTestFixture.SPLIT_1_ID),
+                    ex.getMessage());
+            Assertions.assertTrue(
+                    ex.getMessage()
+                            .contains(
+                                    "submit a new job or restore from another complete checkpoint"),
                     ex.getMessage());
             Assertions.assertTrue(brokenContext.assignedSplits.isEmpty());
         } finally {
