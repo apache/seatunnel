@@ -1,0 +1,65 @@
+import ChangeLog from '../changelog/connector-http-discourse.md';
+
+# Discourse
+
+The Discourse source reads category or recent-topic metadata from a Discourse site using the
+[Discourse API](https://docs.discourse.org/). It makes read-only requests, supports BATCH mode only,
+and requires source parallelism 1. Each source instance reads one resource.
+
+| Option | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `base_url` | String | Yes | | Site root, optionally including its deployment subpath. Do not include an endpoint, query string, fragment, or credentials. |
+| `resource` | Enum | Yes | | `CATEGORIES` or `LATEST_TOPICS`. |
+| `include_subcategories` | Boolean | No | `true` | For `CATEGORIES` only. Ask the API to include subcategories and flatten returned nested records into rows. |
+| `topic_limit` | Integer | No | `30` | For `LATEST_TOPICS` only. Requested size of a single page, from 1 through 100; server policy may return fewer. |
+| `token` | String | No | | Set together with `username` to authenticate over HTTPS. Omit both for public data if your site permits anonymous access. |
+| `username` | String | No | | Discourse API username. Must be set with `token`. |
+
+The connector sends credentials in `Api-Key` and `Api-Username` headers, not in the URL, and
+does not follow redirects. Use a least-privilege key and SeaTunnel's secret or variable
+configuration instead of writing real credentials in an example or checked-in job. The connector
+does not retry failed requests, including HTTP 429. If rate limited, follow the site's retry policy
+before starting another job.
+
+## Output
+
+`CATEGORIES` calls `GET /categories.json`. It emits `id` (BIGINT), `name` and `slug` (STRING),
+and `parent_category_id`, `topic_count`, and `post_count` (nullable BIGINT). Top-level categories
+have no parent. IDs are scoped to the site and resource, not globally unique across sites.
+
+`LATEST_TOPICS` calls `GET /latest.json`. It emits `id` (BIGINT), `title` and `slug` (STRING),
+`category_id`, `posts_count`, and `views` (nullable BIGINT), `created_at` and `last_posted_at`
+(nullable STRING, timestamp text as returned by Discourse), and `closed` and `archived`
+(nullable BOOLEAN).
+
+The output reflects only objects visible to the configured identity. A run does not follow more-topic
+links and is not a full forum export, a consistent history snapshot, or an incremental sync. It does
+not read individual posts, message bodies, user records, or audit data. Reruns may return overlapping
+or different rows. Use the source's `id` and the site identity if you need to deduplicate in a sink.
+Decoded responses larger than 16 MiB fail the job rather than producing partial results.
+
+## Example
+
+```hocon
+env {
+  job.mode = BATCH
+  parallelism = 1
+}
+source {
+  Discourse {
+    base_url = "https://meta.discourse.org"
+    resource = LATEST_TOPICS
+    topic_limit = 5
+    plugin_output = "recent_discourse_topics"
+  }
+}
+sink {
+  Console {
+    plugin_input = "recent_discourse_topics"
+  }
+}
+```
+
+## Changelog
+
+<ChangeLog />
