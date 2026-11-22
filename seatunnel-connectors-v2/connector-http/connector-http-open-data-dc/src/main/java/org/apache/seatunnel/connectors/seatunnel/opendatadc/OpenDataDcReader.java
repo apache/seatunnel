@@ -1,0 +1,186 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.opendatadc;
+
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+
+final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
+    private final SingleSplitReaderContext context;
+    private final CrashesApi api;
+    private final int pageSize;
+    private final long maxRows;
+    private final String tableId;
+    private long upperBound = -1L;
+    private long lastId;
+    private long rowCount;
+
+    OpenDataDcReader(
+            SingleSplitReaderContext context,
+            CrashesApi api,
+            int pageSize,
+            long maxRows,
+            String tableId) {
+        this.context = context;
+        this.api = api;
+        this.pageSize = pageSize;
+        this.maxRows = maxRows;
+        this.tableId = tableId;
+    }
+
+    @Override
+    public void open() {}
+
+    @Override
+    public void close() {}
+
+    @Override
+    public void pollNext(Collector<SeaTunnelRow> output) throws IOException {
+        if (noMoreSplits) {
+            return;
+        }
+        final long bound = upperBound < 0 ? api.readUpperBound() : upperBound;
+        final int size = maxRows == 0 ? pageSize : (int) Math.min(pageSize, maxRows - rowCount);
+        long pageLastId = lastId;
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        if (size > 0 && lastId < bound) {
+            JsonNode response = api.readPage(lastId, bound, size);
+            JsonNode features = response.get("features");
+            if (features.size() > size
+                    || (features.isEmpty() && response.path("exceededTransferLimit").asBoolean())) {
+                throw new IOException("Open Data DC returned inconsistent pagination metadata");
+            }
+            for (JsonNode feature : features) {
+                JsonNode attributes = CrashesApi.attributes(feature);
+                long id = CrashesApi.objectId(attributes);
+                if (id <= pageLastId || id > bound) {
+                    throw new IOException(
+                            "Open Data DC returned an out-of-order or out-of-range OBJECTID");
+                }
+                pageLastId = id;
+                rows.add(toRow(id, attributes));
+            }
+        }
+        synchronized (output.getCheckpointLock()) {
+            for (SeaTunnelRow row : rows) {
+                output.collect(row);
+            }
+            upperBound = bound;
+            lastId = pageLastId;
+            rowCount += rows.size();
+            // Short ArcGIS pages are allowed; continue by key until an empty page or the scan
+            // bound.
+            if (rows.isEmpty() || lastId == bound || (maxRows > 0 && rowCount == maxRows)) {
+                noMoreSplits = true;
+                context.signalNoMoreElement();
+            }
+        }
+    }
+
+    private SeaTunnelRow toRow(long id, JsonNode attributes) throws IOException {
+        JsonNode date = field(attributes, "REPORTDATE");
+        JsonNode count = field(attributes, "TOTAL_VEHICLES");
+        SeaTunnelRow row =
+                new SeaTunnelRow(
+                        new Object[] {
+                            id,
+                            text(attributes, "CCN"),
+                            date.isNull()
+                                    ? null
+                                    : LocalDateTime.ofInstant(
+                                            Instant.ofEpochMilli(readLong(date, "REPORTDATE")),
+                                            ZoneOffset.UTC),
+                            text(attributes, "WARD"),
+                            count.isNull() ? null : readInt(count, "TOTAL_VEHICLES"),
+                            coordinate(attributes, "LATITUDE"),
+                            coordinate(attributes, "LONGITUDE")
+                        });
+        row.setTableId(tableId);
+        return row;
+    }
+
+    private static JsonNode field(JsonNode attributes, String key) throws IOException {
+        JsonNode value = attributes.get(key);
+        if (value == null) {
+            throw new IOException("Open Data DC response is missing the projected field " + key);
+        }
+        return value;
+    }
+
+    private static String text(JsonNode attributes, String key) throws IOException {
+        JsonNode value = field(attributes, key);
+        if (value.isNull() || value.isTextual()) {
+            return value.textValue();
+        }
+        throw new IOException("Open Data DC returned a non-text value for " + key);
+    }
+
+    private static Double coordinate(JsonNode attributes, String key) throws IOException {
+        JsonNode value = field(attributes, key);
+        if (value.isNull()) {
+            return null;
+        }
+        if (value.isNumber() && Double.isFinite(value.doubleValue())) {
+            return value.doubleValue();
+        }
+        throw new IOException("Open Data DC returned an invalid coordinate for " + key);
+    }
+
+    private static long readLong(JsonNode value, String key) throws IOException {
+        if (value.isIntegralNumber() && value.canConvertToLong()) {
+            return value.longValue();
+        }
+        throw new IOException("Open Data DC returned an invalid long value for " + key);
+    }
+
+    private static int readInt(JsonNode value, String key) throws IOException {
+        if (value.isIntegralNumber() && value.canConvertToInt()) {
+            return value.intValue();
+        }
+        throw new IOException("Open Data DC returned an invalid integer for " + key);
+    }
+
+    @Override
+    protected byte[] snapshotStateToBytes(long checkpointId) {
+        return ByteBuffer.allocate(3 * Long.BYTES)
+                .putLong(upperBound)
+                .putLong(lastId)
+                .putLong(rowCount)
+                .array();
+    }
+
+    @Override
+    protected void restoreState(byte[] restoredState) {
+        ByteBuffer buffer = ByteBuffer.wrap(restoredState);
+        upperBound = buffer.getLong();
+        lastId = buffer.getLong();
+        rowCount = buffer.getLong();
+    }
+}

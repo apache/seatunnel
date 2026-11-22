@@ -260,6 +260,16 @@ mailchimp:
               - '!seatunnel-connectors-v2/connector-http/connector-http-!(mailchimp)/**'
               - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(mailchimp)-e2e/**'
 
+open-data-dc:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-http/connector-http-open-data-dc/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-open-data-dc-e2e/**
+          - all-globs-to-all-files:
+              - '!seatunnel-connectors-v2/connector-http/connector-http-!(open-data-dc)/**'
+              - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(open-data-dc)-e2e/**'
+
 http:
   - all:
       - changed-files:
