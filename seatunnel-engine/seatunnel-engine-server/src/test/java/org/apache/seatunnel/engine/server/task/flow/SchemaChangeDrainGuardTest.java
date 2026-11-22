@@ -28,11 +28,11 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -229,34 +229,36 @@ class SchemaChangeDrainGuardTest {
      */
     @Test
     void shouldAllowSchemaChangeWhenCompletionArrivesWhileWaiting() throws InterruptedException {
-        SchemaChangeDrainGuard guard = new SchemaChangeDrainGuard(TimeUnit.SECONDS.toMillis(5));
-        CountDownLatch waitingStarted = new CountDownLatch(1);
+        SchemaChangeDrainGuard guard = new SchemaChangeDrainGuard(TimeUnit.SECONDS.toMillis(15));
         AtomicReference<Throwable> applyFailure = new AtomicReference<>();
-
         Thread applyThread =
                 new Thread(
                         () -> {
-                            waitingStarted.countDown();
                             try {
                                 guard.checkSchemaChangeCanApply(schemaChangeEvent());
                             } catch (Throwable e) {
                                 applyFailure.set(e);
                             }
-                        });
+                        },
+                        "schema-change-drain-waiter");
         applyThread.start();
-        Assertions.assertTrue(waitingStarted.await(5, TimeUnit.SECONDS));
-        // Give the apply thread a moment to actually enter the wait before completing the
-        // checkpoint from this thread, simulating the coordinator's parallel source/sink
-        // notification race.
-        Thread.sleep(100L);
+        try {
+            Awaitility.await()
+                    .atMost(5, TimeUnit.SECONDS)
+                    .until(() -> applyThread.getState() == Thread.State.TIMED_WAITING);
 
-        guard.checkpointCompleted(1L, CheckpointType.SCHEMA_CHANGE_BEFORE_POINT_TYPE);
-        applyThread.join(TimeUnit.SECONDS.toMillis(5));
+            guard.checkpointCompleted(1L, CheckpointType.SCHEMA_CHANGE_BEFORE_POINT_TYPE);
+            applyThread.join(TimeUnit.SECONDS.toMillis(5));
 
-        Assertions.assertFalse(applyThread.isAlive(), "apply thread must unblock once notified");
-        Assertions.assertNull(
-                applyFailure.get(),
-                "a genuinely completed checkpoint must not reject the schema change");
+            Assertions.assertFalse(
+                    applyThread.isAlive(), "apply thread must unblock once notified");
+            Assertions.assertNull(
+                    applyFailure.get(),
+                    "a genuinely completed checkpoint must not reject the schema change");
+        } finally {
+            applyThread.interrupt();
+            applyThread.join(TimeUnit.SECONDS.toMillis(5));
+        }
     }
 
     /**

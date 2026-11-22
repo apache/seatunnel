@@ -25,6 +25,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -56,6 +58,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -486,6 +489,160 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     }
 
     // Asserts the sink row with the given id exists and its name matches expectedName.
+    @Order(6)
+    @TestTemplate
+    public void testDdlAfterAutomaticRecoveryFromBeforeCheckpoint(TestContainer container)
+            throws Exception {
+        SeaTunnelContainer zeta = Assertions.assertInstanceOf(SeaTunnelContainer.class, container);
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String source = "schema_drain_recovery_source";
+        String target = "schema_drain_recovery_target";
+        executeSql("CREATE TABLE " + source + " (id INT PRIMARY KEY, payload VARCHAR(30))");
+        executeSql("CREATE TABLE " + target + " LIKE " + source);
+        executeSql("INSERT INTO " + source + " VALUES (1, 'before')");
+        CompletableFuture<Container.ExecResult> execution =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return zeta.executeJob(
+                                        "/mysqlcdc_schema_drain_recovery.conf", jobId);
+                            } catch (Exception e) {
+                                throw new IllegalStateException(e);
+                            }
+                        });
+        try {
+            await().atMost(90, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        List.of("1:before"), readValues(target, false));
+                                Assertions.assertTrue(zeta.getCompletedCheckpointCount(jobId) >= 1);
+                            });
+            try (Connection lock = getJdbcConnection();
+                    Statement lockStatement = lock.createStatement()) {
+                lock.setAutoCommit(false);
+                // A plain transactional read holds a shared metadata lock without blocking DML.
+                try (ResultSet rows = lockStatement.executeQuery("SELECT id FROM " + target)) {
+                    Assertions.assertTrue(rows.next());
+                }
+                executeSql("ALTER TABLE " + source + " ADD COLUMN extra VARCHAR(30)");
+                await().pollInterval(100, TimeUnit.MILLISECONDS)
+                        .atMost(60, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () -> {
+                                    Assertions.assertEquals(
+                                            "schema-change-before-point",
+                                            latestCheckpointType(zeta, jobId));
+                                    Assertions.assertTrue(isWaitingOnTargetDdl(target));
+                                });
+                // Only the test sink's JDBC sessions have a low metadata-lock timeout. Its failed
+                // ALTER aborts the pipeline before AFTER can complete, then Zeta retries naturally.
+                await().pollInterval(100, TimeUnit.MILLISECONDS)
+                        .atMost(30, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () -> {
+                                    Assertions.assertEquals(1L, restoredCount(zeta, jobId));
+                                    Assertions.assertEquals(
+                                            "schema-change-before-point",
+                                            latestCheckpointType(zeta, jobId));
+                                });
+                lock.commit();
+            }
+            executeSql("INSERT INTO " + source + " VALUES (2, 'after', 'restored')");
+            await().atMost(90, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(
+                                        hasCompletedCheckpointType(
+                                                zeta, jobId, "schema-change-after-point"));
+                                Assertions.assertEquals(
+                                        List.of("1:before:null", "2:after:restored"),
+                                        readValues(target, true));
+                                Assertions.assertEquals(1L, restoredCount(zeta, jobId));
+                            });
+        } finally {
+            zeta.stopJob(jobId);
+            execution.get(2, TimeUnit.MINUTES);
+        }
+    }
+
+    private void executeSql(String sql) throws SQLException {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.executeUpdate(sql);
+        }
+    }
+
+    private List<String> readValues(String target, boolean withExtra) throws SQLException {
+        List<String> values = new ArrayList<>();
+        String columns = withExtra ? "id, payload, extra" : "id, payload";
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rows =
+                        statement.executeQuery(
+                                "SELECT " + columns + " FROM " + target + " ORDER BY id")) {
+            while (rows.next()) {
+                values.add(
+                        rows.getInt(1)
+                                + ":"
+                                + rows.getString(2)
+                                + (withExtra ? ":" + rows.getString(3) : ""));
+            }
+        }
+        return values;
+    }
+
+    private boolean isWaitingOnTargetDdl(String target) throws SQLException {
+        try (Connection connection = getJdbcConnection();
+                java.sql.PreparedStatement query =
+                        connection.prepareStatement(
+                                "SELECT COUNT(*) FROM information_schema.PROCESSLIST "
+                                        + "WHERE USER = 'st_user_sink' AND STATE = 'Waiting for table metadata lock' "
+                                        + "AND INFO LIKE ?")) {
+            query.setString(1, "ALTER TABLE%" + target + "%");
+            try (ResultSet rows = query.executeQuery()) {
+                return rows.next() && rows.getInt(1) == 1;
+            }
+        }
+    }
+
+    private Map<?, ?> getPipelineOverview(SeaTunnelContainer zeta, String jobId) {
+        Object pipelines = zeta.getCheckpointOverview(jobId).get("pipelines");
+        if (!(pipelines instanceof List) || ((List<?>) pipelines).isEmpty()) {
+            return Map.of();
+        }
+        return mapValue(((List<?>) pipelines).get(0));
+    }
+
+    private Map<?, ?> mapValue(Object value) {
+        return value instanceof Map ? (Map<?, ?>) value : Map.of();
+    }
+
+    private String latestCheckpointType(SeaTunnelContainer zeta, String jobId) {
+        return String.valueOf(
+                mapValue(getPipelineOverview(zeta, jobId).get("latestCompleted"))
+                        .get("checkpointType"));
+    }
+
+    private long restoredCount(SeaTunnelContainer zeta, String jobId) {
+        Object count = mapValue(getPipelineOverview(zeta, jobId).get("counts")).get("restored");
+        return count instanceof Number ? ((Number) count).longValue() : 0L;
+    }
+
+    private boolean hasCompletedCheckpointType(SeaTunnelContainer zeta, String jobId, String type) {
+        Object history = getPipelineOverview(zeta, jobId).get("history");
+        if (!(history instanceof List)) {
+            return false;
+        }
+        return ((List<?>) history)
+                .stream()
+                        .map(entry -> mapValue(mapValue(entry).get("checkpoint")))
+                        .anyMatch(
+                                checkpoint ->
+                                        type.equals(checkpoint.get("checkpointType"))
+                                                && "COMPLETED".equals(checkpoint.get("status")));
+    }
+
     private void assertSinkNameEquals(List<List<Object>> sinkRows, int id, Object expectedName) {
         Optional<List<Object>> row =
                 sinkRows.stream().filter(r -> ((Number) r.get(0)).intValue() == id).findFirst();

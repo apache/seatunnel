@@ -5,6 +5,18 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta: schema-change checkpoint notifications require matching engine versions
+
+Schema-change checkpoint completion notifications now carry the checkpoint type so a recovered
+sink can resume schema changes only after the preceding schema-change checkpoint was committed.
+The internal Zeta member operation is not wire-compatible with previous members. Upgrade all
+Zeta members together; do not run a mixed-version cluster during a rolling upgrade across this
+change. This does not change the persisted checkpoint or savepoint format.
+
+A sink applies ordinary schema changes only inside the completed before/after schema-change
+checkpoint window. Restore-only schema refresh events still refresh writer metadata without
+requiring that window.
+
 ### Doris and StarRocks sources: a null MAP or ROW column no longer reads as an empty map or fails the job
 
 - **Behavior change: a null complex cell from an Arrow stream now reads as `null`**
