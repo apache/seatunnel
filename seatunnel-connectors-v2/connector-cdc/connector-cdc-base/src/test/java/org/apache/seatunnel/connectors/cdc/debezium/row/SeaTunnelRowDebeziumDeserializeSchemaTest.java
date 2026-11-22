@@ -97,16 +97,7 @@ public class SeaTunnelRowDebeziumDeserializeSchemaTest {
     @Test
     public void testEnabledBinlogNewlyAddedTableRegistersCreateTableRecord() throws Exception {
         EmptyCollector collector = new EmptyCollector();
-        SeaTunnelRowDebeziumDeserializeSchema schema =
-                SeaTunnelRowDebeziumDeserializeSchema.builder()
-                        .setTables(
-                                new ArrayList<>(
-                                        Collections.singletonList(
-                                                catalogTable("db1", "old_table"))))
-                        .setScanBinlogNewlyAddedTableEnabled(true)
-                        .setTableChangeCatalogTableConverter(
-                                tableChange -> catalogTable(tableChange.getId()))
-                        .build();
+        SeaTunnelRowDebeziumDeserializeSchema schema = builder(true).build();
 
         schema.deserialize(schemaChangeRecord(TableId.parse("db1.new_table")), collector);
 
@@ -233,6 +224,7 @@ public class SeaTunnelRowDebeziumDeserializeSchemaTest {
                         new ArrayList<>(
                                 Collections.singletonList(catalogTable("db1", "old_table"))))
                 .setScanBinlogNewlyAddedTableEnabled(scanBinlogNewlyAddedTableEnabled)
+                .setRuntimeTableIdCatalogFirst(true)
                 .setTableChangeCatalogTableConverter(
                         tableChange -> catalogTable(tableChange.getId()));
     }

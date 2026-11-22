@@ -96,6 +96,9 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
      */
     private final TableChangeCatalogTableConverter tableChangeCatalogTableConverter;
 
+    // Two-part runtime IDs are catalog/table in MySQL and schema/table by default.
+    private final boolean runtimeTableIdCatalogFirst;
+
     private List<CatalogTable> tables;
     private Map<String, SeaTunnelRowDebeziumDeserializationConverters> tableRowConverters;
     /** Tables discovered from CREATE TABLE records that still need create-table events emitted. */
@@ -118,6 +121,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             SchemaChangeEventFilter schemaChangeEventFilter,
             boolean scanBinlogNewlyAddedTableEnabled,
             TableChangeCatalogTableConverter tableChangeCatalogTableConverter,
+            boolean runtimeTableIdCatalogFirst,
             Map<TableId, Struct> tableIdTableChangeMap) {
         super(tableIdTableChangeMap);
         this.metadataConverters = metadataConverters;
@@ -128,6 +132,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         this.schemaChangeEventFilter = schemaChangeEventFilter;
         this.scanBinlogNewlyAddedTableEnabled = scanBinlogNewlyAddedTableEnabled;
         this.tableChangeCatalogTableConverter = tableChangeCatalogTableConverter;
+        this.runtimeTableIdCatalogFirst = runtimeTableIdCatalogFirst;
         this.tableSchemaChangeHandler = new TableSchemaChangeEventDispatcher();
         this.tableRowConverters =
                 createTableRowConverters(
@@ -141,7 +146,9 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         }
         TableChanges tableChanges =
                 new ConnectTableChangeSerializer()
-                        .deserialize(Collections.singletonList(tableChangeStruct), false);
+                        .deserialize(
+                                Collections.singletonList(tableChangeStruct),
+                                runtimeTableIdCatalogFirst);
         tableChanges.forEach(
                 tableChange -> {
                     if (tableChange.getType() != TableChanges.TableChangeType.CREATE) {
@@ -633,6 +640,9 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
          */
         private TableChangeCatalogTableConverter tableChangeCatalogTableConverter;
 
+        /** Whether two-part IDs in runtime CREATE records start with a catalog. */
+        private boolean runtimeTableIdCatalogFirst;
+
         public SeaTunnelRowDebeziumDeserializeSchema build() {
             return new SeaTunnelRowDebeziumDeserializeSchema(
                     metadataConverters,
@@ -643,6 +653,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                     schemaChangeEventFilter,
                     scanBinlogNewlyAddedTableEnabled,
                     tableChangeCatalogTableConverter,
+                    runtimeTableIdCatalogFirst,
                     tableIdTableChangeMap);
         }
     }

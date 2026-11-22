@@ -1351,16 +1351,17 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                 executeSql("INSERT INTO source." + quoted + " VALUES (1)");
             }
             createNewlyAddedWildcardTable(newlyAddedWildcardSourceTable);
-            await().atMost(120000, TimeUnit.MILLISECONDS)
+            await().atMost(120, TimeUnit.SECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertIterableEquals(
-                                            query(
-                                                    getQuerySQL(
-                                                            "source",
-                                                            newlyAddedWildcardSourceTable)),
-                                            queryNewlyAddedWildcardSinkTable(
-                                                    newlyAddedWildcardSinkTable)));
+                            () -> {
+                                List<List<Object>> sinkRows =
+                                        queryNewlyAddedWildcardSinkTable(
+                                                newlyAddedWildcardSinkTable);
+                                Assertions.assertEquals(2, sinkRows.size());
+                                Assertions.assertIterableEquals(
+                                        query(getQuerySQL("source", newlyAddedWildcardSourceTable)),
+                                        sinkRows);
+                            });
 
             // The valid CREATE follows the rejected records in the same binlog. Its replication is
             // the processing barrier for asserting that neither unsafe name caused downstream DDL.

@@ -290,6 +290,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                                 config.get(
                                         MySqlIncrementalSourceOptions
                                                 .SCAN_BINLOG_NEWLY_ADDED_TABLE_ENABLED))
+                        .setRuntimeTableIdCatalogFirst(true)
                         .setTableChangeCatalogTableConverter(
                                 tableChange ->
                                         sourceConfig

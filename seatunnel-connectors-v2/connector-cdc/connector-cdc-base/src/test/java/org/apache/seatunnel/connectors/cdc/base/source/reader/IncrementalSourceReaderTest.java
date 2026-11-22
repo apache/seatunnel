@@ -672,7 +672,7 @@ class IncrementalSourceReaderTest {
      */
     @Test
     void testAddSplitsAdmitsCheckpointedRuntimeTableIntoCapturedTableIds() {
-        SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
+        SourceConfig sourceConfig = incrementalSourceConfig();
         DataSourceDialect<SourceConfig> dialect =
                 Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
         Mockito.when(dialect.discoverDataCollections(sourceConfig))

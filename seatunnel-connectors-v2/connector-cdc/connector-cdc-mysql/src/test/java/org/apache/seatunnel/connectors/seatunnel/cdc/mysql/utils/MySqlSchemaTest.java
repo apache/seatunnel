@@ -72,6 +72,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.mockito.Mockito.when;
 
@@ -119,7 +120,12 @@ public class MySqlSchemaTest {
      */
     @Test
     public void testRuntimeAdmissionUsesRealConverterBeforeEmittingEvents() throws Exception {
-        MySqlConnectorConfig config = connectorConfig();
+        Properties properties = new Properties();
+        properties.setProperty("database.include.list", "db1");
+        MySqlSourceConfigFactory factory = sourceConfigFactory();
+        factory.debeziumProperties(properties);
+        MySqlSourceConfig sourceConfig = factory.create(0);
+        MySqlConnectorConfig config = sourceConfig.getDbzConnectorConfig();
         CatalogTable oldTable =
                 MySqlCatalogTableUtils.toRuntimeCatalogTable(
                         runtimeTable("old_table", "INT"), config);
@@ -127,10 +133,16 @@ public class MySqlSchemaTest {
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
                         .setTables(new ArrayList<>(Collections.singletonList(oldTable)))
                         .setScanBinlogNewlyAddedTableEnabled(true)
+                        .setRuntimeTableIdCatalogFirst(true)
                         .setTableChangeCatalogTableConverter(
                                 change ->
-                                        MySqlCatalogTableUtils.toRuntimeCatalogTable(
-                                                change.getTable(), config))
+                                        sourceConfig
+                                                        .getTableFilters()
+                                                        .dataCollectionFilter()
+                                                        .isIncluded(change.getTable().id())
+                                                ? MySqlCatalogTableUtils.toRuntimeCatalogTable(
+                                                        change.getTable(), config)
+                                                : null)
                         .build();
         List<SchemaChangeEvent> events = new ArrayList<>();
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -164,6 +176,11 @@ public class MySqlSchemaTest {
             Assertions.assertEquals(Collections.emptyList(), events);
             Assertions.assertEquals(Collections.emptyList(), rows);
         }
+        schema.deserialize(
+                runtimeCreateRecord(runtimeTable("excluded_db", "2024_orders", "INT")), collector);
+        Assertions.assertEquals(Collections.singletonList(oldTable), schema.getProducedType());
+        Assertions.assertTrue(events.isEmpty());
+
         schema.deserialize(runtimeRowRecord("old_table", 11), collector);
         schema.deserialize(runtimeCreateRecord(runtimeTable("2024_orders", "INT")), collector);
         schema.deserialize(runtimeRowRecord("2024_orders", 22), collector);
@@ -209,16 +226,24 @@ public class MySqlSchemaTest {
     }
 
     private static MySqlConnectorConfig connectorConfig() {
+        return sourceConfigFactory().create(0).getDbzConnectorConfig();
+    }
+
+    private static MySqlSourceConfigFactory sourceConfigFactory() {
         MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
         factory.hostname("localhost");
         factory.username("test");
         factory.password("test");
-        return factory.create(0).getDbzConnectorConfig();
+        return factory;
     }
 
     private static Table runtimeTable(String name, String type) {
+        return runtimeTable("db1", name, type);
+    }
+
+    private static Table runtimeTable(String catalog, String name, String type) {
         return Table.editor()
-                .tableId(new TableId("db1", null, name))
+                .tableId(new TableId(catalog, null, name))
                 .addColumns(Column.editor().name("id").jdbcType(Types.INTEGER).type(type).create())
                 .setPrimaryKeyNames(Collections.singletonList("id"))
                 .create();
