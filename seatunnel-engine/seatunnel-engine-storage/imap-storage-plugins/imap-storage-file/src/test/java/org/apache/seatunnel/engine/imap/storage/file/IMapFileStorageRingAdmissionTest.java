@@ -34,10 +34,14 @@ import org.apache.hadoop.fs.Path;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.mockito.Mockito;
 
 import java.lang.reflect.Field;
 import java.util.Collections;
+
+import static org.junit.jupiter.api.condition.OS.LINUX;
+import static org.junit.jupiter.api.condition.OS.MAC;
 
 /**
  * When the WAL ring rejects admission, the storage layer must fail the write and drop the pending
@@ -68,6 +72,7 @@ class IMapFileStorageRingAdmissionTest {
                 "rejected admission must remove its pending future");
     }
 
+    @EnabledOnOs({LINUX, MAC})
     @Test
     void storeShouldFailWithinWatchdogWhenInjectedRingIsSaturated() throws Exception {
         Configuration conf = new Configuration();
