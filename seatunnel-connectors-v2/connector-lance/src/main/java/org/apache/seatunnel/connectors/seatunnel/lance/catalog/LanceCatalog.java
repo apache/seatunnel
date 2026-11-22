@@ -36,6 +36,8 @@ import org.apache.seatunnel.connectors.seatunnel.lance.exception.LanceConnectorE
 import org.apache.seatunnel.connectors.seatunnel.lance.exception.LanceConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.lance.utils.SchemaUtils;
 
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -45,6 +47,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.commons.collections4.CollectionUtils;
 
 import com.lancedb.lance.Dataset;
+import com.lancedb.lance.WriteParams;
 import com.lancedb.lance.namespace.LanceNamespace;
 import com.lancedb.lance.namespace.model.CreateTableRequest;
 import com.lancedb.lance.namespace.model.DescribeTableRequest;
@@ -169,7 +172,10 @@ public class LanceCatalog implements Catalog {
             String datasetPath = getDatasetPath(tablePath);
             if (datasetPath != null) {
                 try {
-                    Dataset dataset = Dataset.open(datasetPath);
+                    Dataset dataset =
+                            Dataset.open(
+                                    datasetPath,
+                                    new LanceCommonConfig(readonlyConfig).toReadOptions());
                     arrowSchemaFromDataset = dataset.getSchema();
                     if (arrowSchema == null
                             || arrowSchema.getFields() == null
@@ -279,13 +285,11 @@ public class LanceCatalog implements Catalog {
 
                         Schema schemaWithMetadata = new Schema(arrowSchema.getFields(), metadata);
 
-                        org.apache.arrow.memory.BufferAllocator allocator =
-                                new org.apache.arrow.memory.RootAllocator();
+                        BufferAllocator allocator = new RootAllocator();
                         try {
-                            com.lancedb.lance.WriteParams writeParams =
-                                    new com.lancedb.lance.WriteParams.Builder().build();
-                            com.lancedb.lance.Dataset.create(
-                                    allocator, datasetPath, schemaWithMetadata, writeParams);
+                            WriteParams writeParams =
+                                    new LanceCommonConfig(readonlyConfig).toWriteParams();
+                            Dataset.create(allocator, datasetPath, schemaWithMetadata, writeParams);
                             log.debug("Created empty dataset at {}", datasetPath);
                         } finally {
                             allocator.close();

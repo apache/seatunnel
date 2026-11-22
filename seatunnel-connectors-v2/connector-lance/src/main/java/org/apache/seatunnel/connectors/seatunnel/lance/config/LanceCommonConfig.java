@@ -20,7 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.lance.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.lance.catalog.LanceNamespaceType;
 
+import com.lancedb.lance.ReadOptions;
+import com.lancedb.lance.WriteParams;
+
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +43,8 @@ public class LanceCommonConfig implements Serializable {
     private List<String> namespaceIds;
 
     private String rootNamespacePath;
+
+    private Map<String, String> storageOptions;
 
     public LanceCommonConfig(LanceNamespaceType namespaceType, Map<String, String> namespaceProps) {
         this.namespaceType = namespaceType;
@@ -61,6 +67,7 @@ public class LanceCommonConfig implements Serializable {
         this.rootNamespacePath = pluginConfig.get(LanceCommonOptions.KEY_ROOT_NAMESPACE_PATH);
         this.namespaceType =
                 LanceNamespaceType.typeOf(pluginConfig.get(LanceCommonOptions.KEY_NAMESPACE_TYPE));
+        this.storageOptions = pluginConfig.get(LanceSinkOptions.WRITE_STORAGE_OPTIONS);
     }
 
     public LanceNamespaceType getNamespaceType() {
@@ -109,5 +116,25 @@ public class LanceCommonConfig implements Serializable {
 
     public void setRootNamespacePath(String rootNamespacePath) {
         this.rootNamespacePath = rootNamespacePath;
+    }
+
+    public Map<String, String> getStorageOptions() {
+        return storageOptions;
+    }
+
+    public void setStorageOptions(Map<String, String> storageOptions) {
+        this.storageOptions = storageOptions;
+    }
+
+    public ReadOptions toReadOptions() {
+        return new ReadOptions.Builder()
+                .setStorageOptions(storageOptions == null ? new HashMap<>() : storageOptions)
+                .build();
+    }
+
+    public WriteParams toWriteParams() {
+        return new WriteParams.Builder()
+                .withStorageOptions(storageOptions == null ? new HashMap<>() : storageOptions)
+                .build();
     }
 }

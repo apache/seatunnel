@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lance.catalog;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceCommonConfig;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -47,8 +49,7 @@ public class LanceCatalogLoader implements Serializable {
 
     public LanceNamespace loadNamespace() {
         Thread.currentThread().setContextClassLoader(LanceCatalogLoader.class.getClassLoader());
-        Map<String, String> properties = new HashMap<>();
-        properties.put("root", config.getRootNamespacePath());
+        Map<String, String> properties = buildNamespaceProps();
         config.setNamespaceProps(properties);
 
         return LanceNamespaces.connect(
@@ -56,5 +57,33 @@ public class LanceCatalogLoader implements Serializable {
                 config.getNamespaceProps(),
                 null,
                 bufferAllocator);
+    }
+
+    @VisibleForTesting
+    Map<String, String> buildNamespaceProps() {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("root", config.getRootNamespacePath());
+        Map<String, String> storageOptions = config.getStorageOptions();
+        if (storageOptions != null) {
+            for (Map.Entry<String, String> entry : storageOptions.entrySet()) {
+                properties.put("storage." + translateStorageKey(entry.getKey()), entry.getValue());
+            }
+        }
+        return properties;
+    }
+
+    private static String translateStorageKey(String key) {
+        switch (key) {
+            case "aws_endpoint_url":
+                return "endpoint";
+            case "aws_access_key_id":
+                return "access_key_id";
+            case "aws_secret_access_key":
+                return "secret_access_key";
+            case "aws_default_region":
+                return "region";
+            default:
+                return key;
+        }
     }
 }

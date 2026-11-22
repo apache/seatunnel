@@ -105,7 +105,7 @@ Lance 是列存格式，`10000` 行一个 fragment 可能仍然偏小。每个 f
 
 ### lance.write.storage.options
 
-以键值对形式传递额外的 Lance 存储参数。
+以键值对形式传递额外的 Lance 存储参数。连接器执行的每一个数据集操作（打开、创建、写入 fragment）都会应用这些参数，因此对象存储上的数据集路径（如 `s3://`）会使用配置的凭据完成认证，而不会退回读取环境中的 `AWS_*` 环境变量。Lance catalog 连接目录 namespace 和读取数据集 schema 时同样消费该选项。
 
 示例：
 
