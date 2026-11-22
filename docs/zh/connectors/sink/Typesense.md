@@ -103,7 +103,7 @@ Typesense collection 创建时会使用上游 SeaTunnel 表结构。如果希望
 
 :::tip
 
-连接器使用 Typesense 的批量导入接口。`UPDATE` 和 `DELETE` 行类型不会被解释为 CDC 操作 —— 每条上游记录都会按生成的文档 `id` 被 upsert 到目标 collection。如果希望重复作业行为类似 upsert 而不是追加，可以把 `data_save_mode` 设为 `DROP_DATA`，并配置稳定的 `primary_keys`。
+连接器会按 CDC 行类型处理数据：`INSERT` 和 `UPDATE_AFTER` 记录会通过 Typesense 的批量导入接口按生成的文档 `id` upsert 到目标 collection，`UPDATE_BEFORE` 记录会被跳过，`DELETE` 记录会删除对应生成的 `id` 的文档。请配置 `primary_keys`，保证文档 `id` 在 CDC 事件间保持稳定。
 
 :::
 

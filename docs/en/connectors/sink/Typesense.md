@@ -104,7 +104,7 @@ Choose how to handle existing data on the target side before starting the synchr
 
 :::tip
 
-The connector uses Typesense's bulk import endpoint. `UPDATE` and `DELETE` row kinds are not interpreted as CDC operations — every upstream row is upserted into the target collection based on the generated document `id`. Use `data_save_mode = DROP_DATA` together with a stable `primary_keys` configuration to make repeated jobs behave like upserts rather than appends.
+The connector interprets CDC row kinds: `INSERT` and `UPDATE_AFTER` rows are upserted into the target collection via Typesense's bulk import endpoint based on the generated document `id`, `UPDATE_BEFORE` rows are skipped, and `DELETE` rows delete the document with the generated `id`. Configure `primary_keys` so the document `id` is stable across CDC events.
 
 :::
 

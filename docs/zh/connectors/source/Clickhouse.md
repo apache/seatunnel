@@ -76,6 +76,8 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。展开到外层时，分片大小参数使用 `split.size`，而不是 `split_size`。
 
+注意: 每一个 `table_list` 条目（或展平后的外层配置）必须至少配置 `table_path` 和 `sql` 中的一个。如果两者都为空，连接器会抛出 `table_path` and `sql` parameter cannot be both empty. 错误。
+
 ## 并行读取
 
 Clickhouse源连接器支持并行读取数据。

@@ -90,9 +90,11 @@ you can configure this option to true, otherwise you need to configure the corre
 
 Used to save the addresses and corresponding passwords of all clickhouse servers
 
+Note: `node_pass` is a list; every entry must contain `node_address` and `password` (`username` falls back to `root` when not configured). Missing either one fails job initialization.
+
 ### node_pass.node_address [string]
 
-The address corresponding to the clickhouse server
+The address corresponding to the clickhouse server. Required inside each `node_pass` entry.
 
 ### node_pass.username [string]
 
