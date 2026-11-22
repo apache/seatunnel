@@ -141,7 +141,9 @@ public class ConfigValueUtilsTest {
         String value = "{\"k1\":}";
         boolean isStructured = ConfigValueUtils.isStructured(value);
         Assertions.assertTrue(isStructured);
-        Assertions.assertThrows(ConfigException.class, () -> ConfigValueUtils.parseValue(value));
+        Assertions.assertThrows(
+                ConfigValueUtils.StructuredValueParseException.class,
+                () -> ConfigValueUtils.parseValue(value));
     }
 
     @Test
@@ -151,7 +153,8 @@ public class ConfigValueUtilsTest {
         boolean isStructured = ConfigValueUtils.isStructured(tableList);
         Assertions.assertTrue(isStructured);
         Assertions.assertThrows(
-                ConfigException.class, () -> ConfigValueUtils.parseValue(tableList));
+                ConfigValueUtils.StructuredValueParseException.class,
+                () -> ConfigValueUtils.parseValue(tableList));
     }
 
     @Test
