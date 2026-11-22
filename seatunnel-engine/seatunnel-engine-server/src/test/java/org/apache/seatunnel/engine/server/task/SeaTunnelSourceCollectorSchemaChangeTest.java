@@ -40,6 +40,8 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 import java.io.IOException;
@@ -90,8 +92,10 @@ class SeaTunnelSourceCollectorSchemaChangeTest {
      * Verifies a runtime create-table event seeds its row type before the first data row is
      * forwarded to the downstream flow.
      */
-    @Test
-    void shouldForwardCreateTableEventForUnknownTableInMultipleRowType() throws IOException {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRegisterRuntimeTableWithoutLosingStartupRowType(boolean startsWithMultipleRowType)
+            throws IOException {
         TablePath knownTable = TablePath.of("test_db", "known_table");
         TablePath newlyAddedTable = TablePath.of("test_db", "new_table");
         SeaTunnelRowType knownRowType =
@@ -109,7 +113,7 @@ class SeaTunnelSourceCollectorSchemaChangeTest {
                         Collections.singletonList(output),
                         metricsContext(),
                         FlowControlStrategy.builder().build(),
-                        multipleRowType,
+                        startsWithMultipleRowType ? multipleRowType : knownRowType,
                         Collections.singletonList(knownTable),
                         sourceTask(),
                         new EngineConfig());
@@ -125,17 +129,28 @@ class SeaTunnelSourceCollectorSchemaChangeTest {
                                                 true,
                                                 null,
                                                 null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "label",
+                                                BasicType.STRING_TYPE,
+                                                (Long) null,
+                                                true,
+                                                null,
+                                                null))
                                 .build(),
                         Collections.emptyMap(),
                         Collections.emptyList(),
                         null);
 
         collector.collect(new CreateTableEvent(catalogTable.getTableId(), catalogTable));
-        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
-        row.setTableId(newlyAddedTable.toString());
-        collector.collect(row);
+        SeaTunnelRow runtimeRow = new SeaTunnelRow(new Object[] {1, "runtime"});
+        runtimeRow.setTableId(newlyAddedTable.toString());
+        collector.collect(runtimeRow);
+        SeaTunnelRow startupRow = new SeaTunnelRow(new Object[] {2});
+        startupRow.setTableId(knownTable.toString());
+        collector.collect(startupRow);
 
-        verify(output, times(2)).received(Mockito.any());
+        verify(output, times(3)).received(Mockito.any());
     }
 
     private static SeaTunnelTask sourceTask() {
