@@ -425,6 +425,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         List<Future<?>> blockingFutures = new ArrayList<>(tasks.size());
         try {
             for (Task task : tasks) {
+                taskGroupExecutionTracker.recordBlockingTaskForSubmit(task);
                 BlockingWorker worker =
                         new BlockingWorker(
                                 new TaskTracker(task, taskGroupExecutionTracker), startedLatch);
@@ -650,6 +651,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      * @param onFailureBeforeContextPublished callback invoked when deployment fails before context
      *     publication
      * @return future completed with this task group's terminal execution state
+     *     <p>After {@code contextPublished} is true, a failure runs {@link
+     *     #rollbackPublishedDeployment} instead of leaving a stale active entry. That path cancels
+     *     submitted work, drains cooperative queue entries for this tracker, and completes the
+     *     result future with {@linkplain ExecutionState#FAILED FAILED} (workers that already ran
+     *     may have completed the same future first). The pre-publication branch keeps {@code
+     *     completeExceptionally(t)} so the severe error log and master notification contract stay
+     *     unchanged.
      */
     PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
             long executionId,
@@ -785,6 +793,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      * <p>Async-function and timer-flush futures are cancelled by {@link
      * TaskGroupExecutionTracker#abortAfterFailedPublish(Throwable)} via {@code cancelAllTask()};
      * this method does not cancel them a second time.
+     *
+     * <p>Tasks removed from the cooperative queue or cancelled before a blocking worker runs do not
+     * reach {@link TaskGroupExecutionTracker#taskDone(Task)} on their own; this method accounts for
+     * them so completion bookkeeping and metrics reporting can finish for the abandoned generation.
      */
     private void rollbackPublishedDeployment(
             TaskGroupLocation taskGroupLocation,
@@ -803,8 +815,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         "Abort submitted tasks after post-publish deployment rollback failed",
                         cleanupFailure);
             }
+            List<TaskTracker> droppedCooperativeTrackers = new ArrayList<>();
             threadShareTaskQueue.removeIf(
-                    tracker -> tracker.taskGroupExecutionTracker == executionTracker);
+                    tracker -> {
+                        if (tracker.taskGroupExecutionTracker == executionTracker) {
+                            droppedCooperativeTrackers.add(tracker);
+                            return true;
+                        }
+                        return false;
+                    });
+            executionTracker.accountForTasksDroppedAfterRollback(droppedCooperativeTrackers);
         }
         if (context != null) {
             // Generation-safe: do not clear a newer active deployment at the same location.
@@ -1641,6 +1661,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         final CompletableFuture<TaskExecutionState> future;
         volatile List<Future<?>> blockingFutures = emptyList();
 
+        private final List<Task> blockingTasksInSubmitOrder = new ArrayList<>();
+
+        private final Set<Long> tasksReportedDone = ConcurrentHashMap.newKeySet();
+
         private final AtomicInteger completionLatch;
         private final AtomicReference<Throwable> executionException = new AtomicReference<>();
 
@@ -1702,6 +1726,61 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             cancelAllTask();
         }
 
+        void recordBlockingTaskForSubmit(Task task) {
+            blockingTasksInSubmitOrder.add(task);
+        }
+
+        /**
+         * Accounts for tasks dropped during post-publish rollback that will not reach {@link
+         * #taskDone(Task)} through a worker thread.
+         *
+         * <p>Cooperative tasks removed from the queue, blocking tasks rejected before submit, and
+         * blocking tasks whose {@link Future} was cancelled before {@link BlockingWorker} ran are
+         * counted here. Started workers still report via {@code taskDone}.
+         */
+        void accountForTasksDroppedAfterRollback(
+                Collection<TaskTracker> removedCooperativeTrackers) {
+            for (TaskTracker tracker : removedCooperativeTrackers) {
+                taskDone(tracker.task);
+            }
+            for (int i = 0; i < blockingTasksInSubmitOrder.size(); i++) {
+                Task task = blockingTasksInSubmitOrder.get(i);
+                if (tasksReportedDone.contains(task.getTaskID())) {
+                    continue;
+                }
+                if (i >= blockingFutures.size()) {
+                    taskDone(task);
+                    continue;
+                }
+                Future<?> workerFuture = blockingFutures.get(i);
+                if (workerFuture.isCancelled() && workerFuture.isDone()) {
+                    taskDone(task);
+                }
+            }
+            reconcileCompletionAfterRollback();
+        }
+
+        /**
+         * Completes any remaining per-task accounting after rollback so metrics bookkeeping for
+         * this abandoned generation is not stranded when {@code completionLatch} never reaches
+         * zero.
+         */
+        private void reconcileCompletionAfterRollback() {
+            while (completionLatch.get() > 0) {
+                boolean accounted = false;
+                for (Task task : taskGroup.getTasks()) {
+                    if (!tasksReportedDone.contains(task.getTaskID())) {
+                        taskDone(task);
+                        accounted = true;
+                        break;
+                    }
+                }
+                if (!accounted) {
+                    break;
+                }
+            }
+        }
+
         /**
          * Cancels tasks and background work owned by this tracker, regardless of active generation.
          */
@@ -1761,6 +1840,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          * @param task the task that completed
          */
         void taskDone(Task task) {
+            if (!tasksReportedDone.add(task.getTaskID())) {
+                return;
+            }
             TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
             logger.info(
                     String.format(

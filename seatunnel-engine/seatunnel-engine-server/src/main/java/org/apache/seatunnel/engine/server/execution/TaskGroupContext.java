@@ -72,6 +72,7 @@ public class TaskGroupContext {
      * {@link #claimJarsForClassLoaderRelease()}); task workers use that, not a missing per-task
      * entry, to detect a rolled-back deployment.
      */
+    @Setter(AccessLevel.NONE)
     private volatile ConcurrentHashMap<Long, ClassLoader> classLoaders;
 
     /**
@@ -81,7 +82,8 @@ public class TaskGroupContext {
      * release the matching references from {@code ClassLoaderService} during cleanup, including
      * cleanup of a stale deployment after a newer one has started at the same task-group location.
      */
-    private ConcurrentHashMap<Long, Collection<URL>> jars;
+    @Setter(AccessLevel.NONE)
+    private volatile ConcurrentHashMap<Long, Collection<URL>> jars;
 
     /**
      * Ensures only one cleanup path releases this context's classloader references.
