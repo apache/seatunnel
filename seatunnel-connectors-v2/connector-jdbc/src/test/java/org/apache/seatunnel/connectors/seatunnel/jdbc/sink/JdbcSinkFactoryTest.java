@@ -51,6 +51,19 @@ class JdbcSinkFactoryTest {
     @Test
     void testSupportsNewlyCreatedTable() {
         Assertions.assertTrue(factory.supportsNewlyCreatedTable());
+        Map<String, Object> config = baseConfig();
+        Assertions.assertTrue(factory.supportsNewlyCreatedTable(ReadonlyConfig.fromMap(config)));
+
+        config.put(JdbcSinkOptions.IS_EXACTLY_ONCE.key(), true);
+        Assertions.assertFalse(factory.supportsNewlyCreatedTable(ReadonlyConfig.fromMap(config)));
+
+        config.put(JdbcSinkOptions.IS_EXACTLY_ONCE.key(), false);
+        config.put(JdbcSinkOptions.QUERY.key(), "INSERT INTO target (id) VALUES (:id)");
+        Assertions.assertFalse(factory.supportsNewlyCreatedTable(ReadonlyConfig.fromMap(config)));
+
+        config.remove(JdbcSinkOptions.QUERY.key());
+        config.remove(JdbcSinkOptions.GENERATE_SINK_SQL.key());
+        Assertions.assertFalse(factory.supportsNewlyCreatedTable(ReadonlyConfig.fromMap(config)));
     }
 
     private void validate(Map<String, Object> config) {

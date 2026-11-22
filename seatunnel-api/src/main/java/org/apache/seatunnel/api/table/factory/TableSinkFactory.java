@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.connector.TableSink;
 
 import java.util.Collections;
@@ -43,6 +44,15 @@ public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT
      */
     default boolean supportsNewlyCreatedTable() {
         return false;
+    }
+
+    /**
+     * Checks runtime-table support for the configured sink before the writer or its resources are
+     * created. Implementations must not perform I/O. The options may still contain per-table
+     * placeholders.
+     */
+    default boolean supportsNewlyCreatedTable(ReadonlyConfig options) {
+        return supportsNewlyCreatedTable();
     }
 
     /**

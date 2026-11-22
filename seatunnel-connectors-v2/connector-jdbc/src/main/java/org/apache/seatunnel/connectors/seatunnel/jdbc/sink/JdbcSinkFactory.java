@@ -73,6 +73,13 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
     }
 
     @Override
+    public boolean supportsNewlyCreatedTable(ReadonlyConfig options) {
+        return !options.get(JdbcSinkOptions.IS_EXACTLY_ONCE)
+                && options.get(JdbcSinkOptions.GENERATE_SINK_SQL)
+                && !options.getOptional(JdbcSinkOptions.QUERY).isPresent();
+    }
+
+    @Override
     public String factoryIdentifier() {
         return "Jdbc";
     }

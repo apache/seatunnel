@@ -211,6 +211,55 @@ public class MultiTableSinkWriterTest {
         writer.close();
     }
 
+    @Test
+    public void testUnsupportedRuntimeSinkFailsBeforeCreatingAWriterUnderEitherPolicy()
+            throws Exception {
+        CatalogTable table = catalogTable(TablePath.of("db1", "unsupported_runtime"));
+        for (MultiTableFailurePolicy policy : MultiTableFailurePolicy.values()) {
+            AtomicInteger attempts = new AtomicInteger();
+            MultiTableSinkWriter.RuntimeSinkWriterFactory factory =
+                    new MultiTableSinkWriter.RuntimeSinkWriterFactory() {
+                        @Override
+                        public SinkWriter<SeaTunnelRow, ?, ?> create(
+                                CatalogTable runtimeTable, SinkWriter.Context context) {
+                            attempts.incrementAndGet();
+                            throw new AssertionError("Unsupported sink must not open a writer");
+                        }
+
+                        @Override
+                        public boolean supportsNewlyCreatedTable() {
+                            return false;
+                        }
+                    };
+            MultiTableSinkWriter writer =
+                    new MultiTableSinkWriter(
+                            new HashMap<>(),
+                            1,
+                            new HashMap<>(),
+                            policy,
+                            JobMode.STREAMING,
+                            Collections.emptyList(),
+                            2,
+                            0,
+                            Collections.singletonList(
+                                    new MultiTableSinkWriter.SinkWriterTemplate(
+                                            null, new TestSinkWriterContext(), 0)),
+                            factory);
+            try {
+                IOException error =
+                        Assertions.assertThrows(
+                                IOException.class,
+                                () ->
+                                        writer.applySchemaChange(
+                                                new CreateTableEvent(table.getTableId(), table)));
+                Assertions.assertTrue(error.getMessage().contains("does not support runtime"));
+                Assertions.assertEquals(0, attempts.get());
+            } finally {
+                writer.close();
+            }
+        }
+    }
+
     /**
      * Failed runtime registration either fails the task or checkpoints the table quarantine; no
      * path may continue as though the rejected table had a working writer.

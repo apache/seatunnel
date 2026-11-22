@@ -103,7 +103,7 @@ public class MultiTableSink
 
                 @Override
                 public boolean supportsNewlyCreatedTable() throws IOException {
-                    return discoverRuntimeTableSinkFactory().supportsNewlyCreatedTable();
+                    return discoverRuntimeTableSinkFactory().supportsNewlyCreatedTable(options);
                 }
 
                 @Override
@@ -391,7 +391,7 @@ public class MultiTableSink
         try {
             ClassLoader runtimeClassLoader = Thread.currentThread().getContextClassLoader();
             TableSinkFactory<?, ?, ?, ?> tableSinkFactory = discoverRuntimeTableSinkFactory();
-            if (!tableSinkFactory.supportsNewlyCreatedTable()) {
+            if (!tableSinkFactory.supportsNewlyCreatedTable(options)) {
                 throw new IOException(
                         String.format(
                                 "Sink %s does not support runtime newly created table %s",
