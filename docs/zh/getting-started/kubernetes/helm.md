@@ -28,25 +28,25 @@ minikube start --kubernetes-version=v1.23.3
 
 ## 安装
 
-使用默认配置安装：
+3.1.0 版 Chart 默认使用 3.0.0 镜像。部署 SeaTunnel 3.1.0 时，请指定 `image.tag`。
 ```bash
 # 自行选择对应版本
 export VERSION=3.1.0
 helm pull oci://registry-1.docker.io/apache/seatunnel-helm --version ${VERSION}
 tar -xvf seatunnel-helm-${VERSION}.tgz
 cd seatunnel-helm
-helm install seatunnel .
+helm install seatunnel . --set-string image.tag="${VERSION}"
 ```
 
 如果您需要使用其他命名空间进行安装：
 ```bash
-helm install seatunnel . -n <your-namespace>
+helm install seatunnel . --set-string image.tag="${VERSION}" -n <your-namespace>
 ```
 
 对于托管 Kubernetes 服务，建议将云厂商相关的差异化配置单独维护在一个 values 文件中，并通过 `-f` 传入，例如：
 
 ```bash
-helm install seatunnel . -n <your-namespace> -f values-eks.yaml
+helm install seatunnel . --set-string image.tag="${VERSION}" -n <your-namespace> -f values-eks.yaml
 ```
 
 在托管集群上常见需要复核的 values 包括：

@@ -17,9 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlSchema;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -36,6 +47,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -43,6 +55,11 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import io.debezium.jdbc.JdbcConnection;
+import io.debezium.relational.Column;
+import io.debezium.relational.Table;
+import io.debezium.relational.TableId;
+import io.debezium.relational.history.TableChanges;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -56,7 +73,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -96,6 +115,9 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
             "mysql_cdc_e2e_sink_table_with_schema_change_exactly_once";
     /** Dedicated sink table used by the event-type filter regression coverage. */
     private static final String SINK_TABLE_FILTER = "mysql_cdc_e2e_sink_table_schema_change_filter";
+
+    private static final String REPLACE_SOURCE_TABLE = "replace_schema_source";
+    private static final String REPLACE_SINK_TABLE = "replace_schema_sink";
 
     /** Stable projection used after add-column evolution to compare source and sink rows. */
     private static final String STABLE_QUERY =
@@ -151,6 +173,16 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     private static final String SET_ENUM_SCHEMA_CHANGE_INIT_TEMPLATE = "set_enum_schema_change";
     /** SQL template that adds and modifies SET / ENUM columns while the job is running. */
     private static final String SET_ENUM_SCHEMA_CHANGE_ALTER_TEMPLATE = "add_set_enum_columns";
+
+    /**
+     * Dedicated database of the {@code DESC} schema-fallback cases, so the tables the other cases
+     * reset in {@code shop} cannot interfere with them.
+     */
+    private static final String DESC_FALLBACK_DATABASE = "mysql_schema_desc";
+    /** Fixture table without a primary key: the fallback DDL must not contain a key clause. */
+    private static final String DESC_NO_PK_TABLE = "no_pk_table";
+    /** Control fixture table with a primary key: the fallback DDL must still declare it. */
+    private static final String DESC_PK_TABLE = "pk_table";
 
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
 
@@ -265,6 +297,147 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         // verify the final source table comment was applied (tests comment update idempotency)
         assertSourceTableComment(
                 MYSQL_DATABASE, SOURCE_TABLE, "Updated product catalog with sports equipment");
+    }
+
+    /** Verifies field binding after a live position shift and subsequent checkpoint restoration. */
+    @Order(5)
+    @TestTemplate
+    public void testReplaceFieldBindingAfterSchemaChangeAndRestore(TestContainer container)
+            throws Exception {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS shop." + REPLACE_SOURCE_TABLE);
+            statement.execute("DROP TABLE IF EXISTS shop." + REPLACE_SINK_TABLE);
+            statement.execute(
+                    "CREATE TABLE shop."
+                            + REPLACE_SOURCE_TABLE
+                            + " (guard_value VARCHAR(64), name VARCHAR(64), title VARCHAR(64), id INT PRIMARY KEY)");
+            statement.execute(
+                    "CREATE TABLE shop."
+                            + REPLACE_SINK_TABLE
+                            + " LIKE shop."
+                            + REPLACE_SOURCE_TABLE);
+            statement.execute(
+                    "INSERT INTO shop."
+                            + REPLACE_SOURCE_TABLE
+                            + " VALUES ('before guard', 'before name', 'before title', 1)");
+        }
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String config = "/mysqlcdc_to_mysql_with_replace_schema_change.conf";
+        CompletableFuture<?> execution =
+                CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                Assertions.assertEquals(
+                                        0, container.executeJob(config, jobId).getExitCode());
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        Throwable testFailure = null;
+        try {
+            assertReplaceRow(execution, "'before prefix'", "after name", "after title");
+            waitForReplaceIncrementalRead(container, execution);
+            try (Connection connection = getJdbcConnection();
+                    Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "ALTER TABLE shop."
+                                + REPLACE_SOURCE_TABLE
+                                + " ADD COLUMN prefix VARCHAR(64) DEFAULT 'before prefix' FIRST");
+                statement.execute(
+                        "UPDATE shop."
+                                + REPLACE_SOURCE_TABLE
+                                + " SET name='before live', title='before changed' WHERE id=1");
+            }
+            assertReplaceRow(execution, "prefix", "after live", "after changed");
+            Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+            execution.get(60, TimeUnit.SECONDS);
+            try (Connection connection = getJdbcConnection();
+                    Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "UPDATE shop."
+                                + REPLACE_SOURCE_TABLE
+                                + " SET name='before restored', title='before recovered' WHERE id=1");
+            }
+            execution =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                try {
+                                    Assertions.assertEquals(
+                                            0, container.restoreJob(config, jobId).getExitCode());
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+            assertReplaceRow(execution, "prefix", "after restored", "after recovered");
+        } catch (Exception | AssertionError failure) {
+            testFailure = failure;
+            throw failure;
+        } finally {
+            try {
+                try {
+                    container.cancelJob(jobId);
+                } finally {
+                    execution.get(60, TimeUnit.SECONDS);
+                }
+            } catch (Exception | AssertionError cleanupFailure) {
+                if (testFailure != null) {
+                    testFailure.addSuppressed(cleanupFailure);
+                } else {
+                    throw cleanupFailure;
+                }
+            }
+        }
+    }
+
+    private void waitForReplaceIncrementalRead(
+            TestContainer container, CompletableFuture<?> execution) {
+        await().atMost(DEFAULT_TABLE_SYNC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            if (execution.isCompletedExceptionally()) {
+                                execution.join();
+                            }
+                            Assertions.assertTrue(
+                                    Arrays.stream(container.getServerLogs().split("\\R"))
+                                            .anyMatch(
+                                                    line ->
+                                                            line.contains(INCREMENTAL_READ_MARKER)
+                                                                    && line.contains(
+                                                                            MYSQL_DATABASE
+                                                                                    + "."
+                                                                                    + REPLACE_SOURCE_TABLE)),
+                                    "The Replace source has not started incremental reading");
+                        });
+    }
+
+    private void assertReplaceRow(
+            CompletableFuture<?> execution, String prefixExpression, String name, String title) {
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .ignoreExceptionsMatching(
+                        error ->
+                                error.getCause() instanceof SQLException
+                                        && ((SQLException) error.getCause()).getErrorCode() == 1054)
+                .untilAsserted(
+                        () -> {
+                            if (execution.isCompletedExceptionally()) {
+                                execution.join();
+                            }
+                            Assertions.assertEquals(
+                                    Arrays.asList(
+                                            Arrays.asList(
+                                                    "before prefix",
+                                                    "before guard",
+                                                    name,
+                                                    title,
+                                                    1)),
+                                    query(
+                                            "SELECT "
+                                                    + prefixExpression
+                                                    + ",guard_value,name,title,id FROM shop."
+                                                    + REPLACE_SINK_TABLE
+                                                    + " ORDER BY id"));
+                        });
     }
 
     @Order(2)
@@ -488,7 +661,166 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         assertColumnTypeEquals(SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE, "c_enum_added");
     }
 
-    // Asserts the sink row with the given id exists and its name matches expectedName.
+    /**
+     * Covers the {@code DESC} schema fallback of {@link MySqlSchema} for a table without a primary
+     * key.
+     *
+     * <p>{@link MySqlSchema#readTableSchemaByDesc} builds a synthetic {@code CREATE TABLE}
+     * statement from the output of {@code DESC <table>} and feeds it to the Debezium DDL parser.
+     * For a table without a primary key that statement used to end with an empty {@code PRIMARY KEY
+     * ()} clause, which is not valid SQL: the parser rejects the statement, no schema change event
+     * is produced and the table schema ends up missing (in a job this surfaces as {@code Can't
+     * obtain schema for table <table>}).
+     *
+     * <p>These cases only need the MySQL container, not a SeaTunnel distribution, so they run as
+     * plain JUnit 5 tests on the shared {@link #MYSQL_CONTAINER} instead of a {@code TestTemplate}
+     * invocation.
+     */
+    @Test
+    public void testDescTableWithoutPrimaryKey() throws Exception {
+        createDescFallbackFixture();
+        TableId noPkTableId = descFallbackTableId(DESC_NO_PK_TABLE);
+        TableChanges.TableChange tableChange = readTableSchemaByDesc(noPkTableId, false);
+
+        Assertions.assertNotNull(tableChange, "no table change was produced for " + noPkTableId);
+        Assertions.assertEquals(noPkTableId, tableChange.getId());
+        Assertions.assertEquals(TableChanges.TableChangeType.CREATE, tableChange.getType());
+
+        Table table = tableChange.getTable();
+        Assertions.assertNotNull(table);
+        Assertions.assertEquals(Arrays.asList("id", "name"), tableColumnNames(table));
+        Assertions.assertTrue(
+                table.primaryKeyColumnNames().isEmpty(),
+                "a table without a primary key must not report primary key columns, but got "
+                        + table.primaryKeyColumnNames());
+        Assertions.assertEquals("INT", table.columnWithName("id").typeName());
+        Assertions.assertEquals("VARCHAR", table.columnWithName("name").typeName());
+    }
+
+    /**
+     * Control case for {@link #testDescTableWithoutPrimaryKey()}: the {@code DESC} fallback DDL of
+     * a table with a primary key must still declare that key.
+     */
+    @Test
+    public void testDescTableWithPrimaryKey() throws Exception {
+        createDescFallbackFixture();
+        TableId pkTableId = descFallbackTableId(DESC_PK_TABLE);
+        TableChanges.TableChange tableChange = readTableSchemaByDesc(pkTableId, true);
+
+        Assertions.assertNotNull(tableChange, "no table change was produced for " + pkTableId);
+        Assertions.assertEquals(pkTableId, tableChange.getId());
+        Assertions.assertEquals(TableChanges.TableChangeType.CREATE, tableChange.getType());
+
+        Table table = tableChange.getTable();
+        Assertions.assertNotNull(table);
+        Assertions.assertEquals(Arrays.asList("id", "name"), tableColumnNames(table));
+        Assertions.assertEquals(Collections.singletonList("id"), table.primaryKeyColumnNames());
+        Assertions.assertEquals("INT", table.columnWithName("id").typeName());
+        Assertions.assertEquals("VARCHAR", table.columnWithName("name").typeName());
+    }
+
+    /**
+     * Creates the fixture tables of the {@code DESC} schema-fallback cases in their own database of
+     * the shared container, so the {@code shop} fixtures the other cases reset cannot interfere.
+     */
+    private void createDescFallbackFixture() throws SQLException {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    String.format("CREATE DATABASE IF NOT EXISTS `%s`", DESC_FALLBACK_DATABASE));
+            statement.execute(
+                    String.format(
+                            "DROP TABLE IF EXISTS `%s`.`%s`",
+                            DESC_FALLBACK_DATABASE, DESC_NO_PK_TABLE));
+            // No primary key at all: the DESC fallback DDL must not contain a PRIMARY KEY clause.
+            statement.execute(
+                    String.format(
+                            "CREATE TABLE `%s`.`%s` (`id` INT NOT NULL, `name` VARCHAR(64))",
+                            DESC_FALLBACK_DATABASE, DESC_NO_PK_TABLE));
+            statement.execute(
+                    String.format(
+                            "DROP TABLE IF EXISTS `%s`.`%s`",
+                            DESC_FALLBACK_DATABASE, DESC_PK_TABLE));
+            // Control case: the PRIMARY KEY clause must still be generated for a primary key table.
+            statement.execute(
+                    String.format(
+                            "CREATE TABLE `%s`.`%s` (`id` INT NOT NULL, `name` VARCHAR(64), PRIMARY KEY (`id`))",
+                            DESC_FALLBACK_DATABASE, DESC_PK_TABLE));
+        }
+    }
+
+    private TableId descFallbackTableId(String table) {
+        return TableId.parse(DESC_FALLBACK_DATABASE + "." + table);
+    }
+
+    /**
+     * Reads the schema of one fixture table through the {@code DESC} fallback, using the same MySQL
+     * connection a job would open and the catalog table the snapshot reader would pass in.
+     */
+    private TableChanges.TableChange readTableSchemaByDesc(TableId tableId, boolean withPrimaryKey)
+            throws Exception {
+        MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
+        factory.hostname(MYSQL_CONTAINER.getHost());
+        factory.port(MYSQL_CONTAINER.getDatabasePort());
+        factory.username(MYSQL_USER_NAME);
+        factory.password(MYSQL_USER_PASSWORD);
+        factory.databaseList(DESC_FALLBACK_DATABASE);
+        factory.tableList(tableId.toString());
+        MySqlSourceConfig sourceConfig = factory.create(0);
+
+        Map<TableId, CatalogTable> tableMap = new HashMap<>();
+        tableMap.put(tableId, descFallbackCatalogTable(tableId, withPrimaryKey));
+
+        MySqlSchema mySqlSchema = new MySqlSchema(sourceConfig, false, tableMap);
+        JdbcConnection jdbcConnection =
+                MySqlConnectionUtils.createMySqlConnection(sourceConfig.getDbzConfiguration())
+                        .connect();
+        try {
+            return mySqlSchema.readTableSchemaByDesc(jdbcConnection, tableId);
+        } finally {
+            try {
+                jdbcConnection.close();
+            } finally {
+                mySqlSchema.close();
+            }
+        }
+    }
+
+    /** Builds the catalog table the snapshot reader would use for one of the fixture tables. */
+    private CatalogTable descFallbackCatalogTable(TableId tableId, boolean withPrimaryKey) {
+        TableSchema.Builder builder =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("id")
+                                        .dataType(BasicType.INT_TYPE)
+                                        .nullable(false)
+                                        .build())
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("name")
+                                        .dataType(BasicType.STRING_TYPE)
+                                        .nullable(true)
+                                        .build());
+        if (withPrimaryKey) {
+            builder.primaryKey(PrimaryKey.of("pk", Collections.singletonList("id")));
+        }
+        return CatalogTable.of(
+                TableIdentifier.of("mysql", TablePath.of(tableId.catalog(), tableId.table())),
+                builder.build(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                null);
+    }
+
+    private List<String> tableColumnNames(Table table) {
+        List<String> names = new ArrayList<>();
+        for (Column column : table.columns()) {
+            names.add(column.name());
+        }
+        return names;
+    }
+
     @Order(6)
     @TestTemplate
     public void testDdlAfterAutomaticRecoveryFromBeforeCheckpoint(TestContainer container)
@@ -643,6 +975,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                                 && "COMPLETED".equals(checkpoint.get("status")));
     }
 
+    // Asserts the sink row with the given id exists and its name matches expectedName.
     private void assertSinkNameEquals(List<List<Object>> sinkRows, int id, Object expectedName) {
         Optional<List<Object>> row =
                 sinkRows.stream().filter(r -> ((Number) r.get(0)).intValue() == id).findFirst();

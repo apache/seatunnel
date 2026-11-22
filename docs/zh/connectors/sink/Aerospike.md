@@ -71,9 +71,9 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 
 ### data_format 选项说明
 
-- **map**: 将所有非主键字段作为一个 map 存到 `bin_name`
-- **string**: 将所有非主键字段作为 JSON 字符串存到 `bin_name`
-- **kv**: 每个非主键字段存储为独立的 bin，此时不使用 `bin_name`
+- **map**: 将选中的字段作为一个 map 存到 `bin_name`
+- **string**: 将选中的字段作为 JSON 字符串存到 `bin_name`
+- **kv**: 每个选中的字段存储为独立的 bin，此时不使用 `bin_name`
 
 当 `data_format` 为 `map` 或 `string` 时，必须配置 `bin_name`，否则写入器无法判断打包后的整行数据应该写入哪个 Aerospike bin。
 `key` 指定的字段必须存在于输入 schema 中，因为每次写入都会用它作为 Aerospike 记录主键。

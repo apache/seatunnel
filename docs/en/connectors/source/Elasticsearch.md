@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 Used to read data from Elasticsearch.
 
-support version >= 2.x and <= 8.x.
+support version >= 2.x and <= 9.x.
 
 ## Key features
 
@@ -24,7 +24,7 @@ support version >= 2.x and <= 8.x.
 | name                    | type    | required | default value                                                  |
 |-------------------------|---------|----------|----------------------------------------------------------------|
 | hosts                   | array   | yes      | -                                                              |
-| auth_type               | string  | no       | basic                                                          |
+| auth_type               | enum    | no       | basic                                                          |
 | username                | string  | no       | -                                                              |
 | password                | string  | no       | -                                                              |
 | auth.api_key_id         | string  | no       | -                                                              |
