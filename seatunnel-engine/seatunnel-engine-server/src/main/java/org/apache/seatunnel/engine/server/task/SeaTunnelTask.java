@@ -468,7 +468,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
      *
      * <p>Each lifecycle's {@link FlowLifeCycle#close()} is called in iteration order. If any
      * lifecycle throws an {@link IOException}, the error is collected but does not prevent the
-     * remaining lifecycles from being closed.
+     * remaining lifecycles from being closed. When {@link #init()} failed before the lifecycles
+     * were built, there are none to close.
      *
      * @throws IOException if the parent {@link AbstractTask#close()} or any lifecycle close fails
      */
@@ -480,7 +481,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
         } catch (IOException e) {
             closeException[0] = e;
         }
-        MDCTracer.tracing(allCycles.stream())
+        List<FlowLifeCycle> cycles = allCycles == null ? Collections.emptyList() : allCycles;
+        MDCTracer.tracing(cycles.stream())
                 .forEach(
                         flowLifeCycle -> {
                             try {

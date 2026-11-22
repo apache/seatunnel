@@ -363,20 +363,28 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      * Initializes the thread-share tasks of a task group and queues them for the cooperative
      * workers.
      *
-     * <p>Every task either reaches the queue or is reported done here. A task that fails {@code
-     * init()} records its error; the tasks after it, and every task once the group has failed or
-     * was cancelled, are not initialized. The completion latch of the group counts all its tasks,
-     * so a task that is neither queued nor done would keep the group from ever finishing: its
-     * context would stay published, a redeploy of the location would be skipped, and the job would
-     * hang.
+     * <p>Every task in {@code tasks} either reaches the queue or is reported done here. A task
+     * whose {@code init()} throws is closed, so that what it already created is released, and its
+     * error is recorded. Once the group has failed or was cancelled, the remaining tasks of this
+     * list are not initialized. A task whose {@code init()} is already running when a cancel
+     * arrives finishes {@code init()} and is queued, and a cooperative worker then reports it done.
+     * The blocking tasks of the same group are still started by {@link #submitBlockingTask} and
+     * stop once they see the failure. The completion latch of the group counts all its tasks, so a
+     * task that is neither queued nor done would keep the group from ever finishing: its context
+     * would stay published, a redeploy of the location would be skipped, and the job would hang.
      *
      * @param taskGroupExecutionTracker the tracker for the task group execution
-     * @param tasks the list of tasks to submit
+     * @param tasks the thread-share tasks of the group to submit
      */
     private void submitThreadShareTask(
             TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
         for (Task task : tasks) {
             if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
+                logger.info(
+                        String.format(
+                                "Skip init of task %d, task group %s has already failed or was cancelled",
+                                task.getTaskID(),
+                                taskGroupExecutionTracker.taskGroup.getTaskGroupLocation()));
                 taskGroupExecutionTracker.taskDone(task);
                 continue;
             }
@@ -384,10 +392,30 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 TaskTracker taskTracker = new TaskTracker(task, taskGroupExecutionTracker);
                 taskTracker.task.init();
                 threadShareTaskQueue.add(taskTracker);
-            } catch (Exception e) {
+            } catch (Throwable e) {
+                logger.warning("Exception in init of " + task, e);
+                closeTaskAfterFailedInit(task, e);
                 taskGroupExecutionTracker.exception(e);
                 taskGroupExecutionTracker.taskDone(task);
             }
+        }
+    }
+
+    /**
+     * Closes a thread-share task whose {@code init()} threw, as {@code BlockingWorker} does for a
+     * blocking task that did not finish: {@code init()} may have created part of the task, such as
+     * the reader of a source, before it failed. A failure to close is logged and added to {@code
+     * initFailure} as suppressed, so the error of {@code init()} stays the one that is reported.
+     *
+     * @param task the task whose {@code init()} threw
+     * @param initFailure the error thrown by {@code init()}
+     */
+    private void closeTaskAfterFailedInit(Task task, Throwable initFailure) {
+        try {
+            task.close();
+        } catch (Throwable closeFailure) {
+            logger.warning("Close task error after a failed init of " + task, closeFailure);
+            initFailure.addSuppressed(closeFailure);
         }
     }
 
