@@ -35,6 +35,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.mockserver.client.MockServerClient;
 import org.mockserver.model.ClearType;
 import org.mockserver.model.Format;
+import org.mockserver.model.HttpRequest;
 import org.postgresql.Driver;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -65,12 +66,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.given;
 import static org.mockserver.model.HttpRequest.request;
+import static org.mockserver.model.HttpResponse.response;
 
 @Slf4j
 public class HttpIT extends TestSuiteBase implements TestResource {
@@ -380,6 +383,32 @@ public class HttpIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/http_binary_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testMatomoDailyReports(TestContainer container)
+            throws IOException, InterruptedException {
+        HttpRequest reportRequest =
+                request()
+                        .withMethod("GET")
+                        .withPath("/matomo-report")
+                        .withQueryStringParameter("module", "API")
+                        .withQueryStringParameter("method", Pattern.quote("VisitsSummary.get"))
+                        .withQueryStringParameter("idSite", "1")
+                        .withQueryStringParameter("period", "day")
+                        .withQueryStringParameter("date", "2026-06-01,2026-06-02")
+                        .withQueryStringParameter("format", "JSON");
+        mockServerClient
+                .when(reportRequest)
+                .respond(
+                        response()
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(
+                                        "{\"2026-06-01\":{\"nb_visits\":9,\"nb_actions\":17},"
+                                                + "\"2026-06-02\":[]}"));
+        Container.ExecResult result = container.executeJob("/matomo_daily_to_assert.conf");
+        Assertions.assertEquals(0, result.getExitCode());
+        mockServerClient.verify(reportRequest);
     }
 
     @TestTemplate
