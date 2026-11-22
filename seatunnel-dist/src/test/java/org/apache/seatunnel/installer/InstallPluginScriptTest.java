@@ -195,7 +195,7 @@ public class InstallPluginScriptTest {
 
         int exitCode =
                 runInstaller(
-                        distribution, fakeBinaryDirectory, "3.1.0-SNAPSHOT", capturedArguments);
+                        distribution, fakeBinaryDirectory, "3.1.1-SNAPSHOT", capturedArguments);
 
         Assertions.assertEquals(0, exitCode);
         String arguments =
@@ -203,7 +203,7 @@ public class InstallPluginScriptTest {
         Assertions.assertTrue(arguments.contains("maven-dependency-plugin:3.1.1:copy"));
         Assertions.assertTrue(
                 arguments.contains(
-                        "-Dartifact=org.apache.seatunnel:connector-fake:3.1.0-SNAPSHOT:jar"));
+                        "-Dartifact=org.apache.seatunnel:connector-fake:3.1.1-SNAPSHOT:jar"));
         Assertions.assertTrue(
                 arguments.contains("-DoutputDirectory=" + distribution.resolve("connectors")));
     }
