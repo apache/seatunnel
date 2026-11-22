@@ -1,5 +1,5 @@
 ---
-sidebar_position: 1
+sidebar_position: 5
 ---
 
 import Tabs from '@theme/Tabs';
@@ -25,6 +25,19 @@ import TabItem from '@theme/TabItem';
 export version="3.1.0"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
+```
+
+在 Windows 上，可以从 [SeaTunnel下载页面](https://seatunnel.apache.org/download) 下载 `.tar.gz` 压缩包，
+然后使用 Windows 10 1803+ 自带的 `tar` 工具解压。archive.apache.org 上只发布 `.tar.gz` 包，
+没有 `.zip` 发布包：
+
+```powershell
+$version = "3.1.0"
+Invoke-WebRequest `
+  "https://archive.apache.org/dist/seatunnel/$version/apache-seatunnel-$version-bin.tar.gz" `
+  -OutFile "apache-seatunnel-$version-bin.tar.gz"
+tar -xzf "apache-seatunnel-$version-bin.tar.gz"
+Set-Location "apache-seatunnel-$version"
 ```
 
 ### 下载连接器插件

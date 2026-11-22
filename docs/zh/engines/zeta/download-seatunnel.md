@@ -39,7 +39,7 @@ sh bin/install-plugin.sh 3.1.0
 sh bin/install-plugin.sh 3.1.0
 ```
 
-通常您并不需要所有的连接器插件，所以您可以通过配置`config/plugin_config`来指定您所需要的插件，例如，您只需要`connector-console`插件，那么您可以修改plugin.properties配置文件如下
+通常您并不需要所有的连接器插件，所以您可以通过配置`config/plugin_config`来指定您所需要的插件，例如，您只需要`connector-console`插件，那么您可以修改plugin_config配置文件如下
 
 ```plugin_config
 --seatunnel-connectors--
@@ -56,7 +56,7 @@ connector-console
 --end--
 ```
 
-您可以在`${SEATUNNEL_HOME}/connectors/plugins-mapping.properties`下找到所有支持的连接器和相应的plugin_config配置名称。
+您可以在`${SEATUNNEL_HOME}/connectors/plugin-mapping.properties`下找到所有支持的连接器和相应的plugin_config配置名称。
 
 :::tip 提示
 
@@ -80,8 +80,10 @@ connector-console
 
 | artifactId                   | version      | Maven                                                                                                      |
 |------------------------------| ------------ |------------------------------------------------------------------------------------------------------------|
-| seatunnel-shade-hadoop3-uber | 3.1.4-3.0.0   | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop3-uber/3.1.4-3.0.0/seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar) |
-| seatunnel-shade-hadoop-aws   | 3.1.4-3.0.0 | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop-aws/3.1.4-3.0.0/seatunnel-shade-hadoop-aws-3.1.4-3.0.0.jar)   |
+| seatunnel-shade-hadoop3-uber | 3.1.4-3.0.1   | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop3-uber/3.1.4-3.0.1/seatunnel-shade-hadoop3-uber-3.1.4-3.0.1.jar) |
+| seatunnel-shade-hadoop-aws   | 3.1.4-3.0.1 | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop-aws/3.1.4-3.0.1/seatunnel-shade-hadoop-aws-3.1.4-3.0.1.jar)   |
+
+标准安装请使用 SeaTunnel 发行包 `lib/` 目录自带的 Hadoop Uber JAR。
 
 ### 重要说明
 
