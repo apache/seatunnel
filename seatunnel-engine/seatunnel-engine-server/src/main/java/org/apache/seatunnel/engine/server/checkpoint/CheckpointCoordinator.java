@@ -170,6 +170,10 @@ public class CheckpointCoordinator {
 
     private final AtomicInteger pendingCounter = new AtomicInteger(0);
 
+    // A savepoint can hold lock while waiting for pendingCounter to drain. Never take that
+    // coordinator-wide lock from completion; pair removal/decrement with cleanup's clear/reset.
+    private final Object pendingAccountingLock = new Object();
+
     /**
      * Indicates whether a schema change operation (e.g., DDL event) is currently in progress.
      *
@@ -992,6 +996,8 @@ public class CheckpointCoordinator {
 
     private void startTriggerPendingCheckpoint(
             CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
+        // Reserve before asynchronous completion can release this checkpoint.
+        pendingCounter.incrementAndGet();
         pendingCompletableFuture.thenAccept(
                 pendingCheckpoint -> {
                     LOG.info(
@@ -1083,7 +1089,6 @@ public class CheckpointCoordinator {
                                         TimeUnit.MILLISECONDS));
                     }
                 });
-        pendingCounter.incrementAndGet();
     }
 
     private CompletableFuture<PendingCheckpoint> createPendingCheckpoint(
@@ -1268,14 +1273,16 @@ public class CheckpointCoordinator {
                                     }
                                     pendingCheckpoint.abortCheckpoint(closedReason, null);
                                 });
-                // TODO: clear related future & scheduler task
+            }
+            // TODO: clear related future & scheduler task
+            synchronized (pendingAccountingLock) {
                 pendingCheckpoints.clear();
+                pendingCounter.set(0);
             }
             pipelineTaskStatus.clear();
             readyToCloseStartingTask.clear();
             readyToCloseIdleTask.clear();
             closedIdleTask.clear();
-            pendingCounter.set(0);
             schemaChanging.set(false);
             // Only remove the persisted ready-to-close state when the coordinator truly ends
             // (completed/failed/cancelled). During a reset (master failover), the IMap entry
@@ -1453,11 +1460,16 @@ public class CheckpointCoordinator {
         if (!notifyCompleted(completedCheckpoint)) {
             return;
         }
-        PendingCheckpoint pendingCheckpoint = pendingCheckpoints.remove(checkpointId);
+        PendingCheckpoint pendingCheckpoint;
+        synchronized (pendingAccountingLock) {
+            pendingCheckpoint = pendingCheckpoints.remove(checkpointId);
+            if (pendingCheckpoint != null) {
+                pendingCounter.decrementAndGet();
+            }
+        }
         if (pendingCheckpoint != null) {
             pendingCheckpoint.abortCheckpointTimeoutFutureWhenIsCompleted();
         }
-        pendingCounter.decrementAndGet();
 
         if (isCompleted()) {
             cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);
