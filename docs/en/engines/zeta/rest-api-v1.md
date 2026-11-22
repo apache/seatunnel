@@ -175,7 +175,7 @@ network:
 
 ```json
 {
-    "projectVersion":"3.1.0-SNAPSHOT",
+    "projectVersion":"3.1.1-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -639,7 +639,7 @@ When we can't get the job info, the response contains only the requested `jobId`
 ]
 ```
 
-Each member is asked in parallel and awaited against one shared deadline (`seatunnel.engine.health-metrics-timeout-seconds`, default `3` seconds). A member that does not answer in time is reported as `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}`; members whose request dispatch or response fails are reported with the corresponding `error` marker.
+Each member is asked in parallel and awaited against one shared deadline (`seatunnel.engine.health-metrics-timeout-seconds`, default `3` seconds). A member that does not answer in time is reported as `{"host": "10.0.0.1", "port": 5801, "error": "timeout"}`; members whose request dispatch or response fails are reported with the corresponding `error` marker. Healthy members additionally include `isMaster` and the connection details (`host`, `port`) shown in the example above.
 
 
 </details>

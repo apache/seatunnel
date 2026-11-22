@@ -19,10 +19,9 @@ UPDATE messages must contain a complete row image; partial updates containing on
 
 |            Option            | Default | Required |                                                                                                Description                                                                                                 |
 |------------------------------|---------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| format                       | (none)  | yes      | Specify what format to use, here should be '-json'.                                                                                                                                                        |
-| ogg_json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors.                                                                                                       |
-| ogg_json.database.include    | (none)  | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the Canal record. The pattern string is compatible with Java's Pattern. |
-| ogg_json.table.include       | (none)  | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the Canal record. The pattern string is compatible with Java's Pattern.       |
+| format                       | json    | yes      | Specify what format to use, here should be 'ogg_json'.                                                                                                                                                     |
+
+> **Note:** The prefixed keys `ogg_json.ignore-parse-errors`, `ogg_json.database.include`, and `ogg_json.table.include` are not valid configuration keys and have no effect. Whether unparseable records are skipped is decided by each connector (for example, the Kafka source always skips them for Ogg JSON), and the `database.include`/`table.include` filters of the format module are currently not wired to any connector.
 
 # How to Use Ogg format
 

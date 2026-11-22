@@ -38,6 +38,8 @@ import org.apache.paimon.privilege.PrivilegedCatalog;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -63,19 +65,29 @@ public class PaimonCatalogLoader implements Serializable {
     private PaimonHadoopConfiguration paimonHadoopConfiguration;
     protected String user;
     protected String password;
+    private final Map<String, String> restOptions;
+    private final Map<String, String> restStorageOptions;
 
     public PaimonCatalogLoader(PaimonConfig paimonConfig) {
         this.warehouse = paimonConfig.getWarehouse();
         this.catalogType = paimonConfig.getCatalogType();
         this.catalogUri = paimonConfig.getCatalogUri();
+        this.restStorageOptions =
+                catalogType == PaimonCatalogEnum.REST
+                        ? loadRestStorageOptions(paimonConfig)
+                        : new HashMap<>();
         this.paimonHadoopConfiguration = PaimonSecurityContext.loadHadoopConfig(paimonConfig);
         this.user = paimonConfig.getUser();
         this.password = paimonConfig.getPassword();
+        this.restOptions = new HashMap<>(paimonConfig.getRestOptions());
     }
 
     public Catalog loadCatalog() {
         // When using the seatunnel engine, set the current class loader to prevent loading failures
         Thread.currentThread().setContextClassLoader(PaimonCatalogLoader.class.getClassLoader());
+        if (catalogType == PaimonCatalogEnum.REST) {
+            return loadRestCatalog();
+        }
         final Map<String, String> optionsMap = new HashMap<>(1);
         optionsMap.put(CatalogOptions.WAREHOUSE.key(), warehouse);
         optionsMap.put(CatalogOptions.METASTORE.key(), catalogType.getType());
@@ -97,8 +109,75 @@ public class PaimonCatalogLoader implements Serializable {
             optionsMap.put(CatalogOptions.URI.key(), catalogUri);
             optionsMap.putAll(paimonHadoopConfiguration.getPropsWithPrefix(StringUtils.EMPTY));
         }
-        final Options options = Options.fromMap(optionsMap);
         PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
+        return createCatalog(optionsMap);
+    }
+
+    private Catalog loadRestCatalog() {
+        Map<String, String> storageOptions = new HashMap<>(restStorageOptions);
+        PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
+        if ("kerberos".equals(paimonHadoopConfiguration.get("hadoop.security.authentication"))) {
+            storageOptions.put("hadoop.security.authentication", "kerberos");
+        }
+        Map<String, String> optionsMap = new HashMap<>(storageOptions);
+        // RESTCatalog rebuilds its context from options after fetching server configuration.
+        storageOptions.forEach((key, value) -> optionsMap.put("hadoop." + key, value));
+        optionsMap.put(CatalogOptions.WAREHOUSE.key(), warehouse);
+        optionsMap.put(CatalogOptions.METASTORE.key(), catalogType.getType());
+        optionsMap.put(CatalogOptions.URI.key(), catalogUri);
+        optionsMap.putAll(restOptions);
+        if (StringUtils.isNotBlank(user) && StringUtils.isNotBlank(password)) {
+            optionsMap.put(PaimonBaseOptions.USER.key(), user);
+            optionsMap.put(PaimonBaseOptions.PASSWORD.key(), password);
+        }
+        return createCatalog(optionsMap);
+    }
+
+    private Map<String, String> loadRestStorageOptions(PaimonConfig config) {
+        Configuration explicit = new Configuration(false);
+        if (StringUtils.isNotBlank(config.getHdfsSitePath())) {
+            explicit.addResource(new org.apache.hadoop.fs.Path(config.getHdfsSitePath()));
+        }
+        if (StringUtils.isNotBlank(config.getHadoopConfPath())) {
+            for (String name : new String[] {"core-site.xml", "hdfs-site.xml", "hive-site.xml"}) {
+                java.nio.file.Path path = Paths.get(config.getHadoopConfPath(), name);
+                if (Files.exists(path)) {
+                    explicit.addResource(new org.apache.hadoop.fs.Path(path.toUri()));
+                }
+            }
+        }
+        Map<String, String> storage = new HashMap<>();
+        for (Map.Entry<String, String> entry : explicit) {
+            validateRestStorageKey(entry.getKey());
+            storage.put(entry.getKey(), entry.getValue());
+        }
+        config.getHadoopConfProps()
+                .forEach(
+                        (key, value) -> {
+                            validateRestStorageKey(key);
+                            storage.put(key, value);
+                        });
+        return storage;
+    }
+
+    private void validateRestStorageKey(String key) {
+        String option = key;
+        while (option.startsWith("hadoop.")) {
+            option = option.substring("hadoop.".length());
+        }
+        if (option.equals("uri")
+                || option.equals("warehouse")
+                || option.equals("metastore")
+                || option.equals("token")
+                || option.startsWith("token.")
+                || option.startsWith("dlf.")) {
+            throw new IllegalArgumentException(
+                    "REST catalog option is not allowed in Hadoop storage configuration: " + key);
+        }
+    }
+
+    private Catalog createCatalog(Map<String, String> optionsMap) {
+        final Options options = Options.fromMap(optionsMap);
         final CatalogContext catalogContext =
                 CatalogContext.create(options, paimonHadoopConfiguration);
         try {

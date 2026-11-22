@@ -21,8 +21,11 @@ UPDATE messages must contain a complete row image; partial updates containing on
 
 |              Option               | Default | Required |                                             Description                                              |
 |-----------------------------------|---------|----------|------------------------------------------------------------------------------------------------------|
-| format                            | (none)  | yes      | Specify what format to use, here should be 'debezium_json'.                                          |
-| debezium-json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors. |
+| format                            | json    | yes      | Specify what format to use, here should be 'debezium_json'.                                          |
+| debezium_record_include_schema    | true    | no       | Kafka source option. Whether the Debezium JSON record carries a schema envelope. Set to `false` when consuming schema-less Debezium JSON. |
+| debezium_record_table_filter      | (none)  | no       | Kafka source option. Filter the Debezium records by table identifier.                                 |
+
+> **Note:** The prefixed key `debezium-json.ignore-parse-errors` is not a valid configuration key and has no effect. Whether unparseable records are skipped is decided by each connector (for example, the Kafka source always skips them for Debezium JSON).
 
 # How To Use
 
