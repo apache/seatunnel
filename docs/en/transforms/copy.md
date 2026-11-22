@@ -12,6 +12,14 @@
 
 The Copy transform adds new fields by copying values from existing fields. The original fields remain in the output. Use it when downstream processing needs another field name while retaining the source field. In a multi-table job, you can set one transform-level rule and override it for individual tables.
 
+### Supported data types
+
+Copy supports the following column types: `boolean`, `tinyint`, `smallint`, `int`, `bigint`, `float`, `double`, `decimal`, `string`, `null`, `bytes`, `date`, `time`, `timestamp`, `timestamp_tz`, `array`, `map`, `row` and the vector types (`binary_vector`, `float_vector`, `float16_vector`, `bfloat16_vector`, `sparse_float_vector`).
+
+`bytes`, vector, `array`, `map` and `row` values are deep-copied, so later changes to the source field do not affect the copied field. Other values are immutable and are shared.
+
+Vector types are not supported on the Spark engine.
+
 ## Options
 
 | Name | Type | Required | Default | Description |
@@ -153,4 +161,5 @@ The complete job also demonstrates how to change between three configurations:
 ### new version
 
 - Add Copy Transform Connector
-- Support copying fields to new fields
+- Support copy fields to a new fields
+- Support timestamp_tz and vector types

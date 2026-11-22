@@ -12,7 +12,15 @@
 
 Copy 转换通过复制已有字段的值来增加新字段。输出中仍保留原字段。当下游需要使用另一个字段名，同时又需要保留原字段时，可以使用该转换。在多表作业中，可以设置外层规则，并为指定表配置优先使用的单独规则。
 
-## 选项
+### 支持的数据类型
+
+Copy 支持以下列类型：`boolean`、`tinyint`、`smallint`、`int`、`bigint`、`float`、`double`、`decimal`、`string`、`null`、`bytes`、`date`、`time`、`timestamp`、`timestamp_tz`、`array`、`map`、`row` 以及向量类型（`binary_vector`、`float_vector`、`float16_vector`、`bfloat16_vector`、`sparse_float_vector`）。
+
+`bytes`、向量、`array`、`map` 和 `row` 类型的值会被深拷贝，之后修改源字段不会影响复制出的字段。其他类型的值不可变，直接共享。
+
+Spark 引擎不支持向量类型。
+
+## 属性
 
 | 名称 | 类型 | 是否必填 | 默认值 | 描述 |
 |------|------|----------|--------|------|
@@ -154,3 +162,4 @@ sink {
 
 - 新增 Copy 转换插件
 - 支持将字段复制到新字段
+- 支持 timestamp_tz 和向量类型
