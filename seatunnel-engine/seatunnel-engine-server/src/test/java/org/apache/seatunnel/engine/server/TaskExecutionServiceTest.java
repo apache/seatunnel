@@ -20,9 +20,13 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.BlockTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
@@ -40,6 +44,8 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TestTask;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 
@@ -89,6 +95,7 @@ import static java.util.Collections.emptySet;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.FAILED;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.FINISHED;
+import static org.apache.seatunnel.engine.server.execution.ExecutionState.RUNNING;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -106,45 +113,107 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         FLAKE_ID_GENERATOR = instance.getFlakeIdGenerator("test");
     }
 
-    /**
-     * Verifies that a synchronous coordinator lookup gap does not escape the final task-state retry
-     * loop.
-     */
-    @Test
-    void testNotifyTaskStatusRetriesAfterCoordinatorGap() throws Exception {
-        TaskExecutionService taskExecutionService = Mockito.spy(server.getTaskExecutionService());
-        InvocationFuture<Object> successfulInvocation = Mockito.mock(InvocationFuture.class);
-        Mockito.when(successfulInvocation.get()).thenReturn(null);
-        Mockito.doThrow(new RetryableHazelcastException("coordinator unavailable"))
-                .doReturn(successfulInvocation)
-                .when(taskExecutionService)
-                .sendOperationToMaster(Mockito.any());
-        TaskGroupLocation location = new TaskGroupLocation(jobId, pipeLineId, 1);
-
-        taskExecutionService.notifyTaskStatusToMaster(
-                location, new TaskExecutionState(location, FINISHED));
-
-        Mockito.verify(taskExecutionService, Mockito.times(2)).sendOperationToMaster(Mockito.any());
+    @Override
+    public SeaTunnelConfig loadSeaTunnelConfig() {
+        SeaTunnelConfig config = super.loadSeaTunnelConfig();
+        // Keep periodic publication from satisfying these explicit reporting assertions.
+        config.getEngineConfig().setJobMetricsBackupInterval(3600);
+        return config;
     }
 
-    /**
-     * Verifies that one synchronous coordinator lookup gap returns normally and allows the next
-     * metrics reporting cycle to run.
-     */
+    /** A failed coordinator lookup must be retried and the coordinator must apply the state. */
+    @Test
+    void testNotifyTaskStatusRetriesAfterCoordinatorGap() throws Exception {
+        TaskExecutionService service = server.getTaskExecutionService();
+        TaskExecutionService worker = spyWithFirstCoordinatorLookupFailure(service);
+        long reportingJobId = FLAKE_ID_GENERATOR.newId();
+        PhysicalVertex vertex = null;
+        try {
+            vertex = startReportingJob(reportingJobId);
+            TaskGroupLocation location = vertex.getTaskGroupLocation();
+            assertEquals(RUNNING, vertex.getExecutionState());
+
+            worker.notifyTaskStatusToMaster(location, new TaskExecutionState(location, FINISHED));
+
+            assertEquals(FINISHED, vertex.getExecutionState());
+            Mockito.verify(worker, Mockito.times(2)).sendOperationToMaster(Mockito.any());
+        } finally {
+            try {
+                if (vertex != null) {
+                    // This test sends the terminal report directly; stop the original worker too.
+                    service.cancelTaskGroup(vertex.getTaskGroupLocation());
+                }
+            } finally {
+                server.getCoordinatorService().cancelJob(reportingJobId).get(20, TimeUnit.SECONDS);
+            }
+        }
+    }
+
+    /** One coordinator lookup gap is contained and the next report persists the worker counter. */
     @Test
     void testMetricsReportingContinuesAfterCoordinatorGap() throws Exception {
-        TaskExecutionService taskExecutionService = Mockito.spy(server.getTaskExecutionService());
-        InvocationFuture<Object> successfulInvocation = Mockito.mock(InvocationFuture.class);
-        Mockito.when(successfulInvocation.get()).thenReturn(null);
+        TaskExecutionService service = server.getTaskExecutionService();
+        TaskExecutionService worker = spyWithFirstCoordinatorLookupFailure(service);
+        long reportingJobId = FLAKE_ID_GENERATOR.newId();
+        try {
+            PhysicalVertex vertex = startReportingJob(reportingJobId);
+            SeaTunnelTask task =
+                    service.getActiveExecutionContext(vertex.getTaskGroupLocation()).getTaskGroup()
+                            .getTasks().stream()
+                            .filter(SeaTunnelTask.class::isInstance)
+                            .map(SeaTunnelTask.class::cast)
+                            .findFirst()
+                            .orElseThrow();
+            TaskLocation location = task.getTaskLocation();
+            String counterName = "coordinator-gap-test";
+            task.getMetricsContext().counter(counterName).inc(37L);
+            MetricsSnapshotStateStore snapshots =
+                    server.getEngineContext().getStateStores().metricsSnapshotStore();
+
+            worker.updateMetricsContextInImap();
+            Assertions.assertNull(snapshots.get(location));
+
+            worker.updateMetricsContextInImap();
+
+            SeaTunnelMetricsContext delivered = snapshots.get(location);
+            Assertions.assertNotNull(delivered, "The successful report must persist task metrics");
+            assertEquals(37L, delivered.counter(counterName).getCount());
+            Mockito.verify(worker, Mockito.times(2)).sendOperationToMaster(Mockito.any());
+        } finally {
+            server.getCoordinatorService().cancelJob(reportingJobId).get(20, TimeUnit.SECONDS);
+        }
+    }
+
+    private TaskExecutionService spyWithFirstCoordinatorLookupFailure(
+            TaskExecutionService service) {
+        TaskExecutionService worker = Mockito.spy(service);
         Mockito.doThrow(new RetryableHazelcastException("coordinator unavailable"))
-                .doReturn(successfulInvocation)
-                .when(taskExecutionService)
+                .doCallRealMethod()
+                .when(worker)
                 .sendOperationToMaster(Mockito.any());
+        return worker;
+    }
 
-        taskExecutionService.updateMetricsContextInImap();
-        taskExecutionService.updateMetricsContextInImap();
-
-        Mockito.verify(taskExecutionService, Mockito.times(2)).sendOperationToMaster(Mockito.any());
+    private PhysicalVertex startReportingJob(long reportingJobId) {
+        startJob(reportingJobId, "stream_fake_to_console_biginterval.conf", false);
+        CoordinatorService coordinator = server.getCoordinatorService();
+        await().atMost(20, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                assertEquals(
+                                        JobStatus.RUNNING,
+                                        coordinator.getJobStatus(reportingJobId)));
+        PhysicalVertex vertex =
+                coordinator
+                        .getJobMaster(reportingJobId)
+                        .getPhysicalPlan()
+                        .getPipelineList()
+                        .get(0)
+                        .getPhysicalVertexList()
+                        .get(0);
+        await().atMost(20, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertEquals(RUNNING, vertex.getExecutionState()));
+        return vertex;
     }
 
     /**

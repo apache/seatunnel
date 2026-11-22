@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -36,9 +37,10 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
 /**
  * Covers atomic shared connector jar cleanup claims while uploads reserve new references.
@@ -111,36 +113,6 @@ public class SharedConnectorJarStorageStrategyTest {
     }
 
     /**
-     * Verifies that one failed physical deletion does not terminate later cleanup timer cycles.
-     *
-     * <p>The failed jar remains eligible for a later cleanup attempt.
-     */
-    @Test
-    void testCleanupTaskContainsPerJarDeletionFailure() {
-        ConnectorJarIdentifier identifier =
-                ConnectorJarIdentifier.of(
-                        ConnectorJarType.CONNECTOR_PLUGIN_JAR,
-                        "test.jar",
-                        tempDir.resolve("test.jar").toString());
-        RefCount zeroReference = new RefCount();
-        @SuppressWarnings("unchecked")
-        IMap<ConnectorJarIdentifier, RefCount> refCounts = Mockito.mock(IMap.class);
-        Mockito.when(refCounts.entrySet())
-                .thenReturn(
-                        java.util.Collections.singletonMap(identifier, zeroReference).entrySet());
-        @SuppressWarnings("unchecked")
-        Consumer<ConnectorJarIdentifier> cleanupCallback = Mockito.mock(Consumer.class);
-        Mockito.doThrow(new SeaTunnelEngineException("remote deletion failed"))
-                .when(cleanupCallback)
-                .accept(identifier);
-        SharedConnectorJarCleanupTask cleanupTask =
-                new SharedConnectorJarCleanupTask(cleanupCallback, refCounts);
-
-        Assertions.assertDoesNotThrow(cleanupTask::run);
-        Mockito.verify(cleanupCallback).accept(identifier);
-    }
-
-    /**
      * Verifies that rollback retains a zero-reference tombstone for cluster-wide timer cleanup.
      *
      * <p>The tombstone keeps partial remote replicas discoverable until every copy is removed.
@@ -206,12 +178,11 @@ public class SharedConnectorJarStorageStrategyTest {
     }
 
     /**
-     * Verifies that a failed remote cleanup restores the tombstone for the next timer cycle.
-     *
-     * <p>The retry must attempt remote deletion again even after the local copy was removed.
+     * Verifies that a failed remote cleanup retains its tombstone, lets deletion of the next jar
+     * proceed, and retries the failed replica on the next timer cycle.
      */
     @Test
-    void testRemoteCleanupFailureRestoresTombstoneForRetry() throws Exception {
+    void testCleanupTaskContainsPerJarDeletionFailure() throws Exception {
         ConnectorJarStorageConfig storageConfig = new ConnectorJarStorageConfig();
         storageConfig.setStoragePath(tempDir.toString());
         storageConfig.setCleanupTaskInterval(3600);
@@ -220,7 +191,7 @@ public class SharedConnectorJarStorageStrategyTest {
         HazelcastInstanceImpl hazelcastInstance = Mockito.mock(HazelcastInstanceImpl.class);
         @SuppressWarnings("unchecked")
         IMap<ConnectorJarIdentifier, RefCount> refCounts = Mockito.mock(IMap.class);
-        Map<ConnectorJarIdentifier, RefCount> backingMap = new HashMap<>();
+        Map<ConnectorJarIdentifier, RefCount> backingMap = new LinkedHashMap<>();
         Mockito.when(server.getNodeEngine()).thenReturn(nodeEngine);
         Mockito.when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
         Mockito.when(
@@ -242,6 +213,9 @@ public class SharedConnectorJarStorageStrategyTest {
                             }
                             return result;
                         });
+        // Iterate a stable, insertion-ordered snapshot like IMap.entrySet().
+        Mockito.when(refCounts.entrySet())
+                .thenAnswer(invocation -> new LinkedHashMap<>(backingMap).entrySet());
         Mockito.when(refCounts.put(Mockito.any(), Mockito.any()))
                 .thenAnswer(
                         invocation ->
@@ -256,6 +230,11 @@ public class SharedConnectorJarStorageStrategyTest {
                         "retry-test.jar",
                         jarPath.toString());
         backingMap.put(identifier, new RefCount());
+        Path nextJarPath = Files.write(tempDir.resolve("next.jar"), new byte[] {2});
+        ConnectorJarIdentifier nextIdentifier =
+                ConnectorJarIdentifier.of(
+                        ConnectorJarType.CONNECTOR_PLUGIN_JAR, "next.jar", nextJarPath.toString());
+        backingMap.put(nextIdentifier, new RefCount());
         SharedConnectorJarStorageStrategy strategy =
                 Mockito.spy(new SharedConnectorJarStorageStrategy(storageConfig, server));
         SeaTunnelEngineException remoteFailure =
@@ -265,20 +244,37 @@ public class SharedConnectorJarStorageStrategyTest {
                 .when(strategy)
                 .deleteConnectorJarInExecutionNode(identifier);
 
-        SeaTunnelEngineException firstAttempt =
-                Assertions.assertThrows(
-                        SeaTunnelEngineException.class,
-                        () -> strategy.deleteConnectorJar(identifier));
+        Mockito.doNothing().when(strategy).deleteConnectorJarInExecutionNode(nextIdentifier);
+        AtomicReference<SeaTunnelEngineException> firstFailure = new AtomicReference<>();
+        SharedConnectorJarCleanupTask cleanupTask =
+                new SharedConnectorJarCleanupTask(
+                        candidate -> {
+                            try {
+                                strategy.deleteConnectorJar(candidate);
+                            } catch (SeaTunnelEngineException failure) {
+                                firstFailure.compareAndSet(null, failure);
+                                throw failure;
+                            }
+                        },
+                        refCounts);
 
-        Assertions.assertSame(remoteFailure, firstAttempt);
+        Assertions.assertDoesNotThrow(cleanupTask::run);
+
+        Assertions.assertSame(remoteFailure, firstFailure.get());
         Assertions.assertNotNull(backingMap.get(identifier));
         Assertions.assertEquals(0L, backingMap.get(identifier).getReferences());
-        Assertions.assertFalse(Files.exists(jarPath));
+        Assertions.assertTrue(Files.notExists(jarPath));
+        Assertions.assertNull(backingMap.get(nextIdentifier));
+        Assertions.assertTrue(Files.notExists(nextJarPath));
+        InOrder deletionOrder = Mockito.inOrder(strategy);
+        deletionOrder.verify(strategy).deleteConnectorJarInExecutionNode(identifier);
+        deletionOrder.verify(strategy).deleteConnectorJarInExecutionNode(nextIdentifier);
 
-        strategy.deleteConnectorJar(identifier);
+        cleanupTask.run();
 
         Assertions.assertNull(backingMap.get(identifier));
         Mockito.verify(strategy, Mockito.times(2)).deleteConnectorJarInExecutionNode(identifier);
+        Mockito.verify(strategy).deleteConnectorJarInExecutionNode(nextIdentifier);
         Mockito.verify(refCounts, Mockito.times(2)).lock(identifier);
         Mockito.verify(refCounts, Mockito.times(2)).unlock(identifier);
     }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.operation;
 
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
@@ -26,7 +27,11 @@ import org.apache.seatunnel.engine.server.service.jar.ServerConnectorPackageClie
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 /**
  * Covers connector jar replication and cleanup operations on coordinator-only server members.
@@ -40,16 +45,18 @@ public class ConnectorJarOperationTest {
      * task service is absent.
      */
     @Test
-    void testStoresAndDeletesJarOnCoordinatorOnlyMember() throws Exception {
+    void testStoresAndDeletesJarOnCoordinatorOnlyMember(@TempDir Path tempDir) throws Exception {
+        Path jarPath = tempDir.resolve("connectors/test.jar");
         byte[] jarData = new byte[] {1, 2, 3};
         ConnectorJar connectorJar =
                 ConnectorJar.createConnectorJar(
                         ConnectorJarType.CONNECTOR_PLUGIN_JAR, jarData, "test.jar");
         ConnectorJarIdentifier identifier =
                 ConnectorJarIdentifier.of(
-                        ConnectorJarType.CONNECTOR_PLUGIN_JAR, "test.jar", "/tmp/test.jar");
+                        ConnectorJarType.CONNECTOR_PLUGIN_JAR, "test.jar", jarPath.toString());
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
-        ServerConnectorPackageClient client = Mockito.mock(ServerConnectorPackageClient.class);
+        ServerConnectorPackageClient client =
+                Mockito.spy(new ServerConnectorPackageClient(null, new SeaTunnelConfig()));
         Mockito.when(server.getTaskExecutionService()).thenReturn(null);
         Mockito.when(server.getServerConnectorPackageClient()).thenReturn(client);
 
@@ -58,10 +65,14 @@ public class ConnectorJarOperationTest {
         sendOperation.setService(server);
         sendOperation.run();
 
+        Assertions.assertArrayEquals(jarData, Files.readAllBytes(jarPath));
+
         DeleteConnectorJarInExecutionNode deleteOperation =
                 new DeleteConnectorJarInExecutionNode(identifier);
         deleteOperation.setService(server);
         deleteOperation.run();
+
+        Assertions.assertTrue(Files.notExists(jarPath));
 
         Mockito.verify(client).storageConnectorJarFile(jarData, identifier);
         Mockito.verify(client).deleteConnectorJar(identifier);
