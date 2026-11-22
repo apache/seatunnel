@@ -188,9 +188,13 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
                             jsonConverter.toConnectData("topic", historyTableChanges.get(tableId));
                     Struct deserializedStruct = (Struct) schemaAndValue.value();
 
+                    // The split key preserves the namespace even when history has only two parts.
+                    boolean useCatalogBeforeSchema =
+                            tableId.catalog() != null && !tableId.catalog().isEmpty();
                     TableChanges tableChanges =
                             tableChangeSerializer.deserialize(
-                                    Collections.singletonList(deserializedStruct), false);
+                                    Collections.singletonList(deserializedStruct),
+                                    useCatalogBeforeSchema);
 
                     Iterator<TableChanges.TableChange> iterator = tableChanges.iterator();
                     TableChanges.TableChange tableChange = null;
