@@ -405,7 +405,13 @@ public class JobInfoService extends BaseService {
         try {
             JobImmutableInformation obj = nodeEngine.getSerializationService().toObject(data);
             return obj == null ? null : new JobBasicInfo(obj.getJobName(), obj.getCreateTime());
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            // The result is not cached, so this is logged on every summary request for the job.
+            log.warn(
+                    "Failed to decode job basic info for job {}, data size {} bytes, the summary shows the job id as its name: {}",
+                    jobId,
+                    data.totalSize(),
+                    e.toString());
             return null;
         }
     }
