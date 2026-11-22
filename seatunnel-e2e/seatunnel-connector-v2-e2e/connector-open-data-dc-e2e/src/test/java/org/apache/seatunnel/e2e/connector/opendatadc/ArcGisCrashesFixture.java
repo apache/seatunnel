@@ -43,7 +43,8 @@ final class ArcGisCrashesFixture implements AutoCloseable {
         RECOVER,
         ARCGIS_ERROR,
         THROTTLE_EXHAUST,
-        EMPTY_EXHAUST
+        EMPTY_EXHAUST,
+        REDIRECT
     }
 
     private Mode mode;
@@ -89,6 +90,13 @@ final class ArcGisCrashesFixture implements AutoCloseable {
 
             String body;
             if ("1=1".equals(where) && queryMatches(params, "OBJECTID", "OBJECTID DESC", "1")) {
+                if (mode == Mode.REDIRECT) {
+                    // Redirect back to the same query: following it would make extra requests.
+                    exchange.getResponseHeaders()
+                            .set("Location", exchange.getRequestURI().toString());
+                    exchange.sendResponseHeaders(302, -1);
+                    return;
+                }
                 if (mode == Mode.RECOVER && "0".equals(offset)) {
                     body = emptyWindow();
                 } else if (mode == Mode.RECOVER ? "1".equals(offset) : "0".equals(offset)) {

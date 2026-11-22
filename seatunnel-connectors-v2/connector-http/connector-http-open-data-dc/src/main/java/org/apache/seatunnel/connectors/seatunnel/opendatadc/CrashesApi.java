@@ -20,10 +20,20 @@ package org.apache.seatunnel.connectors.seatunnel.opendatadc;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.http.Header;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.NoConnectionReuseStrategy;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.SystemDefaultRoutePlanner;
+
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.ProxySelector;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -31,8 +41,12 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
-class CrashesApi {
+class CrashesApi implements Closeable {
     static final String ENDPOINT =
             "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/"
                     + "Public_Safety_WebMercator/MapServer/24/query";
@@ -44,13 +58,71 @@ class CrashesApi {
     private static final long MAX_RETRY_AFTER_MS = 5000;
 
     private final String endpoint;
+    private final CloseableHttpClient client;
+    private final AtomicReference<HttpGet> inFlight = new AtomicReference<>();
+    // The latch is both the sticky cancellation flag and the wake-up for Retry-After.
+    private final CountDownLatch cancelled = new CountDownLatch(1);
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     CrashesApi() {
         this(ENDPOINT);
     }
 
     CrashesApi(String endpoint) {
+        this(endpoint, ProxySelector.getDefault());
+    }
+
+    CrashesApi(String endpoint, ProxySelector proxySelector) {
         this.endpoint = endpoint;
+        this.client =
+                HttpClients.custom()
+                        .useSystemProperties()
+                        .setRoutePlanner(new SystemDefaultRoutePlanner(proxySelector))
+                        .setDefaultRequestConfig(
+                                RequestConfig.custom()
+                                        .setConnectTimeout(10000)
+                                        .setSocketTimeout(30000)
+                                        .setConnectionRequestTimeout(10000)
+                                        .build())
+                        // Each GET is independent; the server or a proxy can close its connection
+                        // after a page or a retryable response.
+                        .setConnectionReuseStrategy(NoConnectionReuseStrategy.INSTANCE)
+                        .disableRedirectHandling()
+                        .disableAutomaticRetries()
+                        .disableCookieManagement()
+                        .disableAuthCaching()
+                        .disableContentCompression()
+                        .build();
+    }
+
+    void cancel() {
+        cancelled.countDown();
+        HttpGet request = inFlight.get();
+        if (request != null) {
+            request.abort();
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        cancel();
+        if (closed.compareAndSet(false, true)) {
+            client.close();
+        }
+    }
+
+    boolean isCancelled() {
+        return cancelled.getCount() == 0;
+    }
+
+    private void checkNotCancelled() throws IOException {
+        if (isCancelled()) {
+            throw cancelledRequest();
+        }
+    }
+
+    private static IOException cancelledRequest() {
+        return new IOException("Open Data DC source was cancelled");
     }
 
     long readUpperBound() throws IOException {
@@ -73,20 +145,19 @@ class CrashesApi {
         // MapServer may report an empty candidate window even though more results remain.
         // Keep the exact predicate, order and width while moving one complete window at a time.
         for (int window = 0; window <= MAX_EMPTY_WINDOWS; window++) {
-            URL url =
-                    new URL(
-                            endpoint
-                                    + "?f=json&returnGeometry=false"
-                                    + "&where="
-                                    + URLEncoder.encode(filter, StandardCharsets.UTF_8.name())
-                                    + "&outFields="
-                                    + URLEncoder.encode(fields, StandardCharsets.UTF_8.name())
-                                    + "&orderByFields="
-                                    + URLEncoder.encode(sort, StandardCharsets.UTF_8.name())
-                                    + "&resultRecordCount="
-                                    + size
-                                    + "&resultOffset="
-                                    + (window * size));
+            String url =
+                    endpoint
+                            + "?f=json&returnGeometry=false"
+                            + "&where="
+                            + URLEncoder.encode(filter, StandardCharsets.UTF_8.name())
+                            + "&outFields="
+                            + URLEncoder.encode(fields, StandardCharsets.UTF_8.name())
+                            + "&orderByFields="
+                            + URLEncoder.encode(sort, StandardCharsets.UTF_8.name())
+                            + "&resultRecordCount="
+                            + size
+                            + "&resultOffset="
+                            + (window * size);
             JsonNode result = get(url);
             if (!result.get("features").isEmpty()
                     || !result.path("exceededTransferLimit").asBoolean()) {
@@ -96,41 +167,57 @@ class CrashesApi {
         throw new IOException("Open Data DC MapServer returned too many consecutive empty windows");
     }
 
-    private JsonNode get(URL url) throws IOException {
+    private JsonNode get(String url) throws IOException {
         for (int attempt = 1; attempt <= MAX_THROTTLE_ATTEMPTS; attempt++) {
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(10000);
-            connection.setReadTimeout(30000);
-            connection.setInstanceFollowRedirects(false);
+            HttpGet request = new HttpGet(url);
+            // Publish before checking cancellation: cancel() either aborts this request, or the
+            // sticky flag prevents it from ever being executed.
+            inFlight.set(request);
             long retryDelay;
             try {
-                int code = connection.getResponseCode();
-                if (code == HttpURLConnection.HTTP_OK) {
-                    try (InputStream stream = connection.getInputStream()) {
-                        return parse(stream);
+                checkNotCancelled();
+                try (CloseableHttpResponse response = client.execute(request)) {
+                    int code = response.getStatusLine().getStatusCode();
+                    if (code == HttpStatus.SC_OK) {
+                        if (response.getEntity() == null) {
+                            throw new IOException("Open Data DC returned HTTP 200 without a body");
+                        }
+                        return parse(response.getEntity().getContent());
                     }
+                    if (code != 429 || attempt == MAX_THROTTLE_ATTEMPTS) {
+                        throw new IOException("Open Data DC returned HTTP " + code);
+                    }
+                    Header retryAfter = response.getFirstHeader("Retry-After");
+                    retryDelay =
+                            retryDelayMillis(
+                                    retryAfter == null ? null : retryAfter.getValue(),
+                                    Instant.now(),
+                                    500L * attempt);
                 }
-                if (code != 429 || attempt == MAX_THROTTLE_ATTEMPTS) {
-                    throw new IOException("Open Data DC returned HTTP " + code);
+            } catch (IllegalStateException e) {
+                // HttpClient checks its connection pool before it checks whether the request was
+                // aborted. A concurrent close can therefore surface a pool-shutdown error.
+                if (closed.get() && request.isAborted()) {
+                    throw new IOException("Open Data DC source was cancelled", e);
                 }
-                retryDelay =
-                        retryDelayMillis(
-                                connection.getHeaderField("Retry-After"),
-                                Instant.now(),
-                                500L * attempt);
+                throw e;
             } finally {
-                connection.disconnect();
+                inFlight.compareAndSet(request, null);
             }
-            try {
-                Thread.sleep(retryDelay);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IOException(
-                        "Interrupted while waiting to retry Open Data DC HTTP 429", e);
-            }
+            awaitRetry(retryDelay);
         }
         throw new IOException("Open Data DC returned HTTP 429");
+    }
+
+    void awaitRetry(long retryDelay) throws IOException {
+        try {
+            if (cancelled.await(retryDelay, TimeUnit.MILLISECONDS)) {
+                throw cancelledRequest();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while waiting to retry Open Data DC HTTP 429", e);
+        }
     }
 
     static long retryDelayMillis(String header, Instant now, long fallback) throws IOException {

@@ -137,6 +137,21 @@ public class OpenDataDcIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(expected, fixture.getQueries());
     }
 
+    @TestTemplate
+    public void rejectsRedirectWithoutMakingAnotherRequest(TestContainer container)
+            throws Exception {
+        Assumptions.assumeTrue(container.identifier() == TestContainerId.SEATUNNEL);
+        fixture.reset(ArcGisCrashesFixture.Mode.REDIRECT);
+        String jobId = Long.toString(System.currentTimeMillis());
+        Container.ExecResult result = execute(container, jobId);
+        Assertions.assertNotEquals(0, result.getExitCode());
+        Assertions.assertEquals("FAILED", container.getJobStatus(jobId));
+        Assertions.assertTrue(
+                (result.getStdout() + result.getStderr())
+                        .contains("Open Data DC returned HTTP 302"));
+        Assertions.assertEquals(Arrays.asList("1=1 @0"), fixture.getQueries());
+    }
+
     private Container.ExecResult execute(TestContainer container, String jobId)
             throws IOException, InterruptedException {
         return container.executeJob(CONF, jobId, "open_data_dc.test.port=" + fixture.getPort());

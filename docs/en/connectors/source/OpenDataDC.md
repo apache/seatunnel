@@ -54,6 +54,7 @@ If an HTTP error triggers a job retry without a recoverable checkpoint, earlier 
 
 HTTP 429 retries only the same GET, at most twice. A valid `Retry-After` up to five seconds is honored; a longer
 delay fails rather than retrying early. The retry budget is per request and does not change the job-level replay behavior.
+When Zeta cancels the job, the source aborts an active HTTP request and stops waiting for a pending HTTP 429 retry.
 
 ```hocon
 env {

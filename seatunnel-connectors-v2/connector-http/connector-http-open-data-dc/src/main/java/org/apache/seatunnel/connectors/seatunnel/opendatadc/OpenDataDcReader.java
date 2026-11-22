@@ -59,13 +59,32 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     public void open() {}
 
     @Override
-    public void close() {}
+    public void cancel() {
+        api.cancel();
+    }
+
+    @Override
+    public void close() throws IOException {
+        api.close();
+    }
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws IOException {
-        if (noMoreSplits) {
+        if (noMoreSplits || api.isCancelled()) {
             return;
         }
+        try {
+            pollPage(output);
+        } catch (IOException e) {
+            // Aborting the transport wakes polling with an I/O error. Do not report that as
+            // an HTTP failure or a normal end-of-input when the engine is already canceling.
+            if (!api.isCancelled()) {
+                throw e;
+            }
+        }
+    }
+
+    private void pollPage(Collector<SeaTunnelRow> output) throws IOException {
         final long bound = upperBound < 0 ? api.readUpperBound() : upperBound;
         final int size = maxRows == 0 ? pageSize : (int) Math.min(pageSize, maxRows - rowCount);
         long pageLastId = lastId;
@@ -89,6 +108,11 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             }
         }
         synchronized (output.getCheckpointLock()) {
+            // Do not publish a fetched page if cancellation won before the commit. Once emission
+            // starts, keep the page and its cursor update atomic with respect to a checkpoint.
+            if (api.isCancelled()) {
+                return;
+            }
             for (SeaTunnelRow row : rows) {
                 output.collect(row);
             }
@@ -99,7 +123,9 @@ final class OpenDataDcReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             // bound.
             if (rows.isEmpty() || lastId == bound || (maxRows > 0 && rowCount == maxRows)) {
                 noMoreSplits = true;
-                context.signalNoMoreElement();
+                if (!api.isCancelled()) {
+                    context.signalNoMoreElement();
+                }
             }
         }
     }

@@ -51,6 +51,7 @@ limitations under the License.
 
 遇到 HTTP 429 时仅重试同一个 GET 请求，最多两次。有效且不超过 5 秒的 `Retry-After` 会被遵守；超过 5 秒则失败而非提前重试。
 该限制按请求计算，不改变任务级重试可能造成的重放。
+Zeta 取消任务时，数据源会中止正在执行的 HTTP 请求，并结束 HTTP 429 重试前的等待。
 
 ```hocon
 env {
