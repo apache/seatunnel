@@ -378,7 +378,10 @@ public class ConfigBuilder {
                         mapValue.put(
                                 innerKey,
                                 processVariablesList(
-                                        (List<?>) innerValue, userConfigMap, defaultConfigMap));
+                                        innerKey,
+                                        (List<?>) innerValue,
+                                        userConfigMap,
+                                        defaultConfigMap));
                     } else {
                         processVariable(
                                 innerKey, innerValue, mapValue, userConfigMap, defaultConfigMap);
@@ -387,7 +390,10 @@ public class ConfigBuilder {
     }
 
     private static List<?> processVariablesList(
-            List<?> list, Map<String, String> userConfigMap, Map<String, String> defaultConfigMap) {
+            String key,
+            List<?> list,
+            Map<String, String> userConfigMap,
+            Map<String, String> defaultConfigMap) {
         return list.stream()
                 .map(
                         variable -> {
@@ -410,9 +416,14 @@ public class ConfigBuilder {
                                             return parseValue(rawUserValue);
                                         } else if (isStructured(replacedValue)) {
                                             return parseStructured(replacedValue);
+                                        } else {
+                                            return StringUtils.unwrap(replacedValue, "\"");
                                         }
                                     }
-                                    return StringUtils.unwrap(replacedValue, "\"");
+                                    // Mixed text: keep the assembled value as-is. Boundary quotes
+                                    // here are intentional content (e.g. SQL/filter literals), not
+                                    // standalone type syntax.
+                                    return replacedValue;
                                 }
 
                             } else if (variable instanceof Map) {
@@ -423,7 +434,7 @@ public class ConfigBuilder {
                                 return variable;
                             } else if (variable instanceof List) {
                                 return processVariablesList(
-                                        (List<?>) variable, userConfigMap, defaultConfigMap);
+                                        key, (List<?>) variable, userConfigMap, defaultConfigMap);
                             }
                             return variable;
                         })
@@ -460,7 +471,9 @@ public class ConfigBuilder {
                     variableValue = StringUtils.unwrap(replacedValue, "\"");
                 }
             } else {
-                variableValue = StringUtils.unwrap(replacedValue, "\"");
+                // Mixed text: keep the assembled value as-is. Boundary quotes here are
+                // intentional content (e.g. SQL/filter literals), not standalone type syntax.
+                variableValue = replacedValue;
             }
             parentMap.put(variableKey, variableValue);
         }
