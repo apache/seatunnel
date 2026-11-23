@@ -20,9 +20,12 @@ package org.apache.seatunnel.e2e.connector.doris;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
@@ -40,12 +43,14 @@ import java.math.BigDecimal;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -260,6 +265,70 @@ public class DorisIT extends AbstractDorisIT {
         Container.ExecResult execResult1 = container.executeJob("/doris_source_no_schema.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
         checkSinkData();
+    }
+
+    /**
+     * A FE port that silently drops SYN packets must make source startup/planning fail within the
+     * configured connect timeout instead of hanging the job. The catalog JDBC connection still uses
+     * the reachable query port on the same host, so only the RestService request path is
+     * black-holed: without the fix the job waits for the kernel SYN retries, with it the planning
+     * failure propagates as REST_SERVICE_FAILED.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "flink/spark failed reason not same")
+    public void testSourceFailsFastWhenFeUnreachable(TestContainer container) throws Exception {
+        initializeJdbcTable();
+        String dorisPid = String.valueOf(this.container.getContainerInfo().getState().getPid());
+        // The Doris image ships no iptables binary, so run the host's iptables inside the
+        // container's network namespace: every packet the container receives traverses INPUT,
+        // which turns the otherwise refused port 9999 into a silent SYN black hole.
+        hostIptables(dorisPid, "-A");
+        try {
+            Container.ExecResult execResult =
+                    Assertions.assertTimeoutPreemptively(
+                            Duration.ofSeconds(60),
+                            () -> container.executeJob("/doris_source_fe_unreachable.conf"));
+            Assertions.assertNotEquals(0, execResult.getExitCode());
+            Assertions.assertTrue(
+                    execResult
+                            .getStderr()
+                            .contains(DorisConnectorErrorCode.REST_SERVICE_FAILED.getCode()),
+                    "expected REST_SERVICE_FAILED in the job output:\n" + execResult.getStderr());
+            Assertions.assertTrue(
+                    execResult.getStderr().contains("connect timed out"),
+                    "expected the configured connect timeout to fire:\n" + execResult.getStderr());
+        } finally {
+            hostIptables(dorisPid, "-D");
+        }
+    }
+
+    private void hostIptables(String dorisPid, String action)
+            throws IOException, InterruptedException {
+        Process process =
+                new ProcessBuilder(
+                                "sudo",
+                                "nsenter",
+                                "-t",
+                                dorisPid,
+                                "-n",
+                                "iptables",
+                                action,
+                                "INPUT",
+                                "-p",
+                                "tcp",
+                                "--dport",
+                                "9999",
+                                "-j",
+                                "DROP")
+                        .redirectErrorStream(true)
+                        .start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        int exitCode = process.waitFor();
+        Assertions.assertEquals(
+                0, exitCode, "failed to update the container INPUT chain: " + output);
     }
 
     @TestTemplate

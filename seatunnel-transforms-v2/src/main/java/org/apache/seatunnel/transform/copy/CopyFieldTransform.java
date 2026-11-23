@@ -31,6 +31,8 @@ import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import java.lang.reflect.Array;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -141,12 +143,28 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
             case DATE:
             case TIME:
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 return value;
             case BYTES:
                 byte[] bytes = (byte[]) value;
                 byte[] newBytes = new byte[bytes.length];
                 System.arraycopy(bytes, 0, newBytes, 0, bytes.length);
                 return newBytes;
+            case BINARY_VECTOR:
+            case FLOAT_VECTOR:
+            case FLOAT16_VECTOR:
+            case BFLOAT16_VECTOR:
+                if (!(value instanceof ByteBuffer)) {
+                    throw CommonError.unsupportedDataType(
+                            getPluginName(), dataType.getSqlType().toString(), field);
+                }
+                return cloneByteBuffer((ByteBuffer) value);
+            case SPARSE_FLOAT_VECTOR:
+                if (!(value instanceof Map)) {
+                    throw CommonError.unsupportedDataType(
+                            getPluginName(), dataType.getSqlType().toString(), field);
+                }
+                return new HashMap<>((Map<?, ?>) value);
             case ARRAY:
                 ArrayType arrayType = (ArrayType) dataType;
                 Object[] array = (Object[]) value;
@@ -167,26 +185,41 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
                 }
                 return newMap;
             case ROW:
-                SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
-                SeaTunnelRow row = (SeaTunnelRow) value;
-
-                Object[] newFields = new Object[rowType.getTotalFields()];
-                for (int i = 0; i < rowType.getTotalFields(); i++) {
-                    newFields[i] =
-                            clone(
-                                    rowType.getFieldName(i),
-                                    rowType.getFieldType(i),
-                                    row.getField(i));
-                }
-                SeaTunnelRow newRow = new SeaTunnelRow(newFields);
-                newRow.setRowKind(row.getRowKind());
-                newRow.setTableId(row.getTableId());
-                return newRow;
+                return cloneRow((SeaTunnelRowType) dataType, (SeaTunnelRow) value);
             case NULL:
                 return null;
             default:
                 throw CommonError.unsupportedDataType(
                         getPluginName(), dataType.getSqlType().toString(), field);
         }
+    }
+
+    /**
+     * Copies all bytes up to capacity, regardless of position and limit, into a new heap buffer
+     * positioned at 0, keeping the byte order. The source buffer is not modified.
+     */
+    private ByteBuffer cloneByteBuffer(ByteBuffer value) {
+        ByteBuffer source = value.duplicate();
+        ((Buffer) source).clear();
+        ByteBuffer clone = ByteBuffer.allocate(source.capacity());
+        clone.order(value.order());
+        clone.put(source);
+        ((Buffer) clone).flip();
+        return clone;
+    }
+
+    /**
+     * Recursively copies fields using the row schema and retains the row kind and table ID. The new
+     * field array isolates mutable values according to their declared SeaTunnel types.
+     */
+    private SeaTunnelRow cloneRow(SeaTunnelRowType rowType, SeaTunnelRow row) {
+        Object[] newFields = new Object[rowType.getTotalFields()];
+        for (int i = 0; i < rowType.getTotalFields(); i++) {
+            newFields[i] = clone(rowType.getFieldName(i), rowType.getFieldType(i), row.getField(i));
+        }
+        SeaTunnelRow newRow = new SeaTunnelRow(newFields);
+        newRow.setRowKind(row.getRowKind());
+        newRow.setTableId(row.getTableId());
+        return newRow;
     }
 }
