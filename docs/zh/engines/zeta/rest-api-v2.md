@@ -73,6 +73,19 @@ seatunnel:
       log-response-max-size-mb: 64
 ```
 
+### Basic Auth 配置示例
+
+在已启用 HTTP 的 `seatunnel.yaml` 中加入下面的配置。这段示例不负责开启 HTTP 或 HTTPS。重启前，请替换示例用户名，并填入独立的强密码。空密码会被拒绝。
+
+```yaml
+seatunnel:
+  engine:
+    http:
+      enable-basic-auth: true
+      basic-auth-username: "ops-user" # 替换成自己的用户名。
+      basic-auth-password: "" # 填入独立的强密码。
+```
+
 ## Web UI 与 8080 排查
 
 - 如果 `http://<host>:8080/` 打不开，先检查 `seatunnel.engine.http.enable-http` 或 `enable-https` 是否真的开启；仅配置 `hazelcast.yaml` 中的 `network.rest-api.enabled` 不能替代 Jetty 开关。

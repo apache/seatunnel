@@ -78,6 +78,19 @@ seatunnel:
       log-response-max-size-mb: 64
 ```
 
+### Basic Auth configuration example
+
+Add this block to `seatunnel.yaml` for an existing HTTP listener. The example does not enable HTTP or HTTPS. Replace the example username and fill in the empty password with a unique secret before restarting. The empty value is intentionally rejected.
+
+```yaml
+seatunnel:
+  engine:
+    http:
+      enable-basic-auth: true
+      basic-auth-username: "ops-user" # Replace with your username.
+      basic-auth-password: "" # Fill in a unique password.
+```
+
 ## Web UI and Port 8080 Troubleshooting
 
 - If `http://<host>:8080/` is unreachable, first check whether `seatunnel.engine.http.enable-http` or `enable-https` is actually enabled. The `network.rest-api.enabled` setting in `hazelcast.yaml` does not replace the Jetty switch.

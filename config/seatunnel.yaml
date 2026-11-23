@@ -44,7 +44,7 @@ seatunnel:
       enable-http: true
       port: 8080
       enable-dynamic-port: false
-      # To enable Basic Auth, explicitly set a nonblank username and password.
+      # Basic Auth example. Set your own username and a unique password before uncommenting.
       # enable-basic-auth: true
-      # basic-auth-username:
-      # basic-auth-password:
+      # basic-auth-username: "ops-user" # Replace with your username.
+      # basic-auth-password: "" # Fill in a unique password; an empty password is rejected.
