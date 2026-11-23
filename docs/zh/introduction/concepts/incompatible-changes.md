@@ -11,6 +11,14 @@
 - **兼容性影响**：新生成的 ZSTD 文件要求下游读取器支持 ORC ZSTD。保留 ORC 文件版本 0.12 并不能让旧读取器支持该压缩格式。已有文件不会被重写，默认压缩仍为 NONE。
 - **迁移指南**：启用 ORC ZSTD 前先验证或升级下游读取器。分阶段升级期间，可显式保留双方均支持的 SNAPPY 或 ZLIB 等压缩格式。 (#13084)
 
+### MongoDB Sink：未配置的缓冲与重试选项使用文档中的默认值
+
+- **行为变更：未设置 `buffer-flush.*` 或 `retry.*` 选项的非事务 MongoDB Sink 会按批写入，并重试失败的写入**
+  - **影响范围**：`transaction = false`（默认值）且未设置 `buffer-flush.max-rows`、`buffer-flush.interval`、`retry.max`、`retry.interval` 中任意一个或多个选项的 MongoDB Sink。`transaction = true` 的 Sink 不受影响：它们会把数据保留到下一次 checkpoint，再由 committer 在一个事务中写入，既不使用缓冲选项，也不使用 `retry.*`。
+  - **描述**：`MongodbSinkFactory` 此前只在显式设置时才把这些选项传给 writer，未设置的选项实际为 `0` 而不是声明的默认值，因此每一行都单独执行一次 `bulkWrite`，失败的批量写入也不会重试。现在会使用声明并写入文档的默认值：`buffer-flush.max-rows = 1000`、`buffer-flush.interval = 30000` 毫秒、`retry.max = 3`、`retry.interval = 1000` 毫秒。
+  - **影响**：数据按批写入目标端，每批最多 1000 行，而不再逐行写入，写入远端服务器的吞吐量会大幅提升。每个 writer 的第一行仍会立即写入。30 秒间隔只在有新数据到达时检查，因此在没有后续数据时，它不能限制未写满的批次等待多久。未写满的批次会在下一次 checkpoint、writer 关闭时写入；如果在 `env` 中设置了 `sink.flush.interval`，引擎的定时 flush 也会写入（仅 Zeta 支持，默认关闭）。失败的批量写入会在作业失败前最多重试 3 次，依次等待 1、2、3 秒。重试会重新发送整个有序批次，因此在 `upsert-enable = false` 时，如果批次已部分写入，重试可能因主键重复而失败；这与此前显式设置 `retry.max` 时的行为相同。显式设置了这些选项的作业不受影响。
+  - **迁移指南**：如需文档中描述的行为，无需修改配置。如需保持此前的行为，请显式设置 `buffer-flush.max-rows = 1` 和 `retry.max = 0`。把 `buffer-flush.max-rows` 调小到大于 1 的值只能减少缓冲的行数，在没有后续数据时，不能限制未写满的批次等待多久。如果流式作业需要缓冲的数据在一定时间内可见，请依赖 checkpoint，或在 `env` 中设置 `sink.flush.interval`（Zeta）。如需每一行立即写入，请设置 `buffer-flush.max-rows = 1`。(#13198)
+
 ### Http Sink：`array_mode = true` 时每行作为 JSON 对象发送
 
 - **行为变更：请求体数组的元素是 JSON 对象，而不再是字符串**
@@ -139,13 +147,11 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
   - **影响**：这类列的源类型会变化，例如从 `NVARCHAR(20)` 变为 `NVARCHAR(10)`；Sink 自动建表使用的列长度变为原来的 1/2（GB18030）或 1/4（UTF-8），例如 `NVARCHAR(10)` 写入 MySQL Sink 时建为 `VARCHAR(40)`，而不是 `VARCHAR(80)`。由于长度按字符计算，新列仍能容纳源列的所有值。下游已存在的表不会被修改。`CHAR`、`VARCHAR`、`VARCHAR2` 和 `NCHAR` 列不受影响。
   - **迁移指南**：无需修改。如果作业依赖原来较宽的自动建表列（例如还要从其他数据源向同一张表写入更长的值），请自行创建 Sink 表。
 
-### Iceberg Sink：writer 轮换后带有 equality delete 的 checkpoint 拆成多个快照提交
+### Iceberg Sink：有序发布与检查点重放
 
-- **行为变更：Iceberg Sink 可能把一个 checkpoint 按顺序提交为多个快照**
-  - **影响组件**：`seatunnel-connectors-v2/connector-iceberg`
-  - **描述**：此前 Sink 把一个 checkpoint 的所有文件放在一个快照中提交。当 task writer 在 checkpoint 中途完成时（开启 `iceberg.table.schema-evolution-enabled` 后发生 schema 变更，以及现在新增的 `flush_row_size` 选项），之后写出的 equality delete 会和它要删除的行落在同一个快照里。Iceberg 不会把 equality delete 应用到相同序列号的数据文件上，因此对同一 checkpoint 中先前写入的行做 upsert、更新或删除时，旧行会留在表中。现在这样的 checkpoint 会按 task writer 完成的顺序拆成多个快照提交。每个快照带有 `seatunnel.checkpoint-id`，以及 `seatunnel.commit-group` 和 `seatunnel.commit-group-count`。
-  - **影响**：只影响在 checkpoint 内轮换了 task writer 的 upsert 和 CDC 写入；纯追加写入和没有轮换的 checkpoint 仍然只产生一个快照。读端可能逐个看到这样一个 checkpoint 的多个快照，每个 checkpoint 的快照数随轮换次数增加。
-  - **迁移指南**：无需修改配置。从旧版本提交的 checkpoint 恢复的作业处理方式不变：带有 checkpoint id 但没有 `seatunnel.commit-group` 的快照视为整个 checkpoint。如果作业在提交一个被拆成多个快照的 checkpoint 时中断，请在 Zeta 上用当前或更新的版本恢复。旧版本只要找到该 checkpoint 的任意一个快照就会跳过整个 checkpoint，Flink 翻译层也不会调用 Sink 的恢复路径，这两种情况下剩下的快照都无法正确续提交；详见 Iceberg Sink 文档中的 `flush_row_size`。
+- **描述**：格式版本 2 和 3 的 upsert 或 CDC 作业中，schema 变更或 `flush_row_size` 触发写入器轮换时，同一 checkpoint 可能按顺序提交为多个快照，使后续的 equality delete 能作用于先前写入代。普通提交和恢复提交都会在配置的分支上检查文件发布情况。没有指纹的旧快照通过匹配的 manifest 验证文件标识，检查点号和分组序号本身不能证明文件已发布。
+- **影响**：读取端可能只看到拆分 checkpoint 的一个前缀。纯追加仍只使用一个快照。检查点号被重复使用时，新提交也可能读取旧 manifest。仅部分文件匹配或读取 manifest 出错时，提交失败，并报告表、分支和检查点。
+- **迁移指南**：在不再需要从该检查点恢复之前，保留相关快照、manifest 和待提交的数据及删除文件。出现部分匹配错误时，重试前先核对报告分支和检查点上的快照与待提交文件。请从发布证据完整的检查点恢复，或在重启前完成目标表的数据核对。不要通过删除匹配的快照或手工重放部分文件绕过检查。Zeta 和 Flink 1.20 可将恢复的 committable 传给发布检查，Flink 1.13 和 1.15 会丢弃它们。详见 Iceberg Sink 重放说明。
 
 ### File Sink：XML 应用 `date_format`、`datetime_format` 和 `time_format`
 
