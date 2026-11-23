@@ -44,7 +44,7 @@ seatunnel:
       enable-http: true
       port: 8080
       enable-dynamic-port: false
-      # Uncomment the following lines to enable basic authentication for web UI
+      # To enable Basic Auth, explicitly set a nonblank username and password.
       # enable-basic-auth: true
-      # basic-auth-username: admin
-      # basic-auth-password: admin
+      # basic-auth-username:
+      # basic-auth-password:

@@ -145,6 +145,21 @@ public class BasicAuthenticationIT extends SeaTunnelEngineContainer {
                 .statusCode(401);
     }
 
+    @Test
+    public void testManagementApiAcceptsExplicitlyConfiguredCredentials() {
+        given().auth()
+                .preemptive()
+                .basic(USERNAME, PASSWORD)
+                .get(
+                        HTTP
+                                + server.getHost()
+                                + COLON
+                                + server.getMappedPort(8080)
+                                + RestConstant.REST_URL_RUNNING_JOBS)
+                .then()
+                .statusCode(200);
+    }
+
     /** Test that accessing the web UI with correct credentials returns 200 OK. */
     @Test
     public void testAccessWithCorrectCredentials() {

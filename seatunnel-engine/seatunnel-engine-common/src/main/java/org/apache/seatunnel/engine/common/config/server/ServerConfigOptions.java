@@ -413,13 +413,13 @@ public class ServerConfigOptions {
         public static final Option<String> BASIC_AUTH_USERNAME =
                 Options.key("basic-auth-username")
                         .stringType()
-                        .defaultValue("admin")
+                        .noDefaultValue()
                         .withDescription("The username for basic authentication.");
 
         public static final Option<String> BASIC_AUTH_PASSWORD =
                 Options.key("basic-auth-password")
                         .stringType()
-                        .defaultValue("admin")
+                        .noDefaultValue()
                         .withDescription("The password for basic authentication.");
 
         public static final Option<Integer> UPLOAD_MAX_FILE_SIZE_MB =
