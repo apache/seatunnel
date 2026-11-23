@@ -20,12 +20,14 @@ package org.apache.seatunnel.engine.server.master;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
+import org.apache.seatunnel.engine.server.dag.physical.ResourceUtils;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
@@ -42,10 +44,19 @@ import com.hazelcast.map.IMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /** Verifies that a restored master keeps using active fixed slots owned by its job. */
 public class JobMasterMasterFailoverResourceTest
@@ -152,12 +163,74 @@ public class JobMasterMasterFailoverResourceTest
         }
     }
 
+    /**
+     * Two pipelines of one job restore at the same time, the way SubPlan handles FAILED: release
+     * the pipeline's slots, pre-apply again and merge into the job's shared map, then consume the
+     * merged futures when the pipeline is scheduled. Both pipelines must get every task group back.
+     */
+    @Test
+    void testConcurrentPipelineRestoresKeepEachPipelinesSlots() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("concurrent-pipeline-restore").newId();
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+        JobMaster jobMaster =
+                newJobMaster(
+                        jobId,
+                        createJobImmutableInformationData(
+                                jobId, "stream_two_pipelines_savepoint_partial_failure.conf"));
+        jobMaster.init(System.currentTimeMillis(), false);
+        List<SubPlan> pipelines = jobMaster.getPhysicalPlan().getPipelineList();
+        Assertions.assertEquals(2, pipelines.size());
+        Assertions.assertTrue(jobMaster.preApplyResources());
+        persistPreAppliedSlots(jobMaster);
+
+        ExecutorService executor = Executors.newFixedThreadPool(pipelines.size());
+        CountDownLatch start = new CountDownLatch(1);
+        CyclicBarrier bothReleased = new CyclicBarrier(pipelines.size());
+        try {
+            Map<SubPlan, Future<Map<TaskGroupLocation, SlotProfile>>> restores = new HashMap<>();
+            for (SubPlan subPlan : pipelines) {
+                restores.put(
+                        subPlan,
+                        executor.submit(
+                                () -> {
+                                    start.await();
+                                    jobMaster.releasePipelineResource(subPlan);
+                                    // Both pipelines pre-apply and merge at the same time.
+                                    bothReleased.await(30, TimeUnit.SECONDS);
+                                    Assertions.assertTrue(jobMaster.preApplyResources(subPlan));
+                                    return ResourceUtils.applyResourceForPipeline(
+                                            jobMaster, subPlan);
+                                }));
+            }
+            start.countDown();
+
+            Set<SlotProfile> allSlots = new HashSet<>();
+            for (Map.Entry<SubPlan, Future<Map<TaskGroupLocation, SlotProfile>>> restore :
+                    restores.entrySet()) {
+                Map<TaskGroupLocation, SlotProfile> slots =
+                        restore.getValue().get(60, TimeUnit.SECONDS);
+                Assertions.assertEquals(taskGroupLocations(restore.getKey()), slots.keySet());
+                for (SlotProfile slot : slots.values()) {
+                    Assertions.assertTrue(resourceManager.slotActiveCheck(slot));
+                    Assertions.assertTrue(allSlots.add(slot), "slot shared by two pipelines");
+                }
+            }
+            Assertions.assertInstanceOf(
+                    ConcurrentHashMap.class,
+                    jobMaster.getPhysicalPlan().getPreApplyResourceFutures());
+        } finally {
+            executor.shutdownNow();
+            releaseAllSlots(resourceManager, jobMaster, jobId);
+        }
+    }
+
     private Data createJobImmutableInformationData(long jobId) {
+        return createJobImmutableInformationData(jobId, "stream_fake_to_inmemory_with_sleep.conf");
+    }
+
+    private Data createJobImmutableInformationData(long jobId, String confFile) {
         LogicalDag logicalDag =
-                TestUtils.createTestLogicalPlan(
-                        "stream_fake_to_inmemory_with_sleep.conf",
-                        "master_failover_restore",
-                        jobId);
+                TestUtils.createTestLogicalPlan(confFile, "master_failover_restore", jobId);
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         jobId,
@@ -249,6 +322,37 @@ public class JobMasterMasterFailoverResourceTest
             }
         }
         throw new AssertionError("Expected fixed-slot allocation to be exhausted");
+    }
+
+    private Set<TaskGroupLocation> taskGroupLocations(SubPlan subPlan) {
+        Set<TaskGroupLocation> locations = new HashSet<>();
+        subPlan.getCoordinatorVertexList().forEach(v -> locations.add(v.getTaskGroupLocation()));
+        subPlan.getPhysicalVertexList().forEach(v -> locations.add(v.getTaskGroupLocation()));
+        return locations;
+    }
+
+    /** Releases persisted slots plus any pre-applied slot a failed restore left unconsumed. */
+    private void releaseAllSlots(ResourceManager resourceManager, JobMaster jobMaster, long jobId) {
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+        Set<SlotProfile> slots = new HashSet<>();
+        for (SubPlan subPlan : jobMaster.getPhysicalPlan().getPipelineList()) {
+            Map<TaskGroupLocation, SlotProfile> owned =
+                    ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());
+            if (owned != null) {
+                slots.addAll(owned.values());
+            }
+        }
+        for (CompletableFuture<SlotProfile> future :
+                jobMaster.getPhysicalPlan().getPreApplyResourceFutures().values()) {
+            if (future != null && future.isDone() && !future.isCompletedExceptionally()) {
+                slots.add(future.join());
+            }
+        }
+        slots.removeIf(slot -> slot == null || !resourceManager.slotActiveCheck(slot));
+        if (!slots.isEmpty()) {
+            resourceManager.releaseResources(jobId, new ArrayList<>(slots)).join();
+        }
     }
 
     private void releasePersistedSlots(
