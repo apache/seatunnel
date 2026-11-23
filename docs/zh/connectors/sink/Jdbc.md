@@ -12,6 +12,10 @@ JDBC Sink 通过数据库厂商提供的 JDBC 驱动写入数据。它支持批�
 
 生成的 DB2 upsert 会在传入字段发生变化时更新匹配行，包括 NULL 变为非 NULL 和非 NULL 变为 NULL。相等值（包括两端均为 NULL）不会触发多余的匹配更新。
 
+### SAP HANA 版本兼容
+
+生成的 upsert 通过不带目标表别名的 SQL 兼容 SAP HANA 2.00.033 等较早版本，无需额外配置。全字段均为键的表仍会插入未匹配行，并保持匹配行不变。
+
 ## MySQL 时间值
 
 MySQL `DATETIME` 映射为 SeaTunnel `TIMESTAMP`（`LocalDateTime`）。MySQL JDBC Sink 直接绑定本地日期和时间字段，即使 Worker JVM 与 JDBC 连接使用不同的时区，也会保留目标列支持的小数秒精度。MySQL `TIMESTAMP` 映射为 `TIMESTAMP_TZ`，仍按时间点处理。
@@ -278,9 +282,9 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 ### dialect [string]
 
-指定的方言，如果不存在，仍然按照url获取，优先级高于url。例如，当使用 starrocks 时，你需要将其值设置为 starrocks，同理，当使用mysql时，你需要将其值设置为mysql。
+指定的方言。设置后，取值必须是下方方言列表中的名称（不区分大小写），并优先于根据 url 推断的方言；未设置时根据 url 推断方言。例如，当使用 mysql 时，你需要将其值设置为 `mysql`。注意：StarRocks 不是方言名称，使用 StarRocks 时请保持 `dialect` 不设置，并将 `compatible_mode` 设置为 `starrocks`。Inceptor 也不是方言名称，使用 Inceptor 时请保持 `dialect` 不设置或将 `dialect` 设置为 `HIVE`，并将 `compatible_mode` 设置为 `inceptor`。
 
-如果 SeaTunnel 不支持某种方言，它将使用默认方言 `GenericDialect`。请确保您提供的驱动程序支持您想要连接的数据库。
+如果未设置 `dialect` 且 url 无法被任何方言识别，SeaTunnel 会使用默认方言 `GenericDialect`；如果 `dialect` 设置了无法匹配任何受支持方言名称的值，任务初始化会直接失败而不是回退。请确保您提供的驱动程序支持您想要连接的数据库。
 
 #### 示例可选
 
@@ -288,14 +292,15 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 |-----------|------------|----------|
 | Greenplum | DB2        | Dameng   |
 | Gbase8a   | HIVE       | KingBase |
-| MySQL     | StarRocks  | Oracle   |
+| MySQL     | OpenGauss  | Oracle   |
 | Phoenix   | Postgres   | Redshift |
 | SapHana   | Snowflake  | Sqlite   |
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase  | XUGU     |
-| IRIS      | Inceptor   | Highgo   |
+| IRIS      | Presto   | Highgo   |
 | DSQL      |            |          |
 | YashanDB  | CockroachDB |          |
+| DuckDB    |              |          |
 
 ### database [string]
 

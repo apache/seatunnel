@@ -429,6 +429,19 @@ public class LocalFileIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    public void testLocalFileNullPartitionValue(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        // A NULL partition value used to fail the job with a NullPointerException. The job must
+        // now finish and write the partition directory with the literal text "null".
+        helper.execute("/text/fake_to_local_file_null_partition.conf");
+        Container.ExecResult execResult =
+                baseContainer.execInContainer(
+                        "sh", "-c", "ls -d /tmp/seatunnel/text_null_partition/c_null=null");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
     public void testLocalFileJson(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
@@ -439,6 +452,13 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/json/fake_to_local_file_json_with_encoding.conf");
         helper.execute("/json/local_file_json_to_console_with_encoding.conf");
         helper.execute("/json/local_file_to_console.conf");
+    }
+
+    @TestTemplate
+    public void testLocalFileParquetProjection(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
     }
 
     @TestTemplate

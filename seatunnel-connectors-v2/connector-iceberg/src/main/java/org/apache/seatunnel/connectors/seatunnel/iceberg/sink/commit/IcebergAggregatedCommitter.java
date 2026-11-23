@@ -23,15 +23,18 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult;
 
-import lombok.extern.slf4j.Slf4j;
+import org.apache.iceberg.FileContent;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** Iceberg aggregated committer */
-@Slf4j
 public class IcebergAggregatedCommitter
         implements SinkAggregatedCommitter<IcebergCommitInfo, IcebergAggregatedCommitInfo> {
 
@@ -55,7 +58,15 @@ public class IcebergAggregatedCommitter
     public List<IcebergAggregatedCommitInfo> commit(
             List<IcebergAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
         for (IcebergAggregatedCommitInfo commitInfo : aggregatedCommitInfo) {
-            commitFiles(commitInfo.getCommitInfos(), commitInfo.getCheckpointId());
+            Map<Long, List<IcebergCommitInfo>> checkpoints = new LinkedHashMap<>();
+            for (IcebergCommitInfo writer : commitInfo.getCommitInfos()) {
+                checkpoints
+                        .computeIfAbsent(writer.getCheckpointId(), ignored -> new ArrayList<>())
+                        .add(writer);
+            }
+            for (Map.Entry<Long, List<IcebergCommitInfo>> checkpoint : checkpoints.entrySet()) {
+                commitFiles(checkpoint.getValue(), checkpoint.getKey());
+            }
         }
         return Collections.emptyList();
     }
@@ -63,18 +74,9 @@ public class IcebergAggregatedCommitter
     @Override
     public List<IcebergAggregatedCommitInfo> restoreCommit(
             List<IcebergAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
-        for (IcebergAggregatedCommitInfo commitInfo : aggregatedCommitInfo) {
-            long checkpointId = commitInfo.getCheckpointId();
-            List<WriteResult> allResults = flattenResults(commitInfo.getCommitInfos());
-            if (filesCommitter.isAlreadyCommitted(checkpointId, allResults)) {
-                log.info(
-                        "Checkpoint {} already committed to Iceberg table, skipping restore commit",
-                        checkpointId);
-                continue;
-            }
-            commitFiles(commitInfo.getCommitInfos(), checkpointId);
-        }
-        return Collections.emptyList();
+        // Flink also replays recovered committables through ordinary commit(). Both paths must
+        // use the same publication check, rather than relying on engine-specific restore routing.
+        return commit(aggregatedCommitInfo);
     }
 
     @Override
@@ -91,16 +93,73 @@ public class IcebergAggregatedCommitter
     }
 
     private void commitFiles(List<IcebergCommitInfo> commitInfos, long checkpointId) {
-        List<WriteResult> allResults = flattenResults(commitInfos);
-        if (!allResults.isEmpty()) {
-            filesCommitter.doCommit(allResults, checkpointId);
+        List<List<WriteResult>> groups = planCommits(commitInfos);
+        if (groups.size() == 1) {
+            filesCommitter.doCommit(groups.get(0), checkpointId);
+        } else if (!groups.isEmpty()) {
+            filesCommitter.doCommitInOrder(groups, checkpointId);
         }
     }
 
-    private List<WriteResult> flattenResults(List<IcebergCommitInfo> commitInfos) {
-        return commitInfos.stream()
-                .filter(info -> info.getResults() != null && !info.getResults().isEmpty())
-                .flatMap(info -> info.getResults().stream())
-                .collect(Collectors.toList());
+    /**
+     * Splits the results of one checkpoint into groups that must be committed one after another.
+     *
+     * <p>Each writer reports one result per task writer it completed, in order. Iceberg applies an
+     * equality delete only to data files with a smaller sequence number, so an equality delete
+     * written after a rotation does not remove a row written before it if both land in the same
+     * snapshot. The i-th results of all writers form round i, and a round that carries equality
+     * deletes starts a new group. Without rotation, or without equality deletes, there is a single
+     * group, which is the same single snapshot as before.
+     */
+    static List<List<WriteResult>> planCommits(List<IcebergCommitInfo> commitInfos) {
+        List<List<WriteResult>> perWriter =
+                commitInfos.stream()
+                        .map(IcebergCommitInfo::getResults)
+                        .filter(results -> results != null && !results.isEmpty())
+                        .collect(Collectors.toList());
+        int rounds = perWriter.stream().mapToInt(List::size).max().orElse(0);
+        List<List<WriteResult>> groups = new ArrayList<>();
+        for (int round = 0; round < rounds; round++) {
+            List<WriteResult> roundResults = new ArrayList<>();
+            for (List<WriteResult> results : perWriter) {
+                if (round < results.size()) {
+                    roundResults.add(results.get(round));
+                }
+            }
+            // A group without records (for example from a flush right after a schema change)
+            // commits no snapshot, so later rounds join it instead of opening another group.
+            if (groups.isEmpty()
+                    || (hasEqualityDeletes(roundResults)
+                            && hasRecords(groups.get(groups.size() - 1)))) {
+                groups.add(roundResults);
+            } else {
+                groups.get(groups.size() - 1).addAll(roundResults);
+            }
+        }
+        return groups;
+    }
+
+    private static boolean hasRecords(List<WriteResult> results) {
+        return results.stream()
+                .flatMap(
+                        result ->
+                                Stream.concat(
+                                        result.getDataFiles() == null
+                                                ? Stream.empty()
+                                                : result.getDataFiles().stream(),
+                                        result.getDeleteFiles() == null
+                                                ? Stream.empty()
+                                                : result.getDeleteFiles().stream()))
+                .anyMatch(file -> file.recordCount() > 0);
+    }
+
+    private static boolean hasEqualityDeletes(List<WriteResult> results) {
+        return results.stream()
+                .filter(result -> result.getDeleteFiles() != null)
+                .flatMap(result -> result.getDeleteFiles().stream())
+                .anyMatch(
+                        file ->
+                                file.content() == FileContent.EQUALITY_DELETES
+                                        && file.recordCount() > 0);
     }
 }

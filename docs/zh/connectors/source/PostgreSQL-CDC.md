@@ -107,9 +107,10 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | stop.mode                                 | Enum     | 否   | NEVER    | PostgreSQL CDC 消费者的可选停止模式。唯一有效的枚举值是 `never`：一旦进入增量阶段，数据源会持续读取 WAL 变更，不会自行停止。                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | snapshot.split.size                       | Integer  | 否   | 8096     | 表快照的拆分大小（行数），捕获的表在读取表快照时被拆分成多个拆分。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | 否   | 1024     | 读取表快照时每次轮询的最大获取大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| incremental.parallelism                   | Integer  | 否   | 1        | 增量（WAL）阶段并行读取器的数量。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | slot.name                                 | String   | 否   | seatunnel | PostgreSQL 逻辑解码槽名称。同一个 PostgreSQL 实例上如果有多个 CDC 任务，请为每个任务配置不同的 `slot.name`。                                                                                                                                                                                                                                                                                                                                                      |
 | decoding.plugin.name                      | String   | 否   | pgoutput | 安装在服务器上的 Postgres 逻辑解码插件的名称，支持的值有 decoderbufs、wal2json、wal2json_rds、wal2json_streaming、wal2json_rds_streaming 和 pgoutput。                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| server-time-zone                          | String   | 否   | -        | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| server-time-zone                          | String   | 否   | JVM 系统时区 | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | connect.timeout.ms                        | Long     | 否   | 30000    | 连接器在尝试连接到数据库服务器后应等待的最大时间，以防超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | 否   | 3        | 连接器应重试建立数据库服务器连接的最大重试次数。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | 否   | 20       | JDBC 连接池大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -290,6 +291,8 @@ sink {
 
 `snapshot-only` 模式下，connector 完全跳过 WAL 流式读取；如果快照读取需要独立的复制槽，请配置 `slot.name`。
 
+`snapshot-only` 任务从 checkpoint 或 savepoint 恢复时，只读取 checkpoint 中记录的表：checkpoint 之后新建或新加入 `table-names` 的表不会被读取；如果 checkpoint 中仍有未读快照数据的某张表已不在配置中或已不存在，恢复会失败，报错中会列出这些表。只有数据库名、schema 名和表名（包括大小写）完全相同时，checkpoint 中的表才与配置的表匹配。恢复时在 `snapshot-only` 与其他启动模式之间切换同样会被拒绝。需要修改读取的表或启动模式时，请提交新作业。
+
 ### 读取没有主键的表
 
 根据源表能够提供的保证来选择合适的路径：
@@ -364,7 +367,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO replication_user;
 
 ### 支持哪些逻辑解码插件？
 
-SeaTunnel PostgreSQL CDC 支持 `pgoutput`（PostgreSQL 10 起内置）、`wal2json` 和 `decoderbufs`，默认使用 `pgoutput`。通过 `decoding.plugin.name` 参数指定插件。
+`decoding.plugin.name` 支持 `pgoutput`（默认，PostgreSQL 10 起内置）、`decoderbufs`、`wal2json`、`wal2json_rds`、`wal2json_streaming` 和 `wal2json_rds_streaming`。注意 Schema 演进（`schema-changes.enabled`）要求使用 `pgoutput`。
 
 ### SeaTunnel 能从 PostgreSQL 备库读取 CDC 数据吗？
 
@@ -408,6 +411,15 @@ PostgreSQL 13 及以上版本会在某些情况下使复制槽失效，例如复
 ### PostgreSQL CDC 为什么会滞后？
 
 滞后可能由逻辑解码插件处理慢或 WAL sender 负载过高引起。可通过监控 `pg_replication_slots` 中的 `confirmed_flush_lsn` 漂移情况来排查。确保 CDC 任务持续消费事件，并保持 SeaTunnel 与 PostgreSQL 之间的网络低延迟。
+
+### PostgreSQL CDC 能在 Spark 引擎上运行吗？
+
+可以，但这一用法没有端到端测试覆盖。无论 `BATCH` 还是 `STREAMING` 作业，Spark 引擎都在一个 Spark task 中运行 CDC 数据源，这个 task 同时包含分片枚举器和所有 reader。Spark 不会为该数据源做 checkpoint，因此：
+
+- 作业无法从 checkpoint 恢复，重启的作业会按 `startup.mode` 重新开始。
+- SeaTunnel 不会向复制槽确认已处理的 LSN，因此复制槽的 `restart_lsn` 不会前移，只要复制槽存在，PostgreSQL 就会保留从该位置起的全部 WAL。请关注 WAL 占用，并在作业停止后推进或删除该复制槽。
+- 只在 checkpoint 或批次写满时才写出的 sink 可能会暂时攒住数据，例如使用默认 `batch_size` 的 JDBC sink。
+- 不支持通过 Spark 微批流式读取（`readStream`）该数据源。
 
 ## 另请参阅
 

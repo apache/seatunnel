@@ -112,6 +112,10 @@ db.grantRolesToUser("<USER_NAME>", ["<ROLE_NAME>"])
 
 ## 源配置项
 
+> **注意：** MongoDB-CDC 复用 CDC 基础选项规则，因此少量面向 JDBC 的快照选项
+> （`snapshot.split.size`、`snapshot.fetch.size`、`enable_concurrent_read`）虽然能通过校验，
+> 但 MongoDB-CDC 并不会使用它们。快照分块大小由 `incremental.snapshot.chunk.size.mb` 控制。
+
 | 名称                               | 类型    | 必填 | 默认值  | 描述                                                                                                                       |
 |------------------------------------|---------|------|---------|----------------------------------------------------------------------------------------------------------------------------|
 | hosts                              | String  | 是   | -       | MongoDB 服务器的主机名和端口列表，也可以是使用 `mongodb://` 或 `mongodb+srv://` 的标准 MongoDB 连接 URI。例如：`localhost:27017,localhost:27018` 或 `mongodb+srv://cluster.example.net`。 |

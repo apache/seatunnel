@@ -75,6 +75,8 @@ libfb303-xxx.jar
 | LIST              | ARRAY               |
 | MAP               | MAP                 |
 
+Lists (`LIST`) are only read when the element type is one of `BOOLEAN`, `INT`, `BIGINT`, `FLOAT`, `DOUBLE` or `STRING`; lists with other element types (such as nested structs or decimals) fail the job.
+
 `TIMESTAMP_NS`, `TIMESTAMPTZ_NS` and `UNKNOWN` only exist in format version 3 tables. Nanosecond timestamps keep their nanoseconds and are reported with column scale 9. `VARIANT`, `GEOMETRY` and `GEOGRAPHY` columns are not supported yet and fail the job; leave them out with the `query` option, for example `select id, ts from table`. Rows removed by deletion vectors are not returned. Row lineage fields (`_row_id`, `_last_updated_sequence_number`) are not read.
 
 ## Source Options
@@ -103,6 +105,19 @@ libfb303-xxx.jar
 | kerberos_principal                     | string  | no       | -                            | The principal for Kerberos authentication.                                                                                                                                                                                                                                                                               |
 | kerberos_keytab_path                   | string  | no       | -                            | The path to the keytab file for Kerberos authentication.                                                                                                                                                                                                                                                                         |
 
+## Source Option descriptions
+
+### krb5_path [string]
+
+The path to the `krb5.conf` file for Kerberos authentication.
+
+### kerberos_principal [string]
+
+The principal for Kerberos authentication.
+
+### kerberos_keytab_path [string]
+
+The path to the keytab file for Kerberos authentication.
 
 ## Task Example
 
@@ -187,7 +202,7 @@ source {
 
 ```hocon
 source {
-  iceberg {
+  Iceberg {
     catalog_name = "seatunnel"
     iceberg.catalog.config={
       "type"="hadoop"

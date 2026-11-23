@@ -112,6 +112,11 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 
 ## Source Options
 
+> **Note:** MongoDB-CDC shares the CDC base option rule, so a few JDBC-oriented snapshot options
+> (`snapshot.split.size`, `snapshot.fetch.size`, `enable_concurrent_read`) are accepted by
+> validation but are not used by MongoDB-CDC. Snapshot chunking is controlled by
+> `incremental.snapshot.chunk.size.mb` instead.
+
 | Name                               | Type    | Required | Default | Description                                                                                                                                                                                                                                                               |
 |------------------------------------|---------|----------|---------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | hosts                              | String  | Yes      | -       | The comma-separated list of hostname and port pairs of the MongoDB servers, or a standard MongoDB connection URI using `mongodb://` or `mongodb+srv://`. For example: `localhost:27017,localhost:27018` or `mongodb+srv://cluster.example.net`.                         |

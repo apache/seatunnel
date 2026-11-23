@@ -12,6 +12,10 @@ If this is your first JDBC Sink job, start with [Choose a write mode](#choose-a-
 
 Generated DB2 upserts update matched rows when an incoming field changes, including NULL-to-value and value-to-NULL transitions. Equal values, including two NULLs, do not trigger an unnecessary matched update.
 
+### SAP HANA version compatibility
+
+Generated upserts support older SAP HANA revisions such as 2.00.033 through alias-free target references. No extra option is required. Tables containing only key columns still insert unmatched rows and leave matched rows unchanged.
+
 ## MySQL temporal values
 
 MySQL `DATETIME` maps to SeaTunnel `TIMESTAMP` (`LocalDateTime`). The MySQL JDBC sink binds its local date/time fields directly, preserving fractional seconds supported by the target column even when the worker JVM and JDBC connection time zones differ. MySQL `TIMESTAMP` maps to `TIMESTAMP_TZ` and retains its instant-based handling.
@@ -279,9 +283,9 @@ Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
 ### dialect [string]
 
-The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
+The appointed dialect. When set, its value must match one of the dialect names in the dialect list below (case-insensitive) and takes priority over the dialect inferred from the url; when it is not set, the dialect is inferred from the url. For example, when using MySQL, you need to set its value to `mysql`. Note: StarRocks is not a dialect name. When using StarRocks, leave `dialect` unset and set `compatible_mode` to `starrocks`. Inceptor is not a dialect name either. When using Inceptor, leave `dialect` unset or set `dialect` to `HIVE`, and set `compatible_mode` to `inceptor`.
 
-If one dialect not supported by SeaTunnel, it will use the default dialect `GenericDialect`. Just make sure the driver you provided support the database you want to connect.
+If the `dialect` option is not set and no dialect matches the url, SeaTunnel uses the default dialect `GenericDialect`. If `dialect` is set to a value that does not match any supported dialect name, job initialization fails instead of falling back. Just make sure the driver you provided supports the database you want to connect.
 
 #### dialect list
 
@@ -289,14 +293,15 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 |-----------|--------------|----------|
 | Greenplum | DB2          | Dameng   |
 | Gbase8a   | HIVE         | KingBase |
-| MySQL     | StarRocks    | Oracle   |
+| MySQL     | OpenGauss    | Oracle   |
 | Phoenix   | Postgres     | Redshift |
 | SapHana   | Snowflake    | Sqlite   |
 | SqlServer | Tablestore   | Teradata |
 | Vertica   | OceanBase    | XUGU     |
-| IRIS      | Inceptor     | Highgo   |
+| IRIS      | Presto       | Highgo   |
 | DSQL      |              |          |
 | YashanDB  | CockroachDB  |          |
+| DuckDB    |              |          |
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.

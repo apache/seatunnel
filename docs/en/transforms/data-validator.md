@@ -13,6 +13,9 @@ The DataValidator transform validates field values according to configured rules
 | row_error_handle_way| enum   | no       | FAIL          |
 | row_error_handle_way.error_table     | string | no       |               |
 | field_rules     | array  | yes (single-table mode) |               |
+| table_match_regex | string | no       | `.*`          |
+| table_transform | array  | no       | -             |
+| rule_match_mode | string | no       | `FIRST_MATCH` |
 
 ### row_error_handle_way [enum]
 
@@ -60,6 +63,8 @@ When using `ROUTE_TO_TABLE` mode, DataValidator automatically creates an error t
 Array of field validation rules. Each rule defines validation criteria for a specific field.
 
 A single-table config must set `field_rules`. With `table_transform`, every entry declares its own `field_rules`; the transform level one is optional.
+
+The `table_match_regex` option selects the tables the transform level rule applies to (default `.*`), `table_transform` holds complete per-table rules (`table_path` plus `field_rules`), and `rule_match_mode` (`FIRST_MATCH` or `ALL_MATCH`) controls how duplicate `table_path` entries are evaluated. See [Multi-Table Transform](transform-multi-table.md).
 
 #### Field Rule Structure
 

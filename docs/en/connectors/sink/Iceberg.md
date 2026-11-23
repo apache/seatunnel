@@ -46,6 +46,8 @@ libfb303-xxx.jar
 | SeaTunnel Data type | Iceberg Data type |
 |---------------------|-------------------|
 | BOOLEAN             | BOOLEAN           |
+| TINYINT             | INTEGER           |
+| SMALLINT            | INTEGER           |
 | INT                 | INTEGER           |
 | BIGINT              | LONG              |
 | FLOAT               | FLOAT             |
@@ -87,6 +89,7 @@ Writing into an existing format version 3 table also accepts `TIMESTAMP_NS` and 
 | custom_sql                             | string  | Required when `data_save_mode` is `CUSTOM_PROCESSING` | -                            | Custom `delete` SQL for `CUSTOM_PROCESSING` data save mode, for example `delete from ... where ...`.                                                                                                                                                                                                                     |
 | iceberg.table.commit-branch            | string  | no       | -                            | Default branch for commits                                                                                                                                                                                                                                                                                                |
 | multi_table_sink_replica               | int     | no       | 1                            | Replica number for every table writer in multi-table sink mode. Use this when one upstream job writes to multiple Iceberg tables and each table needs more than one sink writer.                                                                                                                                           |
+| flush_row_size                         | long    | no       | -                            | Rotate a sink writer after it has handled this many rows, instead of keeping it open until the next checkpoint. Bounds the writer memory of large upsert and CDC loads. Must be greater than 0. Please refer to `flush_row_size` below.                                                                     |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | The path of `krb5.conf`, used for Kerberos authentication.                                                                                                                                                                                                                                                                |
 | kerberos_principal                     | string  | no       | -                            | The principal for Kerberos authentication.                                                                                                                                                                                                                                                                               |
 | kerberos_keytab_path                   | string  | no       | -                            | The keytab file path for Kerberos authentication.                                                                                                                                                                                                                                                                         |
@@ -103,7 +106,19 @@ iceberg.table.auto-create-props = {
 }
 ```
 
-Format version 3 tables support append writes. Upsert and CDC writes are rejected with error `ICEBERG-04` before any data is written, because the sink writes position delete files, which format version 3 replaces with deletion vectors. This covers `iceberg.table.primary-keys`, `iceberg.table.upsert-mode-enabled` and existing tables with identifier fields, and also creating a format version 3 table for a source table with a primary key, which would otherwise become the identifier fields. Use a format version 2 table for upsert and CDC pipelines.
+Format version 3 tables support append, upsert and CDC writes. The sink uses equality deletes for previously committed rows and Puffin deletion vectors for rows invalidated in the current task writer's new data files, for example when the same key changes repeatedly before a checkpoint. It does not scan existing data files to locate deleted rows or rewrite their deletion vectors. Parquet, ORC and Avro data files are supported; the deletion vectors always use Puffin. Format version 2 keeps its existing equality and position delete writers, and remains the default for newly created tables.
+
+### Upsert, CDC writes and checkpoint replay
+
+For partitioned upsert tables, include all partition source columns in the primary key, as required by Iceberg equality deletes. Keep updates for a key on the same sink writer and in source order. A partition-changing update must delete the old key/partition as well as insert the new one; `UPDATE_BEFORE` is ignored in upsert mode, just as for format version 2. Enable checkpointing for streaming jobs.
+
+When a schema change or `flush_row_size` resets the task writer within a checkpoint, later equality deletes must see earlier writer generations in an older snapshot. The sink publishes these generations as ordered commit groups for both format versions 2 and 3, recording each group's payload fingerprints in its snapshot. A failure between groups leaves a visible prefix of the checkpoint; replay through ordinary commit or restore skips the published results and completes the remaining groups. Such a checkpoint is not atomic across groups. A single writer generation, and append-only generations without this delete dependency, still use one snapshot. The snapshot properties `seatunnel.checkpoint-id`, `seatunnel.commit-group` and `seatunnel.commit-group-count` describe the checkpoint and its group. They do not establish publication.
+
+Checkpoint replay is checked in both ordinary and restore commits. The sink records versioned fingerprints of the immutable writer results in `seatunnel.commit-ids` in the same Iceberg snapshot as their data and delete files. Summary size grows by roughly 65 characters per nonempty writer result. Checkpoint IDs remain diagnostic metadata: different jobs may reuse a number without losing their new files. The check is scoped to the configured table branch. For older snapshots without fingerprints, the complete set of files must be found; a partial match fails rather than silently dropping or duplicating data. Manifest-read errors are propagated.
+
+Every unmatched commit, including a fresh job, can read historical manifests for legacy snapshots with the same positive checkpoint ID. The sink reuses these file identities across groups in a single commit call, while checking the current branch ancestry for each group. For an unmatched payload without a positive checkpoint ID, a gap in snapshot ancestry additionally requires scanning live manifests; this compatibility check can scale with the table's file count, including for a fresh batch payload. Fingerprint-matched replay and fresh positive-ID commits do not require this live-file scan.
+
+Retain the snapshot ancestry, manifests and pending data/delete files needed by every checkpoint that may still be restored. Snapshot expiration, branch rollback, or orphan-file cleanup must not remove that recovery evidence. Replay after the relevant history has expired is not covered by this guarantee. A v3 delta writer cleans up its own unprepared files on handled failure or cancellation. Files returned by a successful prepare are left for commit or recovery. As with the engine's single aggregated committer, only one active attempt may publish a given checkpoint payload; concurrent independent jobs with different files are supported, but overlapping attempts for the same payload require engine fencing. No checkpoint serialization or configuration change is required.
 
 ### iceberg.table.upsert-mode-enabled [boolean]
 
@@ -116,6 +131,27 @@ Use a comma-separated list, for example `dt,region` or Iceberg transforms such a
 ### iceberg.table.commit-branch [string]
 
 Write commits to the specified Iceberg branch. Leave it empty to commit to the table's default branch.
+
+### flush_row_size [long]
+
+By default a sink writer keeps its task writer open until the next checkpoint. With a primary key (`iceberg.table.primary-keys`, upsert mode or a CDC source), the task writer remembers every key it has written so that a later change of the same row can be written as a position delete or deletion vector, and only frees them when it is completed. A large batch load with a long checkpoint interval, or a batch job that only checkpoints at the end, can therefore run out of memory.
+
+Set `flush_row_size` to complete the task writer after it has handled this many rows and start a new one. This closes the current files early and releases the remembered keys. The number of rows represented by one task writer is bounded, while the files produced by completed generations still accumulate until the checkpoint. When omitted, the writer continues to rotate at checkpoints and schema changes.
+
+See [Upsert, CDC writes and checkpoint replay](#upsert-cdc-writes-and-checkpoint-replay) for how rotations split publication into ordered snapshots. Zeta restores through the sink's restore path. Flink 1.20 passes recovered committables through the normal commit path, which uses the same publication check. Flink 1.13 and 1.15 discard recovered global committables, so they cannot complete a partially published checkpoint. For jobs that require recovery of split checkpoints, use an engine version that forwards recovered committables. A very small `flush_row_size` can increase checkpoint duration because the sink publishes groups in order.
+
+Smaller values use less memory but produce more and smaller files. A rotation completes the files of all open partitions of a partitioned table, not only of the current one. Each generation with equality deletes may start another snapshot. The actual count depends on the operation mix and the number of writer rotations. Too small a value can therefore bloat the table metadata and slow down planning; keep it large, for example a few hundred thousand to a few million rows, and only expire snapshots once they are no longer needed for checkpoint recovery.
+
+```hocon
+sink {
+  Iceberg {
+    ...
+    iceberg.table.primary-keys = "id"
+    iceberg.table.upsert-mode-enabled = true
+    flush_row_size = 1000000
+  }
+}
+```
 
 ### custom_sql [string]
 
