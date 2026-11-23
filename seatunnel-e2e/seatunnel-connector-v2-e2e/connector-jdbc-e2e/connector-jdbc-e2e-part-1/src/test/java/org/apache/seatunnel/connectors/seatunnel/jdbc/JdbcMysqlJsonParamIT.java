@@ -91,6 +91,7 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
                             + ");\n",
                     "INSERT INTO ratings(user_id, movie_id, rating, unix_time) VALUES"
                             + "(1, 1, 4.0, 964982703),"
+                            + "(1, 1, 3.0, 964987503),"
                             + "(1, 3, 4.0, 964981247);");
 
     private static final String MYSQL_DRIVER_URL =
