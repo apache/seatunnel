@@ -20,18 +20,23 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.awaitility.Awaitility.await;
 
@@ -118,5 +123,66 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
         } finally {
             slotService.releaseSlot(jobId, slot);
         }
+    }
+
+    @Test
+    public void testResetResourceOperationKeepsLiveSlotAssignment() {
+        SlotService slotService = server.getSlotService();
+        long jobId = System.currentTimeMillis();
+        SlotProfile slot = slotService.requestSlot(jobId, new ResourceProfile()).getSlotProfile();
+        Assertions.assertNotNull(slot);
+        try {
+            sendResetResourceOperation();
+
+            WorkerProfile workerProfile = slotService.getWorkerProfile();
+            Assertions.assertEquals(1, workerProfile.getAssignedSlots().length);
+            SlotProfile assigned = workerProfile.getAssignedSlots()[0];
+            Assertions.assertEquals(slot.getSlotID(), assigned.getSlotID());
+            Assertions.assertEquals(slot.getSequence(), assigned.getSequence());
+            Assertions.assertEquals(totalSlots - 1, workerProfile.getUnassignedSlots().length);
+            Assertions.assertNotNull(slotService.getSlotContext(slot));
+        } finally {
+            slotService.releaseSlot(jobId, slot);
+        }
+    }
+
+    @Test
+    public void testResetResourceOperationOnEmptyWorkerCanAllocate() {
+        SlotService slotService = server.getSlotService();
+        // Other tests release their slots asynchronously.
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0,
+                                        slotService.getWorkerProfile().getAssignedSlots().length));
+        Set<String> sequencesBeforeReset =
+                slotSequences(slotService.getWorkerProfile().getUnassignedSlots());
+
+        sendResetResourceOperation();
+
+        WorkerProfile workerProfile = slotService.getWorkerProfile();
+        Assertions.assertEquals(0, workerProfile.getAssignedSlots().length);
+        Assertions.assertEquals(totalSlots, workerProfile.getUnassignedSlots().length);
+        Set<String> sequencesAfterReset = slotSequences(workerProfile.getUnassignedSlots());
+        sequencesAfterReset.retainAll(sequencesBeforeReset);
+        Assertions.assertTrue(
+                sequencesAfterReset.isEmpty(), "an idle worker should be rebuilt on reset");
+
+        long jobId = System.currentTimeMillis();
+        SlotProfile slot = slotService.requestSlot(jobId, new ResourceProfile()).getSlotProfile();
+        Assertions.assertNotNull(slot);
+        Assertions.assertNotNull(slotService.getSlotContext(slot));
+        slotService.releaseSlot(jobId, slot);
+    }
+
+    private void sendResetResourceOperation() {
+        NodeEngineUtil.sendOperationToMemberNode(
+                        nodeEngine, new ResetResourceOperation(), nodeEngine.getThisAddress())
+                .join();
+    }
+
+    private static Set<String> slotSequences(SlotProfile[] slots) {
+        return Arrays.stream(slots).map(SlotProfile::getSequence).collect(Collectors.toSet());
     }
 }
