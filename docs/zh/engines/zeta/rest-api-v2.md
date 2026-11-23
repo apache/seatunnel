@@ -75,7 +75,7 @@ seatunnel:
 
 ### Basic Auth 配置示例
 
-在已启用 HTTP 的 `seatunnel.yaml` 中加入下面的配置。这段示例不负责开启 HTTP 或 HTTPS。重启前，请替换示例用户名，并填入独立的强密码。空密码会被拒绝。
+如果已启用 HTTP 或 HTTPS，请在 `seatunnel.yaml` 的 `seatunnel.engine.http` 下加入以下配置。本示例不会开启监听。重启前，请替换示例用户名，并将 `********` 换成独立的强密码。通过网络传输凭据时，请使用 HTTPS。
 
 ```yaml
 seatunnel:
@@ -83,7 +83,7 @@ seatunnel:
     http:
       enable-basic-auth: true
       basic-auth-username: "ops-user" # 替换成自己的用户名。
-      basic-auth-password: "" # 填入独立的强密码。
+      basic-auth-password: "********" # 替换为独立的强密码。
 ```
 
 ## Web UI 与 8080 排查

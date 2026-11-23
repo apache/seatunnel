@@ -2,23 +2,23 @@
 
 ## Basic Authentication
 
-You can secure your Web UI by enabling basic authentication. This will require users to enter a username and password when accessing the web interface.
+Enable Basic Auth to require a username and password for the Web UI and REST API. SeaTunnel supplies no built-in credentials. When Basic Auth is enabled on an HTTP or HTTPS listener, a missing or blank username or password prevents the management listener from starting. Use HTTPS when sending credentials over the network.
 
 | Parameter Name | Required | Description |
 |----------------|----------|-------------|
 | `enable-basic-auth` | No | Whether to enable basic authentication, default is `false` |
-| `basic-auth-username` | No | The username for basic authentication, default is `admin` |
-| `basic-auth-password` | No | The password for basic authentication, default is `admin` |
+| `basic-auth-username` | When Basic Auth is enabled | Your chosen username; no default |
+| `basic-auth-password` | When Basic Auth is enabled | A unique, strong password; no default |
+
+Add these settings to your existing HTTP or HTTPS configuration. Replace both example values before starting SeaTunnel.
 
 ```yaml
 seatunnel:
   engine:
     http:
-      enable-http: true
-      port: 8080
       enable-basic-auth: true
-      basic-auth-username: "your_username"
-      basic-auth-password: "your_password"
+      basic-auth-username: "ops-user" # Replace with your username.
+      basic-auth-password: "********" # Replace with a unique, strong password.
 ```
 
 ## HTTPS Configuration

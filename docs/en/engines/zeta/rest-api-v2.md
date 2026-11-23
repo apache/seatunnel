@@ -80,7 +80,7 @@ seatunnel:
 
 ### Basic Auth configuration example
 
-Add this block to `seatunnel.yaml` for an existing HTTP listener. The example does not enable HTTP or HTTPS. Replace the example username and fill in the empty password with a unique secret before restarting. The empty value is intentionally rejected.
+Add these settings under `seatunnel.engine.http` in `seatunnel.yaml` for an existing HTTP or HTTPS listener. The example does not enable a listener. Replace the example username and the `********` placeholder with your own credentials before restarting. Use HTTPS when sending credentials over the network.
 
 ```yaml
 seatunnel:
@@ -88,7 +88,7 @@ seatunnel:
     http:
       enable-basic-auth: true
       basic-auth-username: "ops-user" # Replace with your username.
-      basic-auth-password: "" # Fill in a unique password.
+      basic-auth-password: "********" # Replace with a unique, strong password.
 ```
 
 ## Web UI and Port 8080 Troubleshooting

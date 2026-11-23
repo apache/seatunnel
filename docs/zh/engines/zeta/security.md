@@ -7,23 +7,23 @@ title: 安全配置
 
 ## Basic 认证
 
-您可以通过开启 Basic 认证来保护您的 Web UI。这将要求用户在访问 Web 界面时输入用户名和密码。
+开启 Basic 认证后，访问 Web UI 和 REST API 需要提供用户名和密码。SeaTunnel 不提供内置凭据。HTTP 或 HTTPS 监听启用 Basic 认证时，用户名或密码缺失、为空白都会导致管理监听无法启动。通过网络传输凭据时，请使用 HTTPS。
 
 | 参数名称 | 是否必填 | 参数描述 |
 |--------|---------|--------|
 | `enable-basic-auth` | 否 | 是否开启Basic 认证，默认为 `false` |
-| `basic-auth-username` | 否 | Basic 认证的用户名，默认为 `admin` |
-| `basic-auth-password` | 否 | Basic 认证的密码，默认为 `admin` |
+| `basic-auth-username` | 启用 Basic 认证时必填 | 自行设置的用户名，无默认值 |
+| `basic-auth-password` | 启用 Basic 认证时必填 | 独立的强密码，无默认值 |
+
+将以下配置加入现有的 HTTP 或 HTTPS 配置，并在启动 SeaTunnel 前替换两个示例值。
 
 ```yaml
 seatunnel:
   engine:
     http:
-      enable-http: true
-      port: 8080
       enable-basic-auth: true
-      basic-auth-username: "your_username"
-      basic-auth-password: "your_password"
+      basic-auth-username: "ops-user" # 替换成自己的用户名。
+      basic-auth-password: "********" # 替换为独立的强密码。
 ```
 
 ## HTTPS 配置
