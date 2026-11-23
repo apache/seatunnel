@@ -91,7 +91,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | split.size                                 | Int        | 否    | 8096  | 表的分割大小（行数），当读取表时，捕获的表会被分割成多个分片。                                                                                                                                                                                        |
 | split.even-distribution.factor.lower-bound | Double     | 否    | 0.05  | 分片键分布因子的下限。该因子用于判断表数据的分布是否均匀。如果计算得到的分布因子大于或等于该下限（即，(MAX(id) - MIN(id) + 1) / 行数），则会对表的分片进行优化，以确保数据的均匀分布。反之，如果分布因子较低，则表数据将被视为分布不均匀。如果估算的分片数量超过 `sample-sharding.threshold` 所指定的值，则会采用基于采样的分片策略。默认值为 0.05。               |
 | split.even-distribution.factor.upper-bound | Double     | 否    | 100   | 分片键分布因子的上限。该因子用于判断表数据的分布是否均匀。如果计算得到的分布因子小于或等于该上限（即，(MAX(id) - MIN(id) + 1) / 行数），则会对表的分片进行优化，以确保数据的均匀分布。反之，如果分布因子较大，则表数据将被视为分布不均匀，并且如果估算的分片数量超过 `sample-sharding.threshold` 所指定的值，则会采用基于采样的分片策略。默认值为 100.0。            |
-| split.sample-sharding.threshold            | Int        | 否    | 1000  | 此配置指定了触发样本分片策略的估算分片数阈值。当分布因子超出由 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围，并且估算的分片数量（计算方法为大致行数 / 分片大小）超过此阈值时，将使用样本分片策略。此配置有助于更高效地处理大型数据集。默认值为 1000 个分片。 |
+| split.sample-sharding.threshold            | Int        | 否    | 1000  | 此配置指定了触发样本分片策略的估算分片数阈值。当分布因子超出由 `split.even-distribution.factor.upper-bound` 和 `split.even-distribution.factor.lower-bound` 指定的范围，并且估算的分片数量（计算方法为大致行数 / 分片大小）超过此阈值时，将使用样本分片策略。此配置有助于更高效地处理大型数据集。默认值为 1000 个分片。 |
 | split.allow-sampling                       | Boolean    | 否    | true  | 是否允许对分布不均匀的分片键使用采样分片策略。设置为 `false` 时，SeaTunnel 会退回到迭代式不均匀分片。                                                                                                            |
 | use_select_count                           | Boolean    | 否    | false | 是否使用 `select count(*)` 在分片前估算表行数。                                                                                                                                                                                        |
 | skip_analyze                               | Boolean    | 否    | false | 是否跳过分片前的表行数分析。                                                                                                                                                                                                       |
@@ -151,7 +151,7 @@ JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用特定�
 
 #### split.sample-sharding.threshold
 
-此配置指定了触发采样分片策略的估算分片数量阈值。当分布因子超出 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围，并且估算的分片数量（按大致行数除以分片大小计算）超过该阈值时，将使用采样分片策略。这有助于更高效地处理大数据集。默认值为 1000 个分片。
+此配置指定了触发采样分片策略的估算分片数量阈值。当分布因子超出 `split.even-distribution.factor.upper-bound` 和 `split.even-distribution.factor.lower-bound` 指定的范围，并且估算的分片数量（按大致行数除以分片大小计算）超过该阈值时，将使用采样分片策略。这有助于更高效地处理大数据集。默认值为 1000 个分片。
 
 #### split.inverse-sampling.rate
 

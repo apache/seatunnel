@@ -78,7 +78,7 @@ Source 支持连接、身份认证及已有队列的元数据检查。预检查�
 | requested_frame_max        | int     | 否  | -     | 请求的最大帧大小                                                                    |
 | requested_heartbeat        | int     | 否  | -     | 设置请求的心跳超时。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。**                     |
 | prefetch_count             | int     | 否  | -     | 预取计数，无需确认即可接收的最大消息数                                                         |
-| delivery_timeout           | int     | 否  | -     | 交付超时，等待下一条消息交付的最大时间（毫秒）                                                     |
+| delivery_timeout           | int     | 否  | -     | 交付超时，等待下一条消息交付的最大时间（毫秒）。注意：该参数目前未被连接器实际使用，配置后无运行时效果。                                                     |
 | use_correlation_id         | boolean | 否  | -     | 消息是否带有可用于去重的唯一 correlation id                                                 |
 | durable                    | boolean | 否  | true  | 队列是否在服务器重启时保留                                                               |
 | exclusive                  | boolean | 否  | false | 队列是否仅由当前连接使用                                                                |
@@ -192,7 +192,7 @@ RabbitMQ 共享配置中的可选 exchange。普通队列消费不需要配置�
 
 ### delivery_timeout [int]
 
-交付超时，等待下一条消息交付的最大时间（毫秒）
+交付超时，等待下一条消息交付的最大时间（毫秒）。注意：该参数目前仅为向后兼容而保留，连接器并未实际使用它——配置后不会产生任何运行时效果。
 
 ### use_correlation_id [boolean]
 
