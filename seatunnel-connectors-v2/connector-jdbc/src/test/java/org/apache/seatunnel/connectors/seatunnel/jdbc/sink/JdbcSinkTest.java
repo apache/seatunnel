@@ -21,10 +21,12 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 class JdbcSinkTest {
@@ -77,5 +79,51 @@ class JdbcSinkTest {
                         .build();
 
         Assertions.assertEquals(1, JdbcSink.getPrimaryKeyIndex(tableSchema).get());
+    }
+
+    @Test
+    void shouldUseTheOnlyRestoredSchemaOrTheInitialSchema() {
+        TableSchema initialSchema = tableSchema("id");
+        TableSchema restoredSchema = tableSchema("id", "email");
+
+        Assertions.assertEquals(
+                initialSchema,
+                JdbcSink.resolveRestoredTableSchema(
+                        initialSchema, Collections.singletonList(new JdbcSinkState(null))));
+        Assertions.assertEquals(
+                restoredSchema,
+                JdbcSink.resolveRestoredTableSchema(
+                        initialSchema,
+                        Arrays.asList(
+                                new JdbcSinkState(null, restoredSchema),
+                                new JdbcSinkState(null, restoredSchema))));
+    }
+
+    @Test
+    void shouldRejectDivergentRestoredSchemas() {
+        TableSchema initialSchema = tableSchema("id");
+
+        IllegalStateException exception =
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                JdbcSink.resolveRestoredTableSchema(
+                                        initialSchema,
+                                        Arrays.asList(
+                                                new JdbcSinkState(null, tableSchema("id", "email")),
+                                                new JdbcSinkState(
+                                                        null, tableSchema("id", "phone")))));
+
+        Assertions.assertTrue(exception.getMessage().contains("divergent table schemas"));
+    }
+
+    private static TableSchema tableSchema(String... columnNames) {
+        TableSchema.Builder builder = TableSchema.builder();
+        for (String columnName : columnNames) {
+            builder.column(
+                    PhysicalColumn.of(
+                            columnName, BasicType.STRING_TYPE, (Long) null, true, null, null));
+        }
+        return builder.build();
     }
 }
