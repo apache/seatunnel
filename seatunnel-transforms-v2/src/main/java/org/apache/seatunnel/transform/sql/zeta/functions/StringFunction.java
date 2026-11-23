@@ -19,6 +19,7 @@ package org.apache.seatunnel.transform.sql.zeta.functions;
 
 import org.apache.seatunnel.shade.com.google.common.hash.Hashing;
 
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
@@ -39,6 +40,7 @@ import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -231,6 +233,73 @@ public class StringFunction {
     private static Charset getBase64Charset(List<Object> args) {
         String charsetName = args.size() == 2 ? (String) args.get(1) : null;
         return EncodingUtils.tryParseCharset(charsetName);
+    }
+
+    /**
+     * Charset names accepted by {@code ENCODE}/{@code DECODE}. Resolution is case insensitive and
+     * accepts no aliases, so behavior does not depend on the JVM's charset registry.
+     */
+    private static final Map<String, Charset> DOCUMENTED_CHARSETS = documentedCharsets();
+
+    private static Map<String, Charset> documentedCharsets() {
+        Map<String, Charset> charsets = new HashMap<>();
+        charsets.put("US-ASCII", StandardCharsets.US_ASCII);
+        charsets.put("ISO-8859-1", StandardCharsets.ISO_8859_1);
+        charsets.put("UTF-8", StandardCharsets.UTF_8);
+        charsets.put("UTF-16BE", StandardCharsets.UTF_16BE);
+        charsets.put("UTF-16LE", StandardCharsets.UTF_16LE);
+        charsets.put("UTF-16", StandardCharsets.UTF_16);
+        return Collections.unmodifiableMap(charsets);
+    }
+
+    public static byte[] encode(List<Object> args) {
+        if (args.size() != 2) {
+            throw new IllegalArgumentException("ENCODE requires exactly 2 arguments");
+        }
+        Object value = args.get(0);
+        Object charsetName = args.get(1);
+        if (value == null || charsetName == null) {
+            return null;
+        }
+        if (!(value instanceof String)) {
+            throw new IllegalArgumentException(
+                    "ENCODE expects a string value, unsupported type: "
+                            + value.getClass().getName());
+        }
+        return encode((String) value, (String) charsetName);
+    }
+
+    public static String decode(List<Object> args) {
+        if (args.size() != 2) {
+            throw new IllegalArgumentException("DECODE requires exactly 2 arguments");
+        }
+        Object value = args.get(0);
+        Object charsetName = args.get(1);
+        if (value == null || charsetName == null) {
+            return null;
+        }
+        if (!(value instanceof byte[])) {
+            throw new IllegalArgumentException(
+                    "DECODE expects a binary value, unsupported type: "
+                            + value.getClass().getName());
+        }
+        return decode((byte[]) value, (String) charsetName);
+    }
+
+    public static byte[] encode(String value, String charsetName) {
+        return value.getBytes(resolveDocumentedCharset(charsetName));
+    }
+
+    public static String decode(byte[] value, String charsetName) {
+        return new String(value, resolveDocumentedCharset(charsetName));
+    }
+
+    public static Charset resolveDocumentedCharset(String charsetName) {
+        Charset charset = DOCUMENTED_CHARSETS.get(charsetName.toUpperCase(Locale.ROOT));
+        if (charset == null) {
+            throw CommonError.unsupportedEncoding(charsetName);
+        }
+        return charset;
     }
 
     public static String insert(List<Object> args) {

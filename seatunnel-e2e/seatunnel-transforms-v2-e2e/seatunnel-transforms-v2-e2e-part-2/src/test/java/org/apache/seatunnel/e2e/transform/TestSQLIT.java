@@ -91,6 +91,10 @@ public class TestSQLIT extends TestSuiteBase {
         Container.ExecResult nullReturnSql =
                 container.executeJob("/sql_transform/func_null_return.conf");
         Assertions.assertEquals(0, nullReturnSql.getExitCode());
+
+        Container.ExecResult funcEncodeDecode =
+                container.executeJob("/sql_transform/func_encode_decode.conf");
+        Assertions.assertEquals(0, funcEncodeDecode.getExitCode());
     }
 
     @TestTemplate

@@ -130,6 +130,50 @@ FROM_BASE64(ENCODED_NAME)
 
 FROM_BASE64(TO_BASE64(NAME, 'UTF-16'), 'UTF-16')
 
+### ENCODE
+
+```ENCODE(value, charset) -> BINARY```
+
+使用指定的字符集将字符串编码为二进制值。
+
+接受的字符集名称为 `US-ASCII`、`ISO-8859-1`、`UTF-8`、`UTF-16BE`、`UTF-16LE`、`UTF-16`，大小写不敏感。不接受别名，即使 JVM 支持 `UTF8` 也会被拒绝；空白或不支持的字符集名称会报错，不会回退到默认字符集。
+
+这是字符串与原始字节之间的字符集转换，不是 Base64 文本编码；Base64 请使用 `TO_BASE64`。
+
+字符集中无法表示的字符按 JVM 的替换行为编码，不会报错。
+
+如果任一参数为 **NULL**，返回 **NULL**。
+
+示例:
+
+ENCODE(NAME, 'UTF-8')
+
+ENCODE(NAME, 'UTF-16')
+
+ENCODE(NAME, 'ISO-8859-1')
+
+### DECODE
+
+```DECODE(value, charset) -> STRING```
+
+使用指定的字符集将二进制值解码为字符串。
+
+接受的字符集名称为 `US-ASCII`、`ISO-8859-1`、`UTF-8`、`UTF-16BE`、`UTF-16LE`、`UTF-16`，大小写不敏感。不接受别名，即使 JVM 支持 `UTF8` 也会被拒绝；空白或不支持的字符集名称会报错，不会回退到默认字符集。
+
+Base64 文本请使用 `FROM_BASE64`。不支持 Oracle 风格的条件 `DECODE(expr, search, result)`。
+
+无效的字节序列按 JVM 的替换行为解码，不会报错。
+
+如果任一参数为 **NULL**，返回 **NULL**。
+
+示例:
+
+DECODE(PAYLOAD, 'UTF-8')
+
+DECODE(PAYLOAD, 'ISO-8859-1')
+
+DECODE(ENCODE(NAME, 'UTF-8'), 'UTF-8')
+
 ### INSERT
 
 ```INSERT(originalString, startInt, lengthInt, addString) -> STRING```
