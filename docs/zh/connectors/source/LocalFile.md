@@ -362,6 +362,10 @@ PDF 特有的解析行为如下：
 
 如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
 
+两种引擎读取数值列（TINYINT、SMALLINT、INT、BIGINT、FLOAT、DOUBLE 或 DECIMAL）时，数值单元格和公式的数值结果都按存储的数值读取，而不是显示文本：显示为 `50%` 的单元格读取为 `0.5`。DOUBLE 列保留存储的 `double`；FLOAT 列将其转换为 32 位 `float`，可能损失精度；DECIMAL 列解析相同的存储值文本，不会猜测末尾数字来自公式计算还是真实数据，例如 `=0.1+0.2` 的结果读作 `0.30000000000000004`，小数位数可能超过声明的 scale；如需得到公式显示的值，可以在 [SQL 转换](../../transforms/sql.md) 中使用 `ROUND(col, 2)`。整数列读取整数时保留全部位数，读取绝对值小于 `1e15` 的带小数的值时先按 Excel 的 15 位有效数字取值再去掉小数部分，例如 `7.999999999999999` 读作 `8`。STRING 列仍读取数值单元格的显示文本。DECIMAL 列也可以读取文本单元格，且不经过 `double`；在不丢失任何位数且结果不超过声明的 precision 时，DECIMAL 按声明的 scale 读取（`decimal(20, 4)` 中的 `5000.0` 读作 `5000.0000`）。
+
+DECIMAL 文本与其他基于文本的文件读取器一样直接解析。超过声明的 precision 或 scale 的值会原样保留，不会舍入，也不会添加 Excel 专有的拒绝规则；写入严格校验这些限制的 Sink 前，请先校验或显式舍入。POI 会计算公式，EasyExcel 则读取缓存的公式结果，因此结果取决于工作簿中的公式缓存是否为最新值。POI 对日期格式单元格的原有处理保持不变。
+
 ### excel_use_header_line [boolean]
 
 仅用于 `file_format_type` 为 `excel` 的源。默认值为 `false`，因此即使设置了 `skip_header_row_number`，Excel 仍按列位置读取。

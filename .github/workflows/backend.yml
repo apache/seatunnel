@@ -2284,7 +2284,9 @@ jobs:
       matrix:
         java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    # JDK 11 can spend about 115 minutes in the first two test classes alone.
+    # Allow the metadata tests and setup to finish within a bounded job budget.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
