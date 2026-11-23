@@ -15,6 +15,9 @@ Examines string value in given fields and replaces substring of the string value
 | replacement   | string  | yes      | -             |
 | is_regex      | boolean | no       | false         |
 | replace_first | boolean | no       | false         |
+| table_match_regex | string  | no       | `.*`          |
+| table_transform | array   | no       | -             |
+| rule_match_mode | string  | no       | `FIRST_MATCH` |
 
 ### replace_fields [array]
 
@@ -43,6 +46,18 @@ Use regex for string match
 ### replace_first [boolean]
 
 Whether replace the first match string. Only used when `is_regex = true`.
+
+### table_match_regex [string]
+
+Regex matched against the upstream table path. The transform level rule (the options above outside of `table_transform`) only applies to tables whose path matches this regex. The default `.*` matches every table.
+
+### table_transform [array]
+
+A list of per-table rules. Each entry must contain `table_path` in the form `databaseName[.schemaName].tableName` (matched exactly) and a complete Replace rule for that table (`replace_fields`, `pattern`, `replacement`). Tables with an entry are not affected by the transform level rule.
+
+### rule_match_mode [string]
+
+Controls what happens when several `table_transform` entries have the same `table_path`: `FIRST_MATCH` applies only the first matching entry, `ALL_MATCH` applies all matching entries in order. If not set, duplicate `table_path` entries are rejected.
 
 ### common options [string]
 

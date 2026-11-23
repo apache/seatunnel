@@ -18,6 +18,11 @@ name: publish-docker
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to publish (for example, 3.1.0)'
+        required: true
+        type: string
   push:
     tags:
       - '*'
@@ -31,7 +36,7 @@ env:
 
 jobs:
   build:
-    if: github.repository == 'apache/seatunnel' && github.ref_type == 'tag'
+    if: github.repository == 'apache/seatunnel'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,10 +45,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
           submodules: true
       - name: free disk space
         run: tools/github/free_disk_space.sh
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
       - name: Cache local Maven repository
         uses: actions/cache@v4
         with:

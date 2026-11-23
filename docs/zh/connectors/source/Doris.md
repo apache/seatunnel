@@ -73,7 +73,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 | username                         | string | yes      | -          | 用户名                                                                                               |
 | password                         | string | yes      | -          | 密码                                                                                                 |
 | doris.request.retries            | int    | no       | 3          | 请求Doris FE的重试次数                                                                                 |
-| doris.request.read.timeout.ms    | int    | no       | 30000      | 请求 Doris BE 的 socket 读取超时时间。                                                                 |
+| doris.request.read.timeout.ms    | int    | no       | 30000      | 请求 Doris FE 或 BE 的 socket 读取超时时间。                                                            |
 | doris.request.connect.timeout.ms | int    | no       | 30000      | 请求 Doris FE 或 BE 的连接超时时间。                                                                    |
 | query-port                       | int    | no       | 9030       | Doris 查询端口。                                                                                       |
 | doris.request.query.timeout.s    | int    | no       | 3600       | Doris扫描数据的超时时间，单位秒                                                                          |
@@ -94,7 +94,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 | doris.batch.size                 | int    | no       | 1024       | 每次能够从BE中读取到的最大行数                                                                           |
 | doris.exec.mem.limit             | long   | no       | 2147483648 | 单个be扫描请求可以使用的最大内存。默认内存为2G（2147483648）                                                |
  
-注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。如果不配置 `table_list`，必须在 source 外层配置 `database` 和 `table`。
+注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。如果不配置 `table_list`，必须在 source 外层配置 `database` 和 `table`。`table_list` 中的每个 `database`.`table` 必须唯一，重复配置会在作业提交时被拒绝。
 
 ### 提示
 

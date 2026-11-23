@@ -152,6 +152,8 @@ Only used when `have_partition` is `true`.
 
 Partition data based on selected fields.
 
+A `NULL` value in a partition field is written as the literal text `null` in the partition directory (for example `c_null=null`), not as a missing value.
+
 ### partition_dir_expression [string]
 
 Only used when `have_partition` is `true`.
@@ -343,8 +345,6 @@ LocalFile {
     file_format_type="excel"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
-    schema_save_mode=RECREATE_SCHEMA
-    data_save_mode=DROP_DATA
   }
 
 ```

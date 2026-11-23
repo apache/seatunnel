@@ -31,7 +31,7 @@ The Metadata transform plugin is used to extract metadata information from data 
 | BinlogPos  | long   | Binlog byte offset. `null` for snapshot rows. | MySQL-CDC only |
 | BinlogRow  | int    | Row index (0-based) within the binlog event. `null` for snapshot rows. | MySQL-CDC only |
 | Gtid       | string | Global Transaction ID (`server_uuid:transaction_id`). `null` when GTID is disabled or for snapshot rows. | MySQL-CDC only |
-| Partition |  string  |  Partition information of the data, multiple partition fields separated by commas  | Connectors supporting partitions |
+| Partition | declared by the input table's `MetadataSchema`  |  Partition information of the data. The value is returned as-is from the connector's partition option; no comma joining is applied by the transform. This key is only available when the input table's `MetadataSchema` declares it  | Connectors that write partition metadata |
 
 ## Connector-Declared Metadata Fields
 
