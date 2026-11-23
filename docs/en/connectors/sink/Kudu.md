@@ -56,7 +56,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | buffer_flush_interval                     | Int    | No       | 10000                                          | Required only when `session_flush_mode = AUTO_FLUSH_BACKGROUND`. The asynchronous writer flush interval, in milliseconds.                                                             |
 | ignore_not_found                          | Bool   | No       | false                                          | If true, ignore all not found rows.                                                                                                         |
 | ignore_not_duplicate                      | Bool   | No       | false                                          | If true, ignore all duplicate rows.                                                                                                          |
-| multi_table_sink_replica                  | Int    | No       | 1                                              | Number of sink writer replicas for each table in a multi-table job.                                                                          |
+| multi_table_sink_replica                  | Int    | No       | 1                                              | Number of sink writer replicas for each table in a multi-table job. Keep it at 1: the Kudu writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options                            |        | No       | -                                              | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                            |
 
 ## Option Notes

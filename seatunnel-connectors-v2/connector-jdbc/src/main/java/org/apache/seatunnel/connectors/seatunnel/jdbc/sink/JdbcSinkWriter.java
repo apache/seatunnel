@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.common.error.RowErrorPhase;
 import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.MultiTableSinkReplicaMode;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -291,6 +292,17 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     @Override
     public Optional<Integer> primaryKey() {
         return primaryKeyIndex != null ? Optional.of(primaryKeyIndex) : Optional.empty();
+    }
+
+    /**
+     * Keeps the existing Jdbc routing with several replicas: rows are routed by the first primary
+     * key column, from the table schema or the {@code primary_keys} option. A table without a key
+     * has nothing to route by, so {@link #primaryKey()} is empty and several replicas are rejected
+     * for it.
+     */
+    @Override
+    public MultiTableSinkReplicaMode replicaMode() {
+        return MultiTableSinkReplicaMode.KEYED;
     }
 
     private void tryOpen() throws IOException {

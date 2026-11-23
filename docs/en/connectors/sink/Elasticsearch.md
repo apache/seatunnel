@@ -56,7 +56,7 @@ Engine Supported
 | common-options          |         | no       | -                            | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 | vectorization_fields    | array   | no       | -                            | Field names whose values should be stored as dense vectors. |
 | vector_dimensions       | int     | no       | 0                            | Dimensionality of the dense vectors stored under `vectorization_fields`. Set together with `vectorization_fields`. |
-| multi_table_sink_replica | int     | no       | 1                            | Number of sink writer replicas when writing multiple tables. |
+| multi_table_sink_replica | int     | no       | 1                            | Number of sink writer replicas when writing multiple tables. Keep it at 1: the Elasticsearch writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### hosts [array]
 
@@ -87,7 +87,7 @@ Changing this option for an existing composite-key index changes its document ID
 
 ### multi_table_sink_replica [int]
 
-The replica number of sink writers used for each table in a multi-table sink job. Keep the default value unless one table needs more sink writer parallelism.
+The replica number of sink writers used for each table in a multi-table sink job. Keep it at 1: the Elasticsearch writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
 ## Authentication
 

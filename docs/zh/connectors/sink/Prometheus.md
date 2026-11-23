@@ -51,7 +51,7 @@ Prometheus 数据接收器把上游数据写入 Prometheus remote write API。�
 | retry_backoff_multiplier_ms | Int    | 否       | 100    | 重试退避时间倍数，单位毫秒。 |
 | retry_backoff_max_ms        | Int    | 否       | 10000  | 最大重试退避时间，单位毫秒。 |
 | batch_size                  | Int    | 否       | 1024   | 写入 Prometheus 前缓存的行数，必须大于 0。 |
-| multi_table_sink_replica    | Int    | 否       | 1      | 多表写入时，每张表使用的写入器副本数。 |
+| multi_table_sink_replica    | Int    | 否       | 1      | 多表写入时，每张表使用的写入器副本数。请保持为 1：Prometheus writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options              | Config | 否       | -      | 接收器插件通用参数，详情请参考[接收器通用选项](../common-options/sink-common-options.md)。 |
 
 ### key_label
@@ -72,7 +72,7 @@ Sink 会自动补充 remote write 需要的请求头：`Content-type`、`Content
 
 ### multi_table_sink_replica
 
-多表写入时，每张表使用的 Sink Writer 副本数。默认值为 `1`；只有当单张表需要更高写入并行度时才建议调大。
+多表写入时，每张表使用的 Sink Writer 副本数。默认值为 `1`。请保持为 1：Prometheus writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。
 
 ### 定时刷新
 
@@ -204,9 +204,8 @@ sink {
 
 ## 多表 Remote Write
 
-当同一个作业从多张上游表读取数据并写入同一个 Prometheus remote write 端点时，可以通过
-`multi_table_sink_replica` 控制每张表分配多少个写入任务。表都比较小时使用默认值 `1` 即可；
-只有当某张表需要比其他表更高的并行度时才需要调大该值。
+当同一个作业从多张上游表读取数据并写入同一个 Prometheus remote write 端点时，请将
+`multi_table_sink_replica` 保持为 1：Prometheus writer 尚未声明副本模式，取值大于 1 会被拒绝。
 
 ```hocon
 env {
@@ -250,7 +249,7 @@ sink {
     key_label = "c_map"
     key_value = "c_double"
     key_timestamp = "c_timestamp"
-    multi_table_sink_replica = 2
+    multi_table_sink_replica = 1
   }
 }
 ```

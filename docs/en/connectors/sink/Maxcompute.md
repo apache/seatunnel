@@ -52,7 +52,7 @@ or upsert session selected by `insert_strategy`.
 | tunnel_read_timeout_ms    | long    | no       | 300000                       | HTTP read timeout for the Tunnel client (data upload/download) in ms. Default 300000 (300s).          |
 | tunnel_retry_times        | int     | no       | 4                            | Max retry times for the Tunnel client. Default 4.                                                       |
 | insert_strategy           | string  | no       | upload                       | Insert session strategy: `upload` uses an upload session, `upsert` uses an upsert session and requires a primary key.    |
-| multi_table_sink_replica  | int     | no       | 1                            | Number of sink writer replicas for each table in a multi-table job.                                                      |
+| multi_table_sink_replica  | int     | no       | 1                            | Number of sink writer replicas for each table in a multi-table job. Keep it at 1: the Maxcompute writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options            |         | no       | -                            | Sink plugin common parameters, such as `plugin_input`.                                                                   |
 
 ### accessId [string]
@@ -257,9 +257,9 @@ When a primary key is present, it is recommended to set `insert_strategy` to `up
 
 ### multi_table_sink_replica [int]
 
-The number of writer replicas in multi-table sink mode. The default value is `1`.
+The number of writer replicas in multi-table sink mode. The default value is `1`. Keep it at 1: the Maxcompute writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
-Use this option when upstream data contains multiple table identifiers and `table_name` uses placeholders such as `${table_name}`. For example, `table_name = "${table_name}_sink"` writes upstream table `test_table` to target table `test_table_sink`.
+Multi-table writes do not need this option: when upstream data contains multiple table identifiers, `table_name` can use placeholders such as `${table_name}`. For example, `table_name = "${table_name}_sink"` writes upstream table `test_table` to target table `test_table_sink`.
 
 ### common options
 

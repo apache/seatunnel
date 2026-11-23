@@ -40,7 +40,7 @@ kinds. It buffers up to 64 points per writer before issuing an upsert batch.
 | port            | int    | no       | 6334          | Qdrant gRPC port. |
 | api_key         | string | no       | ""            | Qdrant API key for authenticated deployments. |
 | use_tls         | bool   | no       | false         | Whether to use TLS for the gRPC connection. |
-| multi_table_sink_replica | int    | no       | 1             | Replica number for every table writer in multi-table sink mode. |
+| multi_table_sink_replica | int    | no       | 1             | Replica number for every table writer in multi-table sink mode. Keep it at 1: the Qdrant writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options  |        | no       | -             | Sink common options. |
 
 ### collection_name [string]

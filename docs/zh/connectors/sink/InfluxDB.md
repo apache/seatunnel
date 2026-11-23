@@ -57,7 +57,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | epoch                       | string | 否  | n            | 客户端使用的时间精度。写入精度识别大写值：`H`、`M`、`S`、`MS`、`U`、`NS`。 |
 | connect_timeout_ms          | long   | 否  | 15000        | 连接 InfluxDB 的超时时间，单位毫秒。                                  |
 | query_timeout_sec           | int    | 否  | 3            | InfluxDB 客户端读超时时间，单位秒。                                   |
-| multi_table_sink_replica    | int    | 否  | 1            | 多表写入时的 sink writer 副本数。                                  |
+| multi_table_sink_replica    | int    | 否  | 1            | 多表写入时的 sink writer 副本数。请保持为 1：InfluxDB writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options              | config | 否  | -            | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 ### url [string]
@@ -239,7 +239,7 @@ sink {
 
 ### 每个 Measurement 独立写入并使用多副本 Writer
 
-当上游表数量很大时，可以通过 `multi_table_sink_replica` 把多表写入分散到更多的 writer 实例上。
+当上游表数量很大时，也请将 `multi_table_sink_replica` 保持为 1：InfluxDB writer 尚未声明副本模式，取值大于 1 会被拒绝。
 
 ```hocon
 env {
@@ -268,7 +268,7 @@ sink {
     retry_backoff_multiplier_ms = 100
     max_retry_backoff_ms = 5000
     write_timeout = 10
-    multi_table_sink_replica = 2
+    multi_table_sink_replica = 1
   }
 }
 ```

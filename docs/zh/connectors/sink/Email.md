@@ -96,7 +96,7 @@ SMTP 服务器端口，取值必须在 `1` 到 `65535` 之间（包含边界值�
 
 ### multi_table_sink_replica [int]
 
-多表写入时，每张表使用的 Sink Writer 副本数。默认值为 `1`。
+多表写入时，每张表使用的 Sink Writer 副本数。默认值为 `1`。请保持为 1：Email writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。
 
 ### 空数据行为
 

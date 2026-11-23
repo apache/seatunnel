@@ -40,7 +40,7 @@ how null values, row keys, WAL, timestamps, and existing data are handled.
 | data_save_mode           | enum    | no       | APPEND_DATA                  | How to handle existing data before writing. |
 | hbase_extra_config       | config  | no       | -                            | Extra HBase or Hadoop client configuration. |
 | ttl                      | long    | no       | -1                           | Expiration time in milliseconds for written HBase cells; `-1` means cells never expire. |
-| multi_table_sink_replica | int     | no       | 1                            | Number of sink writer replicas for each table in a multi-table job. |
+| multi_table_sink_replica | int     | no       | 1                            | Number of sink writer replicas for each table in a multi-table job. Keep it at 1: the Hbase writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options           |         | no       | -                            | Sink plugin common parameters, such as `plugin_input`. |
 
 ### zookeeper_quorum [string]
@@ -121,7 +121,7 @@ The extra configuration of hbase
 
 ### multi_table_sink_replica [int]
 
-The replica number of sink writers used for each table in a multi-table sink job. Keep the default value unless one table needs more sink writer parallelism.
+The replica number of sink writers used for each table in a multi-table sink job. Keep it at 1: the Hbase writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
 ### schema_save_mode [enum]
 

@@ -37,7 +37,7 @@ import ChangeLog from '../changelog/connector-typesense.md';
 | api_key                  | string | 是    | -                            | Typesense API Key。                                 |
 | max_retry_count          | int    | 否    | 3                            | 单个批量请求的最大重试次数。                                  |
 | max_batch_size           | int    | 否    | 10                           | 单个批量请求最多写入的文档数量。                                |
-| multi_table_sink_replica | int    | 否    | 1                            | 通用多表写入路由机制使用的 Sink 副本数。                         |
+| multi_table_sink_replica | int    | 否    | 1                            | 通用多表写入路由机制使用的 Sink 副本数。请保持为 1：Typesense writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options           |        | 否    | -                            | 通用 Sink 选项。                                      |
 
 ### hosts [array]
@@ -76,7 +76,7 @@ Typesense 安全认证的 `api_key`。请把它当作敏感凭据处理；在共
 
 ### multi_table_sink_replica [int]
 
-通用多表写入选项。当多表任务需要为 Typesense 写入端配置更多 Sink 副本时使用。
+通用多表写入选项。请保持为 1：Typesense writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。
 
 ### common options
 

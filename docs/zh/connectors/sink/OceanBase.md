@@ -112,7 +112,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | enable_upsert                | Boolean | 否       | true    | 通过primary_keys存在启用upsert，如果任务没有键重复数据，将此参数设置为“false”可以加快数据导入                                                                                                         |
 | is_primary_key_updated       | Boolean | 否       | true    | 自动生成更新语句时，是否把主键字段放入更新字段中。 |
 | support_upsert_by_insert_only | Boolean | 否      | false   | 兼容方言下是否通过仅 INSERT 语句实现 upsert。 |
-| multi_table_sink_replica     | Int     | 否       | 1       | 多表写入时使用的 Sink Writer 副本数量。 |
+| multi_table_sink_replica     | Int     | 否       | 1       | 多表写入时使用的 Sink Writer 副本数量。取值大于 1 时，每张表都需要主键（来自表结构或 `primary_keys`），并且不能与 `is_exactly_once = true` 同时使用。详见 [Jdbc](Jdbc.md#common-options)。 |
 
 ### 提示
 

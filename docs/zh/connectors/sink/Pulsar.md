@@ -43,7 +43,7 @@ Pulsar Sink 用于将 SeaTunnel 数据写入 Apache Pulsar topic。它既可以�
 | pulsar.config            | Map    | 否       | -                   | 作为 producer 元数据附加到 Pulsar producer 上的额外 key/value 属性，不是 producer 客户端配置。 |
 | message.routing.mode     | Enum   | 否       | RoundRobinPartition | 分区 topic 的消息路由模式。可选值：`SinglePartition`、`RoundRobinPartition`。 |
 | partition_key_fields     | Array  | 否       | -                   | 用于生成 Pulsar 消息 key 的字段。                                     |
-| multi_table_sink_replica | Int    | 否       | 1                   | 多表写入时的写入器副本数。                                           |
+| multi_table_sink_replica | Int    | 否       | 1                   | 多表写入时的写入器副本数。请保持为 1：Pulsar writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options           | Config | 否       | -                   | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 ## 参数解释
@@ -119,7 +119,7 @@ Pulsar 事务超时时间，单位为秒。默认值为 `600`。
 
 ### multi_table_sink_replica [Int]
 
-多表写入时的写入器副本数。该配置会对多表 Sink 中的所有目标 topic 生效。
+多表写入时的写入器副本数。该配置会对多表 Sink 中的所有目标 topic 生效。请保持为 1：Pulsar writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。
 
 ### common options
 
@@ -206,7 +206,7 @@ sink {
   Pulsar {
     client.service-url = "pulsar://localhost:6650"
     admin.service-url = "http://localhost:8080"
-    multi_table_sink_replica = 2
+    multi_table_sink_replica = 1
     format = json
   }
 }

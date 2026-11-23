@@ -110,7 +110,7 @@ Schema 保存模式。当前只支持 `RECREATE_SCHEMA`。
 
 ### multi_table_sink_replica [int]
 
-多表写入时使用的 Sink 副本数。`multi_table_sink_replica` 用于在单个 Sink 实例中增加并行写入副本数；目标 Bigtable 表由 `table` 选项固定，不会根据上游表名动态切换。更多说明请参考 [Sink Common Options](../common-options/sink-common-options.md)。
+多表写入时使用的 Sink 副本数。目标 Bigtable 表由 `table` 选项固定，不会根据上游表名动态切换。请保持为 1：GoogleBigtable writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。
 
 ### common options
 

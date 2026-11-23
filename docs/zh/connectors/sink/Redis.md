@@ -67,7 +67,7 @@ Zeta 的 `--dry-run connect` 会校验 Redis 是否可达以及是否接受配�
 | value_field        | string  | 否                          | -      | 写入 `KEY`/`STRING`、`LIST`、`SET`、`ZSET` 时，作为 Redis value 的上游字段。 |
 | hash_key_field     | string  | 否                          | -      | `data_type = HASH` 时，作为 Redis hash field 的上游字段。 |
 | hash_value_field   | string  | 否                          | -      | `data_type = HASH` 时，作为 Redis hash value 的上游字段。 |
-| multi_table_sink_replica | int | 否                          | 1      | 多表写入时的写入器副本数。 |
+| multi_table_sink_replica | int | 否                          | 1      | 多表写入时的写入器副本数。请保持为 1：Redis writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options     | config  | 否                          | -      | 接收器插件通用参数，详情请参考[接收器通用选项](../common-options/sink-common-options.md)。 |
 
 ### 认证
@@ -113,7 +113,7 @@ Zeta 的 `--dry-run connect` 会校验 Redis 是否可达以及是否接受配�
 
 ### multi_table_sink_replica
 
-多表写入时的写入器副本数。当上游数据带有表标识，并且一个作业需要写入多张 Redis 表时使用。
+多表写入时的写入器副本数。当上游数据带有表标识，并且一个作业需要写入多张 Redis 表时使用。请保持为 1：Redis writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。
 
 多表作业中，`key` 可以包含 `${table_name}`，这样不同上游表的数据会写入不同 Redis key，例如
 `key = "redis-result-${table_name}"`。

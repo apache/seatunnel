@@ -63,7 +63,7 @@ SeaTunnel 缓存多少行之后向 Druid 提交一次索引任务。默认值为
 
 Sink 插件通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。
 
-多表写入时，可以配合通用参数里的 `multi_table_sink_replica` 使用。
+多表写入时，请将通用参数 `multi_table_sink_replica` 保持为 1：Druid writer 尚未声明副本模式，取值大于 1 会被拒绝。
 
 ## 写入行为
 

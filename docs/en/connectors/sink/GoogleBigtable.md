@@ -117,7 +117,7 @@ Data save mode. Only `APPEND_DATA` is supported now.
 
 ### multi_table_sink_replica [int]
 
-The number of sink replicas used for multi-table writing. For details, see [Sink Common Options](../common-options/sink-common-options.md). `multi_table_sink_replica` increases the number of parallel writer replicas within a single sink instance; the target Bigtable table is fixed by the `table` option and is not derived per upstream table.
+The number of sink replicas used for multi-table writing. The target Bigtable table is fixed by the `table` option and is not derived per upstream table. Keep it at 1: the GoogleBigtable writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md).
 
 ### common options
 

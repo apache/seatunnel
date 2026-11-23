@@ -56,7 +56,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | buffer_flush_interval                     | Int    | 否       | 10000                                          | 仅当 `session_flush_mode = AUTO_FLUSH_BACKGROUND` 时生效，表示异步写入的刷新间隔，单位毫秒。                                                             |
 | ignore_not_found                          | Bool   | 否       | false                                          | 如果为true，则忽略所有未找到的行。                                                                                                         |
 | ignore_not_duplicate                      | Bool   | 否       | false                                          | 如果为 true，则忽略所有重复行。                                                                                                          |
-| multi_table_sink_replica                  | Int    | 否       | 1                                              | 多表写入时每张表对应的 Sink Writer 副本数。                                                                          |
+| multi_table_sink_replica                  | Int    | 否       | 1                                              | 多表写入时每张表对应的 Sink Writer 副本数。请保持为 1：Kudu writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options                            |        | 否       | -                                              | Sink插件常用参数，详见[Sink common Options](../common-options/sink-common-options.md)。                           |
 
 ## 参数说明

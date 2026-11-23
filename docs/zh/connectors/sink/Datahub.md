@@ -39,7 +39,7 @@ DataHub Sink 用于将 SeaTunnel 数据写入阿里云 DataHub。
 | topic          | string | 是  | -   | DataHub Topic 名称，多表写入时支持 `${table_name}` 等占位符。                |
 | timeout        | int    | 否  | 3000 | 客户端连接最大超时时间，单位为毫秒。                                            |
 | retryTimes     | int    | 否  | 3   | 写入记录失败时的最大重试次数。                                                |
-| multi_table_sink_replica | int | 否 | 1 | 多表 sink writer 的副本数，必须至少为 1。                                   |
+| multi_table_sink_replica | int | 否 | 1 | 多表 sink writer 的副本数，必须至少为 1。请保持为 1：Datahub writer 尚未声明副本模式，取值大于 1 会被拒绝。详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 | common-options | config | 否  | -   | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 ### endpoint [string]
@@ -78,7 +78,7 @@ SeaTunnel 字段名需要和 DataHub Topic 中的字段名一致，因为 sink �
 ### 通用选项
 
 Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md)。
-多表写入时，可以配合通用参数中的 `multi_table_sink_replica` 使用。
+多表写入时，请将通用参数 `multi_table_sink_replica` 保持为 1：Datahub writer 尚未声明副本模式，取值大于 1 会被拒绝。
 
 ## 任务示例
 

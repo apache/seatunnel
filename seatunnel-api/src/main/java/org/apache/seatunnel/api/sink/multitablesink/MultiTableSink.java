@@ -140,19 +140,24 @@ public class MultiTableSink
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
-        for (int i = 0; i < replicaNum; i++) {
-            for (TablePath tablePath : sinks.keySet()) {
-                if (shouldSkipFailedTable(initialFailedTables, tablePath)) {
-                    continue;
+        try {
+            for (int i = 0; i < replicaNum; i++) {
+                for (TablePath tablePath : sinks.keySet()) {
+                    if (shouldSkipFailedTable(initialFailedTables, tablePath)) {
+                        continue;
+                    }
+                    SeaTunnelSink sink = sinks.get(tablePath);
+                    int index = context.getIndexOfSubtask() * replicaNum + i;
+                    SinkIdentifier id = SinkIdentifier.of(tablePath.toString(), index);
+                    SinkContextProxy proxy = new SinkContextProxy(index, replicaNum, context);
+                    writers.put(id, sink.createWriter(proxy));
+                    proxyContexts.put(id, proxy);
+                    sinkWritersContext.put(id, context);
                 }
-                SeaTunnelSink sink = sinks.get(tablePath);
-                int index = context.getIndexOfSubtask() * replicaNum + i;
-                SinkIdentifier id = SinkIdentifier.of(tablePath.toString(), index);
-                SinkContextProxy proxy = new SinkContextProxy(index, replicaNum, context);
-                writers.put(id, sink.createWriter(proxy));
-                proxyContexts.put(id, proxy);
-                sinkWritersContext.put(id, context);
             }
+        } catch (IOException | RuntimeException | Error e) {
+            MultiTableSinkWriter.closeWritersAfterInitFailure(writers.values(), e);
+            throw e;
         }
         MultiTableSinkWriter writer =
                 new MultiTableSinkWriter(
@@ -163,9 +168,17 @@ public class MultiTableSink
                         getJobMode(),
                         initialFailedTables,
                         tableRetryTimes,
-                        tableRetryIntervalSeconds);
+                        tableRetryIntervalSeconds,
+                        connectorNames());
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
+    }
+
+    /** Connector name of each table identifier, so replica errors can name the connector. */
+    private Map<String, String> connectorNames() {
+        Map<String, String> names = new HashMap<>();
+        sinks.forEach((tablePath, sink) -> names.put(tablePath.toString(), sink.getPluginName()));
+        return names;
     }
 
     /**
@@ -174,7 +187,8 @@ public class MultiTableSink
      * <p>Checkpoint states are matched back to per-table writers using {@link SinkIdentifier}
      * (composed of table identifier and computed index). If no matching state is found for a given
      * table and replica, a fresh writer is created instead via {@link
-     * SeaTunnelSink#createWriter(SinkWriter.Context)}.
+     * SeaTunnelSink#createWriter(SinkWriter.Context)}. Non-empty state that matches no writer of
+     * this restore is rejected, see {@link #checkEveryWriterStateIsRestored}.
      *
      * @param context the sink writer context providing subtask index and parallelism info
      * @param states the list of checkpoint states from a previous snapshot
@@ -195,32 +209,38 @@ public class MultiTableSink
                         .collect(Collectors.toList());
         List<MultiTableFailedTable> effectiveFailedTables = new ArrayList<>(initialFailedTables);
         effectiveFailedTables.addAll(restoredFailedTables);
+        checkEveryWriterStateIsRestored(context, states, effectiveFailedTables);
 
-        for (int i = 0; i < replicaNum; i++) {
-            for (TablePath tablePath : sinks.keySet()) {
-                if (shouldSkipFailedTable(effectiveFailedTables, tablePath)) {
-                    continue;
+        try {
+            for (int i = 0; i < replicaNum; i++) {
+                for (TablePath tablePath : sinks.keySet()) {
+                    if (shouldSkipFailedTable(effectiveFailedTables, tablePath)) {
+                        continue;
+                    }
+                    SeaTunnelSink sink = sinks.get(tablePath);
+                    int index = context.getIndexOfSubtask() * replicaNum + i;
+                    SinkIdentifier sinkIdentifier = SinkIdentifier.of(tablePath.toString(), index);
+                    SinkContextProxy proxy = new SinkContextProxy(index, replicaNum, context);
+                    List<?> state =
+                            states.stream()
+                                    .map(
+                                            multiTableState ->
+                                                    multiTableState.getStates().get(sinkIdentifier))
+                                    .filter(Objects::nonNull)
+                                    .flatMap(Collection::stream)
+                                    .collect(Collectors.toList());
+                    if (state.isEmpty()) {
+                        writers.put(sinkIdentifier, sink.createWriter(proxy));
+                    } else {
+                        writers.put(sinkIdentifier, sink.restoreWriter(proxy, state));
+                    }
+                    proxyContexts.put(sinkIdentifier, proxy);
+                    sinkWritersContext.put(sinkIdentifier, context);
                 }
-                SeaTunnelSink sink = sinks.get(tablePath);
-                int index = context.getIndexOfSubtask() * replicaNum + i;
-                SinkIdentifier sinkIdentifier = SinkIdentifier.of(tablePath.toString(), index);
-                SinkContextProxy proxy = new SinkContextProxy(index, replicaNum, context);
-                List<?> state =
-                        states.stream()
-                                .map(
-                                        multiTableState ->
-                                                multiTableState.getStates().get(sinkIdentifier))
-                                .filter(Objects::nonNull)
-                                .flatMap(Collection::stream)
-                                .collect(Collectors.toList());
-                if (state.isEmpty()) {
-                    writers.put(sinkIdentifier, sink.createWriter(proxy));
-                } else {
-                    writers.put(sinkIdentifier, sink.restoreWriter(proxy, state));
-                }
-                proxyContexts.put(sinkIdentifier, proxy);
-                sinkWritersContext.put(sinkIdentifier, context);
             }
+        } catch (IOException | RuntimeException | Error e) {
+            MultiTableSinkWriter.closeWritersAfterInitFailure(writers.values(), e);
+            throw e;
         }
         MultiTableSinkWriter writer =
                 new MultiTableSinkWriter(
@@ -231,10 +251,72 @@ public class MultiTableSink
                         getJobMode(),
                         effectiveFailedTables,
                         tableRetryTimes,
-                        tableRetryIntervalSeconds);
+                        tableRetryIntervalSeconds,
+                        connectorNames());
 
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
+    }
+
+    /**
+     * Fails when {@code states} hold writer state that this restore would pass to no writer.
+     *
+     * <p>A writer gets the state stored under {@code subtask index * replicaNum + replica}. After
+     * {@code multi_table_sink_replica} is changed in either direction, or the sink parallelism
+     * changes so that a subtask receives the state of another one, part of the checkpointed state
+     * has no writer here. It used to be dropped without a message, although connectors keep pending
+     * commits in it, so a table that this job still writes now fails the restore instead. Empty
+     * state is ignored, since nothing is lost, and so is the state of tables that the job no longer
+     * writes or skips after a failure.
+     */
+    private void checkEveryWriterStateIsRestored(
+            SinkWriter.Context context,
+            List<MultiTableState> states,
+            Collection<MultiTableFailedTable> failedTables) {
+        Map<String, Integer> firstIndexByTable = new HashMap<>();
+        for (TablePath tablePath : sinks.keySet()) {
+            if (!shouldSkipFailedTable(failedTables, tablePath)) {
+                firstIndexByTable.put(
+                        tablePath.toString(), context.getIndexOfSubtask() * replicaNum);
+            }
+        }
+        List<String> unrestored =
+                states.stream()
+                        .filter(state -> state.getStates() != null)
+                        .flatMap(state -> state.getStates().entrySet().stream())
+                        .filter(entry -> entry.getValue() != null && !entry.getValue().isEmpty())
+                        .map(Map.Entry::getKey)
+                        .filter(
+                                id -> {
+                                    Integer first = firstIndexByTable.get(id.getTableIdentifier());
+                                    return first != null
+                                            && (id.getIndex() < first
+                                                    || id.getIndex() >= first + replicaNum);
+                                })
+                        .map(id -> id.getTableIdentifier() + "#" + id.getIndex())
+                        .distinct()
+                        .sorted()
+                        .collect(Collectors.toList());
+        if (!unrestored.isEmpty()) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "The checkpoint holds sink writer state that this job would not restore,"
+                                    + " for writers %s (table#writer index). Subtask %d restores"
+                                    + " writers %d to %d of each table, because"
+                                    + " '%s' is %d. Writer state is not moved between writers, so"
+                                    + " this happens after '%s' is changed, raised or reduced, or"
+                                    + " the sink parallelism changes. Restore with the '%s' and"
+                                    + " parallelism of the"
+                                    + " checkpoint, or start the job without restoring it.",
+                            unrestored,
+                            context.getIndexOfSubtask(),
+                            context.getIndexOfSubtask() * replicaNum,
+                            context.getIndexOfSubtask() * replicaNum + replicaNum - 1,
+                            SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(),
+                            replicaNum,
+                            SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(),
+                            SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key()));
+        }
     }
 
     private boolean shouldSkipFailedTable(

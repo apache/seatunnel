@@ -40,7 +40,7 @@ The sink accepts append-only input. `UPDATE_BEFORE`, `UPDATE_AFTER`, and `DELETE
 | connect_timeout_ms | int | no | `10000` | HTTP connection timeout in milliseconds. |
 | socket_timeout_ms | int | no | `60000` | HTTP socket timeout in milliseconds. |
 | schema_save_mode | enum | no | `CREATE_SCHEMA_WHEN_NOT_EXIST` | Schema handling mode. Supported values are `CREATE_SCHEMA_WHEN_NOT_EXIST`, `ERROR_WHEN_SCHEMA_NOT_EXIST`, and `IGNORE`. |
-| multi_table_sink_replica | int | no | `1` | Parallel replica count for multi-table sink writing. |
+| multi_table_sink_replica | int | no | `1` | Parallel replica count for multi-table sink writing. Keep it at 1: the DeepLake writer does not declare a replica mode yet, so a value above 1 is rejected. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### schema_save_mode
 
