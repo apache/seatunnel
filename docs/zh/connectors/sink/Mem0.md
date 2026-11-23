@@ -3,9 +3,11 @@ import ChangeLog from '../changelog/connector-mem0.md';
 # Mem0
 
 Mem0 Sink 将 SeaTunnel 行写入托管版 Mem0 Platform V3 异步添加接口。第一阶段
-只支持 `ADD`。只有接口返回非空 `event_id` 时才确认该行；这表示“已接受的至少一次
+只支持 `ADD`。只有接口返回有效 JSON 对象且 `event_id` 为非空白字符串时才确认该行；这表示“已接受的至少一次
 投递”，不代表 Mem0 异步处理已经完成。
 
+成功状态下的响应格式无效时，写入失败，不进入连接器的 HTTP 状态重试循环。
+诊断信息不包含响应正文或 JSON 解析异常原因链。
 
 ## Sink 选项
 
