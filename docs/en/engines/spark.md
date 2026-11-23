@@ -155,6 +155,8 @@ export SEATUNNEL_PLUGIN_TARBALL_DIR=/tmp/seatunnel-submission-001
 ./bin/start-seatunnel-spark-3-connector-v2.sh --master yarn --deploy-mode cluster --config config/job.conf
 ```
 
+The staging directory and archive must resolve outside the `plugins` input directory, including through symbolic links; otherwise command generation fails.
+
 Use a different directory for each concurrent submission; setting the same directory
 does not provide isolation. The archive name remains `plugins.tar.gz`. An unset, empty
 or whitespace-only value uses the default path; a missing directory or a regular file

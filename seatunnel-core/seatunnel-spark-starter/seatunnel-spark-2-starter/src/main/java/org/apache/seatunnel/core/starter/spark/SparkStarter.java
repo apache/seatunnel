@@ -325,6 +325,16 @@ public class SparkStarter implements Starter {
         if (!Files.isDirectory(path)) {
             throw new IOException("Plugin tarball directory does not exist: " + path);
         }
+        // Resolve symlinks before comparing: the archive must not be part of its own input.
+        Path plugins = Common.pluginRootDir();
+        Path archive = path.toRealPath().resolve("plugins.tar.gz");
+        if (Files.exists(plugins)
+                && (archive.startsWith(plugins.toRealPath())
+                        || (Files.exists(archive)
+                                && archive.toRealPath().startsWith(plugins.toRealPath())))) {
+            throw new IOException(
+                    "Plugin tarball must be outside the plugins directory: " + archive);
+        }
         return path.resolve("plugins.tar.gz");
     }
 

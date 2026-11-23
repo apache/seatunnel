@@ -147,6 +147,8 @@ export SEATUNNEL_PLUGIN_TARBALL_DIR=/tmp/seatunnel-submission-001
 ./bin/start-seatunnel-spark-3-connector-v2.sh --master yarn --deploy-mode cluster --config config/job.conf
 ```
 
+打包目录和压缩包的真实路径必须位于 `plugins` 输入目录之外（包括通过软链接指向的路径），否则命令生成失败。
+
 每个并发提交必须使用不同目录；指定同一个目录不能隔离。压缩包名称仍为
 `plugins.tar.gz`。未设置、空值或纯空白值沿用默认路径；目录不存在或路径指向普通文件时，
 生成命令失败。该变量不影响 client 部署模式。
