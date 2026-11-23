@@ -75,6 +75,7 @@ public interface ZetaUDF extends Serializable {
 - `database/schema/table` 的解析语义与 `TablePath.of(tableId)` 保持一致。
 - 如果 `tableId` 格式不被支持，访问 `database/schema/table` 时会抛出 `IllegalArgumentException`。
 - 已有 UDF 保持向后兼容，仍可只实现 `evaluate(List<Object> args)`。
+- SQL 引擎在每个 UDF 实例首次实际求值前调用 `open()`。加载 SPI 实现和推导返回类型时均不会调用 `open()`。SQL 引擎关闭时释放已开启的实例。
 
 ## UDF 实现示例
 

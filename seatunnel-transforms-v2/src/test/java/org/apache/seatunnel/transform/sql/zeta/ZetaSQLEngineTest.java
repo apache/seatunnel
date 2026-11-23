@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
@@ -105,47 +106,80 @@ public class ZetaSQLEngineTest {
     public void testSchemaInferenceShouldNotOpenUdf() {
         TrackingUdf trackingUdf = new TrackingUdf("tracking", false);
         ZetaSQLEngine engine = new TestableZetaSQLEngine(Collections.singletonList(trackingUdf));
-        engine.init("test", "test", simpleRowType(), "select id, name from test");
+        engine.init("test", "test", simpleRowType(), "select tracking(id) as value from test");
 
         SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
 
-        Assertions.assertNotNull(outType);
+        Assertions.assertEquals(BasicType.STRING_TYPE, outType.getFieldType(0));
         Assertions.assertEquals(0, trackingUdf.getOpenCount());
         Assertions.assertEquals(0, trackingUdf.getCloseCount());
     }
 
     @Test
-    public void testOpenUdfWhenExecuteAndCloseOnEngineClose() {
-        TrackingUdf trackingUdf = new TrackingUdf("tracking", false);
-        ZetaSQLEngine engine = new TestableZetaSQLEngine(Collections.singletonList(trackingUdf));
+    public void testPlainProjectionDoesNotOpenUnusedUdf() {
+        TrackingUdf unusedUdf = new TrackingUdf("unused", true);
+        ZetaSQLEngine engine = new TestableZetaSQLEngine(Collections.singletonList(unusedUdf));
         engine.init("test", "test", simpleRowType(), "select id from test");
         SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
 
         SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1, "Alice", 20});
-        engine.transformBySQL(inputRow, outType);
-        engine.transformBySQL(inputRow, outType);
+        Assertions.assertEquals(1, engine.transformBySQL(inputRow, outType).get(0).getField(0));
+        engine.close();
 
+        Assertions.assertEquals(0, unusedUdf.getOpenCount());
+        Assertions.assertEquals(0, unusedUdf.getCloseCount());
+    }
+
+    @Test
+    public void testOpenUdfWhenExecuteAndCloseOnEngineClose() {
+        TrackingUdf trackingUdf = new TrackingUdf("tracking", false);
+        TrackingUdf unusedUdf = new TrackingUdf("unused", true);
+        ZetaSQLEngine engine = new TestableZetaSQLEngine(Arrays.asList(unusedUdf, trackingUdf));
+        engine.init(
+                "test",
+                "test",
+                simpleRowType(),
+                "select tracking(name) as value from test where tracking(id) = '1'");
+        SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1, "Alice", 20});
+        Assertions.assertEquals(
+                "Alice", engine.transformBySQL(inputRow, outType).get(0).getField(0));
+        Assertions.assertEquals(
+                "Alice", engine.transformBySQL(inputRow, outType).get(0).getField(0));
         Assertions.assertEquals(1, trackingUdf.getOpenCount());
         Assertions.assertEquals(0, trackingUdf.getCloseCount());
 
         engine.close();
+        engine.close();
 
         Assertions.assertEquals(1, trackingUdf.getCloseCount());
+        Assertions.assertEquals(0, unusedUdf.getOpenCount());
+        Assertions.assertEquals(0, unusedUdf.getCloseCount());
     }
 
     @Test
     public void testOpenFailureShouldCloseFailedAndOpenedUdfs() {
-        TrackingUdf firstUdf = new TrackingUdf("first", false);
-        TrackingUdf failedUdf = new TrackingUdf("failed", true);
+        TrackingUdf firstUdf = new TrackingUdf("tracking", false);
+        TrackingUdf failedUdf = new TrackingUdf("failing_udf", true);
         ZetaSQLEngine engine = new TestableZetaSQLEngine(Arrays.asList(firstUdf, failedUdf));
-        engine.init("test", "test", simpleRowType(), "select id from test");
+        engine.init(
+                "test",
+                "test",
+                simpleRowType(),
+                "select tracking(id) as value, failing_udf(id) as failed_value from test");
         SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
 
-        Assertions.assertThrows(
-                TransformException.class,
-                () ->
-                        engine.transformBySQL(
-                                new SeaTunnelRow(new Object[] {1, "Alice", 20}), outType));
+        TransformException failure =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () ->
+                                engine.transformBySQL(
+                                        new SeaTunnelRow(new Object[] {1, "Alice", 20}), outType));
+        Assertions.assertEquals(
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, failure.getSeaTunnelErrorCode());
+        Assertions.assertTrue(failure.getMessage().contains("Open udf failing_udf failed"));
+        engine.close();
 
         Assertions.assertEquals(1, firstUdf.getOpenCount());
         Assertions.assertEquals(1, firstUdf.getCloseCount());
@@ -225,7 +259,8 @@ public class ZetaSQLEngineTest {
 
         @Override
         public Object evaluate(List<Object> args) {
-            return null;
+            Assertions.assertEquals(1, openCount);
+            return args.get(0).toString();
         }
 
         @Override

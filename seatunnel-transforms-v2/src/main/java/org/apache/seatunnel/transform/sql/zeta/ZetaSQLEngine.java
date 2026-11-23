@@ -50,7 +50,9 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
@@ -69,11 +71,9 @@ public class ZetaSQLEngine implements SQLEngine {
     private ZetaSQLFunction zetaSQLFunction;
     private ZetaSQLFilter zetaSQLFilter;
     private ZetaSQLType zetaSQLType;
-    private List<ZetaUDF> udfList = Collections.emptyList();
-    private ZetaUDFContext udfContext;
+    private final Map<String, ZetaUDF> openedUdfs = new LinkedHashMap<>();
 
     private Integer allColumnsCount = null;
-    private boolean udfOpened;
 
     /**
      * Field indexes for the common {@code SELECT source_column AS target_column} projection.
@@ -94,11 +94,11 @@ public class ZetaSQLEngine implements SQLEngine {
         this.inputRowType = inputRowType;
         this.sql = sql;
 
-        udfList = loadUDFs();
-        udfContext = new ZetaUDFContext();
-
+        List<ZetaUDF> udfList = loadUDFs();
         this.zetaSQLType = new ZetaSQLType(inputRowType, udfList);
-        this.zetaSQLFunction = new ZetaSQLFunction(inputRowType, zetaSQLType, udfList, udfContext);
+        this.zetaSQLFunction =
+                new ZetaSQLFunction(
+                        inputRowType, zetaSQLType, udfList, new ZetaUDFContext(), this::openUdf);
         this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction, zetaSQLType);
 
         parseSQL();
@@ -111,40 +111,20 @@ public class ZetaSQLEngine implements SQLEngine {
         return loadedUdfs;
     }
 
-    private void openUDFs() {
-        for (int i = 0; i < udfList.size(); i++) {
-            ZetaUDF udf = udfList.get(i);
-            try {
-                udf.open();
-            } catch (Exception e) {
-                try {
-                    udf.close();
-                } catch (Exception closeException) {
-                    log.warn(
-                            "Best-effort close failed for udf {}",
-                            udf.functionName(),
-                            closeException);
-                }
-                closeUDFs(i - 1);
-                log.error("Open udf {} failed", udf.functionName(), e);
-                throw new TransformException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                        String.format(
-                                "Open udf %s failed: %s", udf.functionName(), e.getMessage()));
-            }
-        }
-    }
-
-    private void ensureUdfOpened() {
-        if (udfOpened || CollectionUtils.isEmpty(udfList)) {
+    /** Opens a UDF the first time expression evaluation dispatches to it. */
+    private synchronized void openUdf(ZetaUDF udf) {
+        String functionName = udf.functionName();
+        if (openedUdfs.containsKey(functionName)) {
             return;
         }
-        synchronized (this) {
-            if (udfOpened) {
-                return;
-            }
-            openUDFs();
-            udfOpened = true;
+        try {
+            udf.open();
+            openedUdfs.put(functionName, udf);
+        } catch (Exception e) {
+            closeUdf(udf);
+            close();
+            log.error("Open udf {} failed", functionName, e);
+            throw new UdfOpenException(functionName, e);
         }
     }
 
@@ -327,7 +307,6 @@ public class ZetaSQLEngine implements SQLEngine {
 
     @Override
     public List<SeaTunnelRow> transformBySQL(SeaTunnelRow inputRow, SeaTunnelRowType outRowType) {
-        ensureUdfOpened();
         // ------Physical Query Plan Execution------
         // Scan Table
         Object[] inputFields = scanTable(inputRow);
@@ -339,6 +318,8 @@ public class ZetaSQLEngine implements SQLEngine {
             if (!retain) {
                 return null;
             }
+        } catch (UdfOpenException e) {
+            throw e;
         } catch (Exception e) {
             throw TransformCommonError.sqlWhereStatementError(selectBody.getWhere().toString(), e);
         }
@@ -396,6 +377,8 @@ public class ZetaSQLEngine implements SQLEngine {
                 try {
                     fields[idx] = zetaSQLFunction.computeForValue(expression, inputFields);
                     idx++;
+                } catch (UdfOpenException e) {
+                    throw e;
                 } catch (Exception e) {
                     throw TransformCommonError.sqlExpressionError(expression.toString(), e);
                 }
@@ -422,21 +405,31 @@ public class ZetaSQLEngine implements SQLEngine {
     }
 
     @Override
-    public void close() {
-        if (CollectionUtils.isEmpty(udfList) || !udfOpened) {
+    public synchronized void close() {
+        if (openedUdfs.isEmpty()) {
             return;
         }
-        closeUDFs(udfList.size() - 1);
-        udfOpened = false;
+        List<ZetaUDF> udfs = new ArrayList<>(openedUdfs.values());
+        Collections.reverse(udfs);
+        udfs.forEach(this::closeUdf);
+        openedUdfs.clear();
     }
 
-    private void closeUDFs(int lastIndex) {
-        for (int i = lastIndex; i >= 0; i--) {
-            try {
-                udfList.get(i).close();
-            } catch (Exception e) {
-                log.warn("Close udf {} failed", udfList.get(i).functionName(), e);
-            }
+    private void closeUdf(ZetaUDF udf) {
+        try {
+            udf.close();
+        } catch (Exception e) {
+            log.warn("Close udf {} failed", udf.functionName(), e);
+        }
+    }
+
+    /** Keeps initialization failures classified as system errors by the SQL transform. */
+    private static final class UdfOpenException extends TransformException {
+        private UdfOpenException(String functionName, Exception cause) {
+            super(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    String.format("Open udf %s failed: %s", functionName, cause.getMessage()));
+            initCause(cause);
         }
     }
 }

@@ -80,6 +80,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static java.util.UUID.randomUUID;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_FIELDS_NOT_FOUND;
@@ -240,6 +241,7 @@ public class ZetaSQLFunction {
 
     private final List<ZetaUDF> udfList;
     private final ZetaUDFContext udfContext;
+    private final Consumer<ZetaUDF> udfInitializer;
 
     public ZetaSQLFunction(
             SeaTunnelRowType inputRowType, ZetaSQLType zetaSQLType, List<ZetaUDF> udfList) {
@@ -251,11 +253,21 @@ public class ZetaSQLFunction {
             ZetaSQLType zetaSQLType,
             List<ZetaUDF> udfList,
             ZetaUDFContext udfContext) {
+        this(inputRowType, zetaSQLType, udfList, udfContext, udf -> {});
+    }
+
+    ZetaSQLFunction(
+            SeaTunnelRowType inputRowType,
+            ZetaSQLType zetaSQLType,
+            List<ZetaUDF> udfList,
+            ZetaUDFContext udfContext,
+            Consumer<ZetaUDF> udfInitializer) {
         this.inputRowType = inputRowType;
         this.zetaSQLType = zetaSQLType;
         this.zetaSQLFilter = new ZetaSQLFilter(this, zetaSQLType);
         this.udfList = udfList;
         this.udfContext = udfContext;
+        this.udfInitializer = udfInitializer;
     }
 
     public void updateUDFContext(Object[] fields, SeaTunnelRow row) {
@@ -708,6 +720,7 @@ public class ZetaSQLFunction {
             default:
                 for (ZetaUDF udf : udfList) {
                     if (udf.functionName().equalsIgnoreCase(functionName)) {
+                        udfInitializer.accept(udf);
                         if (udf.requiresContext() && udfContext != null) {
                             return udf.evaluateWithContext(args, udfContext);
                         }

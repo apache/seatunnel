@@ -75,6 +75,7 @@ Notes:
 - `database/schema/table` parsing follows `TablePath.of(tableId)` semantics.
 - If `tableId` is in an unsupported format, accessing `database/schema/table` throws `IllegalArgumentException`.
 - Existing UDFs remain backward compatible and continue using `evaluate(List<Object> args)`.
+- The SQL engine calls `open()` before the first evaluation of each UDF instance. Loading a provider or inferring its result type does not open it. The engine's close step releases the instances that it opened.
 
 ## UDF Implements Example
 
