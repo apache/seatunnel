@@ -460,6 +460,13 @@ public class PhysicalPlan {
         return preApplyResourceFutures;
     }
 
+    /**
+     * Replaces the whole map. Only the job-level pre-apply ({@code JobMaster#preApplyResources()})
+     * should call this, before pipelines run; a pipeline restore must merge its entries into the
+     * map returned by {@link #getPreApplyResourceFutures()} instead. The entries are copied into a
+     * new {@link ConcurrentHashMap}, so later changes to the caller's map are not seen, and a
+     * {@code null} key or value is rejected with a {@link NullPointerException}.
+     */
     public void setPreApplyResourceFutures(
             Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
         this.preApplyResourceFutures = new ConcurrentHashMap<>(preApplyResourceFutures);
