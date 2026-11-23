@@ -119,7 +119,9 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
 
         long baseJobId = System.nanoTime();
         List<Long> jobIds = new ArrayList<>();
-        List<org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture<List<SlotProfile>>>
+        List<
+                        org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture<
+                                List<SlotProfile>>>
                 requests = new ArrayList<>();
         for (int i = 0; i < totalSlots; i++) {
             long jobId = baseJobId + i;

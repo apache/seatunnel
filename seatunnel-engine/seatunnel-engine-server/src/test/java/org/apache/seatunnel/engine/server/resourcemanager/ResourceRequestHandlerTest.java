@@ -467,8 +467,7 @@ class ResourceRequestHandlerTest {
     }
 
     @Test
-    void concurrentHandlersAllocateDistinctSlotsWithOutOfOrderWorkerCompletion()
-            throws Exception {
+    void concurrentHandlersAllocateDistinctSlotsWithOutOfOrderWorkerCompletion() throws Exception {
         Address workerAddress = new Address("localhost", 5801);
         SlotProfile[] slots =
                 new SlotProfile[] {
@@ -795,9 +794,7 @@ class ResourceRequestHandlerTest {
                             new ResourceProfile(),
                             new ResourceProfile(),
                             false,
-                            allocated == null
-                                    ? new SlotProfile[0]
-                                    : new SlotProfile[] {allocated},
+                            allocated == null ? new SlotProfile[0] : new SlotProfile[] {allocated},
                             unassigned.toArray(new SlotProfile[0]),
                             Collections.emptyMap());
             gate.complete(new SlotAndWorkerProfile(worker, allocated));
