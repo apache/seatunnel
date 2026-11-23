@@ -4,9 +4,11 @@ import ChangeLog from '../changelog/connector-mem0.md';
 
 The Mem0 sink sends SeaTunnel rows to the hosted Mem0 Platform V3 asynchronous
 add API. Phase 1 supports `ADD` only. A row is acknowledged only when the API
-returns a non-empty `event_id`; this is accepted at-least-once delivery, not
+returns a valid JSON object with a nonblank string `event_id`; this is accepted at-least-once delivery, not
 completion of asynchronous processing.
 
+Malformed success responses fail the write without being retried by the connector's
+HTTP-status retry loop. Diagnostics do not include the response body or JSON parser cause.
 
 ## Sink Options
 
