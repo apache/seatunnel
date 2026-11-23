@@ -116,7 +116,7 @@ public class ResourceRequestHandler {
                     });
         }
         List<CompletableFuture<SlotAndWorkerProfile>> allRequestFuture =
-                requestSlots(requestIndexes);
+                requestSlotsWithStaleSnapshotRefresh(requestIndexes);
         // all resource preCheck done, also had sent request to worker
         return getAllOfFuture(allRequestFuture)
                 .whenComplete(
@@ -191,9 +191,33 @@ public class ResourceRequestHandler {
         return 0;
     }
 
-    private List<CompletableFuture<SlotAndWorkerProfile>> requestSlots(
+    /**
+     * Selects workers and sends slot requests. When the cached heartbeat snapshot has no free
+     * unreserved fixed slot for an index, refreshes live worker profiles (outside the reservation
+     * lock) and retries those indexes once in this attempt.
+     *
+     * <p>Without that refresh, an empty {@code allOf} would complete immediately and burn {@link
+     * #MAX_RETRY_TIMES} against a stale view that never asks the worker. A true shortage still
+     * fails after the retries: the live sync returns the same free set and in-flight reservations
+     * continue to hide claimed slots.
+     */
+    private List<CompletableFuture<SlotAndWorkerProfile>> requestSlotsWithStaleSnapshotRefresh(
             List<Integer> requestIndexes) {
+        SlotRequestRound firstRound = requestSlots(requestIndexes);
+        List<CompletableFuture<SlotAndWorkerProfile>> allRequestFuture =
+                new ArrayList<>(firstRound.futures);
+        if (firstRound.unsentIndexes.isEmpty()) {
+            return allRequestFuture;
+        }
+        refreshWorkerProfilesFromLiveMembers();
+        SlotRequestRound refreshedRound = requestSlots(firstRound.unsentIndexes);
+        allRequestFuture.addAll(refreshedRound.futures);
+        return allRequestFuture;
+    }
+
+    private SlotRequestRound requestSlots(List<Integer> requestIndexes) {
         List<CompletableFuture<SlotAndWorkerProfile>> allRequestFuture = new ArrayList<>();
+        List<Integer> unsentIndexes = new ArrayList<>();
 
         for (int index : requestIndexes) {
             ResourceProfile r = resourceProfile.get(index);
@@ -205,12 +229,27 @@ public class ResourceRequestHandler {
                                 index, r, selection.workerProfile.get(), selection.reservation);
                 allRequestFuture.add(internalCompletableFuture);
             } else {
-                // Leave the original index unassigned so retry or dynamic-worker provisioning can
-                // handle it after all in-flight slot requests finish.
+                // Leave the original index unassigned so a live-profile refresh, retry, or
+                // dynamic-worker provisioning can handle it after in-flight slot requests finish.
                 LOGGER.fine("pre check worker resource failed, can't apply resource request: " + r);
+                unsentIndexes.add(index);
             }
         }
-        return allRequestFuture;
+        return new SlotRequestRound(allRequestFuture, unsentIndexes);
+    }
+
+    /**
+     * Replaces cached worker profiles with live ones from {@link
+     * AbstractResourceManager#syncLiveWorkerProfile}. Runs outside {@link
+     * AbstractResourceManager#fixedSlotReservationLock()}.
+     */
+    private void refreshWorkerProfilesFromLiveMembers() {
+        for (Address address : new ArrayList<>(registerWorker.keySet())) {
+            WorkerProfile fresh = resourceManager.syncLiveWorkerProfile(address);
+            if (fresh != null) {
+                registerWorker.put(address, fresh);
+            }
+        }
     }
 
     /**
@@ -534,6 +573,18 @@ public class ResourceRequestHandler {
                 FixedSlotReservations.FixedSlotReservation reservation) {
             this.workerProfile = workerProfile;
             this.reservation = reservation;
+        }
+    }
+
+    private static final class SlotRequestRound {
+        private final List<CompletableFuture<SlotAndWorkerProfile>> futures;
+        private final List<Integer> unsentIndexes;
+
+        private SlotRequestRound(
+                List<CompletableFuture<SlotAndWorkerProfile>> futures,
+                List<Integer> unsentIndexes) {
+            this.futures = futures;
+            this.unsentIndexes = unsentIndexes;
         }
     }
 }

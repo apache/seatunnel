@@ -553,6 +553,175 @@ class ResourceRequestHandlerTest {
         assertFalse(resourceManager.isFixedSlotReserved(workerAddress, onlySlot.getSlotID()));
     }
 
+    @Test
+    void staleHeartbeatSnapshotRefreshesFromLiveWorkerBeforeFailingPreCheck() throws Exception {
+        Address workerAddress = new Address("localhost", 5801);
+        SlotProfile slot0 = slot(workerAddress, 0);
+        SlotProfile slot1 = slot(workerAddress, 1);
+        SlotProfile slot2 = slot(workerAddress, 2);
+        // Stale master view after a delayed / mid-release heartbeat: only two slots look free.
+        ConcurrentMap<Address, WorkerProfile> workers = workers(workerAddress, slot0, slot1);
+        AtomicInteger syncCalls = new AtomicInteger();
+        AtomicInteger requestSends = new AtomicInteger();
+        List<CompletableFuture<SlotAndWorkerProfile>> gates = new ArrayList<>();
+        AbstractResourceManager resourceManager =
+                new AbstractResourceManager(null, new EngineConfig()) {
+                    @Override
+                    WorkerProfile syncLiveWorkerProfile(Address worker) {
+                        syncCalls.incrementAndGet();
+                        // Live worker already released every slot from the previous job.
+                        return new WorkerProfile(
+                                workerAddress,
+                                new ResourceProfile(),
+                                new ResourceProfile(),
+                                false,
+                                new SlotProfile[0],
+                                new SlotProfile[] {slot0, slot1, slot2},
+                                Collections.emptyMap());
+                    }
+
+                    @Override
+                    protected <E> CompletableFuture<E> sendToMember(
+                            Operation operation, Address address) {
+                        if (!(operation instanceof RequestSlotOperation)) {
+                            throw new UnsupportedOperationException(operation.getClass().getName());
+                        }
+                        requestSends.incrementAndGet();
+                        CompletableFuture<SlotAndWorkerProfile> gate = new CompletableFuture<>();
+                        gates.add(gate);
+                        return completedGate(gate);
+                    }
+
+                    @Override
+                    public void heartbeat(WorkerProfile workerProfile) {}
+                };
+
+        List<CompletableFuture<List<SlotProfile>>> firstTwo = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            firstTwo.add(
+                    new ResourceRequestHandler(
+                                    600L + i,
+                                    Collections.singletonList(new ResourceProfile()),
+                                    workers,
+                                    resourceManager,
+                                    new RandomStrategy())
+                            .request(Collections.emptyMap()));
+        }
+
+        assertEquals(2, requestSends.get());
+        assertEquals(0, syncCalls.get());
+        assertEquals(2, resourceManager.fixedSlotReservationCount());
+        assertTrue(resourceManager.isFixedSlotReserved(workerAddress, 0));
+        assertTrue(resourceManager.isFixedSlotReserved(workerAddress, 1));
+
+        CompletableFuture<List<SlotProfile>> third =
+                new ResourceRequestHandler(
+                                602L,
+                                Collections.singletonList(new ResourceProfile()),
+                                workers,
+                                resourceManager,
+                                new RandomStrategy())
+                        .request(Collections.emptyMap());
+
+        assertEquals(1, syncCalls.get());
+        assertEquals(3, requestSends.get());
+        assertEquals(3, resourceManager.fixedSlotReservationCount());
+        assertTrue(resourceManager.isFixedSlotReserved(workerAddress, 2));
+        assertEquals(3, workers.get(workerAddress).getUnassignedSlots().length);
+
+        gates.get(0).complete(new SlotAndWorkerProfile(workers.get(workerAddress), slot0));
+        gates.get(1).complete(new SlotAndWorkerProfile(workers.get(workerAddress), slot1));
+        gates.get(2).complete(new SlotAndWorkerProfile(workers.get(workerAddress), slot2));
+
+        assertEquals(Collections.singletonList(slot0), firstTwo.get(0).get(10, TimeUnit.SECONDS));
+        assertEquals(Collections.singletonList(slot1), firstTwo.get(1).get(10, TimeUnit.SECONDS));
+        assertEquals(Collections.singletonList(slot2), third.get(10, TimeUnit.SECONDS));
+        assertEquals(0, resourceManager.fixedSlotReservationCount());
+    }
+
+    @Test
+    void liveShortageStillFailsAfterSyncWhenOnlyTwoFixedSlotsFree() throws Exception {
+        Address workerAddress = new Address("localhost", 5801);
+        SlotProfile slot0 = slot(workerAddress, 0);
+        SlotProfile slot1 = slot(workerAddress, 1);
+        ConcurrentMap<Address, WorkerProfile> workers = workers(workerAddress, slot0, slot1);
+        AtomicInteger syncCalls = new AtomicInteger();
+        AtomicInteger requestSends = new AtomicInteger();
+        List<CompletableFuture<SlotAndWorkerProfile>> gates = new ArrayList<>();
+        AbstractResourceManager resourceManager =
+                new AbstractResourceManager(null, new EngineConfig()) {
+                    @Override
+                    WorkerProfile syncLiveWorkerProfile(Address worker) {
+                        syncCalls.incrementAndGet();
+                        // Live worker agrees with the cache: only two fixed slots exist.
+                        return new WorkerProfile(
+                                workerAddress,
+                                new ResourceProfile(),
+                                new ResourceProfile(),
+                                false,
+                                new SlotProfile[0],
+                                new SlotProfile[] {slot0, slot1},
+                                Collections.emptyMap());
+                    }
+
+                    @Override
+                    protected <E> CompletableFuture<E> sendToMember(
+                            Operation operation, Address address) {
+                        if (!(operation instanceof RequestSlotOperation)) {
+                            throw new UnsupportedOperationException(operation.getClass().getName());
+                        }
+                        requestSends.incrementAndGet();
+                        CompletableFuture<SlotAndWorkerProfile> gate = new CompletableFuture<>();
+                        gates.add(gate);
+                        return completedGate(gate);
+                    }
+
+                    @Override
+                    public void heartbeat(WorkerProfile workerProfile) {}
+                };
+
+        List<CompletableFuture<List<SlotProfile>>> firstTwo = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            firstTwo.add(
+                    new ResourceRequestHandler(
+                                    700L + i,
+                                    Collections.singletonList(new ResourceProfile()),
+                                    workers,
+                                    resourceManager,
+                                    new RandomStrategy())
+                            .request(Collections.emptyMap()));
+        }
+
+        assertEquals(2, requestSends.get());
+        assertEquals(2, resourceManager.fixedSlotReservationCount());
+
+        ExecutionException failure =
+                assertThrows(
+                        ExecutionException.class,
+                        () ->
+                                new ResourceRequestHandler(
+                                                702L,
+                                                Collections.singletonList(new ResourceProfile()),
+                                                workers,
+                                                resourceManager,
+                                                new RandomStrategy())
+                                        .request(Collections.emptyMap())
+                                        .get(10, TimeUnit.SECONDS));
+
+        assertTrue(failure.getCause() instanceof NoEnoughResourceException);
+        // One sync per exhausted attempt (MAX_RETRY_TIMES == 3); no RequestSlotOperation for the
+        // third handler because every live free slot stayed reserved by the first two.
+        assertEquals(3, syncCalls.get());
+        assertEquals(2, requestSends.get());
+        assertEquals(2, resourceManager.fixedSlotReservationCount());
+
+        gates.get(0).complete(new SlotAndWorkerProfile(workers.get(workerAddress), slot0));
+        gates.get(1).complete(new SlotAndWorkerProfile(workers.get(workerAddress), slot1));
+        assertEquals(Collections.singletonList(slot0), firstTwo.get(0).get(10, TimeUnit.SECONDS));
+        assertEquals(Collections.singletonList(slot1), firstTwo.get(1).get(10, TimeUnit.SECONDS));
+        assertEquals(0, resourceManager.fixedSlotReservationCount());
+    }
+
     private static CompletableFuture<List<SlotProfile>> requestTwoSlots(
             Address workerAddress, TestResourceManager resourceManager) {
         return new ResourceRequestHandler(

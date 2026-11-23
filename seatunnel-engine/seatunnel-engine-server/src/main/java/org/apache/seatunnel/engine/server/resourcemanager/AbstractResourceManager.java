@@ -145,6 +145,37 @@ public abstract class AbstractResourceManager implements ResourceManager {
         log.info("registerWorker: {}", registerWorker);
     }
 
+    /**
+     * Fetches the live {@link WorkerProfile} from {@code worker} via {@link
+     * SyncWorkerProfileOperation} and publishes it through {@link #heartbeat}.
+     *
+     * <p>Used when a fixed-slot pre-check fails against a cached heartbeat snapshot that may lag
+     * behind the worker (for example a delayed heartbeat after slot release). Must not be called
+     * while holding {@link #fixedSlotReservationLock()}.
+     *
+     * @return the live profile, or {@code null} when the member is gone, this manager has no {@link
+     *     NodeEngine}, the worker is not a slot service, or the sync fails
+     */
+    WorkerProfile syncLiveWorkerProfile(Address worker) {
+        if (worker == null || nodeEngine == null) {
+            return null;
+        }
+        if (nodeEngine.getClusterService().getMember(worker) == null) {
+            return null;
+        }
+        try {
+            WorkerProfile profile =
+                    (WorkerProfile) sendToMember(new SyncWorkerProfileOperation(), worker).join();
+            if (profile != null) {
+                heartbeat(profile);
+            }
+            return profile;
+        } catch (Exception e) {
+            log.warn("Failed to sync live worker profile from {}: {}", worker, e.getMessage());
+            return null;
+        }
+    }
+
     @Override
     public CompletableFuture<SlotProfile> applyResource(
             long jobId, ResourceProfile resourceProfile, Map<String, String> tagFilter)
