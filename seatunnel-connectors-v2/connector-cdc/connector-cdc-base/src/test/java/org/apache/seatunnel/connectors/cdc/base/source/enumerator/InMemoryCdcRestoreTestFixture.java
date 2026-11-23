@@ -129,6 +129,8 @@ public final class InMemoryCdcRestoreTestFixture {
                     .defaultValue(StopMode.LATEST)
                     .withDescription("Stop mode");
 
+    // The capture helper or engine test owns one entry per UUID-tagged run. In-JVM source and
+    // sink instances look it up by tag, including after restore. The owner removes it in finally.
     private static final Map<String, RunCoordinationState> RUN_STATES = new ConcurrentHashMap<>();
 
     private InMemoryCdcRestoreTestFixture() {}
@@ -208,6 +210,13 @@ public final class InMemoryCdcRestoreTestFixture {
         }
     }
 
+    /**
+     * Captures the checkpoint after split 0 has been acknowledged and the reader has finished the
+     * tail split. The reader wrapper withholds the tail completion report. After draining split 0's
+     * acknowledgement, the reader and enumerator snapshot the same checkpoint ID. Reader state
+     * retains the finished tail and its watermarks, while enumerator state still lists that split
+     * as assigned without its completion watermark.
+     */
     public static SerializedCheckpointSnapshot captureUnackedTailSplitCheckpoint(
             boolean exactlyOnce, int parallelism) throws Exception {
         String runTag = "serial-" + UUID.randomUUID();
@@ -360,8 +369,13 @@ public final class InMemoryCdcRestoreTestFixture {
     }
 
     public static final class RunCoordinationState {
+        // Signals that the enumerator sent the split 0 acknowledgement. Delivery to its reader
+        // can still be pending in the component fixture's event queue.
         private final CountDownLatch split0AckedByEnumerator = new CountDownLatch(1);
+        // Signals that the reader attempted to report the finished tail. The wrapper intercepted
+        // that report before the enumerator could record its watermarks.
         private final CountDownLatch tailSplitWatermarksRecorded = new CountDownLatch(1);
+        // Counted down on release or cleanup. Checkpoint capture waits on the two signals above.
         private final CountDownLatch releaseTailSplitFetchTask = new CountDownLatch(1);
         private final List<Long> emittedIds = new CopyOnWriteArrayList<>();
 
@@ -501,6 +515,10 @@ public final class InMemoryCdcRestoreTestFixture {
             };
         }
 
+        /**
+         * During capture, intercepts any completion report containing the tail split and forwards
+         * other events. The tail stays in the reader's finished-unacknowledged state for restore.
+         */
         @Override
         public SourceReader<SeaTunnelRow, SourceSplitBase> createReader(
                 SourceReader.Context readerContext) throws Exception {
@@ -562,6 +580,10 @@ public final class InMemoryCdcRestoreTestFixture {
             return super.createReader(wrapped);
         }
 
+        /**
+         * Forwards enumerator events and signals when an acknowledgement for split 0 is sent. The
+         * capture helper then drains the pending events before serializing reader state.
+         */
         @Override
         public SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> createEnumerator(
                 SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext) throws Exception {

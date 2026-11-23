@@ -335,6 +335,12 @@ public class SavePointTest extends AbstractSeaTunnelServerTest<SavePointTest> {
         }
     }
 
+    /**
+     * Builds the two-reader CDC source and collecting sink for both submissions of the same job.
+     * The first submission withholds the tail completion report while the savepoint is taken. The
+     * restored submission forwards reports and uses the same run tag so the test can check the rows
+     * emitted across both runs.
+     */
     private Data createCdcSavePointJobData(
             long jobId, String runTag, boolean isStartWithSavePoint, long checkpointIntervalMs) {
         JobContext jobContext = new JobContext(jobId);
