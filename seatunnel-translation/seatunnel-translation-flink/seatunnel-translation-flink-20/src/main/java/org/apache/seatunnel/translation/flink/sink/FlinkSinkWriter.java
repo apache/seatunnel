@@ -74,7 +74,8 @@ public class FlinkSinkWriter<CommT, WriterStateT>
             long checkpointId) {
         this.sinkWriter = sinkWriter;
         this.context = context;
-        this.checkpointId = checkpointId;
+        this.checkpointId =
+                Math.max(checkpointId, initContext.getRestoredCheckpointId().orElse(0L) + 1);
         MetricsContext metricsContext = context.getMetricsContext();
         this.sinkWriteCount = metricsContext.counter(MetricNames.SINK_WRITE_COUNT);
         this.sinkWriteBytes = metricsContext.counter(MetricNames.SINK_WRITE_BYTES);
@@ -220,7 +221,8 @@ public class FlinkSinkWriter<CommT, WriterStateT>
 
             List<CommitWrapper<CommT>> wrappedCommits = new ArrayList<>();
             if (commitInfo.isPresent()) {
-                wrappedCommits.add(new CommitWrapper<>(commitInfo.get()));
+                wrappedCommits.add(
+                        new CheckpointCommitWrapper<>(commitInfo.get(), this.checkpointId));
             }
             return wrappedCommits;
         } catch (Exception e) {
