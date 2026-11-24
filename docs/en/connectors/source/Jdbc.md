@@ -10,6 +10,18 @@ JDBC Source is a bounded source: it reads the rows visible to the database query
 
 If this is your first JDBC Source job, start with [Choose a read mode](#choose-a-read-mode) and the [Quick start](#quick-start-postgresql). The complete option reference follows those sections.
 
+## GoldenDB
+
+To use the MySQL-compatible JDBC dialect and catalog with a GoldenDB driver, explicitly set `dialect = "GoldenDB"` along with its matching driver class and URL, for example:
+
+```hocon
+url = "jdbc:goldendb://goldendb-host:3306/example"
+driver = "com.goldendb.jdbc.Driver"
+dialect = "GoldenDB"
+```
+
+Install a GoldenDB JDBC driver compatible with your database version. Driver class names and supported URL formats depend on that version. GoldenDB deployments that expose the MySQL protocol may instead use a compatible MySQL JDBC driver and `jdbc:mysql://` URL; this selects the existing MySQL dialect. Existing `jdbc:goldendb:` configurations without an explicit dialect continue to use the generic dialect. The MySQL catalog requires `username` and `password` and does not forward the JDBC `properties` map to catalog connections. Verify SQL, data types, and transaction behavior against your GoldenDB version before production use. A MySQL test does not verify a GoldenDB server or its driver.
+
 ## Using Dependency
 
 Install the `connector-jdbc` plugin first:
