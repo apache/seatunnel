@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.opengauss;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -26,6 +29,27 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class OpenGaussDialectTest {
+
+    private static final String URL = "jdbc:opengauss://localhost:5432/postgres";
+
+    @Test
+    void loaderReturnsOpenGaussDialectForOpenGaussUrl() {
+        JdbcDialect dialect = JdbcDialectLoader.load(URL, "", null, "", null);
+        assertEquals(OpenGaussDialect.class, dialect.getClass());
+
+        Optional<String> upsertStatement =
+                dialect.getUpsertStatement(
+                        "test_db", "test_table", new String[] {"id", "name"}, new String[] {"id"});
+        assertTrue(upsertStatement.isPresent());
+        assertTrue(upsertStatement.get().contains("ON DUPLICATE KEY UPDATE"));
+    }
+
+    @Test
+    void loaderKeepsFieldIdeForOpenGaussDialect() {
+        JdbcDialect dialect = JdbcDialectLoader.load(URL, "", null, "uppercase", null);
+        assertEquals(OpenGaussDialect.class, dialect.getClass());
+        assertEquals("\"NAME\"", dialect.quoteIdentifier("name"));
+    }
 
     @Test
     void returnsUpsertStatementWhenUpdateClauseIsNotEmpty() {
