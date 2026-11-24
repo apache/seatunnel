@@ -247,6 +247,96 @@ class ConnectorMetadataSyncTest(unittest.TestCase):
         )
         self.assertIn("### Sql (TRANSFORM)", metadata)
 
+    def _fetch_targets_for_transform(self, transform):
+        """Return the (name, type) metadata lookups a plan's transform causes."""
+        plan = StructuredPlan(
+            pipelines=[
+                PipelineSlot(
+                    "pipeline_1",
+                    source_connector="FakeSource",
+                    sink_connector="Console",
+                    transform=transform,
+                )
+            ]
+        )
+        executor = SkillExecutor(plan, skills=[])
+        calls = []
+
+        def fake_fetch(name, connector_type):
+            calls.append((name, connector_type))
+            return {
+                "name": name,
+                "required": [],
+                "optional": [],
+                "conditional": [],
+                "source": "test",
+            }
+
+        with patch(
+            "seatunnel_cli.connectors.fetch_connector_metadata", side_effect=fake_fetch
+        ):
+            executor.fetch_all_metadata(lambda *_args: None)
+        return calls
+
+    def test_every_transform_in_a_list_gets_its_own_metadata_lookup(self):
+        """A list used to be stringified into one unmatchable plugin name.
+
+        `str(["Sql", "FieldMapper"])` became the name `"['Sql', 'FieldMapper']"`,
+        so the whole pipeline got no transform option rules at all.
+        """
+        self.assertEqual(
+            self._fetch_targets_for_transform(["Sql", "FieldMapper"]),
+            [
+                ("FakeSource", "source"),
+                ("Console", "sink"),
+                ("Sql", "transform"),
+                ("FieldMapper", "transform"),
+            ],
+        )
+
+    def test_a_list_of_transform_objects_resolves_each_connector(self):
+        self.assertEqual(
+            self._fetch_targets_for_transform(
+                [{"connector": "Sql"}, {"connector": "FieldMapper", "reason": "rename"}]
+            ),
+            [
+                ("FakeSource", "source"),
+                ("Console", "sink"),
+                ("Sql", "transform"),
+                ("FieldMapper", "transform"),
+            ],
+        )
+
+    def test_a_single_transform_object_still_resolves(self):
+        self.assertEqual(
+            self._fetch_targets_for_transform({"connector": "Sql", "query": "select 1"}),
+            [("FakeSource", "source"), ("Console", "sink"), ("Sql", "transform")],
+        )
+
+    def test_an_empty_transform_list_adds_no_lookup(self):
+        self.assertEqual(
+            self._fetch_targets_for_transform([]),
+            [("FakeSource", "source"), ("Console", "sink")],
+        )
+
+    def test_pipeline_prompt_names_each_transform_instead_of_a_python_repr(self):
+        plan = StructuredPlan(
+            pipelines=[
+                PipelineSlot(
+                    "pipeline_1",
+                    source_connector="FakeSource",
+                    sink_connector="Console",
+                    transform=["Sql", "FieldMapper"],
+                )
+            ]
+        )
+        executor = SkillExecutor(plan, skills=[])
+
+        prompt = executor.build_enriched_prompt("filter and rename", lambda *_args: None)
+
+        self.assertIn("- Transform: Sql, FieldMapper", prompt)
+        self.assertNotIn("['Sql', 'FieldMapper']", prompt)
+
     def test_skill_executor_fill_and_check_includes_transform_required_options(self):
         plan = StructuredPlan(
             pipelines=[
