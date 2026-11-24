@@ -222,13 +222,21 @@ HOCON 字符串中的正则反斜杠需要转义，因此正则中的 `\d+` 在�
 
 :::note 视图与表匹配
 
-`table_path`（无论是否启用 `use_regex`）是否会连带匹配到数据库视图（而不仅仅是基础表），取决于各方言内部列举表所使用的查询方式，目前没有可以显式包含或排除视图的配置项：
+精确的 `table_path`（`use_regex = false`）可以指向视图。在 DB2、Dameng、Oracle 和 SQL Server 上，SeaTunnel 会解析该视图，以视图的列作为源端 schema 并读取视图返回的行，与读取基础表的方式相同。例如 SQL Server 数据库 `shop` 中 schema `dbo` 下的视图 `v_order`：
+
+```hocon
+table_path = "shop.dbo.v_order"
+```
+
+模式匹配（`use_regex = true`）改为通过各方言列举表的查询来查找表，因此匹配模式是否会连带匹配到视图取决于方言，目前没有可以显式包含或排除视图的配置项：
 
 - MySQL 和 PostgreSQL 会把视图和基础表列在一起，因此像 `db.*` 这样宽泛的匹配模式也会匹配到视图。
-- SQL Server 通过 `TABLE_TYPE = 'BASE TABLE'` 过滤，会排除视图。
-- Oracle 和 Dameng 查询的是 `ALL_TABLES`，视图不在其中，因此会被间接排除。
+- DB2 只列出 `TYPE = 'T'` 的对象，SQL Server 通过 `TABLE_TYPE = 'BASE TABLE'` 过滤，匹配模式不会匹配到视图。
+- Oracle 和 Dameng 从 `ALL_TABLES` 列举，视图不在其中，匹配模式不会匹配到视图。
 
-如果需要在任意方言下都只读取指定的基础表，建议直接在 `table_list` 中显式列出表名，而不要依赖宽泛的正则表达式。
+在这些方言上读取视图，请用精确的 `table_path` 指定视图名，可以写在顶层，也可以写在 `table_list` 的某一项中。如果需要在任意方言下都只读取指定的基础表，建议直接在 `table_list` 中显式列出表名，而不要依赖宽泛的正则表达式。
+
+通过 `table_path` 读取视图是对视图返回行的批量读取，不涉及 CDC：SQL Server CDC 连接器仍然只捕获表的变更。
 
 :::
 
