@@ -88,8 +88,8 @@ Table list configuration:
 |----------------------------------|--------|----------|------------|-----------------------------------------------------------------------------------------------------|
 | database                         | string | yes      | -          | The name of Doris database                                                                          |
 | table                            | string | yes      | -          | The name of Doris table                                                                             |
-| doris.read.field                 | string | no       | -          | Use the 'doris.read.field' parameter to select the doris table columns to read                      |
-| doris.filter.query               | string | no       | -          | Data filtering in doris. the format is "field = value",example : doris.filter.query = "F_ID > 2"    |
+| doris.read.field                 | string | no       | -          | Use the 'doris.read.field' parameter to select the doris table columns to read. Column names are quoted automatically, so write them unquoted. |
+| doris.filter.query               | string | no       | -          | Data filtering in doris. The format is "field = value",example : doris.filter.query = "F_ID > 2". The value is passed to Doris unchanged, so keyword or special-character column names must be backtick-quoted here, for example ``doris.filter.query = "`from` > 1"``. |
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split for this table. The minimum value is `1`. |
 | doris.batch.size                 | int    | no       | 1024       | The maximum value that can be obtained by reading Doris BE once.                                    |
 | doris.exec.mem.limit             | long   | no       | 2147483648 | Maximum memory that can be used by a single be scan request. The default memory is 2G (2147483648). |
@@ -158,7 +158,7 @@ sink {
 }
 ```
 
-Use 'doris.filter.query' to filter the data, and the parameter values are passed directly to doris
+Use 'doris.filter.query' to filter the data, and the parameter values are passed directly to doris. Keyword column names must be backtick-quoted, for example ``doris.filter.query = "`from` > 1"``.
 
 ```
 env {
