@@ -252,6 +252,24 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         return headers;
     }
 
+    /**
+     * Returns the header of the file that a byte-range split belongs to.
+     *
+     * <p>When splitting is enabled, the split enumeration treats the first line of the file as the
+     * header and starts the first range after it, so no range contains the header. This method
+     * opens a separate stream on the whole file and parses its first record as the header, using
+     * the configured encoding, compression, delimiter, quote and escape characters, with the same
+     * BOM handling as a whole-file read. The stream and parser are closed before returning; the
+     * range being read is not affected.
+     *
+     * <p>Only the header of the most recent file is cached, which serves consecutive splits of the
+     * same file. A split of a different file replaces the cached entry, and the cache is updated
+     * only after the header has been parsed successfully.
+     *
+     * @param split a byte-range split that does not start at the beginning of its file
+     * @return the column names of the file header, in file order
+     * @throws IOException if the file cannot be opened or its header cannot be parsed
+     */
     private List<String> readFileHeader(FileSourceSplit split) throws IOException {
         String filePath = split.getFilePath();
         if (filePath.equals(headerFilePath)) {
