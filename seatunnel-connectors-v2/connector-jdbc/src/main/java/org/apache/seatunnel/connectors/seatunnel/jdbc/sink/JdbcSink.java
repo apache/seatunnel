@@ -32,12 +32,14 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
+import org.apache.seatunnel.api.sink.SupportTableOperationSink;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.api.table.operation.TableOperationType;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.IrisCatalog;
@@ -70,7 +72,8 @@ public class JdbcSink
         implements SeaTunnelSink<SeaTunnelRow, JdbcSinkState, XidInfo, JdbcAggregatedCommitInfo>,
                 SupportSaveMode,
                 SupportMultiTableSink,
-                SupportSchemaEvolutionSink {
+                SupportSchemaEvolutionSink,
+                SupportTableOperationSink {
 
     private final TableSchema tableSchema;
 
@@ -343,5 +346,10 @@ public class JdbcSink
                 SchemaChangeType.DROP_COLUMN,
                 SchemaChangeType.RENAME_COLUMN,
                 SchemaChangeType.UPDATE_COLUMN);
+    }
+
+    @Override
+    public List<TableOperationType> supportedTableOperations() {
+        return Collections.singletonList(TableOperationType.TRUNCATE_TABLE);
     }
 }

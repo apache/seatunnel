@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser;
 
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.operation.event.TruncateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
@@ -227,6 +228,31 @@ public class CustomMySqlAntlrDdlParserTest {
                         parser.parse(
                                 "ALTER TABLE products COMMENT = 'Product catalog table'",
                                 new Tables()));
+    }
+
+    @Test
+    void testParseTruncateTableWithQualifiedName() {
+        CustomMySqlAntlrDdlParser parser = new CustomMySqlAntlrDdlParser(null);
+        parser.setCurrentDatabase("other_db");
+        parser.parse("TRUNCATE TABLE shop.products", new Tables());
+
+        List<TruncateTableEvent> events = parser.getAndClearParsedTableOperations();
+        Assertions.assertEquals(1, events.size());
+        Assertions.assertEquals("shop", events.get(0).tablePath().getDatabaseName());
+        Assertions.assertEquals("products", events.get(0).tablePath().getTableName());
+        Assertions.assertTrue(parser.getAndClearParsedEvents().isEmpty());
+    }
+
+    @Test
+    void testParseTruncateTableUsesCurrentDatabase() {
+        CustomMySqlAntlrDdlParser parser = new CustomMySqlAntlrDdlParser(null);
+        parser.setCurrentDatabase("shop");
+        parser.parse("TRUNCATE TABLE products", new Tables());
+
+        List<TruncateTableEvent> events = parser.getAndClearParsedTableOperations();
+        Assertions.assertEquals(1, events.size());
+        Assertions.assertEquals("shop", events.get(0).tablePath().getDatabaseName());
+        Assertions.assertEquals("products", events.get(0).tablePath().getTableName());
     }
 
     private static class ParserWithTreeWalkError extends CustomMySqlAntlrDdlParser {
