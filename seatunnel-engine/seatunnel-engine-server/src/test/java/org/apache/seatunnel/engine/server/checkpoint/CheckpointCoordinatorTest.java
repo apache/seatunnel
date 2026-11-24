@@ -511,6 +511,99 @@ public class CheckpointCoordinatorTest
         executor.shutdownNow();
     }
 
+    /**
+     * A transform chained into a source task runs in every source subtask, whatever parallelism it
+     * declares, and each of those subtasks acknowledges its own index. The checkpoint state of the
+     * transform must therefore have a slot for every such subtask, not only for its declared
+     * parallelism.
+     */
+    @Test
+    void testActionStateHasSlotForEverySubtaskRunningTheAction() {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(new CheckpointStorageConfig());
+        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
+        planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
+        TestCheckpointManager checkpointManager =
+                new TestCheckpointManager(
+                        1L,
+                        nodeEngine,
+                        planMap,
+                        checkpointConfig,
+                        server.getCheckpointService().getCheckpointStorage(),
+                        instance.getExecutorService("test"),
+                        nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        server.getEngineContext(),
+                        null);
+
+        // Two parallel subtasks of a source vertex, each running the source and a chained
+        // transform. The source declares parallelism 2, the transform declares 1.
+        TaskLocation subtask0 = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 0);
+        TaskLocation subtask1 = new TaskLocation(new TaskGroupLocation(1L, 1, 2), 1, 1);
+        ActionStateKey source = new ActionStateKey("source");
+        ActionStateKey transform = new ActionStateKey("transform");
+        ActionStateKey wideSink = new ActionStateKey("wide-sink");
+
+        Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions = new HashMap<>();
+        subtaskActions.put(
+                subtask0,
+                new HashSet<>(
+                        Arrays.asList(
+                                Tuple2.tuple2(source, 0),
+                                Tuple2.tuple2(transform, 0),
+                                Tuple2.tuple2(wideSink, 0))));
+        subtaskActions.put(
+                subtask1,
+                new HashSet<>(
+                        Arrays.asList(
+                                Tuple2.tuple2(source, 1),
+                                Tuple2.tuple2(transform, 1),
+                                Tuple2.tuple2(wideSink, 1))));
+
+        Map<ActionStateKey, Integer> pipelineActions = new HashMap<>();
+        pipelineActions.put(source, 2);
+        pipelineActions.put(transform, 1);
+        // A declared parallelism above the number of running subtasks keeps its slots.
+        pipelineActions.put(wideSink, 4);
+
+        CheckpointPlan plan =
+                CheckpointPlan.builder()
+                        .pipelineId(1)
+                        .pipelineSubtasks(new HashSet<>(Arrays.asList(subtask0, subtask1)))
+                        .startingSubtasks(new HashSet<>(Arrays.asList(subtask0, subtask1)))
+                        .subtaskActions(subtaskActions)
+                        .pipelineActions(pipelineActions)
+                        .build();
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            checkpointManager,
+                            null,
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            null,
+                            null,
+                            executor,
+                            Mockito.mock(com.hazelcast.map.IMap.class),
+                            false,
+                            null);
+
+            Map<ActionStateKey, ActionState> actionStates =
+                    (Map<ActionStateKey, ActionState>)
+                            ReflectionUtils.invoke(coordinator, "getActionStates");
+
+            Assertions.assertEquals(2, actionStates.get(source).getParallelism());
+            Assertions.assertEquals(2, actionStates.get(transform).getParallelism());
+            Assertions.assertEquals(4, actionStates.get(wideSink).getParallelism());
+            // The acknowledgement of the second subtask used to fail with an index out of bounds.
+            Assertions.assertDoesNotThrow(() -> actionStates.get(transform).reportState(1, null));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
     @Test
     void testReadyToClosePartialProgressPersistedAndRestoredCorrectly() {
         ExecutorService executorService = Executors.newCachedThreadPool();
