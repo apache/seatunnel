@@ -157,8 +157,8 @@ public class SQLEncodeDecodeFunctionsTest {
     }
 
     private static final byte[][] ENCODED_NAME_BYTES = {
-        hex("6361663F3F3F"), // US-ASCII: é/中/国 unmappable -> '?'
-        hex("636166E93F3F"), // ISO-8859-1: é -> E9, 中/国 -> '?'
+        hex("6361663F3F3F"), // US-ASCII: unmappable characters become '?'
+        hex("636166E93F3F"), // ISO-8859-1: e-acute kept, unmappable characters become '?'
         hex("636166C3A9E4B8ADE59BBD"), // UTF-8
         hex("00630061006600E94E2D56FD"), // UTF-16BE
         hex("630061006600E9002D4EFD56"), // UTF-16LE
