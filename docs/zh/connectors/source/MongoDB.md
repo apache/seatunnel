@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流](../../introduction/concepts/connector-v2-features.md)
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行性](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户自定义 split](../../introduction/concepts/connector-v2-features.md)
@@ -339,7 +339,8 @@ sink {
 }
 ```
 
-通过该配置写入的样本数据示例：
+通过该配置写入的样本数据示例。整个文档使用 MongoDB Relaxed Extended JSON 序列化，因此数值类型
+会以普通 JSON 数字输出，日期会以 ISO-8601 字符串输出：
 
 ```json
 {
@@ -353,24 +354,18 @@ sink {
     "DAgdj": "t",
     "dsJag": "voo"
   },
-  "c_array": [
-    { "$numberInt": "-865590937" },
-    { "$numberInt": "833905600" },
-    { "$numberInt": "-1104586446" },
-    { "$numberInt": "2076336780" },
-    { "$numberInt": "-1028686444" }
-  ],
+  "c_array": [-865590937, 833905600, -1104586446, 2076336780, -1028686444],
   "c_string": "bddkzxr",
   "c_boolean": false,
-  "c_tinyint": { "$numberInt": "39" },
-  "c_smallint": { "$numberInt": "23672" },
-  "c_int": { "$numberInt": "-495763561" },
-  "c_bigint": { "$numberLong": "3768307617923954543" },
-  "c_double": { "$numberDouble": "1.1706091642478246E308" },
+  "c_tinyint": 39,
+  "c_smallint": 23672,
+  "c_int": -495763561,
+  "c_bigint": 3768307617923954543,
+  "c_double": 1.1706091642478246E308,
   "c_bytes": { "$binary": { "base64": "ZWJ4", "subType": "00" } },
-  "c_date": { "$date": { "$numberLong": "1686614400000" } },
-  "c_decimal": { "$numberDecimal": "683265300" },
-  "c_timestamp": { "$date": { "$numberLong": "1684283772000" } }
+  "c_date": { "$date": "2023-06-13T00:00:00.000Z" },
+  "c_decimal": 683265300,
+  "c_timestamp": { "$date": "2023-05-17T00:36:12.000Z" }
 }
 ```
 

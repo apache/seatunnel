@@ -48,9 +48,9 @@ import ChangeLog from '../changelog/connector-doris.md';
 | TINYINT                              | TINYINT                                                                                                                                             |
 | SMALLINT                             | SMALLINT                                                                                                                                            |
 | BIGINT                               | BIGINT                                                                                                                                              |
-| LARGEINT                             | STRING                                                                                                                                              |
+| LARGEINT                             | DECIMAL(20,0)                                                                                                                                       |
 | BOOLEAN                              | BOOLEAN                                                                                                                                             |
-| DECIMAL                              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
+| DECIMAL                              | DECIMAL(p, s)，其中 `p` 为列精度、`s` 为列小数位数；当列未定义时使用 DECIMAL(38, 10)。                                                              |
 | FLOAT                                | FLOAT                                                                                                                                               |
 | DOUBLE                               | DOUBLE                                                                                                                                              |
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |

@@ -28,8 +28,7 @@ The RegexExtract transform uses a Java regular expression to extract data from o
 | regex_pattern     | String             | yes      | -             | Regular expression with capture groups. The number of capture groups must equal the number of `output_fields`. |
 | output_fields     | Array&lt;String&gt; | yes      | -             | Names of the output fields, in capture group order. The list must not be empty.                      |
 | default_values    | Array&lt;String&gt; | no       | -             | Default value per output field, used when the pattern does not match or the source value is null. When set, its length must equal the length of `output_fields`. |
-| table_match_regex | String             | no       | `.*`          | Regex of the table paths that the transform level rule applies to.                                   |
-| table_transform   | Array&lt;Map&gt;    | no       | -             | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                              |
+| table_transform   | Array&lt;Map&gt;    | no       | `[]`          | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                              |
 | rule_match_mode   | String             | no       | `FIRST_MATCH` (duplicate `table_path` entries are rejected unless set explicitly) | How multiple `table_transform` entries with the same `table_path` are evaluated.                     |
 | common options    | -                  | no       | -             | Transform plugin common parameters, see [Transform Plugin](common-options/common-options.md).       |
 
@@ -68,12 +67,6 @@ The fallback value for each output field, in the same order as `output_fields`. 
 
 When `default_values` is set, its length must equal the length of `output_fields`, otherwise the configuration is rejected. When it is not set, output fields receive `null` in both cases above.
 
-### table_match_regex [String]
-
-A regular expression matched against the upstream table path. The transform level rule (`source_field`, `regex_pattern`, `output_fields` and `default_values` outside of `table_transform`) is applied only to the tables that match. The default `.*` matches every table. Tables that match neither this regex nor a `table_transform` entry are passed through unchanged.
-
-Note that this refers to the real upstream table name, not to `plugin_output`.
-
 ### table_transform [Array&lt;Map&gt;]
 
 A list of per-table rules. Each entry must contain `table_path` in the form `databaseName[.schemaName].tableName` (matched exactly) and a complete RegexExtract rule for that table, which means `source_field`, `regex_pattern` and `output_fields`, plus `default_values` when needed.
@@ -96,10 +89,10 @@ When the upstream source outputs several tables (for example JDBC or MySQL-CDC),
 
 - Entries in `table_transform` take precedence over the transform level rule. A table that has an entry is never touched by the transform level rule.
 - Every entry must be a complete single-table rule (`table_path` plus `source_field`, `regex_pattern` and `output_fields`).
-- The transform level rule applies only to tables matching `table_match_regex`.
+- The transform level rule applies to every table that does not have a `table_transform` entry.
 - When only `table_transform` is configured, the tables without an entry stay unchanged.
 
-The configuration below uses a transform level rule for `test.a.*` tables, a per-table rule for `test.xyz`, and leaves `test.www` unchanged:
+The configuration below uses a transform level rule for `test.abc`, `test.abcd` and `test.www`, and a per-table rule for `test.xyz`:
 
 ```hocon
 env {
@@ -148,7 +141,6 @@ transform {
     plugin_input = "fake"
     plugin_output = "fake1"
 
-    table_match_regex = "test.a.*"
     source_field = "email"
     regex_pattern = "([^@]+)@([^.]+)\\.(.+)"
     output_fields = [username, domain, tld]
@@ -175,10 +167,10 @@ Result schema of each table:
 
 | Table      | Rule applied                              | Output fields                    |
 |------------|-------------------------------------------|----------------------------------|
-| test.abc   | transform level rule (matches `test.a.*`) | id, email, username, domain, tld |
-| test.abcd  | transform level rule (matches `test.a.*`) | id, email, username, domain, tld |
+| test.abc   | transform level rule                      | id, email, username, domain, tld |
+| test.abcd  | transform level rule                      | id, email, username, domain, tld |
 | test.xyz   | `table_transform` entry                   | id, email, username, host        |
-| test.www   | none                                      | id, email                        |
+| test.www   | transform level rule                      | id, email, username, domain, tld |
 
 ## Example
 
@@ -259,7 +251,7 @@ A row whose `email` does not match the pattern, or is `null`, would get `unknown
 
 The `env`, `source` and `sink` blocks are the same as in [Multi-Table Configuration](#multi-table-configuration). Only the `transform` block changes. Assume the source outputs `test.abc`, `test.abcd`, `test.xyz` and `test.www`, each with the fields `id` and `email`.
 
-**1. Transform level rule only.** The rule applies to every table because `table_match_regex` defaults to `.*`.
+**1. Transform level rule only.** The rule applies to every table.
 
 ```hocon
 transform {
@@ -280,7 +272,6 @@ transform {
   RegexExtract {
     plugin_input = "fake"
     plugin_output = "fake1"
-    table_match_regex = "test.a.*"
     source_field = "email"
     regex_pattern = "([^@]+)@([^.]+)\\.(.+)"
     output_fields = [username, domain, tld]
