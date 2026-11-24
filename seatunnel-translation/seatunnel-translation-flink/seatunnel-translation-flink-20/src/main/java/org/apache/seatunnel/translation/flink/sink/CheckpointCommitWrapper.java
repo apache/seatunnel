@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.schema.coordinator;
+package org.apache.seatunnel.translation.flink.sink;
 
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+/** A committable tagged with its writer's checkpoint sequence for restored-only replay. */
+final class CheckpointCommitWrapper<T> extends CommitWrapper<T> {
+    private final long checkpointId;
 
-/**
- * Interface for sink subtasks to provide their schema processing state This allows the coordinator
- * to query the actual processing state during recovery
- */
-public interface SinkStateProvider {
-    /**
-     * Get the last processed epoch for a specific table
-     *
-     * @param tableId the table identifier
-     * @return the last processed epoch, or null if never processed
-     */
-    Long getLastProcessedEpoch(TableIdentifier tableId);
+    CheckpointCommitWrapper(T commit, long checkpointId) {
+        super(commit);
+        this.checkpointId = checkpointId;
+    }
+
+    long getCheckpointId() {
+        return checkpointId;
+    }
 }

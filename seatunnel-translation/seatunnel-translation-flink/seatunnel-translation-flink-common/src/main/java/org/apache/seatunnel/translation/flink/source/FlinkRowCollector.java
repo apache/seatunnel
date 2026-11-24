@@ -51,6 +51,8 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
 
     private boolean emptyThisPollNext = true;
 
+    private boolean schemaChangeThisPollNext;
+
     public FlinkRowCollector(Config envConfig, MetricsContext metricsContext) {
         this.flowControlGate = FlowControlGate.create(FlowControlStrategy.fromConfig(envConfig));
         this.sourceReadCount = metricsContext.counter(MetricNames.SOURCE_RECEIVED_COUNT);
@@ -80,6 +82,8 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
         options.put("schema_change_event", event);
         eventRow.setOptions(options);
         readerOutput.collect(eventRow);
+        schemaChangeThisPollNext = true;
+        emptyThisPollNext = false;
     }
 
     @Override
@@ -97,8 +101,13 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
         this.emptyThisPollNext = true;
     }
 
+    public boolean hasSchemaChangeThisPollNext() {
+        return schemaChangeThisPollNext;
+    }
+
     public FlinkRowCollector withReaderOutput(ReaderOutput<SeaTunnelRow> readerOutput) {
         this.readerOutput = readerOutput;
+        this.schemaChangeThisPollNext = false;
         this.emptyThisPollNext = true;
         return this;
     }
