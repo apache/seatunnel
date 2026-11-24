@@ -85,12 +85,14 @@ public class MultiTableSink
      * replicaNum} writers to fill the blocking queues in {@link MultiTableSinkWriter}.
      *
      * @param context the factory context containing per-table sinks and configuration options
+     * @throws IllegalArgumentException if the replica count is less than one
      */
     public MultiTableSink(MultiTableFactoryContext context) {
         this.sinks = context.getSinks();
         this.replicaNum =
                 context.getOptions().get(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA);
-        // Options can also come from callers that construct the sink directly.
+        // FactoryUtil validates the factory rule. Direct callers still need the guard because
+        // every replica becomes a writer with its own queue.
         if (replicaNum < 1) {
             throw new IllegalArgumentException(
                     String.format(
