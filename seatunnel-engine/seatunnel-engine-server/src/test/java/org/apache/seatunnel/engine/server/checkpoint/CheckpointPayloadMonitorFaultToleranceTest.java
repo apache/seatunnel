@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.mockito.Mockito;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -96,9 +98,43 @@ public class CheckpointPayloadMonitorFaultToleranceTest extends AbstractSeaTunne
                                         JobStatus.CANCELED,
                                         server.getCoordinatorService().getJobStatus(jobId)));
 
+        List<PipelineState> retainedCheckpoints =
+                checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
         Assertions.assertFalse(
-                checkpointStorage.getAllCheckpoints(String.valueOf(jobId)).isEmpty(),
+                retainedCheckpoints.isEmpty(),
                 "monitor cleanup failure must not delete the durable checkpoint payload when retain is enabled");
         Mockito.verify(spiedMonitor).cleanupJob(jobId);
+
+        long latestCheckpointId =
+                retainedCheckpoints.stream()
+                        .mapToLong(PipelineState::getCheckpointId)
+                        .max()
+                        .orElseThrow();
+        startJob(jobId, STREAM_CONF_WITH_CHECKPOINT_PATH, true);
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        long restoredCounter =
+                server.getCoordinatorService()
+                        .getJobMaster(jobId)
+                        .getCheckpointManager()
+                        .getCheckpointCoordinator(1)
+                        .getCheckpointIdCounter()
+                        .get();
+        Assertions.assertTrue(
+                restoredCounter >= latestCheckpointId,
+                "restored job must resume from the retained checkpoint payload");
+
+        server.getCoordinatorService().cancelJob(jobId);
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
     }
 }

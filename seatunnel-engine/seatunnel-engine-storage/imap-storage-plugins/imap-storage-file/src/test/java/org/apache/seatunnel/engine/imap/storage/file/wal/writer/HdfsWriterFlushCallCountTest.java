@@ -100,7 +100,7 @@ class HdfsWriterFlushCallCountTest {
         Configuration conf = new Configuration();
         conf.set("fs.defaultFS", "file:///");
         conf.set("fs.hdfs.impl", "org.apache.hadoop.fs.LocalFileSystem");
-        FileSystem fs = FileSystem.getLocal(conf);
+        FileSystem fs = privateLocalFileSystem(conf);
         fs.setWriteChecksum(false);
         ProtoStuffSerializer serializer = new ProtoStuffSerializer();
         Path parentPath = new Path(tempDir.resolve("wal").toUri());
@@ -122,7 +122,17 @@ class HdfsWriterFlushCallCountTest {
             Map<Object, Object> loaded = reader.loadAllData(parentPath, new HashSet<>());
             Assertions.assertEquals(1, loaded.size());
             Assertions.assertEquals("flush-value", loaded.get("flush-key"));
+        } finally {
+            fs.setWriteChecksum(true);
+            fs.close();
         }
+    }
+
+    /** A local file system that is not the shared instance returned by {@code getLocal()}. */
+    private static FileSystem privateLocalFileSystem(Configuration conf) throws Exception {
+        FileSystem fs = new org.apache.hadoop.fs.LocalFileSystem();
+        fs.initialize(java.net.URI.create("file:///"), conf);
+        return fs;
     }
 
     @Test

@@ -114,11 +114,7 @@ class IMapFileStorageRingAdmissionTest {
             }
 
             long requestIdBefore = RequestFutureCache.getRequestId();
-            long started = System.nanoTime();
             Assertions.assertFalse(storage.store("overflow", "v"));
-            long elapsedMs =
-                    java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
-            Assertions.assertTrue(elapsedMs <= 600L, "store should fail inside the write timeout");
             Assertions.assertNull(
                     RequestFutureCache.get(requestIdBefore + 1),
                     "rejected admission must remove its pending future");

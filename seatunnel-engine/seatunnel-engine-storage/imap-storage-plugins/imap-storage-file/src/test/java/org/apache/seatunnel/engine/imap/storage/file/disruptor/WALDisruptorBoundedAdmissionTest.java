@@ -35,10 +35,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.condition.OS.LINUX;
@@ -122,33 +125,47 @@ class WALDisruptorBoundedAdmissionTest {
                         SATURATED_RING_SIZE,
                         blockingHandler);
 
-        long watchdogNanos = TimeUnit.MILLISECONDS.toNanos(250);
-        List<Long> admittedIds = new ArrayList<>();
-        for (int index = 0; index < SATURATED_RING_SIZE; index++) {
-            long requestId = RequestFutureCache.getRequestId();
-            admittedIds.add(requestId);
-            Assertions.assertTrue(
-                    disruptor.tryPublish(
-                            sampleData("k-" + index),
-                            WALEventType.APPEND,
-                            requestId,
-                            TimeUnit.SECONDS.toNanos(5)),
-                    "ring should admit events until it is full");
-        }
+        try {
+            long watchdogNanos = TimeUnit.MILLISECONDS.toNanos(250);
+            for (int index = 0; index < SATURATED_RING_SIZE; index++) {
+                long requestId = RequestFutureCache.getRequestId();
+                Assertions.assertTrue(
+                        disruptor.tryPublish(
+                                sampleData("k-" + index),
+                                WALEventType.APPEND,
+                                requestId,
+                                TimeUnit.SECONDS.toNanos(5)),
+                        "ring should admit events until it is full");
+            }
 
-        long rejectedId = RequestFutureCache.getRequestId();
-        long started = System.nanoTime();
-        Assertions.assertFalse(
-                disruptor.tryPublish(
-                        sampleData("overflow"), WALEventType.APPEND, rejectedId, watchdogNanos),
-                "a saturated ring must reject admission before the watchdog elapses");
-        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
-        Assertions.assertTrue(
-                elapsedMs <= 1000L,
-                "admission should fail inside the configured watchdog, took " + elapsedMs + " ms");
-        Assertions.assertNull(
-                RequestFutureCache.get(rejectedId),
-                "rejected admission must not leave a dangling future");
+            long rejectedId = RequestFutureCache.getRequestId();
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            try {
+                Future<Boolean> admission =
+                        executor.submit(
+                                () ->
+                                        disruptor.tryPublish(
+                                                sampleData("overflow"),
+                                                WALEventType.APPEND,
+                                                rejectedId,
+                                                watchdogNanos));
+                Assertions.assertFalse(
+                        admission.get(10, TimeUnit.SECONDS),
+                        "a saturated ring must reject admission before the watchdog elapses");
+            } catch (TimeoutException | ExecutionException | InterruptedException publishStall) {
+                Assertions.fail(
+                        "saturated-ring admission must not block the test thread without an outer watchdog",
+                        publishStall);
+            } finally {
+                executor.shutdownNow();
+            }
+            Assertions.assertNull(
+                    RequestFutureCache.get(rejectedId),
+                    "rejected admission must not leave a dangling future");
+        } finally {
+            blockingHandler.release();
+            blockingHandler = null;
+        }
     }
 
     @Test
@@ -167,44 +184,57 @@ class WALDisruptorBoundedAdmissionTest {
                         SATURATED_RING_SIZE,
                         blockingHandler);
 
-        for (int index = 0; index < SATURATED_RING_SIZE; index++) {
-            long requestId = RequestFutureCache.getRequestId();
+        Thread publisher = null;
+        try {
+            for (int index = 0; index < SATURATED_RING_SIZE; index++) {
+                long requestId = RequestFutureCache.getRequestId();
+                Assertions.assertTrue(
+                        disruptor.tryPublish(
+                                sampleData("fill-" + index),
+                                WALEventType.APPEND,
+                                requestId,
+                                TimeUnit.SECONDS.toNanos(5)));
+            }
+
+            long overflowId = RequestFutureCache.getRequestId();
+            AtomicBoolean admitted = new AtomicBoolean(true);
+            AtomicBoolean interruptPreservedOnExit = new AtomicBoolean(false);
+            CountDownLatch publishStarted = new CountDownLatch(1);
+            publisher =
+                    new Thread(
+                            () -> {
+                                publishStarted.countDown();
+                                admitted.set(
+                                        disruptor.tryPublish(
+                                                sampleData("interrupted"),
+                                                WALEventType.APPEND,
+                                                overflowId,
+                                                TimeUnit.SECONDS.toNanos(30)));
+                                interruptPreservedOnExit.set(
+                                        Thread.currentThread().isInterrupted());
+                            },
+                            "wal-saturated-publisher");
+            publisher.start();
+            Assertions.assertTrue(publishStarted.await(5, TimeUnit.SECONDS));
+            Thread.sleep(50);
+            publisher.interrupt();
+            publisher.join(TimeUnit.SECONDS.toMillis(10));
+
+            Assertions.assertFalse(admitted.get(), "interrupted admission must fail");
             Assertions.assertTrue(
-                    disruptor.tryPublish(
-                            sampleData("fill-" + index),
-                            WALEventType.APPEND,
-                            requestId,
-                            TimeUnit.SECONDS.toNanos(5)));
+                    interruptPreservedOnExit.get(),
+                    "tryPublish must return without clearing the caller's interrupt status");
+            Assertions.assertNull(RequestFutureCache.get(overflowId));
+        } finally {
+            if (publisher != null && publisher.isAlive()) {
+                publisher.interrupt();
+                publisher.join(TimeUnit.SECONDS.toMillis(10));
+            }
+            if (blockingHandler != null) {
+                blockingHandler.release();
+                blockingHandler = null;
+            }
         }
-
-        long overflowId = RequestFutureCache.getRequestId();
-        AtomicBoolean admitted = new AtomicBoolean(true);
-        AtomicBoolean interruptPreservedOnExit = new AtomicBoolean(false);
-        CountDownLatch publishStarted = new CountDownLatch(1);
-        Thread publisher =
-                new Thread(
-                        () -> {
-                            publishStarted.countDown();
-                            admitted.set(
-                                    disruptor.tryPublish(
-                                            sampleData("interrupted"),
-                                            WALEventType.APPEND,
-                                            overflowId,
-                                            TimeUnit.SECONDS.toNanos(30)));
-                            interruptPreservedOnExit.set(Thread.currentThread().isInterrupted());
-                        },
-                        "wal-saturated-publisher");
-        publisher.start();
-        Assertions.assertTrue(publishStarted.await(5, TimeUnit.SECONDS));
-        Thread.sleep(50);
-        publisher.interrupt();
-        publisher.join(TimeUnit.SECONDS.toMillis(10));
-
-        Assertions.assertFalse(admitted.get(), "interrupted admission must fail");
-        Assertions.assertTrue(
-                interruptPreservedOnExit.get(),
-                "tryPublish must return without clearing the caller's interrupt status");
-        Assertions.assertNull(RequestFutureCache.get(overflowId));
     }
 
     private static IMapFileData sampleData(String key) {

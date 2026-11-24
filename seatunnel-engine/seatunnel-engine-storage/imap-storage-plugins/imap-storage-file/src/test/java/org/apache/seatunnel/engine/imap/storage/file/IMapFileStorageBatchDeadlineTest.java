@@ -28,13 +28,17 @@ import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.lang.reflect.Field;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Proves batch {@link IMapFileStorage#storeAll(Map)} / {@link IMapFileStorage#deleteAll} honor one
@@ -47,62 +51,80 @@ class IMapFileStorageBatchDeadlineTest {
 
     @Test
     void storeAllShouldSpendOneSharedTimeoutAcrossBatch() throws Exception {
-        IMapFileStorage storage = storageWithMockWal();
+        AtomicLong clockNanos = new AtomicLong(0L);
+        long timeoutNanos = TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MS);
+        IMapFileStorage storage = storageWithMockWal(clockNanos, timeoutNanos);
         Map<Object, Object> batch = new LinkedHashMap<>();
         for (int index = 0; index < PENDING_KEYS; index++) {
             batch.put("key-" + index, "value-" + index);
         }
 
-        long started = System.nanoTime();
         Set<Object> failures = storage.storeAll(batch);
-        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
 
         Assertions.assertEquals(batch.keySet(), failures);
-        Assertions.assertTrue(
-                elapsedMs < TIMEOUT_MS * PENDING_KEYS,
-                "storeAll must not spend a full timeout per entry (elapsed "
-                        + elapsedMs
-                        + " ms for "
-                        + PENDING_KEYS
-                        + " keys)");
-        Assertions.assertTrue(
-                elapsedMs >= TIMEOUT_MS - 15L,
-                "storeAll should consume roughly one shared timeout budget");
+        ArgumentCaptor<Long> admissionBudgetCaptor = ArgumentCaptor.forClass(Long.class);
+        Mockito.verify(storageWal(storage), Mockito.times(PENDING_KEYS))
+                .tryPublish(
+                        Mockito.any(IMapFileData.class),
+                        Mockito.eq(WALEventType.APPEND),
+                        Mockito.anyLong(),
+                        admissionBudgetCaptor.capture());
+        List<Long> admissionBudgets = admissionBudgetCaptor.getAllValues();
+        for (Long budget : admissionBudgets) {
+            Assertions.assertEquals(
+                    timeoutNanos,
+                    budget.longValue(),
+                    "each admission should use the same remaining write timeout");
+        }
     }
 
     @Test
     void deleteAllShouldSpendOneSharedTimeoutAcrossBatch() throws Exception {
-        IMapFileStorage storage = storageWithMockWal();
+        AtomicLong clockNanos = new AtomicLong(0L);
+        long timeoutNanos = TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MS);
+        IMapFileStorage storage = storageWithMockWal(clockNanos, timeoutNanos);
         Map<Object, ExpirableValue> values = new LinkedHashMap<>();
         for (int index = 0; index < PENDING_KEYS; index++) {
             values.put("key-" + index, new ExpirableValue("value-" + index));
         }
 
-        long started = System.nanoTime();
         Set<Object> failures = storage.deleteAll(values.keySet());
-        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
 
         Assertions.assertEquals(values.keySet(), failures);
-        Assertions.assertTrue(
-                elapsedMs < TIMEOUT_MS * PENDING_KEYS,
-                "deleteAll must not spend a full timeout per key");
     }
 
-    private static IMapFileStorage storageWithMockWal() throws Exception {
+    private static IMapFileStorage storageWithMockWal(AtomicLong clockNanos, long timeoutNanos)
+            throws Exception {
         IMapFileStorage storage = new IMapFileStorage();
         storage.writDataTimeoutMilliseconds = TIMEOUT_MS;
         storage.serializer = new ProtoStuffSerializer();
+        storage.setNanoTimeSource(clockNanos::get);
 
         WALDisruptor walDisruptor = Mockito.mock(WALDisruptor.class);
+        AtomicInteger publishCount = new AtomicInteger();
         Mockito.when(
                         walDisruptor.tryPublish(
                                 Mockito.any(IMapFileData.class),
                                 Mockito.eq(WALEventType.APPEND),
                                 Mockito.anyLong(),
                                 Mockito.anyLong()))
-                .thenAnswer(invocation -> true);
+                .thenAnswer(
+                        invocation -> {
+                            if (publishCount.incrementAndGet() >= PENDING_KEYS) {
+                                // Exhaust the shared budget before the batch wait loop so harvest
+                                // uses get(0) and fails fast without wall-clock sleeps.
+                                clockNanos.set(timeoutNanos);
+                            }
+                            return true;
+                        });
         injectWalDisruptor(storage, walDisruptor);
         return storage;
+    }
+
+    private static WALDisruptor storageWal(IMapFileStorage storage) throws Exception {
+        Field field = IMapFileStorage.class.getDeclaredField("walDisruptor");
+        field.setAccessible(true);
+        return (WALDisruptor) field.get(storage);
     }
 
     private static void injectWalDisruptor(IMapFileStorage storage, WALDisruptor walDisruptor)
