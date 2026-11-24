@@ -62,6 +62,7 @@ Dry-run 诊断指出无效选项（包括 `topic` 中引用缺失字段的 `${fi
 | assign_partitions    | Array  | 否    | -    | 可以根据消息的内容决定发送哪个分区,该参数的作用是分发信息                                                                                                                                                                                                                                      |
 | transaction_prefix   | String | 否    | -    | 当 `semantics` 为 `EXACTLY_ONCE` 时，生产者会把消息写入 Kafka 事务。Kafka 通过 transaction id 区分不同事务，因此不同作业应使用不同前缀。                                                                                                                                           |
 | format               | String | 否    | json | 数据格式。默认格式是json。可选 text, canal_json, debezium_json, compatible_debezium_json, ogg_json, maxwell_json, avro, protobuf 和 native。如果使用 json 或 text 格式，默认字段分隔符是 `,`。如果自定义分隔符，请添加 `field_delimiter` 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md)。如果使用 debezium 格式，请参阅 [debezium-json](../formats/debezium-json.md) 了解详细信息 |
+| merge_update_event  | boolean | 否   | false | 仅当 `format` 为 `canal_json` 时生效。设置为 true 时，相邻的 `UPDATE_BEFORE` 和 `UPDATE_AFTER` 会合并为一条 Canal `UPDATE` 消息。 |
 | field_delimiter      | String | 否    | ,    | 自定义数据格式的字段分隔符                                                                                                                                                                                                                                                      |
 | common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](../common-options/sink-common-options.md) 了解详情                                                                                                                                                                                                         |
 |protobuf_message_name|String|否|-| format配置为protobuf时生效，取Message名称                                                                                                                                                                                                                                    |
@@ -94,6 +95,10 @@ Dry-run 诊断指出无效选项（包括 `topic` 中引用缺失字段的 `${fi
 NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢失，并且消息可能会重复，该模式下，任务失败重试可能会产生数据丢失或重复。
 
 使用 `EXACTLY_ONCE` 时需要开启 checkpoint，并确保每个运行中的作业使用唯一的 `transaction_prefix`。多个作业复用同一个事务前缀，可能导致 Kafka 事务冲突。
+
+### 合并更新事件
+
+当 `format = "canal_json"` 且 `merge_update_event = true` 时，Kafka Sink 会缓存 `UPDATE_BEFORE`，并将它与后续的 `UPDATE_AFTER` 合并为一条 Canal `UPDATE` 消息。该功能要求这两条记录按顺序到达同一个 Sink writer。默认值为 false 时，更新记录保持原有的 DELETE 和 INSERT 行为。
 
 ### 分区关键字段
 

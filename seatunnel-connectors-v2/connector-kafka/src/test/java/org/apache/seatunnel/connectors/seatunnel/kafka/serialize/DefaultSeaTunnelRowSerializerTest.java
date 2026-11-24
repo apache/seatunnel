@@ -21,6 +21,7 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.serialize;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -77,6 +78,44 @@ public class DefaultSeaTunnelRowSerializerTest {
         Assertions.assertEquals("test_topic", record.topic());
         Assertions.assertEquals("key1", new String(record.key()));
         Assertions.assertEquals("value1", new String(record.value()));
+    }
+
+    @Test
+    public void testCanalJsonMergeUpdateEvent() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("merge_update_event", true);
+        ReadonlyConfig pluginConfig = ReadonlyConfig.fromMap(configMap);
+
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_topic",
+                        Arrays.asList("id"),
+                        rowType,
+                        MessageFormat.CANAL_JSON,
+                        ",",
+                        pluginConfig);
+
+        SeaTunnelRow before = new SeaTunnelRow(new Object[] {1, "old"});
+        before.setRowKind(RowKind.UPDATE_BEFORE);
+        before.setTableId("db.table");
+        ProducerRecord<byte[], byte[]> beforeRecord = serializer.serializeRow(before);
+        Assertions.assertNull(beforeRecord.value());
+        Assertions.assertNotNull(beforeRecord.key());
+
+        SeaTunnelRow after = new SeaTunnelRow(new Object[] {1, "new"});
+        after.setRowKind(RowKind.UPDATE_AFTER);
+        after.setTableId("db.table");
+        ProducerRecord<byte[], byte[]> afterRecord = serializer.serializeRow(after);
+        String value = new String(afterRecord.value(), StandardCharsets.UTF_8);
+        Assertions.assertTrue(value.contains("\"type\":\"UPDATE\""));
+        Assertions.assertTrue(value.contains("\"old\":[{\"id\":1,\"name\":\"old\"}]"));
+        Assertions.assertTrue(value.contains("\"data\":[{\"id\":1,\"name\":\"new\"}]"));
     }
 
     @Test

@@ -69,6 +69,13 @@ public class KafkaSinkOptions extends KafkaBaseOptions {
                     .withDescription(
                             "Semantics that can be chosen EXACTLY_ONCE/AT_LEAST_ONCE/NON, default NON.");
 
+    public static final Option<Boolean> MERGE_UPDATE_EVENT =
+            Options.key("merge_update_event")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Only used when format is canal_json. When true, an UPDATE_BEFORE and UPDATE_AFTER pair is emitted as one UPDATE event.");
+
     public static final Option<String> TRANSACTION_PREFIX =
             Options.key("transaction_prefix")
                     .stringType()
