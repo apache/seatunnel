@@ -74,6 +74,10 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     private String encoding = FileBaseSourceOptions.ENCODING.defaultValue();
     private CatalogTable inputCatalogTable;
     private boolean firstLineAsHeader = FileBaseSourceOptions.CSV_USE_HEADER_LINE.defaultValue();
+    // Header of the file whose splits are being read, kept so that consecutive splits of one
+    // file read it once.
+    private String headerFilePath;
+    private List<String> fileHeader;
 
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
@@ -230,11 +234,15 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         return csvFormat;
     }
 
-    private List<String> getHeaders(CSVParser csvParser, FileSourceSplit split) {
+    private List<String> getHeaders(CSVParser csvParser, FileSourceSplit split) throws IOException {
         List<String> headers;
         final boolean useSplitRead = isSplitReadEnabled(split);
         if (firstLineAsHeader && (!useSplitRead || split.getStart() == 0)) {
             headers = new ArrayList<>(csvParser.getHeaderNames());
+        } else if (firstLineAsHeader) {
+            // The split strategy skips the header line, so a byte-range split never starts at
+            // it: read the header from the head of the file instead.
+            headers = readFileHeader(split);
         } else {
             headers =
                     inputCatalogTable.getTableSchema().getColumns().stream()
@@ -242,6 +250,24 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                             .collect(Collectors.toList());
         }
         return headers;
+    }
+
+    private List<String> readFileHeader(FileSourceSplit split) throws IOException {
+        String filePath = split.getFilePath();
+        if (filePath.equals(headerFilePath)) {
+            return fileHeader;
+        }
+        FileSourceSplit wholeFile = new FileSourceSplit(split.getTableId(), filePath);
+        try (BufferedReader reader =
+                        createBomAwareBufferedReader(
+                                wrapInputStream(
+                                        hadoopFileSystemProxy.getInputStream(filePath), wholeFile),
+                                encoding);
+                CSVParser parser = new CSVParser(reader, getCSVFormat(wholeFile))) {
+            fileHeader = new ArrayList<>(parser.getHeaderNames());
+            headerFilePath = filePath;
+            return fileHeader;
+        }
     }
 
     @Override
