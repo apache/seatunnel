@@ -39,9 +39,9 @@ import com.hazelcast.map.IMap;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -83,8 +83,19 @@ public class PhysicalPlan {
 
     private EngineConfig engineConfig;
 
+    /**
+     * Pre-applied slot futures for this job, keyed by task group.
+     *
+     * <p>Concurrent by contract. {@code stateProcess()} is synchronized per {@link SubPlan}, but
+     * each pipeline is a different {@code SubPlan} instance, so two pipelines of the same job can
+     * restore at the same time and merge into this map from their own threads while {@link
+     * ResourceUtils} reads it for a third. A plain {@code HashMap} can lose an entry or observe a
+     * half-resized table under that access pattern, and a lost entry means a task group has no
+     * pre-applied future: the pipeline then fails to allocate and the slot already acquired for it
+     * is neither consumed nor released.
+     */
     private Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
-            new HashMap<>();
+            new ConcurrentHashMap<>();
 
     /** Whether we make the job end when pipeline turn to end state. */
     private boolean makeJobEndWhenPipelineEnded = true;
@@ -455,6 +466,14 @@ public class PhysicalPlan {
 
     public void setPreApplyResourceFutures(
             Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
-        this.preApplyResourceFutures = preApplyResourceFutures;
+        // Copied into a concurrent map rather than stored as handed over.
+        // Callers build this locally with a plain HashMap, and a pipeline that
+        // restores later merges into whatever map is stored here, from its own
+        // thread. Storing the caller's map as-is would silently put a
+        // HashMap back in place and undo the concurrency contract above.
+        this.preApplyResourceFutures =
+                preApplyResourceFutures == null
+                        ? new ConcurrentHashMap<>()
+                        : new ConcurrentHashMap<>(preApplyResourceFutures);
     }
 }
