@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
+import org.apache.seatunnel.api.transform.TransformOpenException;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -75,6 +76,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -125,6 +127,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
     // Volatile and copy-on-write: cancel() iterates this list from the engine cancel thread while
     // init() may still be filling it on the task thread.
     protected volatile List<FlowLifeCycle> allCycles;
+
+    private transient volatile Set<FlowLifeCycle> closedAfterFailedOpen;
 
     // Set by cancel() when it ran before the life cycles were built; init() replays the cancel in
     // that case so no flow keeps blocking in an external system.
@@ -266,9 +270,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 break;
             case WAITING_RESTORE:
                 if (restoreComplete.isDone()) {
-                    for (FlowLifeCycle cycle : allCycles) {
-                        cycle.open();
-                    }
+                    openFlowLifeCycles();
                     currState = READY_START;
                     reportTaskStatus(READY_START);
                 } else {
@@ -313,6 +315,29 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 return;
             default:
                 throw new IllegalArgumentException("Unknown Enumerator State: " + currState);
+        }
+    }
+
+    void openFlowLifeCycles() throws Exception {
+        List<FlowLifeCycle> opened = new ArrayList<>();
+        try {
+            for (FlowLifeCycle cycle : allCycles) {
+                cycle.open();
+                opened.add(cycle);
+            }
+        } catch (TransformOpenException failure) {
+            Set<FlowLifeCycle> closed =
+                    Collections.synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<>()));
+            closed.addAll(opened);
+            closedAfterFailedOpen = closed;
+            for (int i = opened.size() - 1; i >= 0; i--) {
+                try {
+                    opened.get(i).close();
+                } catch (Exception closeFailure) {
+                    failure.addSuppressed(closeFailure);
+                }
+            }
+            throw failure;
         }
     }
 
@@ -483,6 +508,10 @@ public abstract class SeaTunnelTask extends AbstractTask {
         MDCTracer.tracing(allCycles.stream())
                 .forEach(
                         flowLifeCycle -> {
+                            if (closedAfterFailedOpen != null
+                                    && closedAfterFailedOpen.contains(flowLifeCycle)) {
+                                return;
+                            }
                             try {
                                 flowLifeCycle.close();
                             } catch (IOException e) {

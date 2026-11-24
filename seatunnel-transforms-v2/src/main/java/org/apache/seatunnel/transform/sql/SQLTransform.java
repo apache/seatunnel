@@ -102,17 +102,19 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
 
     @Override
     public void open() {
-        sqlEngine = SQLEngineFactory.getSQLEngine(engineType);
-        sqlEngine.init(
-                inputTableName,
-                inputCatalogTable.getTableId().getTableName(),
-                inputCatalogTable.getSeaTunnelRowType(),
-                query);
+        tryOpen();
+        sqlEngine.openReferencedUdfs();
     }
 
     private void tryOpen() {
         if (sqlEngine == null) {
-            open();
+            sqlEngine = SQLEngineFactory.getSQLEngine(engineType);
+            sqlEngine.init(
+                    inputTableName,
+                    inputCatalogTable.getTableId().getTableName(),
+                    inputCatalogTable.getSeaTunnelRowType(),
+                    query,
+                    inputCatalogTable);
         }
     }
 
@@ -254,6 +256,7 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
             // Force re-initialization: sqlEngine caches allColumnsCount and outRowType based on
             // the old inputRowType. After a schema change (e.g. ADD COLUMN), select * would
             // produce an ArrayIndexOutOfBoundsException because the cached output size is stale.
+            close();
             sqlEngine = null;
             outputCatalogTable = null;
             if (event instanceof RestoreTableSchemaEvent) {
@@ -270,6 +273,7 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
     @Override
     public void setInputCatalogTable(@NonNull CatalogTable inputCatalogTable) {
         super.setInputCatalogTable(inputCatalogTable);
+        close();
         this.sqlEngine = null;
     }
 

@@ -80,6 +80,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static java.util.UUID.randomUUID;
 import static org.apache.seatunnel.transform.exception.TransformCommonErrorCode.INPUT_FIELDS_NOT_FOUND;
@@ -240,6 +241,7 @@ public class ZetaSQLFunction {
 
     private final List<ZetaUDF> udfList;
     private final ZetaUDFContext udfContext;
+    private final Consumer<ZetaUDF> udfInitializer;
 
     public ZetaSQLFunction(
             SeaTunnelRowType inputRowType, ZetaSQLType zetaSQLType, List<ZetaUDF> udfList) {
@@ -251,11 +253,21 @@ public class ZetaSQLFunction {
             ZetaSQLType zetaSQLType,
             List<ZetaUDF> udfList,
             ZetaUDFContext udfContext) {
+        this(inputRowType, zetaSQLType, udfList, udfContext, udf -> {});
+    }
+
+    ZetaSQLFunction(
+            SeaTunnelRowType inputRowType,
+            ZetaSQLType zetaSQLType,
+            List<ZetaUDF> udfList,
+            ZetaUDFContext udfContext,
+            Consumer<ZetaUDF> udfInitializer) {
         this.inputRowType = inputRowType;
         this.zetaSQLType = zetaSQLType;
         this.zetaSQLFilter = new ZetaSQLFilter(this, zetaSQLType);
         this.udfList = udfList;
         this.udfContext = udfContext;
+        this.udfInitializer = udfInitializer;
     }
 
     public void updateUDFContext(Object[] fields, SeaTunnelRow row) {
@@ -478,6 +490,132 @@ public class ZetaSQLFunction {
         }
         final Expression elseExpression = caseExpression.getElseExpression();
         return elseExpression == null ? null : computeForValue(elseExpression, inputFields);
+    }
+
+    // Keep reference discovery aligned with the built-in dispatch below.
+    static boolean isBuiltInFunction(String name) {
+        switch (name.toUpperCase(Locale.ROOT)) {
+            case ASCII:
+            case BIT_LENGTH:
+            case CHAR_LENGTH:
+            case LENGTH:
+            case OCTET_LENGTH:
+            case CHAR:
+            case CHR:
+            case CONCAT:
+            case CONCAT_WS:
+            case HEXTORAW:
+            case RAWTOHEX:
+            case TO_BASE64:
+            case FROM_BASE64:
+            case INSERT:
+            case LOWER:
+            case LCASE:
+            case UPPER:
+            case UCASE:
+            case LEFT:
+            case RIGHT:
+            case LOCATE:
+            case POSITION:
+            case INSTR:
+            case LPAD:
+            case RPAD:
+            case LTRIM:
+            case RTRIM:
+            case TRIM:
+            case REGEXP_REPLACE:
+            case REGEXP_LIKE:
+            case REGEXP_SUBSTR:
+            case REPEAT:
+            case REPLACE:
+            case SOUNDEX:
+            case SPACE:
+            case SUBSTRING:
+            case SUBSTR:
+            case TO_CHAR:
+            case TRANSLATE:
+            case SPLIT:
+            case MURMUR64:
+            case MD5:
+            case AES_ENCRYPT:
+            case AES_DECRYPT:
+            case GET_JSON_OBJECT:
+            case ABS:
+            case ACOS:
+            case ASIN:
+            case ATAN:
+            case COS:
+            case COSH:
+            case COT:
+            case SIN:
+            case SINH:
+            case TAN:
+            case TANH:
+            case ATAN2:
+            case MOD:
+            case CEIL:
+            case CEILING:
+            case EXP:
+            case FLOOR:
+            case LN:
+            case LOG:
+            case LOG10:
+            case RADIANS:
+            case SQRT:
+            case PI:
+            case POWER:
+            case RAND:
+            case RANDOM:
+            case ROUND:
+            case SIGN:
+            case TRUNC:
+            case TRUNCATE:
+            case TRIM_SCALE:
+            case NOW:
+            case DATEADD:
+            case TIMESTAMPADD:
+            case DATEDIFF:
+            case DATE_TRUNC:
+            case DAYNAME:
+            case DAY_OF_MONTH:
+            case DAY_OF_WEEK:
+            case DAY_OF_YEAR:
+            case FROM_UNIXTIME:
+            case UNIX_TIMESTAMP:
+            case EXTRACT:
+            case FORMATDATETIME:
+            case HOUR:
+            case MINUTE:
+            case MONTH:
+            case MONTHNAME:
+            case PARSEDATETIME:
+            case TO_DATE:
+            case IS_DATE:
+            case QUARTER:
+            case SECOND:
+            case WEEK:
+            case YEAR:
+            case COALESCE:
+            case IFNULL:
+            case NULLIF:
+            case ARRAY:
+            case ARRAY_MAX:
+            case ARRAY_MIN:
+            case MAP:
+            case UUID:
+            case COSINE_DISTANCE:
+            case L1_DISTANCE:
+            case L2_DISTANCE:
+            case VECTOR_DIMS:
+            case VECTOR_NORM:
+            case INNER_PRODUCT:
+            case VECTOR_REDUCE:
+            case VECTOR_NORMALIZE:
+            case MULTI_IF:
+                return true;
+            default:
+                return false;
+        }
     }
 
     public Object executeFunctionExpr(
@@ -708,6 +846,7 @@ public class ZetaSQLFunction {
             default:
                 for (ZetaUDF udf : udfList) {
                     if (udf.functionName().equalsIgnoreCase(functionName)) {
+                        udfInitializer.accept(udf);
                         if (udf.requiresContext() && udfContext != null) {
                             return udf.evaluateWithContext(args, udfContext);
                         }

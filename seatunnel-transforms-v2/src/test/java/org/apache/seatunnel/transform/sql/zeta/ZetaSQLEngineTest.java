@@ -118,8 +118,10 @@ public class ZetaSQLEngineTest {
     public void testOpenUdfWhenExecuteAndCloseOnEngineClose() {
         TrackingUdf trackingUdf = new TrackingUdf("tracking", false);
         ZetaSQLEngine engine = new TestableZetaSQLEngine(Collections.singletonList(trackingUdf));
-        engine.init("test", "test", simpleRowType(), "select id from test");
+        engine.init("test", "test", simpleRowType(), "select tracking(name) from test");
         SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+        engine.openReferencedUdfs();
+        Assertions.assertEquals(1, trackingUdf.getOpenCount());
 
         SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1, "Alice", 20});
         engine.transformBySQL(inputRow, outType);
@@ -135,22 +137,43 @@ public class ZetaSQLEngineTest {
 
     @Test
     public void testOpenFailureShouldCloseFailedAndOpenedUdfs() {
-        TrackingUdf firstUdf = new TrackingUdf("first", false);
-        TrackingUdf failedUdf = new TrackingUdf("failed", true);
+        TrackingUdf firstUdf = new TrackingUdf("first_udf", false);
+        TrackingUdf failedUdf = new TrackingUdf("failed_udf", true);
         ZetaSQLEngine engine = new TestableZetaSQLEngine(Arrays.asList(firstUdf, failedUdf));
-        engine.init("test", "test", simpleRowType(), "select id from test");
-        SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+        engine.init(
+                "test",
+                "test",
+                simpleRowType(),
+                "select first_udf(name), failed_udf(name) from test");
+        engine.typeMapping(new ArrayList<>());
 
-        Assertions.assertThrows(
-                TransformException.class,
-                () ->
-                        engine.transformBySQL(
-                                new SeaTunnelRow(new Object[] {1, "Alice", 20}), outType));
+        Assertions.assertThrows(TransformException.class, engine::openReferencedUdfs);
 
         Assertions.assertEquals(1, firstUdf.getOpenCount());
         Assertions.assertEquals(1, firstUdf.getCloseCount());
         Assertions.assertEquals(1, failedUdf.getOpenCount());
         Assertions.assertEquals(1, failedUdf.getCloseCount());
+    }
+
+    @Test
+    public void testOnlyReferencedUdfsOpenAtStartup() {
+        TrackingUdf referenced = new TrackingUdf("tracking", false);
+        TrackingUdf unreferenced = new TrackingUdf("unused", true);
+        ZetaSQLEngine engine = new TestableZetaSQLEngine(Arrays.asList(referenced, unreferenced));
+        engine.init(
+                "test",
+                "test",
+                simpleRowType(),
+                "select upper(tracking(name)) from test where tracking(name) = 'a'");
+        engine.typeMapping(new ArrayList<>());
+        Assertions.assertEquals(0, referenced.getOpenCount());
+        engine.openReferencedUdfs();
+        engine.openReferencedUdfs();
+        Assertions.assertEquals(1, referenced.getOpenCount());
+        Assertions.assertEquals(0, unreferenced.getOpenCount());
+        engine.close();
+        Assertions.assertEquals(1, referenced.getCloseCount());
+        Assertions.assertEquals(0, unreferenced.getCloseCount());
     }
 
     @Test

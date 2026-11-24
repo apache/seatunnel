@@ -44,6 +44,15 @@ public class ExampleUdfIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    public void testUdfOpenFailureFailsJob(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult result = container.executeJob("/custom_udf_open_failure.conf");
+        Assertions.assertNotEquals(0, result.getExitCode());
+        String output = result.getStdout() + result.getStderr();
+        Assertions.assertTrue(output.contains("requested UDF startup failure"), output);
+    }
+
+    @TestTemplate
     public void testCustomUdfContextLifecycle(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =

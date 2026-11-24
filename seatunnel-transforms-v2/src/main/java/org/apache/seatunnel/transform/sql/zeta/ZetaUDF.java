@@ -66,6 +66,13 @@ public interface ZetaUDF extends Serializable {
         return evaluate(args);
     }
 
+    /**
+     * Initialize udf resources with table metadata. Existing implementations use {@link #open()}.
+     */
+    default void open(ZetaUDFContext context) throws Exception {
+        open();
+    }
+
     /** Initialize udf resources. */
     default void open() throws Exception {}
 

@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -32,13 +33,23 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.api.transform.TransformOpenException;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
+import org.apache.seatunnel.transform.sql.zeta.ZetaUDF;
+import org.apache.seatunnel.transform.sql.zeta.ZetaUDFContext;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -64,6 +75,137 @@ public class SQLTransformTest {
                                     "select *,FORMATDATETIME(create_time,'yyyy-MM-dd HH:mm') as dt from dual");
                         }
                     });
+
+    @Test
+    public void testReferencedUdfsOpenAtRuntimeForEachTable(@TempDir Path directory)
+            throws Exception {
+        Path service = directory.resolve("META-INF/services/" + ZetaUDF.class.getName());
+        Files.createDirectories(service.getParent());
+        Files.write(
+                service,
+                Collections.singletonList(LifecycleSpiUdf.class.getName()),
+                StandardCharsets.UTF_8);
+        ClassLoader original = Thread.currentThread().getContextClassLoader();
+        try (URLClassLoader loader =
+                new URLClassLoader(new URL[] {directory.toUri().toURL()}, original)) {
+            Thread.currentThread().setContextClassLoader(loader);
+            LifecycleSpiUdf.openCount = 0;
+            LifecycleSpiUdf.closeCount = 0;
+            LifecycleSpiUdf.openedTables.clear();
+            LifecycleSpiUdf.failOpen = false;
+            CatalogTable template = getCatalogTable();
+            CatalogTable first =
+                    CatalogTable.of(
+                            template.getTableId(),
+                            template.getTableSchema(),
+                            Collections.singletonMap("url", "jdbc:test:first"),
+                            new ArrayList<>(),
+                            "first");
+            CatalogTable second =
+                    CatalogTable.of(
+                            TableIdentifier.of(TEST_NAME, TEST_NAME, null, "second"),
+                            first.getTableSchema(),
+                            first.getOptions(),
+                            new ArrayList<>(),
+                            "second");
+            ReadonlyConfig options =
+                    ReadonlyConfig.fromMap(
+                            Collections.singletonMap(
+                                    "query",
+                                    "select upper(TEST_LIFECYCLE(name)) from test where id > 0"));
+            SeaTunnelTransform<SeaTunnelRow> transform =
+                    new SQLTransformFactory()
+                            .createTransform(
+                                    new TableTransformFactoryContext(
+                                            Arrays.asList(first, second), options, loader))
+                            .createTransform();
+            Assertions.assertEquals(0, LifecycleSpiUdf.openCount);
+            try {
+                transform.open();
+                Assertions.assertEquals(2, LifecycleSpiUdf.openCount);
+                Assertions.assertTrue(LifecycleSpiUdf.openedTables.contains("test"));
+                Assertions.assertTrue(LifecycleSpiUdf.openedTables.contains("second"));
+                Assertions.assertEquals("jdbc:test:first", LifecycleSpiUdf.inputUrl);
+                Assertions.assertNull(LifecycleSpiUdf.rowDatabaseDuringOpen);
+            } finally {
+                transform.close();
+            }
+            Assertions.assertEquals(2, LifecycleSpiUdf.closeCount);
+
+            LifecycleSpiUdf.failOpen = true;
+            SeaTunnelTransform<SeaTunnelRow> unused =
+                    createSqlTransform("select name from test", loader);
+            unused.open();
+            unused.close();
+            Assertions.assertEquals(2, LifecycleSpiUdf.openCount);
+            SeaTunnelTransform<SeaTunnelRow> failing =
+                    createSqlTransform(
+                            "select name from test where TEST_LIFECYCLE(name) = 'hello'", loader);
+            Assertions.assertThrows(TransformOpenException.class, failing::open);
+            Assertions.assertEquals(3, LifecycleSpiUdf.openCount);
+            Assertions.assertEquals(3, LifecycleSpiUdf.closeCount);
+        } finally {
+            Thread.currentThread().setContextClassLoader(original);
+            LifecycleSpiUdf.failOpen = false;
+        }
+    }
+
+    private SeaTunnelTransform<SeaTunnelRow> createSqlTransform(String query, ClassLoader loader) {
+        ReadonlyConfig options = ReadonlyConfig.fromMap(Collections.singletonMap("query", query));
+        return new SQLTransformFactory()
+                .createTransform(
+                        new TableTransformFactoryContext(
+                                Collections.singletonList(getCatalogTable()), options, loader))
+                .createTransform();
+    }
+
+    private static SeaTunnelRow testRow() {
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "hello", 18, null});
+        row.setTableId("test.test");
+        return row;
+    }
+
+    public static final class LifecycleSpiUdf implements ZetaUDF {
+        private static int openCount;
+        private static int closeCount;
+        private static boolean failOpen;
+        private static String inputTable;
+        private static String inputUrl;
+        private static String rowDatabaseDuringOpen;
+        private static final List<String> openedTables = new ArrayList<>();
+
+        @Override
+        public String functionName() {
+            return "TEST_LIFECYCLE";
+        }
+
+        @Override
+        public SeaTunnelDataType<?> resultType(List<SeaTunnelDataType<?>> argsType) {
+            return BasicType.STRING_TYPE;
+        }
+
+        @Override
+        public void open(ZetaUDFContext context) {
+            openCount++;
+            inputTable = context.getInputCatalogTable().getTableId().getTableName();
+            inputUrl = context.getInputCatalogTable().getOptions().get("url");
+            openedTables.add(inputTable);
+            rowDatabaseDuringOpen = context.getDatabase();
+            if (failOpen) {
+                throw new IllegalStateException("requested open failure");
+            }
+        }
+
+        @Override
+        public Object evaluate(List<Object> args) {
+            return args.get(0);
+        }
+
+        @Override
+        public void close() {
+            closeCount++;
+        }
+    }
 
     @Test
     public void testScaleSupport() {
@@ -215,11 +357,7 @@ public class SQLTransformTest {
                             null,
                             null,
                             "source_" + rowType.getFieldType(i),
-                            new HashMap<String, Object>() {
-                                {
-                                    put("context", "testInSQL");
-                                }
-                            });
+                            Collections.singletonMap("context", "testInSQL"));
             schemaBuilder.column(column);
         }
         return CatalogTable.of(
