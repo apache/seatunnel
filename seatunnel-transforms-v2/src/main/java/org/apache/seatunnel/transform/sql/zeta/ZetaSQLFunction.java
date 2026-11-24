@@ -410,7 +410,7 @@ public class ZetaSQLFunction {
             String functionName = function.getName();
 
             // Special handling for MULTI_IF to properly evaluate comparison expressions
-            if (MULTI_IF.equalsIgnoreCase(functionName)) {
+            if (isMultiIf(functionName)) {
                 return multiIfFunction(function, inputFields);
             }
 
@@ -492,371 +492,286 @@ public class ZetaSQLFunction {
         return elseExpression == null ? null : computeForValue(elseExpression, inputFields);
     }
 
-    // Keep reference discovery aligned with the built-in dispatch below.
-    static boolean isBuiltInFunction(String name) {
-        switch (name.toUpperCase(Locale.ROOT)) {
-            case ASCII:
-            case BIT_LENGTH:
-            case CHAR_LENGTH:
-            case LENGTH:
-            case OCTET_LENGTH:
-            case CHAR:
-            case CHR:
-            case CONCAT:
-            case CONCAT_WS:
-            case HEXTORAW:
-            case RAWTOHEX:
-            case TO_BASE64:
-            case FROM_BASE64:
-            case INSERT:
-            case LOWER:
-            case LCASE:
-            case UPPER:
-            case UCASE:
-            case LEFT:
-            case RIGHT:
-            case LOCATE:
-            case POSITION:
-            case INSTR:
-            case LPAD:
-            case RPAD:
-            case LTRIM:
-            case RTRIM:
-            case TRIM:
-            case REGEXP_REPLACE:
-            case REGEXP_LIKE:
-            case REGEXP_SUBSTR:
-            case REPEAT:
-            case REPLACE:
-            case SOUNDEX:
-            case SPACE:
-            case SUBSTRING:
-            case SUBSTR:
-            case TO_CHAR:
-            case TRANSLATE:
-            case SPLIT:
-            case MURMUR64:
-            case MD5:
-            case AES_ENCRYPT:
-            case AES_DECRYPT:
-            case GET_JSON_OBJECT:
-            case ABS:
-            case ACOS:
-            case ASIN:
-            case ATAN:
-            case COS:
-            case COSH:
-            case COT:
-            case SIN:
-            case SINH:
-            case TAN:
-            case TANH:
-            case ATAN2:
-            case MOD:
-            case CEIL:
-            case CEILING:
-            case EXP:
-            case FLOOR:
-            case LN:
-            case LOG:
-            case LOG10:
-            case RADIANS:
-            case SQRT:
-            case PI:
-            case POWER:
-            case RAND:
-            case RANDOM:
-            case ROUND:
-            case SIGN:
-            case TRUNC:
-            case TRUNCATE:
-            case TRIM_SCALE:
-            case NOW:
-            case DATEADD:
-            case TIMESTAMPADD:
-            case DATEDIFF:
-            case DATE_TRUNC:
-            case DAYNAME:
-            case DAY_OF_MONTH:
-            case DAY_OF_WEEK:
-            case DAY_OF_YEAR:
-            case FROM_UNIXTIME:
-            case UNIX_TIMESTAMP:
-            case EXTRACT:
-            case FORMATDATETIME:
-            case HOUR:
-            case MINUTE:
-            case MONTH:
-            case MONTHNAME:
-            case PARSEDATETIME:
-            case TO_DATE:
-            case IS_DATE:
-            case QUARTER:
-            case SECOND:
-            case WEEK:
-            case YEAR:
-            case COALESCE:
-            case IFNULL:
-            case NULLIF:
-            case ARRAY:
-            case ARRAY_MAX:
-            case ARRAY_MIN:
-            case MAP:
-            case UUID:
-            case COSINE_DISTANCE:
-            case L1_DISTANCE:
-            case L2_DISTANCE:
-            case VECTOR_DIMS:
-            case VECTOR_NORM:
-            case INNER_PRODUCT:
-            case VECTOR_REDUCE:
-            case VECTOR_NORMALIZE:
-            case MULTI_IF:
-                return true;
-            default:
-                return false;
-        }
-    }
-
     public Object executeFunctionExpr(
             String functionName, List<Object> args, Expression expression) {
         SeaTunnelDataType<?> targetType = zetaSQLType.getExpressionType(expression);
-        switch (functionName.toUpperCase(Locale.ROOT)) {
+        BuiltInFunction builtIn = findBuiltInFunction(functionName);
+        if (builtIn != null) {
+            return builtIn.evaluate(functionName, args, targetType);
+        }
+        ZetaUDF udf = findUdf(functionName);
+        if (udf != null) {
+            udfInitializer.accept(udf);
+            if (udf.requiresContext() && udfContext != null) {
+                return udf.evaluateWithContext(args, udfContext);
+            }
+            return udf.evaluate(args);
+        }
+        throw new TransformException(
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                String.format("Unsupported function: %s", functionName));
+    }
+
+    /**
+     * Finds the SPI provider selected by a parsed function call without evaluating its arguments.
+     */
+    ZetaUDF findReferencedUdf(String functionName) {
+        if (isMultiIf(functionName) || findBuiltInFunction(functionName) != null) {
+            return null;
+        }
+        return findUdf(functionName);
+    }
+
+    private ZetaUDF findUdf(String functionName) {
+        for (ZetaUDF udf : udfList) {
+            if (udf.functionName().equalsIgnoreCase(functionName)) {
+                return udf;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isMultiIf(String functionName) {
+        return MULTI_IF.equalsIgnoreCase(functionName);
+    }
+
+    // Both startup discovery and row evaluation use this lookup. The returned evaluator is
+    // called only when processing a row, so discovery never runs a built-in function.
+    private static BuiltInFunction findBuiltInFunction(String name) {
+        switch (name.toUpperCase(Locale.ROOT)) {
             case ASCII:
-                return StringFunction.ascii(args);
+                return (functionName, args, targetType) -> StringFunction.ascii(args);
             case BIT_LENGTH:
-                return StringFunction.bitLength(args);
+                return (functionName, args, targetType) -> StringFunction.bitLength(args);
             case CHAR_LENGTH:
             case LENGTH:
-                return StringFunction.charLength(args);
+                return (functionName, args, targetType) -> StringFunction.charLength(args);
             case OCTET_LENGTH:
-                return StringFunction.octetLength(args);
+                return (functionName, args, targetType) -> StringFunction.octetLength(args);
             case CHAR:
             case CHR:
-                return StringFunction.chr(args);
+                return (functionName, args, targetType) -> StringFunction.chr(args);
             case CONCAT:
-                return StringFunction.concat(args);
+                return (functionName, args, targetType) -> StringFunction.concat(args);
             case CONCAT_WS:
-                return StringFunction.concatWs(args);
+                return (functionName, args, targetType) -> StringFunction.concatWs(args);
             case HEXTORAW:
-                return StringFunction.hextoraw(args);
+                return (functionName, args, targetType) -> StringFunction.hextoraw(args);
             case RAWTOHEX:
-                return StringFunction.rawtohex(args);
+                return (functionName, args, targetType) -> StringFunction.rawtohex(args);
             case TO_BASE64:
-                return StringFunction.toBase64(args);
+                return (functionName, args, targetType) -> StringFunction.toBase64(args);
             case FROM_BASE64:
-                return StringFunction.fromBase64(args);
+                return (functionName, args, targetType) -> StringFunction.fromBase64(args);
             case INSERT:
-                return StringFunction.insert(args);
+                return (functionName, args, targetType) -> StringFunction.insert(args);
             case LOWER:
             case LCASE:
-                return StringFunction.lower(args);
+                return (functionName, args, targetType) -> StringFunction.lower(args);
             case UPPER:
             case UCASE:
-                return StringFunction.upper(args);
+                return (functionName, args, targetType) -> StringFunction.upper(args);
             case LEFT:
-                return StringFunction.left(args);
+                return (functionName, args, targetType) -> StringFunction.left(args);
             case RIGHT:
-                return StringFunction.right(args);
+                return (functionName, args, targetType) -> StringFunction.right(args);
             case LOCATE:
             case POSITION:
-                return StringFunction.location(functionName, args);
+                return (functionName, args, targetType) ->
+                        StringFunction.location(functionName, args);
             case INSTR:
-                return StringFunction.instr(args);
+                return (functionName, args, targetType) -> StringFunction.instr(args);
             case LPAD:
             case RPAD:
-                return StringFunction.pad(functionName, args);
+                return (functionName, args, targetType) -> StringFunction.pad(functionName, args);
             case LTRIM:
-                return StringFunction.ltrim(args);
+                return (functionName, args, targetType) -> StringFunction.ltrim(args);
             case RTRIM:
-                return StringFunction.rtrim(args);
+                return (functionName, args, targetType) -> StringFunction.rtrim(args);
             case TRIM:
-                return StringFunction.trim(args);
+                return (functionName, args, targetType) -> StringFunction.trim(args);
             case REGEXP_REPLACE:
-                return StringFunction.regexpReplace(args);
+                return (functionName, args, targetType) -> StringFunction.regexpReplace(args);
             case REGEXP_LIKE:
-                return StringFunction.regexpLike(args);
+                return (functionName, args, targetType) -> StringFunction.regexpLike(args);
             case REGEXP_SUBSTR:
-                return StringFunction.regexpSubstr(args);
+                return (functionName, args, targetType) -> StringFunction.regexpSubstr(args);
             case REPEAT:
-                return StringFunction.repeat(args);
+                return (functionName, args, targetType) -> StringFunction.repeat(args);
             case REPLACE:
-                return StringFunction.replace(args);
+                return (functionName, args, targetType) -> StringFunction.replace(args);
             case SOUNDEX:
-                return StringFunction.soundex(args);
+                return (functionName, args, targetType) -> StringFunction.soundex(args);
             case SPACE:
-                return StringFunction.space(args);
+                return (functionName, args, targetType) -> StringFunction.space(args);
             case SUBSTRING:
             case SUBSTR:
-                return StringFunction.substring(args);
+                return (functionName, args, targetType) -> StringFunction.substring(args);
             case TO_CHAR:
-                return StringFunction.toChar(args);
+                return (functionName, args, targetType) -> StringFunction.toChar(args);
             case TRANSLATE:
-                return StringFunction.translate(args);
+                return (functionName, args, targetType) -> StringFunction.translate(args);
             case SPLIT:
-                return StringFunction.split(args);
+                return (functionName, args, targetType) -> StringFunction.split(args);
             case MURMUR64:
-                return StringFunction.murmur64(args);
+                return (functionName, args, targetType) -> StringFunction.murmur64(args);
             case MD5:
-                return StringFunction.md5(args);
+                return (functionName, args, targetType) -> StringFunction.md5(args);
             case AES_ENCRYPT:
-                return CryptoFunction.aesEncrypt(args);
+                return (functionName, args, targetType) -> CryptoFunction.aesEncrypt(args);
             case AES_DECRYPT:
-                return CryptoFunction.aesDecrypt(args);
+                return (functionName, args, targetType) -> CryptoFunction.aesDecrypt(args);
             case GET_JSON_OBJECT:
-                return JsonFunction.getJsonObject(args);
+                return (functionName, args, targetType) -> JsonFunction.getJsonObject(args);
             case ABS:
-                return NumericFunction.abs(args);
+                return (functionName, args, targetType) -> NumericFunction.abs(args);
             case ACOS:
-                return NumericFunction.acos(args);
+                return (functionName, args, targetType) -> NumericFunction.acos(args);
             case ASIN:
-                return NumericFunction.asin(args);
+                return (functionName, args, targetType) -> NumericFunction.asin(args);
             case ATAN:
-                return NumericFunction.atan(args);
+                return (functionName, args, targetType) -> NumericFunction.atan(args);
             case COS:
-                return NumericFunction.cos(args);
+                return (functionName, args, targetType) -> NumericFunction.cos(args);
             case COSH:
-                return NumericFunction.cosh(args);
+                return (functionName, args, targetType) -> NumericFunction.cosh(args);
             case COT:
-                return NumericFunction.cot(args);
+                return (functionName, args, targetType) -> NumericFunction.cot(args);
             case SIN:
-                return NumericFunction.sin(args);
+                return (functionName, args, targetType) -> NumericFunction.sin(args);
             case SINH:
-                return NumericFunction.sinh(args);
+                return (functionName, args, targetType) -> NumericFunction.sinh(args);
             case TAN:
-                return NumericFunction.tan(args);
+                return (functionName, args, targetType) -> NumericFunction.tan(args);
             case TANH:
-                return NumericFunction.tanh(args);
+                return (functionName, args, targetType) -> NumericFunction.tanh(args);
             case ATAN2:
-                return NumericFunction.atan2(args);
+                return (functionName, args, targetType) -> NumericFunction.atan2(args);
             case MOD:
-                return NumericFunction.mod(args);
+                return (functionName, args, targetType) -> NumericFunction.mod(args);
             case CEIL:
             case CEILING:
-                return NumericFunction.ceil(args);
+                return (functionName, args, targetType) -> NumericFunction.ceil(args);
             case EXP:
-                return NumericFunction.exp(args);
+                return (functionName, args, targetType) -> NumericFunction.exp(args);
             case FLOOR:
-                return NumericFunction.floor(args);
+                return (functionName, args, targetType) -> NumericFunction.floor(args);
             case LN:
-                return NumericFunction.ln(args);
+                return (functionName, args, targetType) -> NumericFunction.ln(args);
             case LOG:
-                return NumericFunction.log(args);
+                return (functionName, args, targetType) -> NumericFunction.log(args);
             case LOG10:
-                return NumericFunction.log10(args);
+                return (functionName, args, targetType) -> NumericFunction.log10(args);
             case RADIANS:
-                return NumericFunction.radians(args);
+                return (functionName, args, targetType) -> NumericFunction.radians(args);
             case SQRT:
-                return NumericFunction.sqrt(args);
+                return (functionName, args, targetType) -> NumericFunction.sqrt(args);
             case PI:
-                return NumericFunction.pi(args);
+                return (functionName, args, targetType) -> NumericFunction.pi(args);
             case POWER:
-                return NumericFunction.power(args);
+                return (functionName, args, targetType) -> NumericFunction.power(args);
             case RAND:
             case RANDOM:
-                return NumericFunction.random(args);
+                return (functionName, args, targetType) -> NumericFunction.random(args);
             case ROUND:
-                return NumericFunction.round(args);
+                return (functionName, args, targetType) -> NumericFunction.round(args);
             case SIGN:
-                return NumericFunction.sign(args);
+                return (functionName, args, targetType) -> NumericFunction.sign(args);
             case TRUNC:
             case TRUNCATE:
-                return NumericFunction.trunc(args);
+                return (functionName, args, targetType) -> NumericFunction.trunc(args);
             case TRIM_SCALE:
-                return NumericFunction.trimScale(args);
+                return (functionName, args, targetType) -> NumericFunction.trimScale(args);
             case NOW:
-                return DateTimeFunction.currentTimestamp();
+                return (functionName, args, targetType) -> DateTimeFunction.currentTimestamp();
             case DATEADD:
             case TIMESTAMPADD:
-                return DateTimeFunction.dateadd(args);
+                return (functionName, args, targetType) -> DateTimeFunction.dateadd(args);
             case DATEDIFF:
-                return DateTimeFunction.datediff(args);
+                return (functionName, args, targetType) -> DateTimeFunction.datediff(args);
             case DATE_TRUNC:
-                return DateTimeFunction.dateTrunc(args);
+                return (functionName, args, targetType) -> DateTimeFunction.dateTrunc(args);
             case DAYNAME:
-                return DateTimeFunction.dayname(args);
+                return (functionName, args, targetType) -> DateTimeFunction.dayname(args);
             case DAY_OF_MONTH:
-                return DateTimeFunction.dayOfMonth(args);
+                return (functionName, args, targetType) -> DateTimeFunction.dayOfMonth(args);
             case DAY_OF_WEEK:
-                return DateTimeFunction.dayOfWeek(args);
+                return (functionName, args, targetType) -> DateTimeFunction.dayOfWeek(args);
             case DAY_OF_YEAR:
-                return DateTimeFunction.dayOfYear(args);
+                return (functionName, args, targetType) -> DateTimeFunction.dayOfYear(args);
             case FROM_UNIXTIME:
-                return DateTimeFunction.fromUnixTime(args);
+                return (functionName, args, targetType) -> DateTimeFunction.fromUnixTime(args);
             case UNIX_TIMESTAMP:
-                return DateTimeFunction.unixTimestamp(args);
+                return (functionName, args, targetType) -> DateTimeFunction.unixTimestamp(args);
             case EXTRACT:
-                return DateTimeFunction.extract(args);
+                return (functionName, args, targetType) -> DateTimeFunction.extract(args);
             case FORMATDATETIME:
-                return DateTimeFunction.formatdatetime(args);
+                return (functionName, args, targetType) -> DateTimeFunction.formatdatetime(args);
             case HOUR:
-                return DateTimeFunction.hour(args);
+                return (functionName, args, targetType) -> DateTimeFunction.hour(args);
             case MINUTE:
-                return DateTimeFunction.minute(args);
+                return (functionName, args, targetType) -> DateTimeFunction.minute(args);
             case MONTH:
-                return DateTimeFunction.month(args);
+                return (functionName, args, targetType) -> DateTimeFunction.month(args);
             case MONTHNAME:
-                return DateTimeFunction.monthname(args);
+                return (functionName, args, targetType) -> DateTimeFunction.monthname(args);
             case PARSEDATETIME:
             case TO_DATE:
-                return DateTimeFunction.parsedatetime(args);
+                return (functionName, args, targetType) -> DateTimeFunction.parsedatetime(args);
             case IS_DATE:
-                return DateTimeFunction.isDate(args);
+                return (functionName, args, targetType) -> DateTimeFunction.isDate(args);
             case QUARTER:
-                return DateTimeFunction.quarter(args);
+                return (functionName, args, targetType) -> DateTimeFunction.quarter(args);
             case SECOND:
-                return DateTimeFunction.second(args);
+                return (functionName, args, targetType) -> DateTimeFunction.second(args);
             case WEEK:
-                return DateTimeFunction.week(args);
+                return (functionName, args, targetType) -> DateTimeFunction.week(args);
             case YEAR:
-                return DateTimeFunction.year(args);
+                return (functionName, args, targetType) -> DateTimeFunction.year(args);
             case COALESCE:
-                return SystemFunction.coalesce(args, targetType);
+                return (functionName, args, targetType) ->
+                        SystemFunction.coalesce(args, targetType);
             case IFNULL:
-                return SystemFunction.ifnull(args, targetType);
+                return (functionName, args, targetType) -> SystemFunction.ifnull(args, targetType);
             case NULLIF:
-                return SystemFunction.nullif(args);
+                return (functionName, args, targetType) -> SystemFunction.nullif(args);
             case ARRAY:
-                return ArrayFunction.array(args);
+                return (functionName, args, targetType) -> ArrayFunction.array(args);
             case ARRAY_MAX:
-                return ArrayFunction.arrayMax(args);
+                return (functionName, args, targetType) -> ArrayFunction.arrayMax(args);
             case ARRAY_MIN:
-                return ArrayFunction.arrayMin(args);
+                return (functionName, args, targetType) -> ArrayFunction.arrayMin(args);
             case MAP:
-                return MapFunction.map(args);
+                return (functionName, args, targetType) -> MapFunction.map(args);
             case UUID:
-                return randomUUID().toString();
+                return (functionName, args, targetType) -> randomUUID().toString();
             case COSINE_DISTANCE:
-                return VectorFunction.cosineDistance(args);
+                return (functionName, args, targetType) -> VectorFunction.cosineDistance(args);
             case L1_DISTANCE:
-                return VectorFunction.l1Distance(args);
+                return (functionName, args, targetType) -> VectorFunction.l1Distance(args);
             case L2_DISTANCE:
-                return VectorFunction.l2Distance(args);
+                return (functionName, args, targetType) -> VectorFunction.l2Distance(args);
             case VECTOR_DIMS:
-                return VectorFunction.vectorDims(args);
+                return (functionName, args, targetType) -> VectorFunction.vectorDims(args);
             case VECTOR_NORM:
-                return VectorFunction.vectorNorm(args);
+                return (functionName, args, targetType) -> VectorFunction.vectorNorm(args);
             case INNER_PRODUCT:
-                return VectorFunction.innerProduct(args);
+                return (functionName, args, targetType) -> VectorFunction.innerProduct(args);
             case VECTOR_REDUCE:
-                return VectorFunction.vectorReduce(
-                        args.get(0), (Integer) args.get(1), (String) args.get(2));
+                return (functionName, args, targetType) ->
+                        VectorFunction.vectorReduce(
+                                args.get(0), (Integer) args.get(1), (String) args.get(2));
             case VECTOR_NORMALIZE:
-                return VectorFunction.vectorNormalize(args.get(0));
+                return (functionName, args, targetType) ->
+                        VectorFunction.vectorNormalize(args.get(0));
             default:
-                for (ZetaUDF udf : udfList) {
-                    if (udf.functionName().equalsIgnoreCase(functionName)) {
-                        udfInitializer.accept(udf);
-                        if (udf.requiresContext() && udfContext != null) {
-                            return udf.evaluateWithContext(args, udfContext);
-                        }
-                        return udf.evaluate(args);
-                    }
-                }
-                throw new TransformException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                        String.format("Unsupported function: %s", functionName));
+                return null;
         }
+    }
+
+    @FunctionalInterface
+    private interface BuiltInFunction {
+        Object evaluate(String name, List<Object> args, SeaTunnelDataType<?> targetType);
     }
 
     public Object executeTimeKeyExpr(String timeKeyExpr) {

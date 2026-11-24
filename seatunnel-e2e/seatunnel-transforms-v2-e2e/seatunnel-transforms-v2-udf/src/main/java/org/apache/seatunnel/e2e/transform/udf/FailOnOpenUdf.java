@@ -26,7 +26,7 @@ import com.google.auto.service.AutoService;
 import java.util.List;
 
 @AutoService(ZetaUDF.class)
-public final class FailOnOpenUdf implements ZetaUDF {
+public class FailOnOpenUdf implements ZetaUDF {
     @Override
     public String functionName() {
         return "FAIL_ON_OPEN";
@@ -45,5 +45,28 @@ public final class FailOnOpenUdf implements ZetaUDF {
     @Override
     public Object evaluate(List<Object> args) {
         throw new IllegalStateException("evaluate must not run after failed startup");
+    }
+
+    /** Fails if startup or row evaluation selects a provider that shares a built-in name. */
+    @AutoService(ZetaUDF.class)
+    public static final class ShadowedUpperUdf extends FailOnOpenUdf {
+        @Override
+        public String functionName() {
+            return "UPPER";
+        }
+    }
+
+    /** Simulates a provider that discovers a missing dependency during initialization. */
+    @AutoService(ZetaUDF.class)
+    public static final class LinkageFailureUdf extends FailOnOpenUdf {
+        @Override
+        public String functionName() {
+            return "LINKAGE_FAILURE";
+        }
+
+        @Override
+        public void open() {
+            throw new NoClassDefFoundError("requested UDF startup linkage failure");
+        }
     }
 }

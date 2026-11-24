@@ -145,6 +145,12 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                 for (int i = opened.size() - 1; i >= 0; i--) {
                     closeAfterFailedOpen(opened.get(i));
                 }
+                // Cooperative workers do not call close() on the flow whose open() failed.
+                try {
+                    closeErrorHandler();
+                } catch (IOException closeFailure) {
+                    e.addSuppressed(closeFailure);
+                }
                 throw e;
             } catch (Exception e) {
                 log.error(
@@ -389,15 +395,22 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                         e);
             }
         }
-        if (errorHandler != null) {
+        if (closedAfterFailedOpen.isEmpty()) {
+            closeErrorHandler();
+        }
+        super.close();
+    }
+
+    private void closeErrorHandler() throws IOException {
+        ErrorHandler<T> handler = errorHandler;
+        if (handler != null) {
             try {
-                errorHandler.close();
+                handler.close();
             } catch (Exception e) {
                 log.error("Close ErrorHandler for transform stage failed", e);
                 throw new IOException("Close ErrorHandler for transform stage failed", e);
             }
         }
-        super.close();
     }
 
     private void flushErrorHandler() {

@@ -64,7 +64,9 @@ public interface ZetaUDF extends Serializable {
 }
 ```
 
-During task startup, referenced UDFs are opened once per SQL transform instance, including when no rows arrive. Unreferenced UDFs are not opened. `open(ZetaUDFContext)` receives `getInputCatalogTable()` metadata; row fields and row table identifiers are not yet bound. The default overload calls the existing `open()`. SPI provider classes are still discovered and instantiated before startup. Opened UDFs are closed when the transform closes. Never log JDBC URLs containing credentials.
+During task startup, referenced UDFs are opened once per SQL transform instance, including when no rows arrive or when a reference appears in a `CASE` branch that no row takes. Unreferenced UDFs are not opened. A built-in function takes precedence over an SPI provider with the same name. Register new UDFs through SPI to make them available to SQL.
+
+`open(ZetaUDFContext)` receives `getInputCatalogTable()` metadata; row fields and row table identifiers are not yet bound. The default overload calls the existing `open()`. SPI provider classes are still discovered and instantiated before startup. Opened UDFs are closed when the transform closes. Never log JDBC URLs containing credentials.
 
 `ZetaUDFContext` provides runtime row-level metadata and fields:
 

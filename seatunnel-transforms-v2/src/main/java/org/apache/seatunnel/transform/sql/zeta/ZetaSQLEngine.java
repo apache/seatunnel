@@ -37,6 +37,7 @@ import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.ExpressionVisitorAdapter;
 import net.sf.jsqlparser.expression.Function;
+import net.sf.jsqlparser.expression.TimezoneExpression;
 import net.sf.jsqlparser.expression.TrimFunction;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
@@ -146,7 +147,8 @@ public class ZetaSQLEngine implements SQLEngine {
                 Set<ZetaUDF> snapshot = Collections.newSetFromMap(new IdentityHashMap<>());
                 snapshot.addAll(openedUdfs);
                 openedUdfSet = Collections.unmodifiableSet(snapshot);
-            } catch (Exception failure) {
+            } catch (Exception | LinkageError failure) {
+                // Resolving a dependency inside open() can fail after other UDFs have opened.
                 closeUdf(udf);
                 close();
                 throw new UdfOpenException(udf.functionName(), failure);
@@ -161,9 +163,7 @@ public class ZetaSQLEngine implements SQLEngine {
                 new ExpressionVisitorAdapter() {
                     @Override
                     public void visit(Function function) {
-                        if (!ZetaSQLFunction.isBuiltInFunction(function.getName())) {
-                            names.add(function.getName());
-                        }
+                        names.add(function.getName());
                         super.visit(function);
                     }
 
@@ -172,6 +172,13 @@ public class ZetaSQLEngine implements SQLEngine {
                         if (function.getExpression() != null) {
                             function.getExpression().accept(this);
                         }
+                    }
+
+                    @Override
+                    public void visit(TimezoneExpression expression) {
+                        super.visit(expression);
+                        // JSqlParser visits only the timestamp. Zeta also evaluates the first zone.
+                        expression.getTimezoneExpressions().get(0).accept(this);
                     }
                 };
         for (SelectItem<?> item : selectBody.getSelectItems()) {
@@ -191,11 +198,9 @@ public class ZetaSQLEngine implements SQLEngine {
             }
         }
         for (String name : names) {
-            for (ZetaUDF udf : udfList) {
-                if (udf.functionName().equalsIgnoreCase(name)) {
-                    openUdf(udf);
-                    break;
-                }
+            ZetaUDF udf = zetaSQLFunction.findReferencedUdf(name);
+            if (udf != null) {
+                openUdf(udf);
             }
         }
     }
@@ -488,13 +493,13 @@ public class ZetaSQLEngine implements SQLEngine {
     private void closeUdf(ZetaUDF udf) {
         try {
             udf.close();
-        } catch (Exception failure) {
+        } catch (Exception | LinkageError failure) {
             log.warn("Close udf {} failed", udf.functionName(), failure);
         }
     }
 
     private static final class UdfOpenException extends TransformException {
-        private UdfOpenException(String functionName, Exception cause) {
+        private UdfOpenException(String functionName, Throwable cause) {
             super(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("Open udf %s failed: %s", functionName, cause.getMessage()));

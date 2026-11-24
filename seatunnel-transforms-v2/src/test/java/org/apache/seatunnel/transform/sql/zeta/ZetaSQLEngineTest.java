@@ -177,6 +177,73 @@ public class ZetaSQLEngineTest {
     }
 
     @Test
+    public void testOpenLinkageErrorClosesFailedAndPreviouslyOpenedUdfs() {
+        TrackingUdf first = new TrackingUdf("first_udf", false);
+        LinkageError missingDependency = new NoClassDefFoundError("test dependency");
+        TrackingUdf failed =
+                new TrackingUdf("failed_udf", false) {
+                    @Override
+                    public void open() throws Exception {
+                        super.open();
+                        throw missingDependency;
+                    }
+                };
+        ZetaSQLEngine engine = new TestableZetaSQLEngine(Arrays.asList(first, failed));
+        engine.init(
+                "test",
+                "test",
+                simpleRowType(),
+                "select first_udf(name), failed_udf(name) from test");
+
+        TransformException failure =
+                Assertions.assertThrows(TransformException.class, engine::openReferencedUdfs);
+        Assertions.assertSame(missingDependency, failure.getCause());
+        Assertions.assertEquals(1, first.getCloseCount());
+        Assertions.assertEquals(1, failed.getCloseCount());
+    }
+
+    @Test
+    public void testTimeZoneUdfOpensBeforeAnyRows() {
+        TrackingUdf zone = new TrackingUdf("zone_udf", false);
+        ZetaSQLEngine engine = new TestableZetaSQLEngine(Collections.singletonList(zone));
+        engine.init(
+                "test",
+                "test",
+                simpleRowType(),
+                "select TIMESTAMP '2025-01-01 00:00:00' AT TIME ZONE zone_udf(name) from test");
+        engine.typeMapping(new ArrayList<>());
+
+        engine.openReferencedUdfs();
+        engine.close();
+
+        Assertions.assertEquals(1, zone.getOpenCount());
+        Assertions.assertEquals(1, zone.getCloseCount());
+    }
+
+    @Test
+    public void testStartupUsesBuiltInPrecedenceAndFindsSpiUdfInUntakenCaseBranch() {
+        TrackingUdf shadowed = new TrackingUdf("UPPER", true);
+        TrackingUdf external = new TrackingUdf("external", false);
+        ZetaSQLEngine engine = new TestableZetaSQLEngine(Arrays.asList(shadowed, external));
+        engine.init(
+                "test",
+                "test",
+                simpleRowType(),
+                "select case when 1 = 1 then UpPeR(name) else ExTeRnAl(name) end from test");
+        SeaTunnelRowType outType = engine.typeMapping(new ArrayList<>());
+
+        engine.openReferencedUdfs();
+        Assertions.assertEquals(0, shadowed.getOpenCount());
+        Assertions.assertEquals(1, external.getOpenCount());
+        List<SeaTunnelRow> rows =
+                engine.transformBySQL(new SeaTunnelRow(new Object[] {1, "Alice", 20}), outType);
+        Assertions.assertEquals("ALICE", rows.get(0).getField(0));
+        engine.close();
+        Assertions.assertEquals(0, shadowed.getCloseCount());
+        Assertions.assertEquals(1, external.getCloseCount());
+    }
+
+    @Test
     public void testDirectColumnProjection() {
         SeaTunnelRowType rowType = simpleRowType();
         ZetaSQLEngine engine = new ZetaSQLEngine();
@@ -225,7 +292,7 @@ public class ZetaSQLEngineTest {
         }
     }
 
-    private static final class TrackingUdf implements ZetaUDF {
+    private static class TrackingUdf implements ZetaUDF {
         private final String functionName;
         private final boolean failOnOpen;
         private int openCount;

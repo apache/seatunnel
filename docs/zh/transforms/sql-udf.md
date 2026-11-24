@@ -64,7 +64,9 @@ public interface ZetaUDF extends Serializable {
 }
 ```
 
-任务启动时，每个 SQL transform 实例初始化 SQL 中引用的 UDF，即使没有输入数据也会调用；未引用的 UDF 不调用 open。`open(ZetaUDFContext)` 可通过 `getInputCatalogTable()` 获取输入表元数据，此时尚未绑定行字段和行级表标识。默认实现会调用原有的 `open()`。此前仍会通过 SPI 发现并实例化 UDF 类；Transform 关闭时会关闭已打开的 UDF。不要将包含凭据的 JDBC URL 写入日志。
+任务启动时，每个 SQL Transform 实例会初始化 SQL 中引用的 UDF，即使没有输入行，或没有行走到引用该 UDF 的 `CASE` 分支。未引用的 UDF 不会调用 `open()`。内置函数优先于同名的 SPI UDF。新增 UDF 通过 SPI 注册后即可在 SQL 中使用。
+
+`open(ZetaUDFContext)` 可通过 `getInputCatalogTable()` 获取输入表元数据，此时尚未绑定行字段和行级表标识。默认实现会调用原有的 `open()`。此前仍会通过 SPI 发现并实例化 UDF 类。Transform 关闭时会关闭已打开的 UDF。不要将包含凭据的 JDBC URL 写入日志。
 
 `ZetaUDFContext` 提供运行时行级元数据与字段：
 
