@@ -30,32 +30,43 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
+import org.apache.http.ConnectionClosedException;
 import org.apache.http.Header;
+import org.apache.http.NoHttpResponseException;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.conn.ConnectTimeoutException;
 import org.apache.http.impl.NoConnectionReuseStrategy;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Map;
 
 /** Streams one window. State deliberately contains no event offset: recovery replays the window. */
+@Slf4j
 final class MixpanelSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final MixpanelSourceConfig config;
     private final SingleSplitReaderContext context;
     private final JsonDeserializationSchema deserializer;
     private final ObjectMapper mapper;
     private final String tableId;
+    // Protects client ownership and retry waits. If both locks are needed, take the checkpoint
+    // lock first. Network work and engine completion callbacks run outside these locks.
     private final Object lifecycle = new Object();
     private volatile boolean cancelled;
     private volatile HttpGet inFlight;
@@ -72,6 +83,7 @@ final class MixpanelSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
         this.tableId = table.getTablePath().toString();
     }
 
+    /** Creates the owned client once. This reader manages all retries and disables redirects. */
     @Override
     public void open() throws IOException {
         synchronized (lifecycle) {
@@ -96,6 +108,10 @@ final class MixpanelSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
         }
     }
 
+    /**
+     * Streams one export on the engine polling thread. Only collection and the completion flag need
+     * the checkpoint lock, so a slow socket or retry wait cannot block checkpoints.
+     */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         if (noMoreSplits) {
@@ -140,9 +156,24 @@ final class MixpanelSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
             if (active == null) {
                 throw new ExportFailure("Mixpanel reader is not open");
             }
+            CloseableHttpResponse received;
+            try {
+                received = active.execute(request);
+            } catch (IOException failure) {
+                request.abort();
+                inFlight = null;
+                checkCancelled();
+                if (attempt >= config.maxRetries || !isTransientTransportFailure(failure)) {
+                    throw failure;
+                }
+                waitBeforeRetry(
+                        attempt, retryDelay(attempt, null), failure.getClass().getSimpleName());
+                continue;
+            }
             long delay;
-            try (CloseableHttpResponse response = active.execute(request)) {
-                int status = response.getStatusLine().getStatusCode();
+            int status;
+            try (CloseableHttpResponse response = received) {
+                status = response.getStatusLine().getStatusCode();
                 if (status == 200) {
                     if (response.getEntity() == null) {
                         throw new ExportFailure("Mixpanel export response has no entity");
@@ -153,9 +184,10 @@ final class MixpanelSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
                         boolean finished = false;
                         try {
                             byte[] line;
-                            while ((line = readLine(input)) != null) {
+                            long recordNumber = 1L;
+                            while ((line = readLine(input, recordNumber)) != null) {
                                 checkCancelled();
-                                SeaTunnelRow row = decode(line);
+                                SeaTunnelRow row = decode(line, recordNumber++);
                                 synchronized (output.getCheckpointLock()) {
                                     checkCancelled();
                                     output.collect(row);
@@ -181,15 +213,38 @@ final class MixpanelSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
             } finally {
                 inFlight = null;
             }
-            synchronized (lifecycle) {
+            waitBeforeRetry(attempt, delay, "HTTP " + status);
+        }
+    }
+
+    private static boolean isTransientTransportFailure(IOException failure) {
+        return !Thread.currentThread().isInterrupted()
+                && (failure instanceof ConnectTimeoutException
+                        || failure instanceof SocketTimeoutException
+                        || failure instanceof SocketException
+                        || failure instanceof UnknownHostException
+                        || failure instanceof NoHttpResponseException
+                        || failure instanceof ConnectionClosedException);
+    }
+
+    /** Waits with the existing retry budget and wakes immediately when the reader is cancelled. */
+    private void waitBeforeRetry(int attempt, long delay, String reason)
+            throws IOException, InterruptedException {
+        checkCancelled();
+        log.warn(
+                "Retrying Mixpanel export after {} (retry {} of {}, delay {} ms)",
+                reason,
+                attempt + 1,
+                config.maxRetries,
+                delay);
+        synchronized (lifecycle) {
+            checkCancelled();
+            long deadline = System.nanoTime() + delay * 1000000L;
+            long remaining = delay;
+            while (remaining > 0) {
+                lifecycle.wait(remaining);
                 checkCancelled();
-                long deadline = System.nanoTime() + delay * 1000000L;
-                long remaining = delay;
-                while (remaining > 0) {
-                    lifecycle.wait(remaining);
-                    checkCancelled();
-                    remaining = (deadline - System.nanoTime() + 999999L) / 1000000L;
-                }
+                remaining = (deadline - System.nanoTime() + 999999L) / 1000000L;
             }
         }
     }
@@ -235,28 +290,34 @@ final class MixpanelSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
         return Math.min(config.maxBackoff, Math.max(exponential, requested));
     }
 
-    private byte[] readLine(InputStream input) throws IOException {
+    private byte[] readLine(InputStream input, long recordNumber) throws IOException {
         ByteArrayOutputStream line =
                 new ByteArrayOutputStream(Math.min(8192, config.maxEventBytes));
         int next;
         while ((next = input.read()) != -1 && next != '\n') {
             if (line.size() >= config.maxEventBytes) {
-                throw new ExportFailure("Mixpanel event exceeds max_event_bytes");
+                throw new ExportFailure(
+                        "Mixpanel record " + recordNumber + " exceeds max_event_bytes");
             }
             line.write(next);
         }
         return next == -1 && line.size() == 0 ? null : line.toByteArray();
     }
 
-    private SeaTunnelRow decode(byte[] line) throws IOException {
+    private SeaTunnelRow decode(byte[] line, long recordNumber) throws IOException {
+        JsonNode event;
         try {
-            JsonNode event = mapper.readTree(line);
-            if (event == null
-                    || !event.isObject()
-                    || !event.path("event").isTextual()
-                    || !event.path("properties").isObject()) {
-                throw new IOException("Invalid Mixpanel event");
-            }
+            event = mapper.readTree(line);
+        } catch (IOException | RuntimeException failure) {
+            throw new ExportFailure("Mixpanel record " + recordNumber + " contains invalid JSON");
+        }
+        if (event == null
+                || !event.isObject()
+                || !event.path("event").isTextual()
+                || !event.path("properties").isObject()) {
+            throw new ExportFailure("Mixpanel record " + recordNumber + " is not an event object");
+        }
+        try {
             ObjectNode mapped = ((ObjectNode) event).deepCopy();
             for (Map.Entry<String, String> field : config.fieldMapping.entrySet()) {
                 JsonNode value = event.at(field.getValue());
@@ -265,8 +326,9 @@ final class MixpanelSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
             SeaTunnelRow row = deserializer.convertToRowData(mapped);
             row.setTableId(tableId);
             return row;
-        } catch (IOException | RuntimeException e) {
-            throw new ExportFailure("Mixpanel event cannot be decoded using the configured schema");
+        } catch (RuntimeException failure) {
+            throw new ExportFailure(
+                    "Mixpanel record " + recordNumber + " does not match the configured schema");
         }
     }
 

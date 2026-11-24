@@ -234,7 +234,7 @@ class MixpanelSourceReaderTest {
     }
 
     @Test
-    void retriesOnly429And5xxBeforeReadingBody() throws Exception {
+    void retries429And5xxBeforeReadingBody() throws Exception {
         server.createContext(
                 "/api/2.0/export",
                 exchange -> {
@@ -250,6 +250,54 @@ class MixpanelSourceReaderTest {
         assertEquals(1, rows.size());
         assertEquals(3, requests.get());
         verify(context).signalNoMoreElement();
+    }
+
+    @Test
+    void retriesDisconnectedRequestBeforeHeaders() throws Exception {
+        options.put("max_retries", 1);
+        server.createContext(
+                "/api/2.0/export",
+                exchange -> {
+                    if (requests.incrementAndGet() == 1) {
+                        exchange.close();
+                    } else {
+                        respond(exchange, 200, EVENT + "\n");
+                    }
+                });
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        reader().pollNext(collector(rows));
+        assertEquals(1, rows.size());
+        assertEquals(2, requests.get());
+        verify(context).signalNoMoreElement();
+    }
+
+    @Test
+    void doesNotRetryDisconnectedRequestWithRetriesDisabled() throws Exception {
+        options.put("max_retries", 0);
+        server.createContext(
+                "/api/2.0/export",
+                exchange -> {
+                    requests.incrementAndGet();
+                    exchange.close();
+                });
+        assertThrows(IOException.class, () -> reader().pollNext(collector(new ArrayList<>())));
+        assertEquals(1, requests.get());
+        verify(context, never()).signalNoMoreElement();
+    }
+
+    @Test
+    void reportsMalformedRecordPositionAndCategoryWithoutPayload() throws Exception {
+        server.createContext(
+                "/api/2.0/export",
+                exchange -> respond(exchange, 200, EVENT + "\n{\"fixture-secret\":"));
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        IOException error =
+                assertThrows(IOException.class, () -> reader().pollNext(collector(rows)));
+        assertEquals(1, rows.size());
+        assertEquals("Mixpanel record 2 contains invalid JSON", error.getMessage());
+        assertNull(error.getCause());
+        assertEquals(0, error.getSuppressed().length);
+        verify(context, never()).signalNoMoreElement();
     }
 
     @Test
@@ -377,7 +425,8 @@ class MixpanelSourceReaderTest {
                                     assertThrows(
                                             IOException.class,
                                             () -> reader.pollNext(collector(new ArrayList<>())));
-                            assertTrue(error.getMessage().contains("decode"));
+                            assertEquals(
+                                    "Mixpanel record 1 contains invalid JSON", error.getMessage());
                             assertNull(error.getCause());
                             assertEquals(0, error.getSuppressed().length);
                         });

@@ -81,7 +81,7 @@ public final class MixpanelSourceOptions {
                     .intType()
                     .defaultValue(3)
                     .withDescription(
-                            "Retries for HTTP 429 and 5xx before consuming events, 0 to 10.");
+                            "Retries for HTTP 429/5xx and transient transport failures before response headers, 0 to 10.");
     public static final Option<Integer> RETRY_BACKOFF_MS =
             Options.key("retry_backoff_ms")
                     .intType()

@@ -54,7 +54,7 @@ HTTP base client's buffered string response.
 | allow_insecure_http | Boolean | No | `false` | Allow HTTP for trusted offline fixtures only. Never use real credentials with this setting. |
 | connect_timeout_ms | Int | No | `30000` | Connection and connection-pool acquisition timeout; 1 to 300000 ms. |
 | read_timeout_ms | Int | No | `120000` | Socket inactivity timeout, not total export duration; 1 to 600000 ms. |
-| max_retries | Int | No | `3` | Retries on 429/5xx before event body consumption; 0 to 10. Zero disables retries. |
+| max_retries | Int | No | `3` | Retries on 429/5xx or transient transport failures before response headers. Range 0 to 10, where zero disables retries. |
 | retry_backoff_ms | Int | No | `1000` | Initial exponential delay; 1 to 60000 ms and no greater than `max_retry_backoff_ms`. |
 | max_retry_backoff_ms | Int | No | `60000` | Retry delay cap; 1 to 600000 ms. Also caps `Retry-After`. |
 | max_event_bytes | Int | No | `1048576` | Per-line byte bound, excluding LF but including CR if present; 1 to 16777216. Oversized records fail the task rather than truncate or skip. |
@@ -95,7 +95,7 @@ does not request `time_in_ms` or convert them to local timestamps.
 
 Each record must be one valid JSON object containing a string `event` and object `properties`.
 Malformed lines, extra JSON tokens on the same line, invalid shapes, and conversion failures
-fail the task. Empty exports succeed; blank lines are not silently skipped. A final valid record
+fail the task with the 1-based record number and category. Empty exports succeed; blank lines are not silently skipped. A final valid record
 without a trailing newline is accepted. Missing properties mapped to output columns become null.
 
 Use JSON Pointers rather than JSONPath: `/properties/time` selects a nested property,
@@ -148,11 +148,13 @@ sink {
 
 ## Retry, Cancellation And Recovery
 
-Only HTTP 429 and 5xx responses are retried, up to `max_retries` additional requests.
+HTTP 429/5xx and transient transport failures before response headers share the same
+`max_retries` budget.
 Delays double from `retry_backoff_ms`, bounded by `max_retry_backoff_ms`.
 A valid `Retry-After` (seconds or HTTP date) may extend the delay within that same cap.
-Other statuses, including 401/403 and redirects, fail immediately. Transport errors are not
-retried locally, even before body consumption. No automatic HTTP client retries are enabled.
+Other HTTP statuses, including 401/403 and redirects, fail immediately. TLS certificate
+and hostname validation failures also fail immediately. Retry logs include the reason,
+attempt number and delay. HTTP client automatic retries are disabled.
 
 Once a successful response starts, an interrupted body, malformed event or schema failure
 fails the task without retrying that export in place. Cancellation/close aborts the active

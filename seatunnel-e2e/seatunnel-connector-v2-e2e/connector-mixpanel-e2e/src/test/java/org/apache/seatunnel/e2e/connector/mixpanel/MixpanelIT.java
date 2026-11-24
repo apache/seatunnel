@@ -75,9 +75,13 @@ public class MixpanelIT extends TestSuiteBase implements TestResource {
                         exchange.close();
                         return;
                     }
-                    if (attempt < 3) {
+                    if (attempt == 1) {
+                        exchange.close();
+                        return;
+                    }
+                    if (attempt < 4) {
                         exchange.getResponseHeaders().set("Retry-After", "0");
-                        exchange.sendResponseHeaders(attempt == 1 ? 429 : 503, -1);
+                        exchange.sendResponseHeaders(attempt == 2 ? 429 : 503, -1);
                         exchange.close();
                         return;
                     }
@@ -123,7 +127,7 @@ public class MixpanelIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void readsCompleteExportAfterRateLimitAndServerFailure(TestContainer container)
+    public void readsCompleteExportAfterDisconnectRateLimitAndServerFailure(TestContainer container)
             throws IOException, InterruptedException {
         requests.set(0);
         String jobId = Long.toString(System.currentTimeMillis());
@@ -154,6 +158,6 @@ public class MixpanelIT extends TestSuiteBase implements TestResource {
                     "The source must handle HTTP retries without engine task recovery");
         }
         Assertions.assertEquals(
-                3, requests.get(), "two retries, then one full export without a limit");
+                4, requests.get(), "three retries, then one full export without a limit");
     }
 }

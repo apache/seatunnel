@@ -53,7 +53,7 @@ import ChangeLog from '../changelog/connector-http-mixpanel.md';
 | allow_insecure_http | Boolean | 否 | `false` | 仅用于可信离线测试服务，允许 HTTP。不得用于真实凭证。 |
 | connect_timeout_ms | Int | 否 | `30000` | 连接及连接池获取超时，1 到 300000 毫秒。 |
 | read_timeout_ms | Int | 否 | `120000` | socket 无数据活动超时，不是整个导出的总时限；1 到 600000 毫秒。 |
-| max_retries | Int | 否 | `3` | 消费事件响应体之前对 429/5xx 的重试次数，0 到 10；0 禁用重试。 |
+| max_retries | Int | 否 | `3` | HTTP 429/5xx 或收到响应头前的暂时性传输失败的重试次数，范围为 0 到 10，0 禁用重试。 |
 | retry_backoff_ms | Int | 否 | `1000` | 指数退避初始延迟，1 到 60000 毫秒，不得大于 `max_retry_backoff_ms`。 |
 | max_retry_backoff_ms | Int | 否 | `60000` | 重试延迟上限，1 到 600000 毫秒，同时限制 `Retry-After`。 |
 | max_event_bytes | Int | 否 | `1048576` | 单行字节数上限，不含 LF，但包含存在的 CR；1 到 16777216。超限时任务失败，不截断或跳过。 |
@@ -88,7 +88,7 @@ TLS 证书和主机名校验保持启用。连接器不跟随重定向，重定�
 ### Schema 和字段映射
 
 每条记录必须是包含字符串 `event` 和对象 `properties` 的合法 JSON 对象。
-无效 JSON、同行额外 JSON token、错误结构和类型转换失败会导致任务失败。
+无效 JSON、同行额外 JSON token、错误结构和类型转换失败会导致任务失败，错误会指出从 1 开始的记录编号和失败类别。
 空导出可以成功，空白行不会被静默跳过。最后一行可以没有换行符。
 映射到不存在字段的输出列为 null。
 
@@ -140,11 +140,11 @@ sink {
 
 ## 重试、取消与恢复
 
-仅 HTTP 429 和 5xx 在消费事件响应体之前重试，最多额外发送 `max_retries` 次请求。
+HTTP 429/5xx 和收到响应头前的暂时性传输失败共用 `max_retries` 重试次数。
 从 `retry_backoff_ms` 开始倍增延迟，以 `max_retry_backoff_ms` 为上限。
 合法 `Retry-After`（秒数或 HTTP 日期）可以延长等待，但仍受此上限约束。
-401/403、重定向等其他状态立即失败。传输错误不在本地重试，即使尚未消费响应体；
-HTTP 客户端自动重试已禁用。
+401/403、重定向等其他状态以及 TLS 证书或主机名校验失败会立即终止。
+重试日志记录原因、尝试次数和等待时间。HTTP 客户端自动重试已禁用。
 
 成功响应开始后，响应中断、无效事件或 schema 错误会使任务失败，不在原地重新导出。
 cancel/close 会终止活动请求和 socket，并唤醒退避等待。导出失败，或在有效 EOF 后的本地完成意图
