@@ -834,6 +834,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             PartialSubmitProbeTask shareTask = new PartialSubmitProbeTask(1L, true);
             PartialSubmitProbeTask firstBlockingTask = new PartialSubmitProbeTask(2L, false);
             PartialSubmitProbeTask secondBlockingTask = new PartialSubmitProbeTask(3L, false);
+            PartialSubmitProbeTask unvisitedTailBlockingTask =
+                    new PartialSubmitProbeTask(4L, false);
 
             TaskGroupImmutableInformation info =
                     new TaskGroupImmutableInformation(
@@ -845,11 +847,12 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                             Arrays.asList(
                                     nodeEngine.getSerializationService().toData(shareTask),
                                     nodeEngine.getSerializationService().toData(firstBlockingTask),
+                                    nodeEngine.getSerializationService().toData(secondBlockingTask),
                                     nodeEngine
                                             .getSerializationService()
-                                            .toData(secondBlockingTask)),
-                            Arrays.asList(testJars, testJars, testJars),
-                            Arrays.asList(emptySet(), emptySet(), emptySet()));
+                                            .toData(unvisitedTailBlockingTask)),
+                            Arrays.asList(testJars, testJars, testJars, testJars),
+                            Arrays.asList(emptySet(), emptySet(), emptySet(), emptySet()));
 
             TaskDeployState deployState = taskExecutionService.deployTask(info);
             assertEquals(TaskDeployState.success(), deployState);
@@ -886,6 +889,10 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             Assertions.assertTrue(
                     firstBlockingInterruptedExit.await(10, TimeUnit.SECONDS),
                     "started blocking probe must finish after rollback interruption");
+            awaitFailedGenerationTerminalState(taskExecutionService, failedDeployLocation);
+            Assertions.assertFalse(
+                    PartialSubmitProbeTask.enteredCall(4L),
+                    "unvisited blocking tail must never enter call()");
             Assertions.assertTrue(
                     classLoaderService.queryClassLoaderById(testJobId, testJars).isPresent());
             Assertions.assertEquals(
@@ -956,6 +963,101 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                 testJar.delete();
             }
         }
+    }
+
+    /**
+     * Post-publish rollback with a single-thread blocking pool: the second blocking future is
+     * cancelled before its worker enters {@code run()}, while a later submit rejection leaves an
+     * unvisited tail. The failed generation must complete via dropped-task accounting.
+     */
+    @Test
+    public void testRollbackAccountsBlockingCancelledBeforeWorkerStarts() throws Exception {
+        TaskExecutionService service = server.getTaskExecutionService();
+        ThreadShareMode previousMode =
+                service.getSeaTunnelConfig().getEngineConfig().getTaskExecutionThreadShareMode();
+        CountDownLatch firstEnteredCall = new CountDownLatch(1);
+        CountDownLatch firstInterruptedExit = new CountDownLatch(1);
+        AtomicInteger acceptedBlockingSubmits = new AtomicInteger();
+        ExecutorService singleThreadBlockingExecutor = null;
+        TaskGroupLocation location = null;
+        try {
+            service.getSeaTunnelConfig()
+                    .getEngineConfig()
+                    .setTaskExecutionThreadShareMode(ThreadShareMode.OFF);
+            singleThreadBlockingExecutor =
+                    new ThreadPoolExecutor(
+                            1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>()) {
+                        @Override
+                        public Future<?> submit(Runnable task) {
+                            if (acceptedBlockingSubmits.getAndIncrement() >= 2) {
+                                throw new RejectedExecutionException(
+                                        "reject unvisited blocking tail");
+                            }
+                            return super.submit(task);
+                        }
+                    };
+            setBlockingTaskExecutorOverride(service, singleThreadBlockingExecutor);
+            PartialSubmitProbeTask.reset();
+            PartialSubmitProbeTask.armCallGate(10L, firstEnteredCall, firstInterruptedExit);
+
+            location = new TaskGroupLocation(System.currentTimeMillis(), 1, 1);
+            TaskGroupDefaultImpl group =
+                    new TaskGroupDefaultImpl(
+                            location,
+                            "cancel-before-start",
+                            Arrays.asList(
+                                    new PartialSubmitProbeTask(10L, false),
+                                    new PartialSubmitProbeTask(11L, false),
+                                    new PartialSubmitProbeTask(12L, false)));
+            ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+            ClassLoader ctxLoader = Thread.currentThread().getContextClassLoader();
+            group.getTasks().forEach(t -> classLoaders.put(t.getTaskID(), ctxLoader));
+
+            service.deployLocalTask(
+                    FLAKE_ID_GENERATOR.newId(),
+                    group,
+                    classLoaders,
+                    new ConcurrentHashMap<>(),
+                    () -> {},
+                    unused -> {});
+
+            assertTrue(firstEnteredCall.await(10, TimeUnit.SECONDS));
+            awaitFailedGenerationTerminalState(service, location);
+            Assertions.assertFalse(PartialSubmitProbeTask.enteredCall(11L));
+            Assertions.assertFalse(PartialSubmitProbeTask.enteredCall(12L));
+            Assertions.assertTrue(firstInterruptedExit.await(10, TimeUnit.SECONDS));
+        } finally {
+            if (location != null) {
+                try {
+                    service.cancelTaskGroup(location);
+                } catch (Exception ignored) {
+                }
+            }
+            setBlockingTaskExecutorOverride(service, null);
+            if (singleThreadBlockingExecutor != null) {
+                singleThreadBlockingExecutor.shutdownNow();
+            }
+            service.getSeaTunnelConfig()
+                    .getEngineConfig()
+                    .setTaskExecutionThreadShareMode(previousMode);
+            PartialSubmitProbeTask.reset();
+        }
+    }
+
+    private static void awaitFailedGenerationTerminalState(
+            TaskExecutionService service, TaskGroupLocation location) {
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            java.util.concurrent.CompletableFuture<TaskExecutionState>
+                                    resultFuture = service.lastLocalDeployResultFuture;
+                            Assertions.assertNotNull(resultFuture, "deploy result future");
+                            Assertions.assertTrue(resultFuture.isDone());
+                            TaskExecutionState state = resultFuture.getNow(null);
+                            Assertions.assertNotNull(state);
+                            Assertions.assertEquals(location, state.getTaskGroupLocation());
+                            Assertions.assertEquals(FAILED, state.getExecutionState());
+                        });
     }
 
     /**
@@ -1899,6 +2001,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         private static final long serialVersionUID = 1L;
 
         private static final AtomicInteger CALL_COUNT = new AtomicInteger();
+        private static final Set<Long> TASKS_THAT_ENTERED_CALL = ConcurrentHashMap.newKeySet();
         private static final AtomicBoolean STOP = new AtomicBoolean();
         private static final AtomicBoolean INTERRUPTED = new AtomicBoolean();
         private static final AtomicReference<CountDownLatch> FIRST_BLOCKING_CALL_ENTERED =
@@ -1924,6 +2027,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         private static void reset() {
             CALL_COUNT.set(0);
+            TASKS_THAT_ENTERED_CALL.clear();
             STOP.set(false);
             INTERRUPTED.set(false);
             firstBlockingTaskIdForGate = -1L;
@@ -1935,8 +2039,13 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             return INTERRUPTED.get();
         }
 
+        private static boolean enteredCall(long taskId) {
+            return TASKS_THAT_ENTERED_CALL.contains(taskId);
+        }
+
         @Override
         public ProgressState call() {
+            TASKS_THAT_ENTERED_CALL.add(taskId);
             CALL_COUNT.incrementAndGet();
             if (!threadsShare && taskId == firstBlockingTaskIdForGate) {
                 CountDownLatch enteredCall = FIRST_BLOCKING_CALL_ENTERED.get();

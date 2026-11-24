@@ -367,6 +367,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
+     * Holds the result future of the most recent {@link #deployLocalTask} call. Same-package tests
+     * read it to assert terminal completion after post-publish rollback.
+     */
+    volatile CompletableFuture<TaskExecutionState> lastLocalDeployResultFuture;
+
+    /**
      * Submits tasks to the thread-share queue for cooperative execution. Each task is wrapped in a
      * TaskTracker and initialized before being added to the queue.
      *
@@ -426,10 +432,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         // publish it only after startup, matching #12454. A mid-batch submit failure never awaits
         // the latch, so publishing the already-accepted futures in the catch is safe: rollback can
         // then cancel them, including workers that have not started.
+        taskGroupExecutionTracker.registerExpectedBlockingTasks(tasks);
         List<Future<?>> blockingFutures = new ArrayList<>(tasks.size());
         try {
             for (Task task : tasks) {
-                taskGroupExecutionTracker.recordBlockingTaskForSubmit(task);
                 BlockingWorker worker =
                         new BlockingWorker(
                                 new TaskTracker(task, taskGroupExecutionTracker), startedLatch);
@@ -671,6 +677,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Runnable onContextPublished,
             Consumer<Throwable> onFailureBeforeContextPublished) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        lastLocalDeployResultFuture = resultFuture;
         TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
         resultFuture.whenCompleteAsync(
                 withTryCatch(
@@ -1435,6 +1442,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Thread.currentThread().setContextClassLoader(classLoader);
             ProgressState result = null;
             try {
+                taskGroupExecutionTracker.markBlockingWorkerEnteredRun(t.getTaskID());
                 startedLatch.countDown();
                 t.init();
                 do {
@@ -1554,6 +1562,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 Map<Long, ClassLoader> classLoaders = taskGroupContext.getClassLoaders();
                 if (classLoaders == null
                         || taskGroupExecutionTracker.executionCompletedExceptionally()) {
+                    taskGroupExecutionTracker.closeTaskAfterRollbackIfNeeded(
+                            taskTracker.task, classLoaders);
                     taskGroupExecutionTracker.taskDone(taskTracker.task);
                     if (null != exclusiveTaskTracker.get()) {
                         break;
@@ -1580,6 +1590,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             && !taskGroupExecutionTracker.isCancel.get()) {
                         taskGroupExecutionTracker.exception(e);
                     }
+                    taskGroupExecutionTracker.closeTaskAfterRollbackIfNeeded(
+                            taskTracker.task, taskGroupContext.getClassLoaders());
                     taskGroupExecutionTracker.taskDone(taskTracker.task);
                     logger.warning("Exception in " + taskTracker.task, e);
                     if (null != exclusiveTaskTracker.get()) {
@@ -1669,6 +1681,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         private final Set<Long> tasksReportedDone = ConcurrentHashMap.newKeySet();
 
+        /** Blocking tasks whose worker thread entered {@link BlockingWorker#run()}. */
+        private final Set<Long> blockingWorkersEnteredRun = ConcurrentHashMap.newKeySet();
+
         private final AtomicInteger completionLatch;
         private final AtomicReference<Throwable> executionException = new AtomicReference<>();
 
@@ -1730,30 +1745,35 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             cancelAllTask();
         }
 
-        void recordBlockingTaskForSubmit(Task task) {
-            blockingTasksInSubmitOrder.add(task);
+        void registerExpectedBlockingTasks(List<Task> tasks) {
+            blockingTasksInSubmitOrder.clear();
+            blockingTasksInSubmitOrder.addAll(tasks);
+        }
+
+        void markBlockingWorkerEnteredRun(long taskId) {
+            blockingWorkersEnteredRun.add(taskId);
         }
 
         /**
          * Accounts for tasks dropped during post-publish rollback that will not reach {@link
          * #taskDone(Task)} through a worker thread.
          *
-         * <p>Only these dropped paths are accounted here; this does not drain {@code
-         * completionLatch} for tasks still running on a worker thread (they report via {@code
-         * taskDone} on interrupt or rollback guard). Idempotent {@code taskDone} ignores duplicate
-         * reports per task id.
+         * <p>Only these dropped paths are accounted here; blocking tasks whose worker already
+         * entered {@link BlockingWorker#run()} keep reporting via their own {@code taskDone}.
+         * Idempotent {@code taskDone} ignores duplicate reports per task id.
          *
          * <ol>
-         *   <li>Cooperative tasks removed from {@code threadShareTaskQueue}
+         *   <li>Cooperative tasks removed from {@code threadShareTaskQueue}: {@link Task#close()}
+         *       then {@code taskDone}
          *   <li>Blocking tasks rejected before a future was created (index beyond {@code
          *       blockingFutures})
-         *   <li>Blocking tasks whose future was cancelled before {@link BlockingWorker} ran ({@code
-         *       isCancelled() && isDone()})
+         *   <li>Blocking tasks whose future was cancelled before the worker entered {@code run()}
          * </ol>
          */
         void accountForTasksDroppedAfterRollback(
                 Collection<TaskTracker> removedCooperativeTrackers) {
             for (TaskTracker tracker : removedCooperativeTrackers) {
+                closeQueuedCooperativeTaskAfterRollback(tracker);
                 taskDone(tracker.task);
             }
             for (int i = 0; i < blockingTasksInSubmitOrder.size(); i++) {
@@ -1761,14 +1781,54 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 if (tasksReportedDone.contains(task.getTaskID())) {
                     continue;
                 }
+                if (blockingWorkersEnteredRun.contains(task.getTaskID())) {
+                    continue;
+                }
                 if (i >= blockingFutures.size()) {
                     taskDone(task);
                     continue;
                 }
                 Future<?> workerFuture = blockingFutures.get(i);
-                if (workerFuture.isCancelled() && workerFuture.isDone()) {
+                if (workerFuture.isCancelled()) {
                     taskDone(task);
                 }
+            }
+            for (Task task : taskGroup.getTasks()) {
+                if (!task.isThreadsShare()) {
+                    continue;
+                }
+                if (tasksReportedDone.contains(task.getTaskID())) {
+                    continue;
+                }
+                if (currRunningTaskFuture.containsKey(task.getTaskID())) {
+                    continue;
+                }
+                closeTaskAfterRollbackIfNeeded(task, context.getClassLoaders());
+            }
+        }
+
+        private void closeQueuedCooperativeTaskAfterRollback(TaskTracker tracker) {
+            closeTaskAfterRollbackIfNeeded(
+                    tracker.task, context == null ? null : context.getClassLoaders());
+        }
+
+        void closeTaskAfterRollbackIfNeeded(Task task, Map<Long, ClassLoader> classLoaders) {
+            if (classLoaders == null) {
+                return;
+            }
+            ClassLoader taskLoader = classLoaders.get(task.getTaskID());
+            ClassLoader previous = Thread.currentThread().getContextClassLoader();
+            try {
+                Thread.currentThread().setContextClassLoader(taskLoader);
+                task.close();
+            } catch (IOException e) {
+                logger.severe(
+                        String.format(
+                                "Close task %d after post-publish rollback failed",
+                                task.getTaskID()),
+                        e);
+            } finally {
+                Thread.currentThread().setContextClassLoader(previous);
             }
         }
 
