@@ -96,6 +96,20 @@ public class ResourceRequestHandler {
     }
 
     public CompletableFuture<List<SlotProfile>> request(Map<String, String> tags) {
+        // An empty request has to be completed here, because the only code that
+        // completes this future is addSlotToCacheMap(), and that runs once per
+        // arriving slot result. With nothing requested it never runs: the
+        // retry round resolves immediately, stillNeedRequestIndexes() is empty
+        // so no further attempt is made, and the future is left pending
+        // forever with no error and no log. Anything joining it -- including
+        // the pending-job scheduler through
+        // ResourceManager#applyResources -- would block indefinitely.
+        if (resourceProfile.isEmpty()) {
+            if (completionStarted.compareAndSet(false, true)) {
+                completableFuture.complete(Collections.emptyList());
+            }
+            return completableFuture;
+        }
         List<Integer> requestIndexes = new ArrayList<>();
         for (int i = 0; i < resourceProfile.size(); i++) {
             requestIndexes.add(i);
