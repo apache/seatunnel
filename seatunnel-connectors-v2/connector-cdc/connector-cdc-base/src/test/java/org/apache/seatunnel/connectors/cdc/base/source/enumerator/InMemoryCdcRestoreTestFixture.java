@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
-import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceEvent;
@@ -61,8 +60,6 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.Watermar
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -129,8 +126,8 @@ public final class InMemoryCdcRestoreTestFixture {
                     .defaultValue(StopMode.LATEST)
                     .withDescription("Stop mode");
 
-    // The capture helper or engine test owns one entry per UUID-tagged run. In-JVM source and
-    // sink instances look it up by tag, including after restore. The owner removes it in finally.
+    // The capture helper owns one entry per UUID-tagged run. Source wrappers look it up by tag,
+    // and the capture helper removes it in finally.
     private static final Map<String, RunCoordinationState> RUN_STATES = new ConcurrentHashMap<>();
 
     private InMemoryCdcRestoreTestFixture() {}
@@ -146,17 +143,14 @@ public final class InMemoryCdcRestoreTestFixture {
                 "");
     }
 
-    public static RunCoordinationState registerRun(String runTag) {
+    private static RunCoordinationState registerRun(String runTag) {
         RunCoordinationState state = new RunCoordinationState();
         RUN_STATES.put(runTag, state);
         return state;
     }
 
-    public static void unregisterRun(String runTag) {
-        RunCoordinationState removed = RUN_STATES.remove(runTag);
-        if (removed != null) {
-            removed.releaseTailSplitFetchTask.countDown();
-        }
+    private static void unregisterRun(String runTag) {
+        RUN_STATES.remove(runTag);
     }
 
     public static IncrementalSource<SeaTunnelRow, SourceConfig> createSource(
@@ -167,11 +161,6 @@ public final class InMemoryCdcRestoreTestFixture {
             boolean holdTailSplitReport) {
         return new FixtureIncrementalSource(
                 runTag, catalogTable, exactlyOnce, stopMode, holdTailSplitReport);
-    }
-
-    public static AbstractSimpleSink<SeaTunnelRow, Void> createCollectingSink(
-            String runTag, CatalogTable catalogTable) {
-        return new CollectingSink(runTag, catalogTable);
     }
 
     public static Offset offset(long pos) {
@@ -289,7 +278,6 @@ public final class InMemoryCdcRestoreTestFixture {
             }
             return new SerializedCheckpointSnapshot(enumBytes, readerSplitBytes);
         } finally {
-            runState.releaseTailSplitFetchTask.countDown();
             for (SourceReader<SeaTunnelRow, SourceSplitBase> reader : readers) {
                 try {
                     reader.close();
@@ -368,72 +356,13 @@ public final class InMemoryCdcRestoreTestFixture {
         }
     }
 
-    public static final class RunCoordinationState {
+    private static final class RunCoordinationState {
         // Signals that the enumerator sent the split 0 acknowledgement. Delivery to its reader
         // can still be pending in the component fixture's event queue.
         private final CountDownLatch split0AckedByEnumerator = new CountDownLatch(1);
         // Signals that the reader attempted to report the finished tail. The wrapper intercepted
         // that report before the enumerator could record its watermarks.
         private final CountDownLatch tailSplitWatermarksRecorded = new CountDownLatch(1);
-        // Counted down on release or cleanup. Checkpoint capture waits on the two signals above.
-        private final CountDownLatch releaseTailSplitFetchTask = new CountDownLatch(1);
-        private final List<Long> emittedIds = new CopyOnWriteArrayList<>();
-
-        public boolean awaitSplit0Acked(long timeout, TimeUnit unit) throws InterruptedException {
-            return split0AckedByEnumerator.await(timeout, unit);
-        }
-
-        public boolean awaitTailSplitWatermarksRecorded(long timeout, TimeUnit unit)
-                throws InterruptedException {
-            return tailSplitWatermarksRecorded.await(timeout, unit);
-        }
-
-        public void releaseTailSplit() {
-            releaseTailSplitFetchTask.countDown();
-        }
-
-        public List<Long> getEmittedIds() {
-            return emittedIds;
-        }
-    }
-
-    private static final class CollectingSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
-        private static final long serialVersionUID = 1L;
-
-        private final String runTag;
-        private final CatalogTable catalogTable;
-
-        private CollectingSink(String runTag, CatalogTable catalogTable) {
-            this.runTag = runTag;
-            this.catalogTable = catalogTable;
-        }
-
-        @Override
-        public String getPluginName() {
-            return "cdc-restore-collecting-sink";
-        }
-
-        @Override
-        public Optional<CatalogTable> getWriteCatalogTable() {
-            return Optional.of(catalogTable);
-        }
-
-        @Override
-        public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-            String tag = this.runTag;
-            return new AbstractSinkWriter<SeaTunnelRow, Void>() {
-                @Override
-                public void write(SeaTunnelRow element) {
-                    RunCoordinationState state = RUN_STATES.get(tag);
-                    if (state != null && element != null && element.getArity() > 0) {
-                        state.emittedIds.add(((Number) element.getField(0)).longValue());
-                    }
-                }
-
-                @Override
-                public void close() {}
-            };
-        }
     }
 
     private static final class FixtureIncrementalSource
@@ -883,12 +812,6 @@ public final class InMemoryCdcRestoreTestFixture {
         @Override
         public void shutdown() {
             running.set(false);
-            if (runTag != null) {
-                RunCoordinationState state = RUN_STATES.get(runTag);
-                if (state != null) {
-                    state.releaseTailSplitFetchTask.countDown();
-                }
-            }
         }
 
         @Override
