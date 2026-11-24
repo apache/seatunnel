@@ -17,11 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.harvest;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.constants.JobMode;
 
 import org.junit.jupiter.api.Assertions;
@@ -50,6 +55,29 @@ class HarvestSourceFactoryTest {
         fields.put("spent_date", "date");
         options.put("schema", Collections.singletonMap("fields", fields));
         return options;
+    }
+
+    @Test
+    void createsSourceFromParsedJobConfiguration() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromConfig(
+                        ConfigFactory.parseString(
+                                        "source { Harvest {\n"
+                                                + "token = test-token\n"
+                                                + "account_id = 12345\n"
+                                                + "schema { fields { id = bigint } }\n"
+                                                + "} }")
+                                .getConfigList("source")
+                                .get(0));
+        HarvestSourceFactory factory = new HarvestSourceFactory();
+        ConfigValidator.of(config).validate(factory.optionRule());
+        SeaTunnelSource<?, ?, ?> source =
+                factory.createSource(
+                                new TableSourceFactoryContext(config, getClass().getClassLoader()))
+                        .createSource();
+        Assertions.assertArrayEquals(
+                new String[] {"id"},
+                source.getProducedCatalogTables().get(0).getSeaTunnelRowType().getFieldNames());
     }
 
     @Test

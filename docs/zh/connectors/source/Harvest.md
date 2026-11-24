@@ -66,12 +66,14 @@ source {
     account_id = "12345"
     from = "2026-11-01"
     to = "2026-11-23"
-    schema.fields {
-      id = bigint
-      spent_date = date
-      hours = "decimal(18,4)"
-      notes = string
-      user = "row<id bigint, name string>"
+    schema {
+      fields {
+        id = bigint
+        spent_date = date
+        hours = "decimal(18,4)"
+        notes = string
+        user = "row<id bigint, name string>"
+      }
     }
   }
 }
