@@ -12,6 +12,21 @@
   - **影响**：数据按批写入目标端，每批最多 1000 行，而不再逐行写入，写入远端服务器的吞吐量会大幅提升。每个 writer 的第一行仍会立即写入。30 秒间隔只在有新数据到达时检查，因此在没有后续数据时，它不能限制未写满的批次等待多久。未写满的批次会在下一次 checkpoint、writer 关闭时写入；如果在 `env` 中设置了 `sink.flush.interval`，引擎的定时 flush 也会写入（仅 Zeta 支持，默认关闭）。失败的批量写入会在作业失败前最多重试 3 次，依次等待 1、2、3 秒。重试会重新发送整个有序批次，因此在 `upsert-enable = false` 时，如果批次已部分写入，重试可能因主键重复而失败；这与此前显式设置 `retry.max` 时的行为相同。显式设置了这些选项的作业不受影响。
   - **迁移指南**：如需文档中描述的行为，无需修改配置。如需保持此前的行为，请显式设置 `buffer-flush.max-rows = 1` 和 `retry.max = 0`。把 `buffer-flush.max-rows` 调小到大于 1 的值只能减少缓冲的行数，在没有后续数据时，不能限制未写满的批次等待多久。如果流式作业需要缓冲的数据在一定时间内可见，请依赖 checkpoint，或在 `env` 中设置 `sink.flush.interval`（Zeta）。如需每一行立即写入，请设置 `buffer-flush.max-rows = 1`。(#13198)
 
+### Flink schema evolution：checkpoint 协议与按表路由
+
+启用 schema evolution 的 Flink CDC 任务改为使用按表 keyed state 保存 Sink schema 进度和等待行。
+源端协议和算子拓扑也不同于此前的本地协调器实现及 broadcast/union state 实现。
+这些旧实现生成的 checkpoint 和 savepoint 不支持直接用于升级恢复，当前没有状态迁移适配器。
+`--allowNonRestoredState` 不是安全迁移方案：保留源端位点但丢弃 schema 进度或等待行，
+可能导致数据丢失或使用错误表结构解释数据。
+
+请保留旧任务构件和可恢复的 savepoint 用于回滚。建议规划受控切换：向独立目标执行新的全量快照，
+校验表结构和数据后再切换消费者。复用已有目标时必须显式对账并协调目标结构；
+不要简单丢弃状态后从最新源端位点继续。
+
+增量读取并行度必须为一。Sink 仍支持表间并行，但每张源表只分配给一个 Flink Sink 子任务。
+连接器要求及共享物理目标表的限制见 [Flink 路由与故障恢复](../configuration/schema-evolution.md#flink-路由与故障恢复)。
+
 ### Http Sink：`array_mode = true` 时每行作为 JSON 对象发送
 
 - **行为变更：请求体数组的元素是 JSON 对象，而不再是字符串**
