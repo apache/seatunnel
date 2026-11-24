@@ -66,6 +66,7 @@ public class TransformParallelismCheckpointIT {
         seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName(CLUSTER_NAME));
         seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
 
+        DeployMode previousDeployMode = Common.getDeployMode();
         HazelcastInstanceImpl node = null;
         SeaTunnelClient engineClient = null;
         try {
@@ -107,11 +108,16 @@ public class TransformParallelismCheckpointIT {
             Assertions.assertEquals(
                     rowsPerSubtask * sourceParallelism, sum(metrics, "SinkWriteCount"));
         } finally {
-            if (engineClient != null) {
-                engineClient.close();
-            }
-            if (node != null) {
-                node.shutdown();
+            try {
+                if (engineClient != null) {
+                    engineClient.close();
+                }
+                if (node != null) {
+                    node.shutdown();
+                }
+            } finally {
+                // The deploy mode is JVM-wide; restore it for the tests that share this JVM.
+                Common.setDeployMode(previousDeployMode);
             }
         }
     }

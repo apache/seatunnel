@@ -513,32 +513,17 @@ public class CheckpointCoordinatorTest
 
     /**
      * A transform chained into a source task runs in every source subtask, whatever parallelism it
-     * declares, and each of those subtasks acknowledges its own index. The checkpoint state of the
-     * transform must therefore have a slot for every such subtask, not only for its declared
-     * parallelism.
+     * declares, and each of those subtasks acknowledges its own index. A checkpoint must accept the
+     * acknowledgement of every such subtask and complete with a state slot for each of them.
      */
     @Test
-    void testActionStateHasSlotForEverySubtaskRunningTheAction() {
-        CheckpointConfig checkpointConfig = new CheckpointConfig();
-        checkpointConfig.setStorage(new CheckpointStorageConfig());
-        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
-        planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
-        TestCheckpointManager checkpointManager =
-                new TestCheckpointManager(
-                        1L,
-                        nodeEngine,
-                        planMap,
-                        checkpointConfig,
-                        server.getCheckpointService().getCheckpointStorage(),
-                        instance.getExecutorService("test"),
-                        nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
-                        server.getEngineContext(),
-                        null);
-
+    void testCheckpointCompletesWhenChainedActionRunsInMoreSubtasksThanDeclared() throws Exception {
         // Two parallel subtasks of a source vertex, each running the source and a chained
         // transform. The source declares parallelism 2, the transform declares 1.
-        TaskLocation subtask0 = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 0);
-        TaskLocation subtask1 = new TaskLocation(new TaskGroupLocation(1L, 1, 2), 1, 1);
+        TaskGroupLocation group0 = new TaskGroupLocation(1L, 1, 1);
+        TaskGroupLocation group1 = new TaskGroupLocation(1L, 1, 2);
+        TaskLocation subtask0 = new TaskLocation(group0, 1, 0);
+        TaskLocation subtask1 = new TaskLocation(group1, 1, 1);
         ActionStateKey source = new ActionStateKey("source");
         ActionStateKey transform = new ActionStateKey("transform");
         ActionStateKey wideSink = new ActionStateKey("wide-sink");
@@ -573,33 +558,97 @@ public class CheckpointCoordinatorTest
                         .subtaskActions(subtaskActions)
                         .pipelineActions(pipelineActions)
                         .build();
-
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+        CheckpointConfig config = new CheckpointConfig();
+        config.setStorage(new CheckpointStorageConfig());
+        config.setCheckpointInterval(60000);
+        IMap<Object, Object> state =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getMap("chained-action-checkpoint-" + UUID.randomUUID());
+        state.put(group0, ExecutionState.RUNNING);
+        state.put(group1, ExecutionState.RUNNING);
+        CheckpointIDCounter counter = Mockito.mock(CheckpointIDCounter.class);
+        Mockito.when(counter.getAndIncrement()).thenReturn(1L, 2L);
+        CheckpointManager manager = Mockito.mock(CheckpointManager.class);
+        ExecutorService executor = Executors.newCachedThreadPool();
+        CheckpointCoordinator coordinator =
+                Mockito.spy(
+                        new CheckpointCoordinator(
+                                manager,
+                                Mockito.mock(CheckpointStorage.class),
+                                config,
+                                1L,
+                                plan,
+                                counter,
+                                null,
+                                executor,
+                                state,
+                                false,
+                                null));
+        Mockito.when(manager.getCheckpointCoordinator(1)).thenReturn(coordinator);
+        Mockito.doCallRealMethod().when(manager).reportedPipelineRunning(1, true);
+        CompletableFuture<CheckpointBarrier> triggered = new CompletableFuture<>();
+        // Stub only worker transport; the pending checkpoint and acknowledgement logic run.
+        Mockito.doAnswer(
+                        invocation -> {
+                            triggered.complete(invocation.getArgument(0));
+                            return new InvocationFuture<?>[0];
+                        })
+                .when(coordinator)
+                .triggerCheckpoint(Mockito.any(CheckpointBarrier.class));
+        Mockito.doReturn(new InvocationFuture<?>[0])
+                .when(coordinator)
+                .notifyCheckpointCompleted(Mockito.any(CompletedCheckpoint.class));
+        Mockito.doReturn(new InvocationFuture<?>[0])
+                .when(coordinator)
+                .notifyCheckpointEnd(Mockito.any(CompletedCheckpoint.class));
+        CompletableFuture<CompletedCheckpoint> completed = new CompletableFuture<>();
+        Mockito.doAnswer(
+                        invocation -> {
+                            invocation.callRealMethod();
+                            completed.complete(invocation.getArgument(0));
+                            return null;
+                        })
+                .when(coordinator)
+                .completePendingCheckpoint(Mockito.any(CompletedCheckpoint.class));
         try {
-            CheckpointCoordinator coordinator =
-                    new CheckpointCoordinator(
-                            checkpointManager,
-                            null,
-                            checkpointConfig,
-                            1L,
-                            plan,
-                            null,
-                            null,
-                            executor,
-                            Mockito.mock(com.hazelcast.map.IMap.class),
-                            false,
-                            null);
+            manager.reportedPipelineRunning(1, true);
+            CheckpointBarrier barrier = triggered.get(10, TimeUnit.SECONDS);
 
-            Map<ActionStateKey, ActionState> actionStates =
-                    (Map<ActionStateKey, ActionState>)
-                            ReflectionUtils.invoke(coordinator, "getActionStates");
-
-            Assertions.assertEquals(2, actionStates.get(source).getParallelism());
-            Assertions.assertEquals(2, actionStates.get(transform).getParallelism());
-            Assertions.assertEquals(4, actionStates.get(wideSink).getParallelism());
+            ActionSubtaskState transformOfSubtask1 =
+                    new ActionSubtaskState(
+                            transform,
+                            1,
+                            Collections.singletonList(
+                                    "subtask-1".getBytes(StandardCharsets.UTF_8)));
+            coordinator.acknowledgeTask(
+                    new TaskAcknowledgeOperation(
+                            subtask0,
+                            barrier,
+                            Arrays.asList(
+                                    new ActionSubtaskState(source, 0, Collections.emptyList()),
+                                    new ActionSubtaskState(transform, 0, Collections.emptyList()),
+                                    new ActionSubtaskState(wideSink, 0, Collections.emptyList()))));
             // The acknowledgement of the second subtask used to fail with an index out of bounds.
-            Assertions.assertDoesNotThrow(() -> actionStates.get(transform).reportState(1, null));
+            coordinator.acknowledgeTask(
+                    new TaskAcknowledgeOperation(
+                            subtask1,
+                            barrier,
+                            Arrays.asList(
+                                    new ActionSubtaskState(source, 1, Collections.emptyList()),
+                                    transformOfSubtask1,
+                                    new ActionSubtaskState(wideSink, 1, Collections.emptyList()))));
+
+            CompletedCheckpoint checkpoint = completed.get(10, TimeUnit.SECONDS);
+            Assertions.assertEquals(barrier.getId(), checkpoint.getCheckpointId());
+            Map<ActionStateKey, ActionState> taskStates = checkpoint.getTaskStates();
+            Assertions.assertEquals(2, taskStates.get(source).getParallelism());
+            Assertions.assertEquals(2, taskStates.get(transform).getParallelism());
+            Assertions.assertSame(
+                    transformOfSubtask1, taskStates.get(transform).getSubtaskStates().get(1));
+            Assertions.assertEquals(4, taskStates.get(wideSink).getParallelism());
         } finally {
+            coordinator.cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
             executor.shutdownNow();
         }
     }
