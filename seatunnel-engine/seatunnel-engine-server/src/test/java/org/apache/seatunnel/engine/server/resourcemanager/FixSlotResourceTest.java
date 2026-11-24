@@ -106,44 +106,12 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
 
     @Test
     public void testResetKeepsLiveSlotAssignment() {
-        SlotService slotService = server.getSlotService();
-        long jobId = System.currentTimeMillis();
-        SlotProfile slot = slotService.requestSlot(jobId, new ResourceProfile()).getSlotProfile();
-        Assertions.assertNotNull(slot);
-        try {
-            slotService.reset();
-
-            WorkerProfile workerProfile = slotService.getWorkerProfile();
-            Assertions.assertEquals(1, workerProfile.getAssignedSlots().length);
-            SlotProfile assigned = workerProfile.getAssignedSlots()[0];
-            Assertions.assertEquals(slot.getSlotID(), assigned.getSlotID());
-            Assertions.assertEquals(slot.getSequence(), assigned.getSequence());
-            Assertions.assertEquals(totalSlots - 1, workerProfile.getUnassignedSlots().length);
-            Assertions.assertNotNull(slotService.getSlotContext(slot));
-        } finally {
-            slotService.releaseSlot(jobId, slot);
-        }
+        assertResetKeepsLiveSlotAssignment(() -> server.getSlotService().reset());
     }
 
     @Test
     public void testResetResourceOperationKeepsLiveSlotAssignment() {
-        SlotService slotService = server.getSlotService();
-        long jobId = System.currentTimeMillis();
-        SlotProfile slot = slotService.requestSlot(jobId, new ResourceProfile()).getSlotProfile();
-        Assertions.assertNotNull(slot);
-        try {
-            sendResetResourceOperation();
-
-            WorkerProfile workerProfile = slotService.getWorkerProfile();
-            Assertions.assertEquals(1, workerProfile.getAssignedSlots().length);
-            SlotProfile assigned = workerProfile.getAssignedSlots()[0];
-            Assertions.assertEquals(slot.getSlotID(), assigned.getSlotID());
-            Assertions.assertEquals(slot.getSequence(), assigned.getSequence());
-            Assertions.assertEquals(totalSlots - 1, workerProfile.getUnassignedSlots().length);
-            Assertions.assertNotNull(slotService.getSlotContext(slot));
-        } finally {
-            slotService.releaseSlot(jobId, slot);
-        }
+        assertResetKeepsLiveSlotAssignment(this::sendResetResourceOperation);
     }
 
     @Test
@@ -172,8 +140,31 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
         long jobId = System.currentTimeMillis();
         SlotProfile slot = slotService.requestSlot(jobId, new ResourceProfile()).getSlotProfile();
         Assertions.assertNotNull(slot);
-        Assertions.assertNotNull(slotService.getSlotContext(slot));
-        slotService.releaseSlot(jobId, slot);
+        try {
+            Assertions.assertNotNull(slotService.getSlotContext(slot));
+        } finally {
+            slotService.releaseSlot(jobId, slot);
+        }
+    }
+
+    private void assertResetKeepsLiveSlotAssignment(Runnable reset) {
+        SlotService slotService = server.getSlotService();
+        long jobId = System.currentTimeMillis();
+        SlotProfile slot = slotService.requestSlot(jobId, new ResourceProfile()).getSlotProfile();
+        Assertions.assertNotNull(slot);
+        try {
+            reset.run();
+
+            WorkerProfile workerProfile = slotService.getWorkerProfile();
+            Assertions.assertEquals(1, workerProfile.getAssignedSlots().length);
+            SlotProfile assigned = workerProfile.getAssignedSlots()[0];
+            Assertions.assertEquals(slot.getSlotID(), assigned.getSlotID());
+            Assertions.assertEquals(slot.getSequence(), assigned.getSequence());
+            Assertions.assertEquals(totalSlots - 1, workerProfile.getUnassignedSlots().length);
+            Assertions.assertNotNull(slotService.getSlotContext(slot));
+        } finally {
+            slotService.releaseSlot(jobId, slot);
+        }
     }
 
     private void sendResetResourceOperation() {

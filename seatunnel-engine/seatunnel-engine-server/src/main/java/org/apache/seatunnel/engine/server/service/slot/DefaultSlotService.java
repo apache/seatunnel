@@ -51,6 +51,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 /** The slot service of seatunnel server, used for manage slot in worker. */
 public class DefaultSlotService implements SlotService {
@@ -153,14 +154,25 @@ public class DefaultSlotService implements SlotService {
                 TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Runs under the same monitor as {@link #requestSlot}, {@link #releaseSlot} and {@link
+     * #getWorkerProfile}, so no slot can be assigned between the idle check and the rebuild.
+     */
     @Override
     public synchronized void reset() {
         // Rebuilding would drop slots and contexts that running tasks still own.
         if (!assignedSlots.isEmpty() || !contexts.isEmpty()) {
             LOGGER.warning(
                     String.format(
-                            "Skip resetting slot service, it still has %d assigned slots and %d live slot contexts",
-                            assignedSlots.size(), contexts.size()));
+                            "Skip resetting slot service, assigned slots (slot id -> owner job id): %s, live slot contexts: %s",
+                            assignedSlots.values().stream()
+                                    .collect(
+                                            Collectors.toMap(
+                                                    SlotProfile::getSlotID,
+                                                    SlotProfile::getOwnerJobID)),
+                            contexts.keySet()));
             return;
         }
         this.close();
