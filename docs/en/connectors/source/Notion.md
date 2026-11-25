@@ -40,10 +40,10 @@ The Notion source connector reads data from the Notion API. It is based on the H
 | retry_backoff_max_ms        | Int     | No       | 10000   | Maximum retry backoff in milliseconds. |
 | enable_multi_lines          | Boolean | No       | false   | When `true`, multiple JSON objects separated by newlines in the response body are treated as separate records. |
 | keep_params_as_form         | Boolean | No       | false   | When `true`, request parameters are sent as form-encoded body parameters instead of URL query parameters. |
-| keep_page_param_as_http_param | Boolean | No    | false   | When `true`, the page parameter remains in the request URL when paginating instead of being replaced inside the body. |
-| batch_size                  | Int     | No       | 100     | The number of records returned per page request when the total number of pages is unknown. |
-| start_page_number           | Long    | No       | 1       | Which page number to start synchronizing from. |
-| total_page_size             | Long    | No       | 0       | Total page size to read. `0` means use `batch_size` until the API stops returning new pages. |
+| keep_page_param_as_http_param | Boolean | No    | false   | When `true`, the page parameter remains in the request URL when paginating instead of being replaced inside the body. Has no effect on the current Notion reader path (see `pageing`). |
+| batch_size                  | Int     | No       | 100     | The number of records returned per page request when the total number of pages is unknown. Has no effect on the current Notion reader path (see `pageing`). |
+| start_page_number           | Long    | No       | 1       | Which page number to start synchronizing from. Has no effect on the current Notion reader path (see `pageing`). |
+| total_page_size             | Long    | No       | 0       | Total page size to read. `0` means use `batch_size` until the API stops returning new pages. Has no effect on the current Notion reader path (see `pageing`). |
 | use_placeholder_replacement | Boolean | No       | false   | When `true`, use `${field}` placeholder replacement for headers, parameters and body values; otherwise use key-based replacement. |
 | connect_timeout_ms          | Int     | No       | 12000   | HTTP connection timeout in milliseconds. Default 12000ms. |
 | socket_timeout_ms           | Int     | No       | 60000   | HTTP socket timeout in milliseconds. Default 60000ms. |

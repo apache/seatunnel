@@ -40,10 +40,10 @@ Notion 源连接器用于读取 Notion API 数据。它基于 HTTP 源连接器�
 | retry_backoff_max_ms        | int     | 否  | 10000  | HTTP 请求失败时的最大重试退避时间（毫秒）。                                                                        |
 | enable_multi_lines          | boolean | 否  | false  | 是否启用多行模式，将响应体中按换行分隔的多个 JSON 对象视为独立记录。                                                            |
 | keep_params_as_form         | boolean | 否  | false  | 是否将请求参数作为表单参数发送，而不是 URL 查询参数。                                                                   |
-| keep_page_param_as_http_param | boolean | 否 | false | 分页时是否将分页参数保留在 URL 中，而不是在请求体内替换。                                                                  |
-| batch_size                  | int     | 否  | 100    | 当总页数未知时，每次请求返回的记录数。                                                                              |
-| start_page_number           | long    | 否  | 1      | 从哪一页开始读取。                                                                                       |
-| total_page_size             | long    | 否  | 0      | 要读取的总页数。`0` 表示按照 `batch_size` 一直读取，直到 API 不再返回新页。                                              |
+| keep_page_param_as_http_param | boolean | 否 | false | 分页时是否将分页参数保留在 URL 中，而不是在请求体内替换。该配置在当前 Notion 读取路径上不会生效（参见 `pageing`）。                  |
+| batch_size                  | int     | 否  | 100    | 当总页数未知时，每次请求返回的记录数。该配置在当前 Notion 读取路径上不会生效（参见 `pageing`）。                                  |
+| start_page_number           | long    | 否  | 1      | 从哪一页开始读取。该配置在当前 Notion 读取路径上不会生效（参见 `pageing`）。                                                  |
+| total_page_size             | long    | 否  | 0      | 要读取的总页数。`0` 表示按照 `batch_size` 一直读取，直到 API 不再返回新页。该配置在当前 Notion 读取路径上不会生效（参见 `pageing`）。 |
 | use_placeholder_replacement | boolean | 否  | false  | 是否使用 `${field}` 占位符替换 headers、params 和 body 中的字段值，否则按键名替换。                                            |
 | connect_timeout_ms          | int     | 否  | 12000  | HTTP 连接超时时间（毫秒），默认 12000ms。                                                                       |
 | socket_timeout_ms           | int     | 否  | 60000  | HTTP 套接字超时时间（毫秒），默认 60000ms。                                                                      |
