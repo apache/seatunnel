@@ -200,6 +200,8 @@ sink {
 ClickHouse part 文件，再将生成的文件复制（`scp` 或 `rsync`）到目标 ClickHouse 服务节点并 attach 到
 目标表。对于大批量写入，这种方式通常比逐行插入快得多。
 
+`table` 必须指向已存在的 ClickHouse `Distributed` 表。写入前，Sink 会从该表的定义中读取集群和底层本地表。
+
 `ClickhouseFile` sink 只会读取上方 [Sink 选项](#sink-选项) 中的这些选项：`host`、`database`、`table`、
 `username`、`password`、`clickhouse.config`、`sharding_key` 和 `server_time_zone`。其他 sink 选项
 （如 `bulk_size`、`split_mode`、`primary_key`、`support_upsert`、`schema_save_mode`、`data_save_mode`）
@@ -211,30 +213,27 @@ ClickHouse part 文件，再将生成的文件复制（`scp` 或 `rsync`）到�
 | copy_method           | Enum    | 否   | scp                                  | 将生成的 part 文件复制到 ClickHouse 服务节点的方式，支持 `scp`、`rsync`。                              |
 | compatible_mode       | Boolean | 否   | false                                | 低版本 ClickHouse 的 `clickhouse-local` 程序不支持 `--path` 参数，需要启用此模式用其他方式实现 `--path` 的功能。 |
 | node_free_password    | Boolean | 否   | false                                | SeaTunnel 节点与 ClickHouse 服务节点之间是否配置了免密登录。文件传输使用 `scp`/`rsync`，因此 SeaTunnel 需要访问 ClickHouse 服务节点；已配置免密登录时设为 `true`，否则需在 `node_pass` 中配置对应节点的密码。 |
-| node_pass | Array | 是 | - | ClickHouse 节点的 SSH 连接配置，包含节点地址、SSH 用户名和密码，例如 `[{node_address = "node1", username = "ssh_user", password = "ssh_password"}]`。 |
+| node_pass | Array | 是 | - | 分片节点的 SSH 配置。`node_address` 使用 `system.clusters` 返回的分片主机名。每项都必须填写 `node_address` 和 `password`。`username` 默认为 `root`。使用 `root` 免密登录时，设置 `node_free_password = true` 和 `node_pass = []`。 |
 | key_path              | String  | 否   | -                                    | 文件传输使用的 `rsync`/`ssh` 密钥文件路径。                                                                 |
 | file_fields_delimiter | String  | 否   | `\t`                                 | ClickhouseFile 以 CSV 格式临时保存数据。如果行数据中包含该分隔符，可能导致生成的文件异常，可通过该选项更换分隔符。值必须恰好为一个字符。 |
 | file_temp_path        | String  | 否   | /tmp/seatunnel/clickhouse-local/file | ClickhouseFile 本地临时文件目录。                                                                            |
 
-### ClickhouseFile 任务示例
+### ClickhouseFile Sink 配置示例
+
+将以下 Sink 配置与作业的 Source 一起使用。请填写集群各分片的主机名和 SSH 凭据。
 
 ```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
 sink {
   ClickhouseFile {
     host = "localhost:8123"
     database = "default"
-    table = "seatunnel_table"
+    table = "seatunnel_table_dist"
     username = "default"
     password = ""
     clickhouse_local_path = "/usr/local/clickhouse/clickhouse"
     copy_method = "rsync"
     node_pass = [
-      { node_address = "localhost", username = "ssh_user", password = "ssh_password" }
+      { node_address = "shard1.example.com", username = "ssh_user", password = "ssh_password" }
     ]
     file_temp_path = "/tmp/seatunnel/clickhouse-local/file"
   }
