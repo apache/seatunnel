@@ -336,15 +336,20 @@ Without a usable primary key, the connector cannot safely apply UPDATE/DELETE ev
 
 ## CDC Metadata Fields
 
-PostgreSQL CDC exposes metadata fields that can be used by the `Metadata` transform:
+PostgreSQL CDC exposes metadata fields that can be used by the `Metadata` transform.
+
+Field names are case-sensitive and must be written exactly as shown below (e.g. `Database`, not `database`), otherwise the job fails with a "cannot find metadata field" error:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| database | STRING | Source database name. |
-| table | STRING | Source table name. |
-| rowKind | STRING | Change type, such as insert, update, or delete. |
-| ts_ms | LONG | Source event timestamp in milliseconds. |
-| delay | LONG | Delay between event time and processing time in milliseconds. |
+| Database | STRING | Source database name. |
+| Table | STRING | Source table name. |
+| RowKind | STRING | Change type; emitted as the RowKind short code: `+I` (insert), `-U` (update before), `+U` (update after), `-D` (delete). |
+| EventTime | LONG | The time when the connector fetched and processed the event, in milliseconds. |
+| Delay | LONG | Delay between the source event time and the connector fetch time, in milliseconds. |
+| SourceTimestamp | LONG | The time when the change was committed in the source database (`source.ts_ms`), in milliseconds. |
+
+The connector's metadata schema also declares `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid`, so they can be projected by the `Metadata` transform, but these keys are only populated by MySQL-CDC; with PostgreSQL CDC they are always `null`.
 
 Example:
 

@@ -199,7 +199,7 @@ schema {
 
 ### single_field_name [string]
 
-读取单值类型并且 `read_key_enabled = true` 时，指定 Redis value 输出到哪一个字段。
+`read_key_enabled = true` 时，指定 Redis value 输出到哪一个字段。
 
 该选项主要用于 `string`、`list`、`set`、`zset` 这类不能直接映射成多列对象的数据。对于本身就能解析成 JSON 对象的值（例如 `json` 格式下的 `hash` 字段），该选项不会被应用，对象按自身字段映射。
 

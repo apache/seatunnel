@@ -361,7 +361,11 @@ The schema fields of redis data. For more details, please refer to [Schema Featu
 
 ### single_field_name [string]
 
-Specifies the field name for Redis values when `read_key_enabled = true` and the value is a single primitive (e.g., `string`, `int`).
+Specifies the field name for Redis values when `read_key_enabled = true`. In a
+single-table configuration this option is required whenever
+`read_key_enabled = true`, no matter which `data_type` is configured. For single
+primitive values (e.g., `string`, `int`) it names the schema column the value is
+mapped to, and reading fails without it.
 
 This name is used in the schema to map the value field.
 
