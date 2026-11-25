@@ -34,6 +34,8 @@ import ChangeLog from '../changelog/connector-file-obs.md';
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
+  - [x] binary
   - [x] markdown
   - [x] pdf
 
@@ -93,7 +95,7 @@ It only supports hadoop version **2.9.X+**.
 | binary_complete_file_mode | boolean | no | false | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false. |
 | file_filter_pattern | string | no | - | Filter pattern, which used for filtering files. |
 | common-options             |         | no       | -                   | [Tips](#common_options)                                                                                                                                                                                                         |
-| sheet_name                 | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                |
+| sheet_name                 | string  | no       | -                   | The sheet of the workbook to read, only used when file_format is excel.                                                                                                                |
 | excel_engine               | string  | no       | POI                 | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                |
 | poi_excel_max_file_size    | long    | no       | 52428800            | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                |
 | file_filter_modified_start | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`. |

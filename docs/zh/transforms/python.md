@@ -18,6 +18,9 @@ SeaTunnel 会为每个 Transform 实例维护一个长生命周期的 Python Wor
 | script_config | map | 否 | |
 | columns | array | 是 | |
 | row_error_handle_way | enum | 否 | FAIL |
+| table_match_regex | string | 否 | `.*` |
+| table_transform | array | 否 | - |
+| rule_match_mode | string | 否 | `FIRST_MATCH` |
 
 ### 通用选项 [string]
 

@@ -16,6 +16,21 @@ SQL 转换使用内存中的 SQL 引擎，我们可以通过 SQL 函数和 SQL �
 | plugin_output | string | no   | -   |
 | query             | string | yes  | -   |
 | engine            | string | no   | ZETA |
+| table_match_regex | string | no   | `.*` |
+| table_transform   | array  | no   | -   |
+| rule_match_mode   | string | no   | `FIRST_MATCH` |
+
+### table_match_regex [string]
+
+转换级别规则所适用的表路径的正则表达式。默认值 `.*` 匹配所有表。
+
+### table_transform [array]
+
+针对单表的规则，参见 [多表转换](transform-multi-table.md)。
+
+### rule_match_mode [string]
+
+当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。
 
 ### plugin_input [`list<string>`]
 

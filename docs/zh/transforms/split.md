@@ -28,7 +28,7 @@ Split 转换用于把一个输入字段拆分为多个输出字段。输入值�
 | split_field       | String         | 是    | -             | 需要拆分的输入字段，必须存在于输入表中。                                    |
 | output_fields     | Array&lt;String&gt; | 是    | -             | 输出字段的名称，按顺序排列。列表不能为空。                                |
 | table_match_regex | String         | 否    | `.*`          | 转换级别规则所适用的表路径的正则表达式。                                     |
-| table_transform   | Array&lt;Map&gt;    | 否    | -             | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。             |
+| table_transform   | Array&lt;Map&gt;    | 否    | `[]`          | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。             |
 | rule_match_mode   | String         | 否    | `FIRST_MATCH`（未显式设置时，重复的 `table_path` 条目会被拒绝） | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
 | common options    | -              | 否    | -             | 转换插件的通用参数，参见 [Transform Plugin](common-options/common-options.md)。 |
 

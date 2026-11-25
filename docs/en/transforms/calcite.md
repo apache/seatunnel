@@ -116,6 +116,14 @@ Example:
 SELECT DES_DECRYPT('12345678', encrypted_secret) AS original FROM t
 ```
 
+### JSON Functions
+
+#### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+Extracts a value from a JSON string using a JSON path and returns it as a string. It shares the Zeta implementation; see [GET_JSON_OBJECT](sql-functions.md#get_json_object) for the supported path syntax and examples.
+
 ### Vector Functions
 
 #### COSINE_DISTANCE

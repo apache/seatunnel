@@ -31,7 +31,6 @@ The `EventType` enumeration defines all possible event types in the system, main
 | `SCHEMA_CHANGE_ADD_COLUMN`      | Table column addition event     | `AlterTableAddColumnEvent`      |
 | `SCHEMA_CHANGE_DROP_COLUMN`     | Table column deletion event     | `AlterTableDropColumnEvent`     |
 | `SCHEMA_CHANGE_MODIFY_COLUMN`   | Table column modification event | `AlterTableModifyColumnEvent`   |
-<<<<<<< HEAD
 | `SCHEMA_CHANGE_CHANGE_COLUMN`   | Table column change event       | `AlterTableChangeColumnEvent`   |
 | `SCHEMA_CHANGE_RENAME_TABLE`    | Table rename event              | `AlterTableNameEvent`           |
 | `SCHEMA_CHANGE_ALTER_TABLE_COMMENT` | Table comment change event  | `AlterTableCommentEvent`        |
@@ -39,18 +38,11 @@ The `EventType` enumeration defines all possible event types in the system, main
 | `SCHEMA_CHANGE_RESTORE`         | Table schema restore event      | `RestoreTableSchemaEvent`       |
 | `LIFECYCLE_ENUMERATOR_OPEN`     | Split enumerator open event     | `EnumeratorOpenEvent`           |
 | `LIFECYCLE_ENUMERATOR_CLOSE`    | Split enumerator close event    | `EnumeratorCloseEvent`          |
-=======
-| `LIFECYCLE_ENUMERATOR_OPEN`     | Enumerator open event           | `EnumeratorOpenEvent`           |
-| `LIFECYCLE_ENUMERATOR_CLOSE`    | Enumerator close event          | `EnumeratorCloseEvent`          |
->>>>>>> upstream/dev
 | `LIFECYCLE_READER_OPEN`         | Reader open event               | `ReaderOpenEvent`               |
 | `LIFECYCLE_READER_CLOSE`        | Reader close event              | `ReaderCloseEvent`              |
 | `LIFECYCLE_WRITER_CLOSE`        | Writer close event              | `WriterCloseEvent`              |
 | `READER_MESSAGE_DELAYED`        | Reader message delayed event    | `MessageDelayedEvent`           |
-<<<<<<< HEAD
 | `STAIN_TRACE`                    | Stain trace event               | `StainTraceEvent`               |
-=======
->>>>>>> upstream/dev
 
 > Note: Different event types correspond to different event data structures. When customizing an event handler, you need to judge the type through `event.getEventType()` to ensure type-safe conversion.
 
@@ -276,8 +268,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * Handle table column addition events
      */
     private void handleAddColumnEvent(AlterTableAddColumnEvent event) {
-        log.info("Column added to table | Table Name: {}, Added Columns: {}, Time: {}",
-            event.getTableName(), event.getAddedColumns(), event.getEventTime());
+        log.info("Column added to table | Table: {}, Column: {}, Time: {}",
+            event.getTablePath(), event.getColumn(), event.getCreatedTime());
         // Handle table structure change logic
     }
 
@@ -285,8 +277,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * Handle reader open events
      */
     private void handleReaderOpenEvent(ReaderOpenEvent event) {
-        log.info("Reader opened | Plugin ID: {}, Parallelism: {}, Time: {}",
-            event.getPluginId(), event.getParallelism(), event.getEventTime());
+        log.info("Reader opened | jobId: {}, Time: {}",
+            event.getJobId(), event.getCreatedTime());
         // Handle reader initialization logic
     }
 
@@ -294,8 +286,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * Handle writer close events
      */
     private void handleWriterCloseEvent(WriterCloseEvent event) {
-        log.info("Writer closed | Plugin ID: {}, Processed Record Count: {}, Time: {}",
-            event.getPluginId(), event.getRecordCount(), event.getEventTime());
+        log.info("Writer closed | jobId: {}, Time: {}",
+            event.getJobId(), event.getCreatedTime());
         // Handle writer resource cleanup logic
     }
 
