@@ -25,7 +25,7 @@ Write data to a KingbaseES database through the JDBC connector. Kingbase is conf
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-If you set `is_exactly_once = true`, the connector uses JDBC XA transactions; the driver must therefore expose an XA `DataSource`.
+The JDBC sink's driver reference lists no XA `DataSource` class for Kingbase. Keep `is_exactly_once = false` unless you have verified an XA `DataSource` for your driver version.
 
 ## Supported DataSource Info
 
@@ -73,7 +73,7 @@ If you set `is_exactly_once = true`, the connector uses JDBC XA transactions; th
 | max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                        |
 | batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                         |
 | batch_interval_ms                         | Long    | No       | 0       | Write-triggered flush interval in milliseconds. `0` disables interval flushing. When the value is greater than `0`, each write checks elapsed time and flushes synchronously if the interval has passed. |
-| is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`. Kingbase currently does not support                                                                        |
+| is_exactly_once | Boolean | No | false | Enables XA transactions with a verified driver XA class in `xa_data_source_class_name`. |
 | generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to                                                                                                                                                                     |
 | xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver，Kingbase currently does not support                                                                                                                                                     |
 | max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                        |

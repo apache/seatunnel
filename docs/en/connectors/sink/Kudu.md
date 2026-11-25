@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 ## Description
 
-Writes SeaTunnel rows to Apache Kudu tables. Each row kind is mapped to a Kudu write operation — `INSERT` rows append, `UPDATE_AFTER` rows upsert, and `DELETE` rows delete by primary key. Rows can be routed to a single target table or to multiple tables using placeholders in `table_name`.
+Writes SeaTunnel rows to Apache Kudu tables. `INSERT` rows append, `UPDATE_AFTER` rows upsert, and `DELETE` rows delete by primary key. The writer skips `UPDATE_BEFORE` rows. Rows can be routed to a single target table or to multiple tables using placeholders in `table_name`.
 
 ## Support Kudu Version
 
@@ -68,7 +68,7 @@ Writes SeaTunnel rows to Apache Kudu tables. Each row kind is mapped to a Kudu w
 
 - `table_name` is optional. If it is not set, the sink writes to the table name carried by the upstream row.
 - For multi-table jobs, use placeholders in `table_name` to route rows to different Kudu tables.
-- CDC rows are supported: `INSERT` records are appended, `UPDATE_AFTER` records are written as upserts, and `DELETE` records are deleted by key.
+- CDC rows are supported: `INSERT` records are appended, `UPDATE_AFTER` records are written as upserts, and `DELETE` records are deleted by key. The writer skips `UPDATE_BEFORE` records.
 - `batch_size` is required only for `AUTO_FLUSH_BACKGROUND` or `MANUAL_FLUSH`. `buffer_flush_interval`
   is required only for `AUTO_FLUSH_BACKGROUND`.
 - When `enable_kerberos = true`, both `kerberos_principal` and `kerberos_keytab` are required.

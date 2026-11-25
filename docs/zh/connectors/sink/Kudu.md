@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 ## 描述
 
-将 SeaTunnel 行写入 Apache Kudu 表。连接器按照行的变更类型映射 Kudu 写入操作：`INSERT` 行 append，`UPDATE_AFTER` 行 upsert，`DELETE` 行按主键删除。可以通过 `table_name` 中的占位符将数据路由到多张目标表。
+将 SeaTunnel 行写入 Apache Kudu 表。`INSERT` 行追加写入，`UPDATE_AFTER` 行执行 upsert，`DELETE` 行按主键删除。Writer 会跳过 `UPDATE_BEFORE` 行。可以通过 `table_name` 中的占位符将数据路由到多张目标表。
 
 ## 支持的 Kudu 版本
 
@@ -68,7 +68,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 - `table_name` 是可选参数。不配置时，Sink 会写入上游数据行携带的表名。
 - 多表写入时，可以在 `table_name` 中使用占位符，把不同来源表的数据写入不同 Kudu 表。
-- 支持 CDC 数据：插入记录会追加写入，更新记录会按 upsert 写入，删除记录会按主键删除。
+- 支持 CDC 数据：插入记录会追加写入，更新记录会按 upsert 写入，删除记录会按主键删除。Writer 会跳过 `UPDATE_BEFORE` 记录。
 - `batch_size` 只在 `AUTO_FLUSH_BACKGROUND` 或 `MANUAL_FLUSH` 模式下需要配置；`buffer_flush_interval`
   只在 `AUTO_FLUSH_BACKGROUND` 模式下需要配置。
 - 当 `enable_kerberos = true` 时，必须同时配置 `kerberos_principal` 和 `kerberos_keytab`。

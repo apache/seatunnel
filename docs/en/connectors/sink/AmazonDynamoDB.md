@@ -35,7 +35,7 @@ The target table must already exist. The connector writes each row as a DynamoDB
 | multi_table_sink_replica | int | no       | 1             | Sink writer replicas for each table.             |
 | max_retries         | int    | no       | 10            | Retries for unprocessed items returned by DynamoDB. Must be at least `0`. |
 | retry_base_delay_ms | long   | no       | 100           | Initial retry backoff delay in milliseconds.     |
-| retry_max_delay_ms  | long   | no       | 5000          | Maximum retry backoff delay in milliseconds (exponential). |
+| retry_max_delay_ms  | long   | no       | 5000          | Maximum exponential backoff in milliseconds before jitter is added. |
 | common-options      | object | no       | -             | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### url [string]
@@ -84,7 +84,7 @@ The base delay, in milliseconds, used by exponential backoff between retries.
 
 ### retry_max_delay_ms [long]
 
-The maximum delay, in milliseconds, between retries.
+The exponential backoff is capped at this many milliseconds before adding up to 50% of the capped delay as jitter.
 
 ### common options
 

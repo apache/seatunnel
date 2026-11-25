@@ -25,7 +25,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-如果启用 `is_exactly_once = true`，连接器会使用 JDBC XA 事务，因此驱动必须暴露 XA `DataSource`。
+JDBC Sink 的驱动参考表没有为 Kingbase 列出 XA `DataSource` 类。请保持 `is_exactly_once = false`，直到确认当前驱动提供可用的 XA `DataSource`。
 
 ## 支持的数据源信息
 
@@ -73,7 +73,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | max_retries                               | Int     | 否   | 0       | 提交失败的重试次数 (executeBatch)                                                                                                                                                                                        |
 | batch_size                                | Int     | 否   | 1000    | 对于批量写入，当缓冲记录数达到 `batch_size` 数量或时间达到 `checkpoint.interval` 时<br/>，数据将被刷新到数据库                                                         |
 | batch_interval_ms                         | Long    | 否   | 0       | 写入触发的定时刷新间隔，单位毫秒。`0` 表示关闭定时刷新；大于 `0` 时，每次写入会检查距离上次刷新是否已超过该间隔，超过则同步刷新。 |
-| is_exactly_once                           | Boolean | 否   | false   | 是否启用精确一次语义，这将使用 Xa 事务。如果启用，您需要<br/>设置 `xa_data_source_class_name`。Kingbase 目前不支持                                                                        |
+| is_exactly_once | Boolean | 否 | false | 启用 XA 事务时，需要在 `xa_data_source_class_name` 中填写已验证的驱动 XA 类。 |
 | generate_sink_sql                         | Boolean | 否   | false   | 根据您要写入的数据库表生成 sql 语句                                                                                                                                                                     |
 | xa_data_source_class_name                 | String  | 否   | -       | 数据库驱动程序的 xa 数据源类名，Kingbase 目前不支持                                                                                                                                                     |
 | max_commit_attempts                       | Int     | 否   | 3       | 事务提交失败的重试次数                                                                                                                                                                                        |
