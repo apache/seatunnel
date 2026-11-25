@@ -50,7 +50,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | key_tags                    | array  | 否  | -            | 写为 InfluxDB tag 的字段名。其他字段会写为 point field。               |
 | batch_size                  | int    | 否  | 1024         | 缓存多少个 point 后写入 InfluxDB。                                |
 | max_retries                 | int    | 否  | -            | 写入失败时的最大重试次数。                                            |
-| write_timeout               | int    | 否  | 5            | InfluxDB 客户端写入超时时间。                                      |
+| write_timeout               | int    | 否  | 5            | InfluxDB 客户端写入超时时间。注意：当前连接器并未实际应用该参数。                                      |
 | retry_backoff_multiplier_ms | int    | 否  | -            | 重试等待时间的倍数，单位毫秒。                                          |
 | max_retry_backoff_ms        | int    | 否  | -            | 两次重试之间的最大等待时间，单位毫秒。                                     |
 | rp                          | string | 否  | -            | 写入时使用的 retention policy。                                  |
@@ -115,7 +115,7 @@ InfluxDB 用户密码。
 
 ### write_timeout [int]
 
-InfluxDB 客户端写入超时时间，单位秒。
+InfluxDB 客户端写入超时时间，单位秒。注意：该参数目前仅为向后兼容而保留，连接器并未实际应用它——底层 HTTP 客户端仅使用 `connect_timeout_ms` 和 `query_timeout_sec`。
 
 ### rp [string]
 

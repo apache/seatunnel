@@ -17,7 +17,7 @@
 
 | 名称 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| sql | string | 是 | - | 要执行的 SQL 语句 |
+| sql | string | 条件必填 | - | 要执行的 SQL 语句 |
 | table_transform | list | 否 | [] | 多表 CDC 场景下的逐表 SQL 覆盖 |
 | table_match_regex | string | 否 | .* | 表路径匹配正则。不匹配的表直接透传 |
 | row_error_handle_way | enum | 否 | FAIL | 行级错误处理方式：`FAIL`、`SKIP`、`ROUTE_TO_TABLE` |
@@ -28,6 +28,8 @@
 ```hocon
 sql = "SELECT id, UPPER(name) AS name, age + 1 AS next_age FROM source_table WHERE age > 18"
 ```
+
+未配置 `table_transform` 时必须配置全局 `sql`（显式配置空的 `table_transform` 列表同样要求配置）。配置了 `table_transform` 后，每个条目必须自带 `sql`，此时全局 `sql` 变为可选：未列出的表在配置了全局 `sql` 且其表路径匹配 `table_match_regex`（默认 `.*`）时回退到该语句；不在正则范围内的表直接透传。
 
 ### table_transform [list]
 
@@ -120,6 +122,14 @@ SELECT DES_ENCRYPT('12345678', secret) AS encrypted FROM t
 ```sql
 SELECT DES_DECRYPT('12345678', encrypted_secret) AS original FROM t
 ```
+
+### JSON 函数
+
+#### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+使用 JSON 路径从 JSON 字符串中提取值并返回字符串。该函数与 Zeta 实现共享，路径语法与示例参见 [GET_JSON_OBJECT](sql-functions.md#get_json_object)。
 
 ### 向量函数
 

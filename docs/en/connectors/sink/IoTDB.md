@@ -61,7 +61,7 @@ Used to write data to IoTDB.
 | max_thrift_frame_size       | Integer | No       | -                              | Thrift max frame size in IoTDB client                                                                                                                             |
 | zone_id                     | string  | No       | -                              | java.time.ZoneId in IoTDB client                                                                                                                                  |
 | enable_rpc_compression      | Boolean | No       | -                              | Enable rpc compression in IoTDB client                                                                                                                            |
-| connection_timeout_in_ms    | Integer | No       | -                              | The maximum time (in ms) to wait when connecting to IoTDB                                                                                                         |
+| connection_timeout_in_ms    | Integer | No       | -                              | The maximum time (in ms) to wait when connecting to IoTDB. NOTE: this option requires `enable_rpc_compression` to be set; configuring it without `enable_rpc_compression` fails configuration loading. |
 | common-options              |         | no       | -                              | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                       |
 
 ## Write Rules

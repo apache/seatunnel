@@ -48,9 +48,9 @@ Used to read data from Apache Doris.
 | TINYINT                              | TINYINT                                                                                                                                             |
 | SMALLINT                             | SMALLINT                                                                                                                                            |
 | BIGINT                               | BIGINT                                                                                                                                              |
-| LARGEINT                             | STRING                                                                                                                                              |
+| LARGEINT                             | DECIMAL(20,0)                                                                                                                                       |
 | BOOLEAN                              | BOOLEAN                                                                                                                                             |
-| DECIMAL                              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
+| DECIMAL                              | DECIMAL(p, s), where `p` is the column precision and `s` is the column scale; when the column does not define them, DECIMAL(38, 10) is used. On Doris 1.2.x a defined scale of 0 also falls back to 10.         |
 | FLOAT                                | FLOAT                                                                                                                                               |
 | DOUBLE                               | DOUBLE                                                                                                                                              |
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |

@@ -262,6 +262,7 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | access_key_id                             | String  | No       |                              |
 | secret_access_key                         | String  | No       |                              |
 | region                                    | String  | No       |                              |
+| multi_table_sink_replica                  | Int     | No       | 1                            |
 
 ### driver [string]
 
@@ -360,11 +361,11 @@ The time in seconds to wait for the database operation used to validate the conn
 
 ### connect_timeout_ms [int]
 
-Connection timeout in milliseconds when establishing the JDBC connection. The default is 24 hours. Set it to `0` to disable the timeout.
+Connection timeout in milliseconds when establishing the JDBC connection. The default is 24 hours. Set it to `0` to use the driver default (no explicit timeout). Currently this option is only applied by the Hive dialect; other dialects ignore it.
 
 ### socket_timeout_ms [int]
 
-Socket read timeout in milliseconds after the JDBC connection is established. The default is 24 hours. Set it to `0` to disable the timeout.
+Socket read timeout in milliseconds after the JDBC connection is established. The default is 24 hours. Set it to `0` to use the driver default (no explicit timeout). Currently this option is only applied by the Hive dialect; other dialects ignore it.
 
 ### max_retries [int]
 
@@ -1018,9 +1019,13 @@ sink {
 }
 ```
 
-`dialect = "Dsql"` selects Amazon Aurora DSQL. AWS credentials are read from `access_key_id` / `secret_access_key`
-(and `region`) rather than from a username/password pair. Aurora DSQL does not support XA, so leave
-`is_exactly_once` at its default of `false`.
+`dialect = "Dsql"` selects Amazon Aurora DSQL. Set `username` to the database role. The connector uses
+`access_key_id`, `secret_access_key`, and `region` to generate the IAM token it supplies as the JDBC password.
+Leave `is_exactly_once` at its default of `false` because Aurora DSQL does not support XA.
+
+### multi_table_sink_replica [int]
+
+The replica number of the multi-table sink writer. Must be at least 1. The default value is `1`.
 
 ## Troubleshooting
 
