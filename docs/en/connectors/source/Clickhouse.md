@@ -44,11 +44,13 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | Int16 / UInt8                                                                                                                                 | SMALLINT            |
 | Int32 / UInt16                                                                                                                                | INT                 |
 | Int64 / UInt32 / UInt64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond | BIGINT       |
+| Bool                                                                                                                                          | BOOLEAN             |
 | Float64                                                                                                                                       | DOUBLE              |
 | Decimal                                                                                                                                       | DECIMAL             |
 | Float32                                                                                                                                       | FLOAT               |
 | Date                                                                                                                                          | DATE                |
 | DateTime / DateTime32 / DateTime64                                                                                                            | TIMESTAMP           |
+| UUID / IPv4 / IPv6                                                                                                                            | STRING              |
 | Array                                                                                                                                         | ARRAY               |
 | Map                                                                                                                                           | MAP                 |
 

@@ -19,7 +19,7 @@ SQL transform use memory SQL engine, we can via SQL functions and ability of SQL
 
 ### plugin_input [`list<string>`]
 
-The source table name(s). The query SQL table name must match this field. If not configured, the input catalog table name is used. In multi-table scenarios this option accepts a list of table names, of which the SQL reads the first one.
+The upstream plugin identifier(s). The query SQL must reference the input table by the first identifier in this list, which is used as the SQL relation name (alias). If not configured, the input catalog table name is used. In multi-table scenarios this option accepts a list of upstream identifiers, but only the first entry is used, as that relation name. The SQL transform is applied per input catalog table — every connected input table is processed and its rows are routed by table ID — so this list is not a filter that restricts the transform to the first table.
 
 ### query [string]
 
