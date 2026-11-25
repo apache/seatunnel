@@ -26,6 +26,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 - [x] 文件格式类型
   - [x] 文本
   - [x] CSV
+  - [x] parquet
+  - [x] orc
   - [x] JSON
   - [x] Excel
   - [x] XML
@@ -70,6 +72,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | skip_header_row_number      | long    | 否    | 0                   |
 | schema                      | config  | 否    | -                   |
 | sheet_name                  | string  | 否    | -                   |
+| excel_use_header_line      | boolean | 否       | false                       |
 | excel_engine                | string  | 否    | POI                |
 | poi_excel_max_file_size     | long    | 否    | 52428800           |
 | xml_row_tag                 | string  | 否    | -                   |

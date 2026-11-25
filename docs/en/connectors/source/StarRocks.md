@@ -78,6 +78,10 @@ e.g.
 
 The schema of the StarRocks rows that SeaTunnel will emit. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
+When a boolean value returned by StarRocks is declared as `TINYINT` in the source schema,
+SeaTunnel converts `false` to `0` and `true` to `1` as byte values, preserving `null`.
+Declaring the field as `BOOLEAN` preserves boolean values.
+
 e.g.
 
 ```

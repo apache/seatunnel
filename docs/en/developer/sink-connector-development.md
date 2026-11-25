@@ -83,6 +83,19 @@ Do not stop after a happy-path write test. Verify what happens when:
 - the sink sees duplicate commit requests
 - the target table schema changes
 
+## Schema Evolution Contract
+
+`SupportSchemaEvolutionSinkWriter.applySchemaChange` must finish the schema transition before
+returning and propagate failures to the task. Drain older buffered writes and establish the
+required external commit boundary before applying DDL; flushing or preparing an XA transaction
+alone does not prove that it has committed. Synchronize all internal writer replicas that share
+the physical destination.
+
+Schema changes can be delivered again after recovery, so physical DDL must tolerate an already
+applied change and converge to the expected schema. Handle `RestoreTableSchemaEvent` by rebuilding
+runtime schema and serializers without issuing physical DDL. This event restores checkpointed
+writer metadata; it does not roll back changes already made in the external database.
+
 ## Design Checklist
 
 Before coding, answer these questions:
