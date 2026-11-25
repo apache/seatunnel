@@ -196,13 +196,17 @@ Kerberos 的 keytab 文件路径
 
 我们使用模板来自动创建 Hive 表，它将根据上游数据类型和模式类型创建相应的建表语句，默认模板可以根据情况进行修改。可用的模板变量：${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}, ${current_timestamp}。
 
-**默认值**: 当未指定时，使用默认的 PARQUET 非分区表模板：
+**默认值**: 当未指定时，建表通过 Hive metastore 客户端完成，生成 PARQUET 非分区托管表。等价的默认模板如下（metastore 路径写入的表属性为 `seatunnel.creation.mode = default_template`，因此下方模板保持相同取值；`${current_timestamp}` 会被替换为建表时的毫秒时间戳）：
 ```sql
 CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
   ${rowtype_fields}
 )
 STORED AS PARQUET
 LOCATION '${table_location}'
+TBLPROPERTIES (
+  'seatunnel.creation.mode' = 'default_template',
+  'seatunnel.created.time' = '${current_timestamp}'
+)
 ```
 
 ### 通用选项

@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-> 默认的 `semantics = NON` 直接发送记录，不使用 Kafka 事务；失败时可能丢失或重复发送记录。要在 checkpoint 时提交 Kafka 事务，请设置 `semantics = EXACTLY_ONCE` 并开启 checkpoint。
+> 默认的 `semantics = NON` 直接发送记录，不使用 Kafka 事务。故障时可能丢失或重复发送记录。设置 `semantics = EXACTLY_ONCE` 并启用 checkpoint 后，Sink 会随 checkpoint 提交 Kafka 事务。参见[语义](#语义)。
 
 ## 描述
 

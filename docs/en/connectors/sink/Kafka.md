@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-> With the default `semantics = NON`, the sink sends records without Kafka transactions; a failure can lose or duplicate records. To commit Kafka transactions at checkpoints, set `semantics = EXACTLY_ONCE` and enable checkpointing.
+> The default `semantics = NON` sends records without Kafka transactions. A failure can lose or duplicate records. Set `semantics = EXACTLY_ONCE` and enable checkpointing to commit Kafka transactions at checkpoints. See [Semantics](#semantics).
 
 ## Description
 
