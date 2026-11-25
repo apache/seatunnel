@@ -64,7 +64,6 @@ Read data from Apache Paimon.
 | dlf.access-key-secret   | String   | Yes when `token.provider` is `dlf` | -             | DLF access key secret. |
 | dlf.security-token      | String   | No             | -             | Optional temporary DLF security token. |
 | dlf.region              | String   | No             | -             | DLF region. Inferred from `catalog_uri` when omitted. |
-| database                | String   | Yes            | -             | The database you want to access.                                                                                             |
 | database                | String   | Yes when `table_list` is absent | -             | The database you want to access. Not used when reading via `table_list`; each `table_list` item carries its own `database`.  |
 | table                   | String   | Yes when `table_list` is absent | -             | The table you want to access. Configure exactly one of `table` and `table_list`.                                              |
 | table_list              | array    | Yes when `table` is absent | -             | The list of tables to read. Each item must contain `database` and `table`, and may contain its own `query`.                                  |
@@ -407,7 +406,7 @@ For `catalog_type = "rest"`, use the managed warehouse name instead of a storage
 
 ### Does Paimon source support column projection?
 
-Yes. The Paimon source reads only the projection fields defined in the SeaTunnel job schema, avoiding unnecessary column deserialization and optimizing read performance on columnar formats like ORC and Parquet.
+Yes. The Paimon source reads only the columns listed in the `SELECT` clause of the `query` option (for example, `select id, name from st_test`). Columns that are not selected are not read, avoiding unnecessary column deserialization and improving read performance on columnar formats like ORC and Parquet. Note that a job-level `schema` block is not used for column projection.
 
 ## Changelog
 

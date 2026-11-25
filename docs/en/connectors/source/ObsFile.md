@@ -34,6 +34,8 @@ import ChangeLog from '../changelog/connector-file-obs.md';
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
+  - [x] binary
   - [x] markdown
   - [x] pdf
 
@@ -93,7 +95,7 @@ It only supports hadoop version **2.9.X+**.
 | binary_complete_file_mode | boolean | no | false | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false. |
 | file_filter_pattern | string | no | - | Filter pattern, which used for filtering files. |
 | common-options             |         | no       | -                   | [Tips](#common_options)                                                                                                                                                                                                         |
-| sheet_name                 | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                |
+| sheet_name                 | string  | no       | -                   | The sheet of the workbook to read, only used when file_format is excel.                                                                                                                |
 | excel_engine               | string  | no       | POI                 | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                |
 | poi_excel_max_file_size    | long    | no       | 52428800            | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                |
 | file_filter_modified_start | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
@@ -425,27 +427,9 @@ schema {
 
 ```
 
-### Reading with Temporary Security Credentials (OBS STS)
+### Temporary Security Credentials (OBS STS)
 
-For production jobs that need scoped, short-lived access, generate temporary AK/SK via [OBS STS](https://support.huaweicloud.com/intl/en-us/api-obs/obs_04_0081.html) and pass them through `hadoop_obs_properties`. The temporary credentials can carry a fine-grained custom policy that limits access to a specific bucket prefix.
-
-```hocon
-source {
-  ObsFile {
-    path = "/staging/prefix"
-    bucket = "obs://target-bucket"
-    endpoint = "obs.ap-southeast-1.myhuaweicloud.com"
-    hadoop_obs_properties = {
-      "fs.obs.access.key"    = "<temp-access-key>"
-      "fs.obs.secret.key"    = "<temp-secret-key>"
-      "fs.obs.session.token" = "<temp-security-token>"
-    }
-    file_format_type = "parquet"
-  }
-}
-```
-
-The provider jar must be on the runtime classpath of every node (`${SEATUNNEL_HOME}/lib`). Avoid long-lived AK/SK in job files; prefer STS-issued temporary credentials or an ECS Agency when running inside Huawei Cloud.
+This connector cannot currently use OBS STS temporary credentials. It only maps `access_key`, `access_secret`, and `endpoint` into the Hadoop OBS configuration, and there is no pass-through for the session token that OBS STS credentials always carry (`ObsConf.buildWithReadonlyConfig` installs only those three keys), so token-bound temporary credentials fail at connection time. Carrying a security token or a credential provider would require a separate, tested connector change. Configure a long-lived AK/SK with a least-privilege policy scoped to the target bucket prefix through the standard options instead, and avoid committing long-lived AK/SK to job files in shared environments.
 
 ## Changelog
 
