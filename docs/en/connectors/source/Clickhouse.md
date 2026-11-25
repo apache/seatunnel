@@ -76,7 +76,7 @@ Table list configuration (when using `table_list`):
 |-------------------|--------|----------|------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | table_path        | String | NO       | -                      | The full path of the table for this entry, for example `default.table`.                                                                                                                                                                                                                                     |
 | sql               | String | NO       | -                      | The query SQL used to search data through the ClickHouse server.                                                                                                                                                                                                                                            |
-| filter_query      | String | NO       | -                      | Data filtering in ClickHouse. The format is `field = value`, for example `filter_query = "id > 2 and type = 1"`.                                                                                                                                                                                          |
+| filter_query | String | NO | - | Predicate for table or part reads. For custom `sql`, put the filter in the SQL `WHERE` clause. |
 | partition_list    | Array  | NO       | -                      | Table partition list to filter the specified partition, for example `partition_list = ["20250615", "20250616"]`.                                                                                                                                                                                            |
 | split_size        | int    | NO       | `Integer.MAX_VALUE`    | The number of ClickHouse parts grouped into each SeaTunnel split when configured inside `table_list`. The minimum value is `1`.                                                                                                                                                                              |
 | batch_size        | int    | NO       | `1024`                 | The maximum number of rows that can be obtained by reading from ClickHouse once for this entry.                                                                                                                                                                                                             |
@@ -88,7 +88,7 @@ The Clickhouse source connector supports parallel reading of data.
 
 For query table mode, the `table_path` parameter is set and the parallel reading is implemented based on the part file of table, which is obtained from the `system.parts` table.
 
-For sql mode, the parallel reading is implemented based on the parallelism execution of local table-based queries on each shard of the cluster. If the `sql` parameter specifies a distributed table, the corresponding local table will be automatically converted to execute the query. If the `sql` specifies a local table, the node configured by the `host` parameter will be used as the shard to perform parallelism reading.
+In SQL mode, simple queries can run against the local table on each shard of the cluster. If the `sql` parameter specifies a distributed table, the corresponding local table will be automatically converted to execute the query. If the `sql` specifies a local table, the node configured by the `host` parameter will be used as the shard to perform parallelism reading.
 
 If both the `table_path` and `sql` parameters are set, it will be executed in sql mode, and the `table_path` parameter can be used to better identify the metadata of the table.
 
@@ -115,7 +115,7 @@ Use the `table_list` option and provide one entry per table. Each entry can over
 
 ### What happens when both `table_path` and `sql` are configured?
 
-The connector switches to SQL mode and uses `sql` as the actual query, while `table_path` is used only to identify the table metadata (database/table name). In this mode parallel reading is implemented by distributing the query across shards.
+The connector switches to SQL mode and uses `sql` as the actual query, while `table_path` is used only to identify the table metadata (database/table name). Simple SQL can run in parallel across shards. Complex SQL uses a single split on the first shard.
 
 ## How to Create a Clickhouse Data Synchronization Jobs
 

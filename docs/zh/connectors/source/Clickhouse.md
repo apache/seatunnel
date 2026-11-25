@@ -75,7 +75,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 |----------------|--------|------|------|--------------------------------------------------------------------------------------|
 | table_path     | String | 否    | -    | 数据表的完整路径, 例如: `default.table`.                                                       |
 | sql            | String | 否    | -    | 用于通过Clickhouse服务搜索数据的查询sql.                                                          |
-| filter_query   | String | 否    | -    | 数据过滤条件. 格式为: "field = value", 例如 : filter_query = "id > 2 and type = 1"              |
+| filter_query | String | 否 | - | 查表或按 part 读取时使用的过滤条件。配置自定义 `sql` 时，把过滤条件写入 SQL 的 `WHERE` 子句。 |
 | partition_list | Array  | 否    | -    | 指定分区列表过滤数据. 如果是分区表，该字段可以配置为过滤指定分区的数据。. 例如: partition_list = ["20250615", "20250616"] |
 | split_size     | int    | 否    | Integer.MAX_VALUE | 在 `table_list` 内配置时，每个 SeaTunnel split 包含的 ClickHouse part 数量。只有把配置展开到 source 外层时才使用 `split.size`。最小值为 `1`，值越小，拆分越多，并行读取粒度越细。 |
 | batch_size     | int    | 否    | 1024 | 从Clickhouse读取一次可以获得的最大数据行数。                                                          |
@@ -88,7 +88,7 @@ Clickhouse源连接器支持并行读取数据。
 
 当仅指定`table_path`参数时，连接器根据从`system.parts`系统表中获取的数据表的part文件实现并行读取。
 
-当仅指定`sql`参数时，连接器在集群的每个分片上基于本地表执行查询来实现并发读取。如果`sql`参数指定了一个分布式表，则会根据分布式表引擎的集群名获取分片列表执行并发读取。如果`sql`指定了一个本地表，那么`host`参数配置的节点列表将被视作集群分片列表执行并发读取。
+当仅指定 `sql` 参数时，简单查询可以在集群各分片的本地表上并发执行。如果`sql`参数指定了一个分布式表，则会根据分布式表引擎的集群名获取分片列表执行并发读取。如果`sql`指定了一个本地表，那么`host`参数配置的节点列表将被视作集群分片列表执行并发读取。
 
 如果同时设置了`table_path`和`sql`参数，则将在sql模式下执行。推荐在指定`sql`参数时同时配置`table_path`参数以更好地识别表的元数据。
 
@@ -114,7 +114,7 @@ ClickHouse Source 接受以逗号分隔的多个 `host:port` 字符串作为同�
 
 ### 同时配置 `table_path` 和 `sql` 时会发生什么？
 
-连接器会切换到 SQL 模式，真正执行查询的是 `sql`，而 `table_path` 仅用于识别表元数据（数据库/表名）。此模式下并行读取通过在每个分片上分发查询实现。
+连接器会切换到 SQL 模式，真正执行查询的是 `sql`，而 `table_path` 仅用于识别表元数据（数据库/表名）。简单 SQL 可分发到多个分片并行执行。复杂 SQL 使用第一个分片上的单个 split。
 
 ## 如何创建Clickhouse数据同步作业
 
