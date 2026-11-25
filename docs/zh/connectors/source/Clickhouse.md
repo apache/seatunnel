@@ -40,14 +40,16 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 |-----------------------------------------------------------------------------------------------------------------------------------------------|---------------------|
 | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            | STRING              |
 | Int8                                                                                                                                          | TINYINT             |
-| UInt8 / Int16                                                                                                                                 | SMALLINT            |
-| UInt16 / Int32                                                                                                                                | INT                 |
-| UInt64 / Int64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond | BIGINT              |
+| Int16 / UInt8                                                                                                                                 | SMALLINT            |
+| Int32 / UInt16                                                                                                                                | INT                 |
+| Int64 / UInt32 / UInt64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond | BIGINT       |
+| Bool                                                                                                                                          | BOOLEAN             |
 | Float64                                                                                                                                       | DOUBLE              |
 | Decimal                                                                                                                                       | DECIMAL             |
 | Float32                                                                                                                                       | FLOAT               |
 | Date                                                                                                                                          | DATE                |
-| DateTime                                                                                                                                      | TIMESTAMP           |
+| DateTime / DateTime32 / DateTime64                                                                                                            | TIMESTAMP           |
+| UUID / IPv4 / IPv6                                                                                                                            | STRING              |
 | Array                                                                                                                                         | ARRAY               |
 | Map                                                                                                                                           | MAP                 |
 
@@ -75,6 +77,8 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | batch_size     | int    | 否    | 1024 | 从Clickhouse读取一次可以获得的最大数据行数。                                                          |
 
 注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。展开到外层时，分片大小参数使用 `split.size`，而不是 `split_size`。
+
+注意: 每一个 `table_list` 条目（或展平后的外层配置）必须至少配置 `table_path` 和 `sql` 中的一个。如果两者都为空，连接器会抛出 `table_path` and `sql` parameter cannot be both empty. 错误。
 
 ## 并行读取
 

@@ -316,11 +316,12 @@ source {
 }
 ```
 
-### 心跳（Heartbeat action）
+### 心跳动作（Heartbeat action）
 
-当上游长时间没有变更时，可以使用 `debezium.heartbeat.action.query` 参数在空闲期间保持 offset 与变更事件继续流动。
-配合 `debezium.heartbeat.interval.ms` 使用，让该动作按固定频率执行。SQL Server CDC 没有 replication slot
-可供心跳保活，心跳写入也不会固定消费所需的 LSN 区间，因此心跳不能替代合适的 change table 保留策略与延迟监控。
+可以使用 `debezium.heartbeat.action.query` 选项在连接器发出心跳事件时执行一个动作。注意：SQL Server 的轮询循环
+不会自行派发空闲心跳，因此该动作仅在连接器实际发出心跳时执行。该动作通过源数据库连接执行并刷新
+SQL Server CDC 的 LSN 追踪；它不会固定任何消费者的保留窗口，也不能替代正确配置的 CDC 保留期与故障/延迟监控
+（参见 [Microsoft CDC 清理文档](https://learn.microsoft.com/en-us/sql/relational-databases/track-changes/administer-and-monitor-change-data-capture-sql-server#cleanup-job)）。
 
 ```hocon
 source {

@@ -274,7 +274,7 @@ When file format is Excel, the maximum number of rows per sheet.
 
 Writer the sheet of the workbook
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 When File Format is CSV,The string quote mode of CSV.
 
@@ -604,8 +604,12 @@ Users on the default CDC source config (`schema-changes.enabled = false`) are co
 Example usage in a CDC pipeline:
 
 ```hocon
-LocalFile {
-    path = "/tmp/cdc/${table_name}"
+OssFile {
+    bucket = "oss://whale-ops"
+    access_key = "xxxxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxx"
+    endpoint = "https://oss-accelerate.aliyuncs.com"
+    path = "/cdc/${table_name}"
     file_format_type = "parquet"
     schema_evolution_enabled = true
     have_partition = true

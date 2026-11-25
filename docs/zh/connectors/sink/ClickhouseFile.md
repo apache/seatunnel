@@ -46,6 +46,8 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | file_fields_delimiter  | string  | no   | "\t"                                   | 暂存 CSV 文件中的字段分隔符。值必须正好为一个字符，请选择业务字段中不会出现的字符。 |
 | file_temp_path         | string  | no   | "/tmp/seatunnel/clickhouse-local/file" | Worker 本地用于保存暂存文件的目录；请保证磁盘空间足够容纳最大的批次写入量。 |
 | key_path | string | 否 | - | Worker 上的 SSH 私钥文件绝对路径。逐节点配置见下方的 SCP 密钥认证示例。 |
+| server_time_zone | string | 否 | ZoneId.systemDefault() | ClickHouse 连接使用的时区。 |
+| clickhouse.config | map | 否 | - | 传给 ClickHouse Java 客户端的其他配置。 |
 | common-options         |         | no   | -                                      | Sink 插件通用参数，请参考 [Sink 常用选项](../common-options/sink-common-options.md) 获取更多细节信息。 |
 
 ### host [string]
@@ -91,9 +93,11 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 用来保存所有clickhouse服务器地址及其对应的访问密码。
 
+注意: `node_pass` 为列表结构，每一个条目中都必须包含 `node_address` 和 `password` 两个属性（`username` 不配置时默认为 `root`），缺少任何一个都会导致任务初始化失败。
+
 ### node_pass.node_address [string]
 
-clickhouse服务器节点地址。
+clickhouse服务器节点地址。在 `node_pass` 每个条目中必填。
 
 ### node_pass.username [string]
 

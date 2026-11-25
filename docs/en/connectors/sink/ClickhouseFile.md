@@ -48,6 +48,8 @@ Write data to Clickhouse can also be done using JDBC
 | file_fields_delimiter  | string  | no       | "\t"                                   | Field delimiter used inside the staged CSV file. The value must be exactly one character; pick a character that never appears in any column value. |
 | file_temp_path         | string  | no       | "/tmp/seatunnel/clickhouse-local/file" | Local directory on each worker where the staged file is written before being copied to ClickHouse. Use a path with enough free disk space for the largest batch the writer produces. |
 | key_path | string | no | - | Absolute path to the SSH private key on the worker. See the SCP key authentication example for per-node entries. |
+| server_time_zone | string | no | ZoneId.systemDefault() | Time zone used by the ClickHouse connection. |
+| clickhouse.config | map | no | - | Additional ClickHouse Java client options. |
 | common-options         |         | no       | -                                      | Sink plugin common parameters, see [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### host [string]
@@ -96,9 +98,11 @@ you can configure this option to true, otherwise you need to configure the corre
 
 Used to save the addresses and corresponding passwords of all clickhouse servers
 
+Note: `node_pass` is a list; every entry must contain `node_address` and `password` (`username` falls back to `root` when not configured). Missing either one fails job initialization.
+
 ### node_pass.node_address [string]
 
-The address corresponding to the clickhouse server
+The address corresponding to the clickhouse server. Required inside each `node_pass` entry.
 
 ### node_pass.username [string]
 
