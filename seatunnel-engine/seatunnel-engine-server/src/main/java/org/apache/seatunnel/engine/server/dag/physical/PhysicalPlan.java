@@ -43,6 +43,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -222,7 +223,11 @@ public class PhysicalPlan {
         }
 
         // Re-read after the terminal guard, as before: the job may have started meanwhile.
-        if (NOT_STARTED_STATUSES.contains(getJobStatus())) {
+        // Preserve the previous fail-fast behavior if the entry disappeared between reads.
+        JobStatus currentStatus =
+                Objects.requireNonNull(
+                        getJobStatus(), "Job status was cleared during cancellation");
+        if (NOT_STARTED_STATUSES.contains(currentStatus)) {
             updateJobState(JobStatus.CANCELED);
             jobEndFuture.complete(new JobResult(JobStatus.CANCELED));
         } else {

@@ -292,6 +292,33 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
                 NullPointerException.class, () -> planWithStateMaps.physicalPlan.cancelJob());
     }
 
+    /** A status removed after the guard must fail before any cancellation side effect. */
+    @Test
+    void testCancelJobOnStatusClearedBetweenReadsFailsBeforeTransition() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+        prepareForCancel(planWithStateMaps);
+        PassiveCompletableFuture<?> jobEndFuture = planWithStateMaps.physicalPlan.initStateFuture();
+        SubPlan pipeline = Mockito.mock(SubPlan.class);
+        planWithStateMaps.physicalPlan.getPipelineList().clear();
+        planWithStateMaps.physicalPlan.getPipelineList().add(pipeline);
+        ReflectionUtils.setField(planWithStateMaps.physicalPlan, "isRunning", true);
+
+        @SuppressWarnings("unchecked")
+        IMap<Object, Object> clearedStateMap = Mockito.mock(IMap.class);
+        Mockito.when(clearedStateMap.get(jobId)).thenReturn(JobStatus.PENDING, null);
+        ReflectionUtils.setField(
+                planWithStateMaps.physicalPlan, "runningJobStateIMap", clearedStateMap);
+
+        Assertions.assertThrows(
+                NullPointerException.class, () -> planWithStateMaps.physicalPlan.cancelJob());
+
+        Mockito.verify(clearedStateMap, Mockito.times(2)).get(jobId);
+        Mockito.verify(clearedStateMap, Mockito.never()).set(Mockito.any(), Mockito.any());
+        Mockito.verifyNoInteractions(pipeline);
+        Assertions.assertFalse(jobEndFuture.isDone());
+    }
+
     /**
      * cancelJob() completes the job-end future and reports a state event, both of which need a job
      * master and an initialized future; PlanUtils alone does not wire those up.
