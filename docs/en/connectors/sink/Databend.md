@@ -83,6 +83,14 @@ Option descriptions:
 
 ## Data Type Mapping
 
+The mapping applied to a column depends on how the target table is produced. Initial table creation
+(save mode) and CDC schema-change DDL use two different converters, so they do not always agree.
+
+### Schema-Change DDL (CDC)
+
+For CDC `ADD COLUMN` / `MODIFY COLUMN` events, the connector generates DDL through
+`SchemaChangeManager`, which converts columns with `DatabendTypeConverter`:
+
 | SeaTunnel Data Type | Databend Data Type |
 |-----------------|---------------|
 | BOOLEAN | BOOLEAN |
@@ -102,6 +110,13 @@ Option descriptions:
 | MAP | MAP(STRING, STRING) |
 | ROW | STRING |
 | NULL | NULL |
+
+### Initial Table Creation (Save Mode)
+
+When `schema_save_mode` creates the target table, `DatabendCatalog.buildCreateTableSql` uses its own
+conversion, which differs from the table above: `STRING` maps to `VARCHAR`, `TIME` maps to `TIME`,
+and the `ARRAY`, `MAP`, `ROW`, and `NULL` types are not supported (table creation fails with an
+unsupported data type error).
 
 ## Task Examples
 

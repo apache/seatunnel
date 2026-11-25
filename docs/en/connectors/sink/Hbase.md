@@ -127,7 +127,7 @@ The replica number of sink writers used for each table in a multi-table sink job
 
 Controls how the sink handles the target HBase table before writing. Supported values include
 `RECREATE_SCHEMA`, `CREATE_SCHEMA_WHEN_NOT_EXIST`, `ERROR_WHEN_SCHEMA_NOT_EXIST`, and `IGNORE`
-(skip save-mode handling entirely).
+(skip schema save-mode handling only; the configured `data_save_mode` still applies).
 
 ### data_save_mode [enum]
 

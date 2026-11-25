@@ -124,7 +124,7 @@ hbase 扩展配置
 ### schema_save_mode [enum]
 
 写入前如何处理目标 HBase 表结构。支持 `RECREATE_SCHEMA`、`CREATE_SCHEMA_WHEN_NOT_EXIST`、
-`ERROR_WHEN_SCHEMA_NOT_EXIST` 和 `IGNORE`（完全跳过 SaveMode 处理）。
+`ERROR_WHEN_SCHEMA_NOT_EXIST` 和 `IGNORE`（仅跳过表结构（schema）处理，配置的 `data_save_mode` 仍会生效）。
 
 ### data_save_mode [enum]
 
