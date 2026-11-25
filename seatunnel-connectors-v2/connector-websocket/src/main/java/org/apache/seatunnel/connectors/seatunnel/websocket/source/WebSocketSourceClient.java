@@ -38,6 +38,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Keeps a single WebSocket connection to the configured server and buffers every received frame
@@ -66,15 +67,6 @@ public class WebSocketSourceClient {
     private volatile Throwable fatalError;
     private volatile boolean closed;
     private volatile long connectedTimestamp;
-
-    /**
-     * The open-message send rejected by a dying connection, see {@link
-     * SourceWebSocketListener#onOpen}. Not fatal on its own: the reconnect replaces the connection
-     * that recorded it. Only kept so that the terminal error reported after the reconnect budget is
-     * exhausted still names the send failure instead of only the transport error that broke the
-     * camel's back.
-     */
-    private volatile WebSocketConnectorException openMessageSendFailure;
 
     public WebSocketSourceClient(WebSocketSourceConfig config) {
         this.config = config;
@@ -181,12 +173,12 @@ public class WebSocketSourceClient {
         webSocket = httpClient.newWebSocket(requestBuilder.build(), new SourceWebSocketListener());
     }
 
-    private void onDisconnected(Throwable cause) {
+    private void onDisconnected(Throwable cause, WebSocketConnectorException sendFailure) {
         if (closed) {
             return;
         }
         if (!config.isEnableReconnect()) {
-            fatalError = asTerminalError(cause);
+            fatalError = asTerminalError(cause, sendFailure);
             return;
         }
         if (reconnectTimes.get() >= config.getMaxReconnectTimes()) {
@@ -194,7 +186,7 @@ public class WebSocketSourceClient {
                     "Reconnect to websocket server [{}] gave up after [{}] attempts",
                     config.getMaskedUrl(),
                     reconnectTimes.get());
-            fatalError = asTerminalError(cause);
+            fatalError = asTerminalError(cause, sendFailure);
             return;
         }
         log.warn(
@@ -205,13 +197,19 @@ public class WebSocketSourceClient {
                 config.getMaxReconnectTimes(),
                 cause);
         try {
-            reconnectScheduler.schedule(
-                    this::connect, config.getReconnectIntervalMs(), TimeUnit.MILLISECONDS);
+            scheduleReconnect();
         } catch (Exception scheduleException) {
             if (!closed) {
                 fatalError = scheduleException;
             }
         }
+    }
+
+    // package-private so tests can observe scheduled reconnects without a live server or real
+    // delays
+    void scheduleReconnect() {
+        reconnectScheduler.schedule(
+                this::connect, config.getReconnectIntervalMs(), TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -222,8 +220,7 @@ public class WebSocketSourceClient {
      * exhausted by such connections would only report the cancellation triggered by the client
      * itself, which tells the operator nothing about the actual problem.
      */
-    private Throwable asTerminalError(Throwable cause) {
-        WebSocketConnectorException sendFailure = openMessageSendFailure;
+    private Throwable asTerminalError(Throwable cause, WebSocketConnectorException sendFailure) {
         if (sendFailure == null) {
             return cause;
         }
@@ -266,42 +263,57 @@ public class WebSocketSourceClient {
     // package-private so tests can drive the callbacks against stub sockets without a live server
     class SourceWebSocketListener extends WebSocketListener {
 
+        /**
+         * The open-message send rejected by this dying connection, see {@link #onOpen}. Not fatal
+         * on its own: the reconnect replaces the connection that recorded it. Scoped to the
+         * listener instance (one per connection attempt) and consumed on disconnect so an earlier
+         * send failure can never be attributed to a later attempt that fails before {@link
+         * #onOpen}.
+         */
+        private final AtomicReference<WebSocketConnectorException> openMessageSendFailure =
+                new AtomicReference<>();
+
         @Override
         public void onOpen(WebSocket webSocket, Response response) {
+            openMessageSendFailure.set(null);
+            log.info("Websocket connection to [{}] is established", config.getMaskedUrl());
+            List<String> openMessages = config.getOpenMessages();
+            if (openMessages != null && !openMessages.isEmpty()) {
+                for (int i = 0; i < openMessages.size(); i++) {
+                    // never log the payload itself, it usually carries credentials
+                    if (!webSocket.send(openMessages.get(i))) {
+                        // a rejected send only means the connection is already dying. Recording it
+                        // as a fatal error would fail the task on the reader's next poll, which
+                        // happens within poll_timeout_ms (1000ms by default) - long before the
+                        // reconnect scheduled reconnect_interval_ms (3000ms by default) later, so a
+                        // transient disconnect right after the handshake would still kill the task,
+                        // see https://github.com/apache/seatunnel/issues/12713. Treat it as a
+                        // connection failure instead: cancel the dying socket so the regular
+                        // onFailure -> onDisconnected path schedules the reconnect, and remember
+                        // the send failure on this listener so the terminal error still names it if
+                        // this attempt exhausts the budget.
+                        openMessageSendFailure.set(
+                                new WebSocketConnectorException(
+                                        WebSocketConnectorErrorCode.SEND_MESSAGE_FAILED,
+                                        String.format(
+                                                "Failed to send open message at index [%s] to websocket server [%s]",
+                                                i, config.getMaskedUrl())));
+                        webSocket.cancel();
+                        return;
+                    }
+                }
+                log.info(
+                        "Sent [{}] open messages to [{}]",
+                        openMessages.size(),
+                        config.getMaskedUrl());
+            }
+            // Only consider the connection recovered once all open messages have been sent;
+            // resetting reconnectTimes earlier would let repeated send rejections retry forever.
             reconnectTimes.set(0);
             // a re-established connection invalidates any failure recorded for the dead one,
             // otherwise rethrowFatalIfNeeded() would kill the recovered task with a stale error
             fatalError = null;
-            openMessageSendFailure = null;
             connectedTimestamp = System.currentTimeMillis();
-            log.info("Websocket connection to [{}] is established", config.getMaskedUrl());
-            List<String> openMessages = config.getOpenMessages();
-            if (openMessages == null || openMessages.isEmpty()) {
-                return;
-            }
-            for (int i = 0; i < openMessages.size(); i++) {
-                // never log the payload itself, it usually carries credentials
-                if (!webSocket.send(openMessages.get(i))) {
-                    // a rejected send only means the connection is already dying. Recording it as
-                    // a fatal error would fail the task on the reader's next poll, which happens
-                    // within poll_timeout_ms (1000ms by default) - long before the reconnect
-                    // scheduled reconnect_interval_ms (3000ms by default) later, so a transient
-                    // disconnect right after the handshake would still kill the task, see
-                    // https://github.com/apache/seatunnel/issues/12713. Treat it as a connection
-                    // failure instead: cancel the dying socket so the regular onFailure ->
-                    // onDisconnected path schedules the reconnect, and remember the send failure
-                    // so the terminal error still names it once the budget is exhausted.
-                    openMessageSendFailure =
-                            new WebSocketConnectorException(
-                                    WebSocketConnectorErrorCode.SEND_MESSAGE_FAILED,
-                                    String.format(
-                                            "Failed to send open message at index [%s] to websocket server [%s]",
-                                            i, config.getMaskedUrl()));
-                    webSocket.cancel();
-                    return;
-                }
-            }
-            log.info("Sent [{}] open messages to [{}]", openMessages.size(), config.getMaskedUrl());
         }
 
         @Override
@@ -330,12 +342,13 @@ public class WebSocketSourceClient {
                     new IllegalStateException(
                             String.format(
                                     "Websocket connection was closed by the server, code:[%s], reason:[%s]",
-                                    code, reason)));
+                                    code, reason)),
+                    openMessageSendFailure.getAndSet(null));
         }
 
         @Override
         public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-            onDisconnected(t);
+            onDisconnected(t, openMessageSendFailure.getAndSet(null));
         }
     }
 }
