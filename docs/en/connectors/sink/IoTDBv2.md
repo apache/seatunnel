@@ -1,4 +1,4 @@
-import ChangeLog from '../changelog/connector-iotdb.md';
+import ChangeLog from '../changelog/connector-iotdb-v2.md';
 
 # IoTDBv2
 
@@ -33,6 +33,8 @@ The connector supports both the IoTDB tree model (`sql_dialect = "tree"`, defaul
 
 ## Data Type Mapping
 
+The mapping below applies to the default tree model (`sql_dialect = "tree"`). In tree mode `STRING` is written as IoTDB `TEXT`, and types not listed here (for example `TIMESTAMP` and `DATE`) are rejected with `UNSUPPORTED_DATA_TYPE`. The table model (`sql_dialect = "table"`) maps `STRING` to `STRING` and additionally supports `TIMESTAMP` and `DATE`.
+
 | SeaTunnel Data Type | IoTDB Data Type | 
 |---------------------|-----------------|
 | BOOLEAN             | BOOLEAN         |
@@ -42,9 +44,7 @@ The connector supports both the IoTDB tree model (`sql_dialect = "tree"`, defaul
 | BIGINT              | INT64           |
 | FLOAT               | FLOAT           |
 | DOUBLE              | DOUBLE          |
-| STRING              | STRING          |
-| TIMESTAMP           | TIMESTAMP       |
-| DATE                | DATE            |
+| STRING              | TEXT            |
 
 ## Sink Options
 
@@ -131,7 +131,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
-    storage_group = "root.test_group"
+    storage_group = "" # required option; empty string because `key_device` already contains the full device path
     key_device = "device_name" # specify the `deviceId` use device_name field
   }
 }
@@ -162,7 +162,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
-    storage_group = "root.test_group"
+    storage_group = "" # required option; empty string because `key_device` already contains the full device path
     key_device = "device_name" # specify the `deviceId` use device_name field
     key_timestamp = "event_ts" # specify the `timestamp` use event_ts field
   }
@@ -194,7 +194,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
-    storage_group = "root.test_group"
+    storage_group = "" # required option; empty string because `key_device` already contains the full device path
     key_device = "device_name"
     key_timestamp = "event_ts"
     key_measurement_fields = ["temperature", "moisture"]

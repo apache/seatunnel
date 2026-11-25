@@ -714,6 +714,10 @@ FtpFile {
         }
       }
       path = "/apps/hive/demo/student"
+      host = "192.168.31.48"
+      port = 21
+      user = tyrantlucifer
+      password = tianchao
       file_format_type = "json"
     },
     {
@@ -724,8 +728,13 @@ FtpFile {
         }
       }
       path = "/apps/hive/demo/teacher"
+      host = "192.168.31.48"
+      port = 21
+      user = tyrantlucifer
+      password = tianchao
       file_format_type = "json"
     }
+  ]
 }
 
 ```
