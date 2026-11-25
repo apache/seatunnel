@@ -46,9 +46,7 @@ class NativeEntrypointHelpExitCodeTest {
     @Test
     void metadataExportHelpExitsZero() throws Exception {
         assertEquals(
-                0,
-                catchSystemExit(
-                        () -> SeaTunnelMetadataExporter.main(new String[] {"--help"})));
+                0, catchSystemExit(() -> SeaTunnelMetadataExporter.main(new String[] {"--help"})));
     }
 
     @Test
