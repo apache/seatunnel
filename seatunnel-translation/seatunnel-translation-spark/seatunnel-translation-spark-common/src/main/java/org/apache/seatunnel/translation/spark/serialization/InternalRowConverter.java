@@ -75,15 +75,41 @@ import java.util.stream.IntStream;
 
 public final class InternalRowConverter extends RowConverter<InternalRow> {
     private final int[] indexes;
+    private final String sourceTable;
+    private final String[] sourceFieldNames;
 
     public InternalRowConverter(SeaTunnelDataType<?> dataType) {
-        super(dataType);
-        indexes = IntStream.range(0, ((SeaTunnelRowType) dataType).getTotalFields()).toArray();
+        this(dataType, null, null, null);
     }
 
     public InternalRowConverter(SeaTunnelDataType<?> dataType, int[] indexes) {
+        this(dataType, indexes, null, null);
+    }
+
+    /**
+     * @param sourceTable the source table path, named in value errors; {@code null} if unknown
+     * @param sourceFieldNames the source column names by source field index, used in value errors
+     *     instead of the merged {@code columnN} names; {@code null} to use the row type's names
+     */
+    public InternalRowConverter(
+            SeaTunnelDataType<?> dataType,
+            int[] indexes,
+            String sourceTable,
+            String[] sourceFieldNames) {
         super(dataType);
-        this.indexes = indexes;
+        this.indexes =
+                indexes == null
+                        ? IntStream.range(0, ((SeaTunnelRowType) dataType).getTotalFields())
+                                .toArray()
+                        : indexes;
+        this.sourceTable = sourceTable;
+        this.sourceFieldNames = sourceFieldNames;
+    }
+
+    private String sourceFieldName(int sourceIndex) {
+        return sourceFieldNames != null && sourceIndex < sourceFieldNames.length
+                ? sourceFieldNames[sourceIndex]
+                : null;
     }
 
     @Override
@@ -193,11 +219,16 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         MutableValue[] values = new MutableValue[arity + 2];
         for (int i = 0; i < indexes.length; i++) {
             values[indexes[i] + 2] = createMutableValue(rowType.getFieldType(indexes[i]));
-            Object fieldValue =
-                    convert(
-                            seaTunnelRow.getField(i),
-                            rowType.getFieldType(indexes[i]),
-                            rowType.getFieldName(indexes[i]));
+            Object fieldValue;
+            try {
+                fieldValue =
+                        convert(
+                                seaTunnelRow.getField(i),
+                                rowType.getFieldType(indexes[i]),
+                                rowType.getFieldName(indexes[i]));
+            } catch (WideDecimalUtils.InvalidWideDecimalException e) {
+                throw e.withSource(sourceTable, sourceFieldName(i));
+            }
             if (fieldValue != null) {
                 values[indexes[i] + 2].update(fieldValue);
             }
@@ -297,13 +328,19 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         String tableId = engineRow.getString(1);
         Object[] fields = new Object[indexes.length];
         for (int i = 0; i < indexes.length; i++) {
-            fields[i] =
-                    reconvert(
-                            engineRow.get(
-                                    indexes[i] + 2,
-                                    TypeConverterUtils.convert(rowType.getFieldType(indexes[i]))),
-                            rowType.getFieldType(indexes[i]),
-                            rowType.getFieldName(indexes[i]));
+            try {
+                fields[i] =
+                        reconvert(
+                                engineRow.get(
+                                        indexes[i] + 2,
+                                        TypeConverterUtils.convert(
+                                                rowType.getFieldType(indexes[i]),
+                                                rowType.getFieldName(indexes[i]))),
+                                rowType.getFieldType(indexes[i]),
+                                rowType.getFieldName(indexes[i]));
+            } catch (WideDecimalUtils.InvalidWideDecimalException e) {
+                throw e.withSource(sourceTable, sourceFieldName(i));
+            }
         }
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
         seaTunnelRow.setRowKind(rowKind);
@@ -373,10 +410,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case STRING:
                 return field.toString();
             case DECIMAL:
-                if (WideDecimalUtils.isWideDecimal(dataType)
-                        && (field instanceof UTF8String || field instanceof String)) {
-                    return WideDecimalUtils.fromCarrierText(
-                            field.toString(), (DecimalType) dataType, column);
+                if (WideDecimalUtils.isWideDecimal(dataType)) {
+                    return WideDecimalUtils.fromSparkValue(field, (DecimalType) dataType, column);
                 } else if (field instanceof Decimal) {
                     return ((Decimal) field).toJavaBigDecimal();
                 } else if (field instanceof BigDecimal) {
@@ -384,8 +419,10 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 }
                 throw new IllegalArgumentException(
                         String.format(
-                                "Unexpected Spark value of type %s for SeaTunnel %s",
-                                field.getClass().getName(), dataType));
+                                "Unexpected Spark value of type %s for %s declared as SeaTunnel %s",
+                                field.getClass().getName(),
+                                column == null ? "an ARRAY/MAP element" : "column `" + column + "`",
+                                dataType));
             case ARRAY:
                 if (field instanceof ArrayData) {
                     return reconvertArray((ArrayData) field, (ArrayType<?, ?>) dataType);
@@ -408,7 +445,10 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         for (int i = 0; i < engineRow.numFields(); i++) {
             fields[i] =
                     reconvert(
-                            engineRow.get(i, TypeConverterUtils.convert(rowType.getFieldType(i))),
+                            engineRow.get(
+                                    i,
+                                    TypeConverterUtils.convert(
+                                            rowType.getFieldType(i), rowType.getFieldName(i))),
                             rowType.getFieldType(i),
                             rowType.getFieldName(i));
         }

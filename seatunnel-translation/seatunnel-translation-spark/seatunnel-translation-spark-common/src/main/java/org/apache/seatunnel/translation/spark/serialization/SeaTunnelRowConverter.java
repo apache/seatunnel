@@ -54,15 +54,41 @@ import java.util.stream.IntStream;
 public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
 
     private final int[] indexes;
+    private final String sourceTable;
+    private final String[] sourceFieldNames;
 
     public SeaTunnelRowConverter(SeaTunnelDataType<?> dataType) {
-        super(dataType);
-        indexes = IntStream.range(0, ((SeaTunnelRowType) dataType).getTotalFields()).toArray();
+        this(dataType, null, null, null);
     }
 
     public SeaTunnelRowConverter(SeaTunnelDataType<?> dataType, int[] indexes) {
+        this(dataType, indexes, null, null);
+    }
+
+    /**
+     * @param sourceTable the source table path, named in value errors; {@code null} if unknown
+     * @param sourceFieldNames the source column names by source field index, used in value errors
+     *     instead of the merged {@code columnN} names; {@code null} to use the row type's names
+     */
+    public SeaTunnelRowConverter(
+            SeaTunnelDataType<?> dataType,
+            int[] indexes,
+            String sourceTable,
+            String[] sourceFieldNames) {
         super(dataType);
-        this.indexes = indexes;
+        this.indexes =
+                indexes == null
+                        ? IntStream.range(0, ((SeaTunnelRowType) dataType).getTotalFields())
+                                .toArray()
+                        : indexes;
+        this.sourceTable = sourceTable;
+        this.sourceFieldNames = sourceFieldNames;
+    }
+
+    private String sourceFieldName(int sourceIndex) {
+        return sourceFieldNames != null && sourceIndex < sourceFieldNames.length
+                ? sourceFieldNames[sourceIndex]
+                : null;
     }
 
     // SeaTunnelRow To GenericRow
@@ -78,11 +104,16 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
         fields[0] = seaTunnelRow.getRowKind().toByteValue();
         fields[1] = seaTunnelRow.getTableId();
         for (int i = 0; i < indexes.length; i++) {
-            Object fieldValue =
-                    convert(
-                            seaTunnelRow.getField(i),
-                            rowType.getFieldType(indexes[i]),
-                            rowType.getFieldName(indexes[i]));
+            Object fieldValue;
+            try {
+                fieldValue =
+                        convert(
+                                seaTunnelRow.getField(i),
+                                rowType.getFieldType(indexes[i]),
+                                rowType.getFieldName(indexes[i]));
+            } catch (WideDecimalUtils.InvalidWideDecimalException e) {
+                throw e.withSource(sourceTable, sourceFieldName(i));
+            }
             if (fieldValue != null) {
                 fields[indexes[i] + 2] = fieldValue;
             }
@@ -225,11 +256,15 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
         Object[] fields = new Object[indexes.length];
         for (int i = 0; i < indexes.length; i++) {
             int fieldIndex = indexes[i];
-            fields[i] =
-                    reconvert(
-                            engineRow.get(fieldIndex + 2),
-                            rowType.getFieldType(fieldIndex),
-                            rowType.getFieldName(fieldIndex));
+            try {
+                fields[i] =
+                        reconvert(
+                                engineRow.get(fieldIndex + 2),
+                                rowType.getFieldType(fieldIndex),
+                                rowType.getFieldName(fieldIndex));
+            } catch (WideDecimalUtils.InvalidWideDecimalException e) {
+                throw e.withSource(sourceTable, sourceFieldName(i));
+            }
         }
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
         seaTunnelRow.setRowKind(rowKind);
@@ -261,10 +296,8 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
                     throw e.withParent(column);
                 }
             case DECIMAL:
-                if (WideDecimalUtils.isWideDecimal(dataType)
-                        && (field instanceof String || field instanceof UTF8String)) {
-                    return WideDecimalUtils.fromCarrierText(
-                            field.toString(), (DecimalType) dataType, column);
+                if (WideDecimalUtils.isWideDecimal(dataType)) {
+                    return WideDecimalUtils.fromSparkValue(field, (DecimalType) dataType, column);
                 }
                 return field;
             case DATE:

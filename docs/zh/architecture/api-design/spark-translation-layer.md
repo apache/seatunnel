@@ -114,9 +114,10 @@ Spark 的 `DecimalType` 精度最大为 38。`TypeConverterUtils` 对 `p > 38` �
 规则：
 
 - `MultiTableManager` 在 `mergeSchema` 之前检查每个 Source 的 `CatalogTable`，因为合并后列名会变成 `column0..N`。报错信息包含表名、列路径（`.element`、`.key`、`.value`）、声明的类型、上限 38 以及绕过办法。
-- 写入（`InternalRowConverter` 和 `SeaTunnelRowConverter`）：`null` 保持为 `null`。值先用 `setScale(s, RoundingMode.UNNECESSARY)` 补齐小数位，再用 `toPlainString()` 输出。需要四舍五入或位数超过 `p` 的值以 `SPARK-TRANSLATION-02` 拒绝。
-- 读取：文本必须匹配 `-?\d+(\.\d+)?`，小数位数必须正好是 `s`，总位数不超过 `p`。其他情况一律以 `SPARK-TRANSLATION-02` 拒绝，不会重新调整小数位数。
-- Schema 回读（`TypeConverterUtils.convert(StructType)`）：带有两个 metadata 键的 `StringType` 字段会还原为 `DecimalType(p, s)`。只有一个键、键出现在其他类型上或 `p <= 38` 时，以 `SPARK-TRANSLATION-03` 拒绝。
+- 写入（`InternalRowConverter` 和 `SeaTunnelRowConverter`）：`null` 保持为 `null`。先根据未缩放值检查整数位数和小数位数，因此指数极端的值（例如 `1E+100000000`）不会被展开就直接拒绝。整数位数超过 `p - s`，或需要四舍五入才能保留 `s` 位小数的值，以 `SPARK-TRANSLATION-02` 拒绝。普通文本长度会超过 `Integer.MAX_VALUE / 4` 个字符的值同样拒绝。其余的值补齐到 `s` 位小数，再用 `toPlainString()` 输出。
+- 读取：两个转换器都只接受承载文本（`String` 或 `UTF8String`）。长度超过 `3 + p + |s|` 个字符的文本在解析前直接拒绝，写入端不会产生更长的文本。文本必须匹配 `-?\d+(\.\d+)?`，小数位数必须正好是 `s`（`s` 为负数时不能有小数，且非零值必须以 `-s` 个 0 结尾），并且按小数位数 `s` 计算的未缩放值不超过 `p` 位。其他情况（包括其他类型的值）一律以 `SPARK-TRANSLATION-02` 拒绝，不会四舍五入。`s` 为负数时按原值精确还原。
+- `SPARK-TRANSLATION-02` 的报错信息给出源表（转换器知道时给出，`MultiTableManager` 创建的作业都会给出）、列路径、声明的类型和拒绝原因，不包含值本身。多表作业中，转换器会把合并后的 `columnN` 换回源列名。
+- Schema 回读工具（`WideDecimalUtils.fromMetadata`，经由对 Spark `StructType` 调用 `TypeConverterUtils.convert(DataType)` 使用）：带有两个 metadata 键的 `StringType` 字段会还原为 `DecimalType(p, s)`。只有一个键、键出现在其他类型上、`p <= 38` 或取值超出 `int` 范围时，以 `SPARK-TRANSLATION-03` 拒绝。它供需要把 Spark schema 转回 SeaTunnel 类型的调用方使用，目前作业执行路径不会调用。
 
 行数据按 SeaTunnel 的行类型转换，因此 Transform 和 Sink 看到的始终是 `DecimalType(p, s)`。
 
