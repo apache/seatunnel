@@ -1752,11 +1752,16 @@ class Orchestrator:
             "role": "assistant",
             "content": [{"text": f"Here is the generated config:\n```hocon\n{config}\n```\n\n{explanation}"}],
         })
+        unresolved = (
+            last_validation
+            if last_validation and not last_validation.startswith("PASS")
+            else None
+        )
         content = "Config generated (validation had warnings)"
-        if last_validation and not last_validation.startswith("PASS"):
+        if unresolved:
             content = (
                 "Config generated, but validation did not pass within the "
-                f"repair budget:\n{last_validation}"
+                f"repair budget:\n{unresolved}"
             )
         result = {
             "type": "config",
@@ -1764,10 +1769,17 @@ class Orchestrator:
             "config": config,
             "explanation": explanation,
         }
+        if unresolved:
+            # A separate field rather than only `content`, because the caller
+            # that renders a config result does not display `content`. Without
+            # something it already looks at, a config the engine rejected
+            # reaches the user styled exactly like one that passed.
+            result["validation_failure"] = unresolved
         if last_dryrun is not None:
             # Describes the last config that reached the engine, not
             # necessarily the one returned, so it is reported as the last known
-            # engine result rather than a verdict on this config.
+            # engine result rather than a verdict on this config. The renderer
+            # must not present it as this config's dry-run.
             result["last_dry_run"] = last_dryrun
         return result
 

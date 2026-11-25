@@ -180,6 +180,74 @@ class EngineRejectionReachesRepairTest(unittest.TestCase):
         self.assertIn("validation did not pass", result["content"])
         self.assertIn("still wrong", result["content"])
         self.assertIn("last_dry_run", result)
+        # Carried in its own field because the code that renders a config
+        # result does not display `content`; see the terminal test below.
+        self.assertIn("still wrong", result["validation_failure"])
+
+    def test_a_delivered_config_carries_no_validation_failure(self):
+        result, _fix_calls = self._run([_dryrun("PASS")])
+
+        self.assertNotIn("validation_failure", result)
+
+
+class UnvalidatedConfigReachesTheTerminalTest(unittest.TestCase):
+    """Routing the engine's rejection into repair is only half the problem.
+
+    When the repair budget runs out the config is still handed back, and the
+    code that renders a config result reads `config`, `explanation` and
+    `dry_run` -- not `content`. So a config the engine rejected used to reach
+    the user in a green panel, with the failure mentioned nowhere on screen.
+    """
+
+    def _render(self, result):
+        from rich.console import Console
+
+        from seatunnel_cli import cli as cli_module
+
+        console = Console(theme=cli_module.THEME, width=200, record=True, no_color=True)
+        cli = cli_module.SeaTunnelCLI(console)
+        cli.orchestrator = mock.MagicMock()
+        cli.orchestrator.process_user_input.return_value = result
+        cli.orchestrator.conversation_history = []
+        cli.session_manager = mock.MagicMock()
+        cli._maybe_extract_memories = mock.MagicMock()
+        cli._auto_save_config = mock.MagicMock(return_value=None)
+        cli._stop_live = mock.MagicMock()
+
+        cli._process_request("print the fake table")
+        return console.export_text()
+
+    def test_the_engine_rejection_is_shown_to_the_user(self):
+        out = self._render(
+            {
+                "type": "config",
+                "content": "Config generated, but validation did not pass",
+                "config": CONFIG_A,
+                "explanation": "",
+                "validation_failure": (
+                    "FAIL: the engine rejected this config during --check\n"
+                    "FAIL: ConfigRuntimeException: option 'x' not recognised"
+                ),
+            }
+        )
+
+        self.assertIn("option 'x' not recognised", out)
+        self.assertIn("did not pass validation", out)
+
+    def test_a_validated_config_is_not_labelled_as_failing(self):
+        out = self._render(
+            {
+                "type": "config",
+                "content": "PASS",
+                "config": CONFIG_A,
+                "explanation": "",
+                "dry_run": _dryrun("PASS"),
+            }
+        )
+
+        self.assertIn("Generated SeaTunnel Config", out)
+        self.assertNotIn("did not pass validation", out)
+        self.assertNotIn("Unresolved validation failure", out)
 
 
 if __name__ == "__main__":
