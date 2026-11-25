@@ -232,8 +232,9 @@ sink {
 ```
 
 `node_urls` accepts multiple IoTDB nodes, which are passed to the IoTDB session client as candidate hosts. The sink
-creates a single session per task; writes are retried against the same session when a flush fails, and the sink does
-not switch to another node URL on failure.
+creates a single session per task; writes are retried through the same session when a flush fails, and any endpoint
+reconnection across the candidate hosts is handled by the IoTDB client itself. Recovery from server or statement
+errors is not guaranteed for every failure.
 
 ## Changelog
 

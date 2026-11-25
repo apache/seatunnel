@@ -83,7 +83,7 @@ When using `tables_configs` to read multiple key patterns, each table configurat
 | hash_key_parse_mode | enum   | no       | all           | Hash key parse mode: `all` or `kv` |
 | read_key_enabled    | boolean| no       | false         | Include Redis key in output |
 | key_field_name      | string | no       | -             | Field name for Redis key |
-| single_field_name   | string | yes when read_key_enabled = true | - | Field name for single-value types. Required by the option rule whenever `read_key_enabled = true`, regardless of `data_type`. |
+| single_field_name   | string | yes when read_key_enabled = true | - | Field name for single-value types. Required at the top level by the option rule whenever `read_key_enabled = true`, regardless of `data_type`. Entries inside `tables_configs` are not subject to this requirement. |
 | field_delimiter     | string | no       | ','           | Delimiter for text format |
 
 **Note:** When this configuration corresponds to a single table, configure these table-level options at the outer layer instead of using `tables_configs`. For example, put `keys`, `data_type`, `format`, and `schema` directly under `Redis`.
@@ -176,10 +176,12 @@ When set to `true`, both the key and its associated value are included in the re
 
 By default (`false`), only the value is read and included.
 
-When `read_key_enabled = true`, the option rule requires `single_field_name` to be set, regardless of the configured
-`data_type`. The value is used to map non-object values (such as plain `string`/`list`/`set`/`zset` values) to a schema
-column; values that already parse as JSON objects (for example `hash` fields in `json` format) are mapped by their own
-fields. `key_field_name` is optional and defaults to `key`.
+When `read_key_enabled = true`, the option rule requires `single_field_name` to be set at the top level of the source
+config, regardless of the configured `data_type` (this conditional is checked on the flattened single-table config;
+`tables_configs` entries only need `keys` and `data_type`). The value is used to map non-object values (such as plain
+`string`/`list`/`set`/`zset` values) to a schema column; values that already parse as JSON objects (for example `hash`
+fields in `json` format) are mapped by their own fields. `key_field_name` is optional and defaults to `hash_key` for
+`hash` data and `key` otherwise.
 
 When you configure a schema, include the actual output field names, including the default `key` field or the name set by `key_field_name`.
 
@@ -364,8 +366,9 @@ Specifies the field name for Redis values when `read_key_enabled = true` and the
 This name is used in the schema to map the value field.
 
 **Note:** This option is not applied to values that already parse as JSON objects, such as `hash` fields read in `json`
-format — those are mapped by their own fields. However, the configuration validator still requires this option whenever
-`read_key_enabled = true`, even if the target data type would not use it at runtime.
+format — those are mapped by their own fields. However, the top-level option rule still requires this option whenever
+`read_key_enabled = true`, even if the target data type would not use it at runtime. This requirement applies to the
+flattened single-table config only; `tables_configs` entries are not required to set it.
 
 Example :
 ```hocon

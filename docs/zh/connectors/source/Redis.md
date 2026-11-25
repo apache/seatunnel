@@ -79,7 +79,7 @@ Redis 值。校验成功**不代表**匹配的 key 存在、已存储的值与 `
 | hash_key_parse_mode | enum    | 否     | all   | Hash key 解析模式：`all` 或 `kv`                 |
 | read_key_enabled    | boolean | 否     | false | 是否在输出中包含 Redis key                         |
 | key_field_name      | string  | 否     | -     | Redis key 的字段名称                            |
-| single_field_name   | string  | `read_key_enabled = true` 时必须 | -     | 单值类型的字段名称。只要开启 `read_key_enabled = true`，选项规则就要求配置该参数，与 `data_type` 无关。 |
+| single_field_name   | string  | `read_key_enabled = true` 时必须 | -     | 单值类型的字段名称。只要开启 `read_key_enabled = true`，选项规则就要求在顶层配置中设置该参数，与 `data_type` 无关；`tables_configs` 表项不受此要求约束。 |
 | field_delimiter     | string  | 否     | ','   | 文本格式的分隔符                                   |
 
 **注意：** 当只读取单表时，请把这些表级参数直接配置在 `Redis` 外层，例如 `keys`、`data_type`、`format`、`schema`，不需要使用 `tables_configs`。
@@ -170,7 +170,7 @@ keys 模式
 
 默认值为 `false`，也就是只读取 value。
 
-当 `read_key_enabled = true` 时，选项规则要求必须配置 `single_field_name`，与配置的 `data_type` 无关。该字段的值用于把非对象值（例如 `string`、`list`、`set`、`zset` 的普通值）映射到 schema 列；本身就能解析成 JSON 对象的值（例如 `json` 格式下的 `hash` 字段）则按对象自身字段映射。`key_field_name` 是可选项，默认字段名为 `key`。
+当 `read_key_enabled = true` 时，选项规则要求必须在源顶层配置中设置 `single_field_name`，与配置的 `data_type` 无关（该校验只针对扁平的单表配置；`tables_configs` 表项只需 `keys` 和 `data_type`）。该字段的值用于把非对象值（例如 `string`、`list`、`set`、`zset` 的普通值）映射到 schema 列；本身就能解析成 JSON 对象的值（例如 `json` 格式下的 `hash` 字段）则按对象自身字段映射。`key_field_name` 是可选项，`hash` 类型默认字段名为 `hash_key`，其它类型默认为 `key`。
 
 配置 schema 时，需要包含实际输出的字段名，包括默认的 `key` 字段或 `key_field_name` 指定的字段名。
 
@@ -203,7 +203,7 @@ schema {
 
 该选项主要用于 `string`、`list`、`set`、`zset` 这类不能直接映射成多列对象的数据。对于本身就能解析成 JSON 对象的值（例如 `json` 格式下的 `hash` 字段），该选项不会被应用，对象按自身字段映射。
 
-**注意：** 即使目标数据类型在运行时不会使用该选项，只要配置了 `read_key_enabled = true`，配置校验器仍然要求配置该选项。
+**注意：** 即使目标数据类型在运行时不会使用该选项，只要配置了 `read_key_enabled = true`，顶层选项规则仍然要求配置该选项。该要求只针对扁平的单表配置；`tables_configs` 表项不要求设置该选项。
 
 ### batch_size [int]
 

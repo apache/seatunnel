@@ -231,7 +231,7 @@ sink {
 }
 ```
 
-`node_urls` 支持传入多个 IoTDB 节点，这些节点会作为候选主机传给 IoTDB session 客户端。Sink 会为每个任务创建单个 session；写入失败时会在同一 session 上重试，不会切换到其它节点。
+`node_urls` 支持传入多个 IoTDB 节点，这些节点会作为候选主机传给 IoTDB session 客户端。Sink 会为每个任务创建单个 session；写入失败时会在同一 session 上重试，候选主机之间的端点重连由 IoTDB 客户端自身处理。服务端或语句错误并非在所有失败场景下都能恢复成功。
 
 ## 变更日志
 
