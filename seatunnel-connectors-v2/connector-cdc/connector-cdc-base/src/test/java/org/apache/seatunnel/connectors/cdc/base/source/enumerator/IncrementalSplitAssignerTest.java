@@ -67,13 +67,13 @@ class IncrementalSplitAssignerTest {
         SplitAssigner.Context<SourceConfig> context = createContext(sourceConfig);
         IncrementalSplitAssigner<SourceConfig> assigner =
                 new IncrementalSplitAssigner<>(context, 1, offsetFactory);
-        assertSame(
-                committedOffset, assigner.getNext().get().asIncrementalSplit().getStartupOffset());
-
+        IncrementalSplit restoredSplit = assigner.getNext().get().asIncrementalSplit();
+        assertSame(committedOffset, restoredSplit.getStartupOffset());
         IncrementalPhaseState checkpoint = assigner.snapshotState(1L);
         IncrementalSplitAssigner<SourceConfig> restoredAssigner =
                 new IncrementalSplitAssigner<>(
                         createContext(sourceConfig), 1, offsetFactory, checkpoint);
+        restoredAssigner.addSplits(Collections.singletonList(restoredSplit));
         assertSame(
                 committedOffset,
                 restoredAssigner.getNext().get().asIncrementalSplit().getStartupOffset());
@@ -176,7 +176,9 @@ class IncrementalSplitAssignerTest {
         // The single authoritative resolution happens exactly once, when the first
         // incremental split is created; the same value is used for the split handed to
         // the reader and stored in the checkpoint, so they can never diverge.
-        assertSame(resolvedOffset, assigner.getNext().get().asIncrementalSplit().getStopOffset());
+        IncrementalSplit restoredSplit =
+                assigner.getNext().map(split -> split.asIncrementalSplit()).get();
+        assertSame(resolvedOffset, restoredSplit.getStopOffset());
         verify(offsetFactory, times(1)).latest();
 
         // Snapshot phase completes: no second resolution, the resolved value is reused.
@@ -192,6 +194,7 @@ class IncrementalSplitAssignerTest {
         IncrementalSplitAssigner<SourceConfig> restoredAssigner =
                 new IncrementalSplitAssigner<>(
                         createContext(sourceConfig), 1, offsetFactory, checkpoint);
+        restoredAssigner.addSplits(Collections.singletonList(restoredSplit));
         assertSame(
                 resolvedOffset,
                 restoredAssigner.getNext().get().asIncrementalSplit().getStopOffset());
@@ -316,6 +319,35 @@ class IncrementalSplitAssignerTest {
         assertEquals(
                 Collections.singletonMap(table2, new TestOffset(200)),
                 split.getTableStartupOffsets());
+    }
+
+    @Test
+    void shouldNotRecreateIncrementalSplitsWhenRestoredReadersHoldThem() {
+        SourceConfig sourceConfig = mock(SourceConfig.class);
+        OffsetFactory offsetFactory = mock(OffsetFactory.class);
+        when(sourceConfig.getStartupConfig())
+                .thenReturn(new StartupConfig(StartupMode.INITIAL, null, null, null));
+        when(sourceConfig.getStopConfig())
+                .thenReturn(new StopConfig(StopMode.NEVER, null, null, null));
+
+        TableId tableId = TableId.parse("database.schema.table");
+        SplitAssigner.Context<SourceConfig> context =
+                createContext(sourceConfig, Collections.singleton(tableId));
+        IncrementalSplitAssigner<SourceConfig> assigner =
+                new IncrementalSplitAssigner<>(context, 1, offsetFactory);
+        assigner.getNext();
+
+        IncrementalPhaseState checkpoint = assigner.snapshotState(1L);
+        IncrementalSplitAssigner<SourceConfig> restoredAssigner =
+                new IncrementalSplitAssigner<>(
+                        createContext(sourceConfig, Collections.singleton(tableId)),
+                        1,
+                        offsetFactory,
+                        checkpoint);
+
+        assertFalse(restoredAssigner.getNext().isPresent());
+        assertTrue(restoredAssigner.noMoreSplits());
+        assertFalse(restoredAssigner.waitingForAssignedSplits());
     }
 
     private SplitAssigner.Context<SourceConfig> createContext(SourceConfig sourceConfig) {

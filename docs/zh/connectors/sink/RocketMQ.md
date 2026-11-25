@@ -36,7 +36,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 | producer.group | String | 否 | SeaTunnel-Producer-Group | RocketMQ 生产者组 ID。 |
 | tag | String | 否 | - | 写入每条消息时使用的 RocketMQ tag。 |
 | partition.key.fields | List | 否 | - | 会被序列化为 RocketMQ 消息 key 的字段名。配置的字段必须存在于上游 schema 中。 |
-| format | String | 否 | json | 消息格式。支持 `json` 和 `text`。 |
+| format | enum | 否 | json | 消息格式。支持 `json` 和 `text`。 |
 | field.delimiter | String | 否 | `,` | `format = text` 时使用的字段分隔符。 |
 | producer.send.sync | Boolean | 否 | false | 是否同步发送消息。为 `false` 时异步发送。 |
 | exactly.once | Boolean | 否 | false | 是否通过 RocketMQ 事务生产者发送消息。 |
@@ -205,11 +205,11 @@ sink {
 
 ### RocketMQ Sink 如何配置消息路由与分区键？
 
-可以通过配置 `partition.key.fields` 声明一个或多个数据列作为分区键。连接器将对指定字段值进行 Hash 计算，确保具有相同 Key 值的消息始终投递至 RocketMQ 的同一个消息队列。
+可以通过配置 `partition.key.fields` 声明一个或多个数据列作为分区键。非事务发送（`exactly.once = false`）时，连接器会对指定字段值进行 Hash 计算，确保具有相同 Key 值的消息始终投递至 RocketMQ 的同一个消息队列。
 
 ### RocketMQ Sink 是否提供精确一次（Exactly-Once）投递保证？
 
-不提供。当设置 `exactly.once = true` 时，Sink 通过 RocketMQ 事务生产者发送消息，但每条事务消息在发送后会立即提交，消息对下游消费者立即可见，不会暂存到引擎 Checkpoint 完成后才提交。Sink 也不参与 Checkpoint barrier 协调，因此不提供基于 Checkpoint 的精确一次投递。
+当设置 `exactly.once = true` 时，Sink 使用 RocketMQ 事务消息（`sendMessageInTransaction`）。当前的事务监听器会立即提交本地事务，消息发送后即对消费者可见；Sink 不会将消息的可见性与 SeaTunnel checkpoint 协调。如需更严格的投递保证，请在消费端开启幂等或事务消费，并通过消息 Key 保证写入可去重。
 
 ### 支持哪些消息体序列化格式？
 

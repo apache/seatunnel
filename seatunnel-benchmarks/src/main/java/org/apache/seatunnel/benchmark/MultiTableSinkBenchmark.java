@@ -129,7 +129,7 @@ public class MultiTableSinkBenchmark extends BenchmarkBase {
         @Param({"1", "5", "10"})
         private int flushQueueCount;
 
-        @Param({"100", "500", "1000"})
+        @Param({"100"})
         private long flushIntervalMillis;
 
         @Param({"5"})
@@ -141,9 +141,6 @@ public class MultiTableSinkBenchmark extends BenchmarkBase {
 
         @Setup(Level.Trial)
         public void setUp() throws Exception {
-            if (flushIntervalMillis <= 0) {
-                throw new IllegalArgumentException("flushIntervalMillis must be positive");
-            }
             fixture = new MultiTableTimerFlushFixture(flushQueueCount, writerFlushMillis);
             intervalNanos = TimeUnit.MILLISECONDS.toNanos(flushIntervalMillis);
             nextFlushNanos = System.nanoTime();

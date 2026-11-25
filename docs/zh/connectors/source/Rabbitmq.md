@@ -62,7 +62,7 @@ Source 支持连接、身份认证及已有队列的元数据检查。预检查�
 | queue_name                 | string  | 否  | -     | 要消费消息的队列                                                                    |
 | schema                     | config  | 否  | -     | 上游数据的模式。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 | tables_configs             | array   | 否  | -     | 用于同时从多个队列读取消息。数组中的每个对象必须包含 queue_name 和 schema。                            |
-| format                     | string  | 否  | json  | 消息体格式，支持 json 和 protobuf                                                       |
+| format                     | enum    | 否  | json  | 消息体格式，支持 json 和 protobuf                                                       |
 | protobuf_schema            | string  | 否  | -     | 当 format 为 protobuf 时生效，用于解析消息体的 Protobuf Schema                              |
 | protobuf_message_name      | string  | 否  | -     | 当 format 为 protobuf 时生效，指定要解析的 Protobuf Message 名称                            |
 | url                        | string  | 否  | -     | 便捷方法，用于设置 AMQP URI 中的字段：主机、端口、用户名、密码和虚拟主机                                   |
@@ -78,7 +78,7 @@ Source 支持连接、身份认证及已有队列的元数据检查。预检查�
 | requested_frame_max        | int     | 否  | -     | 请求的最大帧大小                                                                    |
 | requested_heartbeat        | int     | 否  | -     | 设置请求的心跳超时。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。**                     |
 | prefetch_count             | int     | 否  | -     | 预取计数，无需确认即可接收的最大消息数                                                         |
-| delivery_timeout           | int     | 否  | -     | 等待下一条消息交付的最大时间。**注意：连接器目前仅解析该参数，并未实际使用。**                                     |
+| delivery_timeout           | int     | 否  | -     | 交付超时，等待下一条消息交付的最大时间（毫秒）。注意：该参数目前未被连接器实际使用，配置后无运行时效果。                                                     |
 | use_correlation_id         | boolean | 否  | -     | 消息是否带有可用于去重的唯一 correlation id                                                 |
 | durable                    | boolean | 否  | true  | 队列是否在服务器重启时保留                                                               |
 | exclusive                  | boolean | 否  | false | 队列是否仅由当前连接使用                                                                |
@@ -192,9 +192,7 @@ RabbitMQ 共享配置中的可选 exchange。普通队列消费不需要配置�
 
 ### delivery_timeout [int]
 
-等待下一条消息交付的最大时间。
-
-**注意：** 连接器目前仅解析该参数并将其保存在源配置中，但没有任何地方实际使用它，设置该参数不会影响源端行为。
+交付超时，等待下一条消息交付的最大时间（毫秒）。注意：该参数目前仅为向后兼容而保留，连接器并未实际使用它——配置后不会产生任何运行时效果。
 
 ### use_correlation_id [boolean]
 

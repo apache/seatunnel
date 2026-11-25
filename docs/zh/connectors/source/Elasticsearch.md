@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 ## 简介
 
-支持读取 Elasticsearch2.x 版本和 8.x 版本之间的数据
+支持读取 Elasticsearch2.x 版本和 9.x 版本之间的数据
 
 ## 主要特性
 

@@ -11,7 +11,7 @@ import ChangeLog from '../changelog/connector-cdc-tidb.md';
 
 ## 描述
 
-TiDB CDC 连接器通过 `tikv-client-java` 客户端与 TiKV 的 Placement Driver (PD) 和 TiKV 节点通信，读取 TiDB 的快照数据和增量变更事件。它支持并行快照读取和精确一次的流式消费，是把 TiDB 表接入 SeaTunnel 流水线的推荐方式。
+TiDB CDC 连接器通过 `tikv-client-java` 客户端与 TiKV 的 Placement Driver (PD) 和 TiKV 节点通信，读取 TiDB 的快照数据和增量变更事件。它支持并行快照读取和流式消费，是把 TiDB 表接入 SeaTunnel 流水线的推荐方式。
 
 ## 支持的数据源信息
 
@@ -38,8 +38,8 @@ TiDB CDC 连接器通过 `tikv-client-java` 客户端与 TiKV 的 Placement Driv
 
 - [ ] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
 
@@ -67,7 +67,9 @@ TiDB CDC 连接器通过 `tikv-client-java` 客户端与 TiKV 的 Placement Driv
 | 名称                          | 类型      | 必需 | 默认      | 描述                                                                                                                                                                                              |
 |-------------------------------|---------|----|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                           | String  | 是  | -       | 用于发现表元数据的 MySQL 兼容 JDBC URL，例如 `jdbc:mysql://tidb0:4000/inventory`。                                                                                                                         |
+| driver                        | String  | 否  | -       | 用于发现表元数据的 JDBC 驱动类名，例如 `com.mysql.cj.jdbc.Driver`。                                                                                                                                     |
 | username                      | String  | 是  | -       | 连接 TiDB 时使用的用户名。                                                                                                                                                                                |
+| driver                        | String  | 否  | -       | 发现表元数据时使用的 JDBC 驱动类名，例如 `com.mysql.cj.jdbc.Driver`。本文档的示例中都显式配置了该参数。                                                                                                                                  |
 | password                      | String  | 是  | -       | 连接 TiDB 时使用的密码。                                                                                                                                                                                |
 | pd-addresses                  | String  | 是  | -       | TiKV Placement Driver（PD）地址，多个用逗号分隔，例如 `pd0:2379,pd1:2379`。                                                                                                                              |
 | database-name                 | String  | 是  | -       | 要监控的 TiDB 数据库名。                                                                                                                                                                                |

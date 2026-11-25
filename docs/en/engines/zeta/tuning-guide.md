@@ -170,6 +170,8 @@ Use the following decision tree to narrow down the root cause of slow operations
 
 #### Step 1: Identify when slow operations occur
 
+> Log file names depend on the node role: the default master-and-worker deployment writes `seatunnel-engine-server.log`, while separated deployments write `seatunnel-engine-master.log` / `seatunnel-engine-worker.log`. Adjust the paths below accordingly.
+
 ```bash
 # Check the slow operation log frequency and timing
 grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tail -50
@@ -178,7 +180,7 @@ grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tai
 
 Correlate the timestamps with:
 - Job submission events (REST API calls)
-- Checkpoint intervals (every 10s by default)
+- Checkpoint intervals (the engine default is 300000 ms; the shipped `config/seatunnel.yaml` template sets `checkpoint.interval: 10000`)
 - High-load periods (peak data ingestion)
 
 #### Step 2: Check overall node health
@@ -219,9 +221,9 @@ free -h
 
 **IMap / MapStore latency:**
 - Symptom: Slow operations during `PutOperation` or `GetOperation` on IMap keys.
-- Check: `du -sh $SEATUNNEL_HOME/imap/wal/` and `du -sh $SEATUNNEL_HOME/imap/maps/` — large WAL directories indicate write pressure.
+- Check: `du -sh <namespace>/<clusterName>/<businessName>/` on the IMap storage filesystem (`IMapFileStorage` writes under the configured MapStore `namespace`, not fixed `imap/wal` or `imap/maps` folders) — large directories indicate write pressure.
 - Common cause: Disk I/O saturation on the MapStore directory, aggressive WAL write frequency, or disk space exhaustion.
-- Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency), increase `write-behind-delay-seconds`, enable WAL compaction.
+- Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency) and the IMap persistence guidance in [State Storage and Recovery](state-storage-and-recovery.md); move the map-store `namespace` to faster/larger storage and watch disk headroom.
 
 ### 3. Sizing `hazelcast.operation.generic.thread.count`
 
@@ -521,14 +523,17 @@ loggers:
     level: WARN
 ```
 
-#### 7.6 Storage for MapStore and WAL
+#### 7.6 Storage for IMap State
 
-Use persistent volumes for MapStore and WAL directories to survive pod restarts:
+If you enable IMap persistence via the Hazelcast MapStore (see
+[state-storage-and-recovery](state-storage-and-recovery.md)), mount the IMap storage directory
+(the `namespace` property in the MapStore configuration, e.g. `/seatunnel-imap`) on a persistent
+volume so it survives pod restarts:
 
 ```yaml
 volumeMounts:
   - name: imap-storage
-    mountPath: /tmp/seatunnel/imap
+    mountPath: /seatunnel-imap
 volumes:
   - name: imap-storage
     persistentVolumeClaim:
@@ -537,7 +542,7 @@ volumes:
 
 Monitor PVC usage with:
 ```bash
-kubectl exec <pod> -- du -sh /tmp/seatunnel/imap/
+kubectl exec <pod> -- du -sh /seatunnel-imap/
 ```
 
 ### Quick Reference Troubleshooting Table
@@ -551,5 +556,5 @@ kubectl exec <pod> -- du -sh /tmp/seatunnel/imap/
 | Slow operations + high GC | JVM heap pressure | Increase `-Xmx`, reduce concurrent tasks |
 | `executor.q.operations.size` > 0 | Operation thread pool saturated | Increase `generic.thread.count` |
 | `operations.pending.invocations.percentage` > 10% | Remote invocation backlog | Check network, increase `generic.thread.count` |
-| WAL directory growing, slow IMap operations | MapStore write pressure | Increase `write-behind-delay-seconds`, add disk IOPS |
+| IMap storage directory growing, slow IMap operations | MapStore write pressure | Move the map-store `namespace` to faster/larger storage, add disk IOPS |
 | Checkpoint duration > 60s | Large state or slow storage | Reduce checkpoint state size, optimize storage |
