@@ -21,7 +21,6 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
-import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.operation.TracingOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
@@ -35,12 +34,16 @@ import com.hazelcast.internal.serialization.InternalSerializationService;
 import com.hazelcast.internal.serialization.impl.DefaultSerializationServiceBuilder;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.DataSerializable;
 import com.hazelcast.nio.serialization.HazelcastSerializationException;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
 import java.io.IOException;
+import java.nio.ByteOrder;
 
 class TaskReportStatusOperationSerializationTest {
+
+    private static final int OBSERVED_FACTORY_ID = 77501;
 
     private static final TaskLocation LOCATION =
             new TaskLocation(new TaskGroupLocation(7L, 3, 11L), 5L, 2);
@@ -49,7 +52,11 @@ class TaskReportStatusOperationSerializationTest {
 
     @BeforeEach
     void setUp() {
-        service = new DefaultSerializationServiceBuilder().build();
+        service =
+                new DefaultSerializationServiceBuilder()
+                        .addDataSerializableFactory(
+                                OBSERVED_FACTORY_ID, id -> new ObservedLocation())
+                        .build();
     }
 
     @AfterEach
@@ -73,17 +80,94 @@ class TaskReportStatusOperationSerializationTest {
     @Test
     void testRejectsDifferentClassFromTaskLocationFactory() {
         // The old typed reader accepts this registered Progress ID with TaskLocation-shaped fields.
-        assertInvalidLocation(new WrongLocationWireType(), Progress.class.getName());
+        assertInvalidLocation(
+                new WrongLocationWireType(), "class ID is " + TaskDataSerializerHook.PROGRESS_TYPE);
     }
 
     @Test
     void testRejectsUnrelatedLocationValue() {
-        assertInvalidLocation("not a task location", String.class.getName());
+        assertInvalidLocation("not a task location", "wire serializer type");
     }
 
     @Test
     void testRejectsNullLocation() {
         assertInvalidLocation(null, "null");
+    }
+
+    @Test
+    void testRejectsClassNamedLocationBeforeConstruction() {
+        Data data = service.toData(new ReportWire(new SideEffectLocation()));
+        SideEffectLocation.constructions = 0;
+        SideEffectLocation.reads = 0;
+        Assertions.assertThrows(
+                HazelcastSerializationException.class, () -> service.toObject(data));
+        Assertions.assertEquals(0, SideEffectLocation.constructions);
+        Assertions.assertEquals(0, SideEffectLocation.reads);
+    }
+
+    @Test
+    void testRejectsUnexpectedFactoryBeforeConstruction() {
+        Data data = service.toData(new ReportWire(new ObservedLocation()));
+        SideEffectLocation.constructions = 0;
+        SideEffectLocation.reads = 0;
+        Assertions.assertThrows(
+                HazelcastSerializationException.class, () -> service.toObject(data));
+        Assertions.assertEquals(0, SideEffectLocation.constructions);
+        Assertions.assertEquals(0, SideEffectLocation.reads);
+    }
+
+    @Test
+    void testValidReportsPreserveLittleEndianBytes() {
+        InternalSerializationService littleEndian =
+                new DefaultSerializationServiceBuilder()
+                        .setByteOrder(ByteOrder.LITTLE_ENDIAN)
+                        .setAllowUnsafe(false)
+                        .build();
+        try {
+            for (SeaTunnelTaskState status : SeaTunnelTaskState.values()) {
+                Data data = littleEndian.toData(new TaskReportStatusOperation(LOCATION, status));
+                TaskReportStatusOperation restored = littleEndian.toObject(data);
+                Assertions.assertEquals(LOCATION, restored.getLocation());
+                Assertions.assertEquals(status, restored.getStatus());
+                Assertions.assertArrayEquals(
+                        data.toByteArray(), littleEndian.toData(restored).toByteArray());
+            }
+        } finally {
+            littleEndian.dispose();
+        }
+    }
+
+    public static class ObservedLocation extends SideEffectLocation
+            implements IdentifiedDataSerializable {
+        @Override
+        public int getFactoryId() {
+            return OBSERVED_FACTORY_ID;
+        }
+
+        @Override
+        public int getClassId() {
+            return TaskDataSerializerHook.TASK_LOCATION_TYPE;
+        }
+    }
+
+    public static class SideEffectLocation implements DataSerializable {
+        private static int constructions;
+        private static int reads;
+
+        public SideEffectLocation() {
+            constructions++;
+        }
+
+        @Override
+        public void writeData(ObjectDataOutput out) throws IOException {
+            LOCATION.writeData(out);
+        }
+
+        @Override
+        public void readData(ObjectDataInput in) throws IOException {
+            reads++;
+            new TaskLocation().readData(in);
+        }
     }
 
     private void assertInvalidLocation(Object location, String actualType) {

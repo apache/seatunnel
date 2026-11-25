@@ -23,9 +23,11 @@ import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
+import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.operation.TracingOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
+import com.hazelcast.internal.nio.BufferObjectDataInput;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
@@ -34,6 +36,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.io.IOException;
+
+import static com.hazelcast.internal.serialization.impl.SerializationConstants.CONSTANT_TYPE_DATA_SERIALIZABLE;
+import static com.hazelcast.internal.serialization.impl.SerializationConstants.CONSTANT_TYPE_NULL;
 
 @Getter
 @NoArgsConstructor
@@ -64,18 +69,41 @@ public class TaskReportStatusOperation extends TracingOperation
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        // The typed overload overrides construction instead of validating the wire type.
-        Object decodedLocation = in.readObject();
-        if (!(decodedLocation instanceof TaskLocation)) {
+        if (!(in instanceof BufferObjectDataInput)) {
             throw new IOException(
-                    "Expected "
-                            + TaskLocation.class.getName()
-                            + " for task status report location, but received "
-                            + (decodedLocation == null
-                                    ? "null"
-                                    : decodedLocation.getClass().getName()));
+                    "Task status report requires a buffered input to validate "
+                            + TaskLocation.class.getName());
         }
-        location = (TaskLocation) decodedLocation;
+        BufferObjectDataInput buffer = (BufferObjectDataInput) in;
+        int position = buffer.position();
+        // Validate Hazelcast's object/IDS identity before constructing the declared object.
+        // Absolute reads leave the cursor unchanged for the constrained typed read below.
+        int serializerType = buffer.readInt(position);
+        if (serializerType != CONSTANT_TYPE_DATA_SERIALIZABLE) {
+            throw new IOException(
+                    "Task status report expects "
+                            + TaskLocation.class.getName()
+                            + " but wire serializer type is "
+                            + (serializerType == CONSTANT_TYPE_NULL ? "null" : serializerType));
+        }
+        // Bit zero is Hazelcast DataSerializableSerializer's IDS_FLAG.
+        if ((buffer.readByte(position + Integer.BYTES) & 1) == 0) {
+            throw new IOException(
+                    "Task status report expects an identified " + TaskLocation.class.getName());
+        }
+        int factoryId = buffer.readInt(position + Integer.BYTES + Byte.BYTES);
+        int classId = buffer.readInt(position + 2 * Integer.BYTES + Byte.BYTES);
+        if (factoryId != TaskDataSerializerHook.FACTORY_ID
+                || classId != TaskDataSerializerHook.TASK_LOCATION_TYPE) {
+            throw new IOException(
+                    "Task status report expects "
+                            + TaskLocation.class.getName()
+                            + " but wire factory ID is "
+                            + factoryId
+                            + " and class ID is "
+                            + classId);
+        }
+        location = in.readObject(TaskLocation.class);
         status = in.readObject();
     }
 

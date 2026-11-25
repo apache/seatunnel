@@ -26,8 +26,10 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -217,6 +219,32 @@ public class RecordSerializerIT {
         Assertions.assertTrue(actual.getClosedTasks().contains(taskLoc2));
 
         writerMap.remove(key);
+    }
+
+    @Test
+    public void testTaskStatusReportsRoundTripAcrossMembers() {
+        TaskLocation location = new TaskLocation(new TaskGroupLocation(7L, 3, 11L), 5L, 2);
+        IMap<String, TaskReportStatusOperation> writerMap = instance1.getMap(MAP_NAME);
+        IMap<String, TaskReportStatusOperation> readerMap = instance2.getMap(MAP_NAME);
+        String key = "task-status-report";
+        try {
+            for (SeaTunnelTaskState status : SeaTunnelTaskState.values()) {
+                TaskReportStatusOperation original =
+                        new TaskReportStatusOperation(location, status);
+                writerMap.put(key, original);
+                TaskReportStatusOperation decoded = readerMap.get(key);
+                Assertions.assertNotNull(decoded);
+                Assertions.assertEquals(location, decoded.getLocation());
+                Assertions.assertEquals(
+                        location.getTaskIndex(), decoded.getLocation().getTaskIndex());
+                Assertions.assertEquals(status, decoded.getStatus());
+                Assertions.assertArrayEquals(
+                        instance1.getSerializationService().toData(original).toByteArray(),
+                        instance2.getSerializationService().toData(decoded).toByteArray());
+            }
+        } finally {
+            writerMap.remove(key);
+        }
     }
 
     @Test
