@@ -36,7 +36,7 @@ Writes SeaTunnel rows to an Apache RocketMQ topic. The sink supports JSON and te
 | producer.group | String | no | SeaTunnel-Producer-Group | RocketMQ producer group ID. |
 | tag | String | no | - | RocketMQ message tag written with each message. |
 | partition.key.fields | List | no | - | Field names serialized as the RocketMQ message key. Every listed field must exist in the upstream schema. |
-| format | String | no | json | Message format. Supported values are `json` and `text`. |
+| format | enum | no | json | Message format. Supported values are `json` and `text`. |
 | field.delimiter | String | no | `,` | Field delimiter used when `format = text`. |
 | producer.send.sync | Boolean | no | false | Whether to send messages synchronously. When `false`, messages are sent asynchronously. |
 | exactly.once | Boolean | no | false | Whether to send transactional messages for exactly-once delivery. |
@@ -208,11 +208,11 @@ sink {
 
 ### How can message routing and partition keys be configured in RocketMQ sink?
 
-Configure `partition.key.fields` with one or more table field names. The connector calculates a hash of the specified fields to ensure that messages sharing identical key values are always routed to the same RocketMQ message queue.
+Configure `partition.key.fields` with one or more table field names. For non-transactional sends (`exactly.once = false`), the connector calculates a hash of the specified fields to ensure that messages sharing identical key values are always routed to the same RocketMQ message queue.
 
 ### How does RocketMQ sink provide exactly-once delivery guarantees?
 
-When `exactly.once = true`, the sink utilizes RocketMQ 2PC transactional messages. Uncommitted messages are prepared during checkpoint execution and committed as visible messages only when the compute engine completes its checkpoint barrier handshake.
+When `exactly.once = true`, the sink uses RocketMQ transactional messages (`sendMessageInTransaction`). The current transaction listener commits the local transaction immediately, so messages become visible to consumers right after they are sent; the sink does not coordinate message visibility with SeaTunnel checkpoints. For stricter delivery guarantees, enable idempotent or transactional consumption on the consumer side and make writes deduplicatable by message key.
 
 ### What message serialization formats are supported?
 

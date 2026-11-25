@@ -27,6 +27,8 @@ import com.beust.jcommander.Parameter;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.Locale;
+
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class MetadataExportCommandArgs extends CommandArgs {
@@ -71,7 +73,7 @@ public class MetadataExportCommandArgs extends CommandArgs {
         @Override
         public PluginType convert(String value) {
             try {
-                return PluginType.valueOf(value.toUpperCase());
+                return PluginType.valueOf(value.toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException(
                         "Plugin type must be one of: [source, sink, transform]");

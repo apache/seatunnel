@@ -292,6 +292,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         initFormatter();
         CsvDeserializationSchema.Builder builder =
                 CsvDeserializationSchema.builder()
+                        .setCatalogTable(catalogTable)
                         .delimiter(getDelimiter())
                         .csvLineProcessor(processor)
                         .nullFormat(

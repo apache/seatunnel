@@ -107,10 +107,10 @@ public class DB2Dialect implements JdbcDialect {
                 Arrays.stream(fieldNames)
                         .map(
                                 field ->
-                                        "target."
-                                                + quoteIdentifier(field)
-                                                + " <> source."
-                                                + quoteIdentifier(field))
+                                        String.format(
+                                                "DECODE(%s, %s, 0, 1) = 1",
+                                                "target." + quoteIdentifier(field),
+                                                "source." + quoteIdentifier(field)))
                         .collect(Collectors.joining(" OR "));
 
         // Generate UPDATE SET clause
