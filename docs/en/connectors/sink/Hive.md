@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## Description
 
-Write data to Apache Hive tables. The connector uses Hive Metastore for table management and writes data files (text, parquet, ORC) to HDFS (or S3/OSS when configured). The file format is detected from the Hive table's storage format (`STORED AS`) and cannot be configured on the connector. By default it uses two-phase commit so each checkpoint either commits the whole batch or rolls it back.
+Write data to Apache Hive tables. The connector uses Hive Metastore for table management and writes data files (text, parquet, ORC) to HDFS (or S3/OSS when configured). The file format is detected from the Hive table's storage format (`STORED AS`) and cannot be configured on the connector. By default it uses a two-phase commit protocol: data files are staged in temporary transaction directories during writing and finalized at checkpoint commit, when the staged files are renamed into place and partition metadata is registered with Hive Metastore. Files are published one by one, so a checkpoint commit is not an atomic all-files transaction and does not automatically roll back files that were already published; failed commits are retried from the restored checkpoint state.
 
 :::tip
 
