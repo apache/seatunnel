@@ -135,6 +135,20 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                     String.format(
                             "Start with %s, load checkpoint state from job client", restoreMode));
             pipelineCheckpoints = jobClient.getCheckpointData(restoreSourceJobId, restoreMode);
+            // A restore request without checkpoint data must fail before any job is submitted.
+            // Falling back to a fresh execution would replay every row the sinks may already have
+            // committed, while the job would still look RUNNING. The server-side restore entry
+            // points (RestJobExecutionEnvironment and ApplicationJobExecutionEnvironment) already
+            // enforce the same precondition.
+            if (pipelineCheckpoints == null || pipelineCheckpoints.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "No checkpoint found for jobId="
+                                + jobConfig.getJobContext().getJobId()
+                                + ", restoreMode="
+                                + restoreMode
+                                + ", restoreSourceJobId="
+                                + restoreSourceJobId);
+            }
         }
         MetadataConfig metaDataConfig = seaTunnelConfig.getEngineConfig().getMetadataConfig();
         return new MultipleTableJobConfigParser(
