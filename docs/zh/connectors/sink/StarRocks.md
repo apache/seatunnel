@@ -304,8 +304,6 @@ sink {
     password = "secret"
     database = "test"
     table = "e2e_table_sink"
-    ...
-    
     // 支持upsert/delete事件的同步（需要将选项参数enable_upsert_delete设置为true），仅支持表引擎为主键模型
     enable_upsert_delete = true
   }

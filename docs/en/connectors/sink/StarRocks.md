@@ -311,8 +311,6 @@ sink {
     password = "secret"
     database = "test"
     table = "e2e_table_sink"
-    ...
-    
     // Support upsert/delete event synchronization (enable_upsert_delete=true), only supports PrimaryKey model.
     enable_upsert_delete = true
   }
