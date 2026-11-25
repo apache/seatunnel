@@ -61,7 +61,7 @@ partition.key.fields = ["c_int"]
 
 ### exactly.once
 
-开启后，Sink 将通过 RocketMQ 事务生产者发送消息。该能力默认关闭。注意：每条事务消息在发送后会立即提交，Sink 不会暂存半消息等待引擎 Checkpoint 完成后再提交，因此该选项表示启用事务消息发送，而不是提供基于 Checkpoint 的精确一次语义。
+开启后，Sink 将通过 RocketMQ 事务生产者发送消息。该能力默认关闭。注意：每条事务消息在发送后会立即提交，Sink 不会暂存半消息等待引擎 Checkpoint 完成后再提交，因此该选项表示启用事务消息发送，而不是提供基于 Checkpoint 的精确一次语义。当 `exactly.once = true` 时，消息始终通过 `sendMessageInTransaction` 同步发送，`producer.send.sync` 会被忽略。
 
 当 `format = text` 时，SeaTunnel 会按上游 schema 的字段顺序序列化，并使用 `field.delimiter` 拼接字段。当 `format = json` 时，每行数据会写成一个 JSON 对象。
 

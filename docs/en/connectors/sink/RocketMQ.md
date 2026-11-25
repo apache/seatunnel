@@ -62,7 +62,7 @@ partition.key.fields = ["c_int"]
 
 ### exactly.once
 
-When enabled, the sink sends messages through a RocketMQ transactional producer. This behavior is disabled by default. Note that each transactional message is committed immediately after it is sent — the sink does not hold half-messages until the engine checkpoint completes, so this option enables transactional sending rather than checkpoint-based exactly-once delivery.
+When enabled, the sink sends messages through a RocketMQ transactional producer. This behavior is disabled by default. Note that each transactional message is committed immediately after it is sent — the sink does not hold half-messages until the engine checkpoint completes, so this option enables transactional sending rather than checkpoint-based exactly-once delivery. When `exactly.once = true`, messages are always sent synchronously via `sendMessageInTransaction`, so `producer.send.sync` is ignored.
 
 When `format = text`, SeaTunnel serializes fields in the upstream schema order and joins them with `field.delimiter`. When `format = json`, each row is written as a JSON object.
 
