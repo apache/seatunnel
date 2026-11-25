@@ -150,6 +150,9 @@ driver = "org.mariadb.jdbc.Driver"
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+
+JDBC Source 是有界（bounded）数据源：完成一次快照读取后即结束。如果作业需要持续捕获后续的插入、更新和删除，请使用 CDC source 连接器。
+
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 
 使用 `query` 可以只读取需要的列。
@@ -567,6 +570,44 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### 使用显式分区列和分区查询读取
+
+使用 `partition_column` 配合 `query` 可以将单表读取拆分为多个并行分片。`partition_lower_bound` 和 `partition_upper_bound` 是可选的；如果不配置，读取开始前会先执行一条 `MIN`/`MAX` 探测查询。
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales?loggerLevel=OFF"
+    driver = "org.postgresql.Driver"
+    username = "seatunnel_reader"
+    password = "change_me"
+    query = """select gid, uuid_col, text_col, varchar_col, char_one_col, char_col, boolean_col, smallint_col, integer_col,
+                      bigint_col, decimal_col, numeric_col, real_col, double_precision_col, smallserial_col, serial_col,
+                      bigserial_col, date_col, timestamp_col, timestamp_tz_col, bpchar_col, age, name from pg_e2e_source_table"""
+    partition_column = "gid"
+    partition_num = 4
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales?loggerLevel=OFF&stringtype=unspecified"
+    driver = "org.postgresql.Driver"
+    username = "writer"
+    password = "change_me"
+    generate_sink_sql = true
+    database = "sales"
+    table = "public.pg_e2e_sink_table"
+    primary_keys = ["gid"]
+  }
 }
 ```
 

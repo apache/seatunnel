@@ -74,8 +74,6 @@ always corresponds to selected field `i`.
 | api_endpoint       | String  | No       | `https://googleads.googleapis.com` | Google Ads API base endpoint. Mainly intended for testing against a different endpoint. |
 | oauth_endpoint     | String  | No       | `https://oauth2.googleapis.com` | Google OAuth2 token endpoint base. Mainly intended for testing against a different endpoint. |
 | page_size          | Integer | No       | -       | Page size for search requests. When unset the server default is used. Note: recent API versions ignore or reject an explicit page size. |
-| api_endpoint       | String  | No       | `https://googleads.googleapis.com` | Google Ads API base endpoint. Intended for testing.                                           |
-| oauth_endpoint     | String  | No       | `https://oauth2.googleapis.com`    | Google OAuth2 token endpoint base. Intended for testing.                                      |
 
 \* Exactly one of `resource`, `query` or `tables_configs` must be provided.
 
