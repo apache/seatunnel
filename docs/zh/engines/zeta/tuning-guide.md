@@ -180,7 +180,7 @@ grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tai
 
 将时间戳与以下事件关联：
 - 作业提交事件（REST API 调用）
-- Checkpoint 间隔（默认每 5 分钟一次，`seatunnel.engine.checkpoint.interval`）
+- Checkpoint 间隔（引擎默认值为 300000 毫秒；发行包的 `config/seatunnel.yaml` 模板中配置为 `checkpoint.interval: 10000`）
 - 高负载时段（数据摄入高峰期）
 
 #### 第二步：检查节点整体健康状态

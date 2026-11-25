@@ -180,7 +180,7 @@ grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tai
 
 Correlate the timestamps with:
 - Job submission events (REST API calls)
-- Checkpoint intervals (every 5 minutes by default, `seatunnel.engine.checkpoint.interval`)
+- Checkpoint intervals (the engine default is 300000 ms; the shipped `config/seatunnel.yaml` template sets `checkpoint.interval: 10000`)
 - High-load periods (peak data ingestion)
 
 #### Step 2: Check overall node health
