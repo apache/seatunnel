@@ -110,9 +110,10 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | stop.mode                                 | Enum     | No       | NEVER    | Optional stop mode for PostgreSQL CDC consumer. The only valid enumeration is `never`: the source keeps streaming WAL changes and never stops on its own once it reaches the incremental phase.                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | snapshot.split.size                       | Integer  | No       | 8096     | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | No       | 1024     | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| incremental.parallelism                   | Integer  | No       | 1        | The number of parallel readers in the incremental (WAL) phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | slot.name                                 | String   | No       | seatunnel | The PostgreSQL logical decoding slot name. Use a different slot name for each CDC job that reads from the same PostgreSQL instance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | decoding.plugin.name                      | String   | No       | pgoutput | The name of the Postgres logical decoding plug-in installed on the server,Supported values are decoderbufs, wal2json, wal2json_rds, wal2json_streaming,wal2json_rds_streaming and pgoutput.                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| server-time-zone                          | String   | No       | -        | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| server-time-zone                          | String   | No       | JVM system time zone | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | connect.timeout.ms                        | Long     | No       | 30000    | The maximum time that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | No       | 3        | The max retry times that the connector should retry to build database server connection.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | No       | 20       | The jdbc connection pool size.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -142,7 +143,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 5000
   read_limit.bytes_per_second=7000000
@@ -295,6 +296,8 @@ sink {
 
 In `snapshot-only` mode, the connector skips WAL streaming entirely; configure `slot.name` if you need a dedicated slot for the snapshot read.
 
+When a `snapshot-only` job is restored from a checkpoint or savepoint, it reads exactly the tables recorded in the checkpoint: tables created or added to `table-names` after the checkpoint are not read, and a restore fails with an error naming the tables when a checkpointed table that still has unread snapshot data is no longer configured or no longer exists. A checkpointed table matches a configured table only when the database, schema and table names are identical, including letter case. Switching between `snapshot-only` and another startup mode across a restore is rejected as well. Submit a new job to change the captured tables or the startup mode.
+
 ### Read tables without a primary key
 
 Pick the path that matches what the source table guarantees:
@@ -333,15 +336,20 @@ Without a usable primary key, the connector cannot safely apply UPDATE/DELETE ev
 
 ## CDC Metadata Fields
 
-PostgreSQL CDC exposes metadata fields that can be used by the `Metadata` transform:
+PostgreSQL CDC exposes metadata fields that can be used by the `Metadata` transform.
+
+Field names are case-sensitive and must be written exactly as shown below (e.g. `Database`, not `database`), otherwise the job fails with a "cannot find metadata field" error:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| database | STRING | Source database name. |
-| table | STRING | Source table name. |
-| rowKind | STRING | Change type, such as insert, update, or delete. |
-| ts_ms | LONG | Source event timestamp in milliseconds. |
-| delay | LONG | Delay between event time and processing time in milliseconds. |
+| Database | STRING | Source database name. |
+| Table | STRING | Source table name. |
+| RowKind | STRING | Change type; emitted as the RowKind short code: `+I` (insert), `-U` (update before), `+U` (update after), `-D` (delete). |
+| EventTime | LONG | The time when the connector fetched and processed the event, in milliseconds. |
+| Delay | LONG | Delay between the source event time and the connector fetch time, in milliseconds. |
+| SourceTimestamp | LONG | The time when the change was committed in the source database (`source.ts_ms`), in milliseconds. |
+
+The connector's metadata schema also declares `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid`, so they can be projected by the `Metadata` transform, but these keys are only populated by MySQL-CDC; with PostgreSQL CDC they are always `null`.
 
 Example:
 
@@ -374,7 +382,7 @@ Also set `wal_level = logical` in `postgresql.conf` and add an entry in `pg_hba.
 
 ### Which logical decoding plugins are supported?
 
-SeaTunnel PostgreSQL CDC supports `pgoutput` (built-in since PostgreSQL 10), `wal2json`, and `decoderbufs`. The default is `pgoutput`. Use the `decoding.plugin.name` parameter to select the plugin.
+The `decoding.plugin.name` option accepts `pgoutput` (default, built-in since PostgreSQL 10), `decoderbufs`, `wal2json`, `wal2json_rds`, `wal2json_streaming`, and `wal2json_rds_streaming`. Note that schema evolution (`schema-changes.enabled`) requires `pgoutput`.
 
 ### Can SeaTunnel read CDC from a PostgreSQL standby?
 
@@ -383,6 +391,16 @@ PostgreSQL logical replication slots must be created and consumed on the primary
 ### Does PostgreSQL CDC support tables without primary keys?
 
 By default, PostgreSQL CDC requires primary keys. You can specify a custom primary key via `table-names-config` with the `primaryKeys` field if the table has a unique column that can serve as an identifier.
+
+### How are generated columns handled?
+
+The publication-column filter uses the effective decoding plugin: `debezium { "plugin.name" = "..." }` takes precedence over `decoding.plugin.name`. Other plugins and snapshot-only jobs bypass this filter.
+
+With `pgoutput`, only the columns that the publication publishes are captured. Generated columns are not published before PostgreSQL 18, and virtual generated columns are never published. An explicit publication column list can omit columns, but must include the replica identity columns when publishing UPDATE or DELETE operations. Unpublished non-key columns are excluded from the table schema, so they are neither read in the snapshot nor created in an auto-created sink table. Publications without an explicit column list, including `FOR ALL TABLES` and `FOR TABLES IN SCHEMA`, still follow the generated-column rules. On PostgreSQL 18, stored generated columns are captured when the publication is created with `publish_generated_columns = stored`.
+
+SeaTunnel requires every primary key column in the CDC schema (including keys configured with `table-names-config.primaryKeys`) to be published. If a required key is unpublished, the job fails at startup with the publication, table and missing key columns, rather than streaming NULL keys. This also applies to INSERT-only publications, even though PostgreSQL permits them to omit replica identity columns. Include all required primary key columns in the publication column list before starting or restoring the job.
+
+If SeaTunnel cannot read the publication metadata at job startup, it logs an error with the failure type and keeps all columns in the schema. In that fallback, unpublished columns may be written as NULL during streaming, or a schema-change error may stop the job. Check publication access and JDBC connectivity before relying on the captured data.
 
 ### How are replication slots managed?
 
@@ -413,6 +431,20 @@ may replay a row at an ambiguous boundary to avoid losing it.
 ### Why does PostgreSQL CDC fall behind?
 
 Replication lag can occur when the logical decoding plugin is slow or when the WAL sender is under load. Monitor `pg_replication_slots` for `confirmed_flush_lsn` drift. Ensure the CDC job consumes events continuously and that network latency between SeaTunnel and PostgreSQL is low.
+
+### Can PostgreSQL CDC run on the Spark engine?
+
+It can, but it is not covered by end-to-end tests. The Spark engine runs CDC sources as one Spark
+task that holds the split enumerator and all readers, for both `BATCH` and `STREAMING` jobs. Spark
+does not checkpoint the source, so:
+
+- A job cannot be restored from a checkpoint. A restarted job starts again from `startup.mode`.
+- SeaTunnel never confirms a processed LSN to the replication slot, so the slot's `restart_lsn` does
+  not move and PostgreSQL keeps all WAL from it for as long as the slot exists. Watch the WAL size,
+  and advance or drop the slot when the job stops.
+- A sink that only writes on checkpoints or full batches can hold rows back, for example the JDBC
+  sink with its default `batch_size`.
+- Reading the source with Spark micro-batch streaming (`readStream`) is not supported.
 
 ## See Also
 

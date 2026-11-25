@@ -116,6 +116,14 @@ Example:
 SELECT DES_DECRYPT('12345678', encrypted_secret) AS original FROM t
 ```
 
+### JSON Functions
+
+#### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+Extracts a value from a JSON string using a JSON path and returns it as a string. It shares the Zeta implementation; see [GET_JSON_OBJECT](sql-functions.md#get_json_object) for the supported path syntax and examples.
+
 ### Vector Functions
 
 #### COSINE_DISTANCE
@@ -387,6 +395,14 @@ transform {
 ```
 
 ### Vector Operations
+
+`VECTOR_NORM`, `INNER_PRODUCT`, `COSINE_DISTANCE`, `L1_DISTANCE`, `L2_DISTANCE` and
+`VECTOR_NORMALIZE` use double-precision intermediate products and differences for
+float vector elements, avoiding float overflow or underflow for finite inputs.
+Normalized output elements remain float, so output rounding and underflow remain
+possible. Null inputs and actual zero vectors retain their handling. No non-finite
+input validation or sanitization is added; corrected finite intermediates can also
+affect results when mixed with non-finite elements.
 
 Use built-in vector UDFs to compute distances, reduce dimensions, or normalize vectors in a data pipeline (e.g., between Milvus/Qdrant source and sink).
 

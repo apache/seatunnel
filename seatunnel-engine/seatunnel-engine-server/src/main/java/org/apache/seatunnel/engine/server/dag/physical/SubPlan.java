@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -41,10 +43,12 @@ import lombok.Data;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -93,6 +97,27 @@ public class SubPlan {
     /** The error throw by physicalVertex, should be set when physicalVertex throw error. */
     private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
 
+    /**
+     * Why each earlier run of this pipeline ended, oldest first.
+     *
+     * <p>{@link #errorByPhysicalVertex} only holds the current attempt and is replaced on every
+     * restore, so by the time anyone looks at a pipeline that has restarted repeatedly the reasons
+     * are gone. The restore counter then says a crash loop is happening without saying what is
+     * causing it, which is the first thing an operator needs.
+     *
+     * <p>The size is bounded twice over: a restore only happens while {@code pipelineRestoreNum <
+     * pipelineMaxRestoreNum}, which {@code job.retry.times} sets and defaults to 3, and {@link
+     * #MAX_RETAINED_RESTORE_CAUSES} caps it regardless in case that is configured high. Each entry
+     * is truncated, so the whole list stays small enough to live beside the pipeline.
+     */
+    private final Queue<String> restoreCauses = new ConcurrentLinkedQueue<>();
+
+    /** Upper bound on {@link #restoreCauses}, independent of {@code job.retry.times}. */
+    private static final int MAX_RETAINED_RESTORE_CAUSES = 16;
+
+    /** Longest retained cause. Enough for a message and the first frames that matter. */
+    private static final int MAX_RESTORE_CAUSE_LENGTH = 2048;
+
     private final ExecutorService executorService;
 
     private JobMaster jobMaster;
@@ -104,6 +129,16 @@ public class SubPlan {
     private final Object restoreLock = new Object();
 
     private volatile PipelineStatus currPipelineStatus;
+
+    /**
+     * Set as soon as cancellation of this pipeline is requested, before any blocking work in {@link
+     * #cancelPipeline()}. While the pipeline state has not left {@code RUNNING} yet (the cancel
+     * loop has not reached this pipeline, or {@code cancelPipeline()} is still cancelling the
+     * checkpoint coordinator), {@code CoordinatorService.makeTasksFailed()} may complete the
+     * remaining vertices as FAILED; this flag lets the failed-task callback and the end-state
+     * computation honor the in-flight cancel so the pipeline resolves to CANCELED (#12353).
+     */
+    private volatile boolean cancelRequested = false;
 
     public volatile boolean isRunning = false;
 
@@ -216,7 +251,17 @@ public class SubPlan {
                             failedTaskNum.incrementAndGet();
                             errorByPhysicalVertex.compareAndSet(
                                     null, executionState.getThrowableMsg());
-                            updatePipelineState(PipelineStatus.FAILING);
+                            // A worker failure must not overwrite a cancellation that has
+                            // already started: keep CANCELING until the end-state
+                            // computation so the pipeline resolves to CANCELED instead of
+                            // FAILED (#12353). The request may still be in flight while the
+                            // pipeline state has not left RUNNING (e.g. cancelPipeline() is
+                            // still cancelling the checkpoint coordinator), hence the
+                            // cancelRequested check.
+                            if (!cancelRequested
+                                    && !PipelineStatus.CANCELING.equals(getPipelineState())) {
+                                updatePipelineState(PipelineStatus.FAILING);
+                            }
                         }
 
                         if (finishedTaskNum.incrementAndGet()
@@ -241,14 +286,12 @@ public class SubPlan {
     }
 
     private PipelineStatus getPipelineEndState() {
-        PipelineStatus pipelineStatus = null;
-        if (failedTaskNum.get() > 0) {
-            pipelineStatus = PipelineStatus.FAILED;
+        PipelineStatus pipelineStatus = determinePipelineEndState();
+        if (PipelineStatus.FAILED.equals(pipelineStatus)) {
             // we don't care the checkpoint error reason when the task is
             // failed.
             jobMaster.getCheckpointManager().cancelCheckpoint(getPipelineId()).join();
-        } else if (canceledTaskNum.get() > 0) {
-            pipelineStatus = PipelineStatus.CANCELED;
+        } else if (PipelineStatus.CANCELED.equals(pipelineStatus)) {
             CheckpointCoordinatorState checkpointCoordinatorState =
                     jobMaster.getCheckpointManager().cancelCheckpoint(getPipelineId()).join();
             if (CheckpointCoordinatorStatus.FAILED.equals(
@@ -257,17 +300,7 @@ public class SubPlan {
                 errorByPhysicalVertex.compareAndSet(
                         null, checkpointCoordinatorState.getThrowableMsg());
             }
-
-            // Because the pipeline state must update by tasks, If the pipeline can not get enough
-            // slot, the pipeline state will turn to Failing and then cancel all tasks in this
-            // pipeline.
-            // Because the tasks never run, so the tasks will complete with CANCELED. But the actual
-            // status of the pipeline should be FAILED
-            if (getPipelineState().equals(PipelineStatus.FAILING)) {
-                pipelineStatus = PipelineStatus.FAILED;
-            }
         } else {
-            pipelineStatus = PipelineStatus.FINISHED;
             CheckpointCoordinatorState checkpointCoordinatorState =
                     jobMaster
                             .getCheckpointManager()
@@ -287,6 +320,49 @@ public class SubPlan {
             }
         }
         return pipelineStatus;
+    }
+
+    /**
+     * Decides the terminal {@link PipelineStatus} of this pipeline from the task counters and the
+     * current pipeline state.
+     *
+     * <p>Precedence: once cancellation has started and a task has actually failed or been canceled,
+     * {@code CANCELING} wins over the failure and the pipeline resolves to {@code CANCELED} — the
+     * cancellation requested by the user must not be overwritten by a worker failure racing it
+     * (#12353). Cancellation counts as started as soon as it has been requested ({@code
+     * cancelRequested}), even while the pipeline state has not left {@code RUNNING} yet because the
+     * cancel loop has not reached this pipeline or {@code cancelPipeline()} is still cancelling the
+     * checkpoint coordinator. A pipeline whose tasks all completed naturally still resolves to
+     * {@code FINISHED} even if the pipeline state has not left {@code CANCELING} yet, so a finished
+     * pipeline is never reclassified as {@code CANCELED} (which would make it restore-eligible).
+     * Otherwise {@code failedTaskNum} wins over {@code canceledTaskNum}, with the {@code FAILING}
+     * carve-out (e.g. slot allocation failure before any task ran) still mapping canceled tasks to
+     * {@code FAILED}.
+     *
+     * <p>Runs on the vertex-callback executor, outside the {@code synchronized} monitor of this
+     * SubPlan, reading the pipeline state and the task counters without holding it.
+     */
+    @VisibleForTesting
+    PipelineStatus determinePipelineEndState() {
+        if ((failedTaskNum.get() > 0 || canceledTaskNum.get() > 0)
+                && (cancelRequested || PipelineStatus.CANCELING.equals(getPipelineState()))) {
+            // Once cancellation has started, a worker failure must not overwrite the
+            // cancellation requested by the user.
+            return PipelineStatus.CANCELED;
+        }
+        if (failedTaskNum.get() > 0) {
+            return PipelineStatus.FAILED;
+        }
+        if (canceledTaskNum.get() > 0) {
+            // Because the pipeline state must update by tasks, if the pipeline cannot get enough
+            // slots, the pipeline state turns to FAILING and then cancels all tasks in this
+            // pipeline. Because the tasks never run, they complete with CANCELED, but the actual
+            // status of the pipeline should be FAILED.
+            return PipelineStatus.FAILING.equals(getPipelineState())
+                    ? PipelineStatus.FAILED
+                    : PipelineStatus.CANCELED;
+        }
+        return PipelineStatus.FINISHED;
     }
 
     private boolean checkNeedRestore(PipelineStatus pipelineStatus) {
@@ -403,7 +479,21 @@ public class SubPlan {
         }
     }
 
+    /**
+     * Marks this pipeline as cancel-requested before any vertex can be failed by member removal.
+     * Must be called before {@code cancelPipeline()} starts any blocking work (checkpoint
+     * cancellation), so a concurrent {@code CoordinatorService.makeTasksFailed()} cannot end the
+     * pipeline as FAILED while the cancel is still in flight (#12353).
+     */
+    public void markCancelRequested() {
+        this.cancelRequested = true;
+    }
+
     public synchronized void cancelPipeline() {
+        // Record the request before cancelCheckpointCoordinator() can block, so the
+        // failed-task callback and the end-state computation honor this cancel even though
+        // the pipeline state has not left RUNNING yet (#12353).
+        markCancelRequested();
         cancelCheckpointCoordinator();
         if (!getPipelineState().isEndState()) {
             updatePipelineState(PipelineStatus.CANCELING);
@@ -428,6 +518,9 @@ public class SubPlan {
         finishedTaskNum.set(0);
         canceledTaskNum.set(0);
         failedTaskNum.set(0);
+        // The restored run starts from a clean slate: a cancel request from the previous
+        // run must not leak into it (#12353).
+        cancelRequested = false;
 
         coordinatorVertexList.forEach(PhysicalVertex::reset);
 
@@ -482,6 +575,33 @@ public class SubPlan {
     }
 
     /**
+     * Keep why a run ended, dropping the oldest when full.
+     *
+     * <p>A restore with no recorded error is still worth a placeholder: "restarted and we do not
+     * know why" is a different and more alarming state than "restarted because the sink refused the
+     * connection", and silently omitting it would make the two look alike.
+     */
+    @VisibleForTesting
+    void retainRestoreCause(int restoreAttempt, String cause) {
+        String text =
+                cause == null || cause.trim().isEmpty()
+                        ? "no error was recorded for this run"
+                        : cause.trim();
+        if (text.length() > MAX_RESTORE_CAUSE_LENGTH) {
+            text = text.substring(0, MAX_RESTORE_CAUSE_LENGTH) + "... (truncated)";
+        }
+        restoreCauses.add(String.format("restore %s: %s", restoreAttempt, text));
+        while (restoreCauses.size() > MAX_RETAINED_RESTORE_CAUSES) {
+            restoreCauses.poll();
+        }
+    }
+
+    /** Why earlier runs of this pipeline ended, oldest first. Never null. */
+    public List<String> getRestoreCauses() {
+        return new ArrayList<>(restoreCauses);
+    }
+
+    /**
      * reset the pipeline and task state and init state future again
      *
      * @return
@@ -490,6 +610,9 @@ public class SubPlan {
         synchronized (restoreLock) {
             try {
                 pipelineRestoreNum.getAndIncrement();
+                // Record why this run ended before anything clears it: reset() runs just below
+                // and initStateFuture() replaces errorByPhysicalVertex outright.
+                retainRestoreCause(pipelineRestoreNum.get(), errorByPhysicalVertex.get());
                 log.info(
                         String.format(
                                 "Restore time %s, pipeline %s",
@@ -580,31 +703,46 @@ public class SubPlan {
         if (getPipelineState().ordinal() < PipelineStatus.RUNNING.ordinal()) {
             updatePipelineState(PipelineStatus.CANCELING);
         } else if (PipelineStatus.RUNNING.equals(getPipelineState())) {
-            AtomicBoolean allTaskRunning = new AtomicBoolean(true);
-            getCoordinatorVertexList()
-                    .forEach(
-                            task -> {
-                                if (!task.getExecutionState().equals(ExecutionState.RUNNING)) {
-                                    allTaskRunning.set(false);
-                                    return;
-                                }
-                            });
-
-            getPhysicalVertexList()
-                    .forEach(
-                            task -> {
-                                if (!task.getExecutionState().equals(ExecutionState.RUNNING)) {
-                                    allTaskRunning.set(false);
-                                    return;
-                                }
-                            });
-
             jobMaster
                     .getCheckpointManager()
                     .reportedPipelineRunning(
-                            this.getPipelineLocation().getPipelineId(), allTaskRunning.get());
+                            this.getPipelineLocation().getPipelineId(),
+                            isCheckpointCoordinatorAlreadyStarted());
         }
         startSubPlanStateProcess();
+    }
+
+    /**
+     * Determines whether the checkpoint coordinator was already running before a master switch. An
+     * unbounded source task group can be FINISHED because the coordinator closed an idle reader,
+     * while the remaining reader task groups keep the pipeline running.
+     */
+    @VisibleForTesting
+    boolean isCheckpointCoordinatorAlreadyStarted() {
+        // A finished enumerator/committer is not an idle reader: require every coordinator to run.
+        return getCoordinatorVertexList().stream()
+                        .allMatch(task -> ExecutionState.RUNNING.equals(task.getExecutionState()))
+                && getPhysicalVertexList().stream().allMatch(SubPlan::isRecoverableRunningState);
+    }
+
+    /**
+     * Preserves RUNNING vertices and finished unbounded reader groups only. Failed, unknown,
+     * bounded-source and non-source terminal groups must follow the existing restart path.
+     */
+    @VisibleForTesting
+    static boolean isRecoverableRunningState(PhysicalVertex physicalVertex) {
+        ExecutionState executionState = physicalVertex.getExecutionState();
+        if (ExecutionState.RUNNING.equals(executionState)) {
+            return true;
+        }
+        boolean recoverable =
+                physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore(executionState);
+        if (recoverable) {
+            log.info(
+                    "Preserve finished unbounded reader group {} during running-pipeline master restore",
+                    physicalVertex.getTaskGroupLocation());
+        }
+        return recoverable;
     }
 
     public List<PhysicalVertex> getPhysicalVertexList() {
@@ -717,7 +855,9 @@ public class SubPlan {
                                 task.makeTaskGroupDeploy();
                             }
                         });
-                updatePipelineState(PipelineStatus.RUNNING);
+                if (areAllVerticesRunningOrFinished(coordinatorVertexList, physicalVertexList)) {
+                    updatePipelineState(PipelineStatus.RUNNING);
+                }
                 break;
             case RUNNING:
                 break;
@@ -763,5 +903,16 @@ public class SubPlan {
     public void makePipelineFailing(Throwable e) {
         errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(e));
         updatePipelineState(PipelineStatus.FAILING);
+    }
+
+    static boolean areAllVerticesRunningOrFinished(
+            List<PhysicalVertex> coordinators, List<PhysicalVertex> tasks) {
+        return coordinators.stream().allMatch(SubPlan::isRunningOrFinished)
+                && tasks.stream().allMatch(SubPlan::isRunningOrFinished);
+    }
+
+    private static boolean isRunningOrFinished(PhysicalVertex vertex) {
+        return ExecutionState.RUNNING.equals(vertex.getExecutionState())
+                || ExecutionState.FINISHED.equals(vertex.getExecutionState());
     }
 }

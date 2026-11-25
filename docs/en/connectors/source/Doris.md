@@ -48,9 +48,9 @@ Used to read data from Apache Doris.
 | TINYINT                              | TINYINT                                                                                                                                             |
 | SMALLINT                             | SMALLINT                                                                                                                                            |
 | BIGINT                               | BIGINT                                                                                                                                              |
-| LARGEINT                             | STRING                                                                                                                                              |
+| LARGEINT                             | DECIMAL(20,0)                                                                                                                                       |
 | BOOLEAN                              | BOOLEAN                                                                                                                                             |
-| DECIMAL                              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
+| DECIMAL                              | DECIMAL(p, s), where `p` is the column precision and `s` is the column scale; when the column does not define them, DECIMAL(38, 10) is used. On Doris 1.2.x a defined scale of 0 also falls back to 10.         |
 | FLOAT                                | FLOAT                                                                                                                                               |
 | DOUBLE                               | DOUBLE                                                                                                                                              |
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
@@ -73,7 +73,7 @@ Base configuration:
 | username                         | string | yes      | -          | User username                                                                                       |
 | password                         | string | yes      | -          | User password                                                                                       |
 | doris.request.retries            | int    | no       | 3          | Number of retries to send requests to Doris FE.                                                     |
-| doris.request.read.timeout.ms    | int    | no       | 30000      | Socket read timeout for requests sent to Doris BE.                                                  |
+| doris.request.read.timeout.ms    | int    | no       | 30000      | Socket read timeout for requests sent to Doris FE or BE.                                            |
 | doris.request.connect.timeout.ms | int    | no       | 30000      | Connection timeout for requests sent to Doris FE or BE.                                             |
 | query-port                       | int    | no       | 9030       | Doris query port.                                                                                   |
 | doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |
@@ -88,13 +88,13 @@ Table list configuration:
 |----------------------------------|--------|----------|------------|-----------------------------------------------------------------------------------------------------|
 | database                         | string | yes      | -          | The name of Doris database                                                                          |
 | table                            | string | yes      | -          | The name of Doris table                                                                             |
-| doris.read.field                 | string | no       | -          | Use the 'doris.read.field' parameter to select the doris table columns to read                      |
-| doris.filter.query               | string | no       | -          | Data filtering in doris. the format is "field = value",example : doris.filter.query = "F_ID > 2"    |
+| doris.read.field                 | string | no       | -          | Use the 'doris.read.field' parameter to select the doris table columns to read. Column names are quoted automatically, so write them unquoted. |
+| doris.filter.query               | string | no       | -          | Data filtering in doris. The format is "field = value",example : doris.filter.query = "F_ID > 2". The value is passed to Doris unchanged, so keyword or special-character column names must be backtick-quoted here, for example ``doris.filter.query = "`from` > 1"``. |
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split for this table. The minimum value is `1`. |
 | doris.batch.size                 | int    | no       | 1024       | The maximum value that can be obtained by reading Doris BE once.                                    |
 | doris.exec.mem.limit             | long   | no       | 2147483648 | Maximum memory that can be used by a single be scan request. The default memory is 2G (2147483648). |
  
-Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer. If `table_list` is not configured, `database` and `table` must be configured at the outer source level.
+Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer. If `table_list` is not configured, `database` and `table` must be configured at the outer source level. Each `database`.`table` pair in `table_list` must be unique; duplicate entries are rejected at job submission.
 
 ### Tips
 
@@ -161,7 +161,7 @@ sink {
 }
 ```
 
-Use `doris.filter.query` to filter the data. The parameter value is passed directly to Doris as a predicate:
+Use 'doris.filter.query' to filter the data, and the parameter values are passed directly to doris. Keyword column names must be backtick-quoted, for example ``doris.filter.query = "`from` > 1"``.
 
 ```hocon
 env {

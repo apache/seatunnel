@@ -72,8 +72,9 @@ Do not scale down multiple Workers at once. Decrease replicas one by one and obs
 
 When image or configuration changes, StatefulSet updates Pods in order. Recommended practices:
 
-- Configure `preStop` to call `stop-seatunnel-cluster.sh`.
+- Run `seatunnel-cluster.sh` directly in the container `command`, not through `/bin/sh -c`, so the JVM receives SIGTERM.
 - Set a long enough `terminationGracePeriodSeconds`.
+- `preStop` with `stop-seatunnel-cluster.sh` is optional, only needed when the command must stay `/bin/sh -c`. See [Health Check and Shutdown](hybrid-cluster-mode.md#health-check-and-shutdown).
 - Check Master replicas and Worker slot capacity before updates.
 - Avoid updating Master and Worker at the same time during peak hours.
 - If configuration files are mounted through `subPath`, ConfigMap updates are not propagated into the running container automatically. Run a rolling restart or use a tool such as Reloader to trigger restarts.

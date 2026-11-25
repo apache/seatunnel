@@ -48,9 +48,12 @@ The current source runs a bounded SQL query. It is suitable for batch reads and 
 | FLOAT           | FLOAT               |
 | DOUBLE          | DOUBLE              |
 | TEXT            | STRING              |
-| STRING          | STRING              |
 | time column     | BIGINT              |
 | time column     | TIMESTAMP           |
+
+The source is built on the IoTDB `0.13.x` session client, which only knows the data types listed
+above. Columns that use the `STRING`, `BLOB`, `DATE` or `TIMESTAMP` data types introduced in
+IoTDB 1.3 are not supported; store string values as `TEXT` if they need to be read by this source.
 
 ## Source Options
 
