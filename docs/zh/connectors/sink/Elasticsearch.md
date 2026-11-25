@@ -23,34 +23,34 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 ## 选项
 
-|           名称           | 类型      | 是否必须 |             默认值              | 描述 |
+| 名称                     | 类型      | 是否必须 | 默认值                         | 描述 |
 |------------------------|---------|------|------------------------------|------|
-| hosts                  | array   | 是    | -                            | Elasticsearch 集群 HTTP 地址，格式 `host:port`，可配置多个，例如 `["host1:9200", "host2:9200"]`。 |
-| index                  | string  | 是    | -                            | 目标 Elasticsearch 索引，支持字段名变量（如 `seatunnel_${age}`，需配置 `schema_save_mode="IGNORE"`）。 |
-| schema_save_mode       | string  | 否 | CREATE_SCHEMA_WHEN_NOT_EXIST | 任务启动时如何处理目标索引，详见 [schema_save_mode](#schema_save_mode)。 |
-| data_save_mode         | string  | 否 | APPEND_DATA                  | 任务启动时如何处理已有文档，详见 [data_save_mode](#data_save_mode)。 |
-| index_type             | string  | 否    | -                            | Elasticsearch 索引类型，Elasticsearch 6 及以上不建议指定。 |
-| primary_keys           | list    | 否    | -                            | 用于组成文档 `_id` 的主键字段。CDC 场景下必填以保证 upsert 语义。 |
-| key_delimiter          | string  | 否    | `_`                          | 组合主键拼接为文档 `_id` 时的分隔符，默认 `_`。 |
-| key_encoding | enum | 否 | LEGACY | `LEGACY` 保持已有文档 ID，`LENGTH_PREFIXED` 避免复合主键中的分隔符冲突。 |
-| auth_type              | enum | 否    | basic                        | 认证方式：`basic`、`api_key`、`api_key_encoded`。 |
-| username               | string  | 否    | -                            | 基本认证的用户名（x-pack 用户名）。 |
-| password               | string  | 否    | -                            | 基本认证的密码（x-pack 密码）。 |
-| auth.api_key_id        | string  | 否    | -                            | Elasticsearch API Key ID，`auth_type=api_key` 时使用。 |
-| auth.api_key           | string  | 否    | -                            | Elasticsearch API Key secret，`auth_type=api_key` 时使用。 |
-| auth.api_key_encoded   | string  | 否    | -                            | Base64 编码的 API Key，`auth_type=api_key_encoded` 时使用。 |
+| hosts                  | array   | 是    | -                            | 集群 HTTP 地址列表，格式为 `host:port`，可配置多个地址，例如 `["host1:9200", "host2:9200"]`。 |
+| index                  | string  | 是    | -                            | 目标索引名。可包含字段占位符，例如 `seatunnel_${age}`，引用的字段必须存在于上游数据行中。使用占位符索引时需设置 `schema_save_mode = "IGNORE"`。 |
+| schema_save_mode       | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 写入前如何处理目标索引的 schema：`RECREATE_SCHEMA`、`CREATE_SCHEMA_WHEN_NOT_EXIST`、`ERROR_WHEN_SCHEMA_NOT_EXIST`、`IGNORE`。 |
+| data_save_mode         | string  | 否    | APPEND_DATA                  | 写入前如何处理已有数据：`DROP_DATA`、`APPEND_DATA`、`ERROR_WHEN_DATA_EXISTS`。Elasticsearch Sink 对该选项做了 `singleChoice` 限制，并显式排除了 `CUSTOM_PROCESSING`。 |
+| index_type             | string  | 否    | -                            | 已废弃。为仍需要 `_type` 的旧集群映射到 Elasticsearch `_type`，新版集群请勿设置。 |
+| primary_keys           | list    | 否    | -                            | 用于生成文档 `_id` 的主键字段。产生更新/删除事件的 CDC 源必须配置该参数。 |
+| key_delimiter          | string  | 否    | `_`                          | 组合键拼接为 `_id` 时使用的分隔符（默认 `_`）。当字段值可能与分隔符冲突时，可使用其他字符。 |
+| key_encoding           | enum    | 否    | LEGACY                       | `LEGACY` 保持现有文档 ID 不变；`LENGTH_PREFIXED` 可避免组合键分隔符冲突。 |
+| auth_type              | enum    | 否    | basic                        | 认证方式：`basic`（基于 `username`/`password` 的 HTTP Basic 认证）、`api_key`（Elasticsearch API Key）或 `api_key_encoded`（编码后的 Elasticsearch API Key）。 |
+| username               | string  | 否    | -                            | `basic` 认证的用户名。 |
+| password               | string  | 否    | -                            | `basic` 认证的密码。 |
+| auth.api_key_id        | string  | 否    | -                            | `api_key` 认证的 API key ID。 |
+| auth.api_key           | string  | 否    | -                            | `api_key` 认证的 API key 密钥。 |
+| auth.api_key_encoded   | string  | 否    | -                            | Base64 编码的 `id:secret` API key，可替代 `auth.api_key_id` + `auth.api_key`。 |
 | max_retry_count        | int     | 否    | 3                            | 单次 bulk 请求的最大重试次数。 |
-| max_batch_size         | int     | 否    | 10                           | 每个 bulk 请求包含的最大文档数。 |
-| tls_verify_certificate | boolean | 否    | true                         | 是否校验 HTTPS 证书。 |
-| tls_verify_hostname    | boolean | 否    | true                         | 是否校验 HTTPS 主机名。 |
-| tls_keystore_path      | string  | 否    | -                            | PEM 或 JKS key store 的路径。 |
-| tls_keystore_password  | string  | 否    | -                            | `tls_keystore_path` 对应 key store 的密码。 |
-| tls_truststore_path    | string  | 否    | -                            | PEM 或 JKS trust store 的路径。 |
-| tls_truststore_password | string  | 否    | -                            | `tls_truststore_path` 对应 trust store 的密码。 |
-| common-options         |         | 否    | -                            | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
-| vectorization_fields   | array   | 否    | -                            | 需要向量化的字段名（Elasticsearch 7.3+）。 |
-| vector_dimensions      | int     | 否    | 0                            | 向量维度（Elasticsearch 7.3+）。 |
-| multi_table_sink_replica | int   | 否    | 1                            | 多表写入时每张表对应的 sink writer 副本数。 |
+| max_batch_size         | int     | 否    | 10                           | 单次 bulk 请求刷新前缓冲的最大文档数。 |
+| tls_verify_certificate | boolean | 否    | true                         | 使用 HTTPS 时是否校验服务器证书。 |
+| tls_verify_hostname    | boolean | 否    | true                         | 使用 HTTPS 时是否根据证书校验服务器主机名。 |
+| tls_keystore_path      | string  | 否    | -                            | 客户端 mTLS 使用的 PEM 或 JKS keystore 路径。 |
+| tls_keystore_password  | string  | 否    | -                            | keystore 密码。 |
+| tls_truststore_path    | string  | 否    | -                            | PEM 或 JKS truststore 路径。 |
+| tls_truststore_password | string  | 否    | -                            | truststore 密码。 |
+| common-options         |         | 否    | -                            | Sink 连接器插件通用参数，详情请参见 [Sink Common Options](../common-options/sink-common-options.md)。 |
+| vectorization_fields   | array   | 否    | -                            | 需要以稠密向量形式存储的字段名列表。 |
+| vector_dimensions      | int     | 否    | 0                            | `vectorization_fields` 中存储的稠密向量的维度，需与 `vectorization_fields` 一起设置。 |
+| multi_table_sink_replica | int   | 否    | 1                            | 写多表时每个 sink writer 的副本数。 |
 
 
 ### hosts [array]
