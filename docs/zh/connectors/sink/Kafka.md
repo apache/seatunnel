@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-> 默认情况下，sink 以 `semantics = NON` 运行，不保证精确一次语义。只有将 `semantics` 配置为 `EXACTLY_ONCE` 时，才会使用 Kafka 2pc 事务来实现精确一次发送（参见[语义](#语义)）。
+> 默认情况下，`semantics` 为 `NON`：消息直接发送，不使用事务，不保证不丢不重（失败时消息可能丢失或重复）。将 `semantics` 设置为 `EXACTLY_ONCE` 后才会使用 2pc（Kafka 事务）实现精确一次语义。 参见[语义](#语义)。
 
 ## 描述
 

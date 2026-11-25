@@ -20,9 +20,12 @@ package org.apache.seatunnel.e2e.connector.doris;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
@@ -40,12 +43,14 @@ import java.math.BigDecimal;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -70,6 +75,7 @@ public class DorisIT extends AbstractDorisIT {
     private static final String DUPLICATE_TABLE = "doris_duplicate_table";
     private static final String sourceDB = "e2e_source";
     private static final String sinkDB = "e2e_sink";
+    private static final String KEYWORD_COLUMN_TABLE = "doris_keyword_column_table";
     private static final String TZ_UNSET_TABLE = "doris_tz_unset";
     private static final String TZ_EXPLICIT_TABLE = "doris_tz_explicit";
     private static final OffsetDateTime TZ_SOURCE_VALUE =
@@ -260,6 +266,110 @@ public class DorisIT extends AbstractDorisIT {
         Container.ExecResult execResult1 = container.executeJob("/doris_source_no_schema.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
         checkSinkData();
+    }
+
+    /**
+     * A FE port that silently drops SYN packets must make source startup/planning fail within the
+     * configured connect timeout instead of hanging the job. The catalog JDBC connection still uses
+     * the reachable query port on the same host, so only the RestService request path is
+     * black-holed: without the fix the job waits for the kernel SYN retries, with it the planning
+     * failure propagates as REST_SERVICE_FAILED.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "flink/spark failed reason not same")
+    public void testSourceFailsFastWhenFeUnreachable(TestContainer container) throws Exception {
+        initializeJdbcTable();
+        String dorisPid = String.valueOf(this.container.getContainerInfo().getState().getPid());
+        // The Doris image ships no iptables binary, so run the host's iptables inside the
+        // container's network namespace: every packet the container receives traverses INPUT,
+        // which turns the otherwise refused port 9999 into a silent SYN black hole.
+        hostIptables(dorisPid, "-A");
+        try {
+            Container.ExecResult execResult =
+                    Assertions.assertTimeoutPreemptively(
+                            Duration.ofSeconds(60),
+                            () -> container.executeJob("/doris_source_fe_unreachable.conf"));
+            Assertions.assertNotEquals(0, execResult.getExitCode());
+            Assertions.assertTrue(
+                    execResult
+                            .getStderr()
+                            .contains(DorisConnectorErrorCode.REST_SERVICE_FAILED.getCode()),
+                    "expected REST_SERVICE_FAILED in the job output:\n" + execResult.getStderr());
+            Assertions.assertTrue(
+                    execResult.getStderr().contains("connect timed out"),
+                    "expected the configured connect timeout to fire:\n" + execResult.getStderr());
+        } finally {
+            hostIptables(dorisPid, "-D");
+        }
+    }
+
+    private void hostIptables(String dorisPid, String action)
+            throws IOException, InterruptedException {
+        Process process =
+                new ProcessBuilder(
+                                "sudo",
+                                "nsenter",
+                                "-t",
+                                dorisPid,
+                                "-n",
+                                "iptables",
+                                action,
+                                "INPUT",
+                                "-p",
+                                "tcp",
+                                "--dport",
+                                "9999",
+                                "-j",
+                                "DROP")
+                        .redirectErrorStream(true)
+                        .start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        int exitCode = process.waitFor();
+        Assertions.assertEquals(
+                0, exitCode, "failed to update the container INPUT chain: " + output);
+    }
+
+    @TestTemplate
+    public void testReadKeywordColumns(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        // Issue 13369: Doris FE rejected the source query plan SQL when a read field such as
+        // "from" was a Doris keyword. The Assert sink checks the single seeded row below.
+        initializeJdbcTable();
+        try {
+            try (Statement statement = conn.createStatement()) {
+                statement.execute(
+                        String.format(
+                                "create table if not exists `%s`.`%s`(\n"
+                                        + "`id` int not null,\n"
+                                        + "`from` varchar(32) null,\n"
+                                        + "`desc` varchar(32) null,\n"
+                                        + "`to` int null,\n"
+                                        + "`system` varchar(32) null\n"
+                                        + ")\n"
+                                        + "DUPLICATE KEY(`id`)\n"
+                                        + "DISTRIBUTED BY HASH(`id`) BUCKETS 1\n"
+                                        + "properties(\n"
+                                        + "\"replication_allocation\" = \"tag.location.default: 1\""
+                                        + ");",
+                                sourceDB, KEYWORD_COLUMN_TABLE));
+                // A run killed before the finally block can leave a row behind. Truncate it so
+                // the Assert sink still sees exactly one row.
+                statement.execute(
+                        String.format("truncate table `%s`.`%s`", sourceDB, KEYWORD_COLUMN_TABLE));
+                statement.execute(
+                        String.format(
+                                "insert into `%s`.`%s` values (1, 'beijing', 'first', 7, 'erp')",
+                                sourceDB, KEYWORD_COLUMN_TABLE));
+            }
+            Container.ExecResult execResult =
+                    container.executeJob("/doris_source_keyword_columns_to_assert.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        } finally {
+            dropTable(sourceDB, KEYWORD_COLUMN_TABLE);
+        }
     }
 
     @TestTemplate

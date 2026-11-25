@@ -31,7 +31,9 @@ import org.apache.orc.OrcFile;
 import org.apache.orc.Reader;
 import org.apache.orc.RecordReader;
 import org.apache.orc.TypeDescription;
+import org.apache.orc.storage.common.type.HiveDecimal;
 import org.apache.orc.storage.ql.exec.vector.ColumnVector;
+import org.apache.orc.storage.ql.exec.vector.DecimalColumnVector;
 import org.apache.orc.storage.ql.exec.vector.VectorizedRowBatch;
 
 import org.junit.jupiter.api.Assertions;
@@ -41,6 +43,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -170,6 +174,30 @@ public class OrcReadStrategyTest {
         Assertions.assertInstanceOf(
                 String.class, unionResult0.getRight(), "UNION string branch should return String");
         Assertions.assertEquals("seatunnel_union_string", unionResult0.getRight());
+    }
+
+    @Test
+    public void testReadDecimalListVectorWithNonZeroOffset() throws Exception {
+        DecimalColumnVector decimalVector = new DecimalColumnVector(4, 10, 2);
+        decimalVector.set(0, HiveDecimal.create("10.00"));
+        decimalVector.set(1, HiveDecimal.create("20.00"));
+        decimalVector.set(2, HiveDecimal.create("30.00"));
+        decimalVector.set(3, HiveDecimal.create("40.00"));
+        // Index 2 is null while a non-null value remains in the backing array,
+        // so a reader must skip it and only ever touch offset + i.
+        decimalVector.isNull[2] = true;
+
+        Method readDecimalListVector =
+                OrcReadStrategy.class.getDeclaredMethod(
+                        "readDecimalListVector", DecimalColumnVector.class, int.class, int.class);
+        readDecimalListVector.setAccessible(true);
+        Object[] actual =
+                (Object[]) readDecimalListVector.invoke(new OrcReadStrategy(), decimalVector, 1, 3);
+
+        Assertions.assertArrayEquals(
+                new BigDecimal[] {new BigDecimal("20"), null, new BigDecimal("40")},
+                actual,
+                "A decimal list must be decoded from offset + i");
     }
 
     public static class TestCollector implements Collector<SeaTunnelRow> {

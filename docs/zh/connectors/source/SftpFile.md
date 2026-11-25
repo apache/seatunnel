@@ -100,6 +100,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | read_columns               | list    | 否    | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。                                                                                                                                                                                                                          |
 | read_partitions | list | 否 | - | 用户希望读取的分区列表，例如 `["year=2024"]`。设置后仅读取这些分区。 |
 | sheet_name                 | String  | 否    | -                   | 读取工作簿的工作表，仅在file_format为excel时使用。                                                                                                                                                                                                                  |
+| excel_use_header_line | boolean | 否 | false | 使用 Excel 第一行作为表头按列名映射字段，仅在 file_format_type 为 excel 时使用。 |
 | excel_engine               | string  | 否    | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                                                                                |
 | poi_excel_max_file_size    | long    | 否    | 52428800           | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                                                                                |
 | xml_row_tag                | string  | 否    | -                   | 指定XML文件中数据行的标签名称，仅在file_format为xml时使用。                                                                                                                                                                                                             |
@@ -126,6 +127,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | backup_path                | string  | 否    | -                   | `post_sync_action=backup` 时的备份目标基础路径，不能与 `path` 重叠。                                                                                                                                                                                   |
 | retention_max_age          | string  | 否    | -                   | `backup_path` 中 SeaTunnel 备份文件的可选保留时长，仅在 `post_sync_action=backup` 时有效。                                                                                                                                                            |
 | retention_check_interval   | string  | 否    | 1H                  | 保留清理扫描间隔，仅在 `post_sync_action=backup` 且配置 `retention_max_age` 时生效。                                                                                                                                                                    |
+| tables_configs | list | 否 | - | 用于定义多表任务，与 `path` 互斥。 |
 | common-options             |         | 否    | -                   | 数据源插件通用参数，请参考[数据源通用选项](../common-options/source-common-options.md)了解详情。                                                                                                                                                                                           |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                                                                                          |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                                                                                         |
@@ -476,6 +478,14 @@ compare_mode = "len_mtime"
 
 更多信息请参考 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
 
+### quote_char [string]
+
+用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。
+
+### escape_char [string]
+
+用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
+
 ### recursive_file_scan [boolean]
 
 是否递归扫描子目录。
@@ -553,6 +563,94 @@ sink {
   }
 }
 ```
+### 递归扫描文本文件
+
+设置 `recursive_file_scan = true` 以枚举 `path` 子目录中的文件。下面的示例读取嵌套目录下的文本文件，并使用显式 schema，使每一行映射为具有类型的 SeaTunnel 列。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  SftpFile {
+    host = "sftp"
+    port = 22
+    user = seatunnel
+    password = pass
+    path = "tmp/seatunnel/read/recursive"
+    file_format_type = "text"
+    recursive_file_scan = true
+    plugin_output = "sftp"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_bytes = bytes
+        c_date = date
+        c_decimal = "decimal(38, 18)"
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "sftp"
+    rules {
+      row_rules = [
+        { rule_type = MAX_ROW, rule_value = 20 },
+        { rule_type = MIN_ROW, rule_value = 20 }
+      ]
+    }
+  }
+}
+```
+
+### 公钥认证
+
+当 SFTP 服务器配置了 SSH 密钥认证时，请通过 `keyfile` 提供私钥路径并省略 `password`。连接器内部使用 JSCH 库，因此 `keyfile` 需遵循 OpenSSH 私钥格式，并且必须保证引擎进程有权限读取该文件。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  SftpFile {
+    host = "sftp.example.com"
+    port = 22
+    user = "seatunnel"
+    keyfile = "/opt/seatunnel/keys/sftp_id_rsa"
+    path = "data/incoming/"
+    file_format_type = "csv"
+    plugin_output = "sftp"
+    schema = {
+      fields {
+        id = bigint
+        name = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+配置后，`password` 和 `keyfile` 都会被加载到 SSH 会话中。连接器内部使用 JSCH 库，其默认认证顺序会先尝试 `publickey`（通过 `keyfile`），再尝试 `password`。为避免认证失败时出现意外情况，建议只配置其中之一。引擎进程必须有权限读取 `keyfile`；不支持设有口令保护的私钥文件，请在作业启动前先解密私钥。
 ### 多表
 
 ```hocon
