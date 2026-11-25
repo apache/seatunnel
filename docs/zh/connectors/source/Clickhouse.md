@@ -65,10 +65,9 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | sql               | String | 否       | -                      | 用于从 ClickHouse 读取数据的 SQL。省略 `table_path` 时，仅当 SQL 引用一张表才能推断表路径。被识别为复杂 SQL 的查询使用单个 split。 |
 | filter_query      | String | 否       | -                      | ClickHouse 数据过滤条件。格式为 `field = value`，例如 `filter_query = "id > 2 and type = 1"`。该条件用于表/分区模式。自定义 SQL 模式下，请将过滤条件写入 SQL 的 `WHERE` 子句，不要依赖 `filter_query` 限制查询。                          |
 | partition_list    | Array  | 否       | -                      | 指定分区列表过滤数据。如果是分区表，该字段可以配置为过滤指定分区的数据。例如 `partition_list = ["20250615", "20250616"]`。                                                                |
-| split.size        | int    | 否       | `Integer.MAX_VALUE`    | 配置在外层 source 时，每个 SeaTunnel split 包含的 ClickHouse part 数量。最小值为 `1`，值越小，拆分越多，并行读取粒度越细。                                                                |
 | batch_size        | int    | 否       | `1024`                 | 每次从 ClickHouse 读取的最大行数。对于大表请谨慎调整，避免 OOM 异常。                                                                                                |
 | clickhouse.config | Map    | 否       | -                      | 除了上述必须由 `clickhouse-jdbc` 指定的必填参数外，用户还可以指定多个可选参数，这些参数涵盖了 `clickhouse-jdbc` 提供的所有[参数](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration). |
-| server_time_zone  | String | 否       | ZoneId.systemDefault() | 数据库服务中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 设置服务时区。                                                                                                                                                                                |
+| server_time_zone  | String | 否       | ZoneId.systemDefault() | 数据库服务中的会话时区。如果未设置，则使用ZoneId.systemDefault（）设置服务时区.                                                                                                                                                                                |
 | common-options    |        | 否       | -                      | 源插件常用参数，详见 [源通用选项](../common-options/source-common-options.md).                                                                                                                                                                                          |
 
 多表配置：
@@ -83,6 +82,8 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | batch_size     | int    | 否    | 1024 | 从Clickhouse读取一次可以获得的最大数据行数。                                                          |
 
 注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。展开到外层时，分片大小参数使用 `split.size`，而不是 `split_size`。
+
+注意: 每一个 `table_list` 条目（或展平后的外层配置）必须至少配置 `table_path` 和 `sql` 中的一个。如果两者都为空，连接器会抛出 `table_path` and `sql` parameter cannot be both empty. 错误。
 
 ## 并行读取
 

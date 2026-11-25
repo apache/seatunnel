@@ -72,8 +72,6 @@ import ChangeLog from '../changelog/connector-doris.md';
 | fenodes                          | string | yes      | -          | FE 地址, 格式：`"fe_host:fe_http_port"`，多个 FE 可以用逗号分隔。                                                              |
 | username                         | string | yes      | -          | 用户名                                                                                               |
 | password                         | string | yes      | -          | 密码                                                                                                 |
-| database                         | string | no       | -          | Doris 数据库名。单表读取（未使用 `table_list`）时必填。                                                                          |
-| table                            | string | no       | -          | Doris 表名。单表读取（未使用 `table_list`）时必填。                                                                            |
 | doris.request.retries            | int    | no       | 3          | 请求Doris FE的重试次数                                                                                 |
 | doris.request.read.timeout.ms    | int    | no       | 30000      | 请求 Doris FE 或 BE 的 socket 读取超时时间（毫秒）。 |
 | doris.request.connect.timeout.ms | int    | no       | 30000      | 请求 Doris FE 或 BE 的连接超时时间（毫秒）。 |
@@ -82,6 +80,8 @@ import ChangeLog from '../changelog/connector-doris.md';
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | 每个 SeaTunnel split 包含的 Doris tablet 数量，最小值为 `1`。                                  |
 | doris.deserialize.arrow.async    | boolean | no      | false      | 是否异步反序列化 Arrow 数据。                                                                           |
 | doris.deserialize.queue.size     | int    | no       | 64         | 异步反序列化 Arrow 数据时使用的队列大小。                                                                |
+| database                         | string | yes      | -          | Doris 数据库名。未配置 `table_list` 时必须在 source 外层配置。                                     |
+| table                            | string | yes      | -          | Doris 表名。未配置 `table_list` 时必须在 source 外层配置。                                         |
 | doris.exec.mem.limit             | long   | no       | 2147483648 | 单个 BE 扫描请求可以使用的最大内存，默认 2G。                                                                                |
 | table_list                       | Array  | no       | -           | 要读取的 Doris 表清单。                                                                                |
 

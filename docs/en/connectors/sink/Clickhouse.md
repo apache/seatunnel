@@ -206,6 +206,55 @@ sink {
 }
 ```
 
+## ClickhouseFile Sink
+
+Besides the `Clickhouse` sink plugin above, this connector also provides the `ClickhouseFile` sink plugin
+(factory identifier `ClickhouseFile`). Instead of writing rows over JDBC, it feeds the data to a local
+`clickhouse-local` program to generate ClickHouse part files, copies the generated files to the target
+ClickHouse server nodes (`scp` or `rsync`), and attaches them to the target table. This is usually much faster than row-by-row inserts for large batch writes.
+
+Set `table` to an existing ClickHouse `Distributed` table. The sink reads its cluster and backing
+local table from the `Distributed` definition before writing.
+
+The `ClickhouseFile` sink reads only these options from [Sink Options](#sink-options) above: `host`,
+`database`, `table`, `username`, `password`, `clickhouse.config`, `sharding_key` and `server_time_zone`.
+Other sink options (such as `bulk_size`, `split_mode`, `primary_key`, `support_upsert`,
+`schema_save_mode` or `data_save_mode`) are not part of its option rule and have no effect here.
+The plugin-specific options are:
+
+| Name                  | Type    | Required | Default                              | Description                                                                                                                                                                     |
+|-----------------------|---------|----------|--------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| clickhouse_local_path | String  | Yes      | -                                    | Path of the `clickhouse-local` program used by the ClickhouseFile sink.                                                                                                          |
+| copy_method           | Enum    | No       | scp                                  | Method used to copy the generated part files to the ClickHouse server nodes. Supported values: `scp`, `rsync`.                                                                    |
+| compatible_mode       | Boolean | No       | false                                | In lower ClickHouse versions the `clickhouse-local` program does not support the `--path` parameter; enable this mode to emulate the `--path` behavior in another way.             |
+| node_free_password    | Boolean | No       | false                                | Whether password-free login is configured between the SeaTunnel nodes and the ClickHouse server nodes. File transfer uses `scp`/`rsync`, so SeaTunnel needs access to the ClickHouse server nodes. Set this to `true` when password-free login is configured; otherwise configure the node passwords in `node_pass`. |
+| node_pass | Array | Yes | - | SSH entries for the shard nodes. Use the shard hostname reported by `system.clusters` as `node_address`. Each entry requires `node_address` and `password`. `username` defaults to `root`. With passwordless SSH as `root`, set `node_free_password = true` and `node_pass = []`. |
+| key_path              | String  | No       | -                                    | Path of the `rsync`/`ssh` key file used by file transfer.                                                                                                                        |
+| file_fields_delimiter | String  | No       | `\t`                                 | ClickhouseFile temporarily stores data in CSV format. If a row contains this delimiter the generated file may break; avoid it with this option. The value must be exactly one character. |
+| file_temp_path        | String  | No       | /tmp/seatunnel/clickhouse-local/file | Local directory where ClickhouseFile stores temporary files.                                                                                                                     |
+
+### ClickhouseFile Sink Configuration Example
+
+Add this sink block to a job with your source. Use the hostname and SSH credentials for each shard in your cluster.
+
+```hocon
+sink {
+  ClickhouseFile {
+    host = "localhost:8123"
+    database = "default"
+    table = "seatunnel_table_dist"
+    username = "default"
+    password = ""
+    clickhouse_local_path = "/usr/local/clickhouse/clickhouse"
+    copy_method = "rsync"
+    node_pass = [
+      { node_address = "shard1.example.com", username = "ssh_user", password = "ssh_password" }
+    ]
+    file_temp_path = "/tmp/seatunnel/clickhouse-local/file"
+  }
+}
+```
+
 ## Example Configurations and Cases
 
 ### How to Create a Clickhouse Data Synchronization Jobs

@@ -247,7 +247,7 @@ Sink 插件的通用参数，请参考[Sink通用选项](../common-options/sink-
 
 写入工作簿的工作表。
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为CSV时，CSV的字符串引号模式： 
 

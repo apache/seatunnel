@@ -214,7 +214,7 @@ Sink 插件的常见参数，请参阅 [Sink 常见选项](../common-options/sin
 
 工作簿的表名。
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为 CSV 时，CSV 的字符串引号模式。
 

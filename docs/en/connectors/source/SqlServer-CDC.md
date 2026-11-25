@@ -147,9 +147,10 @@ case-sensitive databases, make sure the configured identifier case matches the d
 
 ## Task Example
 
-### initiali read Simple
+### Initial Read Simple
 
-> This is a stream mode cdc initializes read table data will be read incrementally after successful read The following sql DDL is for reference only
+> In stream mode, CDC reads the existing table data during initialization and continues reading
+> incrementally after the initial read completes. The following SQL DDL is for reference only.
 
 ```
 env {

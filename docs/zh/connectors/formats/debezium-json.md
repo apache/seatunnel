@@ -28,6 +28,14 @@ SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息解析为 Deb
 
 > **注意：** 带前缀的 `debezium-json.ignore-parse-errors` 不是有效的配置项，配置后不会生效。是否跳过无法解析的记录由各连接器自行决定（例如 Kafka 读取 Debezium JSON 时始终跳过）。
 
+:::warning
+
+在当前的 SeaTunnel 实现中，`debezium-json.ignore-parse-errors` 不会从作业配置中读取。Kafka source
+在 `debezium_json` 格式下遇到解析错误的行会直接跳过，而 Amazon SQS source 则会直接失败。Debezium 记录是否携带
+schema 由连接器自己的选项控制（例如 Kafka source 的 `debezium_record_include_schema`），而不是 `debezium-json.*` 选项。
+
+:::
+
 # 如何使用
 
 ## Kafka 使用示例

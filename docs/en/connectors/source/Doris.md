@@ -72,8 +72,6 @@ Base configuration:
 | fenodes                          | string | yes      | -          | FE address, the format is `"fe_host:fe_http_port"`. Multiple FEs can be specified as a comma-separated list. |
 | username                         | string | yes      | -          | User username                                                                                       |
 | password                         | string | yes      | -          | User password                                                                                       |
-| database                         | string | no       | -          | The name of the Doris database. Required when reading a single table outside `table_list`.            |
-| table                            | string | no       | -          | The name of the Doris table. Required when reading a single table outside `table_list`.               |
 | doris.request.retries            | int    | no       | 3          | Number of retries to send requests to Doris FE.                                                     |
 | doris.request.read.timeout.ms    | int    | no       | 30000      | Socket read timeout for requests sent to Doris FE or BE, in milliseconds. |
 | doris.request.connect.timeout.ms | int    | no       | 30000      | Connection timeout for requests sent to Doris FE or BE, in milliseconds. |
@@ -82,6 +80,8 @@ Base configuration:
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split. The minimum value is `1`.       |
 | doris.deserialize.arrow.async    | boolean | no      | false      | Whether to deserialize Arrow data asynchronously.                                                    |
 | doris.deserialize.queue.size     | int    | no       | 64         | Queue size used by asynchronous Arrow deserialization.                                               |
+| database                         | string | yes      | -          | The name of Doris database. Required at the top level when `table_list` is not configured.           |
+| table                            | string | yes      | -          | The name of Doris table. Required at the top level when `table_list` is not configured.              |
 | doris.exec.mem.limit             | long   | no       | 2147483648 | Maximum memory that can be used by a single BE scan request. The default memory is 2G (2147483648).  |
 | table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
 
