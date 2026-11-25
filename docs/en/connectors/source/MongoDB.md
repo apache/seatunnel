@@ -13,8 +13,8 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## Description
 
 The MongoDB source connector reads documents from a MongoDB collection and converts each BSON
-document into a SeaTunnel row. It supports both **batch** and **streaming** jobs, and reads in
+document into a SeaTunnel row. It runs as a **batch** (bounded) source and reads in
 parallel by splitting the source collection across `partition.split-key` ranges.
 
 You can narrow what is read and what columns are returned without scanning the whole collection:
@@ -32,8 +32,11 @@ You can narrow what is read and what columns are returned without scanning the w
 - Use `flat.sync-string` to capture the whole document as one JSON `STRING` column when no
   fixed schema is needed.
 
-In streaming mode the connector reads the assigned splits and tracks progress through checkpoints
-so a restarted job resumes from the last committed cursor.
+Checkpoints only store splits that have not been fully read yet; a split does not record a read
+position inside its range. When a job restarts from a checkpoint, the enumerator restores those
+pending splits and then re-runs the split strategy over the whole collection, so documents that
+were already read can be read again. Make the downstream write idempotent (for example, an upsert
+on the primary key) if duplicates after a restore are not acceptable.
 
 ## Supported DataSource Info
 
@@ -352,7 +355,10 @@ sink {
 }
 ```
 
-A sample document that flows through this configuration looks like the following:
+A sample document that flows through this configuration looks like the following. The whole
+document is serialized with MongoDB Relaxed Extended JSON: int32/int64/double values are
+rendered as plain JSON numbers and dates as ISO-8601 strings, while `Decimal128` values keep
+their `{"$numberDecimal": ...}` wrapper:
 
 ```json
 {
@@ -366,24 +372,67 @@ A sample document that flows through this configuration looks like the following
     "DAgdj": "t",
     "dsJag": "voo"
   },
-  "c_array": [
-    { "$numberInt": "-865590937" },
-    { "$numberInt": "833905600" },
-    { "$numberInt": "-1104586446" },
-    { "$numberInt": "2076336780" },
-    { "$numberInt": "-1028686444" }
-  ],
+  "c_array": [-865590937, 833905600, -1104586446, 2076336780, -1028686444],
   "c_string": "bddkzxr",
   "c_boolean": false,
-  "c_tinyint": { "$numberInt": "39" },
-  "c_smallint": { "$numberInt": "23672" },
-  "c_int": { "$numberInt": "-495763561" },
-  "c_bigint": { "$numberLong": "3768307617923954543" },
-  "c_double": { "$numberDouble": "1.1706091642478246E308" },
+  "c_tinyint": 39,
+  "c_smallint": 23672,
+  "c_int": -495763561,
+  "c_bigint": 3768307617923954543,
+  "c_double": 1.1706091642478246E308,
   "c_bytes": { "$binary": { "base64": "ZWJ4", "subType": "00" } },
-  "c_date": { "$date": { "$numberLong": "1686614400000" } },
+  "c_date": { "$date": "2023-06-13T00:00:00Z" },
   "c_decimal": { "$numberDecimal": "683265300" },
-  "c_timestamp": { "$date": { "$numberLong": "1684283772000" } }
+  "c_timestamp": { "$date": "2023-05-17T00:36:12Z" }
+}
+```
+
+### Read With Partition Split Key
+
+To accelerate reads on large collections, MongoDB source lets you split the scan by a key (`partition.split-key`)
+and a target split size (`partition.split-size`). The connector reads documents ordered by the split key and
+hands each chunk to a parallel reader. `fetch.size` controls how many documents the server returns per round-trip
+and should be tuned together with the split size.
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017"
+    database = "test_db"
+    collection = "orders"
+    partition.split-key = "_id"
+    partition.split-size = 1024
+    fetch.size = 2048
+    max.time-min = 30
+    schema = {
+      fields {
+        _id = string
+        status = string
+        amount = double
+      }
+    }
+  }
+}
+```
+
+### Read From Replica Set Or Sharded Cluster
+
+The connector accepts any standard MongoDB connection URI. Use `replicaSet=xxx` for replica sets and
+`authSource=admin` when credentials live in a non-default auth database.
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@mongo1:27017,mongo2:27017,mongo3:27017/test_db?replicaSet=rs0&authSource=admin&readPreference=secondary"
+    database = "test_db"
+    collection = "orders"
+    schema = {
+      fields {
+        _id = string
+        status = string
+      }
+    }
+  }
 }
 ```
 

@@ -31,7 +31,9 @@ Writes SeaTunnel rows to Apache Kudu tables. Each row kind is mapped to a Kudu w
 | SeaTunnel Data Type |      Kudu Data Type      |
 |---------------------|--------------------------|
 | BOOLEAN             | BOOL                     |
-| INT                 | INT8<br/>INT16<br/>INT32 |
+| TINYINT             | INT8                     |
+| SMALLINT            | INT16                    |
+| INT                 | INT32                    |
 | BIGINT              | INT64                    |
 | DECIMAL             | DECIMAL                  |
 | FLOAT               | FLOAT                    |

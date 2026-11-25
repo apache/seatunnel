@@ -8,6 +8,32 @@ JDBC Sink 通过数据库厂商提供的 JDBC 驱动写入数据。它支持批�
 
 第一次配置 JDBC Sink 时，请先阅读[选择写入模式](#选择写入模式)和[快速入门](#快速入门postgresql)，再按需查阅后面的完整参数说明。
 
+### DB2 upsert 的 NULL 处理
+
+生成的 DB2 upsert 会在传入字段发生变化时更新匹配行，包括 NULL 变为非 NULL 和非 NULL 变为 NULL。相等值（包括两端均为 NULL）不会触发多余的匹配更新。
+
+### SAP HANA 版本兼容
+
+生成的 upsert 通过不带目标表别名的 SQL 兼容 SAP HANA 2.00.033 等较早版本，无需额外配置。全字段均为键的表仍会插入未匹配行，并保持匹配行不变。
+
+## MySQL 时间值
+
+MySQL `DATETIME` 映射为 SeaTunnel `TIMESTAMP`（`LocalDateTime`）。MySQL JDBC Sink 直接绑定本地日期和时间字段，即使 Worker JVM 与 JDBC 连接使用不同的时区，也会保留目标列支持的小数秒精度。MySQL `TIMESTAMP` 映射为 `TIMESTAMP_TZ`，仍按时间点处理。
+
+从受 [#13024](https://github.com/apache/seatunnel/issues/13024) 影响的版本升级时，请移除为补偿 `DATETIME` 写入偏移而手动添加的小时偏移。已经写入的数据不会自动修复；修正或重新加载之前，请先与原始数据进行比较。
+
+## GoldenDB
+
+使用 GoldenDB 驱动以及兼容 MySQL 的 JDBC 方言和 catalog 时，请显式设置 `dialect = "GoldenDB"`，并配置与驱动匹配的驱动类和 URL，例如：
+
+```hocon
+url = "jdbc:goldendb://goldendb-host:3306/example"
+driver = "com.goldendb.jdbc.Driver"
+dialect = "GoldenDB"
+```
+
+请自行安装与数据库版本兼容的 GoldenDB JDBC 驱动；驱动类名和支持的 URL 格式以实际版本为准。提供 MySQL 协议的 GoldenDB 部署也可以使用兼容的 MySQL JDBC 驱动和 `jdbc:mysql://` URL，此时会选择现有的 MySQL 方言。未显式指定方言的既有 `jdbc:goldendb:` 配置仍使用通用方言。MySQL catalog 要求配置 `username` 和 `password`，且不会将 JDBC `properties` 映射传给 catalog 连接。生产使用前请针对实际 GoldenDB 版本验证 SQL、数据类型和事务行为；MySQL 测试不能代替 GoldenDB 数据库及驱动的验证。
+
 ## 使用依赖
 
 先安装 `connector-jdbc` 插件：
@@ -34,6 +60,30 @@ sh bin/install-plugin.sh
 把 JDBC 驱动放到每个 SeaTunnel 节点的 `${SEATUNNEL_HOME}/lib/`，然后重启受影响的 SeaTunnel 进程，让驱动进入类路径。
 
 常用驱动类名和下载地址见[驱动参考](#驱动参考)。
+
+## CockroachDB
+
+使用 `driver = "org.postgresql.Driver"`、PostgreSQL JDBC URL，并显式配置 `dialect = "CockroachDB"`。作业启动前必须创建目标表；本方言不提供用于自动建表或 schema save mode 的 Catalog。
+
+```hocon
+Jdbc {
+  url = "jdbc:postgresql://cockroachdb:26257/app?sslmode=verify-full"
+  driver = "org.postgresql.Driver"
+  dialect = "CockroachDB"
+  username = "seatunnel"
+  password = ${DB_PASSWORD}
+  database = "app"
+  table = "public.orders"
+  generate_sink_sql = true
+  primary_keys = ["id"]
+}
+```
+
+请为驱动配置集群的受信任根证书。生产环境不要禁用 TLS。
+
+生成的 upsert 使用 CockroachDB 原生 `INSERT ... ON CONFLICT (keys) DO UPDATE`，保留 `primary_keys` 指定的冲突目标，也支持匹配的非主键唯一约束。不使用简写 `UPSERT`，因为它始终选择数据库实际主键，可能改变非主键唯一键配置的语义。更新仅修改输入中的非键列，未输入的列保留已有值；仅包含键的记录使用 `DO NOTHING`。重复写入相同的非空键值不会新增记录；可为空的唯一键包含 `NULL` 时不会产生冲突，可能新增记录。配置的键必须匹配目标表的主键或唯一约束。
+
+首期支持对现有表进行插入、upsert、更新和删除，不包含 CockroachDB Catalog、自动 DDL/模式演变、XA exactly-once 或新的事务重试策略。模式变更事件会在刷新缓冲数据或执行 DDL 前被拒绝。仅支持 `data_save_mode = APPEND_DATA`；`schema_save_mode` 可以保持默认值或设为 `IGNORE`，但这两种配置都不会创建或检查目标表。其他 save mode 会被拒绝，而不会被静默忽略。`table_options` 会被拒绝，避免误接受 PostgreSQL 专有设置。现有 PostgreSQL 作业和 URL 匹配规则不变。
 
 ## 选择写入模式
 
@@ -212,6 +262,7 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | access_key_id                             | String  | 否       |                              |
 | secret_access_key                         | String  | 否       |                              |
 | region                                    | String  | 否       |                              |
+| multi_table_sink_replica                  | Int     | 否    | 1                            |
 ### driver [string]
 
 用于连接远程数据源的 jdbc 类名，如果使用MySQL，则值为`com.mysql.cj.jdbc.Driver`
@@ -244,24 +295,25 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 ### dialect [string]
 
-指定的方言，如果不存在，仍然按照url获取，优先级高于url。例如，当使用 starrocks 时，你需要将其值设置为 starrocks，同理，当使用mysql时，你需要将其值设置为mysql。
+指定的方言。设置后，取值必须是下方方言列表中的名称（不区分大小写），并优先于根据 url 推断的方言；未设置时根据 url 推断方言。例如，当使用 mysql 时，你需要将其值设置为 `mysql`。注意：StarRocks 不是方言名称，使用 StarRocks 时请保持 `dialect` 不设置，并将 `compatible_mode` 设置为 `starrocks`。Inceptor 也不是方言名称，使用 Inceptor 时请保持 `dialect` 不设置或将 `dialect` 设置为 `HIVE`，并将 `compatible_mode` 设置为 `inceptor`。
 
-如果 SeaTunnel 不支持某种方言，它将使用默认方言 `GenericDialect`。请确保您提供的驱动程序支持您想要连接的数据库。
+如果未设置 `dialect` 且 url 无法被任何方言识别，SeaTunnel 会使用默认方言 `GenericDialect`；如果 `dialect` 设置了无法匹配任何受支持方言名称的值，任务初始化会直接失败而不是回退。请确保您提供的驱动程序支持您想要连接的数据库。
 
-#### 示例可选
+#### 方言列表
 
 |           | 方言名称       |          |
 |-----------|------------|----------|
 | Greenplum | DB2        | Dameng   |
 | Gbase8a   | HIVE       | KingBase |
-| MySQL     | StarRocks  | Oracle   |
+| MySQL     | OpenGauss  | Oracle   |
 | Phoenix   | Postgres   | Redshift |
 | SapHana   | Snowflake  | Sqlite   |
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase  | XUGU     |
-| IRIS      | Inceptor   | Highgo   |
+| IRIS      | Presto   | Highgo   |
 | DSQL      |            |          |
-| YashanDB  |            |          |
+| YashanDB  | CockroachDB |          |
+| DuckDB    |              |          |
 
 ### database [string]
 
@@ -310,15 +362,17 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 ### connect_timeout_ms [int]
 
-建立 JDBC 连接时的连接超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示不超时。
+建立 JDBC 连接时的连接超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示使用驱动默认值（不显式设置超时）。当前该参数仅 Hive 方言生效，其他方言会忽略。
 
 ### socket_timeout_ms [int]
 
-JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示不超时。
+JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示使用驱动默认值（不显式设置超时）。当前该参数仅 Hive 方言生效，其他方言会忽略。
 
 ### max_retries [int]
 
 JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置为 `0`，重试失败的 XA batch 可能破坏事务保证。
+
+非 XA 手动提交连接在 `Connection.commit()` 阶段失败时，一律按系统错误处理，即使 SQLState 属于 `22` 或 `23` 类也不能作为行级错误丢弃。失败的 writer 不能通过再次提交来假定事务已恢复。开启 checkpoint 时，该共享事务中已 flush 的数据会被标记为不安全，同队列的其他 writer 也会拒绝提交，直到作业恢复。
 
 ### batch_size [int]
 
@@ -406,6 +460,8 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 `APPEND_DATA`：保留数据库结构，保留数据<br/>
 `CUSTOM_PROCESSING`：允许用户自定义数据处理方式<br/>
 `ERROR_WHEN_DATA_EXISTS`：当有数据时抛出错误<br/>
+
+目标表的完整路径指定数据库（`database.schema.table`）时，`DROP_DATA` 会连接到该数据库执行 `TRUNCATE TABLE`。
 
 ### table_options [Map]
 
@@ -909,6 +965,10 @@ sink {
     }
 }
 ```
+
+### multi_table_sink_replica [int]
+
+多表 Sink 写入器的副本数，必须至少为 1。默认值为 `1`。
 
 ## 故障排查
 

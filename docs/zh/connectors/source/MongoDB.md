@@ -13,8 +13,8 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## 关键特性
 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
-- [x] [流](../../introduction/concepts/connector-v2-features.md)
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行性](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户自定义 split](../../introduction/concepts/connector-v2-features.md)
@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## 描述
 
 MongoDB 源连接器从 MongoDB 集合中读取文档，并把每个 BSON 文档转换为 SeaTunnel 行记录。
-它同时支持**批**和**流**两种作业模式，并通过 `partition.split-key` 把集合按取值范围切分为多个
+它以**批处理**（有界）方式运行，并通过 `partition.split-key` 把集合按取值范围切分为多个
 split，实现并行读取。
 
 在不扫描整张集合的前提下，可以缩小读取范围并控制返回字段：
@@ -31,8 +31,9 @@ split，实现并行读取。
 - 使用 `match.projection` 控制结果中返回的字段。
 - 使用 `flat.sync-string` 把整篇文档作为一条 JSON `STRING` 列读入，跳过固定 schema 的定义。
 
-在流模式下，连接器读取已分配的 split，并通过 checkpoint 跟踪读取位置；任务重启后会从上次提交
-的游标继续读取。
+checkpoint 只保存尚未读完的 split，split 本身不会记录范围内的读取位置。任务从 checkpoint 重启时，
+enumerator 会先恢复这些待处理的 split，然后对整张集合重新执行一次切分策略，因此已经读过的文档可能会被
+再次读取。如果无法接受恢复后的重复数据，请让下游写入保持幂等（例如按主键 upsert）。
 
 ## 支持的数据源信息
 
@@ -338,7 +339,9 @@ sink {
 }
 ```
 
-通过该配置写入的样本数据示例：
+通过该配置写入的样本数据示例。整个文档使用 MongoDB Relaxed Extended JSON 序列化：int32/int64/double
+数值会以普通 JSON 数字输出，日期会以 ISO-8601 字符串输出，而 `Decimal128` 数值保留
+`{"$numberDecimal": ...}` 包装格式：
 
 ```json
 {
@@ -352,24 +355,66 @@ sink {
     "DAgdj": "t",
     "dsJag": "voo"
   },
-  "c_array": [
-    { "$numberInt": "-865590937" },
-    { "$numberInt": "833905600" },
-    { "$numberInt": "-1104586446" },
-    { "$numberInt": "2076336780" },
-    { "$numberInt": "-1028686444" }
-  ],
+  "c_array": [-865590937, 833905600, -1104586446, 2076336780, -1028686444],
   "c_string": "bddkzxr",
   "c_boolean": false,
-  "c_tinyint": { "$numberInt": "39" },
-  "c_smallint": { "$numberInt": "23672" },
-  "c_int": { "$numberInt": "-495763561" },
-  "c_bigint": { "$numberLong": "3768307617923954543" },
-  "c_double": { "$numberDouble": "1.1706091642478246E308" },
+  "c_tinyint": 39,
+  "c_smallint": 23672,
+  "c_int": -495763561,
+  "c_bigint": 3768307617923954543,
+  "c_double": 1.1706091642478246E308,
   "c_bytes": { "$binary": { "base64": "ZWJ4", "subType": "00" } },
-  "c_date": { "$date": { "$numberLong": "1686614400000" } },
+  "c_date": { "$date": "2023-06-13T00:00:00Z" },
   "c_decimal": { "$numberDecimal": "683265300" },
-  "c_timestamp": { "$date": { "$numberLong": "1684283772000" } }
+  "c_timestamp": { "$date": "2023-05-17T00:36:12Z" }
+}
+```
+
+### 基于分区键的并行读取
+
+要在大型集合上加速扫描，可以设置分区键 `partition.split-key` 和目标分片大小 `partition.split-size`，
+连接器会按分区键顺序读取文档，并将每个分片交给并行的读取任务。`fetch.size` 控制每次往返服务端返回的文档数，
+需要和分区大小一起调优。
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017"
+    database = "test_db"
+    collection = "orders"
+    partition.split-key = "_id"
+    partition.split-size = 1024
+    fetch.size = 2048
+    max.time-min = 30
+    schema = {
+      fields {
+        _id = string
+        status = string
+        amount = double
+      }
+    }
+  }
+}
+```
+
+### 从副本集或分片集群读取
+
+连接器接受任意标准 MongoDB URI。副本集场景使用 `replicaSet=xxx`；如果凭据存储在非默认的 auth 数据库，
+追加 `authSource=admin`。
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@mongo1:27017,mongo2:27017,mongo3:27017/test_db?replicaSet=rs0&authSource=admin&readPreference=secondary"
+    database = "test_db"
+    collection = "orders"
+    schema = {
+      fields {
+        _id = string
+        status = string
+      }
+    }
+  }
 }
 ```
 

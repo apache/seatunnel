@@ -111,7 +111,7 @@ public class DorisTableConfig implements Serializable {
                             .map(DorisTableConfig::getTableIdentifier)
                             .collect(Collectors.toList());
             Set<String> tableIdSet = new HashSet<>(tableIds);
-            if (tableIdSet.size() < tableList.size() - 1) {
+            if (tableIdSet.size() < tableList.size()) {
                 throw new IllegalArgumentException(
                         "Please configure unique `database`.`table`, not allow null/duplicate: "
                                 + tableIds);

@@ -13,6 +13,9 @@ DataValidator 转换插件会根据配置规则校验字段值，并按照指定
 | row_error_handle_way| enum   | 否       | FAIL   |
 | row_error_handle_way.error_table     | string | 否       |        |
 | field_rules     | array  | 是（单表模式）       |        |
+| table_match_regex | string | 否       | `.*`   |
+| table_transform | array  | 否       | -      |
+| rule_match_mode | string | 否       | `FIRST_MATCH` |
 
 ### row_error_handle_way [enum]
 
@@ -60,6 +63,8 @@ DataValidator 转换插件会根据配置规则校验字段值，并按照指定
 字段验证规则数组。每个规则定义特定字段的验证条件。
 
 单表配置必须设置 `field_rules`。使用 `table_transform` 时每个条目自己声明 `field_rules`，外层可选。
+
+`table_match_regex` 选择转换级别规则适用的表（默认 `.*`），`table_transform` 保存完整的单表规则（`table_path` 加上 `field_rules`），`rule_match_mode`（`FIRST_MATCH` 或 `ALL_MATCH`）控制相同 `table_path` 条目的求值方式。参见 [多表转换](transform-multi-table.md)。
 
 #### 字段规则结构
 

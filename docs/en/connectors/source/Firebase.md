@@ -13,7 +13,7 @@ The Firebase Source Connector allows reading data from Google Firebase Realtime 
 - [x] Batch
 - [ ] Stream
 - [ ] Exactly-Once
-- [x] Column Projection
+- [ ] Column Projection
 
 ---
 

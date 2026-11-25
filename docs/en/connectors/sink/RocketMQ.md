@@ -32,21 +32,21 @@ Each upstream row is serialized into a single RocketMQ message. The sink does no
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| topic | String | Yes | - | RocketMQ topic name. |
-| name.srv.addr | String | Yes | - | RocketMQ NameServer address, for example `localhost:9876`. |
-| acl.enabled | Boolean | No | false | Whether to enable RocketMQ ACL authentication. |
-| access.key | String | No | - | Access key. Required when `acl.enabled` is `true`. |
-| secret.key | String | No | - | Secret key. Required when `acl.enabled` is `true`. |
-| producer.group | String | No | SeaTunnel-Producer-Group | RocketMQ producer group ID. |
-| tag | String | No | - | RocketMQ message tag written with each message. |
-| partition.key.fields | List | No | - | Field names serialized as the RocketMQ message key. Every listed field must exist in the upstream schema. |
-| format | String | No | json | Message format. Supported values are `json` and `text`. |
-| field.delimiter | String | No | `,` | Field delimiter used when `format = text`. |
-| producer.send.sync | Boolean | No | false | Whether to send messages synchronously. When `false`, messages are sent asynchronously. |
-| exactly.once | Boolean | No | false | Whether to send transactional messages for exactly-once delivery. |
-| max.message.size | Int | No | 4194304 | Maximum message body size in bytes. |
-| send.message.timeout | Int | No | 3000 | Send timeout in milliseconds. |
-| common-options | config | No | - | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
+| topic | String | yes | - | RocketMQ topic name. |
+| name.srv.addr | String | yes | - | RocketMQ name server address, for example `localhost:9876`. |
+| acl.enabled | Boolean | no | false | Whether to enable RocketMQ ACL authentication. |
+| access.key | String | no | - | Access key. Required when `acl.enabled` is `true`. |
+| secret.key | String | no | - | Secret key. Required when `acl.enabled` is `true`. |
+| producer.group | String | no | SeaTunnel-Producer-Group | RocketMQ producer group ID. |
+| tag | String | no | - | RocketMQ message tag written with each message. |
+| partition.key.fields | List | no | - | Field names serialized as the RocketMQ message key. Every listed field must exist in the upstream schema. |
+| format | enum | no | json | Message format. Supported values are `json` and `text`. |
+| field.delimiter | String | no | `,` | Field delimiter used when `format = text`. |
+| producer.send.sync | Boolean | no | false | Whether to send messages synchronously. When `false`, messages are sent asynchronously. |
+| exactly.once | Boolean | no | false | Whether to send transactional messages for exactly-once delivery. |
+| max.message.size | int | no | 4194304 | Maximum message body size in bytes. |
+| send.message.timeout | int | no | 3000 | Send timeout in milliseconds. |
+| common-options | config | no | - | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ## Option Notes
 
@@ -212,11 +212,11 @@ sink {
 
 ### How can message routing and partition keys be configured in RocketMQ sink?
 
-Configure `partition.key.fields` with one or more table field names. The connector calculates a hash of the specified fields to ensure that messages sharing identical key values are always routed to the same RocketMQ message queue.
+Configure `partition.key.fields` with one or more table field names. For non-transactional sends (`exactly.once = false`), the connector calculates a hash of the specified fields to ensure that messages sharing identical key values are always routed to the same RocketMQ message queue.
 
 ### How does RocketMQ sink provide exactly-once delivery guarantees?
 
-When `exactly.once = true`, the sink utilizes RocketMQ 2PC transactional messages. Uncommitted messages are prepared during checkpoint execution and committed as visible messages only when the compute engine completes its checkpoint barrier handshake.
+When `exactly.once = true`, the sink uses RocketMQ transactional messages (`sendMessageInTransaction`). The current transaction listener commits the local transaction immediately, so messages become visible to consumers right after they are sent; the sink does not coordinate message visibility with SeaTunnel checkpoints. For stricter delivery guarantees, enable idempotent or transactional consumption on the consumer side and make writes deduplicatable by message key.
 
 ### What message serialization formats are supported?
 

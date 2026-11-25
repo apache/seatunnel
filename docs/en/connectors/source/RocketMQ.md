@@ -32,27 +32,27 @@ Reads messages from Apache RocketMQ topics. The connector can read one or more t
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| name.srv.addr | String | Yes | - | RocketMQ NameServer address, for example `localhost:9876`. |
-| topics | String | No | - | Topic name list separated by commas, for example `"topic_a,topic_b"`. Configure only one of `topics`, `tables_configs`, and `table_list`. |
-| tables_configs | List | No | - | Multi-table read configuration. Each item must contain `topics` and can contain `format`, `schema`, `tags`, `start.mode`, `start.mode.timestamp`, `start.mode.offsets`, and `ignore_parse_errors`. |
-| table_list | List | No | - | Deprecated. Use `tables_configs` instead. |
-| tags | String | No | - | Tag list separated by commas. Only messages whose RocketMQ tag exactly matches one configured value are consumed. |
-| acl.enabled | Boolean | No | false | Whether to enable RocketMQ ACL authentication. |
-| access.key | String | No | - | Access key. Required when `acl.enabled` is `true`. |
-| secret.key | String | No | - | Secret key. Required when `acl.enabled` is `true`. |
-| batch.size | Int | No | 100 | Maximum number of messages pulled each time. |
-| consumer.group | String | No | SeaTunnel-Consumer-Group | RocketMQ consumer group ID. |
-| commit.on.checkpoint | Boolean | No | true | Whether to commit offsets when SeaTunnel checkpoints are completed. |
-| schema | config | No | - | Message schema. See [Schema Feature](../../introduction/concepts/schema-feature.md). If omitted, the connector reads message bodies as text. |
-| format | String | No | json | Message format. Supported values are `json` and `text`. |
-| field.delimiter | String | No | `,` | Field delimiter used when `format = text`. |
-| start.mode | String | No | CONSUME_FROM_GROUP_OFFSETS | Startup position. Supported values: `CONSUME_FROM_LAST_OFFSET`, `CONSUME_FROM_FIRST_OFFSET`, `CONSUME_FROM_GROUP_OFFSETS`, `CONSUME_FROM_TIMESTAMP`, `CONSUME_FROM_SPECIFIC_OFFSETS`. |
-| start.mode.offsets | Map | No | - | Required when `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`. The key format is `topic-queueId`, for example `test_topic-0`. |
-| start.mode.timestamp | Long | No | - | Required when `start.mode = CONSUME_FROM_TIMESTAMP`. Use a millisecond timestamp. |
-| partition.discovery.interval.millis | long | No | -1 | Topic and partition discovery interval in milliseconds. `-1` disables dynamic discovery. |
-| ignore_parse_errors | Boolean | No | false | Whether to skip JSON messages that cannot be parsed. |
-| consumer.poll.timeout.millis | long | No | 5000 | Pull timeout in milliseconds. |
-| common-options | config | No | - | Source common options. See [Source Common Options](../common-options/source-common-options.md). |
+| name.srv.addr | String | yes | - | RocketMQ name server address, for example `localhost:9876`. |
+| topics | String | no | - | Topic name list separated by commas, for example `"topic_a,topic_b"`. Configure only one of `topics`, `tables_configs`, and `table_list`. |
+| tables_configs | List | no | - | Multi-table read configuration. Each item must contain `topics` and can contain `format`, `schema`, `tags`, `start.mode`, `start.mode.timestamp`, `start.mode.offsets`, and `ignore_parse_errors`. |
+| table_list | List | no | - | Deprecated. Use `tables_configs` instead. |
+| tags | String | no | - | Tag list separated by commas. Only messages whose RocketMQ tag exactly matches one configured value are consumed. |
+| acl.enabled | Boolean | no | false | Whether to enable RocketMQ ACL authentication. |
+| access.key | String | no | - | Access key. Required when `acl.enabled` is `true`. |
+| secret.key | String | no | - | Secret key. Required when `acl.enabled` is `true`. |
+| batch.size | int | no | 100 | Maximum number of messages pulled each time. |
+| consumer.group | String | no | SeaTunnel-Consumer-Group | RocketMQ consumer group ID. |
+| commit.on.checkpoint | Boolean | no | true | Whether to commit offsets when SeaTunnel checkpoints are completed. |
+| schema | config | yes | - | Message schema. See [Schema Feature](../../introduction/concepts/schema-feature.md). Required for both `json` and `text` formats; the source fails to start without it. |
+| format | String | no | json | Message format. Supported values are `json` and `text`. |
+| field.delimiter | String | no | `,` | Field delimiter used when `format = text`. |
+| start.mode | String | no | CONSUME_FROM_GROUP_OFFSETS | Startup position. Supported values: `CONSUME_FROM_LAST_OFFSET`, `CONSUME_FROM_FIRST_OFFSET`, `CONSUME_FROM_GROUP_OFFSETS`, `CONSUME_FROM_TIMESTAMP`, `CONSUME_FROM_SPECIFIC_OFFSETS`. |
+| start.mode.offsets | Map | no | - | Required when `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`. The key format is `topic-queueId`, for example `test_topic-0`. |
+| start.mode.timestamp | Long | no | - | Required when `start.mode = CONSUME_FROM_TIMESTAMP`. Use a millisecond timestamp. |
+| partition.discovery.interval.millis | long | no | -1 | Topic and partition discovery interval in milliseconds. `-1` disables dynamic discovery. |
+| ignore_parse_errors | Boolean | no | false | Whether to skip JSON messages that cannot be parsed. |
+| consumer.poll.timeout.millis | long | no | 5000 | Pull timeout in milliseconds. |
+| common-options | config | no | - | Source common options. See [Source Common Options](../common-options/source-common-options.md). |
 
 ## Option Notes
 
@@ -89,8 +89,9 @@ message body into typed fields. `ignore_parse_errors = true` can be used to skip
 invalid JSON messages instead of failing the job.
 
 When `format = text`, SeaTunnel splits the message body by `field.delimiter`
-and maps the values to fields in schema order. If `schema` is omitted, the
-message body is read as a single text value.
+and maps the values to fields in schema order. `schema` must be configured in
+both formats; without it the source fails to start when it builds its catalog
+table.
 
 ### Tags
 
@@ -103,7 +104,7 @@ entry can set its own `tags` filter.
 
 Use `tables_configs` when different topics have different schemas. Each item must contain `topics` and can define its own `schema`, `format`, `tags`, and startup position. If `schema.table` is not set, the output table name defaults to the topic name.
 
-`topics`, `tables_configs`, and the deprecated `table_list` are mutually exclusive. In `tables_configs`, options that are not set on an item inherit the top-level defaults, so each item only needs to override the topic-specific schema, tags, or startup position.
+`topics`, `tables_configs`, and the deprecated `table_list` are mutually exclusive. Each `tables_configs` item is parsed independently: `schema`, `format`, `tags`, and `ignore_parse_errors` must be set on the item itself — unset ones fall back to the option defaults (`json` / `false`), not to the job-level values. Only `start.mode` (with `start.mode.timestamp`/`start.mode.offsets`) inherits the top-level value when an item does not set it.
 
 When a `tables_configs` item uses `start.mode = CONSUME_FROM_TIMESTAMP`, it must also set `start.mode.timestamp`. When it uses `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`, it must also set a non-empty `start.mode.offsets` map.
 
@@ -291,7 +292,7 @@ Use the `tables_configs` configuration array. Each item defines its own `topics`
 
 ### Which starting offset modes are supported?
 
-RocketMQ source supports starting from earliest offsets (`CONSUME_FROM_FIRST_OFFSET`), latest offsets (`CONSUME_FROM_LAST_OFFSET`), or timestamp-based offsets (`CONSUME_FROM_TIMESTAMP`) using the `start.mode` parameter.
+RocketMQ source supports five `start.mode` values: `CONSUME_FROM_GROUP_OFFSETS` (the default), `CONSUME_FROM_FIRST_OFFSET`, `CONSUME_FROM_LAST_OFFSET`, `CONSUME_FROM_TIMESTAMP`, and `CONSUME_FROM_SPECIFIC_OFFSETS`. See the `start.mode` option description above for details.
 
 ### How is fault tolerance achieved during job failover?
 
