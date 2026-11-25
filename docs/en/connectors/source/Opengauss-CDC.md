@@ -189,7 +189,7 @@ Opengauss CDC exposes metadata fields that can be used by the `Metadata` transfo
 |-------|------|-------------|
 | Database | STRING | Source database name. |
 | Table | STRING | Source table name. |
-| RowKind | STRING | Change type, such as insert, update, or delete. |
+| RowKind | STRING | Change type; emitted as the RowKind short code: `+I` (insert), `-U` (update before), `+U` (update after), `-D` (delete). |
 | EventTime | LONG | The time the connector fetched and processed the event, in milliseconds. |
 | Delay | LONG | Delay between event time and processing time in milliseconds. |
 

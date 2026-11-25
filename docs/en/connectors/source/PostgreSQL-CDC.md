@@ -344,7 +344,7 @@ Field names are case-sensitive and must be written exactly as shown below (e.g. 
 |-------|------|-------------|
 | Database | STRING | Source database name. |
 | Table | STRING | Source table name. |
-| RowKind | STRING | Change type, such as `INSERT`, `UPDATE_BEFORE`, `UPDATE_AFTER`, or `DELETE`. |
+| RowKind | STRING | Change type; emitted as the RowKind short code: `+I` (insert), `-U` (update before), `+U` (update after), `-D` (delete). |
 | EventTime | LONG | The time when the connector fetched and processed the event, in milliseconds. |
 | Delay | LONG | Delay between the source event time and the connector fetch time, in milliseconds. |
 | SourceTimestamp | LONG | The time when the change was committed in the source database (`source.ts_ms`), in milliseconds. |

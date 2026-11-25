@@ -334,7 +334,7 @@ PostgreSQL CDC 会提供以下元数据字段，可配合 `Metadata` 转换使�
 |------|------|------|
 | Database | STRING | 源数据库名称。 |
 | Table | STRING | 源表名称。 |
-| RowKind | STRING | 变更类型，例如 `INSERT`、`UPDATE_BEFORE`、`UPDATE_AFTER` 或 `DELETE`。 |
+| RowKind | STRING | 变更类型，输出为 RowKind 短代码：`+I`（插入）、`-U`（更新前）、`+U`（更新后）、`-D`（删除）。 |
 | EventTime | LONG | 连接器读取并处理该事件的时间，单位为毫秒。 |
 | Delay | LONG | 源事件时间与连接器读取时间之间的延迟，单位为毫秒。 |
 | SourceTimestamp | LONG | 变更在源数据库中的提交时间（`source.ts_ms`），单位为毫秒。 |
