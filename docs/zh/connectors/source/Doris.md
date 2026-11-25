@@ -50,7 +50,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 | BIGINT                               | BIGINT                                                                                                                                              |
 | LARGEINT                             | DECIMAL(20,0)                                                                                                                                       |
 | BOOLEAN                              | BOOLEAN                                                                                                                                             |
-| DECIMAL                              | DECIMAL(p, s)，其中 `p` 为列精度、`s` 为列小数位数；当列未定义时使用 DECIMAL(38, 10)。                                                              |
+| DECIMAL                              | DECIMAL(p, s)，其中 `p` 为列精度、`s` 为列小数位数；当列未定义时使用 DECIMAL(38, 10)。在 Doris 1.2.x 上，定义了 0 位小数位数时同样回退为 10。                              |
 | FLOAT                                | FLOAT                                                                                                                                               |
 | DOUBLE                               | DOUBLE                                                                                                                                              |
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |

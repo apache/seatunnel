@@ -28,6 +28,7 @@ RegexExtract 转换使用 Java 正则表达式从一个输入字段中提取数�
 | regex_pattern     | String         | 是    | -             | 带捕获组的正则表达式。捕获组的数量必须与 `output_fields` 的数量相等。                                |
 | output_fields     | Array&lt;String&gt; | 是    | -             | 输出字段的名称，按捕获组顺序排列。列表不能为空。                                |
 | default_values    | Array&lt;String&gt; | 否    | -             | 每个输出字段的默认值，在模式不匹配或源值为 null 时使用。设置时，其长度必须与 `output_fields` 的长度相等。 |
+| table_match_regex | String         | 否    | `.*`          | 转换级别规则所适用的表路径的正则表达式。                                     |
 | table_transform   | Array&lt;Map&gt;    | 否    | `[]`          | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。             |
 | rule_match_mode   | String         | 否    | `FIRST_MATCH`（未显式设置时，重复的 `table_path` 条目会被拒绝） | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
 | common options    | -              | 否    | -             | 转换插件的通用参数，参见 [Transform Plugin](common-options/common-options.md)。 |
@@ -67,6 +68,12 @@ Java 正则表达式，使用 `java.util.regex.Pattern` 编译。它必须为 `o
 
 设置 `default_values` 时，其长度必须与 `output_fields` 的长度相等，否则配置会被拒绝。未设置时，上述两种情况下输出字段均为 `null`。
 
+### table_match_regex [String]
+
+与上游表路径匹配的正则表达式。转换级别规则（即 `table_transform` 之外的 `source_field`、`regex_pattern`、`output_fields` 和 `default_values`）仅适用于匹配的表。默认值 `.*` 匹配所有表。既不匹配该正则、也没有 `table_transform` 条目的表将保持不变地传递下去。
+
+注意，这里指的是真实的上游表名，而不是 `plugin_output`。
+
 ### table_transform [Array&lt;Map&gt;]
 
 针对单表的规则列表。每个条目必须包含 `table_path`，其格式为 `databaseName[.schemaName].tableName`（精确匹配），以及该表的一条完整 RegexExtract 规则，即 `source_field`、`regex_pattern` 和 `output_fields`，需要时还可以包含 `default_values`。
@@ -89,10 +96,10 @@ Java 正则表达式，使用 `java.util.regex.Pattern` 编译。它必须为 `o
 
 - `table_transform` 中的条目优先于转换级别规则。有条目的表永远不会被转换级别规则处理。
 - 每个条目都必须是一条完整的单表规则（`table_path` 加上 `source_field`、`regex_pattern` 和 `output_fields`）。
-- 转换级别规则适用于所有没有 `table_transform` 条目的表。
+- 转换级别规则仅适用于与 `table_match_regex` 匹配的表；使用默认值 `.*` 时，它适用于所有没有 `table_transform` 条目的表。
 - 当仅配置了 `table_transform` 时，没有条目的表保持不变。
 
-下面的配置为 `test.abc`、`test.abcd` 和 `test.www` 使用转换级别规则，为 `test.xyz` 使用单表规则：
+下面的配置为 `test.a.*` 表使用转换级别规则，为 `test.xyz` 使用单表规则，并让 `test.www` 保持不变：
 
 ```hocon
 env {
@@ -141,6 +148,7 @@ transform {
     plugin_input = "fake"
     plugin_output = "fake1"
 
+    table_match_regex = "test.a.*"
     source_field = "email"
     regex_pattern = "([^@]+)@([^.]+)\\.(.+)"
     output_fields = [username, domain, tld]
@@ -167,10 +175,10 @@ sink {
 
 | 表         | 应用的规则                              | 输出字段                           |
 |------------|-------------------------------------------|----------------------------------|
-| test.abc   | 转换级别规则 | id, email, username, domain, tld |
-| test.abcd  | 转换级别规则 | id, email, username, domain, tld |
+| test.abc   | 转换级别规则（匹配 `test.a.*`） | id, email, username, domain, tld |
+| test.abcd  | 转换级别规则（匹配 `test.a.*`） | id, email, username, domain, tld |
 | test.xyz   | `table_transform` 条目                   | id, email, username, host        |
-| test.www   | 转换级别规则                              | id, email, username, domain, tld |
+| test.www   | 无                                      | id, email                        |
 
 ## 示例
 
@@ -251,7 +259,7 @@ sink {
 
 `env`、`source` 和 `sink` 部分与 [多表配置](#多表配置) 中相同，仅 `transform` 部分不同。假设源输出 `test.abc`、`test.abcd`、`test.xyz` 和 `test.www` 四张表，每张表都包含 `id` 和 `email` 字段。
 
-**1. 仅转换级别规则。** 该规则适用于所有表。
+**1. 仅转换级别规则。** 由于 `table_match_regex` 默认为 `.*`，该规则适用于所有表。
 
 ```hocon
 transform {
@@ -272,6 +280,7 @@ transform {
   RegexExtract {
     plugin_input = "fake"
     plugin_output = "fake1"
+    table_match_regex = "test.a.*"
     source_field = "email"
     regex_pattern = "([^@]+)@([^.]+)\\.(.+)"
     output_fields = [username, domain, tld]

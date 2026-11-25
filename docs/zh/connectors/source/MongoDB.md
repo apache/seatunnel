@@ -339,8 +339,9 @@ sink {
 }
 ```
 
-通过该配置写入的样本数据示例。整个文档使用 MongoDB Relaxed Extended JSON 序列化，因此数值类型
-会以普通 JSON 数字输出，日期会以 ISO-8601 字符串输出：
+通过该配置写入的样本数据示例。整个文档使用 MongoDB Relaxed Extended JSON 序列化：int32/int64/double
+数值会以普通 JSON 数字输出，日期会以 ISO-8601 字符串输出，而 `Decimal128` 数值保留
+`{"$numberDecimal": ...}` 包装格式：
 
 ```json
 {
@@ -363,9 +364,9 @@ sink {
   "c_bigint": 3768307617923954543,
   "c_double": 1.1706091642478246E308,
   "c_bytes": { "$binary": { "base64": "ZWJ4", "subType": "00" } },
-  "c_date": { "$date": "2023-06-13T00:00:00.000Z" },
-  "c_decimal": 683265300,
-  "c_timestamp": { "$date": "2023-05-17T00:36:12.000Z" }
+  "c_date": { "$date": "2023-06-13T00:00:00Z" },
+  "c_decimal": { "$numberDecimal": "683265300" },
+  "c_timestamp": { "$date": "2023-05-17T00:36:12Z" }
 }
 ```
 

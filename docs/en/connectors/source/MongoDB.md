@@ -356,8 +356,9 @@ sink {
 ```
 
 A sample document that flows through this configuration looks like the following. The whole
-document is serialized with MongoDB Relaxed Extended JSON, so numeric values are rendered as
-plain JSON numbers and dates as ISO-8601 strings:
+document is serialized with MongoDB Relaxed Extended JSON: int32/int64/double values are
+rendered as plain JSON numbers and dates as ISO-8601 strings, while `Decimal128` values keep
+their `{"$numberDecimal": ...}` wrapper:
 
 ```json
 {
@@ -380,9 +381,9 @@ plain JSON numbers and dates as ISO-8601 strings:
   "c_bigint": 3768307617923954543,
   "c_double": 1.1706091642478246E308,
   "c_bytes": { "$binary": { "base64": "ZWJ4", "subType": "00" } },
-  "c_date": { "$date": "2023-06-13T00:00:00.000Z" },
-  "c_decimal": 683265300,
-  "c_timestamp": { "$date": "2023-05-17T00:36:12.000Z" }
+  "c_date": { "$date": "2023-06-13T00:00:00Z" },
+  "c_decimal": { "$numberDecimal": "683265300" },
+  "c_timestamp": { "$date": "2023-05-17T00:36:12Z" }
 }
 ```
 
