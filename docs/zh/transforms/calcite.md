@@ -28,7 +28,7 @@
 sql = "SELECT id, UPPER(name) AS name, age + 1 AS next_age FROM source_table WHERE age > 18"
 ```
 
-未配置 `table_transform` 时必须配置全局 `sql`。配置了 `table_transform` 后，每个条目必须自带 `sql`，此时全局 `sql` 变为可选：未列出的表在配置了全局 `sql` 时回退到该语句，否则直接透传。
+未配置 `table_transform` 时必须配置全局 `sql`（显式配置空的 `table_transform` 列表同样要求配置）。配置了 `table_transform` 后，每个条目必须自带 `sql`，此时全局 `sql` 变为可选：未列出的表在配置了全局 `sql` 且其表路径匹配 `table_match_regex`（默认 `.*`）时回退到该语句；不在正则范围内的表直接透传。
 
 ### table_transform [list]
 

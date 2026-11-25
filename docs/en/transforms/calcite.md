@@ -28,7 +28,7 @@ SQL transform plugin powered by [Apache Calcite](https://calcite.apache.org/). U
 sql = "SELECT id, UPPER(name) AS name, age + 1 AS next_age FROM source_table WHERE age > 18"
 ```
 
-The global `sql` is required when `table_transform` is not configured. When `table_transform` entries are present, each entry must carry its own `sql`, and the global `sql` becomes optional: tables not listed in `table_transform` fall back to the global `sql` when it is set, or pass through unchanged.
+The global `sql` is required when `table_transform` is not configured (an explicitly empty `table_transform` list still requires it). When `table_transform` entries are present, each entry must carry its own `sql`, and the global `sql` becomes optional: tables not listed in `table_transform` fall back to the global `sql` when it is set and their path matches `table_match_regex` (default `.*`); tables outside the regex pass through unchanged.
 
 ### table_transform [list]
 
