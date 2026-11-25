@@ -57,6 +57,8 @@ separately.
 | Name | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | hostname | String | Yes | - | Hostname or IP address of the Vitess VTGate gRPC server. |
+| username | String | No | - | Username used by the Vitess VTGate gRPC connection when the cluster enables authentication. |
+| password | String | No | - | Password used by the Vitess VTGate gRPC connection when the cluster enables authentication. |
 | port | Int | No | 15991 | Port of the Vitess VTGate gRPC server. |
 | username | String | No | - | Username used by the Vitess VTGate gRPC connection when the server requires authentication. |
 | password | String | No | - | Password used by the Vitess VTGate gRPC connection when the server requires authentication. |

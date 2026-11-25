@@ -26,6 +26,8 @@ import ChangeLog from '../changelog/connector-cdc-sqlserver.md';
 
 Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量数据。本文档描述了如何设置 Sql Server CDC 连接器来对 SqlServer 数据库运行 SQL 查询。
 
+当 `startup.mode = initial` 时，连接器会先按并行 split 读取每个被监控表的快照，然后从快照结束时记录的 LSN 切换到增量流式读取。下游应当把快照阶段视为一次性的引导数据，不要依赖它做稳态读取。
+
 :::tip
 
 在通过 JDBC 元数据发现表列信息时，SeaTunnel 会按精确的 schema/table 标识符对返回结果做二次过滤，以避免混入其他表的列（部分驱动会将
@@ -76,8 +78,8 @@ Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量
 | username                                       | String   | 是       | -       | 连接 SQL Server 实例时使用的用户名。                                                                                                                                                                                                                                                                                |
 | password                                       | String   | 是       | -       | 连接数据库服务器时使用的密码。                                                                                                                                                                                                                                                                                      |
 | database-names                                 | List     | 是       | -       | 要监控的数据库名称。                                                                                                                                                                                                                                                                                                |
-| table-names                                    | List     | 条件必填 | -       | 要监控的表，使用完整表标识：`databaseName.schemaName.tableName`。`table-names` 和 `table-pattern` 必须二选一配置（互斥）；两者都不配置会校验失败。若要捕获所有表，请设置能匹配目标表的 `table-pattern`，例如 `column_type_test\\.dbo\\..*`。                                                                                                                                                                                                                                                      |
-| table-pattern                                  | String   | 条件必填 | -       | 要监控的表名正则表达式，需要匹配完整表标识，例如 `column_type_test\\.dbo\\..*`。`table-names` 和 `table-pattern` 必须二选一配置（互斥）；两者都不配置会校验失败。                                                                                                                                                                                                                                                      |
+| table-names                                    | List     | 未配置 `table-pattern` 时必填 | - | 要监控的表，使用完整表标识：`databaseName.schemaName.tableName`。该参数与 `table-pattern` 互斥，二者只能配置一个。                                                                                                                                                                                                                                          |
+| table-pattern                                  | String   | 未配置 `table-names` 时必填 | - | 要监控的表名正则表达式，需要匹配完整表标识，例如 `column_type_test\\.dbo\\..*`。该参数与 `table-names` 互斥，二者只能配置一个。                                                                                                                                                                                                                                          |
 | table-names-config                             | List     | 否       | -       | 表配置列表。例如：[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]。 snapshotSplitColumn 选项必须配置为唯一键(主键或唯一索引)。 如果指定了非唯一列，该配置将被忽略，SeaTunnel 会在内部自动选择合适的拆分列。                                                                                                                                                                                                           |
 | url                                            | String   | 是       | -       | 配置校验会拒绝空字符串或仅包含空白字符的值，不会去除非空白值两端的空白字符。URL 必须包含数据库，如 "jdbc:sqlserver://localhost:1433;databaseName=test"。URL 中的 SQL Server JDBC 连接属性（如 `encrypt`、`trustServerCertificate`）会传递给 CDC 连接；`debezium` 中显式配置的属性（如 `database.trustServerCertificate`）优先。 |
 | startup.mode                                   | Enum     | 否       | INITIAL | SqlServer CDC 消费者的可选启动模式，有效值为 `initial`、`earliest`、`latest` 和 `timestamp`。<br/>`initial`：先读取表快照，再继续读取增量变更。<br/>`earliest`：从最早可用的 CDC LSN 开始读取。<br/>`latest`：只读取作业启动后的变更。<br/>`timestamp`：从 `startup.timestamp` 解析出的 LSN 开始读取。                                                                                                                                                                             |
@@ -314,10 +316,11 @@ source {
 }
 ```
 
-### 心跳动作
+### 心跳（Heartbeat action）
 
-当上游长时间没有变更时，可以使用 `debezium.heartbeat.action.query` 参数让 CDC slot 保持活动状态。请配合
-`debezium.heartbeat.interval.ms` 使用，使该动作按固定节奏执行。
+当上游长时间没有变更时，可以使用 `debezium.heartbeat.action.query` 参数在空闲期间保持 offset 与变更事件继续流动。
+配合 `debezium.heartbeat.interval.ms` 使用，让该动作按固定频率执行。SQL Server CDC 没有 replication slot
+可供心跳保活，心跳写入也不会固定消费所需的 LSN 区间，因此心跳不能替代合适的 change table 保留策略与延迟监控。
 
 ```hocon
 source {
@@ -336,8 +339,9 @@ source {
 }
 ```
 
-心跳表和对应的插入语句必须已经存在于目标数据库中。如果没有心跳，在没有活动时 SQL Server 可能会回收
-LSN 窗口，从而导致支持断点恢复的流式作业中断。
+心跳查询在源数据库连接上执行，因此心跳表及相应的 INSERT 权限必须存在于源数据库中。心跳写入不会延缓基于
+保留策略的 change table 清理；若作业落后超过保留期限，其所需的 LSN 区间可能已被清理，
+导致可恢复的流式作业中断。
 
 ### Schema change 事件过滤
 
