@@ -427,6 +427,10 @@ schema {
 
 ```
 
+### Temporary Security Credentials (OBS STS)
+
+This connector cannot currently use OBS STS temporary credentials. It only maps `access_key`, `access_secret`, and `endpoint` into the Hadoop OBS configuration, and there is no pass-through for the session token that OBS STS credentials always carry (`ObsConf.buildWithReadonlyConfig` installs only those three keys), so token-bound temporary credentials fail at connection time. Carrying a security token or a credential provider would require a separate, tested connector change. Configure a long-lived AK/SK with a least-privilege policy scoped to the target bucket prefix through the standard options instead, and avoid committing long-lived AK/SK to job files in shared environments.
+
 ## Changelog
 
 <ChangeLog />
