@@ -205,6 +205,7 @@ schema {
 | csv_use_header_line        | boolean | 否    | false              | 是否使用标题行来解析文件，仅在file_format为`csv`且文件包含符合RFC 4180的标题行时使用                                                                                               |
 | schema                     | config  | 否    | -                  | 上游数据的schema。                                                                                                                                         |
 | sheet_name                 | string  | 否    | -                  | 读取工作簿的工作表，仅在file_format为excel时使用。                                                                                                                    |
+| excel_use_header_line | boolean | 否 | false | 使用 Excel 第一行作为表头按列名映射字段，仅在 file_format_type 为 excel 时使用。 |
 | excel_engine               | string  | 否    | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                                                 |
 | poi_excel_max_file_size    | long    | 否    | 52428800           | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                                                 |
 | xml_row_tag                | string  | 否    | -                  | 指定XML文件中数据行的标签名称，仅在file_format为xml时使用。                                                                                                               |
@@ -230,6 +231,7 @@ schema {
 | retention_max_age          | string  | 否    | -                  | `backup_path` 中 SeaTunnel 备份对象的可选最大保留时间。 |
 | retention_check_interval   | string  | 否    | 1H                 | 配置备份保留策略时的清理扫描间隔。 |
 | file_filter_pattern        | string  | 否    |                    | 过滤模式，用于过滤文件。                                                                                                                                         |
+| tables_configs | list | 否 | - | 用于定义多表任务，与 `path` 互斥。 |
 | common-options             | config  | 否    | -                  | 数据源插件通用参数，请参考[数据源通用选项](../common-options/source-common-options.md)了解详情。                                                                                             |
 | file_filter_modified_start | string  | 否    | -                  | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                            |
 | file_filter_modified_end   | string  | 否    | -                  | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                           |
