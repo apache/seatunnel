@@ -38,6 +38,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -76,15 +77,25 @@ class PhysicalPlanPreApplyFuturesTest {
                 runningJobStateTimestampsIMap);
     }
 
-    private static TaskGroupLocation location(int taskGroupId) {
-        return new TaskGroupLocation(7L, 1, taskGroupId);
+    private static TaskGroupLocation location(int pipelineId, int taskGroupId) {
+        return new TaskGroupLocation(7L, pipelineId, taskGroupId);
+    }
+
+    /** Task groups of one pipeline, every value the same marker future. */
+    private static Map<TaskGroupLocation, CompletableFuture<SlotProfile>> pipelineEntries(
+            int pipelineId, int taskGroups, CompletableFuture<SlotProfile> value) {
+        Map<TaskGroupLocation, CompletableFuture<SlotProfile>> map = new HashMap<>();
+        for (int i = 0; i < taskGroups; i++) {
+            map.put(location(pipelineId, i), value);
+        }
+        return map;
     }
 
     private static Map<TaskGroupLocation, CompletableFuture<SlotProfile>> entries(
             int from, int count) {
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> map = new HashMap<>();
         for (int i = from; i < from + count; i++) {
-            map.put(location(i), CompletableFuture.completedFuture(new SlotProfile()));
+            map.put(location(1, i), CompletableFuture.completedFuture(new SlotProfile()));
         }
         return map;
     }
@@ -130,23 +141,46 @@ class PhysicalPlanPreApplyFuturesTest {
     }
 
     @Test
-    void everyPipelineMergeSurvivesWhenRestoresOverlap() throws Exception {
-        // Four pipelines restoring at once, which is the shape that produced
-        // the lost entries: each merges its own task groups into the shared
-        // map while the others do the same.
+    void overlappingRestoresEachReplaceTheirOwnPipelineEntries() throws Exception {
+        // Modelled on the engine's actual access pattern rather than on bulk
+        // insertion: the whole-job pre-apply installs every pipeline's keys
+        // before the job runs, so a restoring pipeline only ever REPLACES the
+        // values of keys that already exist. Four pipelines do that at once
+        // while a fifth thread copies the map, which is what
+        // PendingDiagnosticsCollector does from a REST thread.
+        //
+        // This passes on an unsynchronized map too, and is not claimed as a
+        // regression test for the visibility hazard -- a JMM stale read is not
+        // deterministically observable. What it does guard is the shape: if a
+        // future change made restore INSERT keys instead of replacing them,
+        // the structural hazard would be back and the size assertion here
+        // would be the first thing to notice.
         PhysicalPlan plan = newPhysicalPlan();
         int pipelines = 4;
-        int perPipeline = 250;
-        List<Map<TaskGroupLocation, CompletableFuture<SlotProfile>>> batches = new ArrayList<>();
-        for (int p = 0; p < pipelines; p++) {
-            batches.add(entries(p * perPipeline, perPipeline));
+        int taskGroups = 250;
+        CompletableFuture<SlotProfile> seeded =
+                CompletableFuture.completedFuture(new SlotProfile());
+
+        Map<TaskGroupLocation, CompletableFuture<SlotProfile>> wholeJob = new HashMap<>();
+        for (int p = 1; p <= pipelines; p++) {
+            wholeJob.putAll(pipelineEntries(p, taskGroups, seeded));
+        }
+        plan.setPreApplyResourceFutures(wholeJob);
+
+        List<Map<TaskGroupLocation, CompletableFuture<SlotProfile>>> replacements =
+                new ArrayList<>();
+        for (int p = 1; p <= pipelines; p++) {
+            replacements.add(
+                    pipelineEntries(
+                            p, taskGroups, CompletableFuture.completedFuture(new SlotProfile())));
         }
 
-        ExecutorService threads = Executors.newFixedThreadPool(pipelines);
+        ExecutorService threads = Executors.newFixedThreadPool(pipelines + 1);
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch done = new CountDownLatch(pipelines);
+        AtomicReference<Throwable> readerFailure = new AtomicReference<>();
         try {
-            for (Map<TaskGroupLocation, CompletableFuture<SlotProfile>> batch : batches) {
+            for (Map<TaskGroupLocation, CompletableFuture<SlotProfile>> batch : replacements) {
                 threads.submit(
                         () -> {
                             try {
@@ -159,22 +193,40 @@ class PhysicalPlanPreApplyFuturesTest {
                             }
                         });
             }
+            threads.submit(
+                    () -> {
+                        try {
+                            start.await();
+                            while (done.getCount() > 0) {
+                                // The diagnostics reader's copy must not blow up
+                                // while the restores are writing.
+                                new HashMap<>(plan.getPreApplyResourceFutures());
+                            }
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        } catch (Throwable t) {
+                            readerFailure.set(t);
+                        }
+                    });
             start.countDown();
             Assertions.assertTrue(
-                    done.await(30, TimeUnit.SECONDS), "pipeline merges did not finish");
+                    done.await(30, TimeUnit.SECONDS), "pipeline restores did not finish");
         } finally {
             threads.shutdownNow();
         }
 
+        Assertions.assertNull(readerFailure.get(), "the diagnostics copy failed");
         Assertions.assertEquals(
-                pipelines * perPipeline,
+                pipelines * taskGroups,
                 plan.getPreApplyResourceFutures().size(),
-                "no task group may lose its pre-applied future");
-        for (Map<TaskGroupLocation, CompletableFuture<SlotProfile>> batch : batches) {
-            for (TaskGroupLocation key : batch.keySet()) {
-                Assertions.assertNotNull(
-                        plan.getPreApplyResourceFutures().get(key),
-                        "missing pre-applied future for " + key);
+                "a restore must replace entries, never add or drop them");
+        for (Map<TaskGroupLocation, CompletableFuture<SlotProfile>> batch : replacements) {
+            for (Map.Entry<TaskGroupLocation, CompletableFuture<SlotProfile>> entry :
+                    batch.entrySet()) {
+                Assertions.assertSame(
+                        entry.getValue(),
+                        plan.getPreApplyResourceFutures().get(entry.getKey()),
+                        "stale pre-applied future for " + entry.getKey());
             }
         }
     }

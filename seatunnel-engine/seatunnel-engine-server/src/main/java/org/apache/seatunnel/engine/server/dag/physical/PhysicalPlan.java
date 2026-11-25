@@ -88,11 +88,16 @@ public class PhysicalPlan {
      *
      * <p>Concurrent by contract. {@code stateProcess()} is synchronized per {@link SubPlan}, but
      * each pipeline is a different {@code SubPlan} instance, so two pipelines of the same job can
-     * restore at the same time and merge into this map from their own threads while {@link
-     * ResourceUtils} reads it for a third. A plain {@code HashMap} can lose an entry or observe a
-     * half-resized table under that access pattern, and a lost entry means a task group has no
-     * pre-applied future: the pipeline then fails to allocate and the slot already acquired for it
-     * is neither consumed nor released.
+     * restore at the same time and replace their own entries from their own threads, while {@link
+     * ResourceUtils} reads an entry for a third pipeline and {@code PendingDiagnosticsCollector}
+     * copies the whole map from a REST thread.
+     *
+     * <p>The keys are installed once, by the whole-job pre-apply before the job runs, and nothing
+     * removes them, so a restoring pipeline only ever replaces values. That makes the hazard here
+     * <em>visibility</em>, not structure: an unsynchronized {@code HashMap} gives a reader on
+     * another thread no happens-before guarantee, so it may still observe the future a restore has
+     * already replaced. That stale future carries the slot profile the restore released, so the
+     * pipeline can be handed a slot that is no longer held.
      */
     private Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
             new ConcurrentHashMap<>();
