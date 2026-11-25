@@ -9,9 +9,12 @@ JsonPath 转换插件支持使用 JSONPath 选择数据。
 ## 属性
 
 | 名称                   | 类型    | 是否必须 | 默认值  |
-|----------------------|-------|------|------|    
-| columns              | Array | Yes  |      | 
+|----------------------|-------|------|------|
+| columns              | Array | Yes  |      |
 | row_error_handle_way | Enum  | No   | FAIL |
+| table_match_regex    | String | no  | `.*` |
+| table_transform      | Array&lt;Map&gt; | no | - |
+| rule_match_mode      | String | no  | `FIRST_MATCH` |
 
 ### 通用选项 [string]
 
