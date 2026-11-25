@@ -192,7 +192,7 @@ Option values:
 
 We use templates to automatically create Hive tables, which will create corresponding table creation statements based on the type of upstream data and schema type, and the default template can be modified according to the situation. Available template variables: ${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}, ${current_timestamp}.
 
-**Default value**: When not specified, table creation goes through the Hive metastore client and produces a PARQUET non-partitioned managed table. The equivalent default template is:
+**Default value**: When not specified, table creation goes through the Hive metastore client and produces a PARQUET non-partitioned managed table. The equivalent default template is (the metastore path stamps `seatunnel.creation.mode = default_template`, so the template below keeps that same value; `${current_timestamp}` is replaced with creation epoch milliseconds):
 ```sql
 CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
   ${rowtype_fields}
@@ -200,7 +200,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
 STORED AS PARQUET
 LOCATION '${table_location}'
 TBLPROPERTIES (
-  'seatunnel.creation.mode' = 'template',
+  'seatunnel.creation.mode' = 'default_template',
   'seatunnel.created.time' = '${current_timestamp}'
 )
 ```
