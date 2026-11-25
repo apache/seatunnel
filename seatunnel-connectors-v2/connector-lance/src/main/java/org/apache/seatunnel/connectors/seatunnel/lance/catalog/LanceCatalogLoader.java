@@ -59,6 +59,13 @@ public class LanceCatalogLoader implements Serializable {
                 bufferAllocator);
     }
 
+    /**
+     * Builds the property map for the directory namespace. The namespace layer (lance-namespace
+     * over OpenDAL) does not understand the Lance-native {@code aws_*} storage keys, so the
+     * configured options are translated to their flat OpenDAL keys by {@link #translateStorageKey}
+     * and prefixed with {@code storage.}. When {@code storage.options} is not configured, no {@code
+     * storage.} property is added and the namespace keeps its ambient behavior.
+     */
     @VisibleForTesting
     Map<String, String> buildNamespaceProps() {
         Map<String, String> properties = new HashMap<>();
@@ -72,6 +79,10 @@ public class LanceCatalogLoader implements Serializable {
         return properties;
     }
 
+    /**
+     * Translates the Lance-native {@code aws_*} storage keys to the flat OpenDAL keys expected by
+     * the directory namespace; any other key is passed through unchanged.
+     */
     private static String translateStorageKey(String key) {
         switch (key) {
             case "aws_endpoint_url":

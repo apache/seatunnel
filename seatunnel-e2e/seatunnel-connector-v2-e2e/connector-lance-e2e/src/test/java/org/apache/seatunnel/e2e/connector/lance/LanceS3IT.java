@@ -25,6 +25,9 @@ import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -62,6 +65,11 @@ import static org.awaitility.Awaitility.given;
  * through {@code lance.write.storage.options}; neither the SeaTunnel container nor the test JVM
  * carries any AWS_* environment variable, so with unfixed code the jobs below fail at an
  * unconfigured open or fragment path and this test fails with them.
+ *
+ * <p>Readback is the acceptance assertion: the test JVM opens the dataset through the Lance SDK
+ * with the configured storage options and asserts the exact committed row count, so a JNI
+ * initialization failure fails the test instead of weakening it. The MinIO object listing after the
+ * count is only a supplementary layout check.
  *
  * <p>Verified against the Lance API/driver versions pinned by connector-lance: lance-core 0.33.0,
  * lance-namespace 0.0.14 and opendal 0.48.0. Local-filesystem jobs are covered by {@link LanceIT}
@@ -195,36 +203,23 @@ public class LanceS3IT extends TestSuiteBase implements TestResource {
                 + tableName;
     }
 
-    private void assertRowCountEventually(String datasetDir, long expectedRows) {
+    private void assertRowCountEventually(String datasetDir, long expectedRows) throws Exception {
         given().ignoreExceptions()
                 .await()
                 .atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            long count = countRows(datasetDir);
-                            if (count >= 0) {
-                                Assertions.assertEquals(expectedRows, count);
-                            } else {
-                                assertDatasetObjectsExist(datasetDir);
-                            }
-                        });
+                .untilAsserted(() -> Assertions.assertEquals(expectedRows, countRows(datasetDir)));
+        assertDatasetObjectsExist(datasetDir);
     }
 
     private long countRows(String datasetDir) {
         String datasetUri = "s3://" + BUCKET + "/" + datasetDir;
-        try (Dataset dataset =
-                Dataset.open(
-                        datasetUri,
-                        new ReadOptions.Builder()
-                                .setStorageOptions(storageOptions(minioContainer.getS3URL()))
-                                .build())) {
+        ReadOptions readOptions =
+                new ReadOptions.Builder()
+                        .setStorageOptions(storageOptions(minioContainer.getS3URL()))
+                        .build();
+        try (BufferAllocator allocator = new RootAllocator();
+                Dataset dataset = Dataset.open(allocator, datasetUri, readOptions)) {
             return dataset.countRows();
-        } catch (NoClassDefFoundError | ExceptionInInitializerError e) {
-            log.warn(
-                    "JNI library initialization failed in test JVM. Falling back to object-level "
-                            + "verification. Error: {}",
-                    e.getMessage());
-            return -1;
         }
     }
 

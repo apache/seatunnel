@@ -118,6 +118,10 @@ public class LanceCommonConfig implements Serializable {
         this.rootNamespacePath = rootNamespacePath;
     }
 
+    /**
+     * Storage options configured through lance.write.storage.options, shared by the sink writer and
+     * the catalog.
+     */
     public Map<String, String> getStorageOptions() {
         return storageOptions;
     }
@@ -126,12 +130,21 @@ public class LanceCommonConfig implements Serializable {
         this.storageOptions = storageOptions;
     }
 
+    /**
+     * Read options carrying the configured storage credentials. lance-core resolves credentials per
+     * call instead of caching them, so every remote dataset open must pass these options; unset
+     * options become an empty map and local paths keep working unchanged.
+     */
     public ReadOptions toReadOptions() {
         return new ReadOptions.Builder()
                 .setStorageOptions(storageOptions == null ? new HashMap<>() : storageOptions)
                 .build();
     }
 
+    /**
+     * Write params carrying the configured storage credentials for every remote dataset create and
+     * fragment write; unset options become an empty map for local paths.
+     */
     public WriteParams toWriteParams() {
         return new WriteParams.Builder()
                 .withStorageOptions(storageOptions == null ? new HashMap<>() : storageOptions)
