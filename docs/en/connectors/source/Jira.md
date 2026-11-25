@@ -101,7 +101,7 @@ Self-hosted Jira deployments must use the endpoint documented for their installe
 
 ### Read one Jira Cloud search response
 
-This GET example extracts the returned issues' `id` and `key` from a single response. It does not
+This GET example extracts the returned issue IDs from a single response. It does not
 iterate over `nextPageToken`; narrow the JQL filter when the API reports additional results.
 
 ```hocon
@@ -126,7 +126,6 @@ source {
     schema = {
       fields {
         id = string
-        key = string
       }
     }
   }

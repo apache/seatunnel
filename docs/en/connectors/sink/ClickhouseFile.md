@@ -40,14 +40,14 @@ Write data to Clickhouse can also be done using JDBC
 | sharding_key           | string  | no       | -                                      | Field used by the sharding algorithm when picking the shard node. When omitted, the writer picks a shard randomly. |
 | copy_method            | string  | no       | scp                                    | Method used to transfer the staged file from the worker to the ClickHouse node. Supported values: `scp`, `rsync`. |
 | node_free_password     | boolean | no       | false                                  | Set to `true` when every worker can SSH to every ClickHouse shard node without a password (key-based auth or ssh-agent). When `false`, configure `node_pass` so the writer knows how to authenticate. |
-| node_pass | list | yes | - | Per-node SSH credentials. The current factory always parses this list: use `[]` for passwordless mode; key-auth records still require a non-null `password` (use an empty string). |
-| node_pass.node_address | string  | no       | -                                      | The address of the ClickHouse shard node that receives the file. |
+| node_pass | list | yes | - | Per-node SSH credentials. Supply an empty list for passwordless SSH with the default `root` user. Each configured entry needs `node_address` and `password`. |
+| node_pass.node_address | string | yes for each record | - | Hostname of the ClickHouse shard node that receives the file. |
 | node_pass.username     | string  | no       | "root"                                 | The SSH username on the ClickHouse shard node. |
-| node_pass.password | string | yes for each record | - | Per-node SSH password. Use `""` when `key_path` supplies authentication; the factory still requires a non-null value. |
+| node_pass.password | string | yes for each record | - | Per-node SSH password. Use `""` in the SCP key authentication example. |
 | compatible_mode        | boolean | no       | false                                  | Set to `true` for older ClickHouse releases where `clickhouse-local` does not understand the `--path` flag. The connector falls back to a path-free invocation that still produces a compatible staging file. |
 | file_fields_delimiter  | string  | no       | "\t"                                   | Field delimiter used inside the staged CSV file. The value must be exactly one character; pick a character that never appears in any column value. |
 | file_temp_path         | string  | no       | "/tmp/seatunnel/clickhouse-local/file" | Local directory on each worker where the staged file is written before being copied to ClickHouse. Use a path with enough free disk space for the largest batch the writer produces. |
-| key_path               | string  | no       | -                                      | Absolute path of the SSH private key file used by `scp`/`rsync` when `node_free_password=false`. When set, `node_pass.password` is ignored; the key must be authorized on every shard node. |
+| key_path | string | no | - | Absolute path to the SSH private key on the worker. See the SCP key authentication example for per-node entries. |
 | common-options         |         | no       | -                                      | Sink plugin common parameters, see [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### host [string]
@@ -125,7 +125,7 @@ The directory where ClickhouseFile stores temporary files locally.
 
 ### key_path [string]
 
-The path of the private key file used for scp or rsync to connect to the ClickHouse server.
+Path to the SSH private key on the worker. With `rsync`, the file transfer uses password authentication whenever the password is non-null, including an empty string.
 
 ### common options
 
@@ -200,12 +200,9 @@ sink {
 
 ### SSH key-based authentication
 
-The factory still parses every `node_pass` entry before selecting key authentication, so each entry
-must include a non-null `password`; use `password = ""` for the key-auth examples below.
-
-When `node_free_password=false` but you want to authenticate with an SSH key instead of a plaintext
-password, point `key_path` to the private key file. The key must be authorized on every shard node
-(typically via `~/.ssh/authorized_keys`). `node_pass.password` is ignored when the key auth succeeds.
+Use `copy_method = "scp"` to transfer files over the SSH session authenticated with the private
+key at `key_path`. Each `node_pass` entry still needs a `password` field during configuration
+parsing, so the example sets it to `""`. Add the public key to `~/.ssh/authorized_keys` on each shard.
 
 ```hocon
 sink {
@@ -228,7 +225,7 @@ sink {
       password = ""
     }]
     key_path = "/etc/seatunnel/id_rsa"
-    copy_method = "rsync"
+    copy_method = "scp"
   }
 }
 ```

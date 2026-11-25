@@ -38,14 +38,14 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | sharding_key           | string  | no   | -                                      | 当需要拆分数据时，指定用于分片算法的字段；不填时由 writer 随机选择分片节点。 |
 | copy_method            | string  | no   | scp                                    | 将暂存文件从 Worker 拷贝到 ClickHouse 节点所使用的方式，可选值：`scp`、`rsync`。 |
 | node_free_password     | boolean | no   | false                                  | 当每个 Worker 到每个 ClickHouse 分片节点都可以免密登录（基于 SSH 密钥或 ssh-agent）时，设置为 `true`；否则需要通过 `node_pass` 配置每个节点的访问凭据。 |
-| node_pass | list | 是 | - | 逐节点 SSH 凭据。当前工厂始终解析此列表：免密模式需设置为 `[]`；密钥认证的每条记录仍需非 null 的 `password`，可使用空字符串。 |
-| node_pass.node_address | string  | no   | -                                      | ClickHouse 分片节点的地址。 |
+| node_pass | list | 是 | - | 逐节点 SSH 凭据。使用默认的 `root` 用户免密登录时填写空列表。每个已配置的条目都需要 `node_address` 和 `password`。 |
+| node_pass.node_address | string | 每条记录必填 | - | 接收文件的 ClickHouse 分片节点主机名。 |
 | node_pass.username     | string  | no   | "root"                                 | ClickHouse 分片节点上的 SSH 用户名。 |
-| node_pass.password | string | 每条记录必填 | - | 逐节点 SSH 密码。使用 `key_path` 认证时填写 `""`；工厂解析时仍要求非 null 的值。 |
+| node_pass.password | string | 每条记录必填 | - | 逐节点 SSH 密码。SCP 密钥认证示例中填写 `""`。 |
 | compatible_mode        | boolean | no   | false                                  | 当 ClickHouse 版本较旧、`clickhouse-local` 不支持 `--path` 参数时，设置为 `true`，连接器会改用不依赖 `--path` 的调用方式生成暂存文件。 |
 | file_fields_delimiter  | string  | no   | "\t"                                   | 暂存 CSV 文件中的字段分隔符。值必须正好为一个字符，请选择业务字段中不会出现的字符。 |
 | file_temp_path         | string  | no   | "/tmp/seatunnel/clickhouse-local/file" | Worker 本地用于保存暂存文件的目录；请保证磁盘空间足够容纳最大的批次写入量。 |
-| key_path               | string  | no   | -                                      | `node_free_password=false` 时，`scp`/`rsync` 使用的 SSH 私钥文件绝对路径。配置后 `node_pass.password` 会被忽略，私钥必须已经写入每个分片节点的 `authorized_keys`。 |
+| key_path | string | 否 | - | Worker 上的 SSH 私钥文件绝对路径。逐节点配置见下方的 SCP 密钥认证示例。 |
 | common-options         |         | no   | -                                      | Sink 插件通用参数，请参考 [Sink 常用选项](../common-options/sink-common-options.md) 获取更多细节信息。 |
 
 ### host [string]
@@ -117,7 +117,7 @@ ClickhouseFile本地存储临时文件的目录。
 
 ### key_path [string]
 
-用于scp或rsync传输文件的私钥路径。
+Worker 上的 SSH 私钥路径。使用 `rsync` 时，只要密码值非 null，文件传输就会走密码认证，空字符串也一样。
 
 ### common options
 
@@ -189,8 +189,9 @@ sink {
 
 ### 基于 SSH 密钥的认证
 
-当 `node_free_password=false` 但希望通过 SSH 密钥（而不是明文密码）认证时，把 `key_path` 指向私钥文件。
-私钥必须已经写入每个分片节点的 `authorized_keys`。密钥认证成功时，`node_pass.password` 会被忽略。
+设置 `copy_method = "scp"` 后，文件通过由 `key_path` 指定私钥完成认证的 SSH 会话传输。
+配置解析仍要求 `node_pass` 的每个条目都包含 `password`，因此示例中填 `""`。
+将对应的公钥加入每个分片节点的 `~/.ssh/authorized_keys`。
 
 ```hocon
 sink {
@@ -213,7 +214,7 @@ sink {
       password = ""
     }]
     key_path = "/etc/seatunnel/id_rsa"
-    copy_method = "rsync"
+    copy_method = "scp"
   }
 }
 ```

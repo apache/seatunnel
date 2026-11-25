@@ -99,7 +99,7 @@ Jira Cloud 增强搜索使用 `/rest/api/3/search/jql`；还有更多结果时�
 
 ### 读取一个 Jira Cloud 搜索响应
 
-此 GET 示例从单个响应中提取 Issue 的 `id` 和 `key`，不会遍历 `nextPageToken`。
+此 GET 示例从单个响应中提取 Issue 的 `id`，不会遍历 `nextPageToken`。
 如果 API 提示还有更多结果，应缩小 JQL 过滤范围。
 
 ```hocon
@@ -124,7 +124,6 @@ source {
     schema = {
       fields {
         id = string
-        key = string
       }
     }
   }
