@@ -180,7 +180,7 @@ grep "SlowOperationDetector" "$SEATUNNEL_HOME"/logs/seatunnel-engine-*.log | tai
 
 将时间戳与以下事件关联：
 - 作业提交事件（REST API 调用）
-- Checkpoint 间隔（引擎默认值为 300000 毫秒；发行包的 `config/seatunnel.yaml` 模板中配置为 `checkpoint.interval: 10000`）
+- Checkpoint 间隔（`seatunnel.engine.checkpoint.interval`）：代码默认值为 300000 毫秒（5 分钟），发行包中的 `config/seatunnel.yaml` 设置为 10000 毫秒。
 - 高负载时段（数据摄入高峰期）
 
 #### 第二步：检查节点整体健康状态
@@ -405,6 +405,7 @@ seatunnel:
       storage:
         type: hdfs
         plugin-config:
+          storage.type: s3
           namespace: /seatunnel/checkpoint/
           s3.bucket: s3a://<your-bucket>
           fs.s3a.endpoint: s3.<region>.amazonaws.com
@@ -418,6 +419,7 @@ seatunnel:
       storage:
         type: hdfs
         plugin-config:
+          storage.type: s3
           fs.s3a.fast.upload: true
           s3.bucket: s3a://<your-bucket>
           fs.s3a.fast.upload.buffer: disk
@@ -433,6 +435,7 @@ seatunnel:
       storage:
         type: hdfs
         plugin-config:
+          storage.type: s3
           fs.s3a.attempts.maximum: 10
           s3.bucket: s3a://<your-bucket>
           fs.s3a.connection.timeout: 30000

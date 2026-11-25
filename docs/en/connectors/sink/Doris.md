@@ -48,7 +48,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | query-port                     | int     | No       | 9030                         | `Doris` Fenodes query_port                                                                                                                                                                                                                                                             |
 | username                       | String  | Yes      | -                            | `Doris` user username                                                                                                                                                                                                                                                                  |
 | password                       | String  | Yes      | -                            | `Doris` user password                                                                                                                                                                                                                                                                  |
-| database                       | String  | No       | -                            | The database name of `Doris` table, use `${database_name}` to represent the upstream table name. When omitted, the upstream table's database name is used                                                                                                                              |
+| database                       | String  | No       | -                            | The database name of `Doris` table, use `${database_name}` to represent the upstream database name. When omitted, the upstream table's database name is used                                                                                                                              |
 | table                          | String  | No       | -                            | The table name of `Doris` table,  use `${table_name}` to represent the upstream table name. When omitted, the upstream table's name is used                                                                                                                                             |
 | table.identifier               | String  | No       | -                            | Deprecated table identifier. Please use `database` and `table` instead.                                                                                                                                                                                                                 |
 | sink.label-prefix              | String  | Yes      | -                            | The label prefix used by stream load imports. In the 2pc scenario, global uniqueness is required to ensure the EOS semantics of SeaTunnel.                                                                                                                                             |
@@ -227,6 +227,10 @@ sink {
     sink.label-prefix = "timer-flush"
     sink.enable-2pc = false
     doris.batch.size = 10000
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
   }
 }
 ```
@@ -678,6 +682,10 @@ sink {
     table = "mytable"
     sink.enable-2pc = "true"
     sink.label-prefix = "unique-job-label"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
   }
 }
 ```
@@ -699,7 +707,8 @@ Yes. Set `sink.enable-delete = "true"` to propagate DELETE operations from CDC s
 
 See the case-sensitivity example above for the exact behavior. By default (`case_sensitive = true`)
 the connector preserves the original case of `database` and `table`. Set `case_sensitive = false`
-to fold both names to lowercase before they reach Doris. If upstream field names still do not
+to fold the table and column names to lowercase before they reach Doris (the `database` name
+keeps its original case). If upstream field names still do not
 match the Doris schema, normalize them at the source stage (e.g. with a `Rename` transform) or
 align the target schema explicitly rather than relying on undocumented options.
 

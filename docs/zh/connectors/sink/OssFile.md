@@ -275,7 +275,7 @@ Sink插件常用参数，请参考[Sink common Options](../common-options/sink-c
 
 编写工作簿的工作表
 
-### csv_string_quote_mode [string]
+### csv_string_quote_mode [enum]
 
 当文件格式为CSV时，CSV的字符串引用模式。
 
@@ -606,8 +606,12 @@ sink {
 CDC 管道中的使用示例：
 
 ```hocon
-LocalFile {
-    path = "/tmp/cdc/${table_name}"
+OssFile {
+    bucket = "oss://whale-ops"
+    access_key = "xxxxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxx"
+    endpoint = "https://oss-accelerate.aliyuncs.com"
+    path = "/cdc/${table_name}"
     file_format_type = "parquet"
     schema_evolution_enabled = true
     have_partition = true
