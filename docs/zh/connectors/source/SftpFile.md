@@ -491,14 +491,6 @@ compare_mode = "len_mtime"
 是否递归扫描子目录。
 如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。
 
-### quote_char [string]
-
-用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。
-
-### escape_char [string]
-
-用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
-
 ### sort_files_by_modification_time [boolean]
 
 是否按修改时间降序排序文件。默认值为 `false`。
