@@ -60,9 +60,9 @@ import ChangeLog from '../changelog/connector-iotdb-v2.md';
 | key_measurement_fields      | Array   | 否    | 见描述    | IoTDB 树模型：在 SeaTunnelRow 中指定 IoTDB 测量列表的字段名（如未指定，则包括排除`key_device`&`key_timestamp`后的其余字段）；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 测点列（FIELD）的字段名（如未指定，则包括排除`key_device`&`key_timestamp`&`key_tag_fields`&`key_attribute_fields`后的其余字段） |
 | key_tag_fields              | Array   | 否    | -      | IoTDB 树模型：不生效；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 标签列（TAG）的字段名                                                                                                                                                                     |
 | key_attribute_fields        | Array   | 否    | -      | IoTDB 树模型：不生效；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 属性列（ATTRIBUTE）的字段名                                                                                                                                                               |
-| batch_size | Integer | 否 | 见下文 | 触发刷新的缓存行数。设为正值可按行数触发刷新。 |
-| max_retries                 | Integer | 否    | -      | 刷新失败时的最大重试次数。如果不填写，刷新失败时不会自动重试。                                                                                                                                                                                                  |
-| retry_backoff_multiplier_ms | Integer | 否    | -      | 用于有上限的线性重试等待：等待毫秒数为 `min(retry_backoff_multiplier_ms * i, max_retry_backoff_ms)`，首次失败后的 `i` 为 0。未配置的选项在运行时取 `0`。两个选项都设置为正数后，后续重试才会产生非零等待。                                                                                                                                                                              |
+| batch_size                  | Integer | 否    | 1024   | 缓存的记录数达到 `batch_size` 时，连接器会把数据刷新到 IoTDB；在 checkpoint 提交前和写入器关闭时也会刷新。                                                                                                                                                                  |
+| max_retries                 | Integer | 否    | -      | 刷新失败时的最大重试次数。                                                                                                                                                                                                                           |
+| retry_backoff_multiplier_ms | Integer | 否    | -      | 计算重试等待时间的退避倍数，单位为毫秒。                                                                                                                                                                                                                   |
 | max_retry_backoff_ms        | Integer | 否    | -      | 最大重试等待时间，单位为毫秒。                                                                                                                                                                                                                         |
 | default_thrift_buffer_size  | Integer | 否    | -      | IoTDB 客户端使用的默认 Thrift 缓冲区大小。                                                                                                                                                                                                             |
 | max_thrift_frame_size       | Integer | 否    | -      | IoTDB 客户端使用的最大 Thrift 帧大小。                                                                                                                                                                                                               |
@@ -75,7 +75,7 @@ import ChangeLog from '../changelog/connector-iotdb-v2.md';
 
 表模型下，`storage_group` 表示数据库，`key_device` 表示目标表名字段，`key_tag_fields` 表示 TAG 列，`key_attribute_fields` 表示 ATTRIBUTE 列，`key_measurement_fields` 表示 FIELD 列。未配置 `key_measurement_fields` 时，除表名、时间、TAG 和 ATTRIBUTE 字段之外的所有字段都会写成 FIELD 列。
 
-配置正数 `batch_size` 后，达到该行数时会刷新。选项声明的默认值为 `1024`，但当前写入器只有在作业中显式配置该选项时才使用行数阈值。Checkpoint 和关闭写入器时都会刷新。
+刷新失败时默认重试 0 次，可通过 `max_retries` 设置重试次数。第 `i` 次重试前等待 `min(retry_backoff_multiplier_ms * i, max_retry_backoff_ms)` 毫秒，`i` 从 0 开始。两个退避参数未配置时各取 `0`。两项都设为正数才会在后续重试前等待。
 
 ## 示例
 

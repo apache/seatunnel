@@ -45,7 +45,7 @@ Embedding 转换插件利用 embedding 模型将文本和多模态数据转换�
 
 ### model_provider
 
-用于生成 embedding 的模型提供商。常见选项包括 `AMAZON`、 `DOUBAO`、`QIANFAN`、`OPENAI` 等，同时可选择 `CUSTOM` 实现自定义 embedding
+用于生成 embedding 的模型提供商。常见选项包括 `AMAZON`、 `DOUBAO`、`QIANFAN`、`ZHIPU`、`OPENAI` 等，同时可选择 `CUSTOM` 实现自定义 embedding
 模型的请求以及获取。
 
 ### api_key

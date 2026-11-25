@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-> By default, `semantics` is `NON`: messages are sent directly without transactions and delivery is not guaranteed (messages may be lost or duplicated on failure). Set `semantics = EXACTLY_ONCE` to use 2pc (Kafka transactions) for exactly-once delivery. See [Semantics](#semantics).
+> The default `semantics = NON` sends records without Kafka transactions. A failure can lose or duplicate records. Set `semantics = EXACTLY_ONCE` and enable checkpointing to commit Kafka transactions at checkpoints. See [Semantics](#semantics).
 
 ## Description
 
@@ -49,6 +49,8 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | Datasource | Supported Versions | Maven                                                                               |
 |------------|--------------------|-------------------------------------------------------------------------------------|
 | Kafka      | Universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-kafka) |
+
+> Note: `partition` and `partition_key_fields` are mutually exclusive; configuring both fails validation. You can configure only one of them.
 
 ## Sink Options
 
