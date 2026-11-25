@@ -43,7 +43,7 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 |---------------|---------|----------|---------|-------------|
 | url           | String  | Yes      | -       | GraphQL HTTP endpoint. Sink mode requires `http://` or `https://`. |
 | query         | String  | Yes      | -       | GraphQL mutation statement. Sink only supports `mutation`. |
-| variables     | Map     | No       | -       | Initial GraphQL variables. Explicitly configure a map (`variables = {}` if no initial values are needed); input row fields are added before each request. See the current implementation limitation below. |
+| variables | Map | No | `{}` | Initial GraphQL variables. Input row fields are added before each request. |
 | valueCover    | Boolean | No       | false   | When false, row fields overwrite variables with the same name. When true, existing variables keep their configured values. |
 | timeout       | Long    | No       | -       | Request timeout value passed to the HTTP client parameter map. |
 | headers       | Map     | No       | -       | HTTP request headers, such as authentication headers. |
@@ -60,7 +60,6 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 
 - The sink validates that `query` is a GraphQL `mutation`.
 - Field names in the upstream row should match variable names used by the mutation.
-- Explicitly set `variables = {}` or an initial variables map. The current implementation stores a string when the option is omitted, and the first row then fails when the writer casts it to a map.
 - If `variables` already contains a key and `valueCover = true`, the configured variable value is kept.
 - If `valueCover = false`, row field values replace variables with the same name.
 - The sink sends one mutation request for each input row. If the upstream source contains multiple tables, make sure the same mutation and variable names can handle every table routed to this sink.
@@ -209,7 +208,7 @@ using Fibonacci backoff capped by `retry_backoff_max_ms`. `retry = 5` permits fi
 including the initial request.
 
 A write fails when the server returns a non-200 status or the GraphQL response contains errors.
-The retry settings apply only to failures caused by an \`IOException\`.
+The retry settings apply only to failures caused by an `IOException`.
 
 ```hocon
 env {

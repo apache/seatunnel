@@ -42,7 +42,7 @@ mutation 一起发送。
 |---------------|---------|----------|--------|------|
 | url           | String  | 是       | -      | GraphQL HTTP 服务地址。Sink 模式要求使用 `http://` 或 `https://`。 |
 | query         | String  | 是       | -      | GraphQL mutation 语句。Sink 只支持 `mutation`。 |
-| variables     | Map     | 否       | -      | 初始 GraphQL 变量。请显式配置一个 Map（不需要初始值时使用 `variables = {}`）；每次请求前会加入输入行字段。当前实现限制见下文。 |
+| variables | Map | 否 | `{}` | GraphQL 初始变量。连接器会在每次请求前加入输入行字段。 |
 | valueCover    | Boolean | 否       | false  | 为 false 时，同名输入行字段会覆盖配置里的变量；为 true 时，保留配置里的变量值。 |
 | timeout       | Long    | 否       | -      | 传给 HTTP 客户端参数的请求超时时间。 |
 | headers       | Map     | 否       | -      | HTTP 请求头，例如鉴权请求头。 |
@@ -59,7 +59,6 @@ mutation 一起发送。
 
 - Sink 会校验 `query` 必须是 GraphQL `mutation`。
 - 上游字段名应和 mutation 里使用的变量名保持一致。
-- 请显式配置 `variables = {}` 或初始变量 Map。当前实现会在未配置此选项时保存一个字符串，写入首行时将其转换为 Map 会失败。
 - 如果 `variables` 已有某个 key，并且设置 `valueCover = true`，会保留配置里的变量值。
 - 如果 `valueCover = false`，同名输入行字段会覆盖配置里的变量值。
 - Sink 会为每一行输入数据发送一次 mutation 请求。如果上游包含多张表，需要确认同一条 mutation 和变量名可以处理所有写入到该 Sink 的表。
