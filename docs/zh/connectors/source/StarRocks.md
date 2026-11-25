@@ -78,6 +78,9 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 
 SeaTunnel 输出的 StarRocks 数据结构。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
+当 StarRocks 返回布尔值，而源 schema 将该字段声明为 `TINYINT` 时，SeaTunnel 会将 `false` 转为字节值 `0`，
+将 `true` 转为字节值 `1`，并保留 `null`。声明为 `BOOLEAN` 时保持布尔值。
+
 示例
 
 ```
@@ -155,8 +158,8 @@ partition[5] 从 be_node_3 读取 tablet 数据：tablet[14,15]
 source {
   StarRocks {
     nodeUrls = ["starrocks_e2e:8030"]
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_source"
     scan_batch_rows = 10
@@ -191,8 +194,8 @@ source {
 source {
   StarRocks {
     nodeUrls = ["starrocks_e2e:8030"]
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table_list = [
     {

@@ -39,6 +39,7 @@ through XA transactions. CDC events from upstream are also supported when config
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 > support `Xa transactions`. You can set `is_exactly_once=true` and `max_retries=0` to enable it.
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
 

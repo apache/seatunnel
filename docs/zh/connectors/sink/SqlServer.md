@@ -53,22 +53,22 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 数据类型映射
 
-| SQL Server 数据类型                                              | SeaTunnel 数据类型                                                                              |
-|------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
-| BIT                                                              | BOOLEAN                                                                                          |
-| TINYINT<br/>SMALLINT                                             | SHORT                                                                                            |
-| INTEGER                                                          | INT                                                                                              |
-| BIGINT                                                           | LONG                                                                                             |
-| DECIMAL<br />NUMERIC<br />MONEY<br />SMALLMONEY                  | DECIMAL((获取指定列的列大小)+1,<br/>(获取指定列的小数点右侧的位数)))                              |
-| REAL                                                             | FLOAT                                                                                            |
-| FLOAT                                                            | DOUBLE                                                                                           |
-| CHAR<br />NCHAR<br />VARCHAR<br />NTEXT<br />NVARCHAR<br />TEXT | STRING                                                                                           |
-| DATE                                                             | LOCAL_DATE                                                                                       |
-| TIME                                                             | LOCAL_TIME                                                                                       |
-| DATETIME<br />DATETIME2<br />SMALLDATETIME   | LOCAL_DATE_TIME                                                                                  |
-| DATETIMEOFFSET | OFFSET_DATE_TIME (TIMESTAMP_TZ) |
-| BINARY<br />VARBINARY<br />IMAGE<br />TIMESTAMP | BYTES |
-| UNKNOWN | 尚未支持 |
+| SQL Server 数据类型                     | SeaTunnel 数据类型                                                                                   |
+|-----------------------------------------|------------------------------------------------------------------------------------------------------|
+| BIT                                     | BOOLEAN                                                                                             |
+| TINYINT<br/>SMALLINT                    | SHORT                                                                                               |
+| INTEGER                                 | INT                                                                                                 |
+| BIGINT                                  | LONG                                                                                                |
+| DECIMAL<br />NUMERIC<br />MONEY<br />SMALLMONEY | DECIMAL(precision, scale)（精度与小数位取自源列）                                                       |
+| REAL                                    | FLOAT                                                                                               |
+| FLOAT                                   | DOUBLE                                                                                              |
+| CHAR<br />NCHAR<br />VARCHAR<br />NTEXT<br />NVARCHAR<br />TEXT | STRING                                                                                              |
+| DATE                                    | LOCAL_DATE                                                                                          |
+| TIME                                    | LOCAL_TIME                                                                                          |
+| DATETIME<br />DATETIME2<br />SMALLDATETIME | LOCAL_DATE_TIME                                                                                     |
+| DATETIMEOFFSET                          | OFFSET_DATE_TIME (TIMESTAMP_TZ)                                                                     |
+| BINARY<br />VARBINARY<br />IMAGE<br />TIMESTAMP | BYTES                                                                                               |
+| UNKNOWN                                 | 尚未支持                                                                                            |
 
 ## 接收器选项
 

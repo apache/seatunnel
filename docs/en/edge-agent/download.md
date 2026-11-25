@@ -9,7 +9,7 @@ title: Download
 
 Before installing Edge Agent, prepare the edge host:
 
-* Java: install [Java](https://www.java.com/en/download/) 8 or 11 (newer LTS versions generally work) and set JAVA_HOME.
+* Java: install [Java](https://www.java.com/en/download/) 11 or 17 (newer LTS versions generally work) and set JAVA_HOME.
 * Disk: writable directory for queue.sqlite-path (WAL and source positions) and logs.
 * Network: outbound connectivity from the edge host to the EdgeSocket endpoint configured in output.endpoint.
 
@@ -40,13 +40,16 @@ Throughout the deployment guides, EDGE_AGENT_HOME means this install root. The l
 
 ## Step 3: Build from source
 
-From the SeaTunnel source repository:
+With a JDK installed, download `apache-seatunnel-<version>-src.tar.gz` from the [SeaTunnel download page](https://seatunnel.apache.org/download), then extract and build:
 
 ```shell
-git clone https://github.com/apache/seatunnel.git
-cd seatunnel
+export version="<seatunnel-version>"
+tar -xzf "apache-seatunnel-${version}-src.tar.gz"
+cd "apache-seatunnel-${version}-src"
 ./mvnw clean package -pl seatunnel-dist -am -DskipTests -Dskip.spotless=true
 ```
+
+For a Git checkout, run the Maven command above from the repository root.
 
 Binary artifact (after a successful build):
 

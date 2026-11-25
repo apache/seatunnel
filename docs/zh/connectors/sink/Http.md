@@ -37,19 +37,19 @@ import ChangeLog from '../changelog/connector-http.md';
 
 ## 接收器选项
 
-|             名称              |  类型   | 是否必须 | 默认值 | 描述                                                                                                                                              |
-|-------------------------------|--------|----------|--------|---------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                           | String | 是       | -      | Http 请求 URL。静态查询参数可以直接拼接在 URL 中。                                                                                                  |
+|             名称              |   类型   | 是否必须 |  默认值  |                             描述                             |
+|-----------------------------|--------|------|-------|------------------------------------------------------------|
+| url                         | String | 是    | -     | HTTP 请求链接，不能为空或仅包含空白字符。                                      |
 | headers                       | Map    | 否       | -      | 每个请求都会携带的 HTTP 头，每个条目是一个 `name = "value"` 键值对。                                                                                  |
-| params                        | Map    | 否       | -      | 当前 Sink 写入器不读取 `params`。请将查询参数直接写入 `url`；行数据作为 POST 请求体发送。 |
-| retry                         | Int    | 否       | -      | 大于等于 1 时，表示包含首次请求在内的最大总尝试次数。仅对 `IOException` 进行重试。 |
-| retry_backoff_multiplier_ms   | Int    | 否       | 100    | 失败重试时回退时间（毫秒）的乘数。                                                                                                                  |
-| retry_backoff_max_ms          | Int    | 否       | 10000  | 失败重试时回退时间（毫秒）的上限。                                                                                                                  |
+| params                      | Map    | 否    | -     | 该参数会通过参数校验。当前 Sink 写入器会把数据作为请求体 POST 到最终 URL，如需查询参数，建议直接写在 `url` 中。 |
+| retry                       | Int    | 否    | -     | 该参数会通过参数校验，但当前 Sink 写入器不会读取该参数，因此不会执行重试                    |
+| retry_backoff_multiplier_ms | Int    | 否    | 100   | 该参数会通过参数校验，但当前 Sink 写入器未使用该参数                              |
+| retry_backoff_max_ms        | Int    | 否    | 10000 | 该参数会通过参数校验，但当前 Sink 写入器未使用该参数                              |
 | array_mode                    | Boolean| 否       | false  | 为 true 时，多条数据会被合并为 JSON 数组发送；为 false 时（默认）每条数据单独作为 JSON 对象发送。                                                              |
 | batch_size                    | Int    | 否       | 1      | 单个 HTTP 请求最多发送的数据条数。仅在 `array_mode = true` 时生效。                                                                                  |
 | request_interval_ms           | Int    | 否       | 0      | 两次 HTTP 请求之间的间隔毫秒数，用于避免请求过于频繁。                                                                                                |
-| multi_table_sink_replica      | Int    | 否       | -      | 多表写入时使用的 Sink 副本数，详情请参考 [Sink 常用选项](../common-options/sink-common-options.md)。                                                       |
-| common-options                |        | 否       | -      | Sink 插件常用参数，详情请参考 [Sink 常用选项](../common-options/sink-common-options.md)。                                                              |
+| multi_table_sink_replica    | Int    | 否    | 1     | 多表写入时使用的 Sink 副本数，详情请参考 [Sink 常用选项](../common-options/sink-common-options.md)。 |
+| common-options              |        | 否    | -     | Sink插件常用参数，请参考 [Sink常用选项 ](../common-options/sink-common-options.md) 了解详情 |
 
 ### url
 
@@ -64,13 +64,7 @@ Http Sink 始终使用 `POST` 请求，并将行数据转换为 JSON 请求体�
 
 ### 重试行为
 
-只有 `IOException` 失败会触发重试。`retry >= 1` 时，它限制包含首次请求在内的总尝试
-次数：`retry = 3` 表示最多尝试三次，即最多重试两次。等待时间使用斐波那契序列：
-`min(Fibonacci(尝试序号) * retry_backoff_multiplier_ms, retry_backoff_max_ms)`。
-默认乘数为 100 ms，对应后续重试等待 100、100、200、300、500 ms，并受
-`retry_backoff_max_ms` 上限限制。
-
-当 HTTP 响应不是 200，或请求过程中发生异常时，Sink 会将写入失败上报给引擎；失败批次不会被当作已成功发送。该连接器不提供精确一次投递保证，接收端应保证幂等。
+HTTP Sink 接受 \`retry\`、\`retry_backoff_multiplier_ms\` 和 \`retry_backoff_max_ms\` 配置。当前写入器不应用这三个选项。
 
 ### array_mode 与 batch_size
 
@@ -127,7 +121,7 @@ sink {
 }
 ```
 
-### 带重试和 URL 查询参数的示例
+### 带 URL 查询参数的示例
 
 ```hocon
 sink {
@@ -136,9 +130,6 @@ sink {
     headers {
       token = "9e32e859ef044462a257e1fc76730066"
     }
-    retry = 3
-    retry_backoff_multiplier_ms = 200
-    retry_backoff_max_ms = 5000
   }
 }
 ```
@@ -207,6 +198,75 @@ sink {
     headers {
       token = "9e32e859ef044462a257e1fc76730066"
     }
+  }
+}
+```
+
+### 多表模式
+
+#### 示例 1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Http {
+    ...
+    url = "http://localhost/test/${database_name}_test/${table_name}_test"
+  }
+}
+```
+
+#### 示例 2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  Http {
+    ...
+    url = "http://localhost/test/${schema_name}_test/${table_name}_test"
   }
 }
 ```

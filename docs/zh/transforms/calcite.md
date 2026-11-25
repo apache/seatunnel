@@ -116,6 +116,14 @@ SELECT DES_ENCRYPT('12345678', secret) AS encrypted FROM t
 SELECT DES_DECRYPT('12345678', encrypted_secret) AS original FROM t
 ```
 
+### JSON 函数
+
+#### GET_JSON_OBJECT
+
+```GET_JSON_OBJECT(json, path) -> STRING```
+
+使用 JSON 路径从 JSON 字符串中提取值并返回字符串。该函数与 Zeta 实现共享，路径语法与示例参见 [GET_JSON_OBJECT](sql-functions.md#get_json_object)。
+
 ### 向量函数
 
 #### COSINE_DISTANCE
@@ -387,6 +395,12 @@ transform {
 ```
 
 ### 向量运算
+
+`VECTOR_NORM`、`INNER_PRODUCT`、`COSINE_DISTANCE`、`L1_DISTANCE`、`L2_DISTANCE` 和
+`VECTOR_NORMALIZE` 对 float 向量元素使用 double 精度计算中间乘积和差值，
+避免有限输入的 float 中间运算溢出或下溢。归一化输出元素仍为 float，
+因此输出舍入或下溢仍可能发生。空输入和实际零向量的处理方式保持不变。
+未增加非有限输入的校验或清理策略；修正有限中间结果也可能影响与非有限元素混合时的结果。
 
 使用内置向量 UDF 在数据管线中计算距离、降维或归一化（例如 Milvus/Qdrant 源与目标之间的处理）。
 
