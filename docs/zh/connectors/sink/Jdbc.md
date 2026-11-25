@@ -1010,7 +1010,9 @@ sink {
 }
 ```
 
-`dialect = "Dsql"` 表示选择 Amazon Aurora DSQL。AWS 凭证通过 `access_key_id` / `secret_access_key`（以及 `region`）读取，而不是用户名/密码。Aurora DSQL 不支持 XA，因此请将 `is_exactly_once` 保持为默认值 `false`。
+`dialect = "Dsql"` 表示选择 Amazon Aurora DSQL。`username` 填写数据库角色名。连接器使用
+`access_key_id`、`secret_access_key` 和 `region` 生成 IAM token，作为 JDBC 密码。
+Aurora DSQL 不支持 XA，因此请将 `is_exactly_once` 保持为默认值 `false`。
 
 ### multi_table_sink_replica [int]
 
