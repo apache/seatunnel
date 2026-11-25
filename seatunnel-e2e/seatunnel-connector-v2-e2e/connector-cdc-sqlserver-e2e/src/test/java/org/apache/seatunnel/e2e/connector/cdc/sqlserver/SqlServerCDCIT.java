@@ -65,6 +65,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -601,6 +602,195 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                             + SCHEMA_NAME
                             + ".full_types_sink is not enabled for capture",
                     exception.getMessage());
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "This regression uses Zeta logs and explicit job cancellation.")
+    public void testSnapshotBackfillWithNoSelectedTableChanges(TestContainer container)
+            throws Exception {
+        assertSnapshotBackfill(container, false);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "This regression uses Zeta logs and explicit job cancellation.")
+    public void testSnapshotBackfillFailsWhenCdcLowerBoundIsCleanedUp(TestContainer container)
+            throws Exception {
+        assertSnapshotBackfill(container, true);
+    }
+
+    private void assertSnapshotBackfill(TestContainer container, boolean expireLowerBound)
+            throws Exception {
+        String database = "empty_backfill_test";
+        String selectedTable = database + ".dbo.A";
+        String sinkTable = database + ".dbo.A_sink";
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> job = null;
+        executeSql("CREATE DATABASE " + database);
+        try {
+            executeSql(
+                    "USE "
+                            + database
+                            + "; EXEC sys.sp_cdc_enable_db;"
+                            + "CREATE TABLE dbo.A (Id int NOT NULL PRIMARY KEY, Value int NOT NULL);"
+                            + "CREATE TABLE dbo.Other (Id int NOT NULL PRIMARY KEY, Value int NOT NULL);"
+                            + "CREATE TABLE dbo.A_sink (Id int NOT NULL PRIMARY KEY, Value int NOT NULL);"
+                            + "INSERT dbo.A VALUES (1,10),(2,20),(3,30);"
+                            + "EXEC sys.sp_cdc_enable_table @source_schema=N'dbo', @source_name=N'A',"
+                            + " @role_name=NULL, @supports_net_changes=0;"
+                            + "EXEC sys.sp_cdc_enable_table @source_schema=N'dbo', @source_name=N'Other',"
+                            + " @role_name=NULL, @supports_net_changes=0;"
+                            + "INSERT dbo.Other VALUES (1,0);");
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            1,
+                                            querySql(
+                                                            "SELECT COUNT(*) FROM "
+                                                                    + database
+                                                                    + ".cdc.dbo_Other_CT WHERE __$operation=2")
+                                                    .get(0)
+                                                    .get(0)));
+
+            try (Connection lock = getJdbcConnection();
+                    Statement statement = lock.createStatement()) {
+                lock.setCatalog(database);
+                lock.setAutoCommit(false);
+                boolean lockHeld = true;
+                try {
+                    // Hold only the snapshot SELECT. The lock is released before testing
+                    // completion.
+                    statement
+                            .executeQuery("SELECT COUNT(*) FROM dbo.A WITH (TABLOCKX,HOLDLOCK)")
+                            .close();
+                    Predicate<String> selectedLowWatermark =
+                            line ->
+                                    line.contains("Snapshot step 1 - Determining low watermark")
+                                            && line.contains(selectedTable);
+                    long previousLowWatermarks =
+                            Arrays.stream(container.getServerLogs().split("\\R"))
+                                    .filter(selectedLowWatermark)
+                                    .count();
+                    job =
+                            CompletableFuture.supplyAsync(
+                                    () -> {
+                                        try {
+                                            return container.executeJob(
+                                                    "/sqlservercdc_empty_backfill.conf", jobId);
+                                        } catch (IOException | InterruptedException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    });
+                    CompletableFuture<Container.ExecResult> runningJob = job;
+                    await().atMost(120, TimeUnit.SECONDS)
+                            .untilAsserted(
+                                    () -> {
+                                        Assertions.assertFalse(
+                                                runningJob.isDone(), "CDC job exited early");
+                                        Assertions.assertTrue(
+                                                Arrays.stream(
+                                                                        container
+                                                                                .getServerLogs()
+                                                                                .split("\\R"))
+                                                                .filter(selectedLowWatermark)
+                                                                .count()
+                                                        > previousLowWatermarks);
+                                    });
+
+                    // Only Other advances the database-wide HIGH beyond A's recorded LOW.
+                    executeSql("UPDATE " + database + ".dbo.Other SET Value=1 WHERE Id=1");
+                    await().atMost(60, TimeUnit.SECONDS)
+                            .untilAsserted(
+                                    () ->
+                                            Assertions.assertEquals(
+                                                    1,
+                                                    querySql(
+                                                                    "SELECT COUNT(*) FROM "
+                                                                            + database
+                                                                            + ".cdc.dbo_Other_CT WHERE __$operation=4 AND Value=1")
+                                                            .get(0)
+                                                            .get(0)));
+                    if (expireLowerBound) {
+                        // Use the CDC cleanup procedure to advance A's valid lower bound past LOW
+                        // while the snapshot SELECT is still blocked.
+                        executeSql(
+                                "USE "
+                                        + database
+                                        + "; DECLARE @newMin binary(10) = (SELECT MAX(__$start_lsn)"
+                                        + " FROM cdc.dbo_Other_CT WHERE __$operation=4 AND Value=1);"
+                                        + " EXEC sys.sp_cdc_cleanup_change_table"
+                                        + " @capture_instance=N'dbo_A', @low_water_mark=@newMin;"
+                                        + " IF sys.fn_cdc_get_min_lsn(N'dbo_A') <> @newMin"
+                                        + " THROW 50000, 'CDC cleanup did not advance the lower bound', 1;");
+                    }
+                    lock.rollback();
+                    lockHeld = false;
+
+                    if (expireLowerBound) {
+                        Container.ExecResult result = runningJob.get(180, TimeUnit.SECONDS);
+                        String output = result.getStdout() + result.getStderr();
+                        Assertions.assertNotEquals(0, result.getExitCode(), output);
+                        Assertions.assertTrue(
+                                (output + container.getServerLogs())
+                                        .contains("Cannot complete bounded backfill"),
+                                output);
+                        Assertions.assertEquals(
+                                0,
+                                querySql("SELECT COUNT(*) FROM " + sinkTable).get(0).get(0),
+                                "An expired interval must not release buffered snapshot rows");
+                        return;
+                    }
+
+                    await().atMost(120, TimeUnit.SECONDS)
+                            .untilAsserted(
+                                    () -> {
+                                        Assertions.assertFalse(
+                                                runningJob.isDone(), "CDC job exited early");
+                                        Assertions.assertIterableEquals(
+                                                querySql(
+                                                        "SELECT Id,Value FROM "
+                                                                + selectedTable
+                                                                + " ORDER BY Id"),
+                                                querySql(
+                                                        "SELECT Id,Value FROM "
+                                                                + sinkTable
+                                                                + " ORDER BY Id"));
+                                    });
+                    Assertions.assertEquals(
+                            0,
+                            querySql("SELECT COUNT(*) FROM " + database + ".cdc.dbo_A_CT")
+                                    .get(0)
+                                    .get(0),
+                            "Snapshot completion must not depend on a write to the selected table");
+                } finally {
+                    if (lockHeld) {
+                        lock.rollback();
+                    }
+                }
+            }
+        } finally {
+            try {
+                if (job != null && !job.isDone()) {
+                    try {
+                        Container.ExecResult cancelled = container.cancelJob(jobId);
+                        Assertions.assertEquals(0, cancelled.getExitCode(), cancelled.getStderr());
+                    } finally {
+                        // executeJob also waits up to 120 seconds for container thread cleanup.
+                        job.get(180, TimeUnit.SECONDS);
+                    }
+                }
+            } finally {
+                try (Connection connection = getJdbcConnection()) {
+                    dropTestDatabase(connection, database);
+                }
+            }
         }
     }
 
