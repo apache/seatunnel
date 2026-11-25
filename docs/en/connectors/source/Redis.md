@@ -89,9 +89,9 @@ When using `tables_configs` to read multiple key patterns, each table configurat
 | format              | enum   | no       | json          | Data format: `json` or `text` |
 | schema              | config | no       | -             | Schema configuration for this table |
 | hash_key_parse_mode | enum   | no       | all           | Hash key parse mode: `all` or `kv` |
-| read_key_enabled    | boolean| no       | false         | Include Redis key in output |
-| key_field_name      | string | no       | -             | Field name for Redis key |
-| single_field_name   | string | yes when read_key_enabled = true | - | Field name for single-value types. Required at the top level by the option rule whenever `read_key_enabled = true`, regardless of `data_type`. Entries inside `tables_configs` are not subject to this requirement. |
+| read_key_enabled | boolean | no | false | Include the Redis key in the output. This requires a `schema` and `format = json`. |
+| key_field_name | string | no | `hash_key` for `hash`, `key` otherwise | Output field that holds the Redis key. |
+| single_field_name | string | conditional | - | Required when `read_key_enabled = true` and a `string` value or a `list`, `set`, or `zset` element is a scalar or array. This option names the output field that holds the value. JSON objects supply their own fields. |
 | field_delimiter     | string | no       | ','           | Delimiter for text format |
 
 **Note:** When this configuration corresponds to a single table, configure these table-level options at the outer layer instead of using `tables_configs`. For example, put `keys`, `data_type`, `format`, and `schema` directly under `Redis`.

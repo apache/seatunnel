@@ -85,9 +85,9 @@ Redis 值。校验成功**不代表**匹配的 key 存在、已存储的值与 `
 | format              | enum    | 否     | json  | 数据格式：`json` 或 `text`                       |
 | schema              | config  | 否     | -     | Schema 配置                               |
 | hash_key_parse_mode | enum    | 否     | all   | Hash key 解析模式：`all` 或 `kv`                 |
-| read_key_enabled    | boolean | 否     | false | 是否在输出中包含 Redis key                         |
-| key_field_name      | string  | 否     | -     | Redis key 的字段名称                            |
-| single_field_name   | string  | `read_key_enabled = true` 时必须 | -     | 单值类型的字段名称。只要开启 `read_key_enabled = true`，选项规则就要求在顶层配置中设置该参数，与 `data_type` 无关；`tables_configs` 表项不受此要求约束。 |
+| read_key_enabled | boolean | 否 | false | 在输出中加入 Redis key。启用时需要配置 `schema` 并使用 `format = json`。 |
+| key_field_name | string | 否 | `hash` 类型为 `hash_key`，其余类型为 `key` | 输出行中保存 Redis key 的字段名。 |
+| single_field_name | string | 条件必填 | - | 当 `read_key_enabled = true` 且 `string` 的值或 `list`、`set`、`zset` 的元素为标量或数组时，必须用此参数指定保存该值的输出字段。JSON 对象直接使用自身字段。 |
 | field_delimiter     | string  | 否     | ','   | 文本格式的分隔符                                   |
 
 **注意：** 当只读取单表时，请把这些表级参数直接配置在 `Redis` 外层，例如 `keys`、`data_type`、`format`、`schema`，不需要使用 `tables_configs`。
