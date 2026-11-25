@@ -53,7 +53,7 @@ Clickhouse source 和 ClickhouseFile sink 的行为不变。
 
 ## 数据类型映射
 
-下面的映射列出的是通过 `save_mode_create_template` 自动建表时 `ClickhouseTypeConverter.reconvert` 生成的 ClickHouse 列类型。`STRING` 与 `BIGINT` 两行还额外列出了 sink 可写入的更宽泛的已有 ClickHouse 列类型（写入兼容）；对这两种类型，转换器本身只会生成 `String` 和 `Int64`。
+下表列出 ClickHouse 写入类型。自动建表时，`ClickhouseTypeConverter.reconvert` 会把 SeaTunnel 的 `STRING`、`INT`、`BIGINT` 分别映射为 `String`、`Int32`、`Int64`。这三行列出的其余类型适用于已存在的目标列。
 
 | SeaTunnel 数据类型 |                                                                Clickhouse 数据类型                                                                |
 |----------------|-----------------------------------------------------------------------------------------------------------------------------------------------|

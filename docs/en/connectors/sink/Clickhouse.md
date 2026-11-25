@@ -59,7 +59,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ## Data Type Mapping
 
-The mapping below lists the ClickHouse column types that `ClickhouseTypeConverter.reconvert` generates when a table is auto-created through `save_mode_create_template`. The `STRING` and `BIGINT` rows additionally list the broader existing ClickHouse column types the sink can write into; for those two types the converter itself only emits `String` and `Int64`.
+The table describes ClickHouse write types. For automatic table creation, `ClickhouseTypeConverter.reconvert` generates `String`, `Int32`, and `Int64` for SeaTunnel `STRING`, `INT`, and `BIGINT`, respectively. Other types shown in those rows apply to existing columns.
 
 | SeaTunnel Data Type |                                                             Clickhouse Data Type                                                              |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
