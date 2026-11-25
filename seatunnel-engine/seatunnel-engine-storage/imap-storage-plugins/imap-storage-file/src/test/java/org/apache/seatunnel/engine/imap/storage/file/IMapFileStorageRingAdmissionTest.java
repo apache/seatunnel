@@ -39,6 +39,12 @@ import org.mockito.Mockito;
 
 import java.lang.reflect.Field;
 import java.util.Collections;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
@@ -109,15 +115,27 @@ class IMapFileStorageRingAdmissionTest {
                                 sampleData("seed-" + index),
                                 WALEventType.APPEND,
                                 requestId,
-                                java.util.concurrent.TimeUnit.SECONDS.toNanos(5)),
+                                TimeUnit.SECONDS.toNanos(5)),
                         "should saturate the ring without waiting for completion");
             }
 
             long requestIdBefore = RequestFutureCache.getRequestId();
-            Assertions.assertFalse(storage.store("overflow", "v"));
-            Assertions.assertNull(
-                    RequestFutureCache.get(requestIdBefore + 1),
-                    "rejected admission must remove its pending future");
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            try {
+                Future<Boolean> storeResult = executor.submit(() -> storage.store("overflow", "v"));
+                Assertions.assertFalse(
+                        storeResult.get(10, TimeUnit.SECONDS),
+                        "saturated ring admission must fail inside the write timeout");
+                Assertions.assertNull(
+                        RequestFutureCache.get(requestIdBefore + 1),
+                        "rejected admission must remove its pending future");
+            } catch (TimeoutException | ExecutionException | InterruptedException storeStall) {
+                Assertions.fail(
+                        "storage.store must not block the test thread without an outer watchdog",
+                        storeStall);
+            } finally {
+                executor.shutdownNow();
+            }
         } finally {
             blockingHandler.release();
             walDisruptor.close();

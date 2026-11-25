@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
@@ -48,8 +49,12 @@ import static org.mockito.Mockito.doThrow;
 @DisabledOnOs(OS.WINDOWS)
 public class CheckpointPayloadMonitorFaultToleranceTest extends AbstractSeaTunnelServerTest {
 
-    private static final String STREAM_CONF_WITH_CHECKPOINT_PATH =
-            "stream_fake_to_console_with_checkpoint.conf";
+    private static final String STREAM_CONF_MONITOR_FT_PATH =
+            "stream_fakesource_to_file_monitor_ft.conf";
+
+    private static final String OUTPUT_DIR = "/tmp/hive/warehouse/monitor_ft_pr12081";
+
+    private static final int EXPECTED_ROW_COUNT = 30;
 
     @Override
     public SeaTunnelConfig loadSeaTunnelConfig() {
@@ -64,8 +69,9 @@ public class CheckpointPayloadMonitorFaultToleranceTest extends AbstractSeaTunne
     public void canceledRunningJobRetainsCheckpointWhenMonitorCleanupFails() throws Exception {
         long jobId = System.currentTimeMillis();
         CheckpointStorage checkpointStorage = server.getCheckpointService().getCheckpointStorage();
+        FileUtils.createNewDir(OUTPUT_DIR);
 
-        startJob(jobId, STREAM_CONF_WITH_CHECKPOINT_PATH, false);
+        startJob(jobId, STREAM_CONF_MONITOR_FT_PATH, false);
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
@@ -81,6 +87,17 @@ public class CheckpointPayloadMonitorFaultToleranceTest extends AbstractSeaTunne
                                                 .getAllCheckpoints(String.valueOf(jobId))
                                                 .isEmpty(),
                                         "the running job must persist at least one checkpoint"));
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        FileUtils.getFileLineNumberFromDir(OUTPUT_DIR) > 0,
+                                        "source must emit rows before cancel"));
+
+        long rowsBeforeCancel = FileUtils.getFileLineNumberFromDir(OUTPUT_DIR);
+        Assertions.assertTrue(
+                rowsBeforeCancel > 0 && rowsBeforeCancel < EXPECTED_ROW_COUNT,
+                "cancel should happen after some output and before the finite source finishes");
 
         CheckpointMonitorService realMonitor = server.getCheckpointMonitorService();
         CheckpointMonitorService spiedMonitor = Mockito.spy(realMonitor);
@@ -105,12 +122,7 @@ public class CheckpointPayloadMonitorFaultToleranceTest extends AbstractSeaTunne
                 "monitor cleanup failure must not delete the durable checkpoint payload when retain is enabled");
         Mockito.verify(spiedMonitor).cleanupJob(jobId);
 
-        long latestCheckpointId =
-                retainedCheckpoints.stream()
-                        .mapToLong(PipelineState::getCheckpointId)
-                        .max()
-                        .orElseThrow();
-        startJob(jobId, STREAM_CONF_WITH_CHECKPOINT_PATH, true);
+        startJob(jobId, STREAM_CONF_MONITOR_FT_PATH, true);
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
@@ -118,23 +130,17 @@ public class CheckpointPayloadMonitorFaultToleranceTest extends AbstractSeaTunne
                                         JobStatus.RUNNING,
                                         server.getCoordinatorService().getJobStatus(jobId)));
 
-        long restoredCounter =
-                server.getCoordinatorService()
-                        .getJobMaster(jobId)
-                        .getCheckpointManager()
-                        .getCheckpointCoordinator(1)
-                        .getCheckpointIdCounter()
-                        .get();
-        Assertions.assertTrue(
-                restoredCounter >= latestCheckpointId,
-                "restored job must resume from the retained checkpoint payload");
-
-        server.getCoordinatorService().cancelJob(jobId);
-        await().atMost(120, TimeUnit.SECONDS)
+        await().atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        JobStatus.CANCELED,
-                                        server.getCoordinatorService().getJobStatus(jobId)));
+                        () -> {
+                            long rowCount = FileUtils.getFileLineNumberFromDir(OUTPUT_DIR);
+                            Assertions.assertEquals(
+                                    EXPECTED_ROW_COUNT,
+                                    rowCount,
+                                    "restore must resume from the retained checkpoint and finish the finite source");
+                            Assertions.assertTrue(
+                                    rowCount > rowsBeforeCancel,
+                                    "restored output must exceed the rows written before cancel");
+                        });
     }
 }
