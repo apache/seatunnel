@@ -314,9 +314,9 @@ data    : bytes
 
 ### 流模式下的 JSON 示例
 
-同一个 JSON sink 也可以持续运行在流模式下。每条输入行都会作为一次 JetStream
-publish 请求，发布到固定的 subject。设置 checkpoint interval，让 writer
-在重启后以至少一次的方式恢复。
+同一个 JSON Sink 可以在流模式下持续运行。每条输入记录都会同步发布到配置的 subject。
+要支持故障恢复，请启用 Checkpoint，并使用能够从已完成 Checkpoint 重放数据的上游源。
+重放时，故障前已被 JetStream 接收的记录可能再次发布。
 
 ```hocon
 env {

@@ -314,9 +314,11 @@ data    : bytes
 
 ### Streaming JSON example
 
-The same JSON sink can run continuously in streaming mode. Each incoming row
-becomes one JetStream publish request on the fixed subject. Set a checkpoint
-interval so the writer can recover from restarts with at-least-once delivery.
+The same JSON sink can run continuously in streaming mode. Each row is
+published synchronously to the configured subject. To recover after a failure,
+enable checkpoints and use an upstream source that can replay rows from a
+completed checkpoint. Rows already accepted by JetStream may be published
+again during replay.
 
 ```hocon
 env {
