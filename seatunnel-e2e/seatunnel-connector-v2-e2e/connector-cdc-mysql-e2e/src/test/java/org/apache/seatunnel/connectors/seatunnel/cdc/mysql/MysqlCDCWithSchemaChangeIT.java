@@ -840,7 +840,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     }
 
     /**
-     * Covers the DDL a same-dialect MySQL sink builds for {@code SET} / {@code ENUM} columns.
+     * Covers same-dialect MySQL DDL for {@code SET}, {@code ENUM}, and literal DATETIME defaults.
      *
      * <p>When the source dialect matches the sink dialect, schema-change statements are built from
      * the column's source type expression rather than from the reconverted type, so an expression
@@ -850,7 +850,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
      */
     @Order(5)
     @TestTemplate
-    public void testMysqlCdcWithSetAndEnumColumnSchemaChange(TestContainer container)
+    public void testMysqlCdcWithSetEnumAndDatetimeColumnSchemaChange(TestContainer container)
             throws IOException, InterruptedException {
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         shopDatabase.setTemplateName(SET_ENUM_SCHEMA_CHANGE_INIT_TEMPLATE).createAndInitialize();
@@ -868,7 +868,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         // SET / ENUM columns that exist before the job starts must replicate as STRING values
         assertTableStructureAndData(MYSQL_DATABASE, SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE);
 
-        // add SET / ENUM columns and widen an existing SET column while the job is running
+        // Add SET, ENUM, and DATETIME columns while the job is running
         waitForIncrementalRead(container, MYSQL_DATABASE + "." + SET_ENUM_SOURCE_TABLE);
         shopDatabase.setTemplateName(SET_ENUM_SCHEMA_CHANGE_ALTER_TEMPLATE).createAndInitialize();
         assertTableStructureAndData(
@@ -883,6 +883,18 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         assertColumnTypeEquals(SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE, "c_enum");
         assertColumnTypeEquals(SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE, "c_set_added");
         assertColumnTypeEquals(SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE, "c_enum_added");
+        assertColumnTypeEquals(SET_ENUM_SOURCE_TABLE, SET_ENUM_SINK_TABLE, "c_precise");
+        Assertions.assertEquals(
+                List.of(
+                        List.of("c_epoch", "1970-01-01 00:00:00", "0"),
+                        List.of("c_precise", "2025-04-05 06:07:08.123456", "6")),
+                query(
+                        "SELECT COLUMN_NAME, COLUMN_DEFAULT, CAST(DATETIME_PRECISION AS CHAR)"
+                                + " FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '"
+                                + MYSQL_DATABASE
+                                + "' AND TABLE_NAME = '"
+                                + SET_ENUM_SINK_TABLE
+                                + "' AND COLUMN_NAME IN ('c_epoch', 'c_precise') ORDER BY COLUMN_NAME"));
     }
 
     /**

@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -80,6 +81,50 @@ public class CustomMySqlAntlrDdlParserTest {
                 secondDatabaseEvents.get(0).getTableIdentifier().getDatabaseName());
         Assertions.assertEquals(
                 "products", secondDatabaseEvents.get(0).getTablePath().getTableName());
+    }
+
+    @Test
+    void testAddDatetimeColumnPreservesLiteralDefaultForMysqlJdbc() {
+        MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
+        factory.hostname("localhost");
+        factory.username("test");
+        factory.password("test");
+        CustomMySqlAntlrDdlParser parser =
+                new CustomMySqlAntlrDdlParser(factory.create(0).getDbzConnectorConfig());
+        parser.setCurrentDatabase("test_db");
+        parser.parse(
+                "ALTER TABLE products ADD COLUMN epoch_value DATETIME NOT NULL DEFAULT '1970-01-01"
+                    + " 00:00:00', ADD COLUMN calendar_value DATETIME NOT NULL DEFAULT '2020-02-29"
+                    + " 10:11:12', ADD COLUMN precise_value DATETIME(6) DEFAULT '2025-04-05"
+                    + " 06:07:08.123456', ADD COLUMN server_time DATETIME DEFAULT"
+                    + " CURRENT_TIMESTAMP, ADD COLUMN missing_default DATETIME DEFAULT NULL, ADD"
+                    + " COLUMN numeric_default INT NOT NULL DEFAULT 42",
+                new Tables());
+
+        List<AlterTableColumnEvent> events = parser.getAndClearParsedColumnEvents();
+        Assertions.assertEquals(6, events.size());
+        MysqlDialect dialect = new MysqlDialect();
+        String[] expectedDefaults = {
+            "DEFAULT '1970-01-01 00:00:00'",
+            "DEFAULT '2020-02-29 10:11:12'",
+            "DEFAULT '2025-04-05 06:07:08.123456'",
+            "DEFAULT CURRENT_TIMESTAMP"
+        };
+        for (int index = 0; index < expectedDefaults.length; index++) {
+            Column column = ((AlterTableAddColumnEvent) events.get(index)).getColumn();
+            Assertions.assertEquals(
+                    expectedDefaults[index],
+                    dialect.sqlClauseWithDefaultValue(
+                            dialect.getTypeConverter().reconvert(column), dialect.dialectName()),
+                    column.getName());
+        }
+        Assertions.assertEquals(
+                "DATETIME(6)",
+                ((AlterTableAddColumnEvent) events.get(2)).getColumn().getSourceType());
+        Assertions.assertNull(
+                ((AlterTableAddColumnEvent) events.get(4)).getColumn().getDefaultValue());
+        Assertions.assertEquals(
+                42, ((AlterTableAddColumnEvent) events.get(5)).getColumn().getDefaultValue());
     }
 
     @Test

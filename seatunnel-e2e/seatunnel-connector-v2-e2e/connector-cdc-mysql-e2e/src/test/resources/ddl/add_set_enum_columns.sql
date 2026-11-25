@@ -33,6 +33,11 @@ alter table products_with_set_enum
   add column c_enum_added enum('x','y') null,
   modify column c_set set('REAL_AS_FLOAT','PIPES_AS_CONCAT','ANSI_QUOTES') null;
 
+-- The MySQL sink must replay these defaults as DATETIME literals, not Debezium epoch numbers.
+alter table products_with_set_enum
+  add column c_epoch datetime not null default '1970-01-01 00:00:00',
+  add column c_precise datetime(6) not null default '2025-04-05 06:07:08.123456';
+
 insert into products_with_set_enum (id, name, weight, c_set, c_enum, c_set_added, c_enum_added)
 values (201, 'added after the schema change', 0.5, 'ANSI_QUOTES', 'signed', 'a,b', 'x');
 
