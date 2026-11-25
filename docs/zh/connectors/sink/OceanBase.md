@@ -40,8 +40,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 |                                                        MySQL 数据类型                                                        |                                                                 SeaTunnel 数据类型                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
-| TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
+| BIT(1)<br/>TINYINT(1)                                                                                                             | BOOLEAN                                                                                                                                             |
+| TINYINT                                                                                                                           | TINYINT                                                                                                                                             |
+| TINYINT UNSIGNED<br/>SMALLINT                                                                                                     | SMALLINT                                                                                                                                            |
+| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR                                               | INT                                                                                                                                                 |
 | INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                                                      | BIGINT                                                                                                                                              |
 | BIGINT UNSIGNED                                                                                                                   | DECIMAL(20,0)                                                                                                                                       |
 | DECIMAL(x,y)(获取指定列的指定列大小<38)                                                                                               | DECIMAL(x,y)                                                                                                                                        |
@@ -49,27 +51,34 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DECIMAL UNSIGNED                                                                                                                  | DECIMAL((获取指定列的指定列大小)+1,<br/>(获取指定列小数点右侧的位数。)))                                                                                     |
 | FLOAT<br/>FLOAT UNSIGNED                                                                                                          | FLOAT                                                                                                                                               |
 | DOUBLE<br/>DOUBLE UNSIGNED                                                                                                        | DOUBLE                                                                                                                                              |
-| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON                                                       | STRING                                                                                                                                              |
+| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON<br/>ENUM                                              | STRING                                                                                                                                              |
 | DATE                                                                                                                              | DATE                                                                                                                                                |
 | TIME                                                                                                                              | TIME                                                                                                                                                |
-| DATETIME<br/>TIMESTAMP                                                                                                            | TIMESTAMP                                                                                                                                           |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
-| GEOMETRY<br/>UNKNOWN                                                                                                              | 暂不支持                                                                                                                                             |
+| DATETIME                                                                                                                          | TIMESTAMP                                                                                                                                           |
+| TIMESTAMP                                                                                                                         | TIMESTAMP_TZ                                                                                                                                        |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)<br/>GEOMETRY                                    | BYTES                                                                                                                                               |
+| UNKNOWN                                                                                                                           | 暂不支持                                                                                                                                             |
 
 ### Oracle 模式
 
-|                     Oracle 数据类型                      | SeaTunnel 数据类型 |
-|-----------------------------------------------------------|---------------------|
-| Number(p), p <= 9                                         | INT                 |
-| Number(p), p <= 18                                        | BIGINT              |
-| Number(p), p > 18                                         | DECIMAL(38,18)      |
-| REAL<br/> BINARY_FLOAT                                    | FLOAT               |
-| BINARY_DOUBLE                                             | DOUBLE              |
-| CHAR<br/>NCHAR<br/>NVARCHAR2<br/>NCLOB<br/>CLOB<br/>ROWID | STRING              |
-| DATE                                                      | DATE                |
-| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE              | TIMESTAMP           |
-| BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                       | BYTES               |
-| UNKNOWN                                                   | 暂不支持             |
+| Oracle 数据类型 | SeaTunnel 数据类型 |
+|---------------|------------------|
+| Integer | DECIMAL(38,0) |
+| Number(p), p <= 9 | INT |
+| Number(p), p <= 18 | BIGINT |
+| Number(p), 18 < p < 38 | DECIMAL(p,0) |
+| Number(p), p >= 38 | DECIMAL(38,0) |
+| Number(p,s), s > 0 | DECIMAL(p, min(s, 18)) |
+| Number(p,s), s < 0 | 规范化为 `DECIMAL(p - s, 0)`（启用 decimal narrowing 时为收窄类型）。 |
+| Float | DECIMAL(38,18) |
+| REAL<br/> BINARY_FLOAT | FLOAT |
+| BINARY_DOUBLE | DOUBLE |
+| CHAR<br/>NCHAR<br/>VARCHAR<br/>VARCHAR2<br/>NVARCHAR2<br/>NCLOB<br/>CLOB<br/>LONG<br/>XML<br/>ROWID | STRING |
+| DATE | TIMESTAMP |
+| TIMESTAMP | TIMESTAMP |
+| TIMESTAMP WITH TIME ZONE<br/>TIMESTAMP WITH LOCAL TIME ZONE | TIMESTAMP_TZ |
+| BLOB<br/>RAW<br/>LONG RAW<br/>BFILE | BYTES |
+| UNKNOWN | 暂不支持 |
 
 ## Sink 选项
 

@@ -182,7 +182,7 @@ seatunnel:
     job-schedule-strategy: WAIT
 ```
 
-当`dynamic-slot: ture`时，`job-schedule-strategy: WAIT` 配置会失效，将被强制修改为`job-schedule-strategy: REJECT`，因为动态Slot时该参数没有意义，可以直接提交。
+`job-schedule-strategy` 的行为不受 `dynamic-slot` 影响。当资源不足时，`WAIT` 会将作业保持在等待队列中并每隔 3 秒重试调度，`REJECT` 则直接使作业失败。
 
 ### 4.7 Coordinator Service
 
@@ -373,7 +373,7 @@ map:
 
 注意：使用OSS 时，确保 lib目录下有这几个jar。
 
-其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
+其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。请使用 SeaTunnel 发行包 `lib/` 目录自带的 Hadoop Uber JAR。
 
 ```
 aliyun-sdk-oss-3.4.1.jar
@@ -381,7 +381,7 @@ hadoop-aliyun-3.1.4.jar
 jdom-1.1.jar
 netty-buffer-4.1.89.Final.jar
 netty-common-4.1.89.Final.jar
-seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop3-uber-*.jar
 ```
 
 如果您使用 GCS，可以像这样配置：
@@ -409,7 +409,7 @@ map:
 
 ```
 gcs-connector-hadoop3-2.2.33-shaded.jar
-seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop3-uber-*.jar
 ```
 
 ## 6. 配置 SeaTunnel Engine 客户端

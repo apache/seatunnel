@@ -86,7 +86,7 @@ JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表
 | password                     | String     | 否    | -               | 连接实例密码                                                                                                                                               |
 | query                        | String     | 否    | -               | 查询语句。`query`、`table_path`、`table_list` 三者必须配置其一                                                                                                     |
 | connection_check_timeout_sec | Int        | 否    | 30              | 等待用于验证连接的数据库操作完成的时间（以秒为单位）                                                                                                                           |
-| partition_column             | String     | 否    | -               | 并行度分区的列名，仅支持数字类型主键，并且只能配置一列。                                                                                                                         |
+| partition_column             | String     | 否    | -               | 用于并行读取时拆分数据的列，只能配置一列，且必须是[并行读取器](#并行读取器)中列出的**支持的拆分数据类型**（字符串、数字或日期）。 |
 | partition_lower_bound        | String     | 否    | -               | 扫描的 partition_column 最小值，如果未设置，SeaTunnel 将查询数据库获取最小值。                                                                                                |
 | partition_upper_bound        | String     | 否    | -               | 扫描的 partition_column 最大值，如果未设置，SeaTunnel 将查询数据库获取最大值。                                                                                                |
 | partition_num                | Int        | 否    | 10              | 分区计数的数量，仅支持正整数。默认值为 10                                                                                                                             |

@@ -163,7 +163,7 @@ Pulsar 消费者的启动模式，有效值为 `'EARLIEST'`、`'LATEST'`、`'SUB
 
 ### format [String]
 
-数据格式。默认值为 `json`。支持 json、canal_json、avro 和 text 格式。使用 avro 格式时需要配置 `schema`。text 格式仅支持单表模式。更多格式说明参考 [formats](../formats)。当生产端按可空 Avro union 写入 ROW 字段时，需设置 `avro_row_nullable = true` 才能解码值为 `null` 的 ROW，参见 [Avro 格式](../formats/avro.md#avro_row_nullable)。
+数据格式。默认值为 `json`。支持 json、canal_json、avro 和 text 格式。使用 avro 格式时需要配置 `schema`。text 格式仅支持单表模式。更多格式说明参考 [formats](../formats/overview.md)。当生产端按可空 Avro union 写入 ROW 字段时，需设置 `avro_row_nullable = true` 才能解码值为 `null` 的 ROW，参见 [Avro 格式](../formats/avro.md#avro_row_nullable)。
 
 ### field_delimiter [String]
 

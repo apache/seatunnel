@@ -24,6 +24,14 @@ import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 public class HiveSinkOptions extends HiveBaseOptions {
 
+    public static final Option<Boolean> USE_TABLE_COMPRESSION =
+            Options.key("use_table_compression")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Use the orc.compress property of an existing ORC table when compress_codec is not explicitly configured. "
+                                    + "Missing or blank table properties retain the default compression codec.");
+
     public static final Option<Boolean> ABORT_DROP_PARTITION_METADATA =
             Options.key("abort_drop_partition_metadata")
                     .booleanType()

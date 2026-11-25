@@ -3,25 +3,30 @@ import ChangeLog from '../changelog/connector-mem0.md';
 # Mem0
 
 Mem0 Sink 将 SeaTunnel 行写入托管版 Mem0 Platform V3 异步添加接口。第一阶段
-只支持 `ADD`。只有接口返回非空 `event_id` 时才确认该行；这表示“已接受的至少一次
+只支持 `ADD`。只有接口返回有效 JSON 对象且 `event_id` 为非空白字符串时才确认该行；这表示“已接受的至少一次
 投递”，不代表 Mem0 异步处理已经完成。
+
+成功状态下的响应格式无效时，写入失败，不进入连接器的 HTTP 状态重试循环。
+诊断信息不包含响应正文或 JSON 解析异常原因链。
 
 ## Sink 选项
 
-| 名称 | 类型 | 是否必填 | 默认值 | 描述 |
-| --- | --- | --- | --- | --- |
-| api_key | String | 是 | - | Mem0 API Key，作为 `Authorization: Token` 凭证发送 |
-| messages_field | String | 是 | - | 存放 messages 载荷的输入行字段，必须解析为数组 |
-| api_base_url | String | 否 | https://api.mem0.ai | Mem0 Platform V3 API 基础地址 |
-| user_id_field | String | 否 | - | 映射到 Mem0 `user_id` 的输入行字段 |
-| agent_id_field | String | 否 | - | 映射到 Mem0 `agent_id` 的输入行字段 |
-| app_id_field | String | 否 | - | 映射到 Mem0 `app_id` 的输入行字段 |
-| run_id_field | String | 否 | - | 映射到 Mem0 `run_id` 的输入行字段 |
-| metadata_field | String | 否 | - | 可选的、映射到 Mem0 `metadata` 的输入行字段，必须解析为 JSON 对象 |
-| retry | Int | 否 | - | Http 请求抛出 `IOException` 时的最大重试次数 |
-| retry_backoff_multiplier_ms | Int | 否 | 100 | Http 请求失败时重试退避时间（毫秒）的乘数 |
-| retry_backoff_max_ms | Int | 否 | 10000 | Http 请求失败时重试退避的最大时间（毫秒） |
-| common-options | | 否 | - | Sink 插件通用参数，详情请参考 [Sink Common Options](../common-options/sink-common-options.md) |
+| 名称             | 类型   | 是否必填 | 默认值                 | 描述                                                                                     |
+|------------------|--------|----------|------------------------|------------------------------------------------------------------------------------------|
+| api_key          | String | 是       | -                      | Mem0 Platform API Key，以 `Authorization: Token <api_key>` 发送。                          |
+| api_base_url     | String | 否       | `https://api.mem0.ai`  | Mem0 Platform V3 API 基础地址。                                                          |
+| messages_field   | String | 是       | -                      | 保存 messages 载荷的行字段，必须解析为数组。                                             |
+| user_id_field    | String | 否       | -                      | 映射到 Mem0 `user_id` 的行字段。                                                         |
+| agent_id_field   | String | 否       | -                      | 映射到 Mem0 `agent_id` 的行字段。                                                        |
+| app_id_field     | String | 否       | -                      | 映射到 Mem0 `app_id` 的行字段。                                                          |
+| run_id_field     | String | 否       | -                      | 映射到 Mem0 `run_id` 的行字段。                                                          |
+| metadata_field   | String | 否       | -                      | 映射到 Mem0 `metadata` 的行字段，必须解析为 JSON 对象。                                  |
+| retry                       | Integer | 否       | -                      | HTTP 请求以 `IOException` 失败时的最大重试次数。                                            |
+| retry_backoff_multiplier_ms | Integer | 否       | `100`                  | 请求失败时的重试退避间隔（毫秒），作为退避倍率使用。                                        |
+| retry_backoff_max_ms        | Integer | 否       | `10000`                | 请求失败时的重试退避上限（毫秒）。                                                          |
+| common-options   |        | 否       | -                      | Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md)。     |
+
+`user_id_field`、`agent_id_field`、`app_id_field`、`run_id_field` 这四个范围字段中，至少有一个必须在每一行上配置且非空。三个 `retry*` 选项继承自通用 HTTP sink 选项，作用于请求失败。
 
 ## 配置
 

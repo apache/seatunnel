@@ -107,9 +107,10 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | stop.mode                                 | Enum     | 否   | NEVER    | PostgreSQL CDC 消费者的可选停止模式。唯一有效的枚举值是 `never`：一旦进入增量阶段，数据源会持续读取 WAL 变更，不会自行停止。                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | snapshot.split.size                       | Integer  | 否   | 8096     | 表快照的拆分大小（行数），捕获的表在读取表快照时被拆分成多个拆分。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | 否   | 1024     | 读取表快照时每次轮询的最大获取大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| incremental.parallelism                   | Integer  | 否   | 1        | 增量（WAL）阶段并行读取器的数量。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | slot.name                                 | String   | 否   | seatunnel | PostgreSQL 逻辑解码槽名称。同一个 PostgreSQL 实例上如果有多个 CDC 任务，请为每个任务配置不同的 `slot.name`。                                                                                                                                                                                                                                                                                                                                                      |
 | decoding.plugin.name                      | String   | 否   | pgoutput | 安装在服务器上的 Postgres 逻辑解码插件的名称，支持的值有 decoderbufs、wal2json、wal2json_rds、wal2json_streaming、wal2json_rds_streaming 和 pgoutput。                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| server-time-zone                          | String   | 否   | -        | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| server-time-zone                          | String   | 否   | JVM 系统时区 | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | connect.timeout.ms                        | Long     | 否   | 30000    | 连接器在尝试连接到数据库服务器后应等待的最大时间，以防超时。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | 否   | 3        | 连接器应重试建立数据库服务器连接的最大重试次数。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | 否   | 20       | JDBC 连接池大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -325,15 +326,20 @@ source {
 
 ## CDC 元数据字段
 
-PostgreSQL CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用：
+PostgreSQL CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用。
+
+字段名称区分大小写，必须与下表完全一致（例如写成 `Database` 而不是 `database`），否则作业会报“找不到元数据字段”的错误：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| database | STRING | 源数据库名称。 |
-| table | STRING | 源表名称。 |
-| rowKind | STRING | 变更类型，例如 insert、update 或 delete。 |
-| ts_ms | LONG | 源事件时间，单位为毫秒。 |
-| delay | LONG | 事件时间和处理时间之间的延迟，单位为毫秒。 |
+| Database | STRING | 源数据库名称。 |
+| Table | STRING | 源表名称。 |
+| RowKind | STRING | 变更类型，输出为 RowKind 短代码：`+I`（插入）、`-U`（更新前）、`+U`（更新后）、`-D`（删除）。 |
+| EventTime | LONG | 连接器读取并处理该事件的时间，单位为毫秒。 |
+| Delay | LONG | 源事件时间与连接器读取时间之间的延迟，单位为毫秒。 |
+| SourceTimestamp | LONG | 变更在源数据库中的提交时间（`source.ts_ms`），单位为毫秒。 |
+
+连接器的元数据 schema 中也声明了 `BinlogFile`、`BinlogPos`、`BinlogRow` 和 `Gtid`，可以通过 `Metadata` 转换引用，但这些字段只有 MySQL-CDC 会填充；在 PostgreSQL CDC 中它们的值始终为 `null`。
 
 示例：
 
@@ -366,7 +372,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO replication_user;
 
 ### 支持哪些逻辑解码插件？
 
-SeaTunnel PostgreSQL CDC 支持 `pgoutput`（PostgreSQL 10 起内置）、`wal2json` 和 `decoderbufs`，默认使用 `pgoutput`。通过 `decoding.plugin.name` 参数指定插件。
+`decoding.plugin.name` 支持 `pgoutput`（默认，PostgreSQL 10 起内置）、`decoderbufs`、`wal2json`、`wal2json_rds`、`wal2json_streaming` 和 `wal2json_rds_streaming`。注意 Schema 演进（`schema-changes.enabled`）要求使用 `pgoutput`。
 
 ### SeaTunnel 能从 PostgreSQL 备库读取 CDC 数据吗？
 

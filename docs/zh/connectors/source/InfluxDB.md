@@ -56,7 +56,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | partition_num      | int    | 否  | 0     | 查询切分数量。`0` 表示不切分，直接执行原始 `sql`。                                              |
 | split_column       | string | 否  | -     | 用于并行切分的整数列。                                                                    |
 | where              | string | 否  | -     | 预留的 source 配置项。当前切分逻辑直接从 `sql` 中读取小写 `where` 关键字。                              |
-| epoch              | string | 否  | n     | 返回的时间精度，例如：`H`、`m`、`s`、`MS`、`u`、`n`。                                     |
+| epoch              | string | 否  | n     | 返回的时间精度，必须使用小写：`h`、`m`、`s`、`ms`、`u`、`n`。                                     |
 | connect_timeout_ms | long   | 否  | 15000 | 连接 InfluxDB 的超时时间（毫秒）。                                                         |
 | query_timeout_sec  | int    | 否  | 3     | 查询 InfluxDB 的超时时间（秒）。                                                          |
 | common-options     | config | 否  | -     | Source 插件通用参数，详见 [Source 通用选项](../common-options/source-common-options.md)。 |
@@ -174,7 +174,7 @@ split 2: select * from test where ($split_column >= 6 and $split_column < 11) an
 
 ### epoch [string]
 
-InfluxDB 返回的时间精度。可选值：`H`、`m`、`s`、`MS`、`u`、`n`，默认值为 `n`。
+InfluxDB 返回的时间精度。该值会原样传递给 InfluxDB HTTP API，必须使用小写：`h`、`m`、`s`、`ms`、`u`、`n`，默认值为 `n`。
 
 ### query_timeout_sec [int]
 
