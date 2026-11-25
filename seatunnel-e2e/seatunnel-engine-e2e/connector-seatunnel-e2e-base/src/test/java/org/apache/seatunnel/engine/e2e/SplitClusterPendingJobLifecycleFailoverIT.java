@@ -20,10 +20,12 @@ package org.apache.seatunnel.engine.e2e;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -37,9 +39,12 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import org.awaitility.Awaitility;
 import org.jetbrains.annotations.NotNull;
@@ -49,6 +54,7 @@ import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.map.IMap;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
@@ -68,10 +74,11 @@ import java.util.logging.Level;
  * Multi-node failover coverage for the lifecycle of jobs that cannot be dispatched immediately.
  *
  * <p>Every scenario here builds a real split cluster (separate master and worker Hazelcast
- * instances) and changes master ownership while a {@code ScheduleStrategy.WAIT} job is held back by
- * occupied worker slots. That exercises the coordinator's pending-job bookkeeping against real
- * membership changes and real resource contention, rather than against mocked coordinator state as
- * the single-JVM unit tests do.
+ * instances) and holds a {@code ScheduleStrategy.WAIT} job back with occupied worker slots, then
+ * drives the coordinator's pending-job bookkeeping through a master handoff, a cancellation, or a
+ * savepoint request. That exercises the coordinator against real membership changes and real
+ * resource contention, rather than against mocked coordinator state as the single-JVM unit tests
+ * do.
  *
  * <p>Scenarios covered:
  *
@@ -80,6 +87,9 @@ import java.util.logging.Level;
  *       handoff and is dispatched once the cluster grows enough capacity for it.
  *   <li>{@code testPendingJobScheduledAfterRunningJobCanceled} - a pending job is dispatched after
  *       the running job occupying its slots is canceled.
+ *   <li>{@code testSavepointOnPendingJobIsRejectedWithoutTouchingLifecycle} - a savepoint request
+ *       for a queued job is rejected at the coordinator boundary without moving the job out of
+ *       PENDING or recording a DOING_SAVEPOINT transition.
  *   <li>{@code testPendingJobNotDuplicatedAcrossRepeatedMasterFailover} - repeated master handoffs
  *       never revive a stale schedule generation, so the job is dispatched exactly once.
  *   <li>{@code testTerminalJobCleanupSkipsWorkerWaitAfterMasterSwitch} - cleanup of a terminal job
@@ -1034,6 +1044,193 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
         }
     }
 
+    /**
+     * Rejects a savepoint request aimed at a job that has been submitted but never scheduled,
+     * without letting the request touch the job's lifecycle.
+     *
+     * <p><b>Why this is a boundary with real regression risk.</b> A pending job already owns a
+     * {@link JobMaster} with a live {@link PhysicalPlan}, but the master only publishes it in
+     * {@code pendingJobQueue}; it does not enter {@code runningJobMasterMap} until the scheduler
+     * has pre-applied every slot. {@code CoordinatorService#savePoint(long)} deliberately gates on
+     * that scheduled flag, while {@code cancelJob}/{@code stopJob} use {@code getJobMaster()},
+     * which resolves the queue too. If a savepoint request were ever routed through the queue the
+     * way cancellation is, {@code PhysicalPlan#savepointJob()} would move the unscheduled job from
+     * PENDING to {@code DOING_SAVEPOINT} even though no pipeline has a deployed task. Every
+     * checkpoint coordinator would then reject the savepoint with {@code
+     * TASK_NOT_ALL_READY_WHEN_SAVEPOINT}, and the failure path would restore the job to RUNNING
+     * (not PENDING) while it is still queued, desynchronizing the job state machine from the
+     * pending queue. Before <a href="https://github.com/apache/seatunnel/pull/11489">#11489</a> the
+     * same sequence left the job stuck in {@code DOING_SAVEPOINT} forever. This test pins the
+     * rejection at the coordinator boundary so that a future refactor cannot silently reintroduce
+     * either failure mode.
+     *
+     * <p><b>Why the existing coverage does not reach it.</b> {@code
+     * SavepointPreconditionRecoveryIT} fires a real client savepoint while a running job's tasks
+     * are still deploying, and asserts that the job recovers to RUNNING; the job is already in
+     * {@code runningJobMasterMap} there. The pending-job tests in this class cover dispatch,
+     * cancellation and master failover, but never a savepoint request. No test proves that an
+     * unscheduled job is rejected before its physical plan leaves PENDING.
+     *
+     * <p><b>What this test asserts.</b> With the only worker's four fixed slots held by a running
+     * job, a savepoint request for the queued job fails fast with the "not running" rejection; the
+     * physical plan stays PENDING, no {@code DOING_SAVEPOINT} timestamp is recorded, the job stays
+     * in the pending queue and owns no slot. A second request behaves identically over a stability
+     * window. Releasing the holder's capacity then proves the rejection left no latent savepoint
+     * state: the same job still reaches RUNNING and acquires its slots, and cancelling it releases
+     * them again.
+     */
+    @Test
+    public void testSavepointOnPendingJobIsRejectedWithoutTouchingLifecycle()
+            throws InterruptedException {
+        String testClusterName =
+                "SplitClusterPendingJobLifecycleFailoverIT_"
+                        + "testSavepointOnPendingJobIsRejectedWithoutTouchingLifecycle";
+        HazelcastInstanceImpl masterNode = null;
+        HazelcastInstanceImpl workerNode = null;
+        SeaTunnelClient engineClient = null;
+        ClientJobProxy holderJob = null;
+        ClientJobProxy pendingJob = null;
+
+        SeaTunnelConfig masterNodeConfig = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNodeConfig = getSeaTunnelConfig(testClusterName);
+        configurePendingLifecycleTest(masterNodeConfig);
+        configurePendingLifecycleTest(workerNodeConfig);
+
+        try {
+            masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNodeConfig);
+            workerNode = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNodeConfig);
+
+            HazelcastInstanceImpl finalMasterNode = masterNode;
+            Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalMasterNode.getCluster().getMembers().size()));
+
+            Common.setDeployMode(DeployMode.CLUSTER);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+
+            HazelcastInstanceImpl activeMaster = waitAndFindActiveMaster(masterNode, null);
+            assertPendingQueueState(activeMaster, null, 0);
+
+            holderJob =
+                    submitJob(
+                            engineClient,
+                            masterNodeConfig,
+                            "savepoint_pending_holder",
+                            TestUtils.getResource(JOB_CONFIG_FILE));
+            assertJobStatusWithTimeout(holderJob, JobStatus.RUNNING, 120);
+            assertPendingQueueState(activeMaster, null, 0);
+
+            pendingJob =
+                    submitJob(
+                            engineClient,
+                            masterNodeConfig,
+                            "savepoint_pending_victim",
+                            TestUtils.getResource(JOB_CONFIG_FILE));
+            long pendingJobId = pendingJob.getJobId();
+            assertJobStatusWithTimeout(pendingJob, JobStatus.PENDING, 120);
+            assertPendingQueueContainsJob(activeMaster, pendingJobId, 1);
+
+            JobMaster pendingJobMaster = getJobMaster(activeMaster, pendingJobId);
+            SeaTunnelClient finalEngineClient = engineClient;
+            ClientJobProxy finalPendingJob = pendingJob;
+            JobMaster finalPendingJobMaster = pendingJobMaster;
+            Assertions.assertNotNull(
+                    pendingJobMaster,
+                    "A submitted pending job must already have a job master in the pending queue");
+            Assertions.assertEquals(
+                    JobStatus.PENDING, pendingJobMaster.getPhysicalPlan().getJobStatus());
+            assertSlotOwnership(activeMaster, pendingJobId, false);
+
+            // The client request must be refused by the coordinator's scheduled-job gate, not
+            // accepted and then repaired after the physical plan has already left PENDING.
+            long requestStartNanos = System.nanoTime();
+            Throwable rejection =
+                    Assertions.assertThrows(
+                            Exception.class,
+                            () -> finalEngineClient.savePointJob(pendingJobId),
+                            "A savepoint request must be rejected while the job is still queued");
+            long requestMillis =
+                    TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - requestStartNanos);
+            String rejectionTrace =
+                    ExceptionUtils.getMessage(ExceptionUtils.getRootException(rejection));
+            Assertions.assertTrue(
+                    rejectionTrace.contains("not running")
+                            && rejectionTrace.contains("save point failed"),
+                    "Expected the coordinator's scheduled-job rejection, but got: "
+                            + rejectionTrace);
+            Assertions.assertTrue(
+                    requestMillis < 30_000,
+                    "Rejecting a savepoint for an unscheduled job must not wait for deployment:"
+                            + " took "
+                            + requestMillis
+                            + " ms");
+
+            // The rejected request must not have moved the physical plan into DOING_SAVEPOINT,
+            // even transiently: the state-transition timestamp is the durable evidence that the
+            // job state machine was touched at all.
+            Assertions.assertEquals(
+                    JobStatus.PENDING, pendingJobMaster.getPhysicalPlan().getJobStatus());
+            Assertions.assertNull(
+                    pendingJobMaster.getStateTimestamp(JobStatus.DOING_SAVEPOINT),
+                    "A rejected savepoint must not record a DOING_SAVEPOINT transition");
+            assertPendingQueueContainsJob(activeMaster, pendingJobId, 1);
+            assertSlotOwnership(activeMaster, pendingJobId, false);
+
+            // A repeated request (clients and UIs retry) must behave the same and must not leave a
+            // deferred savepoint behind that fires as soon as the job is scheduled.
+            Throwable repeatedRejection =
+                    Assertions.assertThrows(
+                            Exception.class, () -> finalEngineClient.savePointJob(pendingJobId));
+            Assertions.assertTrue(
+                    ExceptionUtils.getMessage(ExceptionUtils.getRootException(repeatedRejection))
+                            .contains("not running"));
+
+            Awaitility.await()
+                    .during(5, TimeUnit.SECONDS)
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.PENDING,
+                                        finalPendingJob.getJobStatus(),
+                                        "A rejected savepoint must leave the job queued as"
+                                                + " PENDING");
+                                Assertions.assertEquals(
+                                        JobStatus.PENDING,
+                                        finalPendingJobMaster.getPhysicalPlan().getJobStatus(),
+                                        "The physical plan must stay PENDING, never DOING_SAVEPOINT");
+                                assertPendingQueueContainsJob(activeMaster, pendingJobId, 1);
+                            });
+
+            // Free the slots. If the rejection had left a savepoint request or a RUNNING state
+            // behind, the job would not go through the normal pending dispatch path here.
+            holderJob.cancelJob();
+            assertEventuallyCanceled(holderJob);
+            assertJobStatusWithTimeout(pendingJob, JobStatus.RUNNING, 120);
+            assertPendingQueueNotContainsJob(activeMaster, pendingJobId);
+            assertSlotOwnership(activeMaster, pendingJobId, true);
+
+            pendingJob.cancelJob();
+            assertEventuallyCanceled(pendingJob);
+            assertSlotOwnership(activeMaster, pendingJobId, false);
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (masterNode != null) {
+                masterNode.shutdown();
+            }
+            if (workerNode != null) {
+                workerNode.shutdown();
+            }
+        }
+    }
+
     @NotNull private static SeaTunnelConfig getSeaTunnelConfig(String testClusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig
@@ -1360,5 +1557,34 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
         TestUtils.createTestConfigFileFromTemplate(
                 "cluster_batch_fake_to_localfile_template.conf", valueMap, targetConfigFilePath);
         return new ImmutablePair<>(targetDir, targetConfigFilePath);
+    }
+
+    /**
+     * Asserts whether the master's fixed-slot ownership map contains any pipeline entry for the
+     * given job.
+     *
+     * <p>The map is written by {@code ResourceUtils#applyResourceForPipeline} only when a pipeline
+     * is actually deployed, so this distinguishes "the job was scheduled and owns its slots" from
+     * "the job is still queued (or already released everything)". The state is asserted with {@link
+     * Awaitility} because slot release happens asynchronously after the terminal status is
+     * published.
+     */
+    private static void assertSlotOwnership(
+            HazelcastInstanceImpl masterNode, long jobId, boolean expected) {
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                masterNode
+                        .node
+                        .getNodeEngine()
+                        .getHazelcastInstance()
+                        .getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        expected,
+                                        ownedSlotProfilesIMap.keySet().stream()
+                                                .anyMatch(location -> location.getJobId() == jobId),
+                                        "Job " + jobId + " slot ownership should be " + expected));
     }
 }
