@@ -34,6 +34,8 @@ import ChangeLog from '../changelog/connector-file-obs.md';
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
+  - [x] binary
   - [x] markdown
   - [x] pdf
 
@@ -88,12 +90,12 @@ It only supports hadoop version **2.9.X+**.
 | compress_codec | string | no | none | Which compress codec the files used. |
 | archive_compress_codec | string | no | none | Which archive compress codec the files used. Supported: `none` `zip` `tar` `tar.gz` `gz`. |
 | encoding | string | no | UTF-8 | File encoding, only used when `file_format_type` is `json`, `text`, `csv`, or `xml`. |
-| null_format | string | no | - | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N` |
+| null_format | string | no | - | Used when `file_format_type` is `text` or `csv`. Defines which field value represents null. For CSV with a configured `schema.columns[].defaultValue`, a matching `null_format` value or a column absent from the file header uses that default. An empty CSV field still produces null unless it matches `null_format`; columns without a default keep their existing behavior. CSV defaults are converted to the column type when the reader is created. A default that cannot be converted fails the job even if no field needs it. DATE and TIMESTAMP defaults may use a different supported format from the file data. e.g. `\N` |
 | binary_chunk_size | int | no | 1024 | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory. |
 | binary_complete_file_mode | boolean | no | false | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false. |
 | file_filter_pattern | string | no | - | Filter pattern, which used for filtering files. |
 | common-options             |         | no       | -                   | [Tips](#common_options)                                                                                                                                                                                                         |
-| sheet_name                 | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                |
+| sheet_name                 | string  | no       | -                   | The sheet of the workbook to read, only used when file_format is excel.                                                                                                                |
 | excel_engine               | string  | no       | POI                 | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                |
 | poi_excel_max_file_size    | long    | no       | 52428800            | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                |
 | file_filter_modified_start | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
@@ -424,28 +426,6 @@ schema {
   }
 
 ```
-
-### Reading with Temporary Security Credentials (OBS STS)
-
-For production jobs that need scoped, short-lived access, generate temporary AK/SK via [OBS STS](https://support.huaweicloud.com/intl/en-us/api-obs/obs_04_0081.html) and pass them through `hadoop_obs_properties`. The temporary credentials can carry a fine-grained custom policy that limits access to a specific bucket prefix.
-
-```hocon
-source {
-  ObsFile {
-    path = "/staging/prefix"
-    bucket = "obs://target-bucket"
-    endpoint = "obs.ap-southeast-1.myhuaweicloud.com"
-    hadoop_obs_properties = {
-      "fs.obs.access.key"    = "<temp-access-key>"
-      "fs.obs.secret.key"    = "<temp-secret-key>"
-      "fs.obs.session.token" = "<temp-security-token>"
-    }
-    file_format_type = "parquet"
-  }
-}
-```
-
-The provider jar must be on the runtime classpath of every node (`${SEATUNNEL_HOME}/lib`). Avoid long-lived AK/SK in job files; prefer STS-issued temporary credentials or an ECS Agency when running inside Huawei Cloud.
 
 ## Changelog
 

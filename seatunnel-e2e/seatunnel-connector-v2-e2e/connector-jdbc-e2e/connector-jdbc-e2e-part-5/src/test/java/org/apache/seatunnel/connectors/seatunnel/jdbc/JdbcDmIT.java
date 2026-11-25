@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -38,8 +39,11 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.Date;
+import java.sql.Driver;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -50,6 +54,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 public class JdbcDmIT extends AbstractJdbcIT {
 
@@ -312,6 +317,162 @@ public class JdbcDmIT extends AbstractJdbcIT {
         } finally {
             localCatalog.close();
         }
+    }
+
+    /**
+     * Starts the image with a fresh database initialized with LENGTH_IN_CHAR=1 and CHARSET=1
+     * (UTF-8), the opposite of the image's default database on both settings.
+     */
+    private static final String INIT_LENGTH_IN_CHAR_UTF8 =
+            "cd /opt/dmdbms/bin"
+                    + " && su dmdba -c \"./dminit PATH=/opt/dmdbms/st DB_NAME=ST INSTANCE_NAME=ST"
+                    + " PORT_NUM=5236 LENGTH_IN_CHAR=1 CHARSET=1 PAGE_SIZE=8 CASE_SENSITIVE=0"
+                    + " SYSDBA_PWD=SYSDBA001\""
+                    + " && exec su dmdba -c \"./dmserver path=/opt/dmdbms/st/ST/dm.ini -noconsole\"";
+
+    @Test
+    public void testNationalCharLengthFromCatalog() throws Exception {
+        // The shared container runs the image's default database: LENGTH_IN_CHAR=0, GB18030.
+        String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
+        assertNationalCharLengths(jdbcUrl, DM_PASSWORD, 0, 0, true);
+
+        try (GenericContainer<?> lengthInCharUtf8 =
+                new GenericContainer<>(DM_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withCommand("bash", "-c", INIT_LENGTH_IN_CHAR_UTF8)
+                        .withExposedPorts(DM_CONTAINER_PORT)
+                        .waitingFor(
+                                Wait.forLogMessage(".*SYSTEM IS READY.*", 1)
+                                        .withStartupTimeout(Duration.ofMinutes(5)))
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)))) {
+            lengthInCharUtf8.start();
+            String url =
+                    String.format(
+                            "jdbc:dm://%s:%d",
+                            lengthInCharUtf8.getHost(),
+                            lengthInCharUtf8.getMappedPort(DM_CONTAINER_PORT));
+            assertNationalCharLengths(url, "SYSDBA001", 1, 1, false);
+        }
+    }
+
+    /**
+     * Checks that the catalog reports the declared length of NVARCHAR and NVARCHAR2, which is also
+     * the number of characters they hold, and leaves CHAR, VARCHAR and NCHAR as before.
+     */
+    private void assertNationalCharLengths(
+            String jdbcUrl,
+            String password,
+            int lengthInChar,
+            int unicodeFlag,
+            boolean checkReadOnlyUser)
+            throws Exception {
+        String table = "E2E_DM_NATIONAL_CHAR";
+        String tableInfo = DM_USERNAME + "." + table;
+        TablePath tablePath = TablePath.of(DM_DATABASE, DM_USERNAME, table);
+        String reader = "E2E_DM_READER";
+        try (Connection conn = connect(jdbcUrl, DM_USERNAME, password);
+                Statement statement = conn.createStatement()) {
+            try (ResultSet rs =
+                    statement.executeQuery(
+                            "SELECT SF_GET_LENGTH_IN_CHAR(), SF_GET_UNICODE_FLAG() FROM DUAL")) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals(lengthInChar, rs.getInt(1));
+                Assertions.assertEquals(unicodeFlag, rs.getInt(2));
+            }
+            statement.execute(
+                    "CREATE TABLE "
+                            + tableInfo
+                            + " (V_NVARCHAR NVARCHAR(10), V_NVARCHAR2 NVARCHAR2(10),"
+                            + " V_NVARCHAR_100 NVARCHAR(100), V_NVARCHAR2_100 NVARCHAR2(100),"
+                            + " V_NCHAR NCHAR(10), V_CHAR CHAR(10), V_VARCHAR VARCHAR(10),"
+                            + " V_VARCHAR2 VARCHAR2(10))");
+            try {
+                // NVARCHAR(10) and NVARCHAR2(10) hold 10 characters, multi-byte or not.
+                String tenChinese = repeat("\u8fbe", 10);
+                statement.execute(
+                        "INSERT INTO "
+                                + tableInfo
+                                + " (V_NVARCHAR, V_NVARCHAR2) VALUES ('"
+                                + tenChinese
+                                + "', '"
+                                + tenChinese
+                                + "')");
+                Assertions.assertThrows(
+                        SQLException.class,
+                        () ->
+                                statement.execute(
+                                        "INSERT INTO "
+                                                + tableInfo
+                                                + " (V_NVARCHAR2) VALUES ('"
+                                                + repeat("a", 11)
+                                                + "')"));
+
+                assertCatalogLengths(jdbcUrl, DM_USERNAME, password, tablePath);
+                if (checkReadOnlyUser) {
+                    // A user that can only read the table must get the same lengths.
+                    statement.execute("CREATE USER " + reader + " IDENTIFIED BY \"Reader12345\"");
+                    statement.execute("GRANT SELECT ON " + tableInfo + " TO " + reader);
+                    assertCatalogLengths(jdbcUrl, reader, "Reader12345", tablePath);
+                }
+            } finally {
+                statement.execute("DROP TABLE " + tableInfo);
+                if (checkReadOnlyUser) {
+                    statement.execute("DROP USER IF EXISTS " + reader + " CASCADE");
+                }
+            }
+        }
+    }
+
+    private void assertCatalogLengths(
+            String jdbcUrl, String user, String password, TablePath tablePath) {
+        DamengCatalog catalog =
+                new DamengCatalog(
+                        "dameng",
+                        user,
+                        password,
+                        JdbcUrlUtil.getUrlInfo(jdbcUrl),
+                        DM_USERNAME,
+                        DRIVER_CLASS);
+        catalog.open();
+        try {
+            CatalogTable catalogTable = catalog.getTable(tablePath);
+            Map<String, Pair<String, Long>> expected = new HashMap<>();
+            expected.put("V_NVARCHAR", Pair.of("NVARCHAR(10)", 40L));
+            expected.put("V_NVARCHAR2", Pair.of("NVARCHAR2(10)", 40L));
+            expected.put("V_NVARCHAR_100", Pair.of("NVARCHAR(100)", 400L));
+            expected.put("V_NVARCHAR2_100", Pair.of("NVARCHAR2(100)", 400L));
+            expected.put("V_NCHAR", Pair.of("NCHAR(10)", 40L));
+            expected.put("V_CHAR", Pair.of("CHAR(10)", 40L));
+            expected.put("V_VARCHAR", Pair.of("VARCHAR2(10)", 40L));
+            expected.put("V_VARCHAR2", Pair.of("VARCHAR2(10)", 40L));
+            expected.forEach(
+                    (name, type) -> {
+                        Column column = catalogTable.getTableSchema().getColumn(name);
+                        Assertions.assertEquals(type.getLeft(), column.getSourceType(), name);
+                        Assertions.assertEquals(type.getRight(), column.getColumnLength(), name);
+                    });
+        } finally {
+            catalog.close();
+        }
+    }
+
+    private Connection connect(String jdbcUrl, String user, String password) throws Exception {
+        Driver driver = (Driver) loadDriverClass().newInstance();
+        Properties props = new Properties();
+        props.put("user", user);
+        props.put("password", password);
+        Connection conn = driver.connect(jdbcUrl, props);
+        conn.setAutoCommit(true);
+        return conn;
+    }
+
+    private static String repeat(String value, int count) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            builder.append(value);
+        }
+        return builder.toString();
     }
 
     protected String buildTableInfoWithSchema(String database, String schema, String table) {

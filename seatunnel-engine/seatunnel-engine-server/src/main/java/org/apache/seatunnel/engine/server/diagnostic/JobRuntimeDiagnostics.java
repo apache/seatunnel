@@ -56,6 +56,7 @@ public final class JobRuntimeDiagnostics {
     public static final String PIPELINE_STATUS = "pipelineStatus";
     public static final String RESTORE_COUNT = "restoreCount";
     public static final String MAX_RESTORE_COUNT = "maxRestoreCount";
+    public static final String RESTORE_CAUSES = "restoreCauses";
     public static final String TOTAL_PIPELINE_RESTORE_COUNT = "totalPipelineRestoreCount";
 
     private JobRuntimeDiagnostics() {}
@@ -90,6 +91,10 @@ public final class JobRuntimeDiagnostics {
                                     pipelineStatus == null ? null : pipelineStatus.toString())
                             .add(RESTORE_COUNT, restoreCount)
                             .add(MAX_RESTORE_COUNT, subPlan.getPipelineMaxRestoreNum())
+                            // restoreCount says a pipeline is restarting; this says why. The
+                            // engine keeps only the current attempt's error, so without this a
+                            // crash loop can be detected but not explained.
+                            .add(RESTORE_CAUSES, toCausesJson(subPlan.getRestoreCauses()))
                             .add(
                                     STATE_TIMESTAMPS,
                                     toTimestampsJson(
@@ -119,6 +124,15 @@ public final class JobRuntimeDiagnostics {
             log.debug("Get pipeline diagnostics of job {} failed: {}", jobId, t.getMessage());
             return Collections.emptyList();
         }
+    }
+
+    /** Causes as a JSON array, oldest first. Empty when the pipeline has not restarted. */
+    private static JsonArray toCausesJson(List<String> causes) {
+        JsonArray array = new JsonArray();
+        if (causes != null) {
+            causes.forEach(array::add);
+        }
+        return array;
     }
 
     /**

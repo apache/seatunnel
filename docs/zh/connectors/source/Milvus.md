@@ -27,7 +27,7 @@ Milvus 源连接器用于从 Milvus 或 Zilliz Cloud 读取数据。它可以读
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行读取](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
@@ -213,7 +213,7 @@ sink {
 ### 限制读取速度以保护共享集群
 
 当 Milvus 集群同时被其他任务共享时，可以调小 `rate_limit` 和 `batch_size`，
-避免 Source 超过集群的 gRPC 消息大小限制。
+避免 Source 超过集群的单集合查询配额（QPS）。
 
 ```bash
 env {

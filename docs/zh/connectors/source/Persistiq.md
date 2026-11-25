@@ -216,6 +216,77 @@ source {
 }
 ```
 
+如果您的返回数据看起来像这样。
+
+```json
+{
+  "store": {
+    "book": [
+      {
+        "category": "reference",
+        "author": "Nigel Rees",
+        "title": "Sayings of the Century",
+        "price": 8.95
+      },
+      {
+        "category": "fiction",
+        "author": "Evelyn Waugh",
+        "title": "Sword of Honour",
+        "price": 12.99
+      }
+    ],
+    "bicycle": {
+      "color": "red",
+      "price": 19.95
+    }
+  },
+  "expensive": 10
+}
+```
+
+您可以配置 `content_field = "$.store.book.*"` 并且返回的结果看起来像这样：
+
+```json
+[
+  {
+    "category": "reference",
+    "author": "Nigel Rees",
+    "title": "Sayings of the Century",
+    "price": 8.95
+  },
+  {
+    "category": "fiction",
+    "author": "Evelyn Waugh",
+    "title": "Sword of Honour",
+    "price": 12.99
+  }
+]
+```
+
+然后您可以使用更简单的 schema 获取所需的结果，如
+
+```hocon
+Http {
+  url = "http://example.com/xyz"
+  method = "GET"
+  format = "json"
+  content_field = "$.store.book.*"
+  schema = {
+    fields {
+      category = string
+      author = string
+      title = string
+      price = string
+    }
+  }
+}
+```
+
+这里是一个示例：
+
+- 测试数据可以在此链接找到 [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
+- 任务配置请参考此链接 [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf)。
+
 ### json_field [Config]
 
 此参数帮助您配置模式，因此此参数必须与 schema 一起使用。

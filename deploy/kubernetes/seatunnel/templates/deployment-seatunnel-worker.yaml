@@ -40,6 +40,9 @@ spec:
         {{- include "seatunnel.worker.labels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ template "seatunnel.fullname" . }}
+      {{- if .Values.worker.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+      {{- end }}
       {{- if .Values.worker.affinity }}
       affinity:
         {{- toYaml .Values.worker.affinity | nindent 8 }}
@@ -66,7 +69,7 @@ spec:
           {{- if .Values.worker.command }}
           command: {{ .Values.worker.command }}
           {{- else }}
-          command: ["/bin/sh","-c","/opt/seatunnel/bin/seatunnel-cluster.sh -r worker"]
+          command: ["/opt/seatunnel/bin/seatunnel-cluster.sh","-r","worker"]
           {{- end }}
           {{- if .Values.worker.resources }}
           resources:

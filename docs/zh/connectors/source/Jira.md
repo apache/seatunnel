@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-http-jira.md';
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
@@ -37,7 +37,7 @@ Jira Source 只支持批处理。如果作业以流模式运行，连接器会�
 | email                       | String | 是       | -      | 用于 Basic 认证的 Jira 账号邮箱。 |
 | api_token                   | String | 是       | -      | 用于 Basic 认证的 Jira API Token。 |
 | method                      | String | 否       | GET    | HTTP 请求方法，支持 `GET` 和 `POST`。 |
-| headers                     | Map    | 否       | -      | 额外的 HTTP 请求头。连接器会用 `email` 和 `api_token` 生成的 Basic 认证头覆盖其中的 `Authorization`。 |
+| headers                     | Map    | 否       | -      | 额外的 HTTP 请求头。注意：此处配置的 `Authorization` 会被连接器根据 `email` 和 `api_token` 生成的 Basic 认证头覆盖。 |
 | params                      | Map    | 否       | -      | HTTP 查询参数。 |
 | body                        | String | 否       | -      | HTTP 请求体，通常和 `POST` 一起使用。 |
 | format                      | String | 否       | TEXT   | 返回内容格式。如果要用 `schema`、`json_field` 或 `content_field` 解析 JSON，请设置为 `json`。 |
