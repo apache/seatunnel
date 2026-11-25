@@ -50,6 +50,7 @@ public final class ApplicationSpecification {
     private final int masterMemoryMb;
     private final int masterCpuCores;
     private final int masterPort;
+    private final Integer masterHttpPort;
     private final long startupTimeoutMillis;
 
     /**
@@ -67,6 +68,7 @@ public final class ApplicationSpecification {
             int masterMemoryMb,
             int masterCpuCores,
             int masterPort,
+            Integer masterHttpPort,
             long startupTimeoutMillis) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("Application name must not be empty");
@@ -92,6 +94,14 @@ public final class ApplicationSpecification {
             throw new IllegalArgumentException(
                     "application.master.port must be between 1 and 65535");
         }
+        if (masterHttpPort != null && (masterHttpPort < 1 || masterHttpPort > 65535)) {
+            throw new IllegalArgumentException(
+                    "application.master.http-port must be between 1 and 65535");
+        }
+        if (masterHttpPort != null && masterHttpPort == masterPort) {
+            throw new IllegalArgumentException(
+                    "application.master.http-port must differ from application.master.port");
+        }
         this.name = name;
         this.jobConfig = jobConfig;
         this.jobId = jobId;
@@ -102,6 +112,7 @@ public final class ApplicationSpecification {
         this.masterMemoryMb = masterMemoryMb;
         this.masterCpuCores = masterCpuCores;
         this.masterPort = masterPort;
+        this.masterHttpPort = masterHttpPort;
         this.startupTimeoutMillis = startupTimeoutMillis;
     }
 }

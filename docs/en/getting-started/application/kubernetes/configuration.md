@@ -81,6 +81,7 @@ Command-line overrides (`-Dkey=value`) may be visible to other users on the subm
 | `application.master.memory-mb` | int | no | `1024` | Master memory request and limit in MiB. |
 | `application.master.cpu-cores` | int | no | `1` | Master CPU request and limit. |
 | `application.master.port` | int | no | `5801` | Master Hazelcast TCP port. |
+| `application.master.http-port` | int | no | - | Optional master HTTP port; unset disables master HTTP (HTTPS is not enabled). |
 | `application.startup-timeout-millis` | long | no | `120000` | Applied to worker creation and registration on the master and to client connection setup; submission does not wait for master startup. |
 
 :::note
@@ -93,6 +94,17 @@ overhead.
 The submitter returns as soon as the API accepts the started Job, so slow image pulls, admission,
 or scheduling problems never fail the submit command; observe them with `status` and Pod events.
 The master uses the same timeout separately for workers.
+:::
+
+:::note
+`application.master.http-port` is opt-in and HTTP-only: leaving it unset keeps master HTTP and
+HTTPS disabled and omits the `http` port from the headless Service. Setting it enables master
+HTTP on that fixed port (overriding `enable-http`, `port`, and `enable-dynamic-port = false`,
+while keeping `enable-https = false`) and publishes the matching `http` Service port; other
+`seatunnel.yaml` HTTP settings such as basic auth, `context-path`, and request/response size
+limits are preserved. When enabling `application.master.http-port`, enable basic authentication
+and restrict Pod access with `NetworkPolicy`; mount any `seatunnel.yaml` containing
+`basic-auth-password` from a Secret rather than a ConfigMap.
 :::
 
 ## Images and registry credentials

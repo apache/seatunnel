@@ -39,6 +39,7 @@ import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -126,6 +127,7 @@ class ApplicationSpecificationTest {
         options.put("application.master.memory-mb", "4096");
         options.put("application.master.cpu-cores", "3");
         options.put("application.master.port", "5802");
+        options.put("application.master.http-port", "18080");
         options.put("platform.queue", "batch");
         String job = "env { job.mode=BATCH }\nsource { FakeSource { row.num=5 } }\n";
         ApplicationSpecification original = SeatunnelApplicationConfig.parse(job, options);
@@ -140,11 +142,25 @@ class ApplicationSpecificationTest {
         assertEquals(4096, copy.getMasterMemoryMb());
         assertEquals(3, copy.getMasterCpuCores());
         assertEquals(5802, copy.getMasterPort());
+        assertEquals(Integer.valueOf(18080), copy.getMasterHttpPort());
         assertFalse(localized.containsKey("platform.queue"));
         assertEquals(original.getJobId(), copy.getJobId());
         assertTrue(copy.getJobId() > 0);
         options.put("application.name", "mutated");
         assertEquals("sync-job", original.getName());
+
+        Properties withoutHttp = new Properties();
+        withoutHttp.putAll(localized);
+        withoutHttp.remove(ApplicationOptions.MASTER_HTTP_PORT.key());
+        assertNull(SeatunnelApplicationConfig.fromProperties(withoutHttp).getMasterHttpPort());
+
+        Map<String, String> unsetOptions = new HashMap<>(options);
+        unsetOptions.remove(ApplicationOptions.MASTER_HTTP_PORT.key());
+        Properties unsetProperties =
+                SeatunnelApplicationConfig.toProperties(
+                        SeatunnelApplicationConfig.parse(job, unsetOptions));
+        assertFalse(unsetProperties.containsKey(ApplicationOptions.MASTER_HTTP_PORT.key()));
+        assertNull(SeatunnelApplicationConfig.fromProperties(unsetProperties).getMasterHttpPort());
     }
 
     @Test
@@ -159,6 +175,7 @@ class ApplicationSpecificationTest {
                     "application.master.cpu-cores",
                     "application.startup-timeout-millis",
                     "application.master.port",
+                    "application.master.http-port",
                     "application.job-id",
                     "application.restore-job-id"
                 }) {
@@ -175,6 +192,34 @@ class ApplicationSpecificationTest {
                         SeatunnelApplicationConfig.parse(
                                 "source {}",
                                 Collections.singletonMap("application.master.port", "65536")));
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        SeatunnelApplicationConfig.parse(
+                                "source {}",
+                                Collections.singletonMap("application.master.http-port", "65536")));
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        SeatunnelApplicationConfig.parse(
+                                "source {}",
+                                Collections.singletonMap(
+                                        "application.master.http-port",
+                                        Integer.toString(
+                                                ApplicationOptions.MASTER_PORT.defaultValue()))));
+        Map<String, String> conflicting = new HashMap<>();
+        conflicting.put(ApplicationOptions.MASTER_PORT.key(), "5900");
+        conflicting.put(ApplicationOptions.MASTER_HTTP_PORT.key(), "5900");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> SeatunnelApplicationConfig.parse("source {}", conflicting));
+
+        ApplicationSpecification withoutHttp =
+                SeatunnelApplicationConfig.parse(
+                        "source {}",
+                        Collections.singletonMap(ApplicationOptions.MASTER_PORT.key(), "8080"));
+        assertEquals(8080, withoutHttp.getMasterPort());
+        assertNull(withoutHttp.getMasterHttpPort());
     }
 
     @Test
@@ -184,6 +229,7 @@ class ApplicationSpecificationTest {
         assertEquals("seatunnel", specification.getName());
         assertEquals(1, specification.getWorkerCount());
         assertEquals(5801, specification.getMasterPort());
+        assertNull(specification.getMasterHttpPort());
     }
 
     @Test

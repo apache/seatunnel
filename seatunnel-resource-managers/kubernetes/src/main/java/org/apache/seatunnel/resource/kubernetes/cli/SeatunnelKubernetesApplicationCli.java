@@ -104,17 +104,8 @@ public final class SeatunnelKubernetesApplicationCli {
     private static SeaTunnelConfig configureEngine(
             String id, ApplicationSpecification specification) {
         SeaTunnelConfig engineConfiguration = ConfigProvider.locateAndGetSeaTunnelConfig();
-        SeatunnelApplicationConfig.configure(
-                engineConfiguration,
-                clusterName(id),
-                null,
-                specification.getWorkerSpecification().getSlots());
-        SeatunnelApplicationConfig.configureCheckpointRetention(engineConfiguration);
-        engineConfiguration
-                .getHazelcastConfig()
-                .getNetworkConfig()
-                .setPort(specification.getMasterPort())
-                .setPortAutoIncrement(false);
+        SeatunnelApplicationConfig.configureMaster(
+                engineConfiguration, clusterName(id), specification);
         String host = System.getenv(KubernetesConstants.MASTER_HOST_ENV);
         if (host != null && !host.trim().isEmpty()) {
             engineConfiguration

@@ -1704,6 +1704,73 @@ class KubernetesApplicationResourcesTest {
                 KubernetesApplicationConfig.read(encoded).getWorkerAnnotations().get("team"));
     }
 
+    @Test
+    void omitsHttpServicePortWhenMasterHttpPortIsUnset() throws Exception {
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification(), ReadonlyConfig.fromMap(new HashMap<>(options())));
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
+                        "app-no-http", mainClass, parameters);
+        V1Service service =
+                accompanyingResources(application).stream()
+                        .filter(KubernetesService.class::isInstance)
+                        .map(KubernetesService.class::cast)
+                        .findFirst()
+                        .orElseThrow()
+                        .getInternalResource();
+        assertEquals(1, service.getSpec().getPorts().size());
+        assertEquals(
+                KubernetesConstants.HAZELCAST_PORT_NAME,
+                service.getSpec().getPorts().get(0).getName());
+
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        assertNull(
+                KubernetesApplicationConfig.read(encoded).getSpecification().getMasterHttpPort());
+    }
+
+    @Test
+    void publishesConfiguredMasterHttpServicePort() throws Exception {
+        Map<String, String> options = options();
+        options.put(ApplicationOptions.MASTER_HTTP_PORT.key(), "18080");
+        ApplicationSpecification specification =
+                SeatunnelApplicationConfig.parse("env { job.mode = BATCH }", options);
+        KubernetesApplicationConfig parameters =
+                KubernetesApplicationConfig.from(
+                        specification, ReadonlyConfig.fromMap(new HashMap<>(options)));
+        List<KubernetesResource<?>> application =
+                KubernetesApplicationClusterDescriptor.assembleApplication(
+                        "app-http", mainClass, parameters);
+        V1Service service =
+                accompanyingResources(application).stream()
+                        .filter(KubernetesService.class::isInstance)
+                        .map(KubernetesService.class::cast)
+                        .findFirst()
+                        .orElseThrow()
+                        .getInternalResource();
+        assertEquals(2, service.getSpec().getPorts().size());
+        V1ServicePort httpPort =
+                service.getSpec().getPorts().stream()
+                        .filter(port -> KubernetesConstants.HTTP_PORT_NAME.equals(port.getName()))
+                        .findFirst()
+                        .orElseThrow();
+        assertEquals(Integer.valueOf(18080), httpPort.getPort());
+        assertEquals(18080, httpPort.getTargetPort().getIntValue());
+
+        StringWriter writer = new StringWriter();
+        parameters.write(writer);
+        String encoded =
+                Base64.getEncoder()
+                        .encodeToString(writer.toString().getBytes(StandardCharsets.UTF_8));
+        assertEquals(
+                Integer.valueOf(18080),
+                KubernetesApplicationConfig.read(encoded).getSpecification().getMasterHttpPort());
+    }
+
     private static List<String> masterCommand(KubernetesApplicationConfig parameters) {
         return applicationJob(
                         KubernetesApplicationClusterDescriptor.assembleApplication(

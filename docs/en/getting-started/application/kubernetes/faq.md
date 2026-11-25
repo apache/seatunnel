@@ -72,4 +72,4 @@ admission policy, ResourceQuota, or node capacity.
 - Restrict application Secret access and enable Kubernetes encryption at rest for Secrets when required by the cluster's security policy.
 - Keep connector credentials out of logs and prefer credential mechanisms supported by the connector, filesystem, or cluster.
 - Put `kubernetes.kubeconfig` in a permission-restricted deployment configuration file, or use the Kubernetes SDK default. Do not pass it with `-D` because command-line arguments may be visible to other users on the submission host.
-- Allow only required Hazelcast and external-system traffic in NetworkPolicy.
+- Allow only required Hazelcast and external-system traffic in NetworkPolicy; if you enable `application.master.http-port`, enable basic authentication (mounted from a Secret, not a ConfigMap) and restrict access to that port in NetworkPolicy.

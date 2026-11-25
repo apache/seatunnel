@@ -80,6 +80,7 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 | `application.master.memory-mb` | int | no | `1024` | Master memory request 和 limit，单位 MiB。 |
 | `application.master.cpu-cores` | int | no | `1` | Master CPU request 和 limit。 |
 | `application.master.port` | int | no | `5801` | Master Hazelcast TCP 端口。 |
+| `application.master.http-port` | int | no | - | 可选的 Master HTTP 端口；未设置时不启用 Master HTTP（不启用 HTTPS）。 |
 | `application.startup-timeout-millis` | long | no | `120000` | 用于 Master 等待 Worker 创建和注册，以及客户端连接建立；提交本身不等待 Master 启动。 |
 
 :::note
@@ -90,6 +91,16 @@ Application Mode 在提交机上读取部署文件（`-a`，包含 `application.
 `application.startup-timeout-millis` 不是作业执行时长限制，也不限制提交。提交器在 API 接受并
 启动 Job 后立即返回，镜像拉取慢、准入或调度问题不会使提交命令失败，可通过 `status` 和 Pod
 事件观察；Master 使用同一超时等待 Worker。
+:::
+
+:::note
+`application.master.http-port` 为按需开启且仅支持 HTTP：未设置时 Master 保持关闭 HTTP/HTTPS，且
+headless Service 不发布 `http` 端口。设置后 Master 在该固定端口启用 HTTP（覆盖 `enable-http`、
+`port` 并关闭 `enable-dynamic-port`，同时保持 `enable-https = false`）并在 headless Service 上
+发布同名 `http` 端口；`seatunnel.yaml` 中的其余 HTTP 配置（如 Basic Auth、`context-path`、上传
+与日志响应大小限制）均会保留。启用 `application.master.http-port` 时建议开启 Basic Auth 并配合
+`NetworkPolicy` 限制访问；包含 `basic-auth-password` 的 `seatunnel.yaml` 应通过 Secret 挂载，不要
+放入 ConfigMap。
 :::
 
 ## 镜像与凭据
