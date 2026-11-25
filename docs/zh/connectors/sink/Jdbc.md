@@ -22,6 +22,18 @@ MySQL `DATETIME` 映射为 SeaTunnel `TIMESTAMP`（`LocalDateTime`）。MySQL JD
 
 从受 [#13024](https://github.com/apache/seatunnel/issues/13024) 影响的版本升级时，请移除为补偿 `DATETIME` 写入偏移而手动添加的小时偏移。已经写入的数据不会自动修复；修正或重新加载之前，请先与原始数据进行比较。
 
+## GoldenDB
+
+使用 GoldenDB 驱动以及兼容 MySQL 的 JDBC 方言和 catalog 时，请显式设置 `dialect = "GoldenDB"`，并配置与驱动匹配的驱动类和 URL，例如：
+
+```hocon
+url = "jdbc:goldendb://goldendb-host:3306/example"
+driver = "com.goldendb.jdbc.Driver"
+dialect = "GoldenDB"
+```
+
+请自行安装与数据库版本兼容的 GoldenDB JDBC 驱动；驱动类名和支持的 URL 格式以实际版本为准。提供 MySQL 协议的 GoldenDB 部署也可以使用兼容的 MySQL JDBC 驱动和 `jdbc:mysql://` URL，此时会选择现有的 MySQL 方言。未显式指定方言的既有 `jdbc:goldendb:` 配置仍使用通用方言。MySQL catalog 要求配置 `username` 和 `password`，且不会将 JDBC `properties` 映射传给 catalog 连接。生产使用前请针对实际 GoldenDB 版本验证 SQL、数据类型和事务行为；MySQL 测试不能代替 GoldenDB 数据库及驱动的验证。
+
 ## 使用依赖
 
 先安装 `connector-jdbc` 插件：
@@ -251,6 +263,7 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | access_key_id                             | String  | 否       |                              |
 | secret_access_key                         | String  | 否       |                              |
 | region                                    | String  | 否       |                              |
+| multi_table_sink_replica                  | Int     | 否    | 1                            |
 ### driver [string]
 
 用于连接远程数据源的 jdbc 类名，如果使用MySQL，则值为`com.mysql.cj.jdbc.Driver`
@@ -354,11 +367,11 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 ### connect_timeout_ms [int]
 
-建立 JDBC 连接时的连接超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示不超时。
+建立 JDBC 连接时的连接超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示使用驱动默认值（不显式设置超时）。当前该参数仅 Hive 方言生效，其他方言会忽略。
 
 ### socket_timeout_ms [int]
 
-JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示不超时。
+JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示使用驱动默认值（不显式设置超时）。当前该参数仅 Hive 方言生效，其他方言会忽略。
 
 ### max_retries [int]
 
@@ -999,6 +1012,10 @@ sink {
     }
 }
 ```
+
+### multi_table_sink_replica [int]
+
+多表 Sink 写入器的副本数，必须至少为 1。默认值为 `1`。
 
 ## 故障排查
 

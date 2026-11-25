@@ -51,10 +51,56 @@ def _env_bool(name: str, default: bool) -> bool:
     return value.strip().lower() not in {"0", "false", "no", "off"}
 
 
+class TruncatedOutputError(RuntimeError):
+    """The model stopped at the token limit without producing anything usable.
+
+    Raised instead of returning the empty turn, because an empty assistant
+    message is indistinguishable from a model that simply had nothing to say:
+    the caller would carry on, generate no config and report a generic
+    failure, with the real cause -- the output budget -- nowhere in the error.
+    """
+
+
+# OpenAI-compatible servers report why generation stopped in `finish_reason`.
+# The internal format in this module mirrors the Bedrock Converse vocabulary
+# (`output.message.content` plus `stopReason`), so each one is translated into
+# that vocabulary rather than invented here.
+#
+# Anything absent or unrecognised still becomes `end_turn`: OpenAI-compatible
+# servers add their own values, and an unfamiliar one is not a reason to fail a
+# call that returned usable content.
+_OPENAI_STOP_REASONS = {
+    "stop": "end_turn",
+    "tool_calls": "tool_use",
+    "length": "max_tokens",
+    "content_filter": "content_filtered",
+}
+
+# Reasoning models disagree on the field name. vLLM's reasoning parser emits
+# `reasoning` from 0.34 on, while earlier builds and several hosted providers
+# emit `reasoning_content`. Reading only one of them silently discards the
+# whole reasoning block, and for a server that requires it to be replayed
+# after a tool call that turns into a protocol error on the next request.
+_OPENAI_REASONING_FIELDS = ("reasoning_content", "reasoning")
+
+
+def _openai_stop_reason(finish_reason: str | None) -> str:
+    """Translate an OpenAI `finish_reason` into an internal stop reason."""
+    return _OPENAI_STOP_REASONS.get(finish_reason or "", "end_turn")
+
+
 def format_llm_error(error: Exception) -> str:
     """Return an actionable error message for common provider protocol issues."""
     message = str(error)
     lower = message.lower()
+    if isinstance(error, TruncatedOutputError):
+        return (
+            f"{message}\n\n"
+            "Hint: the model hit its output token limit before writing any "
+            "answer. Raise max_tokens, shorten the request, or -- for a "
+            "reasoning model -- disable thinking so the budget is not spent "
+            "on reasoning that is then discarded."
+        )
     if "reasoning_content" in lower and "passed back" in lower:
         return (
             f"{message}\n\n"
@@ -778,17 +824,21 @@ class OpenAIProvider(LLMProvider):
 
         stream = self._client.chat.completions.create(**kwargs)
         started_tools: dict[int, str] = {}  # index -> tool_use_id
+        saw_text = False
+        saw_reasoning = False
         for chunk in stream:
             if not chunk.choices:
                 continue
             choice = chunk.choices[0]
             delta = choice.delta
 
-            reasoning_content = self._get_openai_field(delta, "reasoning_content")
+            reasoning_content = self._get_openai_reasoning(delta)
             if reasoning_content:
+                saw_reasoning = True
                 yield {"type": "reasoning_delta", "text": reasoning_content}
 
             if delta and delta.content:
+                saw_text = True
                 yield {"type": "text_delta", "text": delta.content}
 
             if delta and delta.tool_calls:
@@ -803,8 +853,20 @@ class OpenAIProvider(LLMProvider):
             if choice.finish_reason:
                 for idx in sorted(started_tools):
                     yield {"type": "tool_stop", "tool_use_id": started_tools[idx]}
-                sr = "tool_use" if choice.finish_reason == "tool_calls" else "end_turn"
+                sr = _openai_stop_reason(choice.finish_reason)
                 yield {"type": "message_stop", "stop_reason": sr}
+                # Reasoning that consumed the whole budget is the case worth
+                # failing on: the turn ends with no text and no tool call, so
+                # there is nothing for the caller to act on, and reporting it
+                # as a normal stop sends it on to parse an empty config.
+                if sr == "max_tokens" and not saw_text and not started_tools:
+                    raise TruncatedOutputError(
+                        "The model stopped at the output token limit without "
+                        "producing any content"
+                        + (" (the budget was spent on reasoning)"
+                           if saw_reasoning else "")
+                        + "."
+                    )
 
     def _to_openai_messages(self, messages: list[dict], system: str = "") -> list[dict]:
         """Convert internal message format to OpenAI API format."""
@@ -907,7 +969,7 @@ class OpenAIProvider(LLMProvider):
         message = choice.message
         content = []
 
-        reasoning_content = OpenAIProvider._get_openai_field(message, "reasoning_content")
+        reasoning_content = OpenAIProvider._get_openai_reasoning(message)
         if reasoning_content:
             content.append({"reasoningContent": reasoning_content})
 
@@ -924,14 +986,36 @@ class OpenAIProvider(LLMProvider):
                     }
                 })
 
-        stop_reason = "end_turn"
-        if choice.finish_reason == "tool_calls":
-            stop_reason = "tool_use"
+        stop_reason = _openai_stop_reason(choice.finish_reason)
+
+        # Same rule as the streaming path: a turn cut off before it wrote
+        # anything is a failed call, not an empty answer.
+        if stop_reason == "max_tokens" and not message.content and not message.tool_calls:
+            raise TruncatedOutputError(
+                "The model stopped at the output token limit without producing "
+                "any content"
+                + (" (the budget was spent on reasoning)" if reasoning_content else "")
+                + "."
+            )
 
         return {
             "output": {"message": {"role": "assistant", "content": content}},
             "stopReason": stop_reason,
         }
+
+    @staticmethod
+    def _get_openai_reasoning(obj):
+        """Read the reasoning block under whichever field name the server used.
+
+        Both names are accepted because the field is not standardised; see
+        `_OPENAI_REASONING_FIELDS`. The first non-empty one wins, so a server
+        that sends both does not get its reasoning concatenated twice.
+        """
+        for field_name in _OPENAI_REASONING_FIELDS:
+            value = OpenAIProvider._get_openai_field(obj, field_name)
+            if value:
+                return value
+        return None
 
     @staticmethod
     def _get_openai_field(obj, field_name: str):

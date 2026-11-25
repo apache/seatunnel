@@ -15,20 +15,24 @@ different API endpoints.
 | Name                           | Type   | Required | Default Value | Description                                                                                                                                                             |
 |--------------------------------|--------|----------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | model_provider                 | enum   | yes      | -             | The model provider for embedding. Options may include `AMAZON`, `QIANFAN`, `OPENAI`, etc.                                                                               |
-| api_key                        | string | no       | -             | The API key required to authenticate with the embedding service. Required by `AMAZON`, `OPENAI`, `DOUBAO`, `QIANFAN` and `ZHIPU`; not used by `CUSTOM`. Note that `ZHIPU` reads it at runtime even though the option rule only validates `dimension`. |
+| api_key                        | string | conditional | -          | The API key required to authenticate with the embedding service. Required when `model_provider` is `AMAZON`, `OPENAI`, `DOUBAO` or `QIANFAN`; not used by `CUSTOM`. `ZHIPU` reads it at runtime even though the option rule only validates `dimension`. |
 | secret_key                     | string | no       | -             | The secret key required for additional authentication with the embedding service. Only required by `AMAZON` and `QIANFAN`.                                               |
-| aws_region                     | string | no       |               | AWS Region. Required for use Amazon Bedrock model.                                                                                                                      |
+| aws_region                     | string | conditional |            | AWS Region. Required when `model_provider` is `AMAZON` (Amazon Bedrock).                                                                                                 |
 | single_vectorized_input_number | int    | no       | 1             | The number of inputs vectorized in one request. Default is 1.                                                                                                           |
+| process_batch_size             | int    | no       | 100           | The row batch size of each process (legacy name: `inference_batch_size`).                                                                                               |
 | vectorization_fields           | map    | yes      | -             | A mapping between input fields and their corresponding output vector fields.                                                                                            |
 | model                          | string | yes      | -             | The specific model to use for embedding (e.g: `text-embedding-3-small` for OPENAI).                                                                                     |
-| api_path                       | string | no       | -             | The API endpoint for the embedding service. Typically provided by the model provider.                                                                                   |
-| process_batch_size             | int    | no       | 100           | The row batch size of each process. The legacy key `inference_batch_size` is still accepted as a fallback.                                                              |
-| dimension                      | int    | no       | 2048          | The vector dimension defaults to 2048. The Embedding-3 model supports custom vector dimensions, and it is recommended to choose dimensions of 256, 512, 1024, or 2048. |
-| oauth_path                     | string | no       | -             | The API endpoint for the oauth service.                                                                                                                                 |
-| custom_config                  | map    | no       |               | Custom configurations for the model.                                                                                                                                    |
+| api_path                       | string | no       | -             | The API endpoint for the embedding service. Typically provided by the model provider. Legacy alias: `openai.api_path`.                                                   |
+| dimension                      | int    | conditional | 2048       | The vector dimension defaults to 2048. Required when `model_provider` is `AMAZON` or `ZHIPU`. The Embedding-3 model supports custom vector dimensions, and it is recommended to choose dimensions of 256, 512, 1024, or 2048. |
+| oauth_path                     | string | conditional | -          | The API endpoint for the oauth service. Required when `model_provider` is `QIANFAN`.                                                                                     |
+| custom_config                  | map    | conditional |            | Custom configurations for the model. Required when `model_provider` is `CUSTOM`.                                                                                        |
 | custom_response_parse          | string | no       |               | Specifies how to parse the response from the model using JsonPath. Example: `$.choices[*].message.content`. Only read from inside the `custom_config` block; setting it at the top level has no effect. |
 | custom_request_headers         | map    | no       |               | Custom headers for the request to the model. Only read from inside the `custom_config` block; setting it at the top level has no effect.                                 |
 | custom_request_body            | map    | no       |               | Custom body for the request. Supports placeholders like `${model}`, `${input}`. Only read from inside the `custom_config` block; setting it at the top level has no effect. |
+| process_batch_size             | int    | no       | 100           | The row batch size of each process, i.e. how many SeaTunnel rows are vectorized per processing round. Legacy alias: `inference_batch_size`.                              |
+| table_transform                | array  | no       | -             | Per-table rules for multi-table processing, see [Multi-Table Transform](transform-multi-table.md).                                                                       |
+| table_match_regex              | string | no       | `.*`          | Regex of the table paths that the transform-level rules apply to.                                                                                                        |
+| rule_match_mode                | enum   | no       | `FIRST_MATCH` | How multiple `table_transform` entries with the same `table_path` are evaluated.                                                                                         |
 | model_retry_max_attempts       | int    | no       | 1             | Maximum attempts for one remote model request. The default value `1` keeps the previous no-retry behavior.                                                              |
 | model_retry_backoff_ms         | long   | no       | 1000          | Initial backoff in milliseconds before retrying a remote model request.                                                                                                  |
 | model_retry_max_backoff_ms     | long   | no       | 10000         | Maximum backoff in milliseconds before retrying a remote model request.                                                                                                  |
@@ -244,7 +248,8 @@ used. Generally, this is provided by the model provider.
 ### custom_config
 
 The `custom_config` option allows you to provide additional custom configurations for the model. This is a map where you
-can define various settings that might be required by the specific model you're using.
+can define various settings that might be required by the specific model you're using. This option is required when
+`model_provider` is `CUSTOM`; the transform fails at runtime if it is missing.
 
 ### custom_response_parse
 
@@ -721,7 +726,7 @@ transform {
         custom_response_parse = "$.data[*].embedding"
         custom_request_headers = {
             "Content-Type"= "application/json"
-            "Authorization"= "Bearer xxxxxxx
+            "Authorization"= "Bearer xxxxxxx"
         }
         custom_request_body ={
             modelx = "${model}"

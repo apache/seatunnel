@@ -22,6 +22,18 @@ MySQL `DATETIME` maps to SeaTunnel `TIMESTAMP` (`LocalDateTime`). The MySQL JDBC
 
 When upgrading from a version affected by [#13024](https://github.com/apache/seatunnel/issues/13024), remove any manual hour offset added to compensate for shifted `DATETIME` writes. Previously stored values are not repaired automatically; compare them with the original source before correcting or reloading data.
 
+## GoldenDB
+
+To use the MySQL-compatible JDBC dialect and catalog with a GoldenDB driver, explicitly set `dialect = "GoldenDB"` along with its matching driver class and URL, for example:
+
+```hocon
+url = "jdbc:goldendb://goldendb-host:3306/example"
+driver = "com.goldendb.jdbc.Driver"
+dialect = "GoldenDB"
+```
+
+Install a GoldenDB JDBC driver compatible with your database version. Driver class names and supported URL formats depend on that version. GoldenDB deployments that expose the MySQL protocol may instead use a compatible MySQL JDBC driver and `jdbc:mysql://` URL; this selects the existing MySQL dialect. Existing `jdbc:goldendb:` configurations without an explicit dialect continue to use the generic dialect. The MySQL catalog requires `username` and `password` and does not forward the JDBC `properties` map to catalog connections. Verify SQL, data types, and transaction behavior against your GoldenDB version before production use. A MySQL test does not verify a GoldenDB server or its driver.
+
 ## Using Dependency
 
 Install the `connector-jdbc` plugin first:
@@ -251,6 +263,7 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | access_key_id                             | String  | No       |                              |
 | secret_access_key                         | String  | No       |                              |
 | region                                    | String  | No       |                              |
+| multi_table_sink_replica                  | Int     | No       | 1                            |
 
 ### driver [string]
 
@@ -353,11 +366,11 @@ The time in seconds to wait for the database operation used to validate the conn
 
 ### connect_timeout_ms [int]
 
-Connection timeout in milliseconds when establishing the JDBC connection. The default is 24 hours. Set it to `0` to disable the timeout.
+Connection timeout in milliseconds when establishing the JDBC connection. The default is 24 hours. Set it to `0` to use the driver default (no explicit timeout). Currently this option is only applied by the Hive dialect; other dialects ignore it.
 
 ### socket_timeout_ms [int]
 
-Socket read timeout in milliseconds after the JDBC connection is established. The default is 24 hours. Set it to `0` to disable the timeout.
+Socket read timeout in milliseconds after the JDBC connection is established. The default is 24 hours. Set it to `0` to use the driver default (no explicit timeout). Currently this option is only applied by the Hive dialect; other dialects ignore it.
 
 ### max_retries [int]
 
@@ -1014,6 +1027,10 @@ sink {
 `dialect = "Dsql"` selects Amazon Aurora DSQL. AWS credentials are read from `access_key_id` / `secret_access_key`
 (and `region`) rather than from a username/password pair. Aurora DSQL does not support XA, so leave
 `is_exactly_once` at its default of `false`.
+
+### multi_table_sink_replica [int]
+
+The replica number of the multi-table sink writer. Must be at least 1. The default value is `1`.
 
 ## Troubleshooting
 
