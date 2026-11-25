@@ -14,6 +14,9 @@ TableRename transform plugin for rename table name.
 |         prefix          | string | no       |               | The prefix to be added to the table name                                                                              |
 |         suffix          | string | no       |               | The suffix to be added to the table name                                                                              |
 | replacements_with_regex | array  | no       |               | The array of replacement rules with regex. The replacement rule is a map with `replace_from` and `replace_to` fields. |
+|    table_match_regex    | string | no       | `.*`          | Regex matched against the upstream table path. The transform level rule only applies to matching tables.               |
+|     table_transform     | array  | no       | -             | Per-table rules, see [Multi-Table Transform](transform-multi-table.md).                                                |
+|     rule_match_mode     | string | no       | `FIRST_MATCH` | How multiple `table_transform` entries with the same `table_path` are evaluated.                                       |
 
 ## Examples
 

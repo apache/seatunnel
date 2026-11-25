@@ -438,6 +438,12 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
                         "UPDATE %s.%s SET f_varchar = 'latest-stop' WHERE id = 21",
                         MYSQL_DATABASE, SOURCE_TABLE));
 
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("FINISHED", container.getJobStatus(jobId)));
+        Assertions.assertEquals(0, jobFuture.get(30, TimeUnit.SECONDS).getExitCode());
+
+        // Job completion above is the real sync point; the snapshot may still progress until then.
         if ("initial".equals(startupMode)) {
             await().atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
@@ -447,11 +453,6 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
                                             queryVarcharById(21),
                                             "post-snapshot update must be synced"));
         }
-
-        await().atMost(120, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> Assertions.assertEquals("FINISHED", container.getJobStatus(jobId)));
-        Assertions.assertEquals(0, jobFuture.get(30, TimeUnit.SECONDS).getExitCode());
     }
 
     private long getCurrentBinlogTimestamp() {

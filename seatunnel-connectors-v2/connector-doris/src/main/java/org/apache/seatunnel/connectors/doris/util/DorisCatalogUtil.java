@@ -117,7 +117,7 @@ public class DorisCatalogUtil {
     }
 
     /** Quotes a Doris identifier and escapes embedded backticks. */
-    private static String quoteIdentifier(String identifier) {
+    public static String quoteIdentifier(String identifier) {
         return "`" + identifier.replace("`", "``") + "`";
     }
 

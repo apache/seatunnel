@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 ## 简介
 
-支持读取 Elasticsearch2.x 版本和 8.x 版本之间的数据
+支持读取 Elasticsearch2.x 版本和 9.x 版本之间的数据
 
 ## 主要特性
 
@@ -29,7 +29,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | 参数名称                | 类型    | 是否必须 | 默认值 | 描述 |
 | ----------------------- | ------- | -------- | ----- | ---- |
 | hosts                   | 数组    | 是       | -     | Elasticsearch 集群 HTTP 地址，格式 `host:port`，可配置多个，例如 `["host1:9200", "host2:9200"]`。 |
-| auth_type               | string  | 否       | basic | 认证方式。支持 `basic`、`api_key`、`api_key_encoded`。 |
+| auth_type               | enum | 否       | basic | 认证方式。支持 `basic`、`api_key`、`api_key_encoded`。 |
 | username                | string  | 否       | -     | 基本认证的用户名（x-pack 用户名）。`auth_type=basic` 时必填。 |
 | password                | string  | 否       | -     | 基本认证的密码（x-pack 密码）。`auth_type=basic` 时必填。 |
 | auth.api_key_id         | string  | 否       | -     | Elasticsearch API Key ID。`auth_type=api_key` 时必填。 |

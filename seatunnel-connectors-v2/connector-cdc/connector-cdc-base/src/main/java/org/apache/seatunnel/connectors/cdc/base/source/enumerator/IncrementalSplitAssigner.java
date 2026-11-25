@@ -72,6 +72,14 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
      */
     private final Map<TableId, Offset> tableWatermarks = new HashMap<>();
 
+    /**
+     * Offset each restored table had already been read up to. It is the startup offset of the split
+     * the table was restored from, or a later offset that split still carried for the table. Unlike
+     * {@link #tableWatermarks} it does not decide where an incremental split starts; it only tells
+     * the reader which records of the table were already emitted. Used to support Exactly-Once.
+     */
+    private final Map<TableId, Offset> tableStartupOffsets = new HashMap<>();
+
     private boolean splitAssigned = false;
 
     private final List<IncrementalSplit> remainingSplits = new ArrayList<>();
@@ -122,6 +130,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         this.restoredFromCheckpoint = true;
         this.startupOffset = checkpointState == null ? null : checkpointState.getStartupOffset();
         this.resolvedStopOffset = checkpointState == null ? null : checkpointState.getStopOffset();
+        this.splitAssigned = checkpointState != null && checkpointState.isSplitAssigned();
     }
 
     @Override
@@ -149,7 +158,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     /** Indicates there is no more splits available in this assigner. */
     public boolean noMoreSplits() {
-        return getRemainingTables().isEmpty() && remainingSplits.isEmpty();
+        return (splitAssigned || getRemainingTables().isEmpty()) && remainingSplits.isEmpty();
     }
 
     private Set<TableId> getRemainingTables() {
@@ -173,6 +182,9 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     @Override
     public void addSplits(Collection<SourceSplitBase> splits) {
+        if (!splits.isEmpty()) {
+            this.splitAssigned = false;
+        }
         // we don't store the split, but will re-create incremental split later
         splits.stream()
                 .map(SourceSplitBase::asIncrementalSplit)
@@ -195,6 +207,13 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                                     continue;
                                 }
                                 tableWatermarks.put(tableId, startupOffset);
+                                tableStartupOffsets.put(
+                                        tableId,
+                                        laterOf(
+                                                startupOffset,
+                                                incrementalSplit
+                                                        .getTableStartupOffsets()
+                                                        .get(tableId)));
                             }
                             if (this.startupOffset == null) {
                                 this.startupOffset = startupOffset;
@@ -224,7 +243,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     @Override
     public IncrementalPhaseState snapshotState(long checkpointId) {
-        return new IncrementalPhaseState(startupOffset, resolvedStopOffset);
+        return new IncrementalPhaseState(startupOffset, resolvedStopOffset, splitAssigned);
     }
 
     @Override
@@ -320,6 +339,18 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
             startupOffset = sourceConfig.getStartupConfig().getStartupOffset(offsetFactory);
         }
         Offset incrementalSplitStartOffset = minOffset != null ? minOffset : startupOffset;
+        // Restored tables from different splits can be regrouped into this split, which starts at
+        // the earliest of their offsets. Keep the offset of every table that was already read
+        // further, so the reader does not emit those records a second time.
+        Map<TableId, Offset> splitTableStartupOffsets = new HashMap<>();
+        for (TableId tableId : capturedTables) {
+            Offset tableStartupOffset = tableStartupOffsets.get(tableId);
+            if (tableStartupOffset != null
+                    && incrementalSplitStartOffset != null
+                    && tableStartupOffset.isAfter(incrementalSplitStartOffset)) {
+                splitTableStartupOffsets.put(tableId, tableStartupOffset);
+            }
+        }
         // stop.mode=latest: resolve the stop offset exactly once here, at the first
         // incremental split creation, and reuse the same value for every subsequent split
         // and for the checkpoint. This is the single authoritative resolution point (the
@@ -348,7 +379,15 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                 incrementalSplitStopOffset,
                 completedSnapshotSplitInfos,
                 checkpointTables,
-                historyTableChanges);
+                historyTableChanges,
+                splitTableStartupOffsets);
+    }
+
+    private static Offset laterOf(Offset offset, Offset other) {
+        if (offset == null) {
+            return other;
+        }
+        return other != null && other.isAfter(offset) ? other : offset;
     }
 
     @VisibleForTesting

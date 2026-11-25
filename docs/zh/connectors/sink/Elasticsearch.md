@@ -17,7 +17,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 引擎支持
 
-* 支持  `ElasticSearch 版本 >= 2.x 并且 <= 8.x`
+* 支持  `ElasticSearch 版本 >= 2.x 并且 <= 9.x`
 
 :::
 
@@ -26,13 +26,14 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 |           名称           | 类型      | 是否必须 |             默认值              | 描述 |
 |------------------------|---------|------|------------------------------|------|
 | hosts                  | array   | 是    | -                            | Elasticsearch 集群 HTTP 地址，格式 `host:port`，可配置多个，例如 `["host1:9200", "host2:9200"]`。 |
-| index                  | string  | 是    | -                            | 目标 Elasticsearch 索引，支持字段名变量（如 `seatunnel_${age}`，需配置 `schema_save_mode="IGNORE"`）。多表写入时使用 `${table_name}` 把每张上游表路由到独立索引。 |
-| schema_save_mode       | string  | 是    | CREATE_SCHEMA_WHEN_NOT_EXIST | 任务启动时如何处理目标索引，详见 [schema_save_mode](#schema_save_mode)。 |
-| data_save_mode         | string  | 是    | APPEND_DATA                  | 任务启动时如何处理已有文档，详见 [data_save_mode](#data_save_mode)。 |
+| index                  | string  | 是    | -                            | 目标 Elasticsearch 索引，支持字段名变量（如 `seatunnel_${age}`，需配置 `schema_save_mode="IGNORE"`）。 |
+| schema_save_mode       | string  | 否 | CREATE_SCHEMA_WHEN_NOT_EXIST | 任务启动时如何处理目标索引，详见 [schema_save_mode](#schema_save_mode)。 |
+| data_save_mode         | string  | 否 | APPEND_DATA                  | 任务启动时如何处理已有文档，详见 [data_save_mode](#data_save_mode)。 |
 | index_type             | string  | 否    | -                            | Elasticsearch 索引类型，Elasticsearch 6 及以上不建议指定。 |
 | primary_keys           | list    | 否    | -                            | 用于组成文档 `_id` 的主键字段。CDC 场景下必填以保证 upsert 语义。 |
 | key_delimiter          | string  | 否    | `_`                          | 组合主键拼接为文档 `_id` 时的分隔符，默认 `_`。 |
-| auth_type              | string  | 否    | basic                        | 认证方式：`basic`、`api_key`、`api_key_encoded`。 |
+| key_encoding | enum | 否 | LEGACY | `LEGACY` 保持已有文档 ID，`LENGTH_PREFIXED` 避免复合主键中的分隔符冲突。 |
+| auth_type              | enum | 否    | basic                        | 认证方式：`basic`、`api_key`、`api_key_encoded`。 |
 | username               | string  | 否    | -                            | 基本认证的用户名（x-pack 用户名）。 |
 | password               | string  | 否    | -                            | 基本认证的密码（x-pack 密码）。 |
 | auth.api_key_id        | string  | 否    | -                            | Elasticsearch API Key ID，`auth_type=api_key` 时使用。 |
@@ -71,6 +72,12 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 ### key_delimiter [string]
 
 设定复合键的分隔符（默认为 `_`），例如，如果使用 `$` 作为分隔符，那么文档的 `_id` 将呈现为 `KEY1$KEY2$KEY3` 的格式
+
+### key_encoding [enum]
+
+`LEGACY`（默认）保持现有文档 ID。当存在多个 `primary_keys` 时，如果主键值包含 `key_delimiter`，可能会生成相同的 ID。设为 `LENGTH_PREFIXED` 后，每个格式化后的值会编码为 `<长度>:<值>`；例如 `["1_1", "2"]` 会编码为 `3:1_11:2`，`["1", "1_2"]` 会编码为 `1:13:1_2`。该模式会忽略 `key_delimiter`，且单主键的 ID 保持不变。
+
+对已有复合主键索引修改此选项会改变文档 ID，切换前需要重建索引或迁移已有文档，否则后续写入可能产生重复文档而不是更新旧 ID。
 
 ### multi_table_sink_replica [int]
 

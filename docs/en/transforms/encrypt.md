@@ -10,11 +10,14 @@ The Encrypt transform plugin is used to encrypt or decrypt specified fields in r
 
 | name               | type    | required | default value | description                                      |
 |--------------------|---------|----------|---------------|--------------------------------------------------|
-| `fields`           | Array   | Yes      | -             | List of fields to encrypt/decrypt                |
+| `fields`           | Array   | Yes      | -             | List of fields to encrypt/decrypt. All configured fields must be of string type; configuring a non-string field makes the job fail at startup with an unsupported data type error |
 | `algorithm`        | String  | No       | `AES_GCM`     | Encryption algorithm                             |
 | `key`              | String  | Yes      | -             | Base64-encoded encryption key                    |
 | `mode`             | String  | No       | `encrypt`     | `encrypt` or `decrypt`                           |
 | `max_field_length` | Integer | No       | `10485760`    | Maximum string field length before processing    |
+| `table_match_regex` | String | No       | `.*`          | Regex of the table paths that the transform level rule applies to |
+| `table_transform`  | Array&lt;Map&gt; | No | -             | Per-table rules, see [Multi-Table Transform](transform-multi-table.md) |
+| `rule_match_mode`  | String  | No       | `FIRST_MATCH` | How multiple `table_transform` entries with the same `table_path` are evaluated |
 
 ### algorithm [string]
 

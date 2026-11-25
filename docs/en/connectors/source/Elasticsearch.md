@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 Used to read data from Elasticsearch.
 
-support version >= 2.x and <= 8.x.
+support version >= 2.x and <= 9.x.
 
 ## Key features
 
@@ -31,7 +31,7 @@ support version >= 2.x and <= 8.x.
 | name                    | type    | required | default value                                                  | description |
 |-------------------------|---------|----------|----------------------------------------------------------------|-------------|
 | hosts                   | array   | yes      | -                                                              | Elasticsearch cluster HTTP addresses in `host:port` form. Multiple hosts can be specified (for example `["host1:9200", "host2:9200"]`). |
-| auth_type               | string  | no       | basic                                                          | Authentication method. Supported values: `basic`, `api_key`, `api_key_encoded`. |
+| auth_type               | enum | no       | basic                                                          | Authentication method. Supported values: `basic`, `api_key`, `api_key_encoded`. |
 | username                | string  | no       | -                                                              | Username for basic authentication (x-pack username). Required when `auth_type=basic`. |
 | password                | string  | no       | -                                                              | Password for basic authentication (x-pack password). Required when `auth_type=basic`. |
 | auth.api_key_id         | string  | no       | -                                                              | Elasticsearch API key ID. Required when `auth_type=api_key`. |
