@@ -16,6 +16,11 @@ The GraphQL sink connector writes SeaTunnel rows to a GraphQL service by sending
 `mutation` over HTTP POST. For each input row, the sink adds row fields to GraphQL `variables`
 with the same field names, then sends the configured mutation.
 
+A write fails when the server answers with a status other than 200, or with a non-empty `errors`
+array. GraphQL servers usually report a rejected mutation with HTTP 200 and an `errors` array, so
+the sink checks both. Date and time fields are sent as ISO 8601 strings, for example
+`2020-02-02T02:02:00`. When `variables` is not set, the row fields are sent in a new object.
+
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
@@ -48,7 +53,7 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 | retry_backoff_max_ms | Int | No | 10000 | Maximum HTTP retry backoff in milliseconds. |
 | connect_timeout_ms | Int | No | 12000 | HTTP connection timeout in milliseconds. |
 | socket_timeout_ms | Int | No | 60000 | HTTP socket timeout in milliseconds. |
-| multi_table_sink_replica | Int | No | - | Sink common option. It controls sink replica count in multi-table runtime. The same GraphQL mutation is still used for all rows routed to this sink. |
+| multi_table_sink_replica | Int | No | 1 | Sink common option. It controls sink replica count in multi-table runtime. The same GraphQL mutation is still used for all rows routed to this sink. |
 | common-options | Config | No | - | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ## Notes
@@ -203,9 +208,8 @@ Retries apply only when the request fails with an `IOException` (including a wra
 using Fibonacci backoff capped by `retry_backoff_max_ms`. `retry = 5` permits five total attempts,
 including the initial request.
 
-Non-200 responses are logged but do not fail the write or trigger an automatic retry. The sink
-also does not inspect GraphQL errors in an HTTP 200 response. Do not rely on retries or checkpoints
-to guarantee delivery: a rejected mutation can leave the row unwritten without failing the job.
+A write fails when the server returns a non-200 status or the GraphQL response contains errors.
+The retry settings apply only to failures caused by an \`IOException\`.
 
 ```hocon
 env {

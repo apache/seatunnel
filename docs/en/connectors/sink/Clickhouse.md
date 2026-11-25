@@ -62,13 +62,16 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | SeaTunnel Data Type |                                                             Clickhouse Data Type                                                              |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | STRING              | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            |
-| INT                 | Int8 / UInt8 / Int16 / UInt16 / Int32                                                                                                         |
+| TINYINT             | Int8                                                                                                                                          |
+| SMALLINT            | Int16                                                                                                                                         |
+| INT                 | Int32                                                                                                                                         |
 | BIGINT              | UInt64 / Int64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond |
 | DOUBLE              | Float64                                                                                                                                       |
 | DECIMAL             | Decimal                                                                                                                                       |
 | FLOAT               | Float32                                                                                                                                       |
 | DATE                | Date                                                                                                                                          |
-| TIME                | DateTime                                                                                                                                      |
+| TIME                | String                                                                                                                                        |
+| TIMESTAMP           | DateTime64                                                                                                                                    |
 | ARRAY               | Array                                                                                                                                         |
 | MAP                 | Map                                                                                                                                           |
 
@@ -314,6 +317,51 @@ sink {
     primary_key = "id"
     support_upsert = true
     allow_experimental_lightweight_delete = true
+  }
+}
+```
+
+### CDC Changelog Sink
+
+When the upstream is a changelog source (for example MySQL CDC or Postgres CDC), the rows contain `INSERT`,
+`UPDATE_BEFORE`/`UPDATE_AFTER`, and `DELETE` events. Configure `primary_key` so the sink can map `UPDATE` and
+`DELETE` rows to the right target row, and pair with `support_upsert = true` if the target table does not already
+provide a deduplication engine.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+    }
+    rows = [
+      { kind = INSERT,    fields = [1, "A",   100] }
+      { kind = INSERT,    fields = [2, "B",   100] }
+      { kind = INSERT,    fields = [3, "C",   100] }
+      { kind = UPDATE_BEFORE, fields = [1, "A",   100] }
+      { kind = UPDATE_AFTER,  fields = [1, "A_1", 100] }
+      { kind = DELETE,        fields = [2, "B",   100] }
+    ]
+  }
+}
+
+sink {
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "sink_table"
+    username = "default"
+    password = ""
+    primary_key = "pk_id"
   }
 }
 ```

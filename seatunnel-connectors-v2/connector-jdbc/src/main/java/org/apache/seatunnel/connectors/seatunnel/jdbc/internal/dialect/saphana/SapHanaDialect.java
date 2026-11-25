@@ -82,7 +82,8 @@ public class SapHanaDialect implements JdbcDialect {
                         .map(
                                 fieldName ->
                                         String.format(
-                                                "TARGET.%s=SOURCE.%s",
+                                                "%s.%s=SOURCE.%s",
+                                                tableIdentifier(database, tableName),
                                                 quoteIdentifier(fieldName),
                                                 quoteIdentifier(fieldName)))
                         .collect(Collectors.joining(" AND "));
@@ -91,7 +92,7 @@ public class SapHanaDialect implements JdbcDialect {
                         .map(
                                 fieldName ->
                                         String.format(
-                                                "TARGET.%s=SOURCE.%s",
+                                                "%s=SOURCE.%s",
                                                 quoteIdentifier(fieldName),
                                                 quoteIdentifier(fieldName)))
                         .collect(Collectors.joining(", "));
@@ -114,7 +115,7 @@ public class SapHanaDialect implements JdbcDialect {
 
         String upsertSQL =
                 String.format(
-                        " MERGE INTO %s AS TARGET"
+                        " MERGE INTO %s"
                                 + " USING (%s) AS SOURCE"
                                 + " ON (%s) "
                                 + "%s"

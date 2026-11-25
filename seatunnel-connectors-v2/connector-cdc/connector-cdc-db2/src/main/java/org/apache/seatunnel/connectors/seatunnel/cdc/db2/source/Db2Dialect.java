@@ -44,8 +44,10 @@ import io.debezium.connector.db2.Db2Connection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +55,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /** The {@link JdbcDataSourceDialect} implementation for Db2 datasource. */
+@Slf4j
 public class Db2Dialect implements JdbcDataSourceDialect {
 
     private static final long serialVersionUID = 1L;
@@ -160,13 +163,26 @@ public class Db2Dialect implements JdbcDataSourceDialect {
 
     @Override
     public Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId) {
-        return Optional.ofNullable(
-                tableMap.get(toDb2TableId(tableId)).getTableSchema().getPrimaryKey());
+        CatalogTable table = tableMap.get(toDb2TableId(tableId));
+        if (table == null) {
+            log.warn(
+                    "Catalog metadata not found for DB2 table {}; primary key is unavailable",
+                    tableId);
+            return Optional.empty();
+        }
+        return Optional.ofNullable(table.getTableSchema().getPrimaryKey());
     }
 
     @Override
     public List<ConstraintKey> getConstraintKeys(JdbcConnection jdbcConnection, TableId tableId) {
-        return tableMap.get(toDb2TableId(tableId)).getTableSchema().getConstraintKeys();
+        CatalogTable table = tableMap.get(toDb2TableId(tableId));
+        if (table == null) {
+            log.warn(
+                    "Catalog metadata not found for DB2 table {}; constraint keys are unavailable",
+                    tableId);
+            return Collections.emptyList();
+        }
+        return table.getTableSchema().getConstraintKeys();
     }
 
     private static Map<TableId, CatalogTable> createDb2TableMap(List<CatalogTable> catalogTables) {

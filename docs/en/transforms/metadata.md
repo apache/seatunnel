@@ -31,7 +31,7 @@ The Metadata transform plugin is used to extract metadata information from data 
 | BinlogPos  | long   | Binlog byte offset. `null` for snapshot rows. | MySQL-CDC only |
 | BinlogRow  | int    | Row index (0-based) within the binlog event. `null` for snapshot rows. | MySQL-CDC only |
 | Gtid       | string | Global Transaction ID (`server_uuid:transaction_id`). `null` when GTID is disabled or for snapshot rows. | MySQL-CDC only |
-| Partition |  string  |  Partition information of the data, multiple partition fields separated by commas  | Connectors supporting partitions |
+| Partition | declared by the input table's `MetadataSchema`  |  Partition information of the data. The value is returned as-is from the connector's partition option; no comma joining is applied by the transform. This key is only available when the input table's `MetadataSchema` declares it  | Connectors that write partition metadata |
 
 ## Connector-Declared Metadata Fields
 
@@ -135,6 +135,9 @@ transform {
 |      name       | type | required | default value | description       |
 |:---------------:|------|:--------:|:-------------:|-------------------|
 | metadata_fields | map  |    yes    |       -       | Mapping relationship between metadata fields and output fields, format: `Metadata Key = output field name`. Must contain at least one entry. |
+| table_match_regex | string |    no    |     `.*`      | Regex of the table paths that the transform level rule applies to. |
+| table_transform | array |    no    |       -       | Per-table rules, see [Multi-Table Transform](transform-multi-table.md). |
+| rule_match_mode | string |    no    | `FIRST_MATCH` | How multiple `table_transform` entries with the same `table_path` are evaluated. |
 
 ### metadata_fields [map]
 
@@ -297,7 +300,7 @@ Expose Kafka `ConsumerRecord.timestamp` (injected into `EventTime`) as `kafka_ts
 
 ```hocon
 env {
-  execution.parallelism = 4
+  parallelism = 4
   job.mode = "STREAMING"
   checkpoint.interval = 60000
 }

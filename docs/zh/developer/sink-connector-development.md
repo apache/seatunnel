@@ -81,6 +81,16 @@ SeaTunnel 的 sink 设计支持多种复杂度层级：
 - sink 收到重复 commit 请求会怎样
 - 目标表 schema 变化后会怎样
 
+## Schema Evolution 契约
+
+`SupportSchemaEvolutionSinkWriter.applySchemaChange` 必须在返回前完成结构切换，并将失败传播给任务。
+执行 DDL 前应排空旧结构的缓冲写入，并建立所需的外部事务提交边界；仅 flush 或 XA prepare
+不能证明事务已经提交。共享物理目标表的内部 writer 副本也必须同步切换。
+
+故障恢复可能重复投递 schema 变更，因此物理 DDL 必须容忍变更已经执行过，并收敛到预期结构。
+`RestoreTableSchemaEvent` 应只重建运行时 schema 和序列化器，不执行物理 DDL。
+该事件恢复的是 checkpoint 中的 writer 元数据，不会回滚外部数据库已经执行的结构变更。
+
 ## 设计检查清单
 
 编码前，建议先回答这些问题：

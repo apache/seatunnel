@@ -16,6 +16,11 @@ GraphQL Sink 连接器通过 HTTP POST 向 GraphQL 服务写入数据。它会�
 GraphQL `mutation`：输入行里的字段会按同名字段放入 GraphQL `variables`，然后随配置的
 mutation 一起发送。
 
+当服务端返回的状态码不是 200，或者响应中的 `errors` 数组不为空时，写入会失败。GraphQL
+服务通常用 HTTP 200 加 `errors` 数组来表示 mutation 被拒绝，所以 sink 会同时检查这两点。
+日期和时间字段会以 ISO 8601 字符串发送，例如 `2020-02-02T02:02:00`。未配置 `variables`
+时，行字段会放入一个新的对象发送。
+
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
@@ -47,7 +52,7 @@ mutation 一起发送。
 | retry_backoff_max_ms | Int | 否 | 10000 | HTTP 请求失败后的最大重试退避时间，单位毫秒。 |
 | connect_timeout_ms | Int | 否 | 12000 | HTTP 连接超时时间，单位毫秒。 |
 | socket_timeout_ms | Int | 否 | 60000 | HTTP socket 超时时间，单位毫秒。 |
-| multi_table_sink_replica | Int | 否 | - | Sink 通用参数，用于控制多表运行时的 sink 副本数；但写入到该 sink 的所有行仍使用同一条 GraphQL mutation。 |
+| multi_table_sink_replica | Int | 否 | 1 | Sink 通用参数，用于控制多表运行时的 sink 副本数；但写入到该 sink 的所有行仍使用同一条 GraphQL mutation。 |
 | common-options | Config | 否 | - | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
 ## 注意事项
@@ -201,9 +206,7 @@ sink {
 `IOException`（包括包装异常中的原因）失败时才会重试，使用 Fibonacci 退避，并由
 `retry_backoff_max_ms` 限制等待时间。`retry = 5` 表示包含首次请求在内最多尝试五次。
 
-非 200 响应只会被记录，不会使本次写入失败，也不会自动重试。Sink 同样不会检查 HTTP 200
-响应中的 GraphQL 错误。因此不能依靠重试或 checkpoint 保证交付：mutation 被拒绝时，
-对应数据行可能未写入，但任务仍不报错。
+HTTP 状态码非 200，或 HTTP 200 响应中包含 GraphQL 错误时，写入会失败。上述重试只处理 `IOException`。
 
 ```hocon
 env {
