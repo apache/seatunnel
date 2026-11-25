@@ -33,7 +33,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | table_name                | string  | 是   | -                            | 目标 MaxCompute 表名，例如 `fake`。                                                                |
 | schema_name               | string  | 否   | -                            | MaxCompute Schema 名称；仅当表位于非默认 Schema 时需要设置。                                       |
 | partition_spec            | string  | 否   | -                            | MaxCompute 分区表的规范，例如 `ds='20220101'`。                                                    |
-| overwrite                 | boolean | 否   | false                        | 是否覆盖整张表或单个分区。已废弃：请使用 `data_save_mode`，`overwrite = true` 会被映射为 `data_save_mode = DROP_DATA`。 |
+| overwrite                 | boolean | 否   | false                        | 是否覆盖整张表或单个分区。                                                                          |
 | schema_save_mode          | enum    | 否   | CREATE_SCHEMA_WHEN_NOT_EXIST | 写入前如何处理目标表结构，例如 `RECREATE_SCHEMA` 或 `CREATE_SCHEMA_WHEN_NOT_EXIST`。                |
 | data_save_mode            | enum    | 否   | APPEND_DATA                  | 写入前如何处理已有数据，例如 `DROP_DATA`、`APPEND_DATA`、`ERROR_WHEN_DATA_EXISTS`。                |
 | custom_sql                | string  | 否   | -                            | 当 `data_save_mode = CUSTOM_PROCESSING` 时执行的 SQL。                                              |
@@ -94,13 +94,11 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 `overwrite` 是否覆盖表或分区，默认值：false。
 
-**注意：** 该选项已废弃，请使用 `data_save_mode`。配置 `overwrite = true` 时，连接器会打印废弃警告，并将其映射为 `data_save_mode = DROP_DATA`。
-
 ### save_mode_create_template
 
 我们使用模板来自动创建 MaxCompute 表，
 它将根据上游数据和模式类型的类型创建相应的表创建语句，
-默认模板可以根据情况进行修改。只要需要建表，save mode 处理器就会应用该模板，单表和多表模式下均可用。
+默认模板可以根据情况进行修改。目前仅在多表模式下工作。
 
 默认模板：
 

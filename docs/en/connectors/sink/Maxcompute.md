@@ -37,7 +37,7 @@ or upsert session selected by `insert_strategy`.
 | table_name                | string  | yes      | -                            | Target MaxCompute table name, for example `fake`.                                                                         |
 | schema_name               | string  | no       | -                            | MaxCompute schema name (namespace between project and table). Required only when the table is in a non-default schema.    |
 | partition_spec            | string  | no       | -                            | Partition spec for a MaxCompute partitioned table, for example `ds='20220101'`.                                           |
-| overwrite                 | boolean | no       | false                        | Whether to overwrite the target table or partition. Deprecated: use `data_save_mode` instead; `overwrite = true` maps to `data_save_mode = DROP_DATA`. |
+| overwrite                 | boolean | no       | false                        | Whether to overwrite the target table or partition.                                                                       |
 | schema_save_mode          | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table before writing, such as `RECREATE_SCHEMA` or `CREATE_SCHEMA_WHEN_NOT_EXIST`.                |
 | data_save_mode            | enum    | no       | APPEND_DATA                  | How to handle existing target data before writing, such as `DROP_DATA`, `APPEND_DATA`, or `ERROR_WHEN_DATA_EXISTS`.      |
 | custom_sql                | string  | no       | -                            | Custom SQL to execute before writing when `data_save_mode = CUSTOM_PROCESSING`.                                          |
@@ -98,15 +98,11 @@ Default: not set (uses the project default schema).
 
 `overwrite` Whether to overwrite the table or partition, default: false.
 
-**Note:** This option is deprecated in favor of `data_save_mode`. When `overwrite = true` is set, the connector logs a
-deprecation warning and maps it to `data_save_mode = DROP_DATA`.
-
 ### save_mode_create_template
 
 We use templates to automatically create MaxCompute tables,
 which will create corresponding table creation statements based on the type of upstream data and schema type,
-and the default template can be modified according to the situation. The template is applied by the save mode handler
-whenever a table needs to be created, in both single-table and multi-table mode.
+and the default template can be modified according to the situation. Only work on multi-table mode at now.
 
 Default template:
 
