@@ -173,7 +173,7 @@ source {
 
 sink {
   BosFile {
-    bucket = "bos://target-bucket"
+    bucket = "bos://source-bucket"
     path = "/watch/target"
     tmp_path = "/watch/tmp"
     access_key = "your-access-key"

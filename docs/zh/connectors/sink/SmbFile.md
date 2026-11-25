@@ -73,7 +73,7 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | sheet_name                            | string  | 否   | Sheet0                     | 仅在 file_format_type 为 excel 时使用                                                       |
 | xml_root_tag                          | string  | 否   | RECORDS                                   | 仅在 file_format 为 xml 时使用                                                              |
 | xml_row_tag                           | string  | 否   | RECORD                                    | 仅在 file_format 为 xml 时使用                                                              |
-| xml_use_attr_format                   | boolean | 否   | -                                         | 仅在 file_format 为 xml 时使用                                                              |
+| xml_use_attr_format                   | boolean | 条件必填   | -                                         | 仅在 file_format 为 xml 时使用；写 XML 文件时必填 |
 | single_file_mode                      | boolean | 否   | false                                     | 每个并行度只会输出一个文件。                                                                      |
 | encoding                              | string  | 否   | UTF-8                                     | 仅在 file_format_type 为 text, json, csv, xml 时使用                                     |
 | date_format                           | string  | 否   | yyyy-MM-dd                                | 日期类型格式                                                                                |
