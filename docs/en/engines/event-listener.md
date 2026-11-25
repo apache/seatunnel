@@ -262,8 +262,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * Handle table column addition events
      */
     private void handleAddColumnEvent(AlterTableAddColumnEvent event) {
-        log.info("Column added to table | Table Name: {}, Added Columns: {}, Time: {}",
-            event.getTableName(), event.getAddedColumns(), event.getEventTime());
+        log.info("Column added to table | Table: {}, Column: {}, Time: {}",
+            event.getTablePath(), event.getColumn(), event.getCreatedTime());
         // Handle table structure change logic
     }
 
@@ -271,8 +271,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * Handle reader open events
      */
     private void handleReaderOpenEvent(ReaderOpenEvent event) {
-        log.info("Reader opened | Plugin ID: {}, Parallelism: {}, Time: {}",
-            event.getPluginId(), event.getParallelism(), event.getEventTime());
+        log.info("Reader opened | jobId: {}, Time: {}",
+            event.getJobId(), event.getCreatedTime());
         // Handle reader initialization logic
     }
 
@@ -280,8 +280,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * Handle writer close events
      */
     private void handleWriterCloseEvent(WriterCloseEvent event) {
-        log.info("Writer closed | Plugin ID: {}, Processed Record Count: {}, Time: {}",
-            event.getPluginId(), event.getRecordCount(), event.getEventTime());
+        log.info("Writer closed | jobId: {}, Time: {}",
+            event.getJobId(), event.getCreatedTime());
         // Handle writer resource cleanup logic
     }
 

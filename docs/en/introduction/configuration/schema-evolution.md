@@ -4,6 +4,7 @@ Schema Evolution means that the schema of a data table can be changed and the da
 ## Supported engines
 
 - Zeta
+- Flink (with the routing and connector restrictions below)
 
 ## Supported schema change event types
 
@@ -31,8 +32,16 @@ Schema Evolution means that the schema of a data table can be changed and the da
 [BigQuery](../../connectors/sink/BigQuery.md#schema-evolution) (`ADD COLUMN` only)
 [Redis](../../connectors/sink/Redis.md#schema-evolution)
 
+### Transform
+
+| Status | Transforms | Reason |
+|--------|------------|--------|
+| Supported, event translated | [Sql](../../transforms/sql.md#schema-evolution-ddl), FieldRename, TableRename | They rewrite the event so that it describes their own output. |
+| Supported, pass-through | FilterRowKind, Replace, FieldEncrypt, DataValidator | Column set, order and types are unchanged, so the upstream event describes their output. Limitation: a column rename fails when such a transform follows another transform in the same chain. |
+| Not supported | Filter, FieldMapper, Copy, Split, JsonPath, Metadata, RowKindExtractor, RegexExtract, Embedding, LLM, DynamicCompile, Python, TextChunk, Calcite, TableFilter, TableMerge, DefineSinkType | They add, remove or reorder columns, change the table identifier or keep a stale table, while forwarding the upstream event unchanged. Using them with `schema-changes.enabled = true` produces a sink schema that does not match the rows. A Sql transform placed after Metadata or RowKindExtractor adopts their produced layout and emits a correct event, see the [Sql transform](../../transforms/sql.md#schema-evolution-ddl). |
+
 Note:  
-* The schema evolution is not support the transform at now. The schema evolution of different types of databases（Oracle-CDC -> Jdbc-Mysql）is currently not supported the default value of the column in ddl.
+* The schema evolution of different types of databases（Oracle-CDC -> Jdbc-Mysql）is currently not supported the default value of the column in ddl.
 
 * When you use the Oracle-CDC，you can not use the username named `SYS` or `SYSTEM` to modify the table schema, otherwise the ddl event will be filtered out which can lead to the schema evolution not working.
 Otherwise, If your table name start with `ORA_TEMP_` will also has the same problem.
@@ -41,6 +50,41 @@ Otherwise, If your table name start with `ORA_TEMP_` will also has the same prob
 
 ## Enable schema evolution
 Schema evolution is disabled by default in CDC source. You need configure `schema-changes.enabled = true` which is only supported in CDC to enable it.
+
+When schema evolution is enabled on Flink, `incremental.parallelism` must be `1` (the default).
+Flink rejects the job during startup if multiple incremental readers are configured.
+
+### Flink routing and recovery
+
+Flink routes each source table to one sink subtask. Different tables can use different subtasks;
+increasing sink parallelism does not increase the parallelism of a single table. Hash collisions
+can place several tables on the same subtask. Connector-internal writer replicas are separate from
+Flink subtask parallelism and still require the connector's own schema-change synchronization.
+For this Flink routing mode, use distinct physical destinations for distinct source tables.
+Routing different source tables to the same physical table does not provide a shared DDL fence
+across Flink subtasks.
+
+Schema controls and data use the same table-keyed channel. Each table's schema progress, latest
+schema and pending rows are checkpointed as keyed state and move together during supported
+rescaling. Controls are replicated to every configured table because source schema sequence
+numbers span tables; this adds control traffic proportional to the table count. Pending rows are
+limited per table to 100,000 records and approximately 64 MiB. State backend and task memory must
+still be sized for all tables assigned to a subtask, especially after scaling down.
+
+After recovery, the translation layer sends `RestoreTableSchemaEvent` through the writer's
+`applySchemaChange` before forwarding rows for that table. Connectors must rebuild their runtime
+schema without executing physical DDL for this event. Other schema changes can be replayed after
+a failure: DDL delivery is at least once, and connectors must apply changes synchronously,
+propagate failures and converge safely when a change has already been applied.
+
+Source polling pauses after a schema change and after split assignment, including recovery, until
+two subsequent checkpoint completion notifications arrive. Checkpoints must remain enabled and
+progressing. This flow control is not an acknowledgement that an external transaction has committed;
+connector flush, commit and DDL ordering must also be compatible. In particular, a prepared XA
+transaction is not a committed transaction.
+
+Earlier Flink schema-evolution checkpoints are not migrated to this keyed protocol. See
+[incompatible changes](../concepts/incompatible-changes.md) before upgrading an existing job.
 
 ## Multi-database and multi-table routing
 
@@ -53,9 +97,9 @@ Recommended practices:
 
 - Route tables from different upstream databases to different physical sink tables when you want to
   keep schemas isolated.
-- Keep `multi_table_sink_replica` enabled if you need parallel sink writers; schema changes are
-  coordinated per rendered physical sink table.
-- If you intentionally route multiple upstream tables to the same physical sink table, make sure
+- `multi_table_sink_replica` controls connector-internal writers. It does not remove the Flink
+  per-table subtask restriction described above.
+- Outside the Flink routing mode above, if you intentionally route multiple upstream tables to the same physical sink table, make sure
   those tables stay schema-compatible and that their keys do not conflict.
 
 ### Example: same table name in different source databases -> same table name in different sink databases

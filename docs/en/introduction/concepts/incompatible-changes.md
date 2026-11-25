@@ -37,6 +37,25 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Rows are written in batches of up to 1000 rows instead of row by row, which makes writes to remote servers much faster. The first row of each writer is still written immediately. The 30-second interval is checked only when a new row arrives, so it does not limit how long a partial batch can wait when no more rows come in. A partial batch is written at the next checkpoint, when the writer closes, and at the engine timer flush if `sink.flush.interval` is set in `env` (Zeta only; disabled by default). A failed bulk write is retried up to 3 times, waiting 1, 2 and 3 seconds, before the job fails. A retry sends the whole ordered batch again, so with `upsert-enable = false` a retry after a partly applied batch can fail with duplicate-key errors, as it already could when `retry.max` was set explicitly. Jobs that set these options explicitly are not affected.
   - **Migration Guide**: No change is needed to get the documented behavior. To keep the previous behavior, set `buffer-flush.max-rows = 1` and `retry.max = 0` explicitly. A smaller `buffer-flush.max-rows` above 1 only reduces how many rows are buffered; it does not limit how long a partial batch waits when no more rows arrive. If a streaming job needs buffered rows to become visible within a bounded time, rely on checkpoints or set `sink.flush.interval` in `env` (Zeta). To write every row immediately, set `buffer-flush.max-rows = 1`. (#13198)
 
+### Flink schema evolution: checkpoint protocol and table routing
+
+Flink CDC jobs with schema evolution enabled now keep sink schema progress and pending rows in
+table-keyed state. The source protocol and operator topology also differ from the former local
+coordinator and broadcast/union-state implementations. Checkpoints and savepoints from those
+implementations are not supported upgrade inputs; there is no state migration adapter.
+`--allowNonRestoredState` is not a safe migration strategy: retaining source offsets while dropping
+schema progress or pending rows can lose data or interpret rows using the wrong schema.
+
+Keep the previous job artifacts and a recoverable savepoint for rollback. Plan a controlled
+cutover using a new full snapshot into a separate destination, validate schema and data, and then
+switch consumers. If reusing an existing destination, reconcile its data and schema explicitly;
+do not simply discard the old state and resume at the latest source offset.
+
+Incremental source parallelism must be one. Sink parallelism remains available across tables,
+but each source table is assigned to one Flink sink subtask. See
+[Flink routing and recovery](../configuration/schema-evolution.md#flink-routing-and-recovery)
+for connector requirements and the restrictions on shared physical destinations.
+
 ### Http sink: `array_mode = true` sends each row as a JSON object
 
 - **Behavior change: the elements of the request body are JSON objects instead of strings**

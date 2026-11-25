@@ -75,6 +75,7 @@ public class DorisIT extends AbstractDorisIT {
     private static final String DUPLICATE_TABLE = "doris_duplicate_table";
     private static final String sourceDB = "e2e_source";
     private static final String sinkDB = "e2e_sink";
+    private static final String KEYWORD_COLUMN_TABLE = "doris_keyword_column_table";
     private static final String TZ_UNSET_TABLE = "doris_tz_unset";
     private static final String TZ_EXPLICIT_TABLE = "doris_tz_explicit";
     private static final OffsetDateTime TZ_SOURCE_VALUE =
@@ -329,6 +330,46 @@ public class DorisIT extends AbstractDorisIT {
         int exitCode = process.waitFor();
         Assertions.assertEquals(
                 0, exitCode, "failed to update the container INPUT chain: " + output);
+    }
+
+    @TestTemplate
+    public void testReadKeywordColumns(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        // Issue 13369: Doris FE rejected the source query plan SQL when a read field such as
+        // "from" was a Doris keyword. The Assert sink checks the single seeded row below.
+        initializeJdbcTable();
+        try {
+            try (Statement statement = conn.createStatement()) {
+                statement.execute(
+                        String.format(
+                                "create table if not exists `%s`.`%s`(\n"
+                                        + "`id` int not null,\n"
+                                        + "`from` varchar(32) null,\n"
+                                        + "`desc` varchar(32) null,\n"
+                                        + "`to` int null,\n"
+                                        + "`system` varchar(32) null\n"
+                                        + ")\n"
+                                        + "DUPLICATE KEY(`id`)\n"
+                                        + "DISTRIBUTED BY HASH(`id`) BUCKETS 1\n"
+                                        + "properties(\n"
+                                        + "\"replication_allocation\" = \"tag.location.default: 1\""
+                                        + ");",
+                                sourceDB, KEYWORD_COLUMN_TABLE));
+                // A run killed before the finally block can leave a row behind. Truncate it so
+                // the Assert sink still sees exactly one row.
+                statement.execute(
+                        String.format("truncate table `%s`.`%s`", sourceDB, KEYWORD_COLUMN_TABLE));
+                statement.execute(
+                        String.format(
+                                "insert into `%s`.`%s` values (1, 'beijing', 'first', 7, 'erp')",
+                                sourceDB, KEYWORD_COLUMN_TABLE));
+            }
+            Container.ExecResult execResult =
+                    container.executeJob("/doris_source_keyword_columns_to_assert.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        } finally {
+            dropTable(sourceDB, KEYWORD_COLUMN_TABLE);
+        }
     }
 
     @TestTemplate

@@ -26,7 +26,8 @@ becomes one SeaTunnel row of type `STRING`. In streaming mode the source stays c
 socket and reads lines as they arrive; in batch mode the reader performs a single read of whatever
 data is currently available on the socket, emits any complete newline-terminated lines from that read
 (plus any trailing partial line as a final row), and then finishes — it does not wait for the
-connection to close and there is no read-timeout setting.
+connection to close, and it does not rely on a read timeout to finish (`read_timeout_ms` defaults
+to `0`, i.e. no application-level read timeout is applied).
 
 The connector uses a single split (source parallelism is fixed at 1). `host` and `port` refer to the
 *server* endpoint that SeaTunnel connects to; configure a sink, transformer, or peer like `nc -l`

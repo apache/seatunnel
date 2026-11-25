@@ -260,8 +260,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * 处理表添加列事件
      */
     private void handleAddColumnEvent(AlterTableAddColumnEvent event) {
-        log.info("表添加列 | 表名: {}, 新增列: {}, 时间: {}",
-            event.getTableName(), event.getAddedColumns(), event.getEventTime());
+        log.info("表添加列 | 表: {}, 列: {}, 时间: {}",
+            event.getTablePath(), event.getColumn(), event.getCreatedTime());
         // 处理表结构变更逻辑
     }
 
@@ -269,8 +269,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * 处理读取器打开事件
      */
     private void handleReaderOpenEvent(ReaderOpenEvent event) {
-        log.info("读取器打开 | 插件ID: {}, 并行度: {}, 时间: {}",
-            event.getPluginId(), event.getParallelism(), event.getEventTime());
+        log.info("读取器打开 | jobId: {}, 时间: {}",
+            event.getJobId(), event.getCreatedTime());
         // 处理读取器初始化逻辑
     }
 
@@ -278,8 +278,8 @@ public class CustomMultiEventHandler implements EventHandler {
      * 处理写入器关闭事件
      */
     private void handleWriterCloseEvent(WriterCloseEvent event) {
-        log.info("写入器关闭 | 插件ID: {}, 处理记录数: {}, 时间: {}",
-            event.getPluginId(), event.getRecordCount(), event.getEventTime());
+        log.info("写入器关闭 | jobId: {}, 时间: {}",
+            event.getJobId(), event.getCreatedTime());
         // 处理写入器资源清理逻辑
     }
 
