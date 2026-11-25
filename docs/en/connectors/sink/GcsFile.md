@@ -96,9 +96,9 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | sheet_max_rows | int | no | 1048576 | Only used when file_format_type is excel. |
 | sheet_name | string | no | Sheet0 | Only used when file_format_type is excel. |
 | csv_string_quote_mode | enum | no | MINIMAL | Only used when file_format is csv. |
-| xml_root_tag | string | no | RECORDS | Only used when file_format is xml. |
-| xml_row_tag | string | no | RECORD | Only used when file_format is xml. |
-| xml_use_attr_format | boolean | conditional | - | Only used when file_format is xml; required when writing XML files. |
+| xml_root_tag | string | no | RECORDS | Applies when `file_format_type` is `xml`. |
+| xml_row_tag | string | no | RECORD | Applies when `file_format_type` is `xml`. |
+| xml_use_attr_format | boolean | conditional | - | Required when `file_format_type` is `xml`. |
 | parquet_avro_write_timestamp_as_int96 | boolean | no | false | Only used when file_format is parquet. |
 | parquet_avro_write_fixed_as_int96 | array | no | - | Only used when file_format is parquet. |
 | merge_update_event | boolean | no | false | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
