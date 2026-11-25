@@ -216,7 +216,7 @@ The plugin-specific options are:
 | copy_method           | Enum    | No       | scp                                  | Method used to copy the generated part files to the ClickHouse server nodes. Supported values: `scp`, `rsync`.                                                                    |
 | compatible_mode       | Boolean | No       | false                                | In lower ClickHouse versions the `clickhouse-local` program does not support the `--path` parameter; enable this mode to emulate the `--path` behavior in another way.             |
 | node_free_password    | Boolean | No       | false                                | Whether password-free login is configured between the SeaTunnel nodes and the ClickHouse server nodes. File transfer uses `scp`/`rsync`, so SeaTunnel needs access to the ClickHouse server nodes. Set this to `true` when password-free login is configured; otherwise configure the node passwords in `node_pass`. |
-| node_pass             | Array   | No       | -                                    | Password of each ClickHouse server node, for example `[{node_address = "node1", password = "pwd"}]`.                                                                              |
+| node_pass | Array | Yes | - | SSH connection entries for the ClickHouse nodes. Set each node's address, SSH username, and password, for example `[{node_address = "node1", username = "ssh_user", password = "ssh_password"}]`. |
 | key_path              | String  | No       | -                                    | Path of the `rsync`/`ssh` key file used by file transfer.                                                                                                                        |
 | file_fields_delimiter | String  | No       | `\t`                                 | ClickhouseFile temporarily stores data in CSV format. If a row contains this delimiter the generated file may break; avoid it with this option. The value must be exactly one character. |
 | file_temp_path        | String  | No       | /tmp/seatunnel/clickhouse-local/file | Local directory where ClickhouseFile stores temporary files.                                                                                                                     |
@@ -238,6 +238,9 @@ sink {
     password = ""
     clickhouse_local_path = "/usr/local/clickhouse/clickhouse"
     copy_method = "rsync"
+    node_pass = [
+      { node_address = "localhost", username = "ssh_user", password = "ssh_password" }
+    ]
     file_temp_path = "/tmp/seatunnel/clickhouse-local/file"
   }
 }
