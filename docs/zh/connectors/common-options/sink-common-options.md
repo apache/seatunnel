@@ -17,7 +17,7 @@ sidebar_position: 4
 
 | 名称           | 类型     | 是否需要 | 默认值 | 说明 |
 |--------------|--------|------|-----|------|
-| plugin_input | list   | 否    | -   | 不指定 `plugin_input` 时，插件按默认数据集标识 `DEFAULT_ID` 查找上游数据集，即绑定到未声明 `plugin_output` 的上游 source 或 transform 输出的数据集；若不存在这样的数据集，Zeta 引擎会回退绑定到作业中最后生成的数据集（兼容简单作业）。指定 `plugin_input` 时，当前插件处理该参数对应的数据集。该值可以是单个上游数据集名称，也可以是名称数组；配置多个名称时，Zeta 引擎会将这些上游数据集合并后写入当前 sink。 |
+| plugin_input | list | Zeta 复杂作业必填 | - | 上游数据集名称或名称列表。 |
 | metadata_datasource_id | string | 否    | -   | 用于从元数据中心获取连接配置的数据源 ID。指定后会从外部元数据服务获取连接信息（如 URL、用户名、密码），而不是使用直接配置。详见 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。 |
 
 ### metadata_datasource_id [string]
@@ -26,13 +26,13 @@ sidebar_position: 4
 
 ### plugin_input [list]
 
-当不指定 `plugin_input` 时，插件按默认数据集标识 `DEFAULT_ID` 查找上游数据集，而不是按配置文件中的位置相邻性绑定。未声明 `plugin_output` 的上游 source/transform 会以 `DEFAULT_ID` 发布自己的数据集，当前插件消费的就是该数据集。
-
-当指定了 `plugin_input` 时，当前插件处理该参数对应的数据集。该值可以是单个上游数据集名称（字符串），也可以是名称数组；配置多个名称时，Zeta 引擎会将这些上游数据集合并后写入当前 sink。
+将 `plugin_input` 设为上游 source 或 transform 通过 `plugin_output` 声明的数据集名称。可填写单个名称（字符串）或名称数组。选择多个数据集时，Zeta 会合并兼容的输入。
 
 ## 重要说明
 
-Sink 只消费数据集，因此没有 `plugin_output` 选项。`plugin_input` 的取值必须与上游 source 或 transform 声明的 `plugin_output` 一致。绑定关系按数据集标识解析，与插件在配置文件中的先后顺序无关：未指定 `plugin_input` 时，插件使用默认标识 `DEFAULT_ID`，所有未声明 `plugin_output` 的上游数据集都以该标识发布，因此多个 sink 可以在不写 `plugin_input` 的情况下消费同一个默认数据集。只有当作业不是简单结构（source、transform 或 sink 的数量多于一个）时，校验才要求每个 source/transform 声明 `plugin_output`、每个 transform/sink 声明 `plugin_input`（参见本页末尾的说明）。
+对于只有一个 source、一个 sink 且最多一个 transform 的 Zeta 作业，省略 `plugin_output` 或 `plugin_input` 时使用默认数据集标识 `DEFAULT_ID`。若 sink 的输入名称均未匹配到数据集，Zeta 会回退到最后生成的数据集。
+
+如果 Zeta 作业包含多个 source、多个 transform 或多个 sink，每个 source 和 transform 都必须设置 `plugin_output`，每个 transform 和 sink 都必须设置 `plugin_input`。多个 sink 可以将各自的 `plugin_input` 设为同一个输出名称，消费同一数据集。
 
 ## Examples
 
@@ -72,6 +72,3 @@ sink {
     }
 }
 ```
-
-> 如果作业只有一个 source、一个（或零个）transform 和一个 sink，可以不为连接器指定 `plugin_input` 和 `plugin_output`：上游输出以默认标识发布，未指定 `plugin_input` 的 transform/sink 按该默认标识绑定（没有匹配时回退到作业中最后生成的数据集）。
-> 如果 source、transform 或 sink 中任意一类运算符的数量大于 1，作业会按命名数据集进行校验：每个 source/transform 必须声明 `plugin_output`，每个 transform/sink 必须声明 `plugin_input`。sink 只消费数据集，没有 `plugin_output`。
