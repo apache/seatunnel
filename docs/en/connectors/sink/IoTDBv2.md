@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 Used to write data to IoTDB 2.x. The connector name in job configuration is `IoTDBv2`.
 
-The connector supports both the IoTDB tree model (`sql_dialect = "tree"`, default) and the table model (`sql_dialect = "table"`). Each input row is written as either one device record (tree model) or one row of an IoTDB table (table model). Writing is idempotent on the `(device, timestamp)` key in the tree model and on the table primary key in the table model, which is what the exactly-once guarantee relies on.
+The connector supports both the IoTDB tree model (`sql_dialect = "tree"`, default) and the table model (`sql_dialect = "table"`). Each input row becomes a device record in the tree model or a table row in the table model.
 
 ## Supported Engines
 
@@ -20,7 +20,7 @@ The connector supports both the IoTDB tree model (`sql_dialect = "tree"`, defaul
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
-    > IoTDB supports the `exactly-once` feature through idempotent writing. If multiple data have the same `key` and `timestamp`, the latest one will overwrite the previous one.
+    > The sink relies on idempotent writes to the same `(device, timestamp)` in the tree model or the same primary key in the table model. For replay to use the same key, configure `key_timestamp` with a stable, non-null input timestamp. An omitted `key_timestamp` or a null value uses the current processing time, so replay can write a separate record.
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
@@ -60,7 +60,7 @@ The connector supports both the IoTDB tree model (`sql_dialect = "tree"`, defaul
 | key_measurement_fields      | Array   | No       | refer to description | IoTDB-tree: Specify the field names in SeaTunnelRow to be used as measurement (all fields excluding `key_device`&`key_timestamp` will be used by default) <br/> IoTDB-table: Specify the field names in SeaTunnelRow to be used as FIELD columns (all fields excluding `key_device`, `key_timestamp`, `key_tag_fields` and `key_attribute_fields` will be used by default) |
 | key_tag_fields              | Array   | No       | -                    | IoTDB-tree: invalid <br/> IoTDB-table: Specify the field names in SeaTunnelRow to be used as TAG columns                                                                                                                                                                                                                                                                   |
 | key_attribute_fields        | Array   | No       | -                    | IoTDB-tree: invalid <br/> IoTDB-table: Specify the field names in SeaTunnelRow to be used as ATTRIBUTE columns                                                                                                                                                                                                                                                             |
-| batch_size                  | Integer | No       | 1024                 | The connector flushes buffered records to IoTDB when the number of buffered records reaches `batch_size`. It also flushes before checkpoint commit and when the writer is closed.                                                                                                                             |
+| batch_size | Integer | No | See below | Row count that triggers a flush. Set a positive value to enable size-based flushing. |
 | max_retries                 | Integer | No       | -                    | The maximum number of retries when flushing records fails. When unset, no retry is performed on a failed flush.                                                                                                                                                                                                                                                            |
 | retry_backoff_multiplier_ms | Integer | No       | -                    | The multiplier for capped linear retry waits: `min(retry_backoff_multiplier_ms * i, max_retry_backoff_ms)` milliseconds, where `i` starts at 0 after the first failure. When both settings are unset, no additional retry delay is applied.                                                                                                                                                                                                              |
 | max_retry_backoff_ms        | Integer | No       | -                    | The maximum retry backoff delay in milliseconds.                                                                                                                                                                                                                                                                                                                          |
@@ -75,7 +75,7 @@ For the tree model, `key_device` is used as the IoTDB device path, and `key_meas
 
 For the table model, `storage_group` is the database, `key_device` is the target table name field, `key_tag_fields` are TAG columns, `key_attribute_fields` are ATTRIBUTE columns, and `key_measurement_fields` are FIELD columns. If `key_measurement_fields` is not set, all fields except the table name, time, TAG, and ATTRIBUTE fields are written as FIELD columns.
 
-The connector buffers rows and flushes them to IoTDB when the buffer size reaches `batch_size`. It also flushes the buffered rows before a checkpoint commit and when the writer closes. There is no separate timer-based flush; configure `batch_size` to balance throughput and latency.
+Set a positive `batch_size` to flush when the buffer reaches that size. The option declares `1024` as its default. The current writer configuration applies a size threshold only when the job sets the option explicitly. Checkpoint and close flushes run in either case.
 
 ## Examples
 

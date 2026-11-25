@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 用于将数据写入 IoTDB 2.x。作业配置中的连接器名称为 `IoTDBv2`。
 
-连接器同时支持 IoTDB 树模型（`sql_dialect = "tree"`，默认）和表模型（`sql_dialect = "table"`）。每一条上游记录会被写入一条 IoTDB 记录，树模型下是某个设备的时序记录，表模型下是某个表的一行。树模型在 `(device, timestamp)` 上幂等，表模型在表的主键上幂等，这也是它能够提供精确一次保证的基础。
+连接器同时支持 IoTDB 树模型（`sql_dialect = "tree"`，默认）和表模型（`sql_dialect = "table"`）。每条输入记录在树模型中写入一条设备记录，在表模型中写入一行数据。
 
 ## 支持的引擎
 
@@ -20,7 +20,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
-    > IoTDB 通过幂等写支持`精确一次`功能。如果两条数据使用相同的`key`和`timestamp`，新数据将覆盖旧数据。
+    > 树模型对相同的 `(device, timestamp)` 幂等写入，表模型对相同的主键幂等写入。为保证重放时使用同一个键，请通过 `key_timestamp` 指定稳定且非空的输入时间戳。省略该选项或字段值为 `null` 时，连接器会使用当前处理时间，重放可能写入另一条记录。
 - [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
@@ -60,7 +60,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | key_measurement_fields      | Array   | 否    | 见描述    | IoTDB 树模型：在 SeaTunnelRow 中指定 IoTDB 测量列表的字段名（如未指定，则包括排除`key_device`&`key_timestamp`后的其余字段）；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 测点列（FIELD）的字段名（如未指定，则包括排除`key_device`&`key_timestamp`&`key_tag_fields`&`key_attribute_fields`后的其余字段） |
 | key_tag_fields              | Array   | 否    | -      | IoTDB 树模型：不生效；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 标签列（TAG）的字段名                                                                                                                                                                     |
 | key_attribute_fields        | Array   | 否    | -      | IoTDB 树模型：不生效；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 属性列（ATTRIBUTE）的字段名                                                                                                                                                               |
-| batch_size                  | Integer | 否    | 1024   | 缓存的记录数达到 `batch_size` 时，连接器会把数据刷新到 IoTDB；在 checkpoint 提交前和写入器关闭时也会刷新。                                                                                                                                                                  |
+| batch_size | Integer | 否 | 见下文 | 触发刷新的缓存行数。设为正值可按行数触发刷新。 |
 | max_retries                 | Integer | 否    | -      | 刷新失败时的最大重试次数。如果不填写，刷新失败时不会自动重试。                                                                                                                                                                                                  |
 | retry_backoff_multiplier_ms | Integer | 否    | -      | 用于有上限的线性重试等待：等待毫秒数为 `min(retry_backoff_multiplier_ms * i, max_retry_backoff_ms)`，首次失败后的 `i` 为 0。两个选项都不填写时，不增加重试等待。                                                                                                                                                                              |
 | max_retry_backoff_ms        | Integer | 否    | -      | 最大重试等待时间，单位为毫秒。                                                                                                                                                                                                                         |
@@ -75,7 +75,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 表模型下，`storage_group` 表示数据库，`key_device` 表示目标表名字段，`key_tag_fields` 表示 TAG 列，`key_attribute_fields` 表示 ATTRIBUTE 列，`key_measurement_fields` 表示 FIELD 列。未配置 `key_measurement_fields` 时，除表名、时间、TAG 和 ATTRIBUTE 字段之外的所有字段都会写成 FIELD 列。
 
-连接器会缓存数据行，当缓存大小达到 `batch_size` 时刷新到 IoTDB。checkpoint 提交前和写入器关闭时也会触发刷新。连接器不提供独立的定时刷新配置，请通过 `batch_size` 在吞吐和时延之间取舍。
+配置正数 `batch_size` 后，达到该行数时会刷新。选项声明的默认值为 `1024`，但当前写入器只有在作业中显式配置该选项时才使用行数阈值。Checkpoint 和关闭写入器时都会刷新。
 
 ## 示例
 
