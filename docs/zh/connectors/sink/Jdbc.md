@@ -966,48 +966,6 @@ sink {
 }
 ```
 
-#### SqlServer CDC source
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "STREAMING"
-  checkpoint.interval = 5000
-}
-
-source {
-  SqlServer-CDC {
-    plugin_output = "customers"
-    username = "sa"
-    password = "Password!"
-    database-names = ["column_type_test"]
-    table-names = [
-      "column_type_test.dbo.full_types",
-      "column_type_test.dbo.full_types_2"
-    ]
-    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
-  }
-}
-
-sink {
-  Jdbc {
-    plugin_input = "customers"
-    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
-    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test;encrypt=false"
-    user = "sa"
-    password = "Password!"
-    generate_sink_sql = true
-    database = "column_type_test"
-    schema = "dbo"
-    table = "sink_${table_name}"
-    batch_size = 1
-    primary_keys = ["id"]
-  }
-}
-```
-
-`table` 中的 `${table_name}` 占位符会使用上游记录的表元数据填充，因此每张源表（`full_types`、`full_types_2`）都会写入各自的 sink 表（`sink_full_types`、`sink_full_types_2`）。请配合 `generate_sink_sql = true` 并预先配置 `primary_keys`，这样 SeaTunnel 才能为每张上游表生成正确的 INSERT/UPSERT 语句。
-
 #### Amazon Aurora DSQL
 
 ```hocon

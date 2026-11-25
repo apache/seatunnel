@@ -124,7 +124,17 @@ SELECT DES_DECRYPT('12345678', encrypted_secret) AS original FROM t
 
 ```GET_JSON_OBJECT(json, path) -> STRING```
 
-使用 JSON 路径从 JSON 字符串中提取值并返回字符串。该函数与 Zeta 实现共享，路径语法与示例参见 [GET_JSON_OBJECT](sql-functions.md#get_json_object)。
+使用 JSON 路径从 JSON 字符串中提取值并返回字符串。任一参数为 `NULL` 时返回 `NULL`。该函数与 Zeta 实现共享，路径语法与示例参见 [GET_JSON_OBJECT](sql-functions.md#get_json_object)。
+
+**参数：**
+- `json`：要解析的 JSON 字符串（STRING）
+- `path`：JSON 路径，例如 `$.field.subfield[0]`（STRING）
+
+**示例：**
+
+```sql
+SELECT GET_JSON_OBJECT('{"a":{"b":[1,2,3]}}', '$.a.b[1]') AS value FROM t
+```
 
 ### 向量函数
 
@@ -239,24 +249,6 @@ SELECT id, VECTOR_REDUCE(embedding, 64, 'SPARSE_RANDOM_PROJECTION') AS reduced F
 
 ```sql
 SELECT id, VECTOR_NORMALIZE(embedding) AS unit_vec FROM t
-```
-
-### JSON 函数
-
-#### GET_JSON_OBJECT
-
-```GET_JSON_OBJECT(json, path) -> STRING```
-
-使用 JSON 路径从 JSON 字符串中提取值并以字符串返回。任一参数为 `NULL` 时返回 `NULL`。
-
-**参数：**
-- `json`：要解析的 JSON 字符串（STRING）
-- `path`：JSON 路径，例如 `$.field.subfield[0]`（STRING）
-
-**示例：**
-
-```sql
-SELECT GET_JSON_OBJECT('{"a":{"b":[1,2,3]}}', '$.a.b[1]') AS value FROM t
 ```
 
 除上述 UDF 外，Apache Calcite 提供的所有标准 SQL 函数均可使用（字符串、数学、日期/时间、JSON、条件表达式等）。完整函数参考请见 [Apache Calcite SQL 参考文档](https://calcite.apache.org/docs/reference.html)。
