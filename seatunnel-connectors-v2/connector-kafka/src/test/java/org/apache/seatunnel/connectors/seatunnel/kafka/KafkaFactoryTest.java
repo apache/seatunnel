@@ -41,6 +41,7 @@ import java.util.Map;
 class KafkaFactoryTest {
 
     private final OptionRule sourceRule = new KafkaSourceFactory().optionRule();
+    private final OptionRule sinkRule = new KafkaSinkFactory().optionRule();
 
     private void validate(Map<String, Object> config) {
         ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(sourceRule);
@@ -49,6 +50,10 @@ class KafkaFactoryTest {
     private void validateUnknownKeys(Map<String, Object> config) {
         ConfigValidator.validateUnknownKeys(
                 ReadonlyConfig.fromMap(config), sourceRule, "KafkaSource");
+    }
+
+    private void validateSink(Map<String, Object> config) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(sinkRule);
     }
 
     private Map<String, Object> validTimestampConfig() {
@@ -91,6 +96,17 @@ class KafkaFactoryTest {
     void optionRule() {
         Assertions.assertNotNull((new KafkaSourceFactory()).optionRule());
         Assertions.assertNotNull((new KafkaSinkFactory()).optionRule());
+    }
+
+    @Test
+    void testCanalJsonMergeUpdateEventOption() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("bootstrap.servers", "localhost:9092");
+        config.put("topic", "test-topic");
+        config.put("format", "canal_json");
+        config.put("merge_update_event", true);
+
+        Assertions.assertDoesNotThrow(() -> validateSink(config));
     }
 
     @Test

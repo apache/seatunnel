@@ -76,8 +76,11 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
                 return null;
             }
 
+            SeaTunnelRow updateBeforeRow = cacheUpdateBeforeRow;
+            cacheUpdateBeforeRow = null;
             if (mergeUpdateEventFlag && row.getRowKind() == RowKind.UPDATE_AFTER) {
-                reuse.setField(0, new SeaTunnelRow[] {cacheUpdateBeforeRow});
+                reuse.setField(
+                        0, updateBeforeRow == null ? null : new SeaTunnelRow[] {updateBeforeRow});
             } else {
                 reuse.setField(0, null);
             }

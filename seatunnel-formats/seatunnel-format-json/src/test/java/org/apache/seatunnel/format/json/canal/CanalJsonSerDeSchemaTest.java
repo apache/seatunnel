@@ -21,6 +21,7 @@ package org.apache.seatunnel.format.json.canal;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -44,7 +45,9 @@ import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CanalJsonSerDeSchemaTest {
     private static final String FORMAT = "Canal";
@@ -158,6 +161,28 @@ public class CanalJsonSerDeSchemaTest {
                 String.format("Unknown operation type '%s'.", unknownType));
     }
 
+    @Test
+    public void testMergeUpdateEventDoesNotReuseUnmatchedBeforeRow() {
+        CanalJsonSerializationSchema serializationSchema =
+                new CanalJsonSerializationSchema(SEATUNNEL_ROW_TYPE, StandardCharsets.UTF_8, true);
+
+        SeaTunnelRow updateAfter = new SeaTunnelRow(new Object[] {101, "new", "value", 1.0F});
+        updateAfter.setRowKind(RowKind.UPDATE_AFTER);
+        String unmatchedUpdate =
+                new String(serializationSchema.serialize(updateAfter), StandardCharsets.UTF_8);
+        assertTrue(unmatchedUpdate.contains("\"old\":null"));
+
+        SeaTunnelRow updateBefore = new SeaTunnelRow(new Object[] {101, "old", "value", 1.0F});
+        updateBefore.setRowKind(RowKind.UPDATE_BEFORE);
+        assertNull(serializationSchema.serialize(updateBefore));
+
+        SeaTunnelRow insert = new SeaTunnelRow(new Object[] {102, "insert", "value", 1.0F});
+        String insertEvent =
+                new String(serializationSchema.serialize(insert), StandardCharsets.UTF_8);
+        assertTrue(insertEvent.contains("\"type\":\"INSERT\""));
+        assertTrue(insertEvent.contains("\"old\":null"));
+    }
+
     public void runTest(List<String> lines, CanalJsonDeserializationSchema deserializationSchema)
             throws IOException {
         SimpleCollector collector = new SimpleCollector();
@@ -240,9 +265,9 @@ public class CanalJsonSerDeSchemaTest {
                 new CanalJsonSerializationSchema(SEATUNNEL_ROW_TYPE, StandardCharsets.UTF_8, true);
         result.clear();
         for (SeaTunnelRow rowData : collector.list) {
-            if (serializationSchema.serialize(rowData) != null) {
-                result.add(
-                        new String(serializationSchema.serialize(rowData), StandardCharsets.UTF_8));
+            byte[] serializedRow = serializationSchema.serialize(rowData);
+            if (serializedRow != null) {
+                result.add(new String(serializedRow, StandardCharsets.UTF_8));
             }
         }
         expectedResult =

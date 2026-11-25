@@ -61,6 +61,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseCo
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.VALUE;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseOptions.PROTOBUF_MESSAGE_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseOptions.PROTOBUF_SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.MERGE_UPDATE_EVENT;
 
 @RequiredArgsConstructor
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
@@ -434,7 +435,10 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         .delimiter(delimiter)
                         .build();
             case CANAL_JSON:
-                return new CanalJsonSerializationSchema(rowType);
+                return new CanalJsonSerializationSchema(
+                        rowType,
+                        StandardCharsets.UTF_8,
+                        !isKey && Boolean.TRUE.equals(pluginConfig.get(MERGE_UPDATE_EVENT)));
             case OGG_JSON:
                 return new OggJsonSerializationSchema(rowType);
             case DEBEZIUM_JSON:

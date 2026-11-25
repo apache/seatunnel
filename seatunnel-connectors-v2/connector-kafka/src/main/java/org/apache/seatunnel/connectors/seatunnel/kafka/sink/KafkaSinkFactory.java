@@ -45,6 +45,7 @@ public class KafkaSinkFactory implements TableSinkFactory, SupportSinkDryRunVali
                         KafkaSinkOptions.ASSIGN_PARTITIONS,
                         KafkaSinkOptions.TRANSACTION_PREFIX,
                         KafkaSinkOptions.SEMANTICS,
+                        KafkaSinkOptions.MERGE_UPDATE_EVENT,
                         KafkaSinkOptions.PARTITION,
                         KafkaSinkOptions.PARTITION_KEY_FIELDS,
                         AvroFormatOptions.AVRO_ROW_NULLABLE)

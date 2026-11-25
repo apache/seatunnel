@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -84,6 +86,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -121,6 +124,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     // ---------------------------Canal Format Parameter---------------------------------------
 
     private static final String CANAL_KAFKA_SINK_TOPIC = "test-canal-sink";
+    private static final String CANAL_MERGE_KAFKA_SINK_TOPIC = "test-canal-merge-sink";
     private static final String CANAL_DATA_PATH = "/canal/canal_data.txt";
     private static final String CANAL_KAFKA_SOURCE_TOPIC = "test-cdc_mds";
 
@@ -143,6 +147,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                     COMPATIBLE_KAFKA_SOURCE_TOPIC,
                     DEBEZIUM_KAFKA_SOURCE_TOPIC,
                     CANAL_KAFKA_SINK_TOPIC,
+                    CANAL_MERGE_KAFKA_SINK_TOPIC,
                     OGG_KAFKA_SINK_TOPIC,
                     MAXWELL_KAFKA_SINK_TOPIC,
                     DEBEZIUM_KAFKA_SINK_TOPIC);
@@ -394,6 +399,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 0, execCanalResultToPgSql.getExitCode(), execCanalResultToPgSql.getStderr());
         // Check Canal
         checkCanalFormat();
+        checkCanalMergedUpdates();
     }
 
     @TestTemplate
@@ -600,6 +606,50 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                                         "0.1"))
                         .collect(Collectors.toList());
         Assertions.assertIterableEquals(postgreSinkTableList, checkArraysResult);
+    }
+
+    private void checkCanalMergedUpdates() throws IOException {
+        TopicPartition partition = new TopicPartition(CANAL_MERGE_KAFKA_SINK_TOPIC, 0);
+        kafkaConsumer.unsubscribe();
+        kafkaConsumer.assign(Collections.singletonList(partition));
+        kafkaConsumer.seekToBeginning(Collections.singletonList(partition));
+        Assertions.assertEquals(
+                12L, kafkaConsumer.endOffsets(Collections.singletonList(partition)).get(partition));
+        List<JsonNode> events = new ArrayList<>();
+        ObjectMapper mapper = new ObjectMapper();
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            for (ConsumerRecord<String, String> record :
+                                    kafkaConsumer.poll(Duration.ofMillis(1000))) {
+                                Assertions.assertNotNull(
+                                        record.value(), "No Kafka tombstones expected");
+                                events.add(mapper.readTree(record.value()));
+                            }
+                            Assertions.assertEquals(12, events.size());
+                        });
+        for (int i = 0; i < 9; i++) {
+            Assertions.assertEquals("INSERT", events.get(i).get("type").asText());
+            Assertions.assertEquals(1101 + i, events.get(i).get("data").get(0).get("id").asInt());
+            Assertions.assertTrue(events.get(i).get("old").isNull());
+        }
+        int[] updatedIndexes = {0, 6};
+        String[] newWeights = {"4.56", "7.88"};
+        for (int i = 0; i < updatedIndexes.length; i++) {
+            JsonNode update = events.get(9 + i);
+            JsonNode before = events.get(updatedIndexes[i]).get("data").get(0);
+            Assertions.assertEquals("UPDATE", update.get("type").asText());
+            Assertions.assertEquals(1, update.get("old").size());
+            Assertions.assertEquals(before, update.get("old").get(0));
+            JsonNode after = update.get("data").get(0);
+            Assertions.assertEquals(before.get("id"), after.get("id"));
+            Assertions.assertEquals(before.get("name"), after.get("name"));
+            Assertions.assertEquals(before.get("description"), after.get("description"));
+            Assertions.assertEquals(newWeights[i], after.get("weight").asText());
+        }
+        Assertions.assertEquals("DELETE", events.get(11).get("type").asText());
+        Assertions.assertEquals(events.get(8).get("data"), events.get(11).get("data"));
+        Assertions.assertTrue(events.get(11).get("old").isNull());
     }
 
     private void checkCanalFormat() {
