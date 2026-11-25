@@ -218,7 +218,7 @@ sink {
 
 ### 连接器如何刷新数据？
 
-行先在内存中缓冲，达到 `batchSize` 时作为一个 native batch indexing 任务提交给 Druid；writer 关闭时也会刷新剩余行。该连接器没有基于时间的周期刷新选项，需要结合 `batchSize` 与 writer 关闭时机来控制端到端延迟。
+每新增 `batchSize` 行，writer 会把当前累计缓冲区作为一个 native batch indexing 任务提交。提交后缓冲区仍保留这些行。关闭 writer 时会再次提交累计缓冲区，其中包含之前提交过的行。`batchSize` 控制提交时机，缓冲区会在 writer 的生命周期内持续增长。
 
 ### 如何把多张上游表写到多个 Druid datasource？
 

@@ -218,7 +218,7 @@ Only the types listed in [Data Type Mapping](#data-type-mapping) are supported. 
 
 ### How does the connector flush data?
 
-Rows are buffered in memory and submitted to Druid as one native batch indexing task when the buffered row count reaches `batchSize`. Remaining rows are also flushed when the writer closes. There is no time-based periodic flush option; configure `batchSize` together with the writer's close timing to control end-to-end latency.
+The writer submits the accumulated buffer as a native batch indexing task whenever another `batchSize` rows arrive. A submission leaves its rows in the buffer. Closing the writer submits that buffer again, including previously submitted rows. `batchSize` controls when a task is sent. The retained buffer grows for the lifetime of the writer.
 
 ### Can I write multiple upstream tables to multiple Druid datasources?
 
