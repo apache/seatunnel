@@ -12,11 +12,27 @@ If this is your first JDBC Sink job, start with [Choose a write mode](#choose-a-
 
 Generated DB2 upserts update matched rows when an incoming field changes, including NULL-to-value and value-to-NULL transitions. Equal values, including two NULLs, do not trigger an unnecessary matched update.
 
+### SAP HANA version compatibility
+
+Generated upserts support older SAP HANA revisions such as 2.00.033 through alias-free target references. No extra option is required. Tables containing only key columns still insert unmatched rows and leave matched rows unchanged.
+
 ## MySQL temporal values
 
 MySQL `DATETIME` maps to SeaTunnel `TIMESTAMP` (`LocalDateTime`). The MySQL JDBC sink binds its local date/time fields directly, preserving fractional seconds supported by the target column even when the worker JVM and JDBC connection time zones differ. MySQL `TIMESTAMP` maps to `TIMESTAMP_TZ` and retains its instant-based handling.
 
 When upgrading from a version affected by [#13024](https://github.com/apache/seatunnel/issues/13024), remove any manual hour offset added to compensate for shifted `DATETIME` writes. Previously stored values are not repaired automatically; compare them with the original source before correcting or reloading data.
+
+## GoldenDB
+
+To use the MySQL-compatible JDBC dialect and catalog with a GoldenDB driver, explicitly set `dialect = "GoldenDB"` along with its matching driver class and URL, for example:
+
+```hocon
+url = "jdbc:goldendb://goldendb-host:3306/example"
+driver = "com.goldendb.jdbc.Driver"
+dialect = "GoldenDB"
+```
+
+Install a GoldenDB JDBC driver compatible with your database version. Driver class names and supported URL formats depend on that version. GoldenDB deployments that expose the MySQL protocol may instead use a compatible MySQL JDBC driver and `jdbc:mysql://` URL; this selects the existing MySQL dialect. Existing `jdbc:goldendb:` configurations without an explicit dialect continue to use the generic dialect. The MySQL catalog requires `username` and `password` and does not forward the JDBC `properties` map to catalog connections. Verify SQL, data types, and transaction behavior against your GoldenDB version before production use. A MySQL test does not verify a GoldenDB server or its driver.
 
 ## Using Dependency
 
@@ -44,6 +60,30 @@ Place the JDBC driver in `${SEATUNNEL_HOME}/plugins/Jdbc/lib/` on every node tha
 Place the JDBC driver in `${SEATUNNEL_HOME}/lib/` on every SeaTunnel node, then restart the affected SeaTunnel processes so the driver is loaded.
 
 See the [driver reference](#driver-reference) for common driver class names and download locations.
+
+## CockroachDB
+
+Use `driver = "org.postgresql.Driver"`, a PostgreSQL JDBC URL, and explicit `dialect = "CockroachDB"`. Create the target table before starting the job; this dialect does not provide a catalog for automatic table creation or schema save modes.
+
+```hocon
+Jdbc {
+  url = "jdbc:postgresql://cockroachdb:26257/app?sslmode=verify-full"
+  driver = "org.postgresql.Driver"
+  dialect = "CockroachDB"
+  username = "seatunnel"
+  password = ${DB_PASSWORD}
+  database = "app"
+  table = "public.orders"
+  generate_sink_sql = true
+  primary_keys = ["id"]
+}
+```
+
+Configure the driver's trusted root certificate for your cluster. Do not disable TLS in production.
+
+Generated upserts use CockroachDB's native `INSERT ... ON CONFLICT (keys) DO UPDATE`, retaining the configured `primary_keys` conflict target. This also works with a matching secondary unique constraint. The shorter `UPSERT` statement is intentionally not used: it always selects the physical primary key and could change the meaning of a configured secondary key. Updates modify only incoming non-key columns; omitted columns keep their existing values. Key-only rows use `DO NOTHING`. Replaying matching non-null key values does not insert another row; nullable unique keys containing `NULL` do not produce a conflict and can insert additional rows. The configured keys must match a primary or unique constraint on the target table.
+
+The first scope is row inserts, upserts, updates, and deletes against existing tables. There is no CockroachDB catalog, automatic DDL/schema evolution, XA exactly-once support, or new transaction-retry policy. Schema-change events are rejected before flushing buffered rows or executing DDL. Only `data_save_mode = APPEND_DATA` is supported; `schema_save_mode` may be left at its default or set to `IGNORE`, but neither mode creates or checks the target table. Other save modes are rejected instead of silently ignored. `table_options` is rejected rather than accepting PostgreSQL-only settings. Existing PostgreSQL jobs and URL matching are unchanged.
 
 ## Choose a write mode
 
@@ -255,9 +295,9 @@ Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
 ### dialect [string]
 
-The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
+The appointed dialect. When set, its value must match one of the dialect names in the dialect list below (case-insensitive) and takes priority over the dialect inferred from the url; when it is not set, the dialect is inferred from the url. For example, when using MySQL, you need to set its value to `mysql`. Note: StarRocks is not a dialect name. When using StarRocks, leave `dialect` unset and set `compatible_mode` to `starrocks`. Inceptor is not a dialect name either. When using Inceptor, leave `dialect` unset or set `dialect` to `HIVE`, and set `compatible_mode` to `inceptor`.
 
-If one dialect not supported by SeaTunnel, it will use the default dialect `GenericDialect`. Just make sure the driver you provided support the database you want to connect.
+If the `dialect` option is not set and no dialect matches the url, SeaTunnel uses the default dialect `GenericDialect`. If `dialect` is set to a value that does not match any supported dialect name, job initialization fails instead of falling back. Just make sure the driver you provided supports the database you want to connect.
 
 #### dialect list
 
@@ -265,14 +305,15 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 |-----------|--------------|----------|
 | Greenplum | DB2          | Dameng   |
 | Gbase8a   | HIVE         | KingBase |
-| MySQL     | StarRocks    | Oracle   |
+| MySQL     | OpenGauss    | Oracle   |
 | Phoenix   | Postgres     | Redshift |
 | SapHana   | Snowflake    | Sqlite   |
 | SqlServer | Tablestore   | Teradata |
 | Vertica   | OceanBase    | XUGU     |
-| IRIS      | Inceptor     | Highgo   |
+| IRIS      | Presto       | Highgo   |
 | DSQL      |              |          |
-| YashanDB  |              |          |
+| YashanDB  | CockroachDB  |          |
+| DuckDB    |              |          |
 ### database [string]
 
 The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.

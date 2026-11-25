@@ -6,11 +6,19 @@
 
 Copy a field to a new field.
 
+### Supported data types
+
+Copy supports the following column types: `boolean`, `tinyint`, `smallint`, `int`, `bigint`, `float`, `double`, `decimal`, `string`, `null`, `bytes`, `date`, `time`, `timestamp`, `timestamp_tz`, `array`, `map`, `row` and the vector types (`binary_vector`, `float_vector`, `float16_vector`, `bfloat16_vector`, `sparse_float_vector`).
+
+`bytes`, vector, `array`, `map` and `row` values are deep-copied, so later changes to the source field do not affect the copied field. Other values are immutable and are shared.
+
+Vector types are not supported on the Spark engine.
+
 ## Options
 
 |  name  |  type  | required | default value |
 |--------|--------|----------|---------------|
-| fields | Object | yes (or the deprecated `src_field`+`dest_field` pair) |               |
+| fields | Map | yes (or the deprecated `src_field`+`dest_field` pair) |               |
 | src_field | String | no | |
 | dest_field | String | no | |
 
@@ -74,4 +82,4 @@ Then the data in result table `fake1` will like this
 
 - Add Copy Transform Connector
 - Support copy fields to a new fields
-
+- Support timestamp_tz and vector types

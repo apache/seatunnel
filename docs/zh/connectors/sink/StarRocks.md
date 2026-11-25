@@ -66,7 +66,7 @@ StarRocks数据接收器使用模板，在需求需要的时候也可以修改�
 默认模板如下：
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
 ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
@@ -80,7 +80,7 @@ DISTRIBUTED BY HASH (${rowtype_primary_key})PROPERTIES (
 在模板中添加自定义字段，比如说加上`id`字段的修改模板如下：
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}`
 (   
     id,
     ${rowtype_fields}
@@ -222,12 +222,12 @@ sink {
 | FLOAT         | FLOAT         |
 | DOUBLE        | DOUBLE        |
 | DECIMAL       | DECIMAL       |
-| DATE          | STRING        |
+| DATE          | DATE          |
 | TIME          | STRING        |
-| DATETIME      | STRING        |
+| DATETIME      | TIMESTAMP     |
 | STRING        | STRING        |
-| ARRAY         | STRING        |
-| MAP           | STRING        |
+| ARRAY         | ARRAY         |
+| MAP           | MAP           |
 | BYTES         | STRING        |
 
 #### 支持导入的数据格式

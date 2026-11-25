@@ -21,6 +21,8 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Locale;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -147,5 +149,38 @@ class SqlServerURLParserTest {
         assertEquals("encrypt=false", urlInfo.getSuffix());
         assertEquals(
                 "jdbc:sqlserver://sqlserver:1433;encrypt=false", urlInfo.getUrlWithoutDatabase());
+    }
+
+    /**
+     * The property keys are matched case insensitively. Under {@code tr-TR} and {@code az-AZ},
+     * upper casing {@code instanceName} with the default locale gave {@code İNSTANCENAME}, so the
+     * instance was lost and the URL fell back to port 1433.
+     */
+    @Test
+    public void testInstanceNamePropertyDoesNotDependOnTheDefaultLocale() {
+        String url =
+                "jdbc:sqlserver://localhost;instanceName=SQLEXPRESS;databaseName=myDB;encrypt=false;";
+        Locale[] saved = {
+            Locale.getDefault(),
+            Locale.getDefault(Locale.Category.FORMAT),
+            Locale.getDefault(Locale.Category.DISPLAY)
+        };
+        try {
+            for (Locale locale : new Locale[] {new Locale("tr", "TR"), new Locale("az", "AZ")}) {
+                // Upper casing "i" gives a dotted capital I under these locales.
+                Locale.setDefault(locale);
+                JdbcUrlUtil.UrlInfo urlInfo = SqlServerURLParser.parse(url);
+                assertEquals(
+                        "jdbc:sqlserver://localhost\\SQLEXPRESS;instanceName=SQLEXPRESS;encrypt=false",
+                        urlInfo.getUrlWithoutDatabase(),
+                        locale.toString());
+                assertNull(urlInfo.getPort(), locale.toString());
+            }
+        } finally {
+            // The base locale first, because setting it overwrites both category defaults.
+            Locale.setDefault(saved[0]);
+            Locale.setDefault(Locale.Category.FORMAT, saved[1]);
+            Locale.setDefault(Locale.Category.DISPLAY, saved[2]);
+        }
     }
 }
