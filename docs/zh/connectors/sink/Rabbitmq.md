@@ -12,7 +12,13 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## 描述
 
-用于将数据写入 RabbitMQ 队列。
+RabbitMQ Sink 连接器会把每一行上游数据发布为一条 RabbitMQ 消息，写入指定的队列、exchange
+或 routing key。默认情况下，消息会通过默认 exchange 直接发送到名为 `queue_name` 的队列；
+当配置了 `routing_key`（可选地同时配置 `exchange`）时，连接器会改为通过指定 exchange 来路由消息。
+
+如果目标队列不存在，连接器会按照 `durable`、`exclusive`、`auto_delete` 等参数声明队列，并使用
+标准的 AMQP 恢复选项（`network_recovery_interval`、`topology_recovery_enabled`、
+`AUTOMATIC_RECOVERY_ENABLED`）在 broker 故障时自动重连。
 
 ## 主要特性
 
@@ -41,7 +47,7 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 | topology_recovery_enabled  | boolean | 否    | -     | 是否启用拓扑恢复。 |
 | AUTOMATIC_RECOVERY_ENABLED | boolean | 否    | -     | 是否启用连接恢复；配置键使用大写。 |
 | connection_timeout         | int     | 否    | -     | TCP 建连超时，单位为毫秒；`0` 表示无限等待。 |
-| rabbitmq.config            | map     | 否    | -     | 额外的 RabbitMQ 客户端配置。 |
+| rabbitmq.config            | map     | 否    | {}    | 额外的 RabbitMQ 客户端配置。 |
 | durable                    | boolean | 否    | true  | 是否声明持久化队列，在服务器重启后保留。 |
 | exclusive                  | boolean | 否    | false | 是否声明仅当前连接使用、连接关闭后删除的队列。 |
 | auto_delete                | boolean | 否    | false | 是否在最后一个消费者取消订阅后自动删除队列。 |

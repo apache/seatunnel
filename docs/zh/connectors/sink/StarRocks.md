@@ -52,7 +52,7 @@ StarRocks数据接收器内部实现采用了缓存，通过stream load将数据
 | save_mode_create_template   | string  | 否    | 参见表下方的说明                     | 自动建表模板，详见表下方说明                                                                                                      |
 | starrocks.config            | map     | 否    | -                            | Stream Load `data_desc` 参数                                                                                           |
 | http_socket_timeout_ms      | int     | 否    | 180000                       | HTTP socket 超时时间，默认为 3 分钟                                                                                           |
-| label_state_timeout_ms      | long    | 否    | 180000                       | 当 Stream Load 返回非终态结果（`Publish Timeout`、`Label Already Exists`、复用 label 的失败）时，接收器轮询 `get_load_state` 以确认事务状态的总时长，超时后刷新失败并由作业从 checkpoint 重放。默认 3 分钟，应小于作业的 checkpoint 超时时间。 |
+| label_state_timeout_ms      | long    | 否    | 180000                       | 当 Stream Load 返回非终态结果（`Publish Timeout`、`Label Already Exists`、复用 label 的失败）时，接收器轮询 `get_load_state` 以确认事务状态的总时长，超时后刷新失败并由作业从 checkpoint 重放。默认 3 分钟，应小于作业的 checkpoint 超时时间。非正值不会被拒绝，而是回退为内置默认值 180000 毫秒。 |
 | schema_save_mode            | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 同步任务启动前，针对目标端已存在的表结构选择不同处理方式                                                                                       |
 | data_save_mode              | Enum    | 否    | APPEND_DATA                  | 同步任务启动前，针对目标端已存在的数据选择不同处理方式                                                                                         |
 | table_options               | Map     | 否    | -                            | SaveMode 自动建表时合并进 CREATE TABLE PROPERTIES 的 Sink 专属表属性，详见表下方说明                                                      |
@@ -66,7 +66,7 @@ StarRocks数据接收器使用模板，在需求需要的时候也可以修改�
 默认模板如下：
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
 ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
@@ -80,7 +80,7 @@ DISTRIBUTED BY HASH (${rowtype_primary_key})PROPERTIES (
 在模板中添加自定义字段，比如说加上`id`字段的修改模板如下：
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}`
 (   
     id,
     ${rowtype_fields}
@@ -222,17 +222,17 @@ sink {
 | FLOAT         | FLOAT         |
 | DOUBLE        | DOUBLE        |
 | DECIMAL       | DECIMAL       |
-| DATE          | STRING        |
+| DATE          | DATE          |
 | TIME          | STRING        |
-| DATETIME      | STRING        |
+| DATETIME      | TIMESTAMP     |
 | STRING        | STRING        |
-| ARRAY         | STRING        |
-| MAP           | STRING        |
+| ARRAY         | ARRAY         |
+| MAP           | MAP           |
 | BYTES         | STRING        |
 
 #### 支持导入的数据格式
 
-StarRocks数据接收器支持的格式有CSV和JSON格式。
+StarRocks数据接收器支持的格式有CSV和JSON格式。默认导入格式为 JSON，由 `starrocks.config.format` 选项（`CSV` 或 `JSON`）控制；选择 CSV 时，需设置 `starrocks.config.column_separator`（以及 Stream Load 的行分隔符属性）以匹配数据布局。
 
 ## 任务示例
 

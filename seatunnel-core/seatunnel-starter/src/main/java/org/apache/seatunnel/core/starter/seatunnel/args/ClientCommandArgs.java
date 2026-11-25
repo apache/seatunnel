@@ -39,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
@@ -331,7 +332,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
         @Override
         public MasterType convert(String value) {
-            MasterType masterType = MasterType.valueOf(value.toUpperCase());
+            MasterType masterType = MasterType.valueOf(value.toUpperCase(Locale.ROOT));
             if (MASTER_TYPE_LIST.contains(masterType)) {
                 return masterType;
             } else {

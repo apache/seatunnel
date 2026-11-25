@@ -48,7 +48,7 @@ Intercom 的默认限流为每个应用每分钟 10,000 次调用（每个工作
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = BATCH
 }
 

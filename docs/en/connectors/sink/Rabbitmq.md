@@ -12,7 +12,15 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## Description
 
-Used to write data to RabbitMQ queues.
+The RabbitMQ sink connector publishes each upstream row as a message to a RabbitMQ
+queue, exchange, or routing key. By default messages are sent directly to the named
+`queue_name` via the default exchange; when `routing_key` (and optionally `exchange`) is
+configured, the connector routes the message through the specified exchange instead.
+
+The sink declares the target queue if it does not already exist, applying the
+`durable`, `exclusive`, and `auto_delete` arguments, and reconnects on broker failures
+using the standard AMQP recovery options (`network_recovery_interval`,
+`topology_recovery_enabled`, `AUTOMATIC_RECOVERY_ENABLED`).
 
 ## Key features
 
@@ -36,7 +44,7 @@ Used to write data to RabbitMQ queues.
 | topology_recovery_enabled  | boolean | no       | -             | Whether to enable topology recovery.                                                                                        |
 | AUTOMATIC_RECOVERY_ENABLED | boolean | no       | -             | Whether to enable connection recovery. The option key is currently uppercase in the connector configuration.                |
 | connection_timeout         | int     | no       | -             | TCP connection establishment timeout, in milliseconds; `0` means infinite.                                                  |
-| rabbitmq.config            | map     | no       | -             | Extra RabbitMQ client parameters. See the [official RabbitMQ documentation](https://www.rabbitmq.com/configure.html).        |
+| rabbitmq.config            | map     | no       | {}            | Extra RabbitMQ client parameters. See the [official RabbitMQ documentation](https://www.rabbitmq.com/configure.html).        |
 | common-options             |         | no       | -             | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md).                         |
 | durable                    | boolean | no       | true          | Whether the queue survives a server restart. Used when the connector declares the target queue.                             |
 | exclusive                  | boolean | no       | false         | Whether the queue is used only by the current connection and is deleted when the connection closes.                         |

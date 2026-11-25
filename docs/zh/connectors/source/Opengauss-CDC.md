@@ -73,10 +73,11 @@ select 'ALTER TABLE ' || schemaname || '.' || tablename || ' REPLICA IDENTITY FU
 | username                                  | 字符串  | 是        | -        | 连接数据库的用户名                                                                                                                                                                                                          |
 | password                                  | 字符串  | 是        | -        | 连接数据库的密码                                                                                                                                                                                                           |
 | database-names                            | 列表   | 否        | -        | 需要监控的数据库名称。                                                                                                                                                                                                           |
+| schema-name                               | 列表   | 否        | -        | 需要监控的数据库 Schema 名称，例如：`["inventory"]`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | table-names                               | 列表   | 二选一 | -        | 需要监控的表。请使用完整的 `database.schema.table` 格式，例如：`opengauss_cdc.inventory.orders`。                                                                                                                                                              |
 | table-pattern                             | 字符串 | 二选一 | -        | 需要监控的表名正则表达式。正则需要匹配完整表名，例如：`opengauss_cdc\\.inventory\\..*`。`table-names` 和 `table-pattern` 互斥。                                                                                                                                                              |
 | table-names-config                        | 列表   | 否        | -        | 表级配置列表。例如：`[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`。无物理主键表可通过 `primaryKeys` 指定唯一键。`snapshotSplitColumn` 必须是唯一键，否则 SeaTunnel 会忽略该配置并自动选择拆分列。                                                                                                                                             |
-| startup.mode                              | 枚举   | 否        | INITIAL  | Opengauss CDC消费者的可选启动模式，有效枚举为 `initial`、`snapshot-only`、`earliest` 和 `latest`。<br/> `initial`: 启动时同步历史数据，然后同步增量数据。<br/> `snapshot-only`: 仅同步启动时的历史数据，然后以有界任务结束，不进入 WAL 流读取。<br/> `earliest`: 从可能的最早偏移量启动。<br/> `latest`: 从最新偏移量启动。<br/> `committed-offset` 仅 PostgreSQL 支持（它读取 OpenGauss 不提供的 `pg_replication_slots` 列），该连接器会在配置校验阶段拒绝此值。                                                        |
+| startup.mode                              | 枚举   | 否        | INITIAL  | Opengauss CDC消费者的可选启动模式，有效枚举为 `initial`、`snapshot-only`、`earliest` 和 `latest`。<br/> `initial`: 启动时同步历史数据，然后同步增量数据。<br/> `snapshot-only`: 仅同步启动时的历史数据，然后以有界任务结束，不进入 WAL 流读取。从 checkpoint 恢复时只读取 checkpoint 中记录的表，与 [PostgreSQL CDC](PostgreSQL-CDC.md#仅运行一次性快照) 相同。<br/> `earliest`: 从可能的最早偏移量启动。<br/> `latest`: 从最新偏移量启动。<br/> `committed-offset` 仅 PostgreSQL 支持（它读取 OpenGauss 不提供的 `pg_replication_slots` 列），该连接器会在配置校验阶段拒绝此值。                                                        |
 | stop.mode                                 | 枚举   | 否        | NEVER    | Opengauss CDC 消费者的可选停止模式。唯一有效的枚举值是 `never`：一旦进入增量阶段，数据源会持续读取 WAL 变更，不会自行停止。                                                                                                                                                                                                                                                                                                                             |
 | snapshot.split.size                       | 整型   | 否        | 8096     | 表快照的分割大小（行数），在读取表的快照时，捕获的表被分割成多个split                                                                                                                                                                              |
 | snapshot.fetch.size                       | 整型   | 否        | 1024     | 读取表快照时，每次轮询的最大读取大小                                                                                                                                                                                                 |
@@ -85,7 +86,7 @@ select 'ALTER TABLE ' || schemaname || '.' || tablename || ' REPLICA IDENTITY FU
 | slot.name                                 | 字符串  | 否        | seatunnel | Opengauss 逻辑解码槽名称。同一个 Opengauss 实例上如果有多个 CDC 任务，请为每个任务配置不同的 `slot.name`。                                                                                                                               |
 | decoding.plugin.name                      | 字符串  | 否        | pgoutput | 安装在服务器上的Postgres逻辑解码插件的名称，支持的值是decoderbufs、wal2json、wal2json_rds、wal2json_streaming、wal2json_rds_streaming和pgoutput                                                                                                |
 | require-replica-identity-full             | 布尔   | 否        | true     | 要求表设置 REPLICA IDENTITY FULL。设置为 false 时允许其他 replica identity 的表，但 UPDATE/DELETE 事件可能不包含变更前的数据，仅建议用于只追加写入的表（例如 outbox 模式）。默认值 true 以保持向后兼容。                                                              |
-| server-time-zone                          | 字符串  | 否        | -        | 数据库服务器中的会话时区。如果没有设置，则使用ZoneId.systemDefault()来确定服务器的时区                                                                                                                                                             |
+| server-time-zone                          | 字符串  | 否        | JVM 系统时区 | 数据库服务器中的会话时区。如果没有设置，则使用ZoneId.systemDefault()来确定服务器的时区                                                                                                                                                             |
 | connect.timeout.ms                        | Long     | 否        | 30000    | 在尝试连接数据库服务器之后，连接器在超时之前应该等待的最大时间                                                                                                                                                                                    |
 | connect.max-retries                       | 整型   | 否        | 3        | 连接器在建立数据库服务器连接时应该重试的最大次数                                                                                                                                                                                           |
 | connection.pool.size                      | 整型   | 否        | 20       | jdbc连接池的大小                                                                                                                                                                                                         |
@@ -109,7 +110,7 @@ select 'ALTER TABLE ' || schemaname || '.' || tablename || ' REPLICA IDENTITY FU
 
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 5000
   read_limit.bytes_per_second=7000000
@@ -183,11 +184,13 @@ Opengauss CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| database | STRING | 源数据库名称。 |
-| table | STRING | 源表名称。 |
-| rowKind | STRING | 变更类型，例如 insert、update 或 delete。 |
-| ts_ms | LONG | 源事件时间，单位为毫秒。 |
-| delay | LONG | 事件时间和处理时间之间的延迟，单位为毫秒。 |
+| Database | STRING | 源数据库名称。 |
+| Table | STRING | 源表名称。 |
+| RowKind | STRING | 变更类型，输出为 RowKind 短代码：`+I`（插入）、`-U`（更新前）、`+U`（更新后）、`-D`（删除）。 |
+| EventTime | LONG | 连接器读取并处理该事件的时间，单位为毫秒。 |
+| Delay | LONG | 事件时间和处理时间之间的延迟，单位为毫秒。 |
+
+元数据字段的键名区分大小写，必须按照上表原样书写。
 
 示例：
 

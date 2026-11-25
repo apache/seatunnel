@@ -69,7 +69,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | custom_sql                     | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                           |
 | default-database               | String  | no       | information_schema           | The database used by the Doris catalog when it opens the JDBC connection (`query-port`) for save mode operations such as creating tables.                                                                                                                             |
 | multi_table_sink_replica       | int     | no       | 1                            | The number of sink writer replicas per table in a multi-table job. Must be at least 1.                                                                                                                                                                               |
-| doris.config                   | map     | yes      | -                            | Stream Load data description parameters passed to Doris. The most common keys are `format` (`json` or `csv`), `read_json_by_line` (`true`/`false`), `column_separator`, `row_delimiter`, and `partitions`. See the Doris Stream Load documentation for the full key set.               |
+| doris.config                   | map     | yes      | -                            | Stream Load data description parameters passed to Doris. The most common keys are `format` (`json` or `csv`), `read_json_by_line` (`true`/`false`), `column_separator`, `line_delimiter`, and `partitions`. See the Doris Stream Load documentation for the full key set.               |
 
 ## Redirect Behavior
 
@@ -705,7 +705,8 @@ align the target schema explicitly rather than relying on undocumented options.
 
 ### What data format does Doris Stream Load use?
 
-Doris Sink uses JSON format for Stream Load by default. Configure it explicitly if needed:
+Doris Sink requires an explicit Stream Load `format` in `doris.config` (`json` or `csv`);
+there is no default and the job fails to start without it:
 
 ```hocon
 doris.config {

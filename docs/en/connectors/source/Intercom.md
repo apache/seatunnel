@@ -58,7 +58,7 @@ Intercom's default limit is 10,000 calls per minute per app (25,000 per workspac
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = BATCH
 }
 

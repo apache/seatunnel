@@ -1366,8 +1366,8 @@ public class CheckpointCoordinator {
             pendingCounter.set(0);
             schemaChanging.set(false);
             // Only remove the persisted ready-to-close state when the coordinator truly ends
-            // (completed/failed/cancelled). During a reset (master failover), the IMap entry
-            // must be preserved so restoreCoordinator() can recover from it.
+            // (completed/failed/cancelled). During pipeline restore or master failover, RESET
+            // preserves the IMap entry so restoreCoordinator() can recover from it.
             if (closedReason != CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
                 runningJobStateIMap.remove(readyToCloseImapKey);
             }
