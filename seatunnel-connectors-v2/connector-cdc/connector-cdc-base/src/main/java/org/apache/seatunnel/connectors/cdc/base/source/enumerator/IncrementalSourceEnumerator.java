@@ -100,7 +100,9 @@ public class IncrementalSourceEnumerator
     @Override
     public synchronized void addSplitsBack(List<SourceSplitBase> splits, int subtaskId) {
         LOG.debug("Incremental Source Enumerator adds splits back: {}", splits);
-        splitAssigner.addSplits(splits);
+        synchronized (context) {
+            splitAssigner.addSplits(splits);
+        }
         // running == false: the engine delivers the checkpoint-restored splits of a restarting
         // reader before it invokes run() (run() waits for every reader to register), so the
         // returned splits are still queued in the assigner and get dispatched by run()'s first
@@ -153,7 +155,10 @@ public class IncrementalSourceEnumerator
                     subtaskId);
             CompletedSnapshotPhaseEvent event = (CompletedSnapshotPhaseEvent) sourceEvent;
             if (splitAssigner instanceof HybridSplitAssigner) {
-                ((HybridSplitAssigner) splitAssigner).completedSnapshotPhase(event.getTableIds());
+                synchronized (context) {
+                    ((HybridSplitAssigner) splitAssigner)
+                            .completedSnapshotPhase(event.getTableIds());
+                }
                 LOG.info(
                         "Clean the SnapshotSplitAssigner#assignedSplits/splitCompletedOffsets to empty.");
             }
@@ -162,12 +167,20 @@ public class IncrementalSourceEnumerator
 
     @Override
     public PendingSplitsState snapshotState(long checkpointId) {
-        return splitAssigner.snapshotState(checkpointId);
+        // Synchronize on context rather than this enumerator: Zeta's SourceSplitEnumeratorTask
+        // already holds the context monitor around snapshotState(), so taking this monitor here
+        // would invert lock order against assignSplits() and deadlock. In-flight split handoffs
+        // stay visible to snapshotState() via SplitAssigner#onSplitAssigning/#onSplitAssigned.
+        synchronized (context) {
+            return splitAssigner.snapshotState(checkpointId);
+        }
     }
 
     @Override
     public synchronized void notifyCheckpointComplete(long checkpointId) {
-        splitAssigner.notifyCheckpointComplete(checkpointId);
+        synchronized (context) {
+            splitAssigner.notifyCheckpointComplete(checkpointId);
+        }
         // incremental split may be available after checkpoint complete
         assignSplits();
     }
@@ -193,16 +206,34 @@ public class IncrementalSourceEnumerator
             }
 
             Optional<SourceSplitBase> split;
+            boolean waitingForCompletedSplits = false;
             synchronized (context) {
                 split = splitAssigner.getNext();
+                if (split.isPresent()) {
+                    splitAssigner.onSplitAssigning(split.get());
+                } else {
+                    waitingForCompletedSplits = splitAssigner.waitingForCompletedSplits();
+                }
             }
             if (split.isPresent()) {
                 final SourceSplitBase sourceSplit = split.get();
-                context.assignSplit(nextAwaiting, sourceSplit);
+                boolean assigned = false;
+                try {
+                    context.assignSplit(nextAwaiting, sourceSplit);
+                    assigned = true;
+                } finally {
+                    synchronized (context) {
+                        if (assigned) {
+                            splitAssigner.onSplitAssigned(sourceSplit);
+                        } else {
+                            splitAssigner.onSplitAssignFailed(sourceSplit);
+                        }
+                    }
+                }
                 awaitingReader.remove();
                 LOG.debug("Assign split {} to subtask {}", sourceSplit, nextAwaiting);
             } else {
-                if (splitAssigner.waitingForCompletedSplits()) {
+                if (waitingForCompletedSplits) {
                     // there is no available splits by now, skip assigning
                     break;
                 } else {

@@ -53,6 +53,31 @@ public interface SplitAssigner {
     Optional<SourceSplitBase> getNext();
 
     /**
+     * Marks a split returned by {@link #getNext()} as currently being handed off to a reader.
+     * Implementations that persist unassigned splits keep the split visible to {@link
+     * #snapshotState(long)} until {@link #onSplitAssigned(SourceSplitBase)} confirms delivery.
+     *
+     * @param split split currently being sent to a reader
+     */
+    default void onSplitAssigning(SourceSplitBase split) {}
+
+    /**
+     * Confirms that a split previously marked via {@link #onSplitAssigning(SourceSplitBase)} has
+     * been handed off to its reader.
+     *
+     * @param split split whose delivery completed
+     */
+    default void onSplitAssigned(SourceSplitBase split) {}
+
+    /**
+     * Reverts a split previously marked via {@link #onSplitAssigning(SourceSplitBase)} when handoff
+     * to the reader failed with an exception so it remains available for reassignment.
+     *
+     * @param split split whose delivery failed
+     */
+    default void onSplitAssignFailed(SourceSplitBase split) {}
+
+    /**
      * Whether the split assigner is still waiting for callback of completed splits, i.e. {@link
      * #onCompletedSplits}.
      */

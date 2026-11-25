@@ -350,6 +350,150 @@ class IncrementalSplitAssignerTest {
         assertFalse(restoredAssigner.waitingForAssignedSplits());
     }
 
+    @Test
+    void shouldRestoreGeneratedSplitsThatWereNotAssignedBeforeCheckpoint() {
+        SourceConfig sourceConfig = mock(SourceConfig.class);
+        OffsetFactory offsetFactory = mock(OffsetFactory.class);
+        Offset startupOffset = mock(Offset.class);
+        Offset stoppingOffset = mock(Offset.class);
+        when(sourceConfig.getStartupConfig())
+                .thenReturn(new StartupConfig(StartupMode.COMMITTED_OFFSET, null, null, null));
+        when(sourceConfig.getStopConfig())
+                .thenReturn(new StopConfig(StopMode.NEVER, null, null, null));
+        when(offsetFactory.committedOffset()).thenReturn(startupOffset);
+        when(offsetFactory.neverStop()).thenReturn(stoppingOffset);
+
+        TableId table1 = TableId.parse("database.schema.table1");
+        TableId table2 = TableId.parse("database.schema.table2");
+        Set<TableId> capturedTables = new HashSet<>(Arrays.asList(table1, table2));
+        IncrementalSplitAssigner<SourceConfig> assigner =
+                new IncrementalSplitAssigner<>(
+                        createContext(sourceConfig, capturedTables), 2, offsetFactory);
+
+        IncrementalSplit assignedSplit = assigner.getNext().get().asIncrementalSplit();
+        IncrementalPhaseState checkpoint = assigner.snapshotState(1L);
+
+        assertTrue(checkpoint.isSplitAssigned());
+        assertEquals(1, checkpoint.getRemainingSplits().size());
+
+        IncrementalSplitAssigner<SourceConfig> restoredAssigner =
+                new IncrementalSplitAssigner<>(
+                        createContext(sourceConfig, capturedTables), 2, offsetFactory, checkpoint);
+        IncrementalSplit restoredRemainingSplit =
+                restoredAssigner.getNext().get().asIncrementalSplit();
+        Set<TableId> restoredTables = new HashSet<>();
+        restoredTables.addAll(assignedSplit.getTableIds());
+        restoredTables.addAll(restoredRemainingSplit.getTableIds());
+
+        assertEquals(capturedTables, restoredTables);
+        assertFalse(restoredAssigner.getNext().isPresent());
+    }
+
+    @Test
+    void shouldOnlyReassignReturnedTableOnPartialFailoverAfterRestore() {
+        SourceConfig sourceConfig = mock(SourceConfig.class);
+        OffsetFactory offsetFactory = mock(OffsetFactory.class);
+        Offset startupOffset = new TestOffset(10L);
+        Offset stoppingOffset = mock(Offset.class);
+        when(sourceConfig.getStartupConfig())
+                .thenReturn(new StartupConfig(StartupMode.COMMITTED_OFFSET, null, null, null));
+        when(sourceConfig.getStopConfig())
+                .thenReturn(new StopConfig(StopMode.NEVER, null, null, null));
+        when(offsetFactory.committedOffset()).thenReturn(startupOffset);
+        when(offsetFactory.neverStop()).thenReturn(stoppingOffset);
+
+        TableId customers = TableId.parse("database.schema.customers");
+        TableId orders = TableId.parse("database.schema.orders");
+        Set<TableId> capturedTables = new LinkedHashSet<>(Arrays.asList(customers, orders));
+
+        IncrementalSplitAssigner<SourceConfig> assigner =
+                new IncrementalSplitAssigner<>(
+                        createContext(sourceConfig, capturedTables), 2, offsetFactory);
+        IncrementalSplit split0 = assigner.getNext().get().asIncrementalSplit();
+        IncrementalSplit split1 = assigner.getNext().get().asIncrementalSplit();
+        IncrementalPhaseState checkpoint = assigner.snapshotState(1L);
+
+        // After Flink restore, both readers hold their own splits locally and enumerator has
+        // splitAssigned=true with empty remainingSplits/assignedSplits. If only reader 0 fails
+        // and returns its split via addSplitsBack, only that split's table may be reassigned.
+        IncrementalSplitAssigner<SourceConfig> restoredAssigner =
+                new IncrementalSplitAssigner<>(
+                        createContext(sourceConfig, capturedTables), 2, offsetFactory, checkpoint);
+        IncrementalSplit failedSplitWithNewerOffset =
+                new IncrementalSplit(
+                        split0.splitId(),
+                        split0.getTableIds(),
+                        new TestOffset(250L),
+                        stoppingOffset,
+                        Collections.emptyList());
+        restoredAssigner.addSplits(Collections.singletonList(failedSplitWithNewerOffset));
+
+        IncrementalSplit reassigned = restoredAssigner.getNext().get().asIncrementalSplit();
+        assertEquals(split0.getTableIds(), reassigned.getTableIds());
+        assertEquals(new TestOffset(250L), reassigned.getStartupOffset());
+        assertFalse(restoredAssigner.getNext().isPresent());
+        assertFalse(reassigned.getTableIds().containsAll(split1.getTableIds()));
+    }
+
+    @Test
+    void shouldRestoreBothRemainingAndReturnedSplitsWithoutCollisionOrLoss() {
+        SourceConfig sourceConfig = mock(SourceConfig.class);
+        OffsetFactory offsetFactory = mock(OffsetFactory.class);
+        Offset initialOffset = new TestOffset(10L);
+        Offset stoppingOffset = mock(Offset.class);
+        when(sourceConfig.getStartupConfig())
+                .thenReturn(new StartupConfig(StartupMode.COMMITTED_OFFSET, null, null, null));
+        when(sourceConfig.getStopConfig())
+                .thenReturn(new StopConfig(StopMode.NEVER, null, null, null));
+        when(offsetFactory.committedOffset()).thenReturn(initialOffset);
+        when(offsetFactory.neverStop()).thenReturn(stoppingOffset);
+
+        TableId customers = TableId.parse("database.schema.customers");
+        TableId orders = TableId.parse("database.schema.orders");
+        Set<TableId> capturedTables = new LinkedHashSet<>(Arrays.asList(customers, orders));
+
+        IncrementalSplitAssigner<SourceConfig> assigner =
+                new IncrementalSplitAssigner<>(
+                        createContext(sourceConfig, capturedTables), 2, offsetFactory);
+        IncrementalSplit firstAssigned = assigner.getNext().get().asIncrementalSplit();
+        IncrementalPhaseState checkpoint = assigner.snapshotState(1L);
+
+        // Zeta restore: reader 0 returns its advanced split while the unassigned split stays in
+        // checkpoint.getRemainingSplits().
+        IncrementalSplitAssigner<SourceConfig> restoredAssigner =
+                new IncrementalSplitAssigner<>(
+                        createContext(sourceConfig, capturedTables), 2, offsetFactory, checkpoint);
+        IncrementalSplit returnedAdvanced =
+                new IncrementalSplit(
+                        firstAssigned.splitId(),
+                        firstAssigned.getTableIds(),
+                        new TestOffset(500L),
+                        stoppingOffset,
+                        Collections.emptyList());
+        restoredAssigner.addSplits(Collections.singletonList(returnedAdvanced));
+
+        IncrementalSplit splitA = restoredAssigner.getNext().get().asIncrementalSplit();
+        // Even a checkpoint taken after assigning only one of the two splits must keep the other.
+        IncrementalPhaseState midRestoreCheckpoint = restoredAssigner.snapshotState(2L);
+        assertEquals(1, midRestoreCheckpoint.getRemainingSplits().size());
+
+        IncrementalSplit splitB = restoredAssigner.getNext().get().asIncrementalSplit();
+        assertFalse(restoredAssigner.getNext().isPresent());
+        assertFalse(splitA.splitId().equals(splitB.splitId()));
+
+        Set<TableId> allRestoredTables = new HashSet<>();
+        allRestoredTables.addAll(splitA.getTableIds());
+        allRestoredTables.addAll(splitB.getTableIds());
+        assertEquals(capturedTables, allRestoredTables);
+
+        IncrementalSplit advancedRecreated =
+                splitA.getTableIds().equals(firstAssigned.getTableIds()) ? splitA : splitB;
+        IncrementalSplit untouchedRemaining =
+                splitA.getTableIds().equals(firstAssigned.getTableIds()) ? splitB : splitA;
+        assertEquals(new TestOffset(500L), advancedRecreated.getStartupOffset());
+        assertEquals(initialOffset, untouchedRemaining.getStartupOffset());
+    }
+
     private SplitAssigner.Context<SourceConfig> createContext(SourceConfig sourceConfig) {
         return createContext(
                 sourceConfig, Collections.singleton(TableId.parse("database.schema.table")));

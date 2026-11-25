@@ -18,8 +18,13 @@
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator.state;
 
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 
 import lombok.Data;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /** A {@link PendingSplitsState} for pending incremental splits. */
 @Data
@@ -40,21 +45,36 @@ public class IncrementalPhaseState implements PendingSplitsState {
 
     private final boolean splitAssigned;
 
+    /** Incremental splits generated but not yet assigned to a reader. */
+    private final List<IncrementalSplit> remainingSplits;
+
     public IncrementalPhaseState() {
-        this(null, null, false);
+        this(null, null, false, Collections.emptyList());
     }
 
     public IncrementalPhaseState(Offset startupOffset) {
-        this(startupOffset, null, false);
+        this(startupOffset, null, false, Collections.emptyList());
     }
 
     public IncrementalPhaseState(Offset startupOffset, Offset stopOffset) {
-        this(startupOffset, stopOffset, false);
+        this(startupOffset, stopOffset, false, Collections.emptyList());
     }
 
     public IncrementalPhaseState(Offset startupOffset, Offset stopOffset, boolean splitAssigned) {
+        this(startupOffset, stopOffset, splitAssigned, Collections.emptyList());
+    }
+
+    public IncrementalPhaseState(
+            Offset startupOffset,
+            Offset stopOffset,
+            boolean splitAssigned,
+            List<IncrementalSplit> remainingSplits) {
         this.startupOffset = startupOffset;
         this.stopOffset = stopOffset;
         this.splitAssigned = splitAssigned;
+        this.remainingSplits =
+                remainingSplits == null
+                        ? Collections.emptyList()
+                        : Collections.unmodifiableList(new ArrayList<>(remainingSplits));
     }
 }

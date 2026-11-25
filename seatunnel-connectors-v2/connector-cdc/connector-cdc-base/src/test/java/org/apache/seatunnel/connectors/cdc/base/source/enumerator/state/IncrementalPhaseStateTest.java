@@ -18,14 +18,18 @@
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator.state;
 
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import io.debezium.relational.TableId;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -59,6 +63,31 @@ class IncrementalPhaseStateTest {
 
         Assertions.assertEquals(startupOffset, restored.getStartupOffset());
         Assertions.assertNull(restored.getStopOffset());
+    }
+
+    @Test
+    void shouldPreserveRemainingSplitsThroughJavaSerializationRoundTrip() throws Exception {
+        Offset startupOffset = new TestOffset("startup", 1L);
+        Offset stopOffset = new TestOffset("stop", 2L);
+        IncrementalSplit remainingSplit =
+                new IncrementalSplit(
+                        "incremental-split-1",
+                        Collections.singletonList(TableId.parse("database.schema.table")),
+                        startupOffset,
+                        stopOffset,
+                        Collections.emptyList());
+        IncrementalPhaseState state =
+                new IncrementalPhaseState(
+                        startupOffset, stopOffset, true, Collections.singletonList(remainingSplit));
+
+        IncrementalPhaseState restored = roundTrip(state);
+
+        Assertions.assertTrue(restored.isSplitAssigned());
+        Assertions.assertEquals(1, restored.getRemainingSplits().size());
+        Assertions.assertEquals(
+                remainingSplit.splitId(), restored.getRemainingSplits().get(0).splitId());
+        Assertions.assertEquals(
+                remainingSplit.getTableIds(), restored.getRemainingSplits().get(0).getTableIds());
     }
 
     private static IncrementalPhaseState roundTrip(IncrementalPhaseState state) throws Exception {

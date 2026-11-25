@@ -18,12 +18,18 @@
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -91,6 +97,66 @@ public class HybridSplitAssignerTest {
                 splitAssigner.getSnapshotSplitAssigner().getSplitCompletedOffsets().isEmpty());
         Assertions.assertTrue(context.getAssignedSnapshotSplit().isEmpty());
         Assertions.assertTrue(context.getSplitCompletedOffsets().isEmpty());
+    }
+
+    @Test
+    public void shouldPreserveInFlightIncrementalSplitAndAllowCompletedSnapshotPhase() {
+        Map<String, SnapshotSplit> assignedSplits = createAssignedSplits();
+        Map<String, SnapshotSplitWatermark> splitCompletedOffsets = createSplitCompletedOffsets();
+        SnapshotPhaseState snapshotPhaseState =
+                new SnapshotPhaseState(
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        assignedSplits,
+                        splitCompletedOffsets,
+                        true,
+                        Collections.emptyList(),
+                        false,
+                        false);
+        HybridPendingSplitsState checkpointState =
+                new HybridPendingSplitsState(snapshotPhaseState, null);
+        SourceConfig sourceConfig = mock(SourceConfig.class);
+        OffsetFactory offsetFactory = mock(OffsetFactory.class);
+        Offset startupOffset = mock(Offset.class);
+        Offset stopOffset = mock(Offset.class);
+        when(sourceConfig.getStartupConfig())
+                .thenReturn(new StartupConfig(StartupMode.EARLIEST, null, null, null));
+        when(sourceConfig.getStopConfig())
+                .thenReturn(new StopConfig(StopMode.NEVER, null, null, null));
+        when(offsetFactory.earliest()).thenReturn(startupOffset);
+        when(offsetFactory.neverStop()).thenReturn(stopOffset);
+        SplitAssigner.Context<SourceConfig> context =
+                new SplitAssigner.Context<>(
+                        sourceConfig,
+                        Stream.of(TableId.parse("db1.table1"), TableId.parse("db1.table2"))
+                                .collect(Collectors.toSet()),
+                        checkpointState.getSnapshotPhaseState().getAssignedSplits(),
+                        checkpointState.getSnapshotPhaseState().getSplitCompletedOffsets());
+        HybridSplitAssigner<SourceConfig> splitAssigner =
+                new HybridSplitAssigner<>(context, 1, 1, checkpointState, null, offsetFactory);
+
+        SourceSplitBase split = splitAssigner.getNext().get();
+        splitAssigner.onSplitAssigning(split);
+
+        HybridPendingSplitsState inFlightSnapshot =
+                (HybridPendingSplitsState) splitAssigner.snapshotState(1L);
+        Assertions.assertEquals(
+                1, inFlightSnapshot.getIncrementalPhaseState().getRemainingSplits().size());
+        IncrementalSplit inFlightIncrementalSplit =
+                inFlightSnapshot.getIncrementalPhaseState().getRemainingSplits().get(0);
+        Assertions.assertEquals(split.splitId(), inFlightIncrementalSplit.splitId());
+
+        // Reader may report CompletedSnapshotPhaseEvent synchronously inside AssignSplitOperation
+        // before onSplitAssigned() runs; completedSnapshotPhase must still succeed.
+        Assertions.assertTrue(
+                splitAssigner.completedSnapshotPhase(
+                        Arrays.asList(TableId.parse("db1.table1"), TableId.parse("db1.table2"))));
+
+        splitAssigner.onSplitAssigned(split);
+        HybridPendingSplitsState postAssignedSnapshot =
+                (HybridPendingSplitsState) splitAssigner.snapshotState(2L);
+        Assertions.assertTrue(
+                postAssignedSnapshot.getIncrementalPhaseState().getRemainingSplits().isEmpty());
     }
 
     private static Map<String, SnapshotSplit> createAssignedSplits() {
