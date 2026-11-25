@@ -105,6 +105,10 @@ Typesense collection 创建时会使用上游 SeaTunnel 表结构。如果希望
 
 连接器会按 CDC 行类型处理数据：`INSERT` 和 `UPDATE_AFTER` 记录会通过 Typesense 的批量导入接口按生成的文档 `id` upsert 到目标 collection，`UPDATE_BEFORE` 记录会被跳过，`DELETE` 记录会删除对应生成的 `id` 的文档。请配置 `primary_keys`，保证文档 `id` 在 CDC 事件间保持稳定。
 
+写入器会立即发送删除请求，先到达的 upsert 可能仍在批次中等待刷新。
+当 `max_batch_size > 1` 时，缓冲的 upsert 可能在同一 ID 被删除后重新创建该文档。
+将 `max_batch_size` 设置为 `1` 可保持同一个 sink 写入器内的事件顺序。
+
 :::
 
 ## 任务示例

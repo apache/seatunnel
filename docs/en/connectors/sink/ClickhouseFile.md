@@ -34,10 +34,10 @@ Write data to Clickhouse can also be done using JDBC
 | sharding_key           | string  | no       | -                                      |
 | copy_method            | string  | no       | scp                                    |
 | node_free_password     | boolean | no       | false                                  |
-| node_pass              | list    | no       | -                                      |
-| node_pass.node_address | string  | no       | -                                      |
+| node_pass              | list    | yes       | -                                      |
+| node_pass.node_address | string  | yes       | -                                      |
 | node_pass.username     | string  | no       | "root"                                 |
-| node_pass.password     | string  | no       | -                                      |
+| node_pass.password     | string  | yes       | -                                      |
 | compatible_mode        | boolean | no       | false                                  |
 | file_fields_delimiter  | string  | no       | "\t"                                   |
 | file_temp_path         | string  | no       | "/tmp/seatunnel/clickhouse-local/file" |

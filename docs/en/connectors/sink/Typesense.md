@@ -106,6 +106,10 @@ Choose how to handle existing data on the target side before starting the synchr
 
 The connector interprets CDC row kinds: `INSERT` and `UPDATE_AFTER` rows are upserted into the target collection via Typesense's bulk import endpoint based on the generated document `id`, `UPDATE_BEFORE` rows are skipped, and `DELETE` rows delete the document with the generated `id`. Configure `primary_keys` so the document `id` is stable across CDC events.
 
+The writer sends deletes immediately and can hold earlier upserts until the batch is flushed.
+With `max_batch_size > 1`, a buffered upsert can recreate a document after a later delete of the same ID.
+Set `max_batch_size = 1` to preserve this order within each sink writer.
+
 :::
 
 ## Task Example
