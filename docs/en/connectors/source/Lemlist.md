@@ -4,9 +4,26 @@ import ChangeLog from '../changelog/connector-http-lemlist.md';
 
 > Lemlist source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Reads data from Lemlist APIs. The connector uses `password` as the Lemlist API key, creates a Basic authentication header, and then uses the shared HTTP source runtime to parse the response.
+
+The Lemlist connector shares its HTTP request and retry runtime with other HTTP-based source connectors. Configure `password` with the Lemlist API key and point `url` at the Lemlist endpoint you want to call.
+
+## Supported DataSource Info
+
+In order to use the Lemlist connector, the following dependency is required.
+It can be downloaded via install-plugin.sh or from the Maven central repository.
+
+| Datasource   | Supported Versions |                                         Dependency                                          |
+|--------------|--------------------|-----------------------------------------------------------------------------------------------|
+| Lemlist      | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-lemlist)       |
 
 ## Key features
 
@@ -37,7 +54,6 @@ In streaming mode, the connector repeatedly calls the configured API. Set `poll_
 | schema                      | Config | No       | -             | Output schema. Required when `format = "json"`. |
 | json_field                  | Config | No       | -             | JSONPath mapping from response fields to output columns. Must be used together with `schema`. |
 | content_field               | String | No       | -             | JSONPath used to select the array or object that should be parsed as rows. |
-| pageing                     | Config | No       | -             | Pagination settings. See [Pagination](#pagination). |
 | poll_interval_millis        | int    | No       | -             | Request interval in milliseconds for streaming jobs. |
 | retry                       | int    | No       | -             | Maximum retry count when the request throws `IOException`. |
 | retry_backoff_multiplier_ms | int    | No       | 100           | Retry backoff multiplier in milliseconds. |
@@ -76,22 +92,15 @@ schema = {
 
 Use `content_field` when the rows are inside a nested JSON node. Use `json_field` when columns need to be extracted from different JSONPath expressions.
 
-### Pagination
+### Request scope and polling limits
 
-`pageing` can be used when the target API needs paging parameters.
+Each configured request reads one HTTP response. Automatic pagination is not supported: `pageing` does not advance pages or follow next-page links or cursors. Select a specific page in the API request or manage multiple requests outside the connector.
 
-| name | type | required | default value | description |
-|------|------|----------|---------------|-------------|
-| total_page_size | long | No | 0 | Total number of pages to request. |
-| batch_size | int | No | 100 | Page size returned by each request. |
-| start_page_number | long | No | 1 | First page number. |
-| page_field | String | No | page | Request parameter name for page number pagination. |
-| page_type | String | No | PageNumber | Pagination type. Supported values are `PageNumber` and `Cursor`. |
-| cursor_field | String | No | - | Request parameter name for cursor pagination. |
-| cursor_response_field | String | No | - | JSONPath field used to read the next cursor from the response. |
-| use_placeholder_replacement | boolean | No | false | Use `${field}` placeholder replacement in headers, parameters, and body. |
+Streaming mode repeats the configured request. Polls can re-emit the same rows, and the connector does not checkpoint an API cursor for incremental recovery. Repeated polls and restarts can therefore produce duplicates.
 
 ## Example
+
+### Batch Read of a Lemlist Team
 
 ```hocon
 env {
@@ -127,6 +136,44 @@ source {
 sink {
   Console {
     plugin_input = "lemlist"
+  }
+}
+```
+
+### Polling Read in Streaming Mode
+
+For Lemlist endpoints that grow over time, run the connector in `STREAMING`
+mode and let `poll_interval_millis` decide how often SeaTunnel re-issues the
+same request.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Lemlist {
+    plugin_output = "lemlist_stream"
+    url = "https://api.lemlist.com/api/activities"
+    password = "replace-with-api-key"
+    method = "GET"
+    poll_interval_millis = 30000
+    format = "json"
+    schema = {
+      fields {
+        _id = string
+        type = string
+        createdAt = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "lemlist_stream"
   }
 }
 ```

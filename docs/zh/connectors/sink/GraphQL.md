@@ -42,12 +42,12 @@ mutation 一起发送。
 |---------------|---------|----------|--------|------|
 | url           | String  | 是       | -      | GraphQL HTTP 服务地址。Sink 模式要求使用 `http://` 或 `https://`。 |
 | query         | String  | 是       | -      | GraphQL mutation 语句。Sink 只支持 `mutation`。 |
-| variables     | Map     | 否       | -      | 初始 GraphQL 变量。每次请求前，输入行字段会加入这个变量表。 |
+| variables | Map | 否 | `{}` | GraphQL 初始变量。连接器会在每次请求前加入输入行字段。 |
 | valueCover    | Boolean | 否       | false  | 为 false 时，同名输入行字段会覆盖配置里的变量；为 true 时，保留配置里的变量值。 |
 | timeout       | Long    | 否       | -      | 传给 HTTP 客户端参数的请求超时时间。 |
 | headers       | Map     | 否       | -      | HTTP 请求头，例如鉴权请求头。 |
 | params        | Map     | 否       | -      | HTTP 请求参数。 |
-| retry         | Int     | 否       | -      | HTTP 请求出现 IOException 时的最大重试次数。 |
+| retry         | Int     | 否       | -      | 设置为至少 1 时表示包含首次请求在内的总尝试次数。仅对由 `IOException` 引起的失败进行重试，使用 Fibonacci 退避。未配置或非正数时不重试。 |
 | retry_backoff_multiplier_ms | Int | 否 | 100 | HTTP 请求失败后的重试退避倍率，单位毫秒。 |
 | retry_backoff_max_ms | Int | 否 | 10000 | HTTP 请求失败后的最大重试退避时间，单位毫秒。 |
 | connect_timeout_ms | Int | 否 | 12000 | HTTP 连接超时时间，单位毫秒。 |
@@ -63,6 +63,42 @@ mutation 一起发送。
 - 如果 `valueCover = false`，同名输入行字段会覆盖配置里的变量值。
 - Sink 会为每一行输入数据发送一次 mutation 请求。如果上游包含多张表，需要确认同一条 mutation 和变量名可以处理所有写入到该 Sink 的表。
 - `multi_table_sink_replica` 只影响多表 sink 运行时的副本数，不会按不同表自动选择不同的 GraphQL mutation。
+
+### 鉴权
+
+大多数 GraphQL 服务都要求鉴权请求头，可以把它写在 `headers` 里：
+
+```hocon
+sink {
+  GraphQL {
+    plugin_input = "fake"
+    url = "https://graphql.example.com/v1/graphql"
+    headers = {
+      Authorization = "Bearer ${secret}"
+    }
+    variables = {}
+    query = """
+      mutation MyMutation($id: Int!, $val_string: String!) {
+        insert_event(objects: {id: $id, val_string: $val_string}) {
+          affected_rows
+        }
+      }
+    """
+  }
+}
+```
+
+凭据应通过 `headers.Authorization` 传入；本 Sink 没有 `password` 或 `token` 选项。
+提交任务时必须提供示例中的 `${secret}` 变量。例如，使用 Zeta CLI 时，先在提交环境中设置
+`GRAPHQL_TOKEN`，然后执行：
+
+```shell
+./bin/seatunnel.sh --config graphql.conf -i "secret=${GRAPHQL_TOKEN}"
+```
+
+Shell 会展开 `GRAPHQL_TOKEN`，SeaTunnel 再将提供的 `secret` 替换到请求头中。不要将凭据
+写入受版本控制的任务文件；存储凭据时可参考
+[配置加密](../../introduction/configuration/config-encryption-decryption.md)。
 
 ## 任务示例
 
@@ -105,6 +141,7 @@ sink {
   GraphQL {
     plugin_input = "fake"
     url = "http://graphql:8080/v1/graphql"
+    variables = {}
     query = """
       mutation MyMutation(
         $id: Int!
@@ -162,10 +199,13 @@ sink {
 }
 ```
 
-### 向 GraphQL 服务流式发送 Mutation
+### 在流模式下持续写入
 
-在流式模式下持续执行同一个 mutation。sink 会为每一行发送一次 mutation，并通过
-`retry` 加指数退避来吸收瞬时的 HTTP 失败。
+流模式下 Sink 会持续接收上游行数据，并对每条行执行一次 mutation 请求。只有请求因
+`IOException`（包括包装异常中的原因）失败时才会重试，使用 Fibonacci 退避，并由
+`retry_backoff_max_ms` 限制等待时间。`retry = 5` 表示包含首次请求在内最多尝试五次。
+
+HTTP 状态码非 200，或 HTTP 200 响应中包含 GraphQL 错误时，写入会失败。上述重试只处理 `IOException`。
 
 ```hocon
 env {
@@ -197,6 +237,7 @@ sink {
     headers = {
       Authorization = "Bearer ${secret}"
     }
+    variables = {}
     query = """
       mutation MyMutation($id: Int!, $val_string: String!) {
         insert_event(objects: {id: $id, val_string: $val_string}) {
@@ -258,6 +299,7 @@ sink {
   GraphQL {
     plugin_input = "fake"
     url = "http://graphql:8080/v1/graphql"
+    variables = {}
     query = """
       mutation MyMutation($id: Int!, $val_bool: Boolean!, $val_string: String!) {
         insert_sink(objects: {id: $id, val_bool: $val_bool, val_string: $val_string}) {
