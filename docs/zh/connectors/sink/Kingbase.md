@@ -75,7 +75,7 @@ JDBC Sink 的驱动参考表没有为 Kingbase 列出 XA `DataSource` 类。请�
 | batch_interval_ms                         | Long    | 否   | 0       | 写入触发的定时刷新间隔，单位毫秒。`0` 表示关闭定时刷新；大于 `0` 时，每次写入会检查距离上次刷新是否已超过该间隔，超过则同步刷新。 |
 | is_exactly_once | Boolean | 否 | false | 启用 XA 事务时，需要在 `xa_data_source_class_name` 中填写已验证的驱动 XA 类。 |
 | generate_sink_sql                         | Boolean | 否   | false   | 根据您要写入的数据库表生成 sql 语句                                                                                                                                                                     |
-| xa_data_source_class_name                 | String  | 否   | -       | 数据库驱动程序的 xa 数据源类名，Kingbase 目前不支持                                                                                                                                                     |
+| xa_data_source_class_name | String | `is_exactly_once = true` 时必填 | - | 已针对当前 Kingbase JDBC 驱动版本验证的 XA `DataSource` 全限定类名。 |
 | max_commit_attempts                       | Int     | 否   | 3       | 事务提交失败的重试次数                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | 否   | -1      | 事务打开后的超时时间，默认为 -1（永不超时）。请注意，设置超时可能会影响<br/>精确一次语义                                                                                          |
 | auto_commit                               | Boolean | 否   | true    | 默认启用自动事务提交                                                                                                                                                                           |
