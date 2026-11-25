@@ -35,6 +35,7 @@ import static org.apache.seatunnel.api.configuration.OptionTest.TEST_NUM;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class OptionRuleTest {
     public static final Option<Long> TEST_TIMESTAMP =
@@ -106,6 +107,61 @@ public class OptionRuleTest {
                 Condition.of(TEST_MODE, OptionTest.TestMode.TIMESTAMP),
                 conditionRule.getCondition());
         assertEquals(2, conditionRule.getOptionRule().getValueConstraints().size());
+    }
+
+    @Test
+    public void testBuilderKeepsRegisteredTriggerWhenCallerExtendsChain() {
+        Condition<?> trigger =
+                Condition.of(TEST_MODE, OptionTest.TestMode.TIMESTAMP)
+                        .and(Conditions.greaterThan(TEST_NUM, 0))
+                        .or(TEST_TOPIC_PATTERN, "all");
+        Condition<?> original =
+                Condition.of(TEST_MODE, OptionTest.TestMode.TIMESTAMP)
+                        .and(Conditions.greaterThan(TEST_NUM, 0))
+                        .or(TEST_TOPIC_PATTERN, "all");
+        OptionRule nested = OptionRule.builder().required(TEST_PORTS).build();
+        OptionRule.Builder builder =
+                OptionRule.builder()
+                        .optional(TEST_MODE, TEST_NUM, TEST_TOPIC_PATTERN)
+                        .conditional(trigger, TEST_TIMESTAMP)
+                        .conditionalRule(trigger, nested);
+
+        trigger.and(TEST_NUM, 10);
+        assertThrows(
+                OptionValidationException.class, () -> builder.conditionalRule(original, nested));
+        OptionRule rule = builder.conditionalRule(trigger, nested).build();
+        RequiredOption.ConditionalRequiredOptions required =
+                (RequiredOption.ConditionalRequiredOptions) rule.getRequiredOptions().get(0);
+        assertEquals(original, required.getCondition());
+        assertEquals(List.of(TEST_TIMESTAMP), required.getOptions());
+        assertEquals(2, rule.getConditionRules().size());
+        assertTrue(rule.getConditionRules().contains(new ConditionRule(original, nested)));
+        assertTrue(rule.getConditionRules().contains(new ConditionRule(trigger, nested)));
+    }
+
+    @Test
+    public void testBuilderRequiresDeclaredOptionsAcrossTriggerChain() {
+        OptionRule.Builder builder = OptionRule.builder().optional(TEST_NUM);
+        Condition<?> trigger = Condition.of(TEST_NUM, 1).or(TEST_MODE, OptionTest.TestMode.LATEST);
+        assertThrows(
+                OptionValidationException.class,
+                () -> builder.conditional(trigger, TEST_TIMESTAMP));
+
+        Option<Integer> limit = Options.key("limit").intType().noDefaultValue();
+        Condition<?> comparison = Conditions.lessThanField(TEST_NUM, limit);
+        OptionRule nested = OptionRule.builder().required(TEST_TIMESTAMP).build();
+        assertThrows(
+                OptionValidationException.class, () -> builder.conditionalRule(comparison, nested));
+        assertDoesNotThrow(() -> builder.optional(limit).conditionalRule(comparison, nested));
+    }
+
+    @Test
+    public void testNullTriggerIsRejectedAtConstruction() {
+        OptionRule nested = OptionRule.builder().required(TEST_TIMESTAMP).build();
+        assertThrows(NullPointerException.class, () -> new ConditionRule(null, nested));
+        assertThrows(
+                NullPointerException.class,
+                () -> RequiredOption.ConditionalRequiredOptions.of(null, List.of(TEST_TIMESTAMP)));
     }
 
     @Test

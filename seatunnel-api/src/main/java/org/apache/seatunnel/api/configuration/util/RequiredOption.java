@@ -121,7 +121,7 @@ public interface RequiredOption {
         private final List<Option<?>> requiredOption;
 
         ConditionalRequiredOptions(Condition<?> condition, List<Option<?>> requiredOption) {
-            this.condition = condition;
+            this.condition = Objects.requireNonNull(condition, "condition");
             this.requiredOption = requiredOption;
         }
 

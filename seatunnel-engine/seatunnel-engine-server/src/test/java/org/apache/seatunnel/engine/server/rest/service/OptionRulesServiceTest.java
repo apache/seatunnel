@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
-import org.apache.seatunnel.api.configuration.util.ConditionRule;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.engine.server.rest.response.OptionRuleResponse;
@@ -423,10 +422,11 @@ class OptionRulesServiceTest {
         Condition<?> chain =
                 Condition.of(a, "1").and(Condition.of(b, "2")).or(Condition.of(c, "3"));
 
-        OptionRule optionRule = OptionRule.builder().optional(a, b, c).build();
-        optionRule
-                .getConditionRules()
-                .add(new ConditionRule(chain, OptionRule.builder().required(a).build()));
+        OptionRule optionRule =
+                OptionRule.builder()
+                        .optional(a, b, c)
+                        .conditionalRule(chain, OptionRule.builder().required(a).build())
+                        .build();
         LinkedHashMap<PluginIdentifier, OptionRule> plugins = new LinkedHashMap<>();
         plugins.put(PluginIdentifier.of("seatunnel", "source", "MixedChainSource"), optionRule);
         OptionRuleResponse response;

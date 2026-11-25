@@ -226,12 +226,7 @@ public class OptionRule {
                             .reduce(Condition::or)
                             .get();
 
-            RequiredOption.ConditionalRequiredOptions option =
-                    RequiredOption.ConditionalRequiredOptions.of(
-                            condition, new ArrayList<>(Arrays.asList(requiredOptions)));
-            verifyRequiredOptionDuplicate(option, true);
-            this.requiredOptions.add(option);
-            return this;
+            return addConditionalRequiredOptions(condition, requiredOptions);
         }
 
         public <T> Builder conditional(
@@ -239,14 +234,27 @@ public class OptionRule {
                 @NonNull T expectValue,
                 @NonNull Option<?>... requiredOptions) {
             verifyConditionalExists(conditionalOption);
+            return addConditionalRequiredOptions(
+                    Condition.of(conditionalOption, expectValue), requiredOptions);
+        }
 
-            Condition<T> condition = Condition.of(conditionalOption, expectValue);
-            RequiredOption.ConditionalRequiredOptions conditionalRequiredOption =
+        /**
+         * Requires the given options when the trigger matches. Declare every option referenced by
+         * the trigger first, including cross-field operands. The builder snapshots the chain so
+         * appending conditions to it later does not change this rule.
+         */
+        public Builder conditional(
+                @NonNull Condition<?> trigger, @NonNull Option<?>... requiredOptions) {
+            verifyTriggerOptions(trigger);
+            return addConditionalRequiredOptions(trigger.copyChain(), requiredOptions);
+        }
+
+        private Builder addConditionalRequiredOptions(Condition<?> condition, Option<?>[] options) {
+            RequiredOption.ConditionalRequiredOptions required =
                     RequiredOption.ConditionalRequiredOptions.of(
-                            condition, new ArrayList<>(Arrays.asList(requiredOptions)));
-
-            verifyRequiredOptionDuplicate(conditionalRequiredOption, true);
-            this.requiredOptions.add(conditionalRequiredOption);
+                            condition, new ArrayList<>(Arrays.asList(options)));
+            verifyRequiredOptionDuplicate(required, true);
+            this.requiredOptions.add(required);
             return this;
         }
 
@@ -272,24 +280,39 @@ public class OptionRule {
                                 conditionalOption.key()));
             }
 
-            if (!conditionalOptionRule.hasOptions()) {
-                throw new OptionValidationException(
-                        String.format(
-                                "conditional option rule for '%s' must have options.",
-                                conditionalOption.key()));
-            }
-
             Condition<T> condition =
                     expectValues.stream()
                             .map(v -> Condition.of(conditionalOption, v))
                             .reduce(Condition::or)
                             .get();
 
+            return addConditionalRule(condition, conditionalOptionRule);
+        }
+
+        /**
+         * Applies the nested rule when the trigger matches. The trigger has the same declaration
+         * and snapshot semantics as {@link #conditional(Condition, Option[])}.
+         */
+        public Builder conditionalRule(
+                @NonNull Condition<?> trigger, @NonNull OptionRule conditionalOptionRule) {
+            verifyTriggerOptions(trigger);
+            return addConditionalRule(trigger.copyChain(), conditionalOptionRule);
+        }
+
+        private Builder addConditionalRule(
+                Condition<?> condition, OptionRule conditionalOptionRule) {
+            if (!conditionalOptionRule.hasOptions()) {
+                throw new OptionValidationException(
+                        String.format(
+                                "conditional option rule for '%s' must have options.",
+                                condition.getOption().key()));
+            }
+
             if (conditionRulesMap.containsKey(condition)) {
                 throw new OptionValidationException(
                         String.format(
                                 "conditional option rule for '%s' with expression '%s' already exists.",
-                                conditionalOption.key(), condition.toString()));
+                                condition.getOption().key(), condition.toString()));
             }
             this.conditionRulesMap.put(condition, conditionalOptionRule);
             return this;
@@ -563,6 +586,15 @@ public class OptionRule {
                                             requiredOption.getClass().getSimpleName()));
                         }
                     });
+        }
+
+        private void verifyTriggerOptions(Condition<?> trigger) {
+            for (Condition<?> node = trigger; node != null; node = node.getNext()) {
+                verifyConditionalExists(node.getOption());
+                if (node.getCompareOption() != null) {
+                    verifyConditionalExists(node.getCompareOption());
+                }
+            }
         }
 
         private void verifyConditionalExists(@NonNull Option<?> option) {

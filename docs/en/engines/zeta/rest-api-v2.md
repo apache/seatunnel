@@ -106,8 +106,6 @@ The [OpenAPI 3.1 contract for the read-only REST v2 subset](openapi-v2.yaml) cur
 
 #### Responses
 
-Conditional required options and nested condition rules in REST metadata and the CLI metadata export use a flat chain whose expression nodes own `operator` and `next`; interpret `AND` before `OR` (for example, `A OR B AND C` means `A OR (B AND C)`), not from left to right. Standalone `valueConstraints[].conditionTree` chains carry `operator` and `next` on the condition nodes themselves and use the same precedence.
-
 ```json
 {
   "engineType": "seatunnel",
@@ -229,6 +227,23 @@ Conditional required options and nested condition rules in REST metadata and the
 - `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
 - `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
 - For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
+- Conditional required options and nested rules store each predicate in `expressionTree.condition`. The expression node links to the next predicate. This excerpt shows the links for `A OR B AND C`, which evaluates as `A || (B && C)`. Only the option keys and links are shown.
+
+  ```json
+  {
+    "expressionTree": {
+      "condition": {"option": {"key": "a"}},
+      "operator": "OR",
+      "next": {
+        "condition": {"option": {"key": "b"}},
+        "operator": "AND",
+        "next": {"condition": {"option": {"key": "c"}}, "operator": null, "next": null}
+      }
+    }
+  }
+  ```
+
+- In standalone `valueConstraints[].conditionTree`, the condition nodes themselves carry `operator` and `next`. The CLI uses the same precedence. [CLI metadata export](../../architecture/configuration-and-option-system.md#export-connector-metadata)
 - `optionRule.valueConstraints` describes value-level validation rules such as numeric ranges, string patterns, and cross-field comparisons. Each entry provides a human-readable `expression` string alongside a structured `conditionTree` for programmatic use. This array is empty when the connector does not define any value constraints.
 - Within `conditionTree`, the `compareOperator` field is `null` for `EQUAL` and otherwise uses the operator symbol exposed by the runtime rule (for example `>=`, `is not blank`, or `extension`). The `compareOption` field is populated only for cross-field comparisons.
 - `conditionOperator` is a stable operator identifier. Possible values include `EQUAL`, `GREATER_OR_EQUAL`, `NOT_BLANK`, `FIELD_LESS_THAN`, `EXTENSION`, etc. `conditionOperatorCategory` indicates the operator category, such as `NUMERIC`, `STRING`, `COLLECTION`, `EQUALITY`, `EXTENSION`, etc.

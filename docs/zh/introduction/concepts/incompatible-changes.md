@@ -142,16 +142,26 @@ MySQL JDBC Sink 现在直接绑定 SeaTunnel `TIMESTAMP`（`LocalDateTime`），
 ### 条件选项规则统一使用 `Condition`，并删除已废弃的 `Expression` API
 
 - **破坏性变更：删除 `Expression` 及其全部入口，条件选项规则改为完全使用 `Condition` 构建、求值和渲染**
-  - **影响范围**：`seatunnel-api`（`OptionRule`、`ConditionRule`、`RequiredOption.ConditionalRequiredOptions`、`ConfigValidator`），以及渲染同一批条件的 Zeta REST 选项规则元数据接口和 `seatunnel.sh` 元数据导出
+  - **影响范围**：`seatunnel-api`（`OptionRule`、`ConditionRule`、`RequiredOption.ConditionalRequiredOptions`、`ConfigValidator`），以及渲染同一批条件的 Zeta REST 选项规则元数据接口和 `bin/seatunnel-metadata-export.sh` 元数据导出
   - **变更说明**：`Expression` 不再是选项规则模型的一部分，`Condition` 链成为唯一表示。`A.and(B).or(C)` 这类链现在按标准布尔优先级求值和输出，即 `(A && B) || C`。旧的 `Expression` 模型对同一条链按右结合求值，即 `A && (B || C)`，且括号分组方式不同：`A.or(B).and(C)` 过去输出为 `(A || B) && C`，现在输出为 `A || (B && C)`。
   - **影响**：
     - **API 删除（源码不兼容）**：`Expression` 类以及所有使用它的入口都已删除：`ConfigValidator.validate(OptionRule, Expression)`、`RequiredOption.ConditionalRequiredOptions.of(Expression, List)`、`RequiredOption.ConditionalRequiredOptions.getExpression()`、`new ConditionRule(Expression, OptionRule)`、`ConditionRule.getExpression()`。仍在导入或调用它们的代码将无法编译，需要迁移到基于 `Condition` 的 API。
     - 同时混用 AND 和 OR 的条件规则可能在新版本中命中以前不命中的分支。例如 `A.and(B).or(C)` 在 `A=false、B=false、C=true` 时，现在会触发必填校验，而旧表达式不会命中。
-    - 校验报错信息和 REST/CLI 导出的元数据会按 `Condition` 的优先级渲染混合链，括号和文本与之前版本不同。
+    - 校验报错信息和 REST/CLI 中的 `expression` 文本按 AND 优先于 OR 的规则分组。旧 API 用单个 `Expression` 节点包装多节点 `Condition` 时，还会额外输出一层外括号。例如，`(A && B)` 现在输出为 `A && B`，`(A || B)` 输出为 `A || B`。这两种纯 AND 或纯 OR 链的求值结果保持一致。
+    - `Condition.equals` 和 `hashCode` 现在会计入链上每个节点的 `ConditionExtension`。如果工厂每次调用 `optionRule()` 都创建新的匿名扩展实例，即使扩展返回相同的描述，生成的规则也可能不相等。如果需要比较规则或将其用作哈希键，请复用同一个扩展实例，或为扩展实现一致的、基于值的 `equals` 和 `hashCode`。
     - REST 与 CLI 元数据会把包含多个节点的条件链导出为一条平铺链：`operator` 和 `next` 位于导出的树节点上，每个节点的 `condition` 不再重复携带。
     - **预编译插件需要重新编译（二进制不兼容）**：基于旧版 `seatunnel-api` 编译、使用已删除 API 的插件 jar 会在加载时抛出 `NoClassDefFoundError` 或 `NoSuchMethodError`，因为这些类和方法已从运行时移除。
   - **迁移指南**：
-    - 使用 `Condition.of(...)` / `and(...)` / `or(...)` 构建条件链，并使用 `ConditionalRequiredOptions.of(Condition, List)`、`new ConditionRule(Condition, OptionRule)`、`ConditionalRequiredOptions.getCondition()`、`ConditionRule.getCondition()` 读取条件。
+    - 用 `Condition.of(...)`、`and(...)` 和 `or(...)` 构建触发条件，先在 builder 上声明它引用的选项。使用 `conditional(trigger, requiredOptions...)` 添加条件必填项，使用 `conditionalRule(trigger, nestedRule)` 添加嵌套的 `OptionRule`。这两个入口都要求触发条件非空。可通过两类规则的 `getCondition()` 读取触发条件。
+
+      ```java
+      Condition<?> trigger = Condition.of(MODE, "snapshot").or(REPLAY, true);
+      OptionRule rule = OptionRule.builder()
+              .optional(MODE, REPLAY)
+              .conditional(trigger, START_TIME)
+              .conditionalRule(trigger, OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+              .build();
+      ```
     - 检查混用 AND 和 OR 的条件规则并明确期望的优先级。如果需要保留旧的右结合语义，请改写为等价的“AND 组之间取 OR”形式，例如 `A && (B || C)` 改写为 `(A && B) || (A && C)`。
     - 由于表达式文本现在按 `Condition` 的规则渲染，请同步更新断言校验报错信息或导出元数据的测试与工具。
 

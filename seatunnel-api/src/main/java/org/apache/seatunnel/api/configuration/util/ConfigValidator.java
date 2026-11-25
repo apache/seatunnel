@@ -194,19 +194,21 @@ public class ConfigValidator {
         Set<String> structurallyAbsentKeys = new HashSet<>();
 
         for (RequiredOption requiredOption : rule.getRequiredOptions()) {
-            String error = checkRequiredOption(requiredOption, condition);
+            if (requiredOption instanceof RequiredOption.ConditionalRequiredOptions) {
+                Condition<?> trigger =
+                        ((RequiredOption.ConditionalRequiredOptions) requiredOption).getCondition();
+                if (!matchesTrigger(trigger, errors)) {
+                    continue;
+                }
+            }
+            String error =
+                    checkActiveRequiredOption(requiredOption, condition, structurallyAbsentKeys);
             if (error != null) {
                 errors.add(error);
-                collectAbsentKeys(requiredOption, structurallyAbsentKeys);
             }
 
             for (Option<?> option : requiredOption.getOptions()) {
                 if (SingleChoiceOption.class.isAssignableFrom(option.getClass())) {
-                    if (isConditionOption(requiredOption)
-                            && !matchCondition(
-                                    (RequiredOption.ConditionalRequiredOptions) requiredOption)) {
-                        continue;
-                    }
                     validateSingleChoice(option, errors);
                 }
             }
@@ -219,17 +221,9 @@ public class ConfigValidator {
         }
 
         for (ConditionRule conditionRule : rule.getConditionRules()) {
-            try {
-                if (validate(conditionRule.getCondition())) {
-                    collectErrors(
-                            conditionRule.getOptionRule(), conditionRule.getCondition(), errors);
-                }
-            } catch (OptionValidationException e) {
-                errors.add(
-                        formatError(
-                                conditionRule.getCondition().toString(),
-                                TYPE_CONDITIONAL,
-                                e.getRawMessage()));
+            Condition<?> trigger = conditionRule.getCondition();
+            if (matchesTrigger(trigger, errors)) {
+                collectErrors(conditionRule.getOptionRule(), trigger, errors);
             }
         }
 
@@ -255,22 +249,12 @@ public class ConfigValidator {
         }
     }
 
-    private void collectAbsentKeys(RequiredOption requiredOption, Set<String> keys) {
-        if (requiredOption instanceof RequiredOption.AbsolutelyRequiredOptions) {
-            for (Option<?> opt :
-                    getAbsentOptions(
-                            ((RequiredOption.AbsolutelyRequiredOptions) requiredOption)
-                                    .getRequiredOption())) {
-                keys.add(opt.key());
-            }
-        } else if (isConditionOption(requiredOption)) {
-            RequiredOption.ConditionalRequiredOptions cond =
-                    (RequiredOption.ConditionalRequiredOptions) requiredOption;
-            if (matchCondition(cond)) {
-                for (Option<?> opt : getAbsentOptions(cond.getRequiredOption())) {
-                    keys.add(opt.key());
-                }
-            }
+    private boolean matchesTrigger(Condition<?> trigger, List<String> errors) {
+        try {
+            return validate(trigger);
+        } catch (OptionValidationException e) {
+            errors.add(formatError(trigger.toString(), TYPE_CONDITIONAL, e.getRawMessage()));
+            return false;
         }
     }
 
@@ -371,24 +355,42 @@ public class ConfigValidator {
         }
     }
 
-    String checkRequiredOption(RequiredOption requiredOption, Condition<?> condition) {
-        if (requiredOption instanceof RequiredOption.AbsolutelyRequiredOptions) {
-            return checkAbsolutelyRequired(
-                    (RequiredOption.AbsolutelyRequiredOptions) requiredOption, condition);
-        }
+    private String checkActiveRequiredOption(
+            RequiredOption requiredOption,
+            Condition<?> enclosingCondition,
+            Set<String> absentKeys) {
         if (requiredOption instanceof RequiredOption.BundledRequiredOptions) {
             return checkBundled((RequiredOption.BundledRequiredOptions) requiredOption);
         }
         if (requiredOption instanceof RequiredOption.ExclusiveRequiredOptions) {
             return checkExclusive((RequiredOption.ExclusiveRequiredOptions) requiredOption);
         }
-        if (isConditionOption(requiredOption)) {
-            return checkConditional((RequiredOption.ConditionalRequiredOptions) requiredOption);
+        if (!(requiredOption instanceof RequiredOption.AbsolutelyRequiredOptions)
+                && !(requiredOption instanceof RequiredOption.ConditionalRequiredOptions)) {
+            throw new UnsupportedOperationException(
+                    String.format(
+                            "This type option(%s) of validation is not supported",
+                            requiredOption.getClass()));
         }
-        throw new UnsupportedOperationException(
-                String.format(
-                        "This type option(%s) of validation is not supported",
-                        requiredOption.getClass()));
+
+        List<Option<?>> absent = getAbsentOptions(requiredOption.getOptions());
+        if (absent.isEmpty()) {
+            return null;
+        }
+        for (Option<?> option : absent) {
+            absentKeys.add(option.key());
+        }
+        if (requiredOption instanceof RequiredOption.ConditionalRequiredOptions) {
+            Condition<?> trigger =
+                    ((RequiredOption.ConditionalRequiredOptions) requiredOption).getCondition();
+            return formatError(
+                    getOptionKeys(absent),
+                    TYPE_CONDITIONAL,
+                    "required because [" + trigger + "] is true");
+        }
+        String hint = enclosingCondition == null ? "" : " when [" + enclosingCondition + "]";
+        return formatError(
+                getOptionKeys(absent), TYPE_REQUIRED, "required option is not configured" + hint);
     }
 
     private List<Option<?>> getAbsentOptions(List<Option<?>> requiredOption) {
@@ -399,19 +401,6 @@ public class ConfigValidator {
             }
         }
         return absent;
-    }
-
-    String checkAbsolutelyRequired(
-            RequiredOption.AbsolutelyRequiredOptions requiredOption, Condition<?> condition) {
-        List<Option<?>> absentOptions = getAbsentOptions(requiredOption.getRequiredOption());
-        if (absentOptions.isEmpty()) {
-            return null;
-        }
-        String hint = condition == null ? "" : " when [" + condition + "]";
-        return formatError(
-                getOptionKeys(absentOptions),
-                TYPE_REQUIRED,
-                "required option is not configured" + hint);
     }
 
     boolean hasOption(Option<?> option) {
@@ -465,24 +454,6 @@ public class ConfigValidator {
                         getOptionKeys(presentOptions)));
     }
 
-    String checkConditional(RequiredOption.ConditionalRequiredOptions conditionalRequiredOptions) {
-        boolean match = matchCondition(conditionalRequiredOptions);
-        if (!match) {
-            return null;
-        }
-        List<Option<?>> absentOptions =
-                getAbsentOptions(conditionalRequiredOptions.getRequiredOption());
-        if (absentOptions.isEmpty()) {
-            return null;
-        }
-        return formatError(
-                getOptionKeys(absentOptions),
-                TYPE_CONDITIONAL,
-                String.format(
-                        "required because [%s] is true",
-                        conditionalRequiredOptions.getCondition().toString()));
-    }
-
     /**
      * Evaluates a condition chain with standard boolean precedence: AND binds tighter than OR. The
      * chain {@code A.and(B).or(C)} evaluates as {@code (A && B) || C}, matching the output of
@@ -510,14 +481,5 @@ public class ConfigValidator {
             }
         }
         return false;
-    }
-
-    private boolean isConditionOption(RequiredOption requiredOption) {
-        return requiredOption instanceof RequiredOption.ConditionalRequiredOptions;
-    }
-
-    private boolean matchCondition(
-            RequiredOption.ConditionalRequiredOptions conditionalRequiredOptions) {
-        return validate(conditionalRequiredOptions.getCondition());
     }
 }

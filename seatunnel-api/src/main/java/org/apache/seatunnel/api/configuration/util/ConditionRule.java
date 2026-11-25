@@ -25,7 +25,7 @@ public class ConditionRule {
     private final OptionRule optionRule;
 
     public ConditionRule(Condition<?> condition, OptionRule optionRule) {
-        this.condition = condition;
+        this.condition = Objects.requireNonNull(condition, "condition");
         this.optionRule = optionRule;
     }
 

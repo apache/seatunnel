@@ -476,6 +476,16 @@ This architecture is also what makes the `option-rules` REST endpoint useful. To
 
 That is why the option system sits at the boundary of both developer experience and operations.
 
+### Export connector metadata
+
+To print the option rules from an installed distribution, run this command in the SeaTunnel installation directory with the FakeSource connector installed.
+
+```shell
+bin/seatunnel-metadata-export.sh -pt source -p FakeSource --stdout
+```
+
+Each entry in `connectors[]` contains the plugin's rules. Look up conditional triggers in `required[].conditionTree` and nested triggers in `conditionRules[].expressionTree`. Follow `operator` and `next` on those expression nodes. For `valueConstraints[].conditionTree`, follow the links directly on the condition nodes.
+
 ## Recommended Reading
 
 - End-user syntax: [Config Concept](../introduction/concepts/config.md)

@@ -153,16 +153,26 @@ The same strictness applies wherever the shared JSON-to-row conversion is used w
 ### Conditional option rules use `Condition` and the deprecated `Expression` API is removed
 
 - **Breaking change: `Expression` and all of its entry points are deleted, and conditional option rules are built, evaluated and rendered with `Condition` only**
-  - **Affected component**: `seatunnel-api` (`OptionRule`, `ConditionRule`, `RequiredOption.ConditionalRequiredOptions`, `ConfigValidator`), the Zeta REST option-rule metadata API and the `seatunnel.sh` metadata export, which render the same conditions
+  - **Affected component**: `seatunnel-api` (`OptionRule`, `ConditionRule`, `RequiredOption.ConditionalRequiredOptions`, `ConfigValidator`), the Zeta REST option-rule metadata API and the `bin/seatunnel-metadata-export.sh` CLI export
   - **Description**: `Expression` is no longer part of the option-rule model; `Condition` chains are the single representation. A chain such as `A.and(B).or(C)` now follows standard boolean precedence and is evaluated and printed as `(A && B) || C`. The legacy `Expression` model evaluated the same chain right-associatively as `A && (B || C)` and grouped parentheses differently: `A.or(B).and(C)` used to be printed as `(A || B) && C`, it is now `A || (B && C)`.
   - **Impact**:
     - **API removal (source incompatibility)**: the `Expression` class and every entry point that consumed or produced it are deleted: `ConfigValidator.validate(OptionRule, Expression)`, `RequiredOption.ConditionalRequiredOptions.of(Expression, List)`, `RequiredOption.ConditionalRequiredOptions.getExpression()`, `new ConditionRule(Expression, OptionRule)` and `ConditionRule.getExpression()`. Code that imports or calls them no longer compiles and must migrate to the `Condition` based APIs.
     - A conditional rule that mixes AND and OR can match in cases where it previously did not. For `A.and(B).or(C)` with `A=false, B=false, C=true`, the required options are now enforced where the legacy expression did not match.
-    - Validation error messages and the exported REST/CLI metadata render mixed chains with `Condition` precedence, so parentheses and the resulting text differ from previous releases.
+    - Validation messages and the REST/CLI `expression` text use AND-before-OR grouping. A single legacy `Expression` node wrapping any multi-node `Condition` also added outer parentheses. For example, `(A && B)` now renders as `A && B`, and `(A || B)` as `A || B`. Both pure chains keep their original truth values.
+    - `Condition.equals` and `hashCode` now include the `ConditionExtension` at every node. If a factory creates a new anonymous extension on each call to `optionRule()`, the resulting rules can compare unequal even when the extension descriptions match. For equivalent rules to compare equal and work as hash keys, reuse the same extension instance or implement consistent value-based `equals` and `hashCode` on the extension.
     - The REST and CLI metadata export a conditional rule whose chain has several nodes as one flat chain: `operator` and `next` sit on the exported tree nodes, and each node's `condition` no longer repeats them.
     - **Prebuilt plugin jars must be rebuilt (binary incompatibility)**: a plugin compiled against an earlier `seatunnel-api` that uses the removed APIs fails at load time with `NoClassDefFoundError` or `NoSuchMethodError`, because those classes and methods are gone from the runtime.
   - **Migration Guide**:
-    - Build and inspect condition chains with `Condition.of(...)` / `and(...)` / `or(...)`, `ConditionalRequiredOptions.of(Condition, List)`, `new ConditionRule(Condition, OptionRule)`, `ConditionalRequiredOptions.getCondition()` and `ConditionRule.getCondition()`.
+    - Build the trigger with `Condition.of(...)`, `and(...)` and `or(...)`. Declare its referenced options on the builder first. Use `conditional(trigger, requiredOptions...)` for conditionally required options or `conditionalRule(trigger, nestedRule)` for a nested `OptionRule`. Read the trigger through `getCondition()` on either rule type. Both builder methods require a non-null trigger.
+
+      ```java
+      Condition<?> trigger = Condition.of(MODE, "snapshot").or(REPLAY, true);
+      OptionRule rule = OptionRule.builder()
+              .optional(MODE, REPLAY)
+              .conditional(trigger, START_TIME)
+              .conditionalRule(trigger, OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+              .build();
+      ```
     - Review conditional rules that mix AND and OR and decide the intended precedence. If the legacy right-associative meaning is still needed, rewrite the chain into the equivalent OR-of-AND form, for example `A && (B || C)` becomes `(A && B) || (A && C)`.
     - Update tests and tooling that assert on validation messages or exported metadata, because the expression text now follows `Condition` rendering.
 

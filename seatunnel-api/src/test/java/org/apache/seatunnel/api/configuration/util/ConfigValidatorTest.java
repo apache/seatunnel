@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.seatunnel.api.configuration.OptionTest.TEST_MODE;
 import static org.apache.seatunnel.api.configuration.OptionTest.TEST_NUM;
@@ -3632,6 +3633,91 @@ public class ConfigValidatorTest {
         Assertions.assertTrue(
                 msg.contains("port value -1 is not positive"),
                 "extension exception message should be preserved: " + msg);
+    }
+
+    @Test
+    public void testConditionalRequiredEvaluatesTriggerOnceForPresenceAndSingleChoice() {
+        AtomicInteger calls = new AtomicInteger();
+        Condition<String> trigger =
+                Conditions.extension(
+                        MODE,
+                        new ConditionExtension<String>() {
+                            @Override
+                            public String description() {
+                                return "is streaming";
+                            }
+
+                            @Override
+                            public boolean evaluate(ReadonlyConfig config, String value) {
+                                calls.incrementAndGet();
+                                return "stream".equals(value);
+                            }
+                        });
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(MODE)
+                        .conditional(trigger, HOST, SINGLE_CHOICE_VALUE_TEST)
+                        .build();
+        Map<String, Object> config = new HashMap<>();
+        config.put(MODE.key(), "batch");
+        config.put(SINGLE_CHOICE_VALUE_TEST.key(), "invalid");
+
+        validate(config, rule);
+        assertEquals(1, calls.get());
+
+        config.put(MODE.key(), "stream");
+        String message =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule))
+                        .getMessage();
+        assertEquals(2, calls.get());
+        Assertions.assertTrue(message.contains("Option validation failed (2 errors)"), message);
+        Assertions.assertTrue(
+                message.contains("required because ['mode' is streaming] is true"), message);
+        Assertions.assertTrue(message.contains("value(invalid) must be one of [A, B, C]"), message);
+    }
+
+    @Test
+    public void testConditionalRequiredAggregatesTriggerExceptionWithinNestedRule() {
+        Condition<Integer> throwing =
+                Conditions.extension(
+                        PORT,
+                        new ConditionExtension<Integer>() {
+                            @Override
+                            public String description() {
+                                return "passes port check";
+                            }
+
+                            @Override
+                            public boolean evaluate(ReadonlyConfig config, Integer value) {
+                                throw new OptionValidationException(
+                                        "cannot validate port %d", value);
+                            }
+                        });
+        Condition<?> trigger = Condition.of(MODE, "stream").and(throwing);
+        OptionRule nested =
+                OptionRule.builder()
+                        .optional(MODE, PORT)
+                        .conditional(trigger, SINGLE_CHOICE_VALUE_TEST)
+                        .required(HOST)
+                        .build();
+        OptionRule rule =
+                OptionRule.builder().optional(MODE).conditionalRule(MODE, "stream", nested).build();
+        Map<String, Object> config = new HashMap<>();
+        config.put(MODE.key(), "stream");
+        config.put(PORT.key(), -1);
+        config.put(SINGLE_CHOICE_VALUE_TEST.key(), "invalid");
+
+        String message =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule))
+                        .getMessage();
+        Assertions.assertTrue(message.contains("Option validation failed (2 errors)"), message);
+        Assertions.assertTrue(
+                message.contains("option: 'mode' == stream && 'port' passes port check"), message);
+        Assertions.assertTrue(message.contains("type: conditional"), message);
+        Assertions.assertTrue(message.contains("constraint: cannot validate port -1"), message);
+        Assertions.assertTrue(
+                message.contains("required option is not configured when ['mode' == stream]"),
+                message);
     }
 
     @Test

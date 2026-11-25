@@ -101,8 +101,6 @@ seatunnel:
 
 #### 响应
 
-REST 元数据与 CLI 元数据导出中的条件必填选项和嵌套条件规则使用平铺链，由表达式节点持有 `operator` 和 `next`；解析时 `AND` 优先于 `OR`（例如 `A OR B AND C` 表示 `A OR (B AND C)`），不能简单地从左到右分组。独立的 `valueConstraints[].conditionTree` 链则由条件节点自身持有 `operator` 和 `next`，并采用相同的优先级。
-
 ```json
 {
   "engineType": "seatunnel",
@@ -224,6 +222,23 @@ REST 元数据与 CLI 元数据导出中的条件必填选项和嵌套条件规�
 - `requiredOptions[].ruleType` 可能是 `ABSOLUTELY_REQUIRED`、`EXCLUSIVE`、`BUNDLED` 或 `CONDITIONAL`。
 - `optionRule.conditionRules` 会递归返回嵌套条件规则；当 connector 未定义嵌套规则时，该字段返回空数组。
 - 对于条件规则，会同时返回 `expression` 和 `expressionTree`，便于 Web 做动态表单渲染。
+- 条件必填项和嵌套规则的每个判断条件位于 `expressionTree.condition`，表达式节点通过 `next` 连接到下一项。下面是 `A OR B AND C` 的节选，求值顺序为 `A || (B && C)`。为便于查看，仅列出选项键和连接关系。
+
+  ```json
+  {
+    "expressionTree": {
+      "condition": {"option": {"key": "a"}},
+      "operator": "OR",
+      "next": {
+        "condition": {"option": {"key": "b"}},
+        "operator": "AND",
+        "next": {"condition": {"option": {"key": "c"}}, "operator": null, "next": null}
+      }
+    }
+  }
+  ```
+
+- 独立的 `valueConstraints[].conditionTree` 由条件节点本身携带 `operator` 和 `next`。CLI 采用相同的优先级。[CLI 元数据导出](../../architecture/configuration-and-option-system.md#导出连接器元数据)
 - `optionRule.valueConstraints` 描述值级别的校验规则，包括数值范围、字符串模式匹配以及跨字段比较等。每个条目同时提供人类可读的 `expression` 字符串和便于程序处理的结构化 `conditionTree`。当连接器未定义值约束时，该数组为空。
 - 在 `conditionTree` 中，`compareOperator` 字段在 `EQUAL` 场景下为 `null`，其他情况下会返回运行时规则暴露的操作符符号，例如 `>=`、`is not blank` 或 `extension`。`compareOption` 字段仅在跨字段比较场景下有值。
 - `conditionOperator` 是稳定的操作符标识，可选值包括 `EQUAL`、`GREATER_OR_EQUAL`、`NOT_BLANK`、`FIELD_LESS_THAN`、`EXTENSION` 等；`conditionOperatorCategory` 是操作符的分类，可选值包括 `NUMERIC`、`STRING`、`COLLECTION`、`EQUALITY`、`EXTENSION` 等。
