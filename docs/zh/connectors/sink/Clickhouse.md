@@ -53,19 +53,22 @@ Clickhouse source 和 ClickhouseFile sink 的行为不变。
 
 ## 数据类型映射
 
+下表列出 ClickHouse 写入类型。自动建表时，`ClickhouseTypeConverter.reconvert` 会把 SeaTunnel 的 `STRING`、`INT`、`BIGINT` 分别映射为 `String`、`Int32`、`Int64`。这三行列出的其余类型适用于已存在的目标列。
+
 | SeaTunnel 数据类型 |                                                                Clickhouse 数据类型                                                                |
 |----------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | STRING         | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            |
 | TINYINT        | Int8                                                                                                                                          |
 | SMALLINT       | Int16                                                                                                                                         |
-| INT            | Int32                                                                                                                                         |
-| BIGINT         | UInt64 / Int64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond |
+| INT            | Int8 / UInt8 / Int16 / UInt16 / Int32                                                                                                         |
+| BIGINT         | Int64 / UInt32 / UInt64 / IntervalYear / IntervalQuarter / IntervalMonth / IntervalWeek / IntervalDay / IntervalHour / IntervalMinute / IntervalSecond |
+| BOOLEAN        | Bool                                                                                                                                          |
 | DOUBLE         | Float64                                                                                                                                       |
 | DECIMAL        | Decimal                                                                                                                                       |
 | FLOAT          | Float32                                                                                                                                       |
 | DATE           | Date                                                                                                                                          |
-| TIME           | String                                                                                                                                        |
 | TIMESTAMP      | DateTime64                                                                                                                                    |
+| TIME           | String                                                                                                                                        |
 | ARRAY          | Array                                                                                                                                         |
 | MAP            | Map                                                                                                                                           |
 
@@ -224,7 +227,7 @@ source {
 
 sink {
   Clickhouse {
-    host = "127.0.0.1:9092"
+    host = "127.0.0.1:8123"
     database = "default"
     table = "test"
     username = "xxxxx"

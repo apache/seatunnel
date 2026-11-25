@@ -181,7 +181,7 @@ sink {
 
 ### Does DataHub sink support exactly-once delivery?
 
-No. The connector performs best-effort writes with bounded retries (`retryTimes`, default `3`). Failures beyond the retry budget are surfaced to the job rather than silently swallowed, so enable checkpointing at the job level if at-least-once replay from upstream is acceptable.
+No. The connector performs best-effort writes with bounded retries (`retryTimes`, default `3`). A record that still fails after the retry budget is only logged and then dropped — the error is never rethrown, so the job keeps running and the engine is not notified. Enabling checkpointing therefore does not provide at-least-once replay for lost records.
 
 ### How does multi-table routing work?
 

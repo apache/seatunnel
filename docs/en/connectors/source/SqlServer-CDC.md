@@ -323,11 +323,12 @@ source {
 
 ### Heartbeat action
 
-Use the `debezium.heartbeat.action.query` option to keep offsets and change events flowing during idle periods when
-there are no upstream changes for a long time. Pair it with `debezium.heartbeat.interval.ms` so the action runs at a
-regular cadence. SQL Server CDC has no replication slot for a heartbeat to keep alive, and heartbeat writes do not pin
-the LSN range a consumer needs; the heartbeat does not replace a suitable change-table retention setting and lag
-monitoring.
+Use the `debezium.heartbeat.action.query` option to run an action whenever the connector emits a heartbeat event.
+SQL Server's polling loop does not dispatch idle heartbeats on its own, so the action runs only when a heartbeat is
+actually emitted. The action executes through the source database connection and updates the LSN tracking of SQL
+Server's CDC; it does not
+pin any consumer retention window and does not replace correctly configured CDC retention and outage/lag monitoring
+(see [Microsoft's CDC cleanup documentation](https://learn.microsoft.com/en-us/sql/relational-databases/track-changes/administer-and-monitor-change-data-capture-sql-server#cleanup-job)).
 
 ```hocon
 source {

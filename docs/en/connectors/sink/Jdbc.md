@@ -1019,9 +1019,9 @@ sink {
 }
 ```
 
-`dialect = "Dsql"` selects Amazon Aurora DSQL. AWS credentials are read from `access_key_id` / `secret_access_key`
-(and `region`) rather than from a username/password pair. Aurora DSQL does not support XA, so leave
-`is_exactly_once` at its default of `false`.
+`dialect = "Dsql"` selects Amazon Aurora DSQL. Set `username` to the database role. The connector uses
+`access_key_id`, `secret_access_key`, and `region` to generate the IAM token it supplies as the JDBC password.
+Leave `is_exactly_once` at its default of `false` because Aurora DSQL does not support XA.
 
 ### multi_table_sink_replica [int]
 
