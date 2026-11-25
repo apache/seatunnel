@@ -72,7 +72,7 @@ UPDATE and DELETE changes after the initial snapshot is finished.
 | url | String | Yes | - | DB2 JDBC URL. The value must not be empty or whitespace-only. The URL must include a database name, for example `jdbc:db2://127.0.0.1:50000/testdb`. |
 | database-names | List | No | The database parsed from `url` | Database name to monitor. DB2 CDC captures one database in one source. |
 | table-names | List | Yes when `table-pattern` is not set | - | Table names to monitor, using `databaseName.schemaName.tableName`, for example `testdb.DB2INST1.CUSTOMERS`. |
-| table-pattern | String | Yes when `table-names` is not set | - | Regular expression used to discover captured tables. |
+| table-pattern | String | Yes when `table-names` is not set | - | Regular expression used to discover captured tables. Note: only `table-names` is applied to the Debezium capture list; `table-pattern` is currently used for snapshot table discovery only, so capture is not restricted by it. |
 | table-names-config | List | No | - | Table config list. For example: `[{"table": "testdb.DB2INST1.CUSTOMERS","primaryKeys": ["ID"],"snapshotSplitColumn": "ID"}]`. |
 | startup.mode | Enum | No | INITIAL | Optional startup mode for DB2 CDC source. Valid values are `initial`, `earliest` and `latest`. |
 | stop.mode | Enum | No | NEVER | Optional stop mode for DB2 CDC source. Valid value is `never`. |
@@ -80,7 +80,8 @@ UPDATE and DELETE changes after the initial snapshot is finished.
 | snapshot.split.size | Integer | No | 8096 | The split size of table snapshot. |
 | snapshot.fetch.size | Integer | No | 1024 | The maximum fetch size for each poll when reading table snapshot. |
 | enable_concurrent_read | Boolean | No | true | Whether to enable concurrent read with split during the snapshot phase. When set to false, the source reads the table as a single split without any split analysis, which is useful for tables without indexes. |
-| server-time-zone | String | No | - | The session time zone in database server. |
+| server-time-zone | String | No | JVM system time zone | The session time zone in database server. |
+| split.allow-sampling | Boolean | No | true | Whether to allow sampling-based sharding strategy. When set to false, the system falls back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count. |
 | connect.timeout.ms | Long | No | 30000 | The maximum time that the connector should wait after trying to connect to the database server before timing out. |
 | connect.max-retries | Integer | No | 3 | The maximum retry times to build database server connection. |
 | connection.pool.size | Integer | No | 20 | The connection pool size. |
