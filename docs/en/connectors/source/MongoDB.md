@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
@@ -355,7 +355,10 @@ sink {
 }
 ```
 
-A sample document that flows through this configuration looks like the following:
+A sample document that flows through this configuration looks like the following. The whole
+document is serialized with MongoDB Relaxed Extended JSON: int32/int64/double values are
+rendered as plain JSON numbers and dates as ISO-8601 strings, while `Decimal128` values keep
+their `{"$numberDecimal": ...}` wrapper:
 
 ```json
 {
@@ -369,24 +372,18 @@ A sample document that flows through this configuration looks like the following
     "DAgdj": "t",
     "dsJag": "voo"
   },
-  "c_array": [
-    { "$numberInt": "-865590937" },
-    { "$numberInt": "833905600" },
-    { "$numberInt": "-1104586446" },
-    { "$numberInt": "2076336780" },
-    { "$numberInt": "-1028686444" }
-  ],
+  "c_array": [-865590937, 833905600, -1104586446, 2076336780, -1028686444],
   "c_string": "bddkzxr",
   "c_boolean": false,
-  "c_tinyint": { "$numberInt": "39" },
-  "c_smallint": { "$numberInt": "23672" },
-  "c_int": { "$numberInt": "-495763561" },
-  "c_bigint": { "$numberLong": "3768307617923954543" },
-  "c_double": { "$numberDouble": "1.1706091642478246E308" },
+  "c_tinyint": 39,
+  "c_smallint": 23672,
+  "c_int": -495763561,
+  "c_bigint": 3768307617923954543,
+  "c_double": 1.1706091642478246E308,
   "c_bytes": { "$binary": { "base64": "ZWJ4", "subType": "00" } },
-  "c_date": { "$date": { "$numberLong": "1686614400000" } },
+  "c_date": { "$date": "2023-06-13T00:00:00Z" },
   "c_decimal": { "$numberDecimal": "683265300" },
-  "c_timestamp": { "$date": { "$numberLong": "1684283772000" } }
+  "c_timestamp": { "$date": "2023-05-17T00:36:12Z" }
 }
 ```
 

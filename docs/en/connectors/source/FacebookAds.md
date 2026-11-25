@@ -67,6 +67,7 @@ order, so column `i` always corresponds to selected field `i`.
 | retry_backoff_ms   | Long    | No       | 1000                       | Base backoff in milliseconds between retries; doubled per attempt.                                    |
 | api_endpoint       | String  | No       | `https://graph.facebook.com` | Facebook Graph API base endpoint. Mainly intended for testing against a different endpoint.         |
 | page_size          | Integer | No       | -                          | Page size for each request (the Graph API `limit` parameter). When unset the server default is used.  |
+| api_endpoint       | String  | No       | `https://graph.facebook.com` | Facebook Graph API base endpoint. Intended for testing.                                              |
 
 \* Exactly one of `resource` or `tables_configs` must be provided.
 
