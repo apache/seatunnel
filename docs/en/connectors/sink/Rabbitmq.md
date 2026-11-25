@@ -44,7 +44,7 @@ using the standard AMQP recovery options (`network_recovery_interval`,
 | topology_recovery_enabled  | boolean | no       | -             | Whether to enable topology recovery.                                                                                        |
 | AUTOMATIC_RECOVERY_ENABLED | boolean | no       | -             | Whether to enable connection recovery. The option key is currently uppercase in the connector configuration.                |
 | connection_timeout         | int     | no       | -             | TCP connection establishment timeout, in milliseconds; `0` means infinite.                                                  |
-| rabbitmq.config            | map     | no       | -             | Extra RabbitMQ client parameters. See the [official RabbitMQ documentation](https://www.rabbitmq.com/configure.html).        |
+| rabbitmq.config            | map     | no       | {}            | Extra RabbitMQ client parameters. See the [official RabbitMQ documentation](https://www.rabbitmq.com/configure.html).        |
 | common-options             |         | no       | -             | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md).                         |
 | durable                    | boolean | no       | true          | Whether the queue survives a server restart. Used when the connector declares the target queue.                             |
 | exclusive                  | boolean | no       | false         | Whether the queue is used only by the current connection and is deleted when the connection closes.                         |

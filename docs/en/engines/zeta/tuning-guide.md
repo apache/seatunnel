@@ -221,9 +221,9 @@ free -h
 
 **IMap / MapStore latency:**
 - Symptom: Slow operations during `PutOperation` or `GetOperation` on IMap keys.
-- Check: measure the configured MapStore `namespace` directory (`IMapFileStorage` writes under `<namespace>/<clusterName>/<businessName>`, not fixed `imap/wal` or `imap/maps` folders) — large directories indicate write pressure.
+- Check: `du -sh <namespace>/<clusterName>/<businessName>/` on the IMap storage filesystem (`IMapFileStorage` writes under the configured MapStore `namespace`, not fixed `imap/wal` or `imap/maps` folders) — large directories indicate write pressure.
 - Common cause: Disk I/O saturation on the MapStore directory, aggressive WAL write frequency, or disk space exhaustion.
-- Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency) and the IMap persistence guidance in [State Storage and Recovery](state-storage-and-recovery.md); keep an eye on disk headroom.
+- Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency) and the IMap persistence guidance in [State Storage and Recovery](state-storage-and-recovery.md); move the map-store `namespace` to faster/larger storage and watch disk headroom.
 
 ### 3. Sizing `hazelcast.operation.generic.thread.count`
 
@@ -526,14 +526,17 @@ loggers:
     level: WARN
 ```
 
-#### 7.6 Storage for MapStore and WAL
+#### 7.6 Storage for IMap State
 
-Use persistent volumes for MapStore and WAL directories to survive pod restarts:
+If you enable IMap persistence via the Hazelcast MapStore (see
+[state-storage-and-recovery](state-storage-and-recovery.md)), mount the IMap storage directory
+(the `namespace` property in the MapStore configuration, e.g. `/seatunnel-imap`) on a persistent
+volume so it survives pod restarts:
 
 ```yaml
 volumeMounts:
   - name: imap-storage
-    mountPath: /tmp/seatunnel/imap
+    mountPath: /seatunnel-imap
 volumes:
   - name: imap-storage
     persistentVolumeClaim:
@@ -542,7 +545,7 @@ volumes:
 
 Monitor PVC usage with:
 ```bash
-kubectl exec <pod> -- du -sh /tmp/seatunnel/imap/
+kubectl exec <pod> -- du -sh /seatunnel-imap/
 ```
 
 ### Quick Reference Troubleshooting Table
@@ -556,5 +559,5 @@ kubectl exec <pod> -- du -sh /tmp/seatunnel/imap/
 | Slow operations + high GC | JVM heap pressure | Increase `-Xmx`, reduce concurrent tasks |
 | `executor.q.operations.size` > 0 | Operation thread pool saturated | Increase `generic.thread.count` |
 | `operations.pending.invocations.percentage` > 10% | Remote invocation backlog | Check network, increase `generic.thread.count` |
-| WAL directory growing, slow IMap operations | MapStore write pressure | Move the map-store `namespace` to faster/larger storage, clean up expired jobs |
+| IMap storage directory growing, slow IMap operations | MapStore write pressure | Move the map-store `namespace` to faster/larger storage, add disk IOPS |
 | Checkpoint duration > 60s | Large state or slow storage | Reduce checkpoint state size, optimize storage |

@@ -88,6 +88,7 @@ Each `mappings` entry defines how input rows are mapped to one HugeGraph vertex 
 | ------------------ |--------------------| ---------- | ------------- |----------------------------------------------------------------------------------------------------------|
 | `type`             | String             | Yes        | -             | The type of graph element to map to. Must be `VERTEX` or `EDGE`.                                         |
 | `label`            | String             | Yes        | -             | The label of the vertex or edge in HugeGraph.                                                            |
+| `sourceTable`      | String             | No         | -             | Binds this mapping to one input table in multi-table jobs. The value is the upstream table path (e.g. `hugegraph.person`); when set, the mapping only activates in the writer serving that table, otherwise it applies to every writer. ALL-or-NOTHING: either every mapping sets it or none does — mixing both fails the job. |
 | `properties`       | `List<String>`       | No         | -             | Source field names written as HugeGraph properties. If empty, all input fields are considered.           |
 | `ttl`              | Long               | No         | -             | The time-to-live for the vertex or edge in seconds.                                                      |
 | `ttlStartTime`     | String             | No         | -             | The start time for the TTL.                                                                              |
