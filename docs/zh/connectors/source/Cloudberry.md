@@ -73,8 +73,8 @@ PostgreSQL 略有差异。下表中的每一个选项都和 PostgreSQL/JDBC 源�
 | split.sample-sharding.threshold | Int | 否 | 1000 | 数据分布不均匀时，触发采样切分策略的预估分片数阈值。 |
 | split.inverse-sampling.rate | Int | 否 | 1000 | 采样率的分母；`1000` 表示采样率为 `1/1000`。 |
 | partition_column | String | 否 | - | 旧版分区切分使用的列；支持的类型和切分键选择规则见 JDBC 源文档。 |
-| partition_upper_bound | Long | 否 | - | 分区列的上界。已知范围时显式设置，可避免耗时的 `MAX()` 探测。 |
-| partition_lower_bound | Long | 否 | - | 分区列的下界。已知范围时显式设置，可避免耗时的 `MIN()` 探测。 |
+| partition_upper_bound | String | 否 | - | 分区列的上界。已知范围时显式设置，可避免耗时的 `MAX()` 探测。 |
+| partition_lower_bound | String | 否 | - | 分区列的下界。已知范围时显式设置，可避免耗时的 `MIN()` 探测。 |
 | fetch_size | Int | 否 | 0 | JDBC fetch size，`0` 表示由驱动决定。大字段或宽表场景下适当调大。 |
 | common-options | Config | 否 | - | 源连接器通用配置，见 [源通用选项](../common-options/source-common-options.md)。 |
 
@@ -136,8 +136,8 @@ source {
     password = "password"
     table_path = "public.mytable"
     partition_column = "id"
-    partition_lower_bound = 1
-    partition_upper_bound = 1000000
+    partition_lower_bound = "1"
+    partition_upper_bound = "1000000"
     split.size = 10000
   }
 }

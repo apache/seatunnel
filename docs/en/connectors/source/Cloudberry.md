@@ -74,8 +74,8 @@ Key options include:
 | split.sample-sharding.threshold | Int | No | 1000 | Estimated shard-count threshold for sampling when the split-key distribution is uneven. |
 | split.inverse-sampling.rate | Int | No | 1000 | Sampling-rate denominator; `1000` means a sampling rate of `1/1000`. |
 | partition_column | String | No | - | Column used for legacy partition splits. See JDBC source documentation for supported types and split-key selection. |
-| partition_upper_bound | Long | No | - | Upper bound of the partition column. Set when you know the range to avoid a costly `MAX()` probe. |
-| partition_lower_bound | Long | No | - | Lower bound of the partition column. Set when you know the range to avoid a costly `MIN()` probe. |
+| partition_upper_bound | String | No | - | Upper bound of the partition column. Set when you know the range to avoid a costly `MAX()` probe. |
+| partition_lower_bound | String | No | - | Lower bound of the partition column. Set when you know the range to avoid a costly `MIN()` probe. |
 | fetch_size | Int | No | 0 | JDBC fetch size. `0` means driver default. Increase for large rows. |
 | common-options | Config | No | - | Source common options. See [Source Common Options](../common-options/source-common-options.md). |
 
@@ -140,8 +140,8 @@ source {
     password = "password"
     table_path = "public.mytable"
     partition_column = "id"
-    partition_lower_bound = 1
-    partition_upper_bound = 1000000
+    partition_lower_bound = "1"
+    partition_upper_bound = "1000000"
     split.size = 10000
   }
 }
