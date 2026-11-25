@@ -85,11 +85,12 @@ The InfluxDB user password. Configure it together with `username` when authentic
 
 ### key_time [string]
 
-The field name in the upstream row that supplies the InfluxDB point timestamp. When omitted, the
-sink uses the current processing time. The referenced field must be a `BIGINT` or a `STRING`
-containing a numeric epoch value in the precision configured by the `epoch` option (default `n`,
-nanoseconds), or a `TIMESTAMP` value, which is converted to epoch milliseconds using UTC and only
-matches the point precision when `epoch` is set to `MS`. ISO-8601 timestamp strings are not parsed.
+The field name in the upstream row that supplies the InfluxDB point timestamp. When `key_time` is
+omitted, the sink uses the current processing time, which is written with millisecond precision.
+The referenced field must be a `BIGINT` or a `STRING` containing a numeric epoch value in the
+precision configured by the `epoch` option (default `n`, nanoseconds), or a `TIMESTAMP` value,
+which is converted to epoch milliseconds using UTC and written with millisecond precision, so it
+is correct for any `epoch` value. ISO-8601 timestamp strings are not parsed.
 
 ### key_tags [array]
 

@@ -139,6 +139,11 @@ public class CoordinatorService {
 
     private volatile ResourceManager resourceManager;
 
+    /**
+     * The current history view, returned by the Lombok getter including after coordinator teardown.
+     * Closing the view only deregisters listeners; reads remain valid for requests already in
+     * flight. Every activation constructs a fresh instance in {@link #initCoordinatorService()}.
+     */
     @Getter private JobHistoryService jobHistoryService;
 
     /**
@@ -632,6 +637,8 @@ public class CoordinatorService {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
         pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        // Never reuse the previous history view: teardown removes its listener registrations,
+        // while requests already holding that view may still finish their reads.
         jobHistoryService =
                 new JobHistoryService(
                         nodeEngine,
@@ -1304,6 +1311,10 @@ public class CoordinatorService {
         if (!coordinatorServiceCleared.compareAndSet(false, true)) {
             return;
         }
+        // Capture the service owned by the coordinator generation being cleared before shutdown
+        // waits, so a concurrent re-activation during node shutdown does not make this cleanup
+        // close listeners that belong to a later generation.
+        JobHistoryService closingJobHistoryService = jobHistoryService;
         pendingJobScheduleEpoch.incrementAndGet();
         schedulingJobMasters.forEach(JobMaster::interrupt);
         schedulingJobMasters.clear();
@@ -1343,6 +1354,16 @@ public class CoordinatorService {
             Thread.currentThread().interrupt();
             logger.info(
                     "Coordinator service shutdown interrupted while waiting executorService termination, continue cleanup.");
+        }
+
+        // The finished-job IMaps are cluster-wide, so the expiration listeners registered by the
+        // current JobHistoryService are not released automatically when this node leaves the
+        // active master role. Deregister them here, otherwise repeated master role switches
+        // accumulate stale listeners that keep old service instances reachable and duplicate
+        // finished-job expiration side effects. The instance itself is kept because read paths
+        // may still use it until a new active master creates a fresh one.
+        if (closingJobHistoryService != null) {
+            closingJobHistoryService.close();
         }
 
         ResourceManager manager = resourceManager;
@@ -2220,65 +2241,20 @@ public class CoordinatorService {
     }
 
     public JobCounter getJobCountMetrics() {
-        AtomicLong createdJobCount = new AtomicLong();
-        AtomicLong scheduledJobCount = new AtomicLong();
-        AtomicLong runningJobCount = new AtomicLong();
-        AtomicLong pendingJobCount = new AtomicLong();
-        AtomicLong failingJobCount = new AtomicLong();
-        AtomicLong failedJobCount = new AtomicLong();
-        AtomicLong cancellingJobCount = new AtomicLong();
-        AtomicLong canceledJobCount = new AtomicLong();
-        AtomicLong finishedJobCount = new AtomicLong();
-
-        if (jobHistoryService != null) {
-            jobHistoryService
-                    .getJobStatusData()
-                    .forEach(
-                            jobStatusData -> {
-                                JobStatus jobStatus = jobStatusData.getJobStatus();
-                                switch (jobStatus) {
-                                    case CREATED:
-                                        createdJobCount.addAndGet(1);
-                                        break;
-                                    case PENDING:
-                                        pendingJobCount.addAndGet(1);
-                                        break;
-                                    case SCHEDULED:
-                                        scheduledJobCount.addAndGet(1);
-                                        break;
-                                    case RUNNING:
-                                        runningJobCount.addAndGet(1);
-                                        break;
-                                    case FAILING:
-                                        failingJobCount.addAndGet(1);
-                                        break;
-                                    case FAILED:
-                                        failedJobCount.addAndGet(1);
-                                        break;
-                                    case CANCELING:
-                                        cancellingJobCount.addAndGet(1);
-                                        break;
-                                    case CANCELED:
-                                        canceledJobCount.addAndGet(1);
-                                        break;
-                                    case FINISHED:
-                                        finishedJobCount.addAndGet(1);
-                                        break;
-                                    default:
-                                }
-                            });
-        }
-
+        Map<JobStatus, Long> counts =
+                jobHistoryService == null
+                        ? Collections.emptyMap()
+                        : jobHistoryService.getJobStatusCounts();
         return new JobCounter(
-                createdJobCount.longValue(),
-                pendingJobCount.longValue(),
-                scheduledJobCount.longValue(),
-                runningJobCount.longValue(),
-                failingJobCount.longValue(),
-                failedJobCount.longValue(),
-                cancellingJobCount.longValue(),
-                canceledJobCount.longValue(),
-                finishedJobCount.longValue());
+                counts.getOrDefault(JobStatus.CREATED, 0L),
+                counts.getOrDefault(JobStatus.PENDING, 0L),
+                counts.getOrDefault(JobStatus.SCHEDULED, 0L),
+                counts.getOrDefault(JobStatus.RUNNING, 0L),
+                counts.getOrDefault(JobStatus.FAILING, 0L),
+                counts.getOrDefault(JobStatus.FAILED, 0L),
+                counts.getOrDefault(JobStatus.CANCELING, 0L),
+                counts.getOrDefault(JobStatus.CANCELED, 0L),
+                counts.getOrDefault(JobStatus.FINISHED, 0L));
     }
 
     public ThreadPoolStatus getThreadPoolStatusMetrics() {

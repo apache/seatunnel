@@ -22,6 +22,18 @@ MySQL `DATETIME` 映射为 SeaTunnel `TIMESTAMP`（`LocalDateTime`）。MySQL JD
 
 从受 [#13024](https://github.com/apache/seatunnel/issues/13024) 影响的版本升级时，请移除为补偿 `DATETIME` 写入偏移而手动添加的小时偏移。已经写入的数据不会自动修复；修正或重新加载之前，请先与原始数据进行比较。
 
+## GoldenDB
+
+使用 GoldenDB 驱动以及兼容 MySQL 的 JDBC 方言和 catalog 时，请显式设置 `dialect = "GoldenDB"`，并配置与驱动匹配的驱动类和 URL，例如：
+
+```hocon
+url = "jdbc:goldendb://goldendb-host:3306/example"
+driver = "com.goldendb.jdbc.Driver"
+dialect = "GoldenDB"
+```
+
+请自行安装与数据库版本兼容的 GoldenDB JDBC 驱动；驱动类名和支持的 URL 格式以实际版本为准。提供 MySQL 协议的 GoldenDB 部署也可以使用兼容的 MySQL JDBC 驱动和 `jdbc:mysql://` URL，此时会选择现有的 MySQL 方言。未显式指定方言的既有 `jdbc:goldendb:` 配置仍使用通用方言。MySQL catalog 要求配置 `username` 和 `password`，且不会将 JDBC `properties` 映射传给 catalog 连接。生产使用前请针对实际 GoldenDB 版本验证 SQL、数据类型和事务行为；MySQL 测试不能代替 GoldenDB 数据库及驱动的验证。
+
 ## 使用依赖
 
 先安装 `connector-jdbc` 插件：
@@ -282,9 +294,9 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 ### dialect [string]
 
-指定的方言，如果不存在，仍然按照url获取，优先级高于url。例如，当使用 starrocks 时，你需要将其值设置为 starrocks，同理，当使用mysql时，你需要将其值设置为mysql。
+指定的方言。设置后，取值必须是下方方言列表中的名称（不区分大小写），并优先于根据 url 推断的方言；未设置时根据 url 推断方言。例如，当使用 mysql 时，你需要将其值设置为 `mysql`。注意：StarRocks 不是方言名称，使用 StarRocks 时请保持 `dialect` 不设置，并将 `compatible_mode` 设置为 `starrocks`。Inceptor 也不是方言名称，使用 Inceptor 时请保持 `dialect` 不设置或将 `dialect` 设置为 `HIVE`，并将 `compatible_mode` 设置为 `inceptor`。
 
-如果 SeaTunnel 不支持某种方言，它将使用默认方言 `GenericDialect`。请确保您提供的驱动程序支持您想要连接的数据库。
+如果未设置 `dialect` 且 url 无法被任何方言识别，SeaTunnel 会使用默认方言 `GenericDialect`；如果 `dialect` 设置了无法匹配任何受支持方言名称的值，任务初始化会直接失败而不是回退。请确保您提供的驱动程序支持您想要连接的数据库。
 
 #### 示例可选
 
@@ -292,14 +304,15 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 |-----------|------------|----------|
 | Greenplum | DB2        | Dameng   |
 | Gbase8a   | HIVE       | KingBase |
-| MySQL     | StarRocks  | Oracle   |
+| MySQL     | OpenGauss  | Oracle   |
 | Phoenix   | Postgres   | Redshift |
 | SapHana   | Snowflake  | Sqlite   |
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase  | XUGU     |
-| IRIS      | Inceptor   | Highgo   |
-| OpenGauss | Presto     | Dsql        |
-| DuckDB    | YashanDB  | CockroachDB |
+| IRIS      | Presto   | Highgo   |
+| DSQL      |            |          |
+| YashanDB  | CockroachDB |          |
+| DuckDB    |              |          |
 
 ### database [string]
 
