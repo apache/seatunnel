@@ -44,6 +44,8 @@ public final class PipelineCheckpointScheduler {
      */
     private final Set<PipelineCheckpointTask> outstanding = ConcurrentHashMap.newKeySet();
 
+    private volatile boolean closed = false;
+
     PipelineCheckpointScheduler(SharedCheckpointScheduler parent, long jobId, int pipelineId) {
         this.parent = parent;
         this.jobId = jobId;
@@ -67,11 +69,17 @@ public final class PipelineCheckpointScheduler {
         PipelineCheckpointTask task =
                 new PipelineCheckpointTask(
                         MDCTracer.tracing(command), jobId, pipelineId, outstanding::remove);
-        if (parent.isClosed()) {
+        if (isShutdown()) {
             task.cancel(false);
             return task;
         }
         outstanding.add(task);
+        // close() may have run between the check above and the add, after its cancelAll() had
+        // already taken its snapshot.
+        if (closed) {
+            task.cancel(false);
+            return task;
+        }
         // The parent may have been closed between the check above and the schedule call, in which
         // case dispatchAfter has already cancelled the task and returns no timer future.
         ScheduledFuture<?> timerFuture = parent.dispatchAfter(task, delay, unit);
@@ -84,9 +92,7 @@ public final class PipelineCheckpointScheduler {
     /**
      * Cancels every task this pipeline still has outstanding, leaving other pipelines untouched.
      *
-     * <p>Called on terminal cleanup and on master-failover reset. The lease stays usable
-     * afterwards, so a coordinator that is restored after a reset can schedule again without
-     * rebuilding any thread pool.
+     * <p>The lease stays usable afterwards; use {@link #close()} to also refuse later tasks.
      */
     public void cancelAll() {
         // Copy first: cancelling removes entries from the same set.
@@ -96,9 +102,19 @@ public final class PipelineCheckpointScheduler {
         outstanding.clear();
     }
 
-    /** Returns whether the underlying shared scheduler has been shut down. */
+    /**
+     * Cancels every outstanding task and makes later {@link #schedule} calls return an already
+     * cancelled future, so a late callback cannot arm a timer for a pipeline that has ended. The
+     * shared threads are not affected.
+     */
+    public void close() {
+        closed = true;
+        cancelAll();
+    }
+
+    /** Returns whether this lease has been closed or the underlying shared scheduler shut down. */
     public boolean isShutdown() {
-        return parent.isClosed();
+        return closed || parent.isClosed();
     }
 
     public long getJobId() {

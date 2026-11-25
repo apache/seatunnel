@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestoreOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.checkpoint.scheduler.PipelineCheckpointScheduler;
 import org.apache.seatunnel.engine.server.checkpoint.scheduler.SharedCheckpointScheduler;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -70,7 +71,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1437,8 +1437,8 @@ public class CheckpointCoordinatorTest
             coordinator = buildMinimalCoordinator(executorService);
             coordinator.cancelCheckpoint().join();
 
-            ScheduledExecutorService scheduler =
-                    (ScheduledExecutorService)
+            PipelineCheckpointScheduler scheduler =
+                    (PipelineCheckpointScheduler)
                             ReflectionUtils.getField(coordinator, "scheduler")
                                     .orElseThrow(
                                             () ->
@@ -1471,8 +1471,8 @@ public class CheckpointCoordinatorTest
 
             coordinator.restoreCoordinator(true);
 
-            ScheduledExecutorService scheduler =
-                    (ScheduledExecutorService)
+            PipelineCheckpointScheduler scheduler =
+                    (PipelineCheckpointScheduler)
                             ReflectionUtils.getField(coordinator, "scheduler")
                                     .orElseThrow(
                                             () ->

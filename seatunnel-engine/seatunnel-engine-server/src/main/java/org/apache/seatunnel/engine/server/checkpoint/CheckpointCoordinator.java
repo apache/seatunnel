@@ -167,7 +167,7 @@ public class CheckpointCoordinator {
      * periodic trigger and to arm the checkpoint-timeout watchdog; the heavy barrier work runs on
      * {@link #executorService}.
      */
-    private final transient PipelineCheckpointScheduler scheduler;
+    private transient PipelineCheckpointScheduler scheduler;
 
     private final AtomicLong latestTriggerTimestamp = new AtomicLong(0);
 
@@ -1319,14 +1319,15 @@ public class CheckpointCoordinator {
      *       caused by a coordinator reset)
      *   <li>Clearing all internal tracking structures
      *   <li>Resetting counters and schema change flags
-     *   <li>Cancelling this pipeline's outstanding scheduler tasks
+     *   <li>Closing this pipeline's scheduler lease; leasing a fresh one only for {@code
+     *       CHECKPOINT_COORDINATOR_RESET}
      * </ul>
      *
      * <p>If the close reason is {@code CHECKPOINT_COORDINATOR_RESET}, the monitor service will
      * clear all in-progress checkpoint metadata without reporting them as failures.
      *
-     * <p>This method ensures that no residual checkpoint state remains in memory and that the
-     * coordinator is ready for a clean restart if necessary.
+     * <p>This method clears residual checkpoint state. Only reset cleanup prepares the scheduler
+     * for a restart; other close reasons leave it shut down until {@code restoreCoordinator} runs.
      *
      * @param closedReason the reason why pending checkpoints are being closed; determines how
      *     monitoring and cleanup are handled
@@ -1371,9 +1372,13 @@ public class CheckpointCoordinator {
             if (closedReason != CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
                 runningJobStateIMap.remove(readyToCloseImapKey);
             }
-            // Drops only this pipeline's timers. The lease stays usable, so a coordinator restored
-            // after a master-failover reset can schedule again without rebuilding a thread pool.
-            scheduler.cancelAll();
+            // Non-reset cleanup leaves the lease closed, so late callbacks cannot schedule
+            // after the pipeline ends. restoreCoordinator() takes a fresh lease through RESET
+            // for either pipeline restore or master failover.
+            scheduler.close();
+            if (closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
+                scheduler = checkpointManager.leaseCheckpointScheduler(pipelineId);
+            }
         }
         if (checkpointMonitorService != null
                 && closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {

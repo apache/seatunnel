@@ -44,6 +44,7 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.checkpoint.StateStoreCheckpointIDCounter;
+import org.apache.seatunnel.engine.server.checkpoint.scheduler.PipelineCheckpointScheduler;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
@@ -69,7 +70,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -393,20 +393,19 @@ public class CheckpointCoordinatorFailoverIT {
                     .atMost(10, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
-                                ScheduledExecutorService scheduler =
-                                        (ScheduledExecutorService)
+                                PipelineCheckpointScheduler scheduler =
+                                        (PipelineCheckpointScheduler)
                                                 ReflectionUtils.getField(
                                                                 recoveredCoordinator, "scheduler")
                                                         .orElseThrow(
                                                                 () ->
                                                                         new IllegalStateException(
                                                                                 "Missing checkpoint scheduler"));
+                                // The lease owns no threads; closing it is what stops late
+                                // callbacks from arming timers for the canceled pipeline.
                                 Assertions.assertTrue(
                                         scheduler.isShutdown(),
-                                        "A canceled recovered pipeline must not recreate its scheduler");
-                                Assertions.assertTrue(
-                                        scheduler.isTerminated(),
-                                        "All recovered checkpoint scheduler workers must exit after cancellation");
+                                        "A canceled recovered pipeline must leave its scheduler lease closed");
                             });
         } finally {
             if (engineClient != null) {

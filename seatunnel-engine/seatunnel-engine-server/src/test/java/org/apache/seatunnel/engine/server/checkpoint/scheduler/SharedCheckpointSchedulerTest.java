@@ -172,6 +172,28 @@ class SharedCheckpointSchedulerTest {
                 "a lease must stay usable after a reset cancels its tasks");
     }
 
+    /** A closed lease cancels what it holds and refuses later tasks; its siblings keep running. */
+    @Test
+    void testClosedLeaseRefusesLateTasks() throws InterruptedException {
+        PipelineCheckpointScheduler closed = scheduler.lease(1L, 0);
+        PipelineCheckpointScheduler sibling = scheduler.lease(1L, 1);
+        ScheduledFuture<?> pending = closed.schedule(() -> {}, 1, TimeUnit.HOURS);
+
+        closed.close();
+        ScheduledFuture<?> late = closed.schedule(() -> {}, 0, TimeUnit.MILLISECONDS);
+
+        Assertions.assertTrue(closed.isShutdown());
+        Assertions.assertTrue(pending.isCancelled(), "close must cancel outstanding tasks");
+        Assertions.assertTrue(late.isCancelled(), "a closed lease must not arm a late task");
+        Assertions.assertEquals(0, closed.outstandingCount());
+        Assertions.assertFalse(sibling.isShutdown());
+        CountDownLatch siblingRan = new CountDownLatch(1);
+        sibling.schedule(siblingRan::countDown, 0, TimeUnit.MILLISECONDS);
+        Assertions.assertTrue(
+                siblingRan.await(AWAIT_SECONDS, TimeUnit.SECONDS),
+                "closing one lease must not affect another pipeline's lease");
+    }
+
     @Test
     void testCompletedTasksDoNotAccumulate() throws InterruptedException {
         PipelineCheckpointScheduler lease = scheduler.lease(1L, 0);
