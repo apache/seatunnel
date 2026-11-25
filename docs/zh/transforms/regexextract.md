@@ -29,7 +29,7 @@ RegexExtract 转换使用 Java 正则表达式从一个输入字段中提取数�
 | output_fields     | Array&lt;String&gt; | 是    | -             | 输出字段的名称，按捕获组顺序排列。列表不能为空。                                |
 | default_values    | Array&lt;String&gt; | 否    | -             | 每个输出字段的默认值，在模式不匹配或源值为 null 时使用。设置时，其长度必须与 `output_fields` 的长度相等。 |
 | table_match_regex | String         | 否    | `.*`          | 转换级别规则所适用的表路径的正则表达式。                                     |
-| table_transform   | Array&lt;Map&gt;    | 否    | -             | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。             |
+| table_transform   | Array&lt;Map&gt;    | 否    | `[]`          | 针对单表的规则，参见 [多表转换](transform-multi-table.md)。             |
 | rule_match_mode   | String         | 否    | `FIRST_MATCH`（未显式设置时，重复的 `table_path` 条目会被拒绝） | 当多个 `table_transform` 条目的 `table_path` 相同时，决定它们的匹配方式。 |
 | common options    | -              | 否    | -             | 转换插件的通用参数，参见 [Transform Plugin](common-options/common-options.md)。 |
 
@@ -96,7 +96,7 @@ Java 正则表达式，使用 `java.util.regex.Pattern` 编译。它必须为 `o
 
 - `table_transform` 中的条目优先于转换级别规则。有条目的表永远不会被转换级别规则处理。
 - 每个条目都必须是一条完整的单表规则（`table_path` 加上 `source_field`、`regex_pattern` 和 `output_fields`）。
-- 转换级别规则仅适用于与 `table_match_regex` 匹配的表。
+- 转换级别规则仅适用于与 `table_match_regex` 匹配的表；使用默认值 `.*` 时，它适用于所有没有 `table_transform` 条目的表。
 - 当仅配置了 `table_transform` 时，没有条目的表保持不变。
 
 下面的配置为 `test.a.*` 表使用转换级别规则，为 `test.xyz` 使用单表规则，并让 `test.www` 保持不变：
