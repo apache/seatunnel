@@ -250,7 +250,7 @@ public class LanceS3IT extends TestSuiteBase implements TestResource {
             if (name.endsWith(".manifest")) {
                 manifest = true;
             }
-            if (name.contains("/_data/") && item.size() > 0) {
+            if (name.contains("/data/") && item.size() > 0) {
                 data = true;
             }
         }
