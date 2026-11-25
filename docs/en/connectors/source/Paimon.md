@@ -64,7 +64,7 @@ Read data from Apache Paimon.
 | dlf.access-key-secret   | String   | Yes when `token.provider` is `dlf` | -             | DLF access key secret. |
 | dlf.security-token      | String   | No             | -             | Optional temporary DLF security token. |
 | dlf.region              | String   | No             | -             | DLF region. Inferred from `catalog_uri` when omitted. |
-| database                | String   | Yes            | -             | The database you want to access.                                                                                             |
+| database                | String   | Yes when `table_list` is absent | -             | The database you want to access. Not used when reading via `table_list`; each `table_list` item carries its own `database`.  |
 | table                   | String   | Yes when `table_list` is absent | -             | The table you want to access. Configure exactly one of `table` and `table_list`.                                              |
 | table_list              | array    | Yes when `table` is absent | -             | The list of tables to read. Each item must contain `database` and `table`, and may contain its own `query`.                                  |
 | user                    | String   | No             | -             | The Paimon user used to access the table (for example, with a `hive` catalog that enables authentication).                   |

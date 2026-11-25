@@ -260,7 +260,7 @@ Please note that excel type does not support any compression format
 
 > For json file format simple config
 
-```hcocn
+```hocon
 
    ObsFile {
        path = "/seatunnel/json"
@@ -277,7 +277,7 @@ Please note that excel type does not support any compression format
 
 > For excel file format simple config
 
-```hcocn
+```hocon
 
    ObsFile {
        path = "/seatunnel/excel"
@@ -294,7 +294,7 @@ Please note that excel type does not support any compression format
 
 > For csv file format simple config
 
-```hcocn
+```hocon
 
    ObsFile {
        path = "/seatunnel/csv"
