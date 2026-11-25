@@ -93,10 +93,8 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | recursive_file_scan        | boolean | 否   | true                        |
 | sort_files_by_modification_time | boolean | 否   | false                       |
 | common-options             |         | 否   | -                           |
-| null_format                | string  | 否   | -                           |
 | enable_file_split          | boolean | 否   | false                       |
 | file_split_size            | long    | 否   | 134217728                   |
-| excel_use_header_line      | boolean | 否   | false                       |
 | markdown_rag_metadata_enabled | boolean | 否  | false                       |
 | pdf_rag_metadata_enabled   | boolean | 否   | false                       |
 | discovery_mode             | string  | 否   | once                        |

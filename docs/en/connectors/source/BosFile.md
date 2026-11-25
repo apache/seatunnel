@@ -93,10 +93,8 @@ To use this connector you need to put `bos-hdfs-sdk` (>= 1.0.4-community) into `
 | escape_char                | string  | no       | -                           |
 | recursive_file_scan        | boolean | no       | true                        |
 | sort_files_by_modification_time | boolean | no       | false                       |
-| null_format                | string  | no       | -                           |
 | enable_file_split          | boolean | no       | false                       |
 | file_split_size            | long    | no       | 134217728                   |
-| excel_use_header_line      | boolean | no       | false                       |
 | markdown_rag_metadata_enabled | boolean | no     | false                       |
 | pdf_rag_metadata_enabled   | boolean | no       | false                       |
 | discovery_mode             | string  | no       | once                        |

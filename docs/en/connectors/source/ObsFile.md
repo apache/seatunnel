@@ -450,48 +450,6 @@ schema {
 
 This connector cannot currently use OBS STS temporary credentials. It only maps `access_key`, `access_secret`, and `endpoint` into the Hadoop OBS configuration, and there is no pass-through for the session token that OBS STS credentials always carry (`ObsConf.buildWithReadonlyConfig` installs only those three keys), so token-bound temporary credentials fail at connection time. Carrying a security token or a credential provider would require a separate, tested connector change. Configure a long-lived AK/SK with a least-privilege policy scoped to the target bucket prefix through the standard options instead, and avoid committing long-lived AK/SK to job files in shared environments.
 
-## Continuous Discovery
-
-`discovery_mode=continuous` keeps a streaming job running and polls OBS for new or changed objects. This mode uses the existing file comparison path; it does not consume OBS event notifications and does not emit object delete events or changelog rows.
-
-Continuous discovery currently requires `file_format_type="binary"` and `sync_mode="update"`. Set `target_path` to the same base path used by the sink so the source can skip unchanged objects. The default `discovery_mode="once"` preserves the existing bounded-source behavior.
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "STREAMING"
-}
-
-source {
-  ObsFile {
-    path = "/watch/source"
-    bucket = "obs://obs-bucket-name"
-    access_key = "xxxxxxxxxxxxxxxxx"
-    secret_key = "xxxxxxxxxxxxxxxxx"
-    endpoint = "obs.xxxxxx.myhuaweicloud.com"
-    file_format_type = "binary"
-
-    discovery_mode = "continuous"
-    scan_interval = "10S"
-    start_mode = "earliest"
-    sync_mode = "update"
-    target_path = "/watch/target"
-  }
-}
-
-sink {
-  ObsFile {
-    path = "/watch/target"
-    tmp_path = "/watch/tmp"
-    bucket = "obs://obs-bucket-name"
-    access_key = "xxxxxxxxxxxxxxxxx"
-    secret_key = "xxxxxxxxxxxxxxxxx"
-    endpoint = "obs.xxxxxx.myhuaweicloud.com"
-    file_format_type = "binary"
-  }
-}
-```
-
 ## Changelog
 
 <ChangeLog />
