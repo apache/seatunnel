@@ -889,7 +889,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             Assertions.assertTrue(
                     firstBlockingInterruptedExit.await(10, TimeUnit.SECONDS),
                     "started blocking probe must finish after rollback interruption");
-            awaitFailedGenerationTerminalState(taskExecutionService, failedDeployLocation);
+            assertFailedGenerationAccounting(taskExecutionService, failedDeployLocation, 4);
             Assertions.assertFalse(
                     PartialSubmitProbeTask.enteredCall(4L),
                     "unvisited blocking tail must never enter call()");
@@ -977,6 +977,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                 service.getSeaTunnelConfig().getEngineConfig().getTaskExecutionThreadShareMode();
         CountDownLatch firstEnteredCall = new CountDownLatch(1);
         CountDownLatch firstInterruptedExit = new CountDownLatch(1);
+        AtomicBoolean firstBlockingCallGateSatisfied = new AtomicBoolean(false);
+        AtomicBoolean firstBlockingCallGateTimedOut = new AtomicBoolean(false);
         AtomicInteger acceptedBlockingSubmits = new AtomicInteger();
         ExecutorService singleThreadBlockingExecutor = null;
         TaskGroupLocation location = null;
@@ -990,6 +992,16 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         @Override
                         public Future<?> submit(Runnable task) {
                             if (acceptedBlockingSubmits.getAndIncrement() >= 2) {
+                                try {
+                                    if (firstEnteredCall.await(10, TimeUnit.SECONDS)) {
+                                        firstBlockingCallGateSatisfied.set(true);
+                                    } else {
+                                        firstBlockingCallGateTimedOut.set(true);
+                                    }
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                    throw new RejectedExecutionException(e);
+                                }
                                 throw new RejectedExecutionException(
                                         "reject unvisited blocking tail");
                             }
@@ -1021,8 +1033,16 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                     () -> {},
                     unused -> {});
 
-            assertTrue(firstEnteredCall.await(10, TimeUnit.SECONDS));
-            awaitFailedGenerationTerminalState(service, location);
+            Assertions.assertTrue(
+                    acceptedBlockingSubmits.get() >= 2,
+                    "test must reach a RejectedExecutionException after two blocking submits");
+            Assertions.assertFalse(
+                    firstBlockingCallGateTimedOut.get(),
+                    "first blocking worker must enter call() before the tail submit is rejected");
+            Assertions.assertTrue(
+                    firstBlockingCallGateSatisfied.get(),
+                    "first blocking worker must enter call() before the tail submit is rejected");
+            assertFailedGenerationAccounting(service, location, 3);
             Assertions.assertFalse(PartialSubmitProbeTask.enteredCall(11L));
             Assertions.assertFalse(PartialSubmitProbeTask.enteredCall(12L));
             Assertions.assertTrue(firstInterruptedExit.await(10, TimeUnit.SECONDS));
@@ -1044,8 +1064,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         }
     }
 
-    private static void awaitFailedGenerationTerminalState(
-            TaskExecutionService service, TaskGroupLocation location) {
+    private static void assertFailedGenerationAccounting(
+            TaskExecutionService service, TaskGroupLocation location, int expectedTaskCount) {
         await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
@@ -1057,7 +1077,100 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                             Assertions.assertNotNull(state);
                             Assertions.assertEquals(location, state.getTaskGroupLocation());
                             Assertions.assertEquals(FAILED, state.getExecutionState());
+
+                            TaskExecutionService.TaskGroupExecutionTracker tracker =
+                                    service.lastLocalDeployExecutionTrackerForTests;
+                            Assertions.assertNotNull(tracker, "failed-generation tracker");
+                            Assertions.assertEquals(
+                                    0,
+                                    tracker.completionLatchRemainingForTests(),
+                                    "completion latch must reach zero after dropped-task accounting");
+                            Assertions.assertEquals(
+                                    expectedTaskCount,
+                                    tracker.tasksReportedDoneCountForTests(),
+                                    "each task in the failed generation must report taskDone once");
                         });
+    }
+
+    /**
+     * Initialized cooperative removed from the queue must be closed during rollback even when
+     * {@link Task#close()} throws; rollback bookkeeping must still finish and allow redeploy.
+     */
+    @Test
+    public void testRollbackSurvivesCooperativeCloseFailureAndAllowsRedeploy() throws Exception {
+        TaskExecutionService service = server.getTaskExecutionService();
+        ThreadShareMode previousMode =
+                service.getSeaTunnelConfig().getEngineConfig().getTaskExecutionThreadShareMode();
+        final String failureMessage = "fail after cooperative enqueue";
+        TaskGroupLocation location = new TaskGroupLocation(System.currentTimeMillis(), 1, 1);
+        CloseThrowingCooperativeTask.reset();
+        Task cooperative = new CloseThrowingCooperativeTask();
+        TaskGroup group =
+                new TaskGroupDefaultImpl(
+                        location, "cooperative-close-failure", Lists.newArrayList(cooperative)) {
+                    @Override
+                    public void setTasksContext(Map<Long, TaskExecutionContext> contexts) {
+                        throw new IllegalStateException(failureMessage);
+                    }
+                };
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        classLoaders.put(cooperative.getTaskID(), Thread.currentThread().getContextClassLoader());
+        try {
+            service.getSeaTunnelConfig()
+                    .getEngineConfig()
+                    .setTaskExecutionThreadShareMode(ThreadShareMode.PART);
+            service.deployLocalTask(
+                    FLAKE_ID_GENERATOR.newId(),
+                    group,
+                    classLoaders,
+                    new ConcurrentHashMap<>(),
+                    () -> {},
+                    unused -> {});
+
+            assertFailedGenerationAccounting(service, location, 1);
+            Assertions.assertEquals(
+                    1,
+                    CloseThrowingCooperativeTask.closeAttempts(),
+                    "queued cooperative close must be attempted exactly once");
+            TaskExecutionState state = service.lastLocalDeployResultFuture.getNow(null);
+            Assertions.assertTrue(state.getThrowableMsg().contains(failureMessage));
+            Assertions.assertThrows(
+                    TaskGroupContextNotFoundException.class,
+                    () -> service.getActiveExecutionContext(location));
+
+            AtomicBoolean redeployTaskStarted = new AtomicBoolean();
+            Task redeployTask =
+                    new TestTask(new AtomicBoolean(false), 50, false) {
+                        @Override
+                        public ProgressState call() {
+                            redeployTaskStarted.set(true);
+                            return ProgressState.DONE;
+                        }
+                    };
+            TaskGroupDefaultImpl redeployGroup =
+                    new TaskGroupDefaultImpl(
+                            location,
+                            "cooperative-close-failure-redeploy",
+                            Lists.newArrayList(redeployTask));
+            service.getSeaTunnelConfig()
+                    .getEngineConfig()
+                    .setTaskExecutionThreadShareMode(ThreadShareMode.OFF);
+            deployLocalTask(service, redeployGroup);
+            await().atMost(10, TimeUnit.SECONDS).until(redeployTaskStarted::get);
+            Assertions.assertTrue(
+                    redeployTaskStarted.get(),
+                    "redeploy must execute after rollback survived cooperative close failure");
+            service.cancelTaskGroup(location);
+        } finally {
+            CloseThrowingCooperativeTask.reset();
+            try {
+                service.cancelTaskGroup(location);
+            } catch (Exception ignored) {
+            }
+            service.getSeaTunnelConfig()
+                    .getEngineConfig()
+                    .setTaskExecutionThreadShareMode(previousMode);
+        }
     }
 
     /**
@@ -1937,6 +2050,29 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         @Override
         public Long getTaskID() {
             return 1L;
+        }
+    }
+
+    private static class CloseThrowingCooperativeTask extends TestTask {
+
+        private static final AtomicInteger CLOSE_ATTEMPTS = new AtomicInteger();
+
+        CloseThrowingCooperativeTask() {
+            super(new AtomicBoolean(true), 50, true);
+        }
+
+        static void reset() {
+            CLOSE_ATTEMPTS.set(0);
+        }
+
+        static int closeAttempts() {
+            return CLOSE_ATTEMPTS.get();
+        }
+
+        @Override
+        public void close() {
+            CLOSE_ATTEMPTS.incrementAndGet();
+            throw new RuntimeException("simulated close failure during rollback");
         }
     }
 

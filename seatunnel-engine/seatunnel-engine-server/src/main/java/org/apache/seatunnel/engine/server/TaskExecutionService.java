@@ -372,6 +372,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      */
     volatile CompletableFuture<TaskExecutionState> lastLocalDeployResultFuture;
 
+    /** Same-package tests read the tracker for dropped-task accounting assertions. */
+    volatile TaskGroupExecutionTracker lastLocalDeployExecutionTrackerForTests;
+
     /**
      * Submits tasks to the thread-share queue for cooperative execution. Each task is wrapped in a
      * TaskTracker and initialized before being added to the queue.
@@ -745,6 +748,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             context = new TaskGroupContext(executionId, taskGroup, classLoaders, jars);
             executionTracker =
                     new TaskGroupExecutionTracker(cancellationFuture, context, resultFuture);
+            lastLocalDeployExecutionTrackerForTests = executionTracker;
 
             // Publish a deployment in two phases:
             //
@@ -835,7 +839,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         }
                         return false;
                     });
-            executionTracker.accountForTasksDroppedAfterRollback(droppedCooperativeTrackers);
+            executionTracker.accountForTasksDroppedAfterRollback(
+                    droppedCooperativeTrackers, deploymentFailure);
         }
         if (context != null) {
             // Generation-safe: do not clear a newer active deployment at the same location.
@@ -1771,9 +1776,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          * </ol>
          */
         void accountForTasksDroppedAfterRollback(
-                Collection<TaskTracker> removedCooperativeTrackers) {
+                Collection<TaskTracker> removedCooperativeTrackers, Throwable deploymentFailure) {
             for (TaskTracker tracker : removedCooperativeTrackers) {
-                closeQueuedCooperativeTaskAfterRollback(tracker);
+                closeQueuedCooperativeTaskAfterRollback(tracker, deploymentFailure);
                 taskDone(tracker.task);
             }
             for (int i = 0; i < blockingTasksInSubmitOrder.size(); i++) {
@@ -1803,16 +1808,24 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 if (currRunningTaskFuture.containsKey(task.getTaskID())) {
                     continue;
                 }
-                closeTaskAfterRollbackIfNeeded(task, context.getClassLoaders());
+                closeTaskAfterRollbackIfNeeded(task, context.getClassLoaders(), deploymentFailure);
             }
         }
 
-        private void closeQueuedCooperativeTaskAfterRollback(TaskTracker tracker) {
+        private void closeQueuedCooperativeTaskAfterRollback(
+                TaskTracker tracker, Throwable deploymentFailure) {
             closeTaskAfterRollbackIfNeeded(
-                    tracker.task, context == null ? null : context.getClassLoaders());
+                    tracker.task,
+                    context == null ? null : context.getClassLoaders(),
+                    deploymentFailure);
         }
 
         void closeTaskAfterRollbackIfNeeded(Task task, Map<Long, ClassLoader> classLoaders) {
+            closeTaskAfterRollbackIfNeeded(task, classLoaders, executionException.get());
+        }
+
+        void closeTaskAfterRollbackIfNeeded(
+                Task task, Map<Long, ClassLoader> classLoaders, Throwable deploymentFailure) {
             if (classLoaders == null) {
                 return;
             }
@@ -1821,15 +1834,26 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             try {
                 Thread.currentThread().setContextClassLoader(taskLoader);
                 task.close();
-            } catch (IOException e) {
+            } catch (Throwable cleanupFailure) {
+                if (deploymentFailure != null) {
+                    deploymentFailure.addSuppressed(cleanupFailure);
+                }
                 logger.severe(
                         String.format(
                                 "Close task %d after post-publish rollback failed",
                                 task.getTaskID()),
-                        e);
+                        cleanupFailure);
             } finally {
                 Thread.currentThread().setContextClassLoader(previous);
             }
+        }
+
+        int completionLatchRemainingForTests() {
+            return completionLatch.get();
+        }
+
+        int tasksReportedDoneCountForTests() {
+            return tasksReportedDone.size();
         }
 
         /**
