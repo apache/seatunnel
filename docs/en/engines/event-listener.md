@@ -31,8 +31,8 @@ The `EventType` enumeration defines all possible event types in the system, main
 | `SCHEMA_CHANGE_ADD_COLUMN`      | Table column addition event     | `AlterTableAddColumnEvent`      |
 | `SCHEMA_CHANGE_DROP_COLUMN`     | Table column deletion event     | `AlterTableDropColumnEvent`     |
 | `SCHEMA_CHANGE_MODIFY_COLUMN`   | Table column modification event | `AlterTableModifyColumnEvent`   |
-| `LIFECYCLE_ENUMERATOR_OPEN`     | Split enumerator open event     | `EnumeratorOpenEvent`           |
-| `LIFECYCLE_ENUMERATOR_CLOSE`    | Split enumerator close event    | `EnumeratorCloseEvent`          |
+| `LIFECYCLE_ENUMERATOR_OPEN`     | Enumerator open event           | `EnumeratorOpenEvent`           |
+| `LIFECYCLE_ENUMERATOR_CLOSE`    | Enumerator close event          | `EnumeratorCloseEvent`          |
 | `LIFECYCLE_READER_OPEN`         | Reader open event               | `ReaderOpenEvent`               |
 | `LIFECYCLE_READER_CLOSE`        | Reader close event              | `ReaderCloseEvent`              |
 | `LIFECYCLE_WRITER_CLOSE`        | Writer close event              | `WriterCloseEvent`              |

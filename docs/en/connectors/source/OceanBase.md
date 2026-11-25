@@ -57,7 +57,7 @@ Read OceanBase data through JDBC. OceanBase can run in MySQL-compatible mode or 
 | TIME                                                                                          | TIME                                                                                                                                                |
 | DATETIME                                                                                      | TIMESTAMP                                                                                                                                           |
 | TIMESTAMP                                                                                     | TIMESTAMP_TZ                                                                                                                                        |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)<br/>GEOMETRY | BYTES                                                                                                                                               |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINARY<br/>BIT(n)<br/>GEOMETRY | BYTES                                                                                                                                               |
 
 ### Oracle Mode
 

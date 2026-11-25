@@ -220,8 +220,8 @@ seatunnel:
 
 | 操作 | 是否受过期影响 |
 |---|---|
-| 从 `finished-job-state` IMap 中移除 | 是 |
-| 从 `finished-job-metrics` IMap 中移除 | 是 |
+| 从 `engine_finishedJobState` IMap 中移除 | 是 |
+| 从 `engine_finishedJobMetrics` IMap 中移除 | 是 |
 | 集群重启后作业仍保持已移除（启用 IMap 持久化时） | 是（过期时间随条目一起持久化，已过期的作业不会被重新加载，尚未过期的作业保留剩余时间） |
 | 删除该作业的 MapStore 持久化文件 | **否**（过期记录仍保留在 IMap 存储文件中） |
 | 删除 Checkpoint 存储目录 | **否** |
