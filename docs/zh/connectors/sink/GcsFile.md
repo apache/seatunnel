@@ -94,8 +94,8 @@ Apache License 2.0，并以 Java 8 为目标版本。shaded GCS Hadoop 库已打
 | xml_root_tag | string | 否 | RECORDS | 适用于 `file_format_type` 为 `xml` 的写入。 |
 | xml_row_tag | string | 否 | RECORD | 适用于 `file_format_type` 为 `xml` 的写入。 |
 | xml_use_attr_format | boolean | 条件必填 | - | `file_format_type` 为 `xml` 时必填。 |
-| parquet_avro_write_timestamp_as_int96 | boolean | 否 | false | 仅在 file_format 为 parquet 时使用 |
-| parquet_avro_write_fixed_as_int96 | array | 否 | - | 仅在 file_format 为 parquet 时使用 |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否 | false | 仅在 `file_format_type` 为 parquet 时使用 |
+| parquet_avro_write_fixed_as_int96 | array | 否 | - | 仅在 `file_format_type` 为 parquet 时使用 |
 | merge_update_event | boolean | 否 | false | 仅当 file_format_type 为 canal_json、debezium_json 或 maxwell_json 时使用。设为 true 时，UPDATE_AFTER 和 UPDATE_BEFORE 事件会合并为 UPDATE 事件数据 |
 | schema_evolution_enabled | boolean | 否 | false | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 | common-options | | 否 | - | 参见 [Sink 通用配置](../common-options/sink-common-options.md)。 |

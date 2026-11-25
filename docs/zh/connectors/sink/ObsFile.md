@@ -100,8 +100,8 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | xml_root_tag                     | string  | 否    | RECORDS                                    | 适用于 `file_format_type` 为 `xml` 的写入。                                        |
 | xml_row_tag                      | string  | 否    | RECORD                                     | 适用于 `file_format_type` 为 `xml` 的写入。                                        |
 | xml_use_attr_format              | boolean | 条件必填    | -                                          | `file_format_type` 为 `xml` 时必填。 |
-| parquet_avro_write_timestamp_as_int96 | boolean | 否    | false                                      | 仅在 file_format 为 parquet 时使用                                    |
-| parquet_avro_write_fixed_as_int96     | array   | 否    | -                                          | 仅在 file_format 为 parquet 时使用                                    |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否    | false                                      | 仅在 `file_format_type` 为 parquet 时使用                                    |
+| parquet_avro_write_fixed_as_int96     | array   | 否    | -                                          | 仅在 `file_format_type` 为 parquet 时使用                                    |
 | date_format                      | string  | 否    | yyyy-MM-dd                                 | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。日期类型格式，用于告知 connector 如何写出 date 值。支持格式（示例）：`yyyy-MM-dd`、`yyyy.MM.dd`、`yyyy/MM/dd`。 |
 | datetime_format                  | string  | 否    | yyyy-MM-dd HH:mm:ss                        | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间戳类型格式，用于告知 connector 如何写出 datetime 值。支持格式：`yyyy-MM-dd HH:mm:ss`、`yyyy.MM.dd HH:mm:ss`、`yyyy/MM/dd HH:mm:ss`、`yyyyMMddHHmmss`。 |
 | time_format                      | string  | 否    | HH:mm:ss                                   | 仅在 file_format_type 为 `text`、`csv`、`excel` 或 `xml` 时使用。时间类型格式，用于告知 connector 如何写出 time 值。支持格式（示例）：`HH:mm:ss`、`HH:mm:ss.SSS`。 |

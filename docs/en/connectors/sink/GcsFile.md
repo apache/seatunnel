@@ -95,12 +95,12 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 | max_rows_in_memory | int | no | - | Only used when file_format_type is excel. |
 | sheet_max_rows | int | no | 1048576 | Only used when file_format_type is excel. |
 | sheet_name | string | no | Sheet0 | Only used when file_format_type is excel. |
-| csv_string_quote_mode | enum | no | MINIMAL | Only used when file_format is csv. |
+| csv_string_quote_mode | enum | no | MINIMAL | Only used when `file_format_type` is csv. |
 | xml_root_tag | string | no | RECORDS | Applies when `file_format_type` is `xml`. |
 | xml_row_tag | string | no | RECORD | Applies when `file_format_type` is `xml`. |
 | xml_use_attr_format | boolean | conditional | - | Required when `file_format_type` is `xml`. |
-| parquet_avro_write_timestamp_as_int96 | boolean | no | false | Only used when file_format is parquet. |
-| parquet_avro_write_fixed_as_int96 | array | no | - | Only used when file_format is parquet. |
+| parquet_avro_write_timestamp_as_int96 | boolean | no | false | Only used when `file_format_type` is parquet. |
+| parquet_avro_write_fixed_as_int96 | array | no | - | Only used when `file_format_type` is parquet. |
 | merge_update_event | boolean | no | false | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
 | schema_evolution_enabled | boolean | no | false | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 | common-options | | no | - | See [Sink Common Options](../common-options/sink-common-options.md). |
