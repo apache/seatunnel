@@ -6,6 +6,9 @@
 - Zeta
 - Flink（受下述路由与连接器条件限制）
 
+端到端排序、checkpoint、sink apply、重放和恢复契约见
+[CDC Schema Evolution 契约](../../architecture/cdc-schema-evolution-contract.md)。
+
 ## 已支持的模式变更事件类型
 
 - `ADD COLUMN`

@@ -6,6 +6,9 @@ Schema Evolution means that the schema of a data table can be changed and the da
 - Zeta
 - Flink (with the routing and connector restrictions below)
 
+For the end-to-end ordering, checkpoint, sink-apply, replay, and restore contract, see
+[CDC Schema Evolution Contract](../../architecture/cdc-schema-evolution-contract.md).
+
 ## Supported schema change event types
 
 - `ADD COLUMN`
