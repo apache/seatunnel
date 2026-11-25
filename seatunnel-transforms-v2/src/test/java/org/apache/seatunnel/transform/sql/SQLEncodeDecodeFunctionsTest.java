@@ -56,19 +56,28 @@ public class SQLEncodeDecodeFunctionsTest {
     }
 
     private SeaTunnelRow zetaRow(String query, SeaTunnelRowType rowType, Object... values) {
-        List<SeaTunnelRow> out =
-                zetaTransform(query, rowType).transformRow(new SeaTunnelRow(values));
-        Assertions.assertNotNull(out);
-        Assertions.assertFalse(out.isEmpty());
-        return out.get(0);
+        SQLTransform transform = zetaTransform(query, rowType);
+        try {
+            List<SeaTunnelRow> out = transform.transformRow(new SeaTunnelRow(values));
+            Assertions.assertNotNull(out);
+            Assertions.assertFalse(out.isEmpty());
+            return out.get(0);
+        } finally {
+            transform.close();
+        }
     }
 
     private SqlType zetaOutputSqlType(String query, SeaTunnelRowType rowType) {
-        return zetaTransform(query, rowType)
-                .getProducedCatalogTable()
-                .getSeaTunnelRowType()
-                .getFieldType(0)
-                .getSqlType();
+        SQLTransform transform = zetaTransform(query, rowType);
+        try {
+            return transform
+                    .getProducedCatalogTable()
+                    .getSeaTunnelRowType()
+                    .getFieldType(0)
+                    .getSqlType();
+        } finally {
+            transform.close();
+        }
     }
 
     // ---------- harness: Calcite SQL transform ----------
@@ -80,15 +89,8 @@ public class SQLEncodeDecodeFunctionsTest {
     }
 
     private Object calciteSingle(String sql, SeaTunnelRowType rowType, Object... values) {
-        CalciteSQLEngine engine = calciteEngine(sql, rowType);
-        try {
+        try (CalciteSQLEngine engine = calciteEngine(sql, rowType)) {
             return engine.execute(new SeaTunnelRow(values)).get(0).getField(0);
-        } finally {
-            try {
-                engine.close();
-            } catch (Exception ignored) {
-                // closing a used engine must not mask the assertion
-            }
         }
     }
 
@@ -141,17 +143,11 @@ public class SQLEncodeDecodeFunctionsTest {
                         + " ENCODE(name, 'UTF-16LE') AS c5,"
                         + " ENCODE(name, 'UTF-16') AS c6"
                         + " FROM test";
-        CalciteSQLEngine engine = calciteEngine(sql, nameRowType());
-        SeaTunnelRow calcite = engine.execute(new SeaTunnelRow(new Object[] {NAME})).get(0);
-        try {
+        try (CalciteSQLEngine engine = calciteEngine(sql, nameRowType())) {
+            SeaTunnelRow calcite = engine.execute(new SeaTunnelRow(new Object[] {NAME})).get(0);
             for (int i = 0; i < 6; i++) {
                 Assertions.assertArrayEquals(ENCODED_NAME_BYTES[i], (byte[]) zeta.getField(i));
                 Assertions.assertArrayEquals(ENCODED_NAME_BYTES[i], (byte[]) calcite.getField(i));
-            }
-        } finally {
-            try {
-                engine.close();
-            } catch (Exception ignored) {
             }
         }
     }
@@ -462,27 +458,15 @@ public class SQLEncodeDecodeFunctionsTest {
                 zetaOutputSqlType(
                         "select DECODE(payload, 'UTF-8') as v from dual", payloadRowType()));
 
-        CalciteSQLEngine encodeEngine =
-                calciteEngine("SELECT ENCODE(name, 'UTF-8') AS v FROM test", nameRowType());
-        try {
+        try (CalciteSQLEngine encodeEngine =
+                calciteEngine("SELECT ENCODE(name, 'UTF-8') AS v FROM test", nameRowType())) {
             Assertions.assertEquals(
                     SqlType.BYTES, encodeEngine.getOutputRowType().getFieldType(0).getSqlType());
-        } finally {
-            try {
-                encodeEngine.close();
-            } catch (Exception ignored) {
-            }
         }
-        CalciteSQLEngine decodeEngine =
-                calciteEngine("SELECT DECODE(payload, 'UTF-8') AS v FROM test", payloadRowType());
-        try {
+        try (CalciteSQLEngine decodeEngine =
+                calciteEngine("SELECT DECODE(payload, 'UTF-8') AS v FROM test", payloadRowType())) {
             Assertions.assertEquals(
                     SqlType.STRING, decodeEngine.getOutputRowType().getFieldType(0).getSqlType());
-        } finally {
-            try {
-                decodeEngine.close();
-            } catch (Exception ignored) {
-            }
         }
     }
 }

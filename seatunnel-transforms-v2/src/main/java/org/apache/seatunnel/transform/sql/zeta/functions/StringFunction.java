@@ -252,6 +252,11 @@ public class StringFunction {
         return Collections.unmodifiableMap(charsets);
     }
 
+    /**
+     * Encodes a string into raw bytes with one of the six documented charsets. Requires exactly 2
+     * arguments; a null value or charset name returns null instead of raising an error; a
+     * non-string value is rejected. Characters the charset cannot represent become {@code '?'}.
+     */
     public static byte[] encode(List<Object> args) {
         if (args.size() != 2) {
             throw new IllegalArgumentException("ENCODE requires exactly 2 arguments");
@@ -269,6 +274,12 @@ public class StringFunction {
         return encode((String) value, (String) charsetName);
     }
 
+    /**
+     * Decodes raw bytes into a string with one of the six documented charsets. Requires exactly 2
+     * arguments; a null value or charset name returns null instead of raising an error; a
+     * non-binary value is rejected. Malformed input sequences are replaced with U+FFFD instead of
+     * raising an error.
+     */
     public static String decode(List<Object> args) {
         if (args.size() != 2) {
             throw new IllegalArgumentException("DECODE requires exactly 2 arguments");
@@ -286,14 +297,29 @@ public class StringFunction {
         return decode((byte[]) value, (String) charsetName);
     }
 
+    /**
+     * Encodes {@code value} into raw bytes using the documented charset named {@code charsetName}.
+     * The name must match one of {@link #DOCUMENTED_CHARSETS} ignoring case, with no aliases.
+     * Unmappable characters become {@code '?'}.
+     */
     public static byte[] encode(String value, String charsetName) {
         return value.getBytes(resolveDocumentedCharset(charsetName));
     }
 
+    /**
+     * Decodes {@code value} into a string using the documented charset named {@code charsetName}.
+     * The name must match one of {@link #DOCUMENTED_CHARSETS} ignoring case, with no aliases.
+     * Malformed sequences are replaced with U+FFFD.
+     */
     public static String decode(byte[] value, String charsetName) {
         return new String(value, resolveDocumentedCharset(charsetName));
     }
 
+    /**
+     * Resolves a charset name against the six documented names, ignoring case and accepting no
+     * aliases; a null, blank or unknown name is rejected with an unsupported-encoding error, so
+     * behavior does not depend on the JVM's charset registry.
+     */
     public static Charset resolveDocumentedCharset(String charsetName) {
         Charset charset = DOCUMENTED_CHARSETS.get(charsetName.toUpperCase(Locale.ROOT));
         if (charset == null) {
