@@ -348,8 +348,8 @@ source {
 
 The heartbeat query runs on the source database connection, so the heartbeat table and the INSERT permission for it
 must exist on the source database. Heartbeat writes do not delay change-table cleanup, which is retention based;
-without adequate retention, SQL Server may recycle the LSN window when there is no activity, which can break resumable
-streaming jobs.
+if a job falls behind by more than the retention period, the LSN range it needs may already have been cleaned up,
+which can break resumable streaming jobs.
 
 ### Schema change event filtering
 
